@@ -1,5 +1,7 @@
 import {
   existsSync,
+  cpSync,
+  copyFileSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -8,12 +10,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { crc32 } from "node:zlib";
 
-import { MORPH_FIXTURES, stableMorphInventory } from "../experiments/morph/fixtures/catalog.ts";
+import { getMorphFixture, stableMorphInventory } from "../experiments/morph/fixtures/catalog.ts";
 import {
   MorphHarnessError,
   verifyHarnessReport,
@@ -26,32 +28,68 @@ import {
 import { readJsonDocument } from "./lib/experiment-contract.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const failures = [];
+const failures: string[] = [];
 const goldenInventory = readFileSync(
   join(root, "experiments/morph/fixtures/inventory.golden.json"),
   "utf8",
 );
 const runnerSource = readFileSync(join(root, "experiments/morph/harness-runner.ts"), "utf8");
 
-function recordFailure(message) {
+type ReportAttachment = {
+  name: string;
+  contentType: string;
+  path: string;
+  bytes: number;
+};
+
+type ReportResult = {
+  project: string;
+  title: string;
+  status: string;
+  expectedStatus: string;
+  errors: string[];
+  attachments: ReportAttachment[];
+};
+
+function recordFailure(message: string): void {
   failures.push(message);
 }
 
-function expectHarnessError(name, code, action) {
+function expectHarnessError(name: string, code: string, action: () => void): void {
   try {
     action();
     recordFailure(`${name}: expected ${code}`);
-  } catch (error) {
+  } catch (error: unknown) {
     if (!(error instanceof MorphHarnessError) || error.code !== code) {
-      recordFailure(`${name}: expected ${code}, received ${error.code ?? error.message}`);
+      const received = error instanceof Error ? error.message : String(error);
+      recordFailure(`${name}: expected ${code}, received ${received}`);
     }
   }
 }
 
-function createTraceZip(): Buffer {
+function requireResult(results: readonly ReportResult[], index: number): ReportResult {
+  const result = results[index];
+  if (!result) throw new Error(`missing synthetic result ${index}`);
+  return result;
+}
+
+function requireAttachment(result: ReportResult, name: string): ReportAttachment {
+  const attachment = result.attachments.find((item) => item.name === name);
+  if (!attachment) throw new Error(`missing synthetic ${result.project}/${name}`);
+  return attachment;
+}
+
+function attachmentFile(root: string, attachment: ReportAttachment): string {
+  return join(root, attachment.path);
+}
+
+function createTraceZip(project: string): Buffer {
   const entries: Array<readonly [string, Buffer]> = [
     ["test.trace", Buffer.from("{}\n")],
-    ["0-trace.trace", Buffer.from("{}\n")],
+    [
+      "0-trace.trace",
+      Buffer.from(`${JSON.stringify({ type: "context-options", browserName: project })}\n`),
+    ],
     ["0-trace.network", Buffer.alloc(0)],
   ];
   const localRecords: Buffer[] = [];
@@ -98,7 +136,6 @@ const validPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   "base64",
 );
-const validTraceZip = createTraceZip();
 
 const packageJson = readJsonDocument(join(root, "package.json"));
 const registry = readJsonDocument(join(root, "experiments/registry.json"));
@@ -111,7 +148,10 @@ if (
 ) {
   recordFailure("package.json: experiment:morph command differs");
 }
-if (registry.experiments.find((entry) => entry.id === "morph")?.status !== "available") {
+if (
+  registry.experiments.find((entry: { id?: string }) => entry.id === "morph")?.status !==
+  "available"
+) {
   recordFailure("experiment registry: morph harness is not available");
 }
 if (existsSync(join(root, "experiments/morph/package.json"))) {
@@ -200,8 +240,9 @@ expectHarnessError("browser version mismatch", "FADENO_MORPH_BROWSER_VERSION", (
 
 const reportRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-report-"));
 try {
-  const fixture = MORPH_FIXTURES.find((entry) => entry.kind === "seeded-failure");
-  const results = MORPH_PROJECTS.map((project) => {
+  const fixture = getMorphFixture("seeded-undeclared-state-loss");
+  if (!fixture.diagnostic) throw new Error("seeded failure diagnostic is required");
+  const results: ReportResult[] = MORPH_PROJECTS.map((project): ReportResult => {
     const directory = join(reportRoot, project);
     mkdirSync(directory, { recursive: true });
     const operation = join(directory, "operation.json");
@@ -239,34 +280,46 @@ try {
       })}\n`,
     );
     writeFileSync(screenshot, validPng);
-    writeFileSync(trace, validTraceZip);
+    writeFileSync(trace, createTraceZip(project));
     return {
       project,
       title: fixture.id,
       status: "failed",
       expectedStatus: "passed",
-      errors: [fixture.diagnostic],
-      attachments: [
+      errors: [`Error: ${fixture.diagnostic}`],
+      attachments: ([
         ["operation", "application/json", operation],
         ["before-after", "application/json", states],
         ["screenshot", "image/png", screenshot],
         ["trace", "application/zip", trace],
-      ].map(([name, contentType, path]) => ({
+      ] satisfies Array<readonly [string, string, string]>).map(([name, contentType, path]) => ({
         name,
         contentType,
-        path,
+        path: relative(reportRoot, path),
         bytes: readFileSync(path).byteLength,
       })),
     };
   });
   const reportPath = join(reportRoot, "report.json");
-  const writeReport = (value, status = "failed") =>
+  const writeReport = (value: readonly ReportResult[], status = "failed"): void =>
     writeFileSync(
       reportPath,
       `${JSON.stringify({ schemaVersion: 1, status, results: value }, null, 2)}\n`,
     );
   writeReport(results);
   verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  const portableRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-portable-"));
+  try {
+    const copiedEvidence = join(portableRoot, "evidence");
+    cpSync(reportRoot, copiedEvidence, { recursive: true });
+    verifyHarnessReport(join(copiedEvidence, "report.json"), {
+      fixture,
+      expected: "failed",
+      outputRoot: copiedEvidence,
+    });
+  } finally {
+    rmSync(portableRoot, { recursive: true, force: true });
+  }
 
   writeReport(results.slice(0, 2));
   expectHarnessError("missing project", "FADENO_MORPH_EXECUTION_COUNT", () => {
@@ -280,19 +333,39 @@ try {
   expectHarnessError("wrong failure", "FADENO_MORPH_DIAGNOSTIC", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
+  writeReport(
+    results.map((result, index) =>
+      index === 0
+        ? { ...result, errors: [`Error: unrelated failure mentions ${fixture.diagnostic}`] }
+        : result,
+    ),
+  );
+  expectHarnessError("fabricated diagnostic token", "FADENO_MORPH_DIAGNOSTIC", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
 
-  const firstOperationForKind = results[0].attachments.find((item) => item.name === "operation");
-  const wrongKindOperation = readJsonDocument(firstOperationForKind.path);
+  const firstOperationForKind = requireAttachment(requireResult(results, 0), "operation");
+  const wrongKindOperation = readJsonDocument(attachmentFile(reportRoot, firstOperationForKind));
   wrongKindOperation.kind = "insert-unrelated-sibling";
-  writeFileSync(firstOperationForKind.path, `${JSON.stringify(wrongKindOperation)}\n`);
-  firstOperationForKind.bytes = readFileSync(firstOperationForKind.path).byteLength;
+  writeFileSync(attachmentFile(reportRoot, firstOperationForKind), `${JSON.stringify(wrongKindOperation)}\n`);
+  firstOperationForKind.bytes = readFileSync(attachmentFile(reportRoot, firstOperationForKind)).byteLength;
   writeReport(results);
   expectHarnessError("wrong operation kind", "FADENO_MORPH_OPERATION_PROOF", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
   wrongKindOperation.kind = fixture.operation;
-  writeFileSync(firstOperationForKind.path, `${JSON.stringify(wrongKindOperation)}\n`);
-  firstOperationForKind.bytes = readFileSync(firstOperationForKind.path).byteLength;
+  writeFileSync(attachmentFile(reportRoot, firstOperationForKind), `${JSON.stringify(wrongKindOperation)}\n`);
+  firstOperationForKind.bytes = readFileSync(attachmentFile(reportRoot, firstOperationForKind)).byteLength;
+  wrongKindOperation.completed = "truthy-but-not-boolean";
+  writeFileSync(attachmentFile(reportRoot, firstOperationForKind), `${JSON.stringify(wrongKindOperation)}\n`);
+  firstOperationForKind.bytes = readFileSync(attachmentFile(reportRoot, firstOperationForKind)).byteLength;
+  writeReport(results);
+  expectHarnessError("truthy operation flags", "FADENO_MORPH_OPERATION_PROOF", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  wrongKindOperation.completed = true;
+  writeFileSync(attachmentFile(reportRoot, firstOperationForKind), `${JSON.stringify(wrongKindOperation)}\n`);
+  firstOperationForKind.bytes = readFileSync(attachmentFile(reportRoot, firstOperationForKind)).byteLength;
   writeReport(
     results.map((result, index) =>
       index === 0
@@ -324,23 +397,35 @@ try {
     },
   );
 
-  const firstTrace = results[0].attachments.find((item) => item.name === "trace");
-  writeFileSync(firstTrace.path, Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00]));
+  const firstTrace = requireAttachment(requireResult(results, 0), "trace");
+  writeFileSync(attachmentFile(reportRoot, firstTrace), Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00]));
   firstTrace.bytes = 5;
   writeReport(results);
   expectHarnessError("wrong attachment format", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
-  writeFileSync(firstTrace.path, validTraceZip);
-  firstTrace.bytes = validTraceZip.length;
+  const chromiumTraceZip = createTraceZip("chromium");
+  writeFileSync(attachmentFile(reportRoot, firstTrace), chromiumTraceZip);
+  firstTrace.bytes = chromiumTraceZip.length;
+
+  const corruptTraceZip = Buffer.from(chromiumTraceZip);
+  const tracePayload = corruptTraceZip.indexOf(Buffer.from("context-options"));
+  if (tracePayload < 0) throw new Error("synthetic trace payload missing");
+  corruptTraceZip[tracePayload] = (corruptTraceZip[tracePayload] ?? 0) ^ 0xff;
+  writeFileSync(attachmentFile(reportRoot, firstTrace), corruptTraceZip);
+  writeReport(results);
+  expectHarnessError("corrupt trace payload", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  writeFileSync(attachmentFile(reportRoot, firstTrace), chromiumTraceZip);
 
   writeReport(results.map((result, index) => (index === 1 ? { ...result, project: "chromium" } : result)));
   expectHarnessError("duplicate project", "FADENO_MORPH_PROJECT_SET", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
 
-  const firstOperation = results[0].attachments.find((item) => item.name === "operation");
-  const secondOperation = results[1].attachments.find((item) => item.name === "operation");
+  const firstOperation = requireAttachment(requireResult(results, 0), "operation");
+  const secondOperation = requireAttachment(requireResult(results, 1), "operation");
   writeReport(
     results.map((result, index) =>
       index === 1
@@ -357,8 +442,20 @@ try {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
 
-  const firstScreenshot = results[0].attachments.find((item) => item.name === "screenshot");
-  writeFileSync(firstScreenshot.path, "");
+  const firefoxTrace = requireAttachment(requireResult(results, 1), "trace");
+  const firefoxTracePath = attachmentFile(reportRoot, firefoxTrace);
+  const firefoxTraceBytes = readFileSync(firefoxTracePath);
+  copyFileSync(attachmentFile(reportRoot, firstTrace), firefoxTracePath);
+  firefoxTrace.bytes = firstTrace.bytes;
+  writeReport(results);
+  expectHarnessError("relabeled browser trace", "FADENO_MORPH_TRACE_PROJECT", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  writeFileSync(firefoxTracePath, firefoxTraceBytes);
+  firefoxTrace.bytes = firefoxTraceBytes.length;
+
+  const firstScreenshot = requireAttachment(requireResult(results, 0), "screenshot");
+  writeFileSync(attachmentFile(reportRoot, firstScreenshot), "");
   writeReport(results.map((result) => ({
     ...result,
     attachments: result.attachments.map((item) =>
@@ -368,31 +465,41 @@ try {
   expectHarnessError("empty artifact", "FADENO_MORPH_ATTACHMENT_SIZE", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
-  writeFileSync(firstScreenshot.path, validPng);
+  writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
   firstScreenshot.bytes = validPng.length;
 
-  writeFileSync(firstScreenshot.path, validPng.subarray(0, 8));
+  const corruptPng = Buffer.from(validPng);
+  corruptPng[Math.floor(corruptPng.length / 2)] =
+    (corruptPng[Math.floor(corruptPng.length / 2)] ?? 0) ^ 0xff;
+  writeFileSync(attachmentFile(reportRoot, firstScreenshot), corruptPng);
+  writeReport(results);
+  expectHarnessError("corrupt PNG payload", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
+
+  writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng.subarray(0, 8));
   firstScreenshot.bytes = 8;
   writeReport(results);
   expectHarnessError("truncated PNG", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
-  writeFileSync(firstScreenshot.path, validPng);
+  writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
   firstScreenshot.bytes = validPng.length;
 
-  const noOpOperation = readJsonDocument(firstOperation.path);
+  const noOpOperation = readJsonDocument(attachmentFile(reportRoot, firstOperation));
   noOpOperation.targetIdentityChanged = false;
-  writeFileSync(firstOperation.path, `${JSON.stringify(noOpOperation)}\n`);
-  firstOperation.bytes = readFileSync(firstOperation.path).byteLength;
+  writeFileSync(attachmentFile(reportRoot, firstOperation), `${JSON.stringify(noOpOperation)}\n`);
+  firstOperation.bytes = readFileSync(attachmentFile(reportRoot, firstOperation)).byteLength;
   writeReport(results);
   expectHarnessError("no-op replacement", "FADENO_MORPH_OPERATION_PROOF", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
 
-  const passingFixture = MORPH_FIXTURES.find((entry) => entry.kind === "passing-control");
-  const passingResults = results.map((result) => {
-    const operationAttachment = result.attachments.find((item) => item.name === "operation");
-    const stateAttachment = result.attachments.find((item) => item.name === "before-after");
+  const passingFixture = getMorphFixture("seeded-preservation-control");
+  const passingResults: ReportResult[] = results.map((result): ReportResult => {
+    const operationAttachment = requireAttachment(result, "operation");
+    const stateAttachment = requireAttachment(result, "before-after");
     const state = {
       nodeIdentity: "original",
       state: {
@@ -403,7 +510,7 @@ try {
       },
     };
     writeFileSync(
-      operationAttachment.path,
+      attachmentFile(reportRoot, operationAttachment),
       `${JSON.stringify({
         fixture: passingFixture.id,
         kind: passingFixture.operation,
@@ -413,7 +520,7 @@ try {
       })}\n`,
     );
     writeFileSync(
-      stateAttachment.path,
+      attachmentFile(reportRoot, stateAttachment),
       `${JSON.stringify({ fixture: passingFixture.id, before: state, after: state })}\n`,
     );
     return {
@@ -423,7 +530,7 @@ try {
       errors: [],
       attachments: result.attachments.map((item) => ({
         ...item,
-        bytes: readFileSync(item.path).byteLength,
+        bytes: readFileSync(attachmentFile(reportRoot, item)).byteLength,
       })),
     };
   });
@@ -433,11 +540,11 @@ try {
     expected: "passed",
     outputRoot: reportRoot,
   });
-  const passingOperation = passingResults[0].attachments.find((item) => item.name === "operation");
-  const noOpInsertion = readJsonDocument(passingOperation.path);
+  const passingOperation = requireAttachment(requireResult(passingResults, 0), "operation");
+  const noOpInsertion = readJsonDocument(attachmentFile(reportRoot, passingOperation));
   noOpInsertion.siblingInserted = false;
-  writeFileSync(passingOperation.path, `${JSON.stringify(noOpInsertion)}\n`);
-  passingOperation.bytes = readFileSync(passingOperation.path).byteLength;
+  writeFileSync(attachmentFile(reportRoot, passingOperation), `${JSON.stringify(noOpInsertion)}\n`);
+  passingOperation.bytes = readFileSync(attachmentFile(reportRoot, passingOperation)).byteLength;
   writeReport(passingResults, "passed");
   expectHarnessError("no-op insertion", "FADENO_MORPH_OPERATION_PROOF", () => {
     verifyHarnessReport(reportPath, {
@@ -447,21 +554,22 @@ try {
     });
   });
   noOpInsertion.siblingInserted = true;
-  writeFileSync(passingOperation.path, `${JSON.stringify(noOpInsertion)}\n`);
-  passingOperation.bytes = readFileSync(passingOperation.path).byteLength;
+  writeFileSync(attachmentFile(reportRoot, passingOperation), `${JSON.stringify(noOpInsertion)}\n`);
+  passingOperation.bytes = readFileSync(attachmentFile(reportRoot, passingOperation)).byteLength;
 
   writeFileSync(
-    passingResults[1].attachments.find((item) => item.name === "before-after").path,
+    attachmentFile(reportRoot, requireAttachment(requireResult(passingResults, 1), "before-after")),
     `${JSON.stringify({
       fixture: passingFixture.id,
       before: { nodeIdentity: "original", state: { focused: true } },
       after: { nodeIdentity: "original", state: { focused: true } },
     })}\n`,
   );
-  passingResults[1].attachments.find((item) => item.name === "before-after").bytes =
-    readFileSync(
-      passingResults[1].attachments.find((item) => item.name === "before-after").path,
-    ).byteLength;
+  const secondPassingState = requireAttachment(
+    requireResult(passingResults, 1),
+    "before-after",
+  );
+  secondPassingState.bytes = readFileSync(attachmentFile(reportRoot, secondPassingState)).byteLength;
   writeReport(passingResults, "passed");
   expectHarnessError("incomplete state proof", "FADENO_MORPH_STATE_PROOF", () => {
     verifyHarnessReport(reportPath, {
@@ -492,4 +600,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (2 fixtures, 3 engines, 14 report mutations)");
+console.log("morph harness contract passed (2 fixtures, 3 engines, 19 report mutations)");

@@ -5,8 +5,9 @@ import {
   realpathSync,
   statSync,
 } from "node:fs";
-import { isAbsolute, relative, sep } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { crc32, inflateRawSync, inflateSync } from "node:zlib";
 
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import { MORPH_PROJECTS } from "./contract.ts";
@@ -84,11 +85,16 @@ function fail(code: string, message: string): never {
 }
 
 function containedAttachment(outputRoot: string, attachment: MachineAttachment): string {
-  if (!attachment.path || !isAbsolute(attachment.path)) {
-    fail("FADENO_MORPH_ATTACHMENT_PATH", `${attachment.name}: missing absolute path`);
+  if (
+    !attachment.path ||
+    isAbsolute(attachment.path) ||
+    attachment.path.includes("\\") ||
+    attachment.path.split("/").some((segment) => segment === "" || segment === "." || segment === "..")
+  ) {
+    fail("FADENO_MORPH_ATTACHMENT_PATH", `${attachment.name}: invalid portable path`);
   }
   const root = realpathSync(outputRoot);
-  const path = realpathSync(attachment.path);
+  const path = realpathSync(join(root, attachment.path));
   const offset = relative(root, path);
   if (offset === "" || offset === ".." || offset.startsWith(`..${sep}`) || isAbsolute(offset)) {
     fail("FADENO_MORPH_ATTACHMENT_PATH", `${attachment.name}: path escapes output root`);
@@ -109,27 +115,100 @@ function readExactly(descriptor: number, length: number, position: number): Buff
 }
 
 function verifyPng(path: string, bytes: number): void {
-  if (bytes < 45) fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: PNG is truncated");
+  if (bytes < 57) fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: PNG is truncated");
   const descriptor = openSync(path, "r");
   try {
-    const header = readExactly(descriptor, 33, 0);
-    const trailer = readExactly(descriptor, PNG_IEND.length, bytes - PNG_IEND.length);
-    if (
-      !header.subarray(0, 8).equals(PNG_SIGNATURE) ||
-      header.readUInt32BE(8) !== 13 ||
-      header.toString("ascii", 12, 16) !== "IHDR" ||
-      header.readUInt32BE(16) === 0 ||
-      header.readUInt32BE(20) === 0 ||
-      !trailer.equals(PNG_IEND)
-    ) {
-      fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: invalid PNG structure");
+    if (!readExactly(descriptor, 8, 0).equals(PNG_SIGNATURE)) {
+      fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: PNG signature missing");
+    }
+    let position = 8;
+    let width = 0;
+    let height = 0;
+    let bitsPerPixel = 0;
+    let sawHeader = false;
+    let sawData = false;
+    const compressedParts: Buffer[] = [];
+    while (position < bytes) {
+      const chunkHeader = readExactly(descriptor, 8, position);
+      const length = chunkHeader.readUInt32BE(0);
+      const type = chunkHeader.toString("ascii", 4, 8);
+      if (length > MAX_ATTACHMENT_BYTES || position + 12 + length > bytes) {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: PNG chunk exceeds file");
+      }
+      const data = readExactly(descriptor, length, position + 8);
+      const storedCrc = readExactly(descriptor, 4, position + 8 + length).readUInt32BE(0);
+      if ((crc32(Buffer.concat([chunkHeader.subarray(4, 8), data])) >>> 0) !== storedCrc) {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", `screenshot: ${type} CRC differs`);
+      }
+      if (!sawHeader) {
+        if (type !== "IHDR" || length !== 13) {
+          fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: IHDR must be first");
+        }
+        width = data.readUInt32BE(0);
+        height = data.readUInt32BE(4);
+        const bitDepth = data[8] ?? 0;
+        const colorType = data[9] ?? 255;
+        const channels = new Map([[0, 1], [2, 3], [3, 1], [4, 2], [6, 4]]).get(colorType);
+        const allowedDepths = new Map<number, readonly number[]>([
+          [0, [1, 2, 4, 8, 16]],
+          [2, [8, 16]],
+          [3, [1, 2, 4, 8]],
+          [4, [8, 16]],
+          [6, [8, 16]],
+        ]).get(colorType);
+        if (
+          width === 0 ||
+          height === 0 ||
+          width > 4_096 ||
+          height > 4_096 ||
+          !channels ||
+          !allowedDepths?.includes(bitDepth) ||
+          data[10] !== 0 ||
+          data[11] !== 0 ||
+          data[12] !== 0
+        ) {
+          fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: unsupported IHDR");
+        }
+        bitsPerPixel = channels * bitDepth;
+        sawHeader = true;
+      } else if (type === "IDAT") {
+        if (length > 0) {
+          sawData = true;
+          compressedParts.push(data);
+        }
+      } else if (type === "IEND") {
+        if (length !== 0 || position + PNG_IEND.length !== bytes || !sawData) {
+          fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: invalid IEND boundary");
+        }
+        break;
+      }
+      position += 12 + length;
+    }
+    if (!readExactly(descriptor, PNG_IEND.length, bytes - PNG_IEND.length).equals(PNG_IEND)) {
+      fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: IEND missing");
+    }
+    const rowBytes = Math.ceil((width * bitsPerPixel) / 8);
+    const expectedBytes = height * (rowBytes + 1);
+    let pixels: Buffer;
+    try {
+      pixels = inflateSync(Buffer.concat(compressedParts), { maxOutputLength: expectedBytes });
+    } catch {
+      fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: IDAT cannot be decoded");
+    }
+    if (pixels.byteLength !== expectedBytes) {
+      fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: decoded byte length differs");
+    }
+    for (let row = 0; row < height; row += 1) {
+      if ((pixels[row * (rowBytes + 1)] ?? 255) > 4) {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", "screenshot: invalid row filter");
+      }
     }
   } finally {
     closeSync(descriptor);
   }
 }
 
-function verifyTraceZip(path: string, bytes: number): void {
+function verifyTraceZip(path: string, bytes: number): string {
   if (bytes < 22) fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: ZIP is truncated");
   const descriptor = openSync(path, "r");
   try {
@@ -158,27 +237,55 @@ function verifyTraceZip(path: string, bytes: number): void {
       fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: invalid ZIP directory boundary");
     }
 
-    const entries = new Map<string, number>();
+    type ZipEntry = {
+      name: string;
+      flags: number;
+      method: number;
+      checksum: number;
+      compressedSize: number;
+      uncompressedSize: number;
+      localOffset: number;
+    };
+    const entries = new Map<string, ZipEntry>();
     let position = centralOffset;
     for (let index = 0; index < entryCount; index += 1) {
       const header = readExactly(descriptor, 46, position);
       if (header.readUInt32LE(0) !== 0x02014b50) {
         fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: invalid ZIP directory entry");
       }
+      const flags = header.readUInt16LE(8);
+      const method = header.readUInt16LE(10);
+      const checksum = header.readUInt32LE(16);
       const compressedSize = header.readUInt32LE(20);
       const uncompressedSize = header.readUInt32LE(24);
       const nameLength = header.readUInt16LE(28);
       const extraLength = header.readUInt16LE(30);
       const entryCommentLength = header.readUInt16LE(32);
       const localOffset = header.readUInt32LE(42);
-      if (nameLength === 0 || nameLength > 4_096 || localOffset >= centralOffset) {
+      if (
+        nameLength === 0 ||
+        nameLength > 4_096 ||
+        localOffset >= centralOffset ||
+        (flags & 0x1) !== 0 ||
+        ![0, 8].includes(method) ||
+        compressedSize > MAX_ATTACHMENT_BYTES ||
+        uncompressedSize > MAX_ATTACHMENT_BYTES
+      ) {
         fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: unsafe ZIP directory entry");
       }
       const name = readExactly(descriptor, nameLength, position + 46).toString("utf8");
       if (entries.has(name) || readExactly(descriptor, 4, localOffset).readUInt32LE(0) !== 0x04034b50) {
         fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: duplicate or invalid ZIP entry");
       }
-      entries.set(name, uncompressedSize);
+      entries.set(name, {
+        name,
+        flags,
+        method,
+        checksum,
+        compressedSize,
+        uncompressedSize,
+        localOffset,
+      });
       position += 46 + nameLength + extraLength + entryCommentLength;
       if (position > centralOffset + centralSize || compressedSize > bytes) {
         fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: ZIP entry exceeds archive");
@@ -187,20 +294,105 @@ function verifyTraceZip(path: string, bytes: number): void {
     if (position !== centralOffset + centralSize) {
       fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: ZIP directory size differs");
     }
-    const testTraceBytes = entries.get("test.trace") ?? 0;
-    const browserTraceBytes = [...entries]
+    const decodedEntries = new Map<string, Buffer>();
+    const orderedEntries = [...entries.values()].sort((left, right) => left.localOffset - right.localOffset);
+    for (const [index, entry] of orderedEntries.entries()) {
+      const local = readExactly(descriptor, 30, entry.localOffset);
+      const localNameLength = local.readUInt16LE(26);
+      const localExtraLength = local.readUInt16LE(28);
+      const localName = readExactly(descriptor, localNameLength, entry.localOffset + 30).toString("utf8");
+      const dataOffset = entry.localOffset + 30 + localNameLength + localExtraLength;
+      const dataEnd = dataOffset + entry.compressedSize;
+      const nextBoundary = orderedEntries[index + 1]?.localOffset ?? centralOffset;
+      if (
+        local.readUInt32LE(0) !== 0x04034b50 ||
+        local.readUInt16LE(6) !== entry.flags ||
+        local.readUInt16LE(8) !== entry.method ||
+        localName !== entry.name ||
+        dataEnd > nextBoundary
+      ) {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: local ZIP entry differs");
+      }
+      const compressed = readExactly(descriptor, entry.compressedSize, dataOffset);
+      let decoded: Buffer;
+      try {
+        decoded = entry.method === 0
+          ? compressed
+          : inflateRawSync(compressed, {
+              maxOutputLength: Math.max(1, entry.uncompressedSize),
+            });
+      } catch {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", `trace: ${entry.name} cannot be decoded`);
+      }
+      if (
+        decoded.byteLength !== entry.uncompressedSize ||
+        (crc32(decoded) >>> 0) !== entry.checksum
+      ) {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", `trace: ${entry.name} CRC or size differs`);
+      }
+      let recordEnd = dataEnd;
+      if ((entry.flags & 0x08) !== 0) {
+        const descriptorPrefix = readExactly(descriptor, 4, dataEnd);
+        const hasSignature = descriptorPrefix.readUInt32LE(0) === 0x08074b50;
+        const dataDescriptor = readExactly(descriptor, hasSignature ? 16 : 12, dataEnd);
+        const offset = hasSignature ? 4 : 0;
+        if (
+          dataDescriptor.readUInt32LE(offset) !== entry.checksum ||
+          dataDescriptor.readUInt32LE(offset + 4) !== entry.compressedSize ||
+          dataDescriptor.readUInt32LE(offset + 8) !== entry.uncompressedSize
+        ) {
+          fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: ZIP data descriptor differs");
+        }
+        recordEnd += dataDescriptor.length;
+      } else if (
+        local.readUInt32LE(14) !== entry.checksum ||
+        local.readUInt32LE(18) !== entry.compressedSize ||
+        local.readUInt32LE(22) !== entry.uncompressedSize
+      ) {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: local ZIP sizes differ");
+      }
+      if (recordEnd > nextBoundary) {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: ZIP records overlap");
+      }
+      decodedEntries.set(entry.name, decoded);
+    }
+    const testTraceBytes = decodedEntries.get("test.trace")?.byteLength ?? 0;
+    const browserTraceBytes = [...decodedEntries]
       .filter(([name]) => /^\d+-trace\.trace$/u.test(name))
-      .reduce((total, [, size]) => total + size, 0);
+      .reduce((total, [, data]) => total + data.byteLength, 0);
     const hasNetwork = [...entries.keys()].some((name) => /^\d+-trace\.network$/u.test(name));
     if (testTraceBytes === 0 || browserTraceBytes === 0 || !hasNetwork) {
       fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: expected Playwright trace entries missing");
     }
+    for (const [name, data] of decodedEntries) {
+      if (!/^\d+-trace\.trace$/u.test(name)) continue;
+      for (const line of data.toString("utf8").split("\n")) {
+        if (!line) continue;
+        let record: unknown;
+        try {
+          record = JSON.parse(line);
+        } catch {
+          fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: trace record is invalid JSON");
+        }
+        if (
+          record &&
+          typeof record === "object" &&
+          "type" in record &&
+          record.type === "context-options" &&
+          "browserName" in record &&
+          typeof record.browserName === "string"
+        ) {
+          return record.browserName;
+        }
+      }
+    }
+    fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: browser identity missing");
   } finally {
     closeSync(descriptor);
   }
 }
 
-function verifyAttachmentFormat(attachment: MachineAttachment, path: string): void {
+function verifyAttachmentFormat(attachment: MachineAttachment, path: string): string | undefined {
   const expectedContentType =
     ATTACHMENT_CONTENT_TYPES[attachment.name as keyof typeof ATTACHMENT_CONTENT_TYPES];
   if (!expectedContentType || attachment.contentType !== expectedContentType) {
@@ -210,10 +402,11 @@ function verifyAttachmentFormat(attachment: MachineAttachment, path: string): vo
     );
   }
   if (attachment.name === "screenshot") verifyPng(path, attachment.bytes);
-  if (attachment.name === "trace") verifyTraceZip(path, attachment.bytes);
+  if (attachment.name === "trace") return verifyTraceZip(path, attachment.bytes);
   if (attachment.name === "operation" || attachment.name === "before-after") {
     readJsonDocument(path);
   }
+  return undefined;
 }
 
 function requiredAttachment(
@@ -257,21 +450,29 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
     if (result.status !== expected) {
       fail("FADENO_MORPH_STATUS", `${result.project}: expected ${expected}`);
     }
-    if (
-      expected === "failed" &&
-      (!fixture.diagnostic ||
-        !result.errors.some((message) => message.includes(fixture.diagnostic as string)))
-    ) {
-      fail("FADENO_MORPH_DIAGNOSTIC", `${result.project}: seeded diagnostic missing`);
+    if (expected === "passed" && result.errors.length !== 0) {
+      fail("FADENO_MORPH_DIAGNOSTIC", `${result.project}: passing run reported errors`);
+    }
+    if (expected === "failed") {
+      const diagnostic = fixture.diagnostic;
+      if (
+        !diagnostic ||
+        result.errors.length !== 1 ||
+        result.errors[0]?.split("\n", 1)[0] !== `Error: ${diagnostic}`
+      ) {
+        fail("FADENO_MORPH_DIAGNOSTIC", `${result.project}: exact seeded diagnostic differs`);
+      }
     }
     const verifiedPaths = new Map<MachineAttachment, string>();
+    let traceProject: string | undefined;
     for (const attachment of result.attachments) {
       const path = containedAttachment(outputRoot, attachment);
       if (seenPaths.has(path)) {
         fail("FADENO_MORPH_ATTACHMENT_DUPLICATE", `${result.project}: duplicate attachment path`);
       }
       seenPaths.add(path);
-      verifyAttachmentFormat(attachment, path);
+      const attachmentProject = verifyAttachmentFormat(attachment, path);
+      if (attachment.name === "trace") traceProject = attachmentProject;
       verifiedPaths.set(attachment, path);
     }
     const operationPath = requiredAttachment(result, "operation", verifiedPaths);
@@ -279,36 +480,43 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
     if (expected === "failed") {
       requiredAttachment(result, "screenshot", verifiedPaths);
       requiredAttachment(result, "trace", verifiedPaths);
+      if (traceProject !== result.project) {
+        fail(
+          "FADENO_MORPH_TRACE_PROJECT",
+          `${result.project}: trace was produced by ${traceProject ?? "unknown"}`,
+        );
+      }
     }
 
     const operation = readJsonDocument(operationPath);
     const states = readJsonDocument(statePath);
-    if (
-      operation.fixture !== fixture.id ||
-      operation.kind !== fixture.operation ||
-      states.fixture !== fixture.id ||
-      !operation.completed
-    ) {
+    const expectedOperation = fixture.kind === "passing-control"
+      ? {
+          fixture: fixture.id,
+          kind: fixture.operation,
+          completed: true,
+          siblingInserted: true,
+          targetIdentityPreserved: true,
+        }
+      : {
+          fixture: fixture.id,
+          kind: fixture.operation,
+          completed: true,
+          replacementCompleted: true,
+          targetIdentityChanged: true,
+          stateLossObserved: true,
+        };
+    if (!isDeepStrictEqual(operation, expectedOperation) || states.fixture !== fixture.id) {
       fail("FADENO_MORPH_OPERATION_PROOF", `${result.project}: operation proof differs`);
     }
     if (!isDeepStrictEqual(states.before, BEFORE_STATE)) {
       fail("FADENO_MORPH_STATE_PROOF", `${result.project}: initial dirty focused state differs`);
     }
     if (fixture.kind === "passing-control") {
-      if (!operation.siblingInserted || !operation.targetIdentityPreserved) {
-        fail("FADENO_MORPH_OPERATION_PROOF", `${result.project}: insertion was not proven`);
-      }
       if (!isDeepStrictEqual(states.after, BEFORE_STATE)) {
         fail("FADENO_MORPH_STATE_PROOF", `${result.project}: passing state differs`);
       }
     } else {
-      if (
-        !operation.replacementCompleted ||
-        !operation.targetIdentityChanged ||
-        !operation.stateLossObserved
-      ) {
-        fail("FADENO_MORPH_OPERATION_PROOF", `${result.project}: replacement was not proven`);
-      }
       if (!isDeepStrictEqual(states.after, REPLACEMENT_STATE)) {
         fail("FADENO_MORPH_STATE_PROOF", `${result.project}: exact replacement state differs`);
       }

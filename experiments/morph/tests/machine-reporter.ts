@@ -1,5 +1,5 @@
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, isAbsolute, relative, sep } from "node:path";
 import type {
   FullResult,
   Reporter,
@@ -25,6 +25,8 @@ export default class MorphMachineReporter implements Reporter {
   private readonly results: ReportResult[] = [];
 
   onTestEnd(test: TestCase, result: TestResult): void {
+    const outputRoot = process.env.FADENO_MORPH_CHILD_OUTPUT;
+    if (!outputRoot) throw new Error("FADENO_MORPH_CHILD_OUTPUT is required");
     this.results.push({
       project: test.parent.project()?.name ?? "unknown",
       title: test.title,
@@ -34,7 +36,20 @@ export default class MorphMachineReporter implements Reporter {
       attachments: result.attachments.map((attachment) => ({
         name: attachment.name,
         contentType: attachment.contentType,
-        path: attachment.path,
+        path: attachment.path
+          ? (() => {
+              const portablePath = relative(outputRoot, attachment.path);
+              if (
+                portablePath === "" ||
+                portablePath === ".." ||
+                portablePath.startsWith(`..${sep}`) ||
+                isAbsolute(portablePath)
+              ) {
+                throw new Error(`FADENO_MORPH_ATTACHMENT_PATH: ${attachment.name}`);
+              }
+              return portablePath;
+            })()
+          : undefined,
         bytes: attachment.path ? statSync(attachment.path).size : 0,
       })),
     });

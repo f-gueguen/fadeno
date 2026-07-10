@@ -12,5 +12,6 @@
     "types": ["node"],
     "skipLibCheck": false
   },
-  "include": ["scripts/**/*.ts"]
+  "include": ["scripts/**/*.ts"],
+  "exclude": ["scripts/check-morph-harness.ts"]
 }
