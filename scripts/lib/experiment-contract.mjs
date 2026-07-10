@@ -9,9 +9,11 @@ import {
   statSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { spawnSync } from "node:child_process";
 
 export const MAX_JSON_BYTES = 1024 * 1024;
 export const MAX_JSON_DEPTH = 128;
+const MAX_LOCKFILE_BYTES = 4 * 1024 * 1024;
 
 export class ContractError extends Error {
   constructor(code, message, details) {
@@ -220,7 +222,50 @@ export function sha256File(path) {
   return hash.digest("hex");
 }
 
-export function validateArtifactRecords(manifest, manifestPath) {
+function validateSourceProvenance(manifest, repositoryRoot) {
+  if (!repositoryRoot) {
+    fail("FADENO_K0_REPOSITORY_CONTEXT", "repository root is required for provenance");
+  }
+  const lockArtifact = manifest.artifacts.find(
+    (artifact) => artifact.path === manifest.dependencyLock.artifact,
+  );
+  if (lockArtifact.bytes > MAX_LOCKFILE_BYTES) {
+    fail("FADENO_K0_LOCK_TOO_LARGE", "dependency lock exceeds provenance limit");
+  }
+  const commit = manifest.source.commit;
+  const objectCheck = spawnSync("git", ["cat-file", "-e", `${commit}^{commit}`], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  });
+  if (objectCheck.status !== 0) {
+    fail("FADENO_K0_SOURCE_COMMIT_UNKNOWN", "source commit is absent from repository history");
+  }
+  const ancestorCheck = spawnSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  });
+  if (ancestorCheck.status !== 0) {
+    fail("FADENO_K0_SOURCE_COMMIT_UNAPPROVED", "source commit is not an ancestor of HEAD");
+  }
+  const lockAtCommit = spawnSync(
+    "git",
+    ["show", `${commit}:${manifest.dependencyLock.path}`],
+    {
+      cwd: repositoryRoot,
+      encoding: null,
+      maxBuffer: MAX_LOCKFILE_BYTES,
+    },
+  );
+  if (lockAtCommit.status !== 0 || lockAtCommit.error) {
+    fail("FADENO_K0_LOCK_SOURCE_MISSING", "dependency lock is unavailable at source commit");
+  }
+  const sourceLockDigest = createHash("sha256").update(lockAtCommit.stdout).digest("hex");
+  if (sourceLockDigest !== manifest.dependencyLock.sha256) {
+    fail("FADENO_K0_LOCK_SOURCE_MISMATCH", "recorded lock differs from source commit");
+  }
+}
+
+export function validateArtifactRecords(manifest, manifestPath, repositoryRoot) {
   const resultRoot = dirname(manifestPath);
   const paths = new Set();
   for (const artifact of manifest.artifacts ?? []) {
@@ -266,6 +311,7 @@ export function validateArtifactRecords(manifest, manifestPath) {
       );
     }
   }
+  validateSourceProvenance(manifest, repositoryRoot);
 }
 
 const SECRET_PATTERNS = [
@@ -359,6 +405,8 @@ export function validateManifestSemantics(manifest, referenceEnvironment, regist
   const host = manifest.environment.host;
   const load = manifest.environment.backgroundLoad;
   const referenceHost = referenceEnvironment.host;
+  const preflightAgeMilliseconds =
+    Date.parse(manifest.run.startedAt) - Date.parse(load.preflightObservedAt);
   const referenceEligible =
     host.provider === referenceHost.provider &&
     host.repositoryVisibility === referenceHost.repositoryVisibility &&
@@ -373,7 +421,9 @@ export function validateManifestSemantics(manifest, referenceEnvironment, regist
     load.processCount <= referenceEnvironment.backgroundLoad.maxProcessCount &&
     load.accepted === true &&
     load.reason === referenceEnvironment.backgroundLoad.acceptanceReason &&
-    Date.parse(load.preflightObservedAt) <= Date.parse(manifest.run.startedAt);
+    preflightAgeMilliseconds >= 0 &&
+    preflightAgeMilliseconds <=
+      referenceEnvironment.backgroundLoad.maxPreflightAgeSeconds * 1000;
   if (manifest.environment.referenceClass === "reference" && !referenceEligible) {
     fail(
       "FADENO_K0_ENVIRONMENT_MISMATCH",

@@ -6,7 +6,7 @@
     "contractVersion": 1
   },
   "run": {
-    "id": "20260710T113900Z-aaaaaaa-a1",
+    "id": "20260710T113900Z-bdac342-a1",
     "attempt": 1,
     "startedAt": "2026-07-10T11:39:00Z",
     "completedAt": "2026-07-10T11:39:10Z",
@@ -14,7 +14,7 @@
   },
   "source": {
     "repository": "https://github.com/f-gueguen/fadeno",
-    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "commit": "bdac3420165d6ae6c1493643d726a7e4ba0d236a",
     "dirty": false
   },
   "environment": {
@@ -61,7 +61,7 @@
       "telemetry": "not-exposed"
     },
     "backgroundLoad": {
-      "preflightObservedAt": "2026-07-10T11:38:59Z",
+      "preflightObservedAt": "2026-07-10T11:38:00Z",
       "loadAverage1m": 0.1,
       "processCount": 120,
       "accepted": true,
@@ -71,7 +71,7 @@
   "dependencyLock": {
     "path": "pnpm-lock.yaml",
     "artifact": "artifacts/pnpm-lock.yaml",
-    "sha256": "0372baf2304e947cd59e264c6529fb2872fcb8efe8ddbe1ab2de096b0aefb413"
+    "sha256": "878a7b60746fb21ffe11029327f29ea50cfc840bfeb9e0b3cbb46a77f828b7e7"
   },
   "command": {
     "cwd": ".",
@@ -98,8 +98,8 @@
   "artifacts": [
     {
       "path": "artifacts/pnpm-lock.yaml",
-      "sha256": "0372baf2304e947cd59e264c6529fb2872fcb8efe8ddbe1ab2de096b0aefb413",
-      "bytes": 19
+      "sha256": "878a7b60746fb21ffe11029327f29ea50cfc840bfeb9e0b3cbb46a77f828b7e7",
+      "bytes": 115
     },
     {
       "path": "artifacts/dataset.json",

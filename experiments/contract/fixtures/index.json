@@ -108,6 +108,14 @@
       "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
     },
     {
+      "name": "stale-reference-preflight",
+      "operation": "set",
+      "pointer": "/environment/backgroundLoad/preflightObservedAt",
+      "value": "2000-01-01T00:00:00Z",
+      "stage": "semantic",
+      "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
+    },
+    {
       "name": "reference-reason-mismatch",
       "operation": "set",
       "pointer": "/environment/backgroundLoad/reason",

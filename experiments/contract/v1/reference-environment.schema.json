@@ -159,7 +159,7 @@
     "backgroundLoad": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["policy", "networkConsumers", "preflightRequired", "maxLoadAverage1m", "maxProcessCount", "acceptanceReason"],
+      "required": ["policy", "networkConsumers", "preflightRequired", "maxLoadAverage1m", "maxProcessCount", "maxPreflightAgeSeconds", "acceptanceReason"],
       "properties": {
         "policy": { "const": "exclusive-qualification-job" },
         "networkConsumers": {
@@ -171,6 +171,7 @@
         "preflightRequired": { "const": true },
         "maxLoadAverage1m": { "type": "number", "minimum": 0, "maximum": 2 },
         "maxProcessCount": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "maxPreflightAgeSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
         "acceptanceReason": { "const": "within-reference-thresholds" }
       }
     },

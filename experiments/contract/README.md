@@ -85,9 +85,9 @@ is not part of the offline repository check.
 
 Reference classification is derived, not asserted: provider, runner identity,
 architecture, advertised hardware, free storage, background-load thresholds,
-the fixed acceptance reason, and a pre-start preflight timestamp must all match
-the reference record. A deviation can still be recorded, but only as
-`non-reference`.
+the fixed acceptance reason, and a pre-start preflight no more than 60 seconds
+old must all match the reference record. A deviation can still be recorded, but
+only as `non-reference`.
 
 ## Result publication
 
@@ -97,5 +97,8 @@ atomically rename the manifest into place. Existing attempts and manifests are
 never replaced. The run ID is bound to start time, source commit, and attempt;
 the command is bound to the experiment registry; dependency-lock and dataset
 hashes are backed by immutable copied artifacts; and a passed result must carry
-measurements and artifacts. A go, narrow, or pivot decision belongs in the qualification
+measurements and artifacts. Publication validation resolves the source commit
+as an ancestor of `HEAD` and compares the copied lock (bounded to 4 MiB) with
+`pnpm-lock.yaml` at that exact commit, so CI checkouts retain full Git history.
+A go, narrow, or pivot decision belongs in the qualification
 ADR; the raw manifest conclusion is only pass, fail, or inconclusive.

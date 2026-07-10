@@ -68,6 +68,7 @@
     "preflightRequired": true,
     "maxLoadAverage1m": 1,
     "maxProcessCount": 256,
+    "maxPreflightAgeSeconds": 60,
     "acceptanceReason": "within-reference-thresholds"
   },
   "preflight": {

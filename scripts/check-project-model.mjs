@@ -250,21 +250,35 @@ for (const missing of setDifference(new Set(plannedDirectoryIds), new Set(regist
 for (const unknown of setDifference(new Set(registryIds), new Set(plannedDirectoryIds))) {
   errors.push(`experiments/registry.json: unknown K0 directory ${unknown}`);
 }
-const k0RowMap = new Map(k0Rows.map((cells) => [cells[0], cells]));
+const roadmapExperimentMappings = new Map();
+for (const row of k0Rows) {
+  const command = row[5].match(
+    /`pnpm experiment:([a-z-]+) -- --(list|qualify)`/,
+  );
+  if (!command) continue;
+  const [, id, mode] = command;
+  const hypothesis = row[3].match(/\bH[1-4]\b/)?.[0];
+  const mapping = roadmapExperimentMappings.get(id) ?? {};
+  mapping[mode === "list" ? "harness" : "qualification"] = {
+    slice: row[0],
+    hypothesis,
+  };
+  roadmapExperimentMappings.set(id, mapping);
+}
+for (const duplicate of duplicates(registryEntries.map((entry) => entry.hypothesis))) {
+  errors.push(`experiments/registry.json: duplicate hypothesis ${duplicate}`);
+}
 for (const entry of registryEntries) {
-  if (!k0.includes(`pnpm experiment:${entry.id}`)) {
-    errors.push(`docs/roadmap/k0.md: missing command for experiment ${entry.id}`);
-  }
-  for (const field of ["harnessSlice", "qualificationSlice"]) {
-    const slice = entry[field];
-    const row = k0RowMap.get(slice);
-    if (!row) {
-      errors.push(`experiments/registry.json: ${entry.id} references missing ${slice}`);
-    } else if (!new RegExp(`\\b${entry.hypothesis}\\b`).test(row[3])) {
-      errors.push(
-        `experiments/registry.json: ${entry.id} ${slice} does not own ${entry.hypothesis}`,
-      );
-    }
+  const expected = roadmapExperimentMappings.get(entry.id);
+  if (
+    !expected?.harness ||
+    !expected?.qualification ||
+    expected.harness.slice !== entry.harnessSlice ||
+    expected.qualification.slice !== entry.qualificationSlice ||
+    expected.harness.hypothesis !== entry.hypothesis ||
+    expected.qualification.hypothesis !== entry.hypothesis
+  ) {
+    errors.push(`experiments/registry.json: ${entry.id} mapping differs from K0 plan`);
   }
   if (
     Number(String(entry.harnessSlice).slice(3)) >=

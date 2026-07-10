@@ -1,4 +1,11 @@
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -79,6 +86,7 @@ const expectedMutationNames = [
   "reference-hardware-mismatch",
   "reference-load-mismatch",
   "late-reference-preflight",
+  "stale-reference-preflight",
   "reference-reason-mismatch",
   "time-order",
   "command-experiment-mismatch",
@@ -169,8 +177,49 @@ for (const mutation of fixtureIndex.mutations) {
   }
   expectContractError(mutation.name, mutation.code, () => {
     validateManifestSemantics(document, reference, registry);
-    if (mutation.stage === "artifact") validateArtifactRecords(document, baseManifestPath);
+    if (mutation.stage === "artifact") {
+      validateArtifactRecords(document, baseManifestPath, root);
+    }
   });
+}
+
+const unknownSource = structuredClone(baseManifest);
+unknownSource.source.commit = "dddddddddddddddddddddddddddddddddddddddd";
+unknownSource.run.id = "20260710T113900Z-ddddddd-a1";
+expectContractError("unknown source commit", "FADENO_K0_SOURCE_COMMIT_UNKNOWN", () => {
+  validateManifestSemantics(unknownSource, reference, registry);
+  validateArtifactRecords(unknownSource, baseManifestPath, root);
+});
+
+const lockMismatchRoot = mkdtempSync(join(tmpdir(), "fadeno-k0-lock-"));
+try {
+  const artifactRoot = join(lockMismatchRoot, "artifacts");
+  mkdirSync(artifactRoot);
+  writeFileSync(join(artifactRoot, "pnpm-lock.yaml"), "fixture-lock: true\n");
+  for (const name of ["dataset.json", "measurements.json"]) {
+    copyFileSync(
+      join(dirname(baseManifestPath), "artifacts", name),
+      join(artifactRoot, name),
+    );
+  }
+  const lockMismatch = structuredClone(baseManifest);
+  lockMismatch.dependencyLock.sha256 =
+    "0372baf2304e947cd59e264c6529fb2872fcb8efe8ddbe1ab2de096b0aefb413";
+  const lockArtifact = lockMismatch.artifacts.find(
+    (artifact) => artifact.path === lockMismatch.dependencyLock.artifact,
+  );
+  lockArtifact.sha256 = lockMismatch.dependencyLock.sha256;
+  lockArtifact.bytes = 19;
+  expectContractError(
+    "lock differs from source commit",
+    "FADENO_K0_LOCK_SOURCE_MISMATCH",
+    () => {
+      validateManifestSemantics(lockMismatch, reference, registry);
+      validateArtifactRecords(lockMismatch, join(lockMismatchRoot, "manifest.json"), root);
+    },
+  );
+} finally {
+  rmSync(lockMismatchRoot, { recursive: true, force: true });
 }
 
 for (const fixture of fixtureIndex.raw) {
@@ -303,5 +352,5 @@ if (failures.length > 0) {
 }
 
 const negativeCount =
-  fixtureIndex.mutations.length + fixtureIndex.raw.length + fixtureIndex.synthetic.length + 5;
+  fixtureIndex.mutations.length + fixtureIndex.raw.length + fixtureIndex.synthetic.length + 7;
 console.log(`experiment contract negative tests passed (${negativeCount} cases)`);

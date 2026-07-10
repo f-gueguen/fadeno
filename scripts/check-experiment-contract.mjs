@@ -104,7 +104,7 @@ for (const fixture of validDocuments) {
   }
   try {
     validateManifestSemantics(fixture.document, reference, registry);
-    validateArtifactRecords(fixture.document, fixture.path);
+    validateArtifactRecords(fixture.document, fixture.path, root);
   } catch (error) {
     recordFailure(`${fixture.path}: ${error.message}`);
   }
