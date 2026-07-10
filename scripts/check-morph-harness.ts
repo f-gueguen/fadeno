@@ -48,14 +48,14 @@ function expectHarnessError(name, code, action) {
   }
 }
 
-function createTraceZip() {
-  const entries = [
+function createTraceZip(): Buffer {
+  const entries: Array<readonly [string, Buffer]> = [
     ["test.trace", Buffer.from("{}\n")],
     ["0-trace.trace", Buffer.from("{}\n")],
     ["0-trace.network", Buffer.alloc(0)],
   ];
-  const localRecords = [];
-  const centralRecords = [];
+  const localRecords: Buffer[] = [];
+  const centralRecords: Buffer[] = [];
   let localOffset = 0;
   for (const [entryName, data] of entries) {
     const name = Buffer.from(entryName);
