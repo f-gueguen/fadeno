@@ -197,9 +197,12 @@ function assertStructuralOperation(record: QualificationRecord, label: string): 
   const beforeSet = new Set(before);
   const afterSet = new Set(after);
   if (
+    before.length === 0 ||
+    after.length === 0 ||
     before.length !== beforeSet.size ||
     after.length !== afterSet.size ||
-    before[0] !== record.before.order[0]
+    before.some((identity) => identity.length === 0) ||
+    after.some((identity) => identity.length === 0)
   ) {
     fail("FADENO_MORPH_QUALIFICATION_OPERATION", `${label}: structural identities are invalid`);
   }

@@ -80,7 +80,7 @@ jobs:
             --volume "$GITHUB_WORKSPACE:/work" \
             --workdir /work \
             "$image" \
-            /bin/bash -c 'set -euo pipefail; git config --global --add safe.directory /work; mkdir -p /tmp/corepack; corepack enable --install-directory /tmp/corepack; export PATH="/tmp/corepack:$PATH"; pnpm install --frozen-lockfile; pnpm experiment:morph -- --verify-harness; cp -R output/playwright/morph output/playwright/morph-harness; pnpm experiment:morph -- --fixture intentional-replacement; pnpm experiment:morph -- --ci'
+            /bin/bash -c 'set -euo pipefail; git config --global --add safe.directory /work; mkdir -p /tmp/corepack /tmp/pnpm-store; corepack enable --install-directory /tmp/corepack; export PATH="/tmp/corepack:$PATH"; pnpm install --frozen-lockfile --store-dir /tmp/pnpm-store; pnpm experiment:morph -- --verify-harness; cp -R output/playwright/morph output/playwright/morph-harness; pnpm experiment:morph -- --fixture intentional-replacement; pnpm experiment:morph -- --ci'
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
@@ -145,7 +145,7 @@ jobs:
             --volume "$GITHUB_WORKSPACE:/work" \
             --workdir /work \
             "$image" \
-            /bin/bash -c 'set -euo pipefail; git config --global --add safe.directory /work; mkdir -p /tmp/corepack; corepack enable --install-directory /tmp/corepack; export PATH="/tmp/corepack:$PATH"; pnpm install --frozen-lockfile; pnpm experiment:morph -- --qualify'
+            /bin/bash -c 'set -euo pipefail; git config --global --add safe.directory /work; mkdir -p /tmp/corepack /tmp/pnpm-store; corepack enable --install-directory /tmp/corepack; export PATH="/tmp/corepack:$PATH"; pnpm install --frozen-lockfile --store-dir /tmp/pnpm-store; pnpm experiment:morph -- --qualify'
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()

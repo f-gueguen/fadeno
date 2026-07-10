@@ -314,6 +314,17 @@ const recordMutations: ReadonlyArray<Readonly<{
     },
   },
   {
+    name: "empty structural order",
+    code: "FADENO_MORPH_QUALIFICATION_OPERATION",
+    mutate: (records) => {
+      const index = records.findIndex(
+        (record) => mutableRecord([record]).state === "intentional-replacement",
+      );
+      mutableChild(mutableRecord(records, index), "before").order = [];
+      mutableChild(mutableRecord(records, index), "after").order = [];
+    },
+  },
+  {
     name: "file object replaced",
     code: "FADENO_MORPH_QUALIFICATION_FILE",
     mutate: (records) => {
