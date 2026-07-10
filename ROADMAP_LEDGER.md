@@ -22,7 +22,11 @@ K0-03 — Private structural HTML-update candidate
 
 ## In progress
 
-- K0-03 entry preparation; no structural update candidate has been implemented.
+- K0-03 entry contract passed a fresh adversarial review. The candidate will
+  prevalidate one explicit root, exact unique direct-child identities, and the
+  declared replacement subset before any DOM write. Its three-engine control
+  must prove reuse and replacement in the same patch. No candidate has been
+  implemented yet.
 
 ## Blockers
 
@@ -30,8 +34,6 @@ K0-03 — Private structural HTML-update candidate
 
 ## Open questions
 
-- K0-03: the smallest private patch input and identity rule that can exercise
-  intentional replacement without pre-committing the K0-04 result.
 - DG-A0-01: public package names after registry ownership is secured.
 
 ## Completed slices
