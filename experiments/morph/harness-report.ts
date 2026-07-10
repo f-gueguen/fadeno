@@ -296,6 +296,7 @@ function verifyTraceZip(path: string, bytes: number): string {
     }
     const decodedEntries = new Map<string, Buffer>();
     const orderedEntries = [...entries.values()].sort((left, right) => left.localOffset - right.localOffset);
+    let totalDecodedBytes = 0;
     for (const [index, entry] of orderedEntries.entries()) {
       const local = readExactly(descriptor, 30, entry.localOffset);
       const localNameLength = local.readUInt16LE(26);
@@ -329,6 +330,10 @@ function verifyTraceZip(path: string, bytes: number): string {
         (crc32(decoded) >>> 0) !== entry.checksum
       ) {
         fail("FADENO_MORPH_ATTACHMENT_FORMAT", `trace: ${entry.name} CRC or size differs`);
+      }
+      totalDecodedBytes += decoded.byteLength;
+      if (totalDecodedBytes > MAX_ATTACHMENT_BYTES) {
+        fail("FADENO_MORPH_ATTACHMENT_FORMAT", "trace: cumulative expansion exceeds limit");
       }
       let recordEnd = dataEnd;
       if ((entry.flags & 0x08) !== 0) {
