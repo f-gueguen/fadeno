@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { MorphHarnessError } from "./harness-report.ts";
+import { verifyAcceptedQualificationFailure } from "./qualification-decision.ts";
 import { runMorphPreflight } from "./preflight.ts";
 import { verifyQualificationReport } from "./qualification-report.ts";
 import { publishQualificationEvidence } from "./qualification-result.ts";
@@ -156,9 +157,7 @@ export async function executeMorphQualification(
     console.log(`morph qualification manifest published (${published.manifestPath})`);
   }
   if (outcome.status === "failed") {
-    throw new MorphHarnessError(
-      "FADENO_MORPH_HYPOTHESIS_FAILED",
-      "qualification evidence was published, but no accepted decision signature authorizes this failure outcome",
-    );
+    verifyAcceptedQualificationFailure(root, outcome, profile);
+    console.log("morph qualification failure matches the accepted narrow decision signature");
   }
 }

@@ -16,6 +16,12 @@ import { MORPH_PROJECTS } from "../experiments/morph/contract.ts";
 import type { MorphProject } from "../experiments/morph/contract.ts";
 import { MorphHarnessError } from "../experiments/morph/harness-report.ts";
 import {
+  verifyQualificationDecisionSignature,
+} from "../experiments/morph/qualification-decision.ts";
+import type {
+  QualificationDecisionSignature,
+} from "../experiments/morph/qualification-decision.ts";
+import {
   MORPH_QUALIFICATION_CASES,
 } from "../experiments/morph/fixtures/qualification-corpus.ts";
 import type { QualificationState } from "../experiments/morph/fixtures/qualification-corpus.ts";
@@ -31,6 +37,10 @@ import type {
   QualificationSnapshot,
 } from "../experiments/morph/qualification-proof.ts";
 import { verifyQualificationReport } from "../experiments/morph/qualification-report.ts";
+import type {
+  QualificationFailedEvidence,
+  QualificationReportOutcome,
+} from "../experiments/morph/qualification-report.ts";
 import { assertCleanMorphSource } from "../experiments/morph/qualification-runner.ts";
 import {
   createMorphQualificationScenario,
@@ -255,6 +265,80 @@ expectQualificationError("duplicate failed cell", "FADENO_MORPH_QUALIFICATION_MA
 });
 expectQualificationError("reordered passed outcome", "FADENO_MORPH_QUALIFICATION_MATRIX", () => {
   verifyQualificationOutcome([...failedMatrixRecords].reverse(), failedMatrix, "ci", "chromium");
+});
+
+function syntheticFailedEvidence(engine: MorphProject): QualificationFailedEvidence {
+  const all = syntheticRecords(engine);
+  const failed: QualificationFailureEvidence[] = all
+    .filter((record) => record.state === "document-scroll" || record.state === "element-scroll")
+    .map((record) => {
+      const observation = structuredClone(record) as QualificationRecord;
+      if (observation.state === "document-scroll") {
+        (observation.after.state as { y: number }).y = 380;
+        (observation.instrumentation.events as string[]).push("window-scroll");
+      } else {
+        (observation.after.state as { top: number }).top = 140;
+        (observation.instrumentation.events as string[]).push("scroll");
+      }
+      return {
+        operation: {
+          profile: observation.profile,
+          engine,
+          caseId: observation.caseId,
+          state: observation.state,
+          operation: observation.operation,
+          ordinal: observation.ordinal,
+          failure: "synthetic scroll failure",
+        },
+        observation,
+      };
+    });
+  const failureKeys = new Set(failed.map((item) => item.observation.key));
+  const passed = all.filter((record) => !failureKeys.has(record.key));
+  return {
+    engine,
+    recordsPath: `${engine}-records.json`,
+    failuresPath: `${engine}-failures.json`,
+    summaryPath: `${engine}-summary.json`,
+    screenshotPath: `${engine}.png`,
+    tracePath: `${engine}.zip`,
+    errorContextPath: `${engine}.md`,
+    summary: verifyQualificationOutcome(passed, failed, "ci", engine),
+  };
+}
+
+const decisionSignature: QualificationDecisionSignature = {
+  schemaVersion: 1,
+  decision: "narrow",
+  adr: "docs/adr/0014-narrow-structural-preservation.md",
+  failureCases: [
+    {
+      caseId: "document-scroll-reorder",
+      categories: ["scroll-position", "scroll-event"],
+    },
+    {
+      caseId: "element-scroll-insert",
+      categories: ["scroll-position", "scroll-event"],
+    },
+  ],
+};
+const decisionOutcome: QualificationReportOutcome = {
+  status: "failed",
+  passed: [],
+  failed: MORPH_PROJECTS.map(syntheticFailedEvidence),
+};
+verifyQualificationDecisionSignature(decisionSignature, decisionOutcome, "ci");
+expectHarnessError("unexpected accepted failure category", "FADENO_MORPH_DECISION_SIGNATURE", () => {
+  verifyQualificationDecisionSignature(
+    {
+      ...decisionSignature,
+      failureCases: decisionSignature.failureCases.map((entry, index) =>
+        index === 0 ? { ...entry, categories: [...entry.categories, "other"] } : entry
+      ),
+    },
+    decisionOutcome,
+    "ci",
+  );
 });
 for (const [name, mutation] of [
   ["mismatched failure case", { caseId: "other-case" }],
