@@ -6,23 +6,30 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-03 — Private structural HTML-update candidate
+K0-04 — H1 browser-state-preservation qualification
 
 ## Exit criteria
 
-- [ ] One private structural HTML-update candidate consumes a minimal patch
-  input without creating a public API or export.
-- [ ] Structural identity is explicit enough for the K0-02 passing control and
-  later preservation fixtures to distinguish reuse from replacement.
-- [ ] `pnpm experiment:morph -- --fixture intentional-replacement` executes a
-  reviewed control that proves declared replacement remains possible.
-- [ ] Candidate input, structural identity, and intentional replacement remain
-  private to `experiments/morph/`.
-- [ ] `pnpm check` passes from a frozen install.
+- [ ] The reviewed corpus covers focus/selection/caret, dirty controls,
+  disclosure/dialog/popover, media, document/element scroll, structural
+  insert/remove/reorder, and intentional replacement.
+- [ ] Chromium, Firefox, and WebKit execute every fixture for 20 CI repetitions
+  and 100 qualification repetitions without retrying failures.
+- [ ] There are zero undeclared state-loss, focus-transfer, runtime-error, or
+  unhandled-promise failures; intentional replacement occurs in every declared
+  control.
+- [ ] Failure evidence names the structural operation and exact before/after
+  state through the checked portable artifact contract.
+- [ ] Immutable raw manifests support an effective go, narrow, or pivot ADR and
+  update H1, PATCH-01 traceability, specifications, risks, and support claims
+  without creating a public patch protocol.
+- [ ] `pnpm install --frozen-lockfile`, `pnpm check`, and
+  `pnpm experiment:morph -- --qualify` pass on the required environments.
 
 ## In progress
 
-- K0-03 entry preparation; no structural update candidate has been implemented.
+- K0-04 entry preparation only. No qualification corpus, repeated result,
+  immutable manifest, or H1 decision ADR has been implemented.
 
 ## Blockers
 
@@ -30,8 +37,12 @@ K0-03 — Private structural HTML-update candidate
 
 ## Open questions
 
-- K0-03: the smallest private patch input and identity rule that can exercise
-  intentional replacement without pre-committing the K0-04 result.
+- K0-04: before adding the full preservation corpus, reassess whether
+  scenario-specific evidence policy should split from the stable artifact/trace
+  verifier and its mutation checker; K0-03 keeps their two-key independence.
+- K0-04: measure the one-shot candidate's document-wide identity scan under the
+  repeated corpus before introducing a cached index or retained root handle;
+  K0-03 avoids stale lifecycle state while enforcing ambiguity refusal.
 - DG-A0-01: public package names after registry ownership is secured.
 
 ## Completed slices
@@ -49,3 +60,8 @@ K0-03 — Private structural HTML-update candidate
   the digest-qualified reference job verifies browser identity and retains
   trace, screenshot, operation, and before/after evidence without introducing
   a morph candidate or qualification result.
+- K0-03 — One private strict-TypeScript candidate prevalidates a bounded
+  structural input before DOM writes, proves exact root/input reuse and declared
+  peer replacement in Chromium, Firefox, and WebKit, refuses ambiguous or
+  unsupported input without partial mutation, and retains independent K0-02 and
+  K0-03 reference evidence without resolving H1 or DG-V2-01.

@@ -50,23 +50,22 @@ function runChild(fixtureId: string, directory: string): ChildRun {
 function verifyChild(
   child: ChildRun,
   fixture: MorphFixture,
-  expectedStatus: "passed" | "failed",
-  expectedExit: number,
 ): void {
-  if (child.status !== expectedExit) {
+  if (child.status !== fixture.expectedExitCode) {
     throw new MorphHarnessError(
       "FADENO_MORPH_CHILD_EXIT",
-      `${fixture.id}: expected exit ${expectedExit}, received ${child.status}`,
+      `${fixture.id}: expected exit ${fixture.expectedExitCode}, received ${child.status}`,
     );
   }
   verifyHarnessReport(child.reportPath, {
     fixture,
-    expected: expectedStatus,
     outputRoot: child.childOutput,
   });
 }
 
-export async function executeMorphHarness(mode: "default" | "verify"): Promise<void> {
+export async function executeMorphHarness(
+  mode: "default" | "verify" | "intentional-replacement",
+): Promise<void> {
   const outputRoot = join(root, "output/playwright/morph");
   rmSync(outputRoot, { recursive: true, force: true });
   mkdirSync(outputRoot, { recursive: true });
@@ -102,21 +101,27 @@ export async function executeMorphHarness(mode: "default" | "verify"): Promise<v
     preflightName: string,
     fixtureId: string,
     directoryName: string,
-    expectedStatus: "passed" | "failed",
-    expectedExit: number,
   ): Promise<void> => {
     await runAndRecordPreflight(preflightName);
     const fixture = getMorphFixture(fixtureId);
     const child = runChild(fixture.id, join(outputRoot, directoryName));
-    verifyChild(child, fixture, expectedStatus, expectedExit);
+    verifyChild(child, fixture);
   };
+
+  if (mode === "intentional-replacement") {
+    await runBatch(
+      "preflight-intentional-replacement",
+      "intentional-replacement",
+      "intentional-replacement",
+    );
+    console.log("private morph candidate passed (3 engines, reuse and declared replacement)");
+    return;
+  }
 
   await runBatch(
     "preflight",
     "seeded-preservation-control",
     "passing-control",
-    "passed",
-    0,
   );
 
   if (mode === "default") {
@@ -128,8 +133,6 @@ export async function executeMorphHarness(mode: "default" | "verify"): Promise<v
     "preflight-seeded-failure",
     "seeded-undeclared-state-loss",
     "seeded-failure",
-    "failed",
-    1,
   );
   console.log("morph harness integrity verified (3 passes, 3 intended failures)");
 }

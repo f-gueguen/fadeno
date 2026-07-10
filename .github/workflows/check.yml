@@ -78,12 +78,14 @@ jobs:
             --volume "$GITHUB_WORKSPACE:/work" \
             --workdir /work \
             "$image" \
-            /bin/bash -c 'set -euo pipefail; mkdir -p /tmp/corepack; corepack enable --install-directory /tmp/corepack; export PATH="/tmp/corepack:$PATH"; pnpm install --frozen-lockfile; pnpm experiment:morph -- --verify-harness'
+            /bin/bash -c 'set -euo pipefail; mkdir -p /tmp/corepack; corepack enable --install-directory /tmp/corepack; export PATH="/tmp/corepack:$PATH"; pnpm install --frozen-lockfile; pnpm experiment:morph -- --verify-harness; cp -R output/playwright/morph output/playwright/morph-harness; pnpm experiment:morph -- --fixture intentional-replacement'
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: morph-harness-evidence
-          path: output/playwright/morph
+          path: |
+            output/playwright/morph
+            output/playwright/morph-harness
           if-no-files-found: error
           retention-days: 14

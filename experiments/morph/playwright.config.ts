@@ -7,10 +7,11 @@ import { MORPH_PROJECTS } from "./contract.ts";
 const root = dirname(fileURLToPath(import.meta.url));
 const outputRoot =
   process.env.FADENO_MORPH_CHILD_OUTPUT ?? join(root, "../../output/playwright/morph/child");
+const fixtureId = process.env.FADENO_MORPH_FIXTURE ?? "seeded-preservation-control";
 
 export default defineConfig({
   testDir: join(root, "tests"),
-  testMatch: "harness.spec.ts",
+  testMatch: fixtureId === "intentional-replacement" ? "candidate.spec.ts" : "harness.spec.ts",
   fullyParallel: false,
   workers: 1,
   retries: 0,

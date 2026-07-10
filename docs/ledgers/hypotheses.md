@@ -16,7 +16,9 @@ quantitative thresholds, artifacts, and atomic delivery slices.
   action-driven updates; intentional replacement is separately testable.
 - Pivot: if structural HTML updates cannot meet the corpus reliably, narrow the
   update model before building actions and live data on it.
-- Status: Not started.
+- Status: In progress.
+- Current evidence: the private K0-03 candidate is implemented; K0-04
+  qualification has not started.
 
 ## H2 — Bounded interaction extraction
 

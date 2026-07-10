@@ -1,24 +1,21 @@
-import { writeFileSync } from "node:fs";
-
 import { expect, test } from "@playwright/test";
-import type { Page, TestInfo } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import { getMorphFixture } from "../fixtures/catalog.ts";
+import { attachJson } from "./evidence.ts";
 
-const fixture = getMorphFixture(
+const selectedFixture = getMorphFixture(
   process.env.FADENO_MORPH_FIXTURE ?? "seeded-preservation-control",
 );
+if (selectedFixture.kind === "candidate-control") {
+  throw new Error(`FADENO_MORPH_HARNESS_SPEC_MISMATCH: ${selectedFixture.id}`);
+}
+const fixture = selectedFixture;
 
 declare global {
   interface Window {
     __fadenoOriginalTarget: HTMLInputElement;
   }
-}
-
-async function attachJson(testInfo: TestInfo, name: string, value: unknown): Promise<void> {
-  const path = testInfo.outputPath(`${name}.json`);
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
-  await testInfo.attach(name, { path, contentType: "application/json" });
 }
 
 async function captureState(page: Page) {
@@ -41,6 +38,8 @@ test(fixture.id, async ({ page }, testInfo) => {
   const engine = page.context().browser()?.browserType().name();
   if (!engine) throw new Error("FADENO_MORPH_BROWSER_IDENTITY_MISSING");
   const blockedRequests: string[] = [];
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route(/^https?:\/\//u, async (route) => {
     blockedRequests.push(route.request().url());
     await route.abort("blockedbyclient");
@@ -84,7 +83,8 @@ test(fixture.id, async ({ page }, testInfo) => {
       return {
         kind: operationName,
         completed: true,
-        replacementCompleted: !original.isConnected && document.querySelector("#target") === replacement,
+        replacementCompleted:
+          !original.isConnected && document.querySelector("#target") === replacement,
         targetIdentityChanged: replacement !== original,
         stateLossObserved:
           document.activeElement !== replacement || replacement.value !== "dirty-client-value",
@@ -98,6 +98,7 @@ test(fixture.id, async ({ page }, testInfo) => {
   await attachJson(testInfo, "before-after", { fixture: fixture.id, engine, before, after });
 
   expect(blockedRequests, "FADENO_MORPH_EXTERNAL_REQUEST").toEqual([]);
+  expect(pageErrors, "FADENO_MORPH_RUNTIME_ERROR").toEqual([]);
   expect(operation.completed, "FADENO_MORPH_OPERATION_NOT_OBSERVED").toBe(true);
   if (fixture.kind === "passing-control") {
     expect(operation.siblingInserted, "FADENO_MORPH_INSERTION_NOT_OBSERVED").toBe(true);

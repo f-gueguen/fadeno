@@ -35,6 +35,18 @@ const goldenInventory = readFileSync(
   "utf8",
 );
 const runnerSource = readFileSync(join(root, "experiments/morph/harness-runner.ts"), "utf8");
+const harnessSpecSource = readFileSync(
+  join(root, "experiments/morph/tests/harness.spec.ts"),
+  "utf8",
+);
+const candidateSpecSource = readFileSync(
+  join(root, "experiments/morph/tests/candidate.spec.ts"),
+  "utf8",
+);
+const playwrightConfigSource = readFileSync(
+  join(root, "experiments/morph/playwright.config.ts"),
+  "utf8",
+);
 
 type ReportAttachment = {
   name: string;
@@ -225,6 +237,19 @@ if (
 ) {
   recordFailure("morph runner: output cleanup root must remain repository-controlled");
 }
+if (harnessSpecSource.includes("candidate.ts")) {
+  recordFailure("K0-02 harness controls must not import the K0-03 candidate");
+}
+if (!candidateSpecSource.includes('from "../candidate.ts"')) {
+  recordFailure("K0-03 candidate spec must import the private candidate directly");
+}
+if (
+  !playwrightConfigSource.includes(
+    'fixtureId === "intentional-replacement" ? "candidate.spec.ts" : "harness.spec.ts"',
+  )
+) {
+  recordFailure("Playwright config must isolate K0-02 and K0-03 specs by fixture");
+}
 for (const file of readdirSync(join(root, "experiments/morph/results"))) {
   if (file !== "README.md") recordFailure(`experiments/morph/results: unexpected ${file}`);
 }
@@ -252,18 +277,32 @@ try {
   ) {
     recordFailure(`morph --list contract failed: ${JSON.stringify(result)}`);
   }
-  const unsupported = spawnSync(
-    process.execPath,
-    ["--no-warnings", "--experimental-strip-types", join(root, "experiments/morph/run.ts"), "--list", "--verify-harness"],
-    { cwd: root, encoding: "utf8" },
-  );
-  if (
-    unsupported.status !== 64 ||
-    unsupported.stdout !== "" ||
-    unsupported.stderr !==
-      "FADENO_MORPH_USAGE: unsupported arguments: --list --verify-harness\n"
-  ) {
-    recordFailure(`morph usage contract failed: ${JSON.stringify(unsupported)}`);
+  for (const unsupportedArguments of [
+    ["--list", "--verify-harness"],
+    ["--"],
+    ["--fixture"],
+    ["--fixture", "unknown"],
+    ["--fixture", "intentional-replacement", "extra"],
+    ["--fixture", "intentional-replacement", "--fixture", "intentional-replacement"],
+  ]) {
+    const unsupported = spawnSync(
+      process.execPath,
+      [
+        "--no-warnings",
+        "--experimental-strip-types",
+        join(root, "experiments/morph/run.ts"),
+        ...unsupportedArguments,
+      ],
+      { cwd: root, encoding: "utf8" },
+    );
+    if (
+      unsupported.status !== 64 ||
+      unsupported.stdout !== "" ||
+      unsupported.stderr !==
+        `FADENO_MORPH_USAGE: unsupported arguments: ${unsupportedArguments.join(" ")}\n`
+    ) {
+      recordFailure(`morph usage contract failed: ${JSON.stringify(unsupported)}`);
+    }
   }
 } finally {
   rmSync(commandRoot, { recursive: true, force: true });
@@ -422,14 +461,13 @@ try {
       `${JSON.stringify({ schemaVersion: 1, status, results: value }, null, 2)}\n`,
     );
   writeReport(results);
-  verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   const portableRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-portable-"));
   try {
     const copiedEvidence = join(portableRoot, "evidence");
     cpSync(reportRoot, copiedEvidence, { recursive: true });
     verifyHarnessReport(join(copiedEvidence, "report.json"), {
       fixture,
-      expected: "failed",
       outputRoot: copiedEvidence,
     });
   } finally {
@@ -438,15 +476,15 @@ try {
 
   writeReport(results.slice(0, 2));
   expectHarnessError("missing project", "FADENO_MORPH_EXECUTION_COUNT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeReport(results.map((result, index) => (index === 0 ? { ...result, status: "passed" } : result)));
   expectHarnessError("removed assertion", "FADENO_MORPH_STATUS", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeReport(results.map((result, index) => (index === 0 ? { ...result, errors: [] } : result)));
   expectHarnessError("wrong failure", "FADENO_MORPH_DIAGNOSTIC", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeReport(
     results.map((result, index) =>
@@ -456,7 +494,7 @@ try {
     ),
   );
   expectHarnessError("fabricated diagnostic token", "FADENO_MORPH_DIAGNOSTIC", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
 
   const firstOperationForKind = requireAttachment(requireResult(results, 0), "operation");
@@ -466,7 +504,7 @@ try {
   firstOperationForKind.bytes = readFileSync(attachmentFile(reportRoot, firstOperationForKind)).byteLength;
   writeReport(results);
   expectHarnessError("wrong operation kind", "FADENO_MORPH_OPERATION_PROOF", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   wrongKindOperation.kind = fixture.operation;
   writeFileSync(attachmentFile(reportRoot, firstOperationForKind), `${JSON.stringify(wrongKindOperation)}\n`);
@@ -476,7 +514,7 @@ try {
   firstOperationForKind.bytes = readFileSync(attachmentFile(reportRoot, firstOperationForKind)).byteLength;
   writeReport(results);
   expectHarnessError("truthy operation flags", "FADENO_MORPH_OPERATION_PROOF", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   wrongKindOperation.completed = true;
   writeFileSync(attachmentFile(reportRoot, firstOperationForKind), `${JSON.stringify(wrongKindOperation)}\n`);
@@ -489,7 +527,7 @@ try {
     ),
   );
   expectHarnessError("missing trace", "FADENO_MORPH_ATTACHMENT_SET", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
 
   writeReport(
@@ -508,7 +546,7 @@ try {
     "wrong attachment content type",
     "FADENO_MORPH_ATTACHMENT_CONTENT_TYPE",
     () => {
-      verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+      verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
     },
   );
 
@@ -517,7 +555,7 @@ try {
   firstTrace.bytes = 5;
   writeReport(results);
   expectHarnessError("wrong attachment format", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   const chromiumTraceZip = syntheticTraces.get("chromium");
   if (!chromiumTraceZip) throw new Error("synthetic Chromium trace missing");
@@ -533,7 +571,7 @@ try {
   firstTrace.bytes = fabricatedTraceZip.length;
   writeReport(results);
   expectHarnessError("fabricated minimal trace", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeFileSync(attachmentFile(reportRoot, firstTrace), chromiumTraceZip);
   firstTrace.bytes = chromiumTraceZip.length;
@@ -545,13 +583,13 @@ try {
   writeFileSync(attachmentFile(reportRoot, firstTrace), corruptTraceZip);
   writeReport(results);
   expectHarnessError("corrupt trace payload", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeFileSync(attachmentFile(reportRoot, firstTrace), chromiumTraceZip);
 
   writeReport(results.map((result, index) => (index === 1 ? { ...result, project: "chromium" } : result)));
   expectHarnessError("duplicate project", "FADENO_MORPH_PROJECT_SET", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
 
   const firstOperation = requireAttachment(requireResult(results, 0), "operation");
@@ -569,7 +607,7 @@ try {
     ),
   );
   expectHarnessError("duplicate artifact", "FADENO_MORPH_ATTACHMENT_DUPLICATE", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
 
   const firefoxTrace = requireAttachment(requireResult(results, 1), "trace");
@@ -579,7 +617,7 @@ try {
   firefoxTrace.bytes = firstTrace.bytes;
   writeReport(results);
   expectHarnessError("relabeled browser trace", "FADENO_MORPH_TRACE_PROJECT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeFileSync(firefoxTracePath, firefoxTraceBytes);
   firefoxTrace.bytes = firefoxTraceBytes.length;
@@ -593,7 +631,7 @@ try {
     ),
   })));
   expectHarnessError("empty artifact", "FADENO_MORPH_ATTACHMENT_SIZE", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
   firstScreenshot.bytes = validPng.length;
@@ -607,7 +645,7 @@ try {
   firstScreenshot.bytes = unknownCriticalPng.length;
   writeReport(results);
   expectHarnessError("unknown critical PNG chunk", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
   firstScreenshot.bytes = validPng.length;
@@ -619,7 +657,7 @@ try {
   firefoxScreenshot.bytes = firstScreenshot.bytes;
   writeReport(results);
   expectHarnessError("relabeled browser screenshot", "FADENO_MORPH_TRACE_ATTACHMENT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeFileSync(firefoxScreenshotPath, firefoxScreenshotBytes);
   firefoxScreenshot.bytes = firefoxScreenshotBytes.length;
@@ -630,7 +668,7 @@ try {
   writeFileSync(attachmentFile(reportRoot, firstScreenshot), corruptPng);
   writeReport(results);
   expectHarnessError("corrupt PNG payload", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
 
@@ -638,7 +676,7 @@ try {
   firstScreenshot.bytes = 8;
   writeReport(results);
   expectHarnessError("truncated PNG", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
   writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
   firstScreenshot.bytes = validPng.length;
@@ -649,7 +687,7 @@ try {
   firstOperation.bytes = readFileSync(attachmentFile(reportRoot, firstOperation)).byteLength;
   writeReport(results);
   expectHarnessError("no-op replacement", "FADENO_MORPH_OPERATION_PROOF", () => {
-    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    verifyHarnessReport(reportPath, { fixture, outputRoot: reportRoot });
   });
 
   const passingFixture = getMorphFixture("seeded-preservation-control");
@@ -696,7 +734,6 @@ try {
   writeReport(passingResults, "passed");
   verifyHarnessReport(reportPath, {
     fixture: passingFixture,
-    expected: "passed",
     outputRoot: reportRoot,
   });
   const passingOperation = requireAttachment(requireResult(passingResults, 0), "operation");
@@ -708,7 +745,6 @@ try {
   expectHarnessError("no-op insertion", "FADENO_MORPH_OPERATION_PROOF", () => {
     verifyHarnessReport(reportPath, {
       fixture: passingFixture,
-      expected: "passed",
       outputRoot: reportRoot,
     });
   });
@@ -734,7 +770,140 @@ try {
   expectHarnessError("incomplete state proof", "FADENO_MORPH_STATE_PROOF", () => {
     verifyHarnessReport(reportPath, {
       fixture: passingFixture,
-      expected: "passed",
+      outputRoot: reportRoot,
+    });
+  });
+
+  const candidateFixture = getMorphFixture("intentional-replacement");
+  const candidateBefore = {
+    root: {
+      nodeIdentity: "original",
+      class: "before",
+    },
+    target: {
+      nodeIdentity: "original",
+      state: {
+        value: "dirty-client-value",
+        focused: true,
+        selectionStart: 2,
+        selectionEnd: 8,
+      },
+      server: {
+        valueAttribute: "server-before",
+        ariaLabel: "Control before",
+      },
+    },
+    replacement: {
+      nodeIdentity: "original",
+      originalConnected: true,
+      text: "before",
+    },
+  };
+  const candidateAfter = {
+    root: {
+      nodeIdentity: "original",
+      class: "after",
+    },
+    target: {
+      nodeIdentity: "original",
+      state: {
+        value: "dirty-client-value",
+        focused: true,
+        selectionStart: 2,
+        selectionEnd: 8,
+      },
+      server: {
+        valueAttribute: "server-after",
+        ariaLabel: "Control after",
+      },
+    },
+    replacement: {
+      nodeIdentity: "replacement",
+      originalConnected: false,
+      text: "after",
+    },
+  };
+  const candidateResults: ReportResult[] = passingResults.map((result): ReportResult => {
+    const operationAttachment = requireAttachment(result, "operation");
+    const stateAttachment = requireAttachment(result, "before-after");
+    writeFileSync(
+      attachmentFile(reportRoot, operationAttachment),
+      `${JSON.stringify({
+        fixture: candidateFixture.id,
+        engine: result.project,
+        kind: candidateFixture.operation,
+        completed: true,
+        rootIdentity: "root",
+        reusedIdentities: ["root", "target"],
+        replacedIdentities: ["status"],
+        preservedRootIdentity: true,
+        preservedTargetIdentity: true,
+        replacedTargetIdentity: true,
+        originalReplacementDisconnected: true,
+        dirtyStatePreserved: true,
+        serverOwnedContentUpdated: true,
+      })}\n`,
+    );
+    writeFileSync(
+      attachmentFile(reportRoot, stateAttachment),
+      `${JSON.stringify({
+        fixture: candidateFixture.id,
+        engine: result.project,
+        before: candidateBefore,
+        after: candidateAfter,
+      })}\n`,
+    );
+    return {
+      ...result,
+      title: candidateFixture.id,
+      attachments: result.attachments.map((item) => ({
+        ...item,
+        bytes: readFileSync(attachmentFile(reportRoot, item)).byteLength,
+      })),
+    };
+  });
+  writeReport(candidateResults, "passed");
+  verifyHarnessReport(reportPath, {
+    fixture: candidateFixture,
+    outputRoot: reportRoot,
+  });
+
+  const candidateOperation = requireAttachment(requireResult(candidateResults, 0), "operation");
+  const missingReuse = readJsonDocument(attachmentFile(reportRoot, candidateOperation));
+  missingReuse.reusedIdentities = ["root"];
+  writeFileSync(attachmentFile(reportRoot, candidateOperation), `${JSON.stringify(missingReuse)}\n`);
+  candidateOperation.bytes = readFileSync(attachmentFile(reportRoot, candidateOperation)).byteLength;
+  writeReport(candidateResults, "passed");
+  expectHarnessError("missing candidate reuse", "FADENO_MORPH_OPERATION_PROOF", () => {
+    verifyHarnessReport(reportPath, {
+      fixture: candidateFixture,
+      outputRoot: reportRoot,
+    });
+  });
+  missingReuse.reusedIdentities = ["root", "target"];
+  writeFileSync(attachmentFile(reportRoot, candidateOperation), `${JSON.stringify(missingReuse)}\n`);
+  candidateOperation.bytes = readFileSync(attachmentFile(reportRoot, candidateOperation)).byteLength;
+
+  const candidateState = requireAttachment(requireResult(candidateResults, 1), "before-after");
+  const falsePreservation = readJsonDocument(attachmentFile(reportRoot, candidateState));
+  falsePreservation.after.target.nodeIdentity = "replacement";
+  writeFileSync(attachmentFile(reportRoot, candidateState), `${JSON.stringify(falsePreservation)}\n`);
+  candidateState.bytes = readFileSync(attachmentFile(reportRoot, candidateState)).byteLength;
+  writeReport(candidateResults, "passed");
+  expectHarnessError("false candidate preservation", "FADENO_MORPH_STATE_PROOF", () => {
+    verifyHarnessReport(reportPath, {
+      fixture: candidateFixture,
+      outputRoot: reportRoot,
+    });
+  });
+  falsePreservation.after.target.nodeIdentity = "original";
+  falsePreservation.after.root.nodeIdentity = "replacement";
+  writeFileSync(attachmentFile(reportRoot, candidateState), `${JSON.stringify(falsePreservation)}\n`);
+  candidateState.bytes = readFileSync(attachmentFile(reportRoot, candidateState)).byteLength;
+  writeReport(candidateResults, "passed");
+  expectHarnessError("false candidate root reuse", "FADENO_MORPH_STATE_PROOF", () => {
+    verifyHarnessReport(reportPath, {
+      fixture: candidateFixture,
       outputRoot: reportRoot,
     });
   });
@@ -753,8 +922,12 @@ for (const required of [
   "--env FADENO_CONTAINER_PLATFORM_DIGEST=\"$container_platform_digest\"",
   "--env FADENO_CONTAINER_CONFIG_DIGEST=\"$container_config_digest\"",
   "pnpm experiment:morph -- --verify-harness",
+  "cp -R output/playwright/morph output/playwright/morph-harness",
+  "pnpm experiment:morph -- --fixture intentional-replacement",
   "if: always()",
   "output/playwright/morph",
+  "output/playwright/morph-harness",
+  "path: |\n            output/playwright/morph\n            output/playwright/morph-harness",
 ]) {
   if (!workflow.includes(required)) recordFailure(`workflow: missing ${required}`);
 }
@@ -764,4 +937,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (2 fixtures, 3 engines, 22 report mutations)");
+console.log("morph harness contract passed (3 fixtures, 3 engines, 25 report mutations)");

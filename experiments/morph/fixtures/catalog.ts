@@ -1,24 +1,56 @@
-export type MorphFixture = Readonly<{
+type MorphFixtureBase = Readonly<{
   id: string;
-  kind: "passing-control" | "seeded-failure";
-  operation: "insert-unrelated-sibling" | "replace-focused-control";
   description: string;
-  diagnostic?: string;
 }>;
+
+export type MorphFixture =
+  | (MorphFixtureBase & Readonly<{
+      kind: "passing-control";
+      operation: "insert-unrelated-sibling";
+      expectedStatus: "passed";
+      expectedExitCode: 0;
+      diagnostic?: never;
+    }>)
+  | (MorphFixtureBase & Readonly<{
+      kind: "seeded-failure";
+      operation: "replace-focused-control";
+      expectedStatus: "failed";
+      expectedExitCode: 1;
+      diagnostic: "FADENO_MORPH_STATE_LOSS";
+    }>)
+  | (MorphFixtureBase & Readonly<{
+      kind: "candidate-control";
+      operation: "apply-private-candidate";
+      expectedStatus: "passed";
+      expectedExitCode: 0;
+      diagnostic?: never;
+    }>);
 
 export const MORPH_FIXTURES: readonly MorphFixture[] = Object.freeze([
   Object.freeze({
     id: "seeded-preservation-control",
     kind: "passing-control",
     operation: "insert-unrelated-sibling",
+    expectedStatus: "passed",
+    expectedExitCode: 0,
     description: "Dirty focused input survives a proven unrelated sibling insertion.",
   }),
   Object.freeze({
     id: "seeded-undeclared-state-loss",
     kind: "seeded-failure",
     operation: "replace-focused-control",
+    expectedStatus: "failed",
+    expectedExitCode: 1,
     description: "Replacing a dirty focused input must be detected as undeclared state loss.",
     diagnostic: "FADENO_MORPH_STATE_LOSS",
+  }),
+  Object.freeze({
+    id: "intentional-replacement",
+    kind: "candidate-control",
+    operation: "apply-private-candidate",
+    expectedStatus: "passed",
+    expectedExitCode: 0,
+    description: "One private patch reuses the dirty focused input and replaces a declared peer.",
   }),
 ]);
 

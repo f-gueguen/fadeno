@@ -6,14 +6,26 @@
       "id": "seeded-preservation-control",
       "kind": "passing-control",
       "operation": "insert-unrelated-sibling",
+      "expectedStatus": "passed",
+      "expectedExitCode": 0,
       "description": "Dirty focused input survives a proven unrelated sibling insertion."
     },
     {
       "id": "seeded-undeclared-state-loss",
       "kind": "seeded-failure",
       "operation": "replace-focused-control",
+      "expectedStatus": "failed",
+      "expectedExitCode": 1,
       "description": "Replacing a dirty focused input must be detected as undeclared state loss.",
       "diagnostic": "FADENO_MORPH_STATE_LOSS"
+    },
+    {
+      "id": "intentional-replacement",
+      "kind": "candidate-control",
+      "operation": "apply-private-candidate",
+      "expectedStatus": "passed",
+      "expectedExitCode": 0,
+      "description": "One private patch reuses the dirty focused input and replaces a declared peer."
     }
   ]
 }
