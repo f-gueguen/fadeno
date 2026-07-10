@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import {
+  closeSync,
   lstatSync,
+  openSync,
+  readSync,
   readFileSync,
   realpathSync,
   statSync,
@@ -199,7 +202,18 @@ export function assertContainedArtifact(root, artifactPath) {
 }
 
 export function sha256File(path) {
-  return createHash("sha256").update(readFileSync(path)).digest("hex");
+  const hash = createHash("sha256");
+  const buffer = Buffer.allocUnsafe(64 * 1024);
+  const descriptor = openSync(path, "r");
+  try {
+    let bytesRead;
+    while ((bytesRead = readSync(descriptor, buffer, 0, buffer.length, null)) > 0) {
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+  } finally {
+    closeSync(descriptor);
+  }
+  return hash.digest("hex");
 }
 
 export function validateArtifactRecords(manifest, manifestPath) {
