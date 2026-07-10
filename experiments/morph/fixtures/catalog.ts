@@ -1,3 +1,5 @@
+import { morphQualificationCorpusDocument } from "./qualification-corpus.ts";
+
 type MorphFixtureBase = Readonly<{
   id: string;
   description: string;
@@ -66,6 +68,7 @@ export function stableMorphInventory() {
       schemaVersion: 1,
       experiment: "morph",
       fixtures: MORPH_FIXTURES,
+      qualification: morphQualificationCorpusDocument(),
     },
     null,
     2,

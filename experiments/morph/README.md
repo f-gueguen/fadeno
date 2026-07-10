@@ -21,6 +21,23 @@ runs use the central [contract](../contract/README.md),
 [reference environment](../reference-environment.json), and thresholds in the
 [K0 plan](../../docs/roadmap/k0.md).
 
+## K0-04 locked corpus boundary
+
+The typed K0-04 corpus and its checked JSON projection cover focused input,
+textarea, and contenteditable selection/caret; dirty text, checkbox, radio,
+select, and real file controls; disclosure, modal and non-modal dialog,
+popover, playing and paused local media, document and element scroll, mounted
+island identity, structural insertion/removal/reorder, and declared
+replacement. Each case is paired with one explicit private structural
+operation. The exact matrix is three engines by every case by ordinals 1–20 in
+CI and 1–100 in reference qualification, with no retries.
+
+This is structural-preservation evidence only. K0-04 does not label identical
+in-page calls as navigation or action evidence and does not claim native
+equivalence, history, request ordering, recovery, transport, protocol, browser
+support, or resolution of DG-V2-01. Those obligations remain open for later
+gates.
+
 ## K0-03 entry contract
 
 The candidate is a disposable private TypeScript module in this directory.

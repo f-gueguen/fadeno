@@ -18,6 +18,13 @@ import { createHash } from "node:crypto";
 
 import { getMorphFixture, stableMorphInventory } from "../experiments/morph/fixtures/catalog.ts";
 import {
+  MORPH_QUALIFICATION_CASES,
+  MORPH_QUALIFICATION_OPERATIONS,
+  MORPH_QUALIFICATION_PROFILES,
+  MORPH_QUALIFICATION_STATES,
+  stableMorphQualificationCorpus,
+} from "../experiments/morph/fixtures/qualification-corpus.ts";
+import {
   MorphHarnessError,
   verifyHarnessReport,
 } from "../experiments/morph/harness-report.ts";
@@ -32,6 +39,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const failures: string[] = [];
 const goldenInventory = readFileSync(
   join(root, "experiments/morph/fixtures/inventory.golden.json"),
+  "utf8",
+);
+const goldenQualificationCorpus = readFileSync(
+  join(root, "experiments/morph/fixtures/qualification-corpus.golden.json"),
   "utf8",
 );
 const runnerSource = readFileSync(join(root, "experiments/morph/harness-runner.ts"), "utf8");
@@ -230,6 +241,40 @@ if (
 }
 if (existsSync(join(root, "experiments/morph/package.json"))) {
   recordFailure("experiments/morph: package boundary is forbidden");
+}
+if (stableMorphQualificationCorpus() !== goldenQualificationCorpus) {
+  recordFailure("K0-04 qualification corpus differs from its checked JSON projection");
+}
+const qualificationCaseIds = MORPH_QUALIFICATION_CASES.map((fixture) => fixture.id);
+if (
+  new Set(qualificationCaseIds).size !== qualificationCaseIds.length ||
+  qualificationCaseIds.some((id) => !/^[a-z][a-z0-9-]*$/u.test(id))
+) {
+  recordFailure("K0-04 qualification case IDs must be unique stable identifiers");
+}
+if (
+  JSON.stringify(MORPH_QUALIFICATION_CASES.map((fixture) => fixture.state)) !==
+  JSON.stringify(MORPH_QUALIFICATION_STATES)
+) {
+  recordFailure("K0-04 qualification corpus must cover each locked state exactly once");
+}
+if (
+  JSON.stringify([...new Set(MORPH_QUALIFICATION_CASES.map((fixture) => fixture.operation))]) !==
+  JSON.stringify(MORPH_QUALIFICATION_OPERATIONS)
+) {
+  recordFailure("K0-04 qualification corpus structural operation set differs");
+}
+if (
+  JSON.stringify(MORPH_QUALIFICATION_PROFILES) !==
+    JSON.stringify([
+      { id: "ci", repetitions: 20 },
+      { id: "qualification", repetitions: 100 },
+    ]) ||
+  MORPH_QUALIFICATION_CASES.some(
+    (fixture) => fixture.targetIdentity.trim() === "" || fixture.description.trim() === "",
+  )
+) {
+  recordFailure("K0-04 qualification profile or case metadata differs");
 }
 if (
   runnerSource.includes("FADENO_MORPH_OUTPUT_ROOT") ||
@@ -937,4 +982,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (3 fixtures, 3 engines, 25 report mutations)");
+console.log(
+  `morph harness contract passed (3 controls, ${MORPH_QUALIFICATION_CASES.length} qualification cases, 3 engines, 25 report mutations)`,
+);
