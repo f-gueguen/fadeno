@@ -45,6 +45,10 @@ import { assertCleanMorphSource } from "../experiments/morph/qualification-runne
 import {
   createMorphQualificationScenario,
 } from "../experiments/morph/qualification-scenarios.ts";
+import {
+  createSyntheticPng,
+  createSyntheticTraceZip,
+} from "./lib/synthetic-browser-artifacts.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const failures: string[] = [];
@@ -268,7 +272,11 @@ expectQualificationError("reordered passed outcome", "FADENO_MORPH_QUALIFICATION
   verifyQualificationOutcome([...failedMatrixRecords].reverse(), failedMatrix, "ci", "chromium");
 });
 
-function syntheticFailedEvidence(engine: MorphProject): QualificationFailedEvidence {
+function syntheticFailedEvidence(engine: MorphProject): Readonly<{
+  evidence: QualificationFailedEvidence;
+  records: readonly QualificationRecord[];
+  failures: readonly QualificationFailureEvidence[];
+}> {
   const all = syntheticRecords(engine);
   const failed: QualificationFailureEvidence[] = all
     .filter((record) => record.state === "document-scroll" || record.state === "element-scroll")
@@ -297,14 +305,18 @@ function syntheticFailedEvidence(engine: MorphProject): QualificationFailedEvide
   const failureKeys = new Set(failed.map((item) => item.observation.key));
   const passed = all.filter((record) => !failureKeys.has(record.key));
   return {
-    engine,
-    recordsPath: `${engine}-records.json`,
-    failuresPath: `${engine}-failures.json`,
-    summaryPath: `${engine}-summary.json`,
-    screenshotPath: `${engine}.png`,
-    tracePath: `${engine}.zip`,
-    errorContextPath: `${engine}.md`,
-    summary: verifyQualificationOutcome(passed, failed, "ci", engine),
+    records: passed,
+    failures: failed,
+    evidence: {
+      engine,
+      recordsPath: `${engine}-records.json`,
+      failuresPath: `${engine}-failures.json`,
+      summaryPath: `${engine}-summary.json`,
+      screenshotPath: `${engine}.png`,
+      tracePath: `${engine}.zip`,
+      errorContextPath: `${engine}.md`,
+      summary: verifyQualificationOutcome(passed, failed, "ci", engine),
+    },
   };
 }
 
@@ -326,7 +338,7 @@ const decisionSignature: QualificationDecisionSignature = {
 const decisionOutcome: QualificationReportOutcome = {
   status: "failed",
   passed: [],
-  failed: MORPH_PROJECTS.map(syntheticFailedEvidence),
+  failed: MORPH_PROJECTS.map((engine) => syntheticFailedEvidence(engine).evidence),
 };
 verifyQualificationDecisionSignature(decisionSignature, decisionOutcome, "ci");
 expectHarnessError("unexpected accepted failure category", "FADENO_MORPH_DECISION_SIGNATURE", () => {
@@ -626,6 +638,78 @@ try {
     verifyQualificationReport(join(copy, "report.json"), { profile: "ci", outputRoot: copy });
   } finally {
     rmSync(portableRoot, { recursive: true, force: true });
+  }
+
+  const failedRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-qualification-failed-"));
+  try {
+    const failedResults = MORPH_PROJECTS.map((engine, index) => {
+      const matrix = syntheticFailedEvidence(engine);
+      const directory = join(failedRoot, engine);
+      mkdirSync(directory);
+      const documents = [
+        ["qualification-records", "application/json", "records.json", matrix.records],
+        ["qualification-failures", "application/json", "failures.json", matrix.failures],
+        ["qualification-summary", "application/json", "summary.json", matrix.evidence.summary],
+      ] as const;
+      const attachmentPaths = documents.map(([name, contentType, filename, document]) => {
+        const path = join(directory, filename);
+        writeJson(path, document);
+        return { name, contentType, path };
+      });
+      const screenshot = join(directory, "screenshot.png");
+      const errorContext = join(directory, "error-context.md");
+      const trace = join(directory, "trace.zip");
+      writeFileSync(screenshot, createSyntheticPng(40 + index * 40));
+      writeFileSync(errorContext, "# qualification-ci\n\nSynthetic failed matrix.\n");
+      const bound = [
+        ...attachmentPaths.map(({ name, contentType, path }) => ({
+          name,
+          contentType,
+          data: readFileSync(path),
+        })),
+        { name: "screenshot", contentType: "image/png", data: readFileSync(screenshot) },
+        { name: "error-context", contentType: "text/markdown", data: readFileSync(errorContext) },
+      ];
+      writeFileSync(
+        trace,
+        createSyntheticTraceZip(
+          engine,
+          "qualification-ci",
+          "FADENO_MORPH_QUALIFICATION_FAILURE: synthetic",
+          bound,
+        ),
+      );
+      const paths = [
+        ...attachmentPaths,
+        { name: "screenshot", contentType: "image/png", path: screenshot },
+        { name: "error-context", contentType: "text/markdown", path: errorContext },
+        { name: "trace", contentType: "application/zip", path: trace },
+      ];
+      return {
+        project: engine,
+        title: "qualification-ci",
+        status: "failed",
+        expectedStatus: "passed",
+        errors: ["Error: FADENO_MORPH_QUALIFICATION_FAILURE: synthetic"],
+        attachments: paths.map(({ name, contentType, path }) => ({
+          name,
+          contentType,
+          path: relative(failedRoot, path),
+          bytes: statSync(path).size,
+        })),
+      };
+    });
+    const failedReport = join(failedRoot, "report.json");
+    writeJson(failedReport, { schemaVersion: 1, status: "failed", results: failedResults });
+    const verifiedFailure = verifyQualificationReport(failedReport, {
+      profile: "ci",
+      outputRoot: failedRoot,
+    });
+    if (verifiedFailure.status !== "failed" || verifiedFailure.failed.length !== 3) {
+      recordFailure("complete failed report: verified outcome differs");
+    }
+  } finally {
+    rmSync(failedRoot, { recursive: true, force: true });
   }
 
   const reportMutations: ReadonlyArray<Readonly<{
