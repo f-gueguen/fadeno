@@ -1,0 +1,32 @@
+# Decision-gate ledger
+
+This ledger contains unresolved decisions that block a named implementation
+boundary. It is not a place for proposals or meeting history. A gate leaves the
+ledger when an effective ADR and current specification resolve it.
+
+| ID | Needed before | Decision required | Required evidence | Resolution artifact | Status |
+| --- | --- | --- | --- | --- | --- |
+| DG-V1-01 | First package creation | Select the smallest initial package boundary and internal dependency direction | K0 implementation imports and one demonstrated consumer | Package-boundary ADR and enforced dependency rule | Open |
+| DG-V1-02 | WEB-01 implementation | Select route-root location, page/layout/handler filenames, dynamic and rest-segment syntax, collision rules, and generated-link surface | H3 filesystem/type fixtures | Routing ADR and routing specification update | Open |
+| DG-V1-03 | WEB-02 implementation | Define raw-HTML capability, CSP nonce propagation, URL/attribute escaping contexts, and audit surface | Renderer threat model and negative XSS fixtures | Rendering-security ADR and fixtures | Open |
+| DG-V1-04 | DATA-01 implementation | Define resource identity, equivalent inputs, request cache keys, cross-request cache opt-in, and error caching | CRUD data graph and cache-isolation tests | Resource identity/cache ADR | Open |
+| DG-V1-05 | DATA-02 and STATE-01 implementation | Define field-descriptor and decoder semantics, action method/identity, origin and CSRF proof, replay policy, field/file limits, redirect validation, cookie protection, session rotation, and key lifecycle | Threat model plus native-form vertical slice | Form/action/session ADR | Open |
+| DG-V1-06 | ADP-01 implementation | Select the first runtime adapter and its minimum capability declaration | Runtime availability and conformance-harness feasibility | Initial-adapter ADR | Open |
+| DG-V1-07 | BUILD-01 implementation | Select config filename/export, development/build/check commands, output directories, environment loading, and precedence rules | Clean-machine workflow prototype | Toolchain-contract ADR | Open |
+| DG-V1-08 | WEB-03 implementation | Define boundary nesting, streamed error behavior, timeout ownership, cancellation propagation, and response-commit rules | Streaming renderer fixtures | Streaming/boundary ADR | Open |
+| DG-V2-01 | ENH-01 implementation | Define experimental patch identity, ordering, redirects, errors, recovery, cache policy, and version negotiation | Accepted H1 result and V1 action round trip | Patch-protocol ADR and versioned fixtures | Open |
+| DG-V3-01 | INT-01 implementation | Define the accepted closure, capture, import, serialization, identity, and lazy-loading corpus | Accepted H2 result | Extraction-contract ADR and diagnostic catalogue | Open |
+| DG-V3-02 | ISLAND-01 implementation | Define island authoring adapter, mount triggers, serialized input, changed-input delivery, teardown, and root-island declaration | V2 preservation runtime and lifecycle spike | Island-lifecycle ADR | Open |
+| DG-A0-01 | Public package publication | Secure and select unscoped names or an npm organization and map public entrypoints | Registry ownership verification and actual package consumers | Package-publication ADR | Open |
+| DG-A0-02 | External analyzer consumers | Define diagnostic-code lifecycle and versioned machine-readable analyzer schema | Stable internal diagnostics used by build/check | Analyzer-schema ADR and schema fixtures | Open |
+| DG-A0-03 | CSS-01 inclusion | Decide whether scoped CSS is required for alpha and, if so, its ownership and ordering semantics | Executable application styling needs and browser behavior | CSS ADR or explicit deferral | Open |
+
+## Gate rules
+
+1. A coding agent must inspect this ledger before starting a roadmap slice.
+2. Work may gather the evidence named by a gate, but may not invent the blocked
+   public contract inside implementation code.
+3. The resolving change adds an ADR, updates the relevant specification and
+   traceability row, removes the gate, and adds executable validation.
+4. If evidence rejects the capability, update the scope and deferral ledgers in
+   the same change rather than leaving a dead gate.

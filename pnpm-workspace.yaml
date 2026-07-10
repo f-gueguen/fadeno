@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "examples/*"
+  - "experiments/*"
+  - "packages/*"
+
+engineStrict: true
+saveExact: true
+autoInstallPeers: false
