@@ -6,34 +6,18 @@ import { statfsSync } from "node:fs";
 
 import { chromium, firefox, webkit } from "@playwright/test";
 
-import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
+import { loadReferenceEnvironment } from "../../scripts/lib/experiment-validation.ts";
+import type { ReferenceEnvironment } from "../../scripts/lib/experiment-validation.ts";
+import { MORPH_PROJECTS } from "./contract.ts";
+import type { MorphProject } from "./contract.ts";
 import { MorphHarnessError } from "./harness-report.ts";
 
 const require = createRequire(import.meta.url);
-const browserTypes = { chromium, firefox, webkit };
-type BrowserProject = keyof typeof browserTypes;
-type BrowserVersions = Record<BrowserProject, string>;
-
-type ReferenceEnvironment = {
-  host: {
-    repositoryVisibility: string;
-    runnerLabel: string;
-    architecture: string;
-    minimumHardware: {
-      logicalCpuCount: number;
-      memoryMiB: number;
-      storageMiB: number;
-    };
-  };
-  storage: { minimumFreeMiB: number };
-  backgroundLoad: { maxLoadAverage1m: number; maxProcessCount: number };
-  container: { runtimeImage: string };
-  toolchain: { playwright: string };
-  browsers: { chromeForTesting: string; firefox: string; webkit: string };
-};
+const browserTypes = { chromium, firefox, webkit } satisfies Record<MorphProject, typeof chromium>;
+type BrowserVersions = Record<MorphProject, string>;
 
 export type ReferenceHostSnapshot = {
-  githubActions: boolean;
+  provider: string;
   repositoryVisibility: string;
   runnerLabel: string;
   architecture: string;
@@ -72,7 +56,7 @@ export function assertBrowserCompatibility(
       `Playwright ${packageVersion} differs from ${reference.toolchain.playwright}`,
     );
   }
-  for (const project of Object.keys(versions) as BrowserProject[]) {
+  for (const project of MORPH_PROJECTS) {
     const version = versions[project];
     if (version !== expected[project]) {
       throw new MorphHarnessError(
@@ -90,7 +74,7 @@ export function classifyReferenceHost(
   const reasons: string[] = [];
   const expected = reference.host.minimumHardware;
   const checks: Array<readonly [boolean, string]> = [
-    [snapshot.githubActions, "not-github-actions"],
+    [snapshot.provider === reference.host.provider, "provider"],
     [snapshot.repositoryVisibility === reference.host.repositoryVisibility, "visibility"],
     [snapshot.runnerLabel === reference.host.runnerLabel, "runner-label"],
     [snapshot.architecture === reference.host.architecture, "architecture"],
@@ -123,13 +107,11 @@ export async function runMorphPreflight(
   root: string,
   options: { requireReference?: boolean; maxReferenceWaitMilliseconds?: number } = {},
 ) {
-  const reference = readJsonDocument(
-    join(root, "experiments/reference-environment.json"),
-  ) as ReferenceEnvironment;
+  const reference = loadReferenceEnvironment(root);
   const packageVersion = (require("@playwright/test/package.json") as { version: string })
     .version;
   const versions = {} as BrowserVersions;
-  for (const name of Object.keys(browserTypes) as BrowserProject[]) {
+  for (const name of MORPH_PROJECTS) {
     const browserType = browserTypes[name];
     let browser;
     try {
@@ -149,7 +131,7 @@ export async function runMorphPreflight(
   const sampleHost = () => {
     const filesystem = statfsSync(root);
     return {
-      githubActions: process.env.GITHUB_ACTIONS === "true",
+      provider: process.env.GITHUB_ACTIONS === "true" ? "github-actions" : "local",
       repositoryVisibility: process.env.FADENO_REPOSITORY_VISIBILITY ?? "unknown",
       runnerLabel: process.env.FADENO_RUNNER_LABEL ?? "local",
       runnerImageVersion: process.env.ImageVersion ?? "unknown",

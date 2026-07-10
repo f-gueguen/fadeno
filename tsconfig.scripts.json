@@ -12,5 +12,5 @@
     "types": ["node"],
     "skipLibCheck": false
   },
-  "include": ["scripts/**/*.ts", "experiments/morph/**/*.ts"]
+  "include": ["scripts/**/*.ts"]
 }

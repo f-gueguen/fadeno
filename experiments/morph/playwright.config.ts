@@ -2,6 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "@playwright/test";
+import { MORPH_PROJECTS } from "./contract.ts";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const outputRoot =
@@ -24,9 +25,5 @@ export default defineConfig({
     trace: "retain-on-failure",
     video: "off",
   },
-  projects: [
-    { name: "chromium", use: { browserName: "chromium" } },
-    { name: "firefox", use: { browserName: "firefox" } },
-    { name: "webkit", use: { browserName: "webkit" } },
-  ],
+  projects: MORPH_PROJECTS.map((name) => ({ name, use: { browserName: name } })),
 });

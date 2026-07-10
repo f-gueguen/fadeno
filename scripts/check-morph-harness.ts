@@ -14,10 +14,10 @@ import { fileURLToPath } from "node:url";
 
 import { MORPH_FIXTURES, stableMorphInventory } from "../experiments/morph/fixtures/catalog.ts";
 import {
-  MORPH_PROJECTS,
   MorphHarnessError,
   verifyHarnessReport,
 } from "../experiments/morph/harness-report.ts";
+import { MORPH_PROJECTS } from "../experiments/morph/contract.ts";
 import {
   assertBrowserCompatibility,
   classifyReferenceHost,
@@ -26,6 +26,11 @@ import { readJsonDocument } from "./lib/experiment-contract.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
+const goldenInventory = readFileSync(
+  join(root, "experiments/morph/fixtures/inventory.golden.json"),
+  "utf8",
+);
+const runnerSource = readFileSync(join(root, "experiments/morph/harness-runner.ts"), "utf8");
 
 function recordFailure(message) {
   failures.push(message);
@@ -59,6 +64,18 @@ if (registry.experiments.find((entry) => entry.id === "morph")?.status !== "avai
 if (existsSync(join(root, "experiments/morph/package.json"))) {
   recordFailure("experiments/morph: package boundary is forbidden");
 }
+if (
+  runnerSource.includes("FADENO_MORPH_OUTPUT_ROOT") ||
+  !runnerSource.includes('join(root, "output/playwright/morph")')
+) {
+  recordFailure("morph runner: output cleanup root must remain repository-controlled");
+}
+if (
+  !runnerSource.includes('await runAndRecordPreflight("preflight");') ||
+  !runnerSource.includes('await runAndRecordPreflight("preflight-seeded-failure");')
+) {
+  recordFailure("morph runner: every browser batch requires a fresh preflight");
+}
 for (const file of readdirSync(join(root, "experiments/morph/results"))) {
   if (file !== "README.md") recordFailure(`experiments/morph/results: unexpected ${file}`);
 }
@@ -73,14 +90,14 @@ try {
       encoding: "utf8",
       env: {
         ...process.env,
-        FADENO_MORPH_OUTPUT_ROOT: join(commandRoot, "output"),
         PLAYWRIGHT_BROWSERS_PATH: join(commandRoot, "missing-browsers"),
       },
     },
   );
   if (
     result.status !== 0 ||
-    result.stdout !== stableMorphInventory() ||
+    result.stdout !== goldenInventory ||
+    stableMorphInventory() !== goldenInventory ||
     result.stderr !== "" ||
     existsSync(join(commandRoot, "output"))
   ) {
@@ -105,7 +122,7 @@ try {
 
 const reference = readJsonDocument(join(root, "experiments/reference-environment.json"));
 const referenceSnapshot = {
-  githubActions: true,
+  provider: reference.host.provider,
   repositoryVisibility: reference.host.repositoryVisibility,
   runnerLabel: reference.host.runnerLabel,
   architecture: reference.host.architecture,
@@ -120,7 +137,7 @@ const referenceSnapshot = {
 if (classifyReferenceHost(referenceSnapshot, reference).classification !== "reference") {
   recordFailure("reference host boundary unexpectedly rejected");
 }
-const localSnapshot = { ...referenceSnapshot, githubActions: false };
+const localSnapshot = { ...referenceSnapshot, provider: "local" };
 if (classifyReferenceHost(localSnapshot, reference).classification !== "non-reference") {
   recordFailure("non-reference host was not downgraded");
 }
@@ -159,12 +176,23 @@ try {
       states,
       `${JSON.stringify({
         fixture: fixture.id,
-        before: { nodeIdentity: "original", state: { focused: true } },
-        after: { nodeIdentity: "replacement", state: { focused: false } },
+        before: {
+          nodeIdentity: "original",
+          state: {
+            value: "dirty-client-value",
+            focused: true,
+            selectionStart: 2,
+            selectionEnd: 8,
+          },
+        },
+        after: {
+          nodeIdentity: "replacement",
+          state: { value: "server", focused: false, selectionStart: 6, selectionEnd: 6 },
+        },
       })}\n`,
     );
-    writeFileSync(screenshot, "png");
-    writeFileSync(trace, "zip");
+    writeFileSync(screenshot, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    writeFileSync(trace, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]));
     return {
       project,
       title: fixture.id,
@@ -216,6 +244,34 @@ try {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
 
+  writeReport(
+    results.map((result, index) =>
+      index === 0
+        ? {
+            ...result,
+            attachments: result.attachments.map((item) =>
+              item.name === "screenshot" ? { ...item, contentType: "text/plain" } : item,
+            ),
+          }
+        : result,
+    ),
+  );
+  expectHarnessError(
+    "wrong attachment content type",
+    "FADENO_MORPH_ATTACHMENT_CONTENT_TYPE",
+    () => {
+      verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+    },
+  );
+
+  const firstTrace = results[0].attachments.find((item) => item.name === "trace");
+  writeFileSync(firstTrace.path, Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00]));
+  writeReport(results);
+  expectHarnessError("wrong attachment format", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  writeFileSync(firstTrace.path, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]));
+
   writeReport(results.map((result, index) => (index === 1 ? { ...result, project: "chromium" } : result)));
   expectHarnessError("duplicate project", "FADENO_MORPH_PROJECT_SET", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
@@ -250,8 +306,8 @@ try {
   expectHarnessError("empty artifact", "FADENO_MORPH_ATTACHMENT_SIZE", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
-  writeFileSync(firstScreenshot.path, "png");
-  firstScreenshot.bytes = 3;
+  writeFileSync(firstScreenshot.path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  firstScreenshot.bytes = 8;
 
   const noOpOperation = readJsonDocument(firstOperation.path);
   noOpOperation.targetIdentityChanged = false;
@@ -266,7 +322,15 @@ try {
   const passingResults = results.map((result) => {
     const operationAttachment = result.attachments.find((item) => item.name === "operation");
     const stateAttachment = result.attachments.find((item) => item.name === "before-after");
-    const state = { nodeIdentity: "original", state: { focused: true } };
+    const state = {
+      nodeIdentity: "original",
+      state: {
+        value: "dirty-client-value",
+        focused: true,
+        selectionStart: 2,
+        selectionEnd: 8,
+      },
+    };
     writeFileSync(
       operationAttachment.path,
       `${JSON.stringify({
@@ -311,6 +375,30 @@ try {
       outputRoot: reportRoot,
     });
   });
+  noOpInsertion.siblingInserted = true;
+  writeFileSync(passingOperation.path, `${JSON.stringify(noOpInsertion)}\n`);
+  passingOperation.bytes = readFileSync(passingOperation.path).byteLength;
+
+  writeFileSync(
+    passingResults[1].attachments.find((item) => item.name === "before-after").path,
+    `${JSON.stringify({
+      fixture: passingFixture.id,
+      before: { nodeIdentity: "original", state: { focused: true } },
+      after: { nodeIdentity: "original", state: { focused: true } },
+    })}\n`,
+  );
+  passingResults[1].attachments.find((item) => item.name === "before-after").bytes =
+    readFileSync(
+      passingResults[1].attachments.find((item) => item.name === "before-after").path,
+    ).byteLength;
+  writeReport(passingResults, "passed");
+  expectHarnessError("incomplete state proof", "FADENO_MORPH_STATE_PROOF", () => {
+    verifyHarnessReport(reportPath, {
+      fixture: passingFixture,
+      expected: "passed",
+      outputRoot: reportRoot,
+    });
+  });
 } finally {
   rmSync(reportRoot, { recursive: true, force: true });
 }
@@ -333,4 +421,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (2 fixtures, 3 engines, 9 report mutations)");
+console.log("morph harness contract passed (2 fixtures, 3 engines, 12 report mutations)");
