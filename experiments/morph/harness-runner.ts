@@ -98,23 +98,38 @@ export async function executeMorphHarness(mode: "default" | "verify"): Promise<v
     );
   };
 
-  await runAndRecordPreflight("preflight");
+  const runBatch = async (
+    preflightName: string,
+    fixtureId: string,
+    directoryName: string,
+    expectedStatus: "passed" | "failed",
+    expectedExit: number,
+  ): Promise<void> => {
+    await runAndRecordPreflight(preflightName);
+    const fixture = getMorphFixture(fixtureId);
+    const child = runChild(fixture.id, join(outputRoot, directoryName));
+    verifyChild(child, fixture, expectedStatus, expectedExit);
+  };
 
-  const passing = getMorphFixture("seeded-preservation-control");
-  const passingChild = runChild(passing.id, join(outputRoot, "passing-control"));
-  verifyChild(passingChild, passing, "passed", 0);
+  await runBatch(
+    "preflight",
+    "seeded-preservation-control",
+    "passing-control",
+    "passed",
+    0,
+  );
 
   if (mode === "default") {
     console.log("morph harness passed (3 engines, passing control)");
     return;
   }
 
-  await runAndRecordPreflight("preflight-seeded-failure");
-  const seededFailure = getMorphFixture("seeded-undeclared-state-loss");
-  const failingChild = runChild(
-    seededFailure.id,
-    join(outputRoot, "seeded-failure"),
+  await runBatch(
+    "preflight-seeded-failure",
+    "seeded-undeclared-state-loss",
+    "seeded-failure",
+    "failed",
+    1,
   );
-  verifyChild(failingChild, seededFailure, "failed", 1);
   console.log("morph harness integrity verified (3 passes, 3 intended failures)");
 }

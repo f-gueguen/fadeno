@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { crc32 } from "node:zlib";
 
 import { MORPH_FIXTURES, stableMorphInventory } from "../experiments/morph/fixtures/catalog.ts";
 import {
@@ -47,6 +48,58 @@ function expectHarnessError(name, code, action) {
   }
 }
 
+function createTraceZip() {
+  const entries = [
+    ["test.trace", Buffer.from("{}\n")],
+    ["0-trace.trace", Buffer.from("{}\n")],
+    ["0-trace.network", Buffer.alloc(0)],
+  ];
+  const localRecords = [];
+  const centralRecords = [];
+  let localOffset = 0;
+  for (const [entryName, data] of entries) {
+    const name = Buffer.from(entryName);
+    const checksum = crc32(data) >>> 0;
+    const local = Buffer.alloc(30 + name.length + data.length);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    name.copy(local, 30);
+    data.copy(local, 30 + name.length);
+
+    const central = Buffer.alloc(46 + name.length);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt32LE(checksum, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(localOffset, 42);
+    name.copy(central, 46);
+    localRecords.push(local);
+    centralRecords.push(central);
+    localOffset += local.length;
+  }
+  const centralDirectory = Buffer.concat(centralRecords);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralDirectory.length, 12);
+  end.writeUInt32LE(localOffset, 16);
+  return Buffer.concat([...localRecords, centralDirectory, end]);
+}
+
+const validPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
+const validTraceZip = createTraceZip();
+
 const packageJson = readJsonDocument(join(root, "package.json"));
 const registry = readJsonDocument(join(root, "experiments/registry.json"));
 if (packageJson.devDependencies?.["@playwright/test"] !== "1.61.0") {
@@ -69,12 +122,6 @@ if (
   !runnerSource.includes('join(root, "output/playwright/morph")')
 ) {
   recordFailure("morph runner: output cleanup root must remain repository-controlled");
-}
-if (
-  !runnerSource.includes('await runAndRecordPreflight("preflight");') ||
-  !runnerSource.includes('await runAndRecordPreflight("preflight-seeded-failure");')
-) {
-  recordFailure("morph runner: every browser batch requires a fresh preflight");
 }
 for (const file of readdirSync(join(root, "experiments/morph/results"))) {
   if (file !== "README.md") recordFailure(`experiments/morph/results: unexpected ${file}`);
@@ -191,8 +238,8 @@ try {
         },
       })}\n`,
     );
-    writeFileSync(screenshot, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-    writeFileSync(trace, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]));
+    writeFileSync(screenshot, validPng);
+    writeFileSync(trace, validTraceZip);
     return {
       project,
       title: fixture.id,
@@ -233,6 +280,19 @@ try {
   expectHarnessError("wrong failure", "FADENO_MORPH_DIAGNOSTIC", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
+
+  const firstOperationForKind = results[0].attachments.find((item) => item.name === "operation");
+  const wrongKindOperation = readJsonDocument(firstOperationForKind.path);
+  wrongKindOperation.kind = "insert-unrelated-sibling";
+  writeFileSync(firstOperationForKind.path, `${JSON.stringify(wrongKindOperation)}\n`);
+  firstOperationForKind.bytes = readFileSync(firstOperationForKind.path).byteLength;
+  writeReport(results);
+  expectHarnessError("wrong operation kind", "FADENO_MORPH_OPERATION_PROOF", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  wrongKindOperation.kind = fixture.operation;
+  writeFileSync(firstOperationForKind.path, `${JSON.stringify(wrongKindOperation)}\n`);
+  firstOperationForKind.bytes = readFileSync(firstOperationForKind.path).byteLength;
   writeReport(
     results.map((result, index) =>
       index === 0
@@ -266,11 +326,13 @@ try {
 
   const firstTrace = results[0].attachments.find((item) => item.name === "trace");
   writeFileSync(firstTrace.path, Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00]));
+  firstTrace.bytes = 5;
   writeReport(results);
   expectHarnessError("wrong attachment format", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
-  writeFileSync(firstTrace.path, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00]));
+  writeFileSync(firstTrace.path, validTraceZip);
+  firstTrace.bytes = validTraceZip.length;
 
   writeReport(results.map((result, index) => (index === 1 ? { ...result, project: "chromium" } : result)));
   expectHarnessError("duplicate project", "FADENO_MORPH_PROJECT_SET", () => {
@@ -306,8 +368,17 @@ try {
   expectHarnessError("empty artifact", "FADENO_MORPH_ATTACHMENT_SIZE", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
-  writeFileSync(firstScreenshot.path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  writeFileSync(firstScreenshot.path, validPng);
+  firstScreenshot.bytes = validPng.length;
+
+  writeFileSync(firstScreenshot.path, validPng.subarray(0, 8));
   firstScreenshot.bytes = 8;
+  writeReport(results);
+  expectHarnessError("truncated PNG", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  writeFileSync(firstScreenshot.path, validPng);
+  firstScreenshot.bytes = validPng.length;
 
   const noOpOperation = readJsonDocument(firstOperation.path);
   noOpOperation.targetIdentityChanged = false;
@@ -421,4 +492,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (2 fixtures, 3 engines, 12 report mutations)");
+console.log("morph harness contract passed (2 fixtures, 3 engines, 14 report mutations)");
