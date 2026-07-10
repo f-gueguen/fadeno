@@ -13,7 +13,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { crc32 } from "node:zlib";
+import { crc32, deflateSync } from "node:zlib";
+import { createHash } from "node:crypto";
 
 import { getMorphFixture, stableMorphInventory } from "../experiments/morph/fixtures/catalog.ts";
 import {
@@ -83,14 +84,43 @@ function attachmentFile(root: string, attachment: ReportAttachment): string {
   return join(root, attachment.path);
 }
 
-function createTraceZip(project: string): Buffer {
+function createTraceZip(
+  project: string,
+  fixtureId: string,
+  diagnostic: string,
+  attachments: ReadonlyArray<{ name: string; contentType: string; data: Buffer }>,
+): Buffer {
+  const tracedAttachments = attachments.map(({ name, contentType, data }) => ({
+    name,
+    contentType,
+    sha1: createHash("sha1").update(data).digest("hex"),
+  }));
+  const testRecords = [
+    {
+      version: 8,
+      type: "context-options",
+      origin: "testRunner",
+      playwrightVersion: "1.61.0",
+    },
+    ...tracedAttachments.map((attachment) => ({ type: "after", attachments: [attachment] })),
+    { type: "error", message: `Error: ${diagnostic}\nsynthetic seeded failure` },
+  ];
   const entries: Array<readonly [string, Buffer]> = [
-    ["test.trace", Buffer.from("{}\n")],
+    ["test.trace", Buffer.from(`${testRecords.map((record) => JSON.stringify(record)).join("\n")}\n`)],
     [
       "0-trace.trace",
-      Buffer.from(`${JSON.stringify({ type: "context-options", browserName: project })}\n`),
+      Buffer.from(`${JSON.stringify({
+        type: "context-options",
+        browserName: project,
+        playwrightVersion: "1.61.0",
+        title: `harness.spec.ts:1 › ${fixtureId}`,
+      })}\n`),
     ],
     ["0-trace.network", Buffer.alloc(0)],
+    ...attachments.map(({ data }, index) => [
+      `resources/${tracedAttachments[index]?.sha1}`,
+      data,
+    ] as const),
   ];
   const localRecords: Buffer[] = [];
   const centralRecords: Buffer[] = [];
@@ -132,10 +162,42 @@ function createTraceZip(project: string): Buffer {
   return Buffer.concat([...localRecords, centralDirectory, end]);
 }
 
-const validPng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-  "base64",
-);
+function pngChunk(type: string, data: Buffer): Buffer {
+  const typeBytes = Buffer.from(type, "ascii");
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0);
+  typeBytes.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])) >>> 0, 8 + data.length);
+  return chunk;
+}
+
+function createPng(seed: number): Buffer {
+  const width = 1_280;
+  const height = 720;
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 2;
+  const rows = Buffer.alloc(height * (1 + width * 3));
+  rows[1] = seed;
+  rows[2] = 255 - seed;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", header),
+    pngChunk("IDAT", deflateSync(rows)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+const validPngs = new Map<string, Buffer>([
+  ["chromium", createPng(40)],
+  ["firefox", createPng(80)],
+  ["webkit", createPng(120)],
+]);
+const validPng = validPngs.get("chromium");
+if (!validPng) throw new Error("synthetic Chromium PNG missing");
 
 const packageJson = readJsonDocument(join(root, "package.json"));
 const registry = readJsonDocument(join(root, "experiments/registry.json"));
@@ -278,17 +340,21 @@ const reportRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-report-"));
 try {
   const fixture = getMorphFixture("seeded-undeclared-state-loss");
   if (!fixture.diagnostic) throw new Error("seeded failure diagnostic is required");
+  const fixtureDiagnostic = fixture.diagnostic;
+  const syntheticTraces = new Map<string, Buffer>();
   const results: ReportResult[] = MORPH_PROJECTS.map((project): ReportResult => {
     const directory = join(reportRoot, project);
     mkdirSync(directory, { recursive: true });
     const operation = join(directory, "operation.json");
     const states = join(directory, "before-after.json");
     const screenshot = join(directory, "screenshot.png");
+    const errorContext = join(directory, "error-context.md");
     const trace = join(directory, "trace.zip");
     writeFileSync(
       operation,
       `${JSON.stringify({
         fixture: fixture.id,
+        engine: project,
         kind: fixture.operation,
         completed: true,
         replacementCompleted: true,
@@ -300,6 +366,7 @@ try {
       states,
       `${JSON.stringify({
         fixture: fixture.id,
+        engine: project,
         before: {
           nodeIdentity: "original",
           state: {
@@ -315,8 +382,19 @@ try {
         },
       })}\n`,
     );
-    writeFileSync(screenshot, validPng);
-    writeFileSync(trace, createTraceZip(project));
+    const screenshotBytes = validPngs.get(project);
+    if (!screenshotBytes) throw new Error(`synthetic ${project} PNG missing`);
+    writeFileSync(screenshot, screenshotBytes);
+    writeFileSync(errorContext, `# ${fixture.id}\n\nSynthetic failure context.\n`);
+    const boundAttachments = [
+      { name: "operation", contentType: "application/json", data: readFileSync(operation) },
+      { name: "before-after", contentType: "application/json", data: readFileSync(states) },
+      { name: "screenshot", contentType: "image/png", data: readFileSync(screenshot) },
+      { name: "error-context", contentType: "text/markdown", data: readFileSync(errorContext) },
+    ];
+    const traceBytes = createTraceZip(project, fixture.id, fixtureDiagnostic, boundAttachments);
+    syntheticTraces.set(project, traceBytes);
+    writeFileSync(trace, traceBytes);
     return {
       project,
       title: fixture.id,
@@ -327,6 +405,7 @@ try {
         ["operation", "application/json", operation],
         ["before-after", "application/json", states],
         ["screenshot", "image/png", screenshot],
+        ["error-context", "text/markdown", errorContext],
         ["trace", "application/zip", trace],
       ] satisfies Array<readonly [string, string, string]>).map(([name, contentType, path]) => ({
         name,
@@ -440,7 +519,22 @@ try {
   expectHarnessError("wrong attachment format", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
     verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
   });
-  const chromiumTraceZip = createTraceZip("chromium");
+  const chromiumTraceZip = syntheticTraces.get("chromium");
+  if (!chromiumTraceZip) throw new Error("synthetic Chromium trace missing");
+  writeFileSync(attachmentFile(reportRoot, firstTrace), chromiumTraceZip);
+
+  const fabricatedTraceZip = createTraceZip(
+    "chromium",
+    fixture.id,
+    fixture.diagnostic,
+    [],
+  );
+  writeFileSync(attachmentFile(reportRoot, firstTrace), fabricatedTraceZip);
+  firstTrace.bytes = fabricatedTraceZip.length;
+  writeReport(results);
+  expectHarnessError("fabricated minimal trace", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
   writeFileSync(attachmentFile(reportRoot, firstTrace), chromiumTraceZip);
   firstTrace.bytes = chromiumTraceZip.length;
 
@@ -504,6 +598,32 @@ try {
   writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
   firstScreenshot.bytes = validPng.length;
 
+  const unknownCriticalPng = Buffer.concat([
+    validPng.subarray(0, 33),
+    pngChunk("ABCD", Buffer.alloc(0)),
+    validPng.subarray(33),
+  ]);
+  writeFileSync(attachmentFile(reportRoot, firstScreenshot), unknownCriticalPng);
+  firstScreenshot.bytes = unknownCriticalPng.length;
+  writeReport(results);
+  expectHarnessError("unknown critical PNG chunk", "FADENO_MORPH_ATTACHMENT_FORMAT", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  writeFileSync(attachmentFile(reportRoot, firstScreenshot), validPng);
+  firstScreenshot.bytes = validPng.length;
+
+  const firefoxScreenshot = requireAttachment(requireResult(results, 1), "screenshot");
+  const firefoxScreenshotPath = attachmentFile(reportRoot, firefoxScreenshot);
+  const firefoxScreenshotBytes = readFileSync(firefoxScreenshotPath);
+  copyFileSync(attachmentFile(reportRoot, firstScreenshot), firefoxScreenshotPath);
+  firefoxScreenshot.bytes = firstScreenshot.bytes;
+  writeReport(results);
+  expectHarnessError("relabeled browser screenshot", "FADENO_MORPH_TRACE_ATTACHMENT", () => {
+    verifyHarnessReport(reportPath, { fixture, expected: "failed", outputRoot: reportRoot });
+  });
+  writeFileSync(firefoxScreenshotPath, firefoxScreenshotBytes);
+  firefoxScreenshot.bytes = firefoxScreenshotBytes.length;
+
   const corruptPng = Buffer.from(validPng);
   corruptPng[Math.floor(corruptPng.length / 2)] =
     (corruptPng[Math.floor(corruptPng.length / 2)] ?? 0) ^ 0xff;
@@ -549,6 +669,7 @@ try {
       attachmentFile(reportRoot, operationAttachment),
       `${JSON.stringify({
         fixture: passingFixture.id,
+        engine: result.project,
         kind: passingFixture.operation,
         completed: true,
         siblingInserted: true,
@@ -557,17 +678,19 @@ try {
     );
     writeFileSync(
       attachmentFile(reportRoot, stateAttachment),
-      `${JSON.stringify({ fixture: passingFixture.id, before: state, after: state })}\n`,
+      `${JSON.stringify({ fixture: passingFixture.id, engine: result.project, before: state, after: state })}\n`,
     );
     return {
       ...result,
       title: passingFixture.id,
       status: "passed",
       errors: [],
-      attachments: result.attachments.map((item) => ({
-        ...item,
-        bytes: readFileSync(attachmentFile(reportRoot, item)).byteLength,
-      })),
+      attachments: result.attachments
+        .filter((item) => ["operation", "before-after"].includes(item.name))
+        .map((item) => ({
+          ...item,
+          bytes: readFileSync(attachmentFile(reportRoot, item)).byteLength,
+        })),
     };
   });
   writeReport(passingResults, "passed");
@@ -597,6 +720,7 @@ try {
     attachmentFile(reportRoot, requireAttachment(requireResult(passingResults, 1), "before-after")),
     `${JSON.stringify({
       fixture: passingFixture.id,
+      engine: "firefox",
       before: { nodeIdentity: "original", state: { focused: true } },
       after: { nodeIdentity: "original", state: { focused: true } },
     })}\n`,
@@ -640,4 +764,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (2 fixtures, 3 engines, 19 report mutations)");
+console.log("morph harness contract passed (2 fixtures, 3 engines, 22 report mutations)");

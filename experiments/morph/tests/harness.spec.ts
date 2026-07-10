@@ -38,6 +38,8 @@ async function captureState(page: Page) {
 }
 
 test(fixture.id, async ({ page }, testInfo) => {
+  const engine = page.context().browser()?.browserType().name();
+  if (!engine) throw new Error("FADENO_MORPH_BROWSER_IDENTITY_MISSING");
   const blockedRequests: string[] = [];
   await page.route(/^https?:\/\//u, async (route) => {
     blockedRequests.push(route.request().url());
@@ -92,8 +94,8 @@ test(fixture.id, async ({ page }, testInfo) => {
   }, fixture.operation);
   const after = await captureState(page);
 
-  await attachJson(testInfo, "operation", { fixture: fixture.id, ...operation });
-  await attachJson(testInfo, "before-after", { fixture: fixture.id, before, after });
+  await attachJson(testInfo, "operation", { fixture: fixture.id, engine, ...operation });
+  await attachJson(testInfo, "before-after", { fixture: fixture.id, engine, before, after });
 
   expect(blockedRequests, "FADENO_MORPH_EXTERNAL_REQUEST").toEqual([]);
   expect(operation.completed, "FADENO_MORPH_OPERATION_NOT_OBSERVED").toBe(true);
