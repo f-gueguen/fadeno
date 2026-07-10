@@ -40,18 +40,18 @@
         "deviationPolicy"
       ],
       "properties": {
-        "provider": { "const": "github-actions" },
+        "provider": { "type": "string", "pattern": "^[a-z][a-z-]{0,31}$" },
         "repositoryVisibility": { "const": "private" },
-        "runnerLabel": { "const": "ubuntu-24.04" },
-        "architecture": { "const": "x64" },
+        "runnerLabel": { "$ref": "#/$defs/shortString" },
+        "architecture": { "enum": ["x64", "arm64"] },
         "minimumHardware": {
           "type": "object",
           "additionalProperties": false,
           "required": ["logicalCpuCount", "memoryMiB", "storageMiB"],
           "properties": {
-            "logicalCpuCount": { "const": 2 },
-            "memoryMiB": { "const": 8192 },
-            "storageMiB": { "const": 14336 }
+            "logicalCpuCount": { "type": "integer", "minimum": 1, "maximum": 512 },
+            "memoryMiB": { "type": "integer", "minimum": 1024, "maximum": 1048576 },
+            "storageMiB": { "type": "integer", "minimum": 1024, "maximum": 10485760 }
           }
         },
         "mutableObservedFields": {
@@ -88,6 +88,7 @@
         "platform",
         "platformDigest",
         "configDigest",
+        "runtimeImage",
         "executionUser",
         "browserSandbox",
         "networkPolicy",
@@ -95,23 +96,18 @@
         "verifiedAt"
       ],
       "properties": {
-        "registry": { "const": "mcr.microsoft.com" },
-        "repository": { "const": "playwright" },
-        "tag": { "const": "v1.61.0-noble" },
-        "indexDigest": {
-          "const": "sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a"
-        },
-        "platform": { "const": "linux/amd64" },
-        "platformDigest": {
-          "const": "sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9"
-        },
-        "configDigest": {
-          "const": "sha256:753f831a898523662c36011748ba0729b59838745d577c61c91287fe1778bfe1"
-        },
-        "executionUser": { "const": "root" },
-        "browserSandbox": { "const": "disabled-for-trusted-local-fixtures" },
-        "networkPolicy": { "const": "trusted-local-fixtures-only" },
-        "createdAt": { "const": "2026-06-15T17:20:25.35354232Z" },
+        "registry": { "type": "string", "pattern": "^[a-z0-9.-]+$", "maxLength": 253 },
+        "repository": { "type": "string", "pattern": "^[a-z0-9._/-]+$", "maxLength": 200 },
+        "tag": { "$ref": "#/$defs/shortString" },
+        "indexDigest": { "$ref": "#/$defs/sha256Digest" },
+        "platform": { "type": "string", "pattern": "^[a-z0-9]+/[a-z0-9]+$", "maxLength": 40 },
+        "platformDigest": { "$ref": "#/$defs/sha256Digest" },
+        "configDigest": { "$ref": "#/$defs/sha256Digest" },
+        "runtimeImage": { "$ref": "#/$defs/digestImage" },
+        "executionUser": { "enum": ["root", "non-root"] },
+        "browserSandbox": { "enum": ["disabled-for-trusted-local-fixtures", "enabled"] },
+        "networkPolicy": { "enum": ["trusted-local-fixtures-only", "network-disabled"] },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
         "verifiedAt": { "$ref": "#/$defs/timestamp" }
       }
     },
@@ -120,9 +116,9 @@
       "additionalProperties": false,
       "required": ["node", "pnpm", "playwright", "lockfile", "lockHashAlgorithm"],
       "properties": {
-        "node": { "const": "22.14.0" },
-        "pnpm": { "const": "11.7.0" },
-        "playwright": { "const": "1.61.0" },
+        "node": { "$ref": "#/$defs/shortString" },
+        "pnpm": { "$ref": "#/$defs/shortString" },
+        "playwright": { "$ref": "#/$defs/shortString" },
         "lockfile": { "const": "pnpm-lock.yaml" },
         "lockHashAlgorithm": { "const": "sha256" }
       }
@@ -135,9 +131,9 @@
         "authority": {
           "const": "playwright-package-and-container-digest"
         },
-        "chromeForTesting": { "const": "149.0.7827.55" },
-        "firefox": { "const": "151.0" },
-        "webkit": { "const": "26.5" }
+        "chromeForTesting": { "$ref": "#/$defs/shortString" },
+        "firefox": { "$ref": "#/$defs/shortString" },
+        "webkit": { "$ref": "#/$defs/shortString" }
       }
     },
     "storage": {
@@ -163,7 +159,7 @@
     "backgroundLoad": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["policy", "networkConsumers", "preflightRequired"],
+      "required": ["policy", "networkConsumers", "preflightRequired", "maxLoadAverage1m", "maxProcessCount", "acceptanceReason"],
       "properties": {
         "policy": { "const": "exclusive-qualification-job" },
         "networkConsumers": {
@@ -172,7 +168,10 @@
           "uniqueItems": true,
           "items": { "type": "string", "maxLength": 80 }
         },
-        "preflightRequired": { "const": true }
+        "preflightRequired": { "const": true },
+        "maxLoadAverage1m": { "type": "number", "minimum": 0, "maximum": 2 },
+        "maxProcessCount": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "acceptanceReason": { "const": "within-reference-thresholds" }
       }
     },
     "preflight": {
@@ -208,6 +207,20 @@
     }
   },
   "$defs": {
+    "digestImage": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$",
+      "maxLength": 500
+    },
+    "sha256Digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "shortString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
     "timestamp": {
       "type": "string",
       "format": "fadeno-utc-timestamp"

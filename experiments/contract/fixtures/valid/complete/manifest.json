@@ -6,7 +6,7 @@
     "contractVersion": 1
   },
   "run": {
-    "id": "20260710T113900Z-bdac342-a1",
+    "id": "20260710T113900Z-aaaaaaa-a1",
     "attempt": 1,
     "startedAt": "2026-07-10T11:39:00Z",
     "completedAt": "2026-07-10T11:39:10Z",
@@ -37,7 +37,7 @@
       "freeStorageMiB": 8192
     },
     "container": {
-      "image": "mcr.microsoft.com/playwright:v1.61.0-noble",
+      "image": "mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
       "indexDigest": "sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a",
       "platform": "linux/amd64",
       "platformDigest": "sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
@@ -61,15 +61,17 @@
       "telemetry": "not-exposed"
     },
     "backgroundLoad": {
+      "preflightObservedAt": "2026-07-10T11:38:59Z",
       "loadAverage1m": 0.1,
       "processCount": 120,
       "accepted": true,
-      "reason": "Fixture represents a passing exclusive-job preflight."
+      "reason": "within-reference-thresholds"
     }
   },
   "dependencyLock": {
     "path": "pnpm-lock.yaml",
-    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    "artifact": "artifacts/pnpm-lock.yaml",
+    "sha256": "0372baf2304e947cd59e264c6529fb2872fcb8efe8ddbe1ab2de096b0aefb413"
   },
   "command": {
     "cwd": ".",
@@ -78,7 +80,8 @@
   "workload": {
     "dataset": {
       "id": "contract-fixture-v1",
-      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      "artifact": "artifacts/dataset.json",
+      "sha256": "218589323cbe80b7ed077e3ee36f1663e7cb5f8f4e4ad02c938ad8a5c2c5a6b9"
     },
     "warmupIterations": 1,
     "measuredIterations": 2,
@@ -93,6 +96,16 @@
   ],
   "failures": [],
   "artifacts": [
+    {
+      "path": "artifacts/pnpm-lock.yaml",
+      "sha256": "0372baf2304e947cd59e264c6529fb2872fcb8efe8ddbe1ab2de096b0aefb413",
+      "bytes": 19
+    },
+    {
+      "path": "artifacts/dataset.json",
+      "sha256": "218589323cbe80b7ed077e3ee36f1663e7cb5f8f4e4ad02c938ad8a5c2c5a6b9",
+      "bytes": 17
+    },
     {
       "path": "artifacts/measurements.json",
       "sha256": "5fc4f4e9e011d639c57b006af48d22e84b8ae29225250a8b5eceb696c1789855",

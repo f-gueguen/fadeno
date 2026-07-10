@@ -11,6 +11,7 @@ import {
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 
 export const MAX_JSON_BYTES = 1024 * 1024;
+export const MAX_JSON_DEPTH = 128;
 
 export class ContractError extends Error {
   constructor(code, message, details) {
@@ -55,7 +56,7 @@ function scanObjectKeys(text) {
     }
   }
 
-  function scanArray() {
+  function scanArray(depth) {
     position += 1;
     skipWhitespace();
     if (text[position] === "]") {
@@ -63,7 +64,7 @@ function scanObjectKeys(text) {
       return;
     }
     while (position < text.length) {
-      scanValue();
+      scanValue(depth + 1);
       skipWhitespace();
       if (text[position] === "]") {
         position += 1;
@@ -73,7 +74,7 @@ function scanObjectKeys(text) {
     }
   }
 
-  function scanObject() {
+  function scanObject(depth) {
     position += 1;
     skipWhitespace();
     if (text[position] === "}") {
@@ -95,7 +96,7 @@ function scanObjectKeys(text) {
 
       skipWhitespace();
       position += 1;
-      scanValue();
+      scanValue(depth + 1);
       skipWhitespace();
       if (text[position] === "}") {
         position += 1;
@@ -105,10 +106,13 @@ function scanObjectKeys(text) {
     }
   }
 
-  function scanValue() {
+  function scanValue(depth = 0) {
+    if (depth > MAX_JSON_DEPTH) {
+      fail("FADENO_K0_JSON_DEPTH", `JSON nesting exceeds ${MAX_JSON_DEPTH}`);
+    }
     skipWhitespace();
-    if (text[position] === "{") return scanObject();
-    if (text[position] === "[") return scanArray();
+    if (text[position] === "{") return scanObject(depth);
+    if (text[position] === "[") return scanArray(depth);
     if (text[position] === '"') {
       readString();
       return;
@@ -248,45 +252,132 @@ export function validateArtifactRecords(manifest, manifestPath) {
       );
     }
   }
+  for (const [label, provenance] of [
+    ["dependency lock", manifest.dependencyLock],
+    ["workload dataset", manifest.workload?.dataset],
+  ]) {
+    const artifact = (manifest.artifacts ?? []).find(
+      (candidate) => candidate.path === provenance?.artifact,
+    );
+    if (!artifact || artifact.sha256 !== provenance.sha256) {
+      fail(
+        "FADENO_K0_PROVENANCE_MISMATCH",
+        `${label} hash is not backed by its recorded artifact`,
+      );
+    }
+  }
+}
+
+const SECRET_PATTERNS = [
+  /\b(?:authorization|proxy-authorization)\s*[:=]\s*\S+/iu,
+  /\bbearer\s+[A-Za-z0-9._~+/=-]{8,}/iu,
+  /\b(?:cookie|set-cookie)\s*[:=]\s*\S+/iu,
+  /\b(?:api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|client[-_ ]?secret|password|passwd|session(?:id|_id|[-_ ]?token)?)\s*[:=]\s*\S+/iu,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
+  /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})\b/u,
+];
+
+function assertNoSecrets(value, path = "manifest") {
+  if (typeof value === "string") {
+    if (SECRET_PATTERNS.some((pattern) => pattern.test(value))) {
+      fail("FADENO_K0_SECRET_DETECTED", `${path}: secret-shaped value is forbidden`);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertNoSecrets(item, `${path}[${index}]`));
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, child] of Object.entries(value)) {
+      assertNoSecrets(child, `${path}.${key}`);
+    }
+  }
 }
 
 export function validateManifestSemantics(manifest, referenceEnvironment, registry) {
+  assertNoSecrets(manifest);
   if (Date.parse(manifest.run.completedAt) < Date.parse(manifest.run.startedAt)) {
     fail("FADENO_K0_TIME_ORDER", "run.completedAt precedes run.startedAt");
   }
   if (manifest.environment.referenceId !== referenceEnvironment.id) {
     fail("FADENO_K0_ENVIRONMENT_MISMATCH", "manifest reference environment differs");
   }
-  if (!registry.experiments.some((entry) => entry.id === manifest.experiment.id)) {
+  const registryEntry = registry.experiments.find(
+    (entry) => entry.id === manifest.experiment.id,
+  );
+  if (!registryEntry) {
     fail("FADENO_K0_EXPERIMENT_UNKNOWN", "manifest experiment is absent from registry");
   }
-  if (
-    manifest.environment.container.indexDigest !==
-      referenceEnvironment.container.indexDigest ||
-    manifest.environment.container.platformDigest !==
-      referenceEnvironment.container.platformDigest ||
-    manifest.environment.container.configDigest !==
-      referenceEnvironment.container.configDigest
-  ) {
-    fail("FADENO_K0_ENVIRONMENT_MISMATCH", "manifest container digest differs");
+  const expectedCommand = [
+    "pnpm",
+    registryEntry.command.slice("pnpm ".length),
+    "--",
+    "--qualify",
+  ];
+  if (JSON.stringify(manifest.command.argv) !== JSON.stringify(expectedCommand)) {
+    fail("FADENO_K0_COMMAND_MISMATCH", "manifest command differs from the registry");
   }
-  for (const name of ["node", "pnpm", "playwright"]) {
-    if (manifest.environment.toolchain[name] !== referenceEnvironment.toolchain[name]) {
-      fail("FADENO_K0_ENVIRONMENT_MISMATCH", `manifest ${name} version differs`);
+  const runIdentity = /^([0-9]{8}T[0-9]{6}Z)-([a-f0-9]{7,40})-a([1-9][0-9]*)$/u.exec(
+    manifest.run.id,
+  );
+  const startedAtIdentity = `${manifest.run.startedAt
+    .slice(0, 19)
+    .replaceAll("-", "")
+    .replaceAll(":", "")}Z`;
+  if (
+    !runIdentity ||
+    runIdentity[1] !== startedAtIdentity ||
+    !manifest.source.commit.startsWith(runIdentity[2]) ||
+    manifest.run.attempt !== Number(runIdentity[3])
+  ) {
+    fail("FADENO_K0_RUN_IDENTITY_MISMATCH", "run ID disagrees with commit or attempt");
+  }
+  const environmentProjection = [
+    ["container.image", manifest.environment.container.image, referenceEnvironment.container.runtimeImage],
+    ["container.indexDigest", manifest.environment.container.indexDigest, referenceEnvironment.container.indexDigest],
+    ["container.platform", manifest.environment.container.platform, referenceEnvironment.container.platform],
+    ["container.platformDigest", manifest.environment.container.platformDigest, referenceEnvironment.container.platformDigest],
+    ["container.configDigest", manifest.environment.container.configDigest, referenceEnvironment.container.configDigest],
+    ["container.executionUser", manifest.environment.container.executionUser, referenceEnvironment.container.executionUser],
+    ["container.browserSandbox", manifest.environment.container.browserSandbox, referenceEnvironment.container.browserSandbox],
+    ["container.networkPolicy", manifest.environment.container.networkPolicy, referenceEnvironment.container.networkPolicy],
+    ["toolchain.node", manifest.environment.toolchain.node, referenceEnvironment.toolchain.node],
+    ["toolchain.pnpm", manifest.environment.toolchain.pnpm, referenceEnvironment.toolchain.pnpm],
+    ["toolchain.playwright", manifest.environment.toolchain.playwright, referenceEnvironment.toolchain.playwright],
+    ["browsers.chromeForTesting", manifest.environment.browsers.chromeForTesting, referenceEnvironment.browsers.chromeForTesting],
+    ["browsers.firefox", manifest.environment.browsers.firefox, referenceEnvironment.browsers.firefox],
+    ["browsers.webkit", manifest.environment.browsers.webkit, referenceEnvironment.browsers.webkit],
+    ["power.policy", manifest.environment.power.policy, referenceEnvironment.power.policy],
+    ["power.telemetry", manifest.environment.power.telemetry, referenceEnvironment.power.telemetry],
+  ];
+  for (const [field, actual, expected] of environmentProjection) {
+    if (actual !== expected) {
+      fail("FADENO_K0_ENVIRONMENT_MISMATCH", `manifest ${field} differs`);
     }
   }
-  for (const name of ["chromeForTesting", "firefox", "webkit"]) {
-    if (manifest.environment.browsers[name] !== referenceEnvironment.browsers[name]) {
-      fail("FADENO_K0_ENVIRONMENT_MISMATCH", `manifest ${name} version differs`);
-    }
-  }
-  if (
-    manifest.environment.referenceClass === "reference" &&
-    !manifest.environment.backgroundLoad.accepted
-  ) {
+  const host = manifest.environment.host;
+  const load = manifest.environment.backgroundLoad;
+  const referenceHost = referenceEnvironment.host;
+  const referenceEligible =
+    host.provider === referenceHost.provider &&
+    host.repositoryVisibility === referenceHost.repositoryVisibility &&
+    host.runnerLabel === referenceHost.runnerLabel &&
+    host.runnerImage === referenceHost.runnerLabel &&
+    host.architecture === referenceHost.architecture &&
+    host.logicalCpuCount === referenceHost.minimumHardware.logicalCpuCount &&
+    host.memoryMiB === referenceHost.minimumHardware.memoryMiB &&
+    host.advertisedStorageMiB === referenceHost.minimumHardware.storageMiB &&
+    host.freeStorageMiB >= referenceEnvironment.storage.minimumFreeMiB &&
+    load.loadAverage1m <= referenceEnvironment.backgroundLoad.maxLoadAverage1m &&
+    load.processCount <= referenceEnvironment.backgroundLoad.maxProcessCount &&
+    load.accepted === true &&
+    load.reason === referenceEnvironment.backgroundLoad.acceptanceReason &&
+    Date.parse(load.preflightObservedAt) <= Date.parse(manifest.run.startedAt);
+  if (manifest.environment.referenceClass === "reference" && !referenceEligible) {
     fail(
       "FADENO_K0_ENVIRONMENT_MISMATCH",
-      "reference run cannot accept failed background-load preflight",
+      "reference run does not satisfy the derived host and preflight policy",
     );
   }
   const expectedConclusion = {
@@ -296,6 +387,13 @@ export function validateManifestSemantics(manifest, referenceEnvironment, regist
   }[manifest.run.status];
   if (manifest.conclusion.status !== expectedConclusion) {
     fail("FADENO_K0_CONCLUSION_MISMATCH", "run and conclusion statuses disagree");
+  }
+  if (
+    manifest.run.status === "passed" &&
+    (manifest.measurements.length === 0 ||
+      manifest.artifacts.length === 0)
+  ) {
+    fail("FADENO_K0_EVIDENCE_EMPTY", "passed run lacks coherent recorded evidence");
   }
   const measurementNames = new Set();
   for (const measurement of manifest.measurements) {
@@ -309,16 +407,11 @@ export function validateManifestSemantics(manifest, referenceEnvironment, regist
   }
 }
 
-export function normalizeRegistry(registry) {
-  if (!registry || registry.schemaVersion !== 1 || !Array.isArray(registry.experiments)) {
-    fail("FADENO_K0_REGISTRY_INVALID", "registry shape is invalid");
-  }
+export function assertRegistrySemantics(registry) {
   const seen = new Set();
   let priorId = "";
   for (const [index, entry] of registry.experiments.entries()) {
     if (
-      !entry ||
-      typeof entry.id !== "string" ||
       entry.directory !== entry.id ||
       entry.command !== `pnpm experiment:${entry.id}`
     ) {
@@ -335,7 +428,7 @@ export function normalizeRegistry(registry) {
 }
 
 export function stableRegistryListing(registry) {
-  const experiments = normalizeRegistry(registry).map((entry) => ({
+  const experiments = assertRegistrySemantics(registry).map((entry) => ({
     id: entry.id,
     hypothesis: entry.hypothesis,
     command: entry.command,
@@ -347,6 +440,7 @@ export function stableRegistryListing(registry) {
 }
 
 export function evaluateExperimentCommand(registry, args) {
+  if (args[0] === "--") args = args.slice(1);
   if (args.length === 1 && args[0] === "--list") {
     return { exitCode: 0, stdout: stableRegistryListing(registry), stderr: "" };
   }

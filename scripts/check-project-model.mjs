@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { loadExperimentRegistry } from "./lib/experiment-validation.mjs";
+
 const root = process.cwd();
 const errors = [];
 
@@ -232,14 +234,12 @@ for (const hypothesis of ["H1", "H2", "H3", "H4"]) {
 
 let experimentRegistry;
 try {
-  experimentRegistry = JSON.parse(read("experiments/registry.json"));
+  experimentRegistry = loadExperimentRegistry(root);
 } catch (error) {
-  errors.push(`experiments/registry.json: invalid JSON (${error.message})`);
+  errors.push(`experiments/registry.json: invalid contract (${error.code ?? error.message})`);
   experimentRegistry = { experiments: [] };
 }
-const registryEntries = Array.isArray(experimentRegistry.experiments)
-  ? experimentRegistry.experiments
-  : [];
+const registryEntries = experimentRegistry.experiments;
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],
@@ -250,10 +250,6 @@ for (const missing of setDifference(new Set(plannedDirectoryIds), new Set(regist
 for (const unknown of setDifference(new Set(registryIds), new Set(plannedDirectoryIds))) {
   errors.push(`experiments/registry.json: unknown K0 directory ${unknown}`);
 }
-for (const duplicate of duplicates(registryIds)) {
-  errors.push(`experiments/registry.json: duplicate experiment ${duplicate}`);
-}
-
 const k0RowMap = new Map(k0Rows.map((cells) => [cells[0], cells]));
 for (const entry of registryEntries) {
   if (!k0.includes(`pnpm experiment:${entry.id}`)) {

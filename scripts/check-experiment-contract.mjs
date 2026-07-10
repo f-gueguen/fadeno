@@ -4,7 +4,6 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import {
-  normalizeRegistry,
   readJsonDocument,
   validateArtifactRecords,
   validateManifestSemantics,
@@ -47,15 +46,12 @@ if (packageJson.packageManager !== packageManager) {
   recordFailure(`reference pnpm differs from packageManager ${packageJson.packageManager}`);
 }
 
-const expectedDirectories = normalizeRegistry(registry).map((entry) => entry.directory);
+const expectedDirectories = registry.experiments.map((entry) => entry.directory);
 for (const directory of expectedDirectories) {
   for (const child of ["README.md", "fixtures", "tests", "results"]) {
     if (!existsSync(join(root, "experiments", directory, child))) {
       recordFailure(`experiments/${directory}: missing ${child}`);
     }
-  }
-  if (existsSync(join(root, "experiments", directory, "package.json"))) {
-    recordFailure(`experiments/${directory}: package.json would create an unapproved package boundary`);
   }
 }
 if (!existsSync(join(root, "experiments/revalidation/app"))) {
@@ -83,7 +79,7 @@ for (const path of collectPackageFiles(join(root, "experiments"))) {
   recordFailure(`${path}: experiment package boundaries are forbidden in K0-01`);
 }
 
-for (const entry of normalizeRegistry(registry)) {
+for (const entry of registry.experiments) {
   const scriptName = entry.command.slice("pnpm ".length);
   if (entry.status === "planned" && packageJson.scripts?.[scriptName] !== undefined) {
     recordFailure(`${entry.id}: planned experiment must not expose ${scriptName}`);

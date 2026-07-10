@@ -88,15 +88,15 @@
             "freeStorageMiB"
           ],
           "properties": {
-            "provider": { "const": "github-actions" },
+            "provider": { "type": "string", "pattern": "^[a-z][a-z-]{0,31}$" },
             "repositoryVisibility": { "const": "private" },
-            "runnerLabel": { "const": "ubuntu-24.04" },
-            "runnerImage": { "const": "ubuntu-24.04" },
+            "runnerLabel": { "$ref": "#/$defs/shortString" },
+            "runnerImage": { "$ref": "#/$defs/shortString" },
             "runnerImageVersion": { "$ref": "#/$defs/shortString" },
             "runnerProvisionerVersion": { "$ref": "#/$defs/shortString" },
             "operatingSystemVersion": { "$ref": "#/$defs/shortString" },
             "kernelVersion": { "$ref": "#/$defs/shortString" },
-            "architecture": { "const": "x64" },
+            "architecture": { "enum": ["x64", "arm64"] },
             "cpuModel": { "type": "string", "minLength": 1, "maxLength": 160 },
             "logicalCpuCount": { "type": "integer", "minimum": 2, "maximum": 512 },
             "memoryMiB": { "type": "integer", "minimum": 8192, "maximum": 1048576 },
@@ -118,14 +118,14 @@
             "networkPolicy"
           ],
           "properties": {
-            "image": { "const": "mcr.microsoft.com/playwright:v1.61.0-noble" },
+            "image": { "$ref": "#/$defs/digestImage" },
             "indexDigest": { "$ref": "#/$defs/sha256Digest" },
-            "platform": { "const": "linux/amd64" },
+            "platform": { "type": "string", "pattern": "^[a-z0-9]+/[a-z0-9]+$", "maxLength": 40 },
             "platformDigest": { "$ref": "#/$defs/sha256Digest" },
             "configDigest": { "$ref": "#/$defs/sha256Digest" },
-            "executionUser": { "const": "root" },
-            "browserSandbox": { "const": "disabled-for-trusted-local-fixtures" },
-            "networkPolicy": { "const": "trusted-local-fixtures-only" }
+            "executionUser": { "enum": ["root", "non-root"] },
+            "browserSandbox": { "enum": ["disabled-for-trusted-local-fixtures", "enabled"] },
+            "networkPolicy": { "enum": ["trusted-local-fixtures-only", "network-disabled"] }
           }
         },
         "toolchain": {
@@ -133,9 +133,9 @@
           "additionalProperties": false,
           "required": ["node", "pnpm", "playwright"],
           "properties": {
-            "node": { "const": "22.14.0" },
-            "pnpm": { "const": "11.7.0" },
-            "playwright": { "const": "1.61.0" }
+            "node": { "$ref": "#/$defs/shortString" },
+            "pnpm": { "$ref": "#/$defs/shortString" },
+            "playwright": { "$ref": "#/$defs/shortString" }
           }
         },
         "browsers": {
@@ -143,9 +143,9 @@
           "additionalProperties": false,
           "required": ["chromeForTesting", "firefox", "webkit"],
           "properties": {
-            "chromeForTesting": { "const": "149.0.7827.55" },
-            "firefox": { "const": "151.0" },
-            "webkit": { "const": "26.5" }
+            "chromeForTesting": { "$ref": "#/$defs/shortString" },
+            "firefox": { "$ref": "#/$defs/shortString" },
+            "webkit": { "$ref": "#/$defs/shortString" }
           }
         },
         "power": {
@@ -153,15 +153,16 @@
           "additionalProperties": false,
           "required": ["policy", "telemetry"],
           "properties": {
-            "policy": { "const": "provider-managed-continuous-power" },
-            "telemetry": { "const": "not-exposed" }
+            "policy": { "enum": ["provider-managed-continuous-power"] },
+            "telemetry": { "enum": ["not-exposed"] }
           }
         },
         "backgroundLoad": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["loadAverage1m", "processCount", "accepted", "reason"],
+          "required": ["preflightObservedAt", "loadAverage1m", "processCount", "accepted", "reason"],
           "properties": {
+            "preflightObservedAt": { "$ref": "#/$defs/timestamp" },
             "loadAverage1m": { "type": "number", "minimum": 0, "maximum": 1024 },
             "processCount": { "type": "integer", "minimum": 1, "maximum": 100000 },
             "accepted": { "type": "boolean" },
@@ -173,9 +174,10 @@
     "dependencyLock": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "sha256"],
+      "required": ["path", "artifact", "sha256"],
       "properties": {
         "path": { "const": "pnpm-lock.yaml" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
         "sha256": { "$ref": "#/$defs/sha256" }
       }
     },
@@ -201,9 +203,10 @@
         "dataset": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "sha256"],
+          "required": ["id", "artifact", "sha256"],
           "properties": {
             "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,79}$" },
+            "artifact": { "$ref": "#/$defs/relativePath" },
             "sha256": { "$ref": "#/$defs/sha256" }
           }
         },
@@ -293,6 +296,11 @@
     }
   },
   "$defs": {
+    "digestImage": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$",
+      "maxLength": 500
+    },
     "relativePath": {
       "type": "string",
       "minLength": 1,

@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   ContractError,
+  MAX_JSON_DEPTH,
   MAX_JSON_BYTES,
   assertContainedArtifact,
-  normalizeRegistry,
+  assertRegistrySemantics,
   parseJsonBuffer,
   readJsonDocument,
   registryLoadFailureResult,
@@ -18,6 +19,7 @@ import {
 } from "./lib/experiment-contract.mjs";
 import {
   createContractValidators,
+  assertReferenceSemantics,
   loadExperimentRegistry,
   loadReferenceEnvironment,
 } from "./lib/experiment-validation.mjs";
@@ -70,12 +72,27 @@ const expectedMutationNames = [
   "negative-repetitions",
   "invalid-calendar-timestamp",
   "unexpected-secret-property",
+  "secret-bearing-summary",
+  "secret-bearing-command",
+  "secret-bearing-failure",
   "environment-digest-mismatch",
+  "reference-hardware-mismatch",
+  "reference-load-mismatch",
+  "late-reference-preflight",
+  "reference-reason-mismatch",
   "time-order",
+  "command-experiment-mismatch",
+  "run-attempt-mismatch",
+  "run-commit-mismatch",
+  "run-timestamp-mismatch",
   "failed-background-preflight",
   "artifact-hash-mismatch",
+  "dependency-lock-provenance-mismatch",
+  "dataset-provenance-mismatch",
   "unknown-experiment",
   "conclusion-mismatch",
+  "passed-without-measurements",
+  "passed-without-artifacts",
   "duplicate-measurement",
   "duplicate-artifact",
   "unrecorded-failure-artifact",
@@ -103,6 +120,7 @@ const expectedSyntheticCodes = [
   "FADENO_K0_JSON_TOO_LARGE",
   "FADENO_K0_JSON_ENCODING",
   "FADENO_K0_JSON_BOM",
+  "FADENO_K0_JSON_DEPTH",
   "FADENO_K0_PATH_ESCAPE",
 ];
 if (JSON.stringify(fixtureIndex.synthetic) !== JSON.stringify(expectedSyntheticCodes)) {
@@ -114,6 +132,15 @@ const baseManifest = readJsonDocument(baseManifestPath);
 if (!manifestSchema(baseManifest)) {
   recordFailure(`base manifest: ${validators.ajv.errorsText(manifestSchema.errors)}`);
 }
+
+const mismatchedRuntimeImage = structuredClone(reference);
+mismatchedRuntimeImage.container.runtimeImage =
+  "mcr.microsoft.com/playwright@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+expectContractError(
+  "reference runtime image binding",
+  "FADENO_K0_ENVIRONMENT_MISMATCH",
+  () => assertReferenceSemantics(mismatchedRuntimeImage),
+);
 
 for (const mutation of fixtureIndex.mutations) {
   const document = mutate(baseManifest, mutation);
@@ -161,6 +188,10 @@ expectContractError("invalid UTF-8", "FADENO_K0_JSON_ENCODING", () => {
 expectContractError("UTF-8 BOM", "FADENO_K0_JSON_BOM", () => {
   parseJsonBuffer(Buffer.from([0xef, 0xbb, 0xbf, 0x7b, 0x7d]), "synthetic BOM");
 });
+expectContractError("excessive JSON depth", "FADENO_K0_JSON_DEPTH", () => {
+  const document = `${"[".repeat(MAX_JSON_DEPTH + 2)}0${"]".repeat(MAX_JSON_DEPTH + 2)}`;
+  parseJsonBuffer(Buffer.from(document), "synthetic excessive depth");
+});
 
 const symlinkRoot = mkdtempSync(join(tmpdir(), "fadeno-k0-path-"));
 try {
@@ -183,7 +214,7 @@ if (registrySchema(shortRegistry)) recordFailure("short registry: schema unexpec
 const reorderedRegistry = structuredClone(registry);
 reorderedRegistry.experiments.reverse();
 expectContractError("registry ordering", "FADENO_K0_REGISTRY_INVALID", () => {
-  normalizeRegistry(reorderedRegistry);
+  assertRegistrySemantics(reorderedRegistry);
 });
 
 const escapingRegistry = structuredClone(registry);
@@ -207,7 +238,14 @@ if (
 const cliPath = join(root, "scripts/experiment-all.mjs");
 const commandCases = [
   {
-    name: "list",
+    name: "list-with-separator",
+    args: ["--", "--list"],
+    status: 0,
+    stdout: stableRegistryListing(registry),
+    stderr: "",
+  },
+  {
+    name: "list-without-separator",
     args: ["--list"],
     status: 0,
     stdout: stableRegistryListing(registry),
@@ -244,7 +282,7 @@ for (const fixture of commandCases) {
 }
 
 const pnpmExecutable = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-for (const fixture of commandCases.slice(0, 2)) {
+for (const fixture of [commandCases[0], commandCases[2]]) {
   const result = spawnSync(
     pnpmExecutable,
     ["--silent", "experiment:all", ...fixture.args],
@@ -265,5 +303,5 @@ if (failures.length > 0) {
 }
 
 const negativeCount =
-  fixtureIndex.mutations.length + fixtureIndex.raw.length + fixtureIndex.synthetic.length + 4;
+  fixtureIndex.mutations.length + fixtureIndex.raw.length + fixtureIndex.synthetic.length + 5;
 console.log(`experiment contract negative tests passed (${negativeCount} cases)`);

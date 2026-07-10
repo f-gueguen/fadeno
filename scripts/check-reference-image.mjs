@@ -9,6 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const reference = loadReferenceEnvironment(root);
 const { registry, repository, tag, indexDigest, platformDigest, configDigest } =
   reference.container;
+const [platformOs, platformArchitecture] = reference.container.platform.split("/");
 const base = `https://${registry}/v2/${repository}`;
 const signal = AbortSignal.timeout(20_000);
 
@@ -34,7 +35,9 @@ if (index.digest !== indexDigest) {
 }
 
 const platform = index.body.manifests.find(
-  (entry) => entry.platform?.os === "linux" && entry.platform?.architecture === "amd64",
+  (entry) =>
+    entry.platform?.os === platformOs &&
+    entry.platform?.architecture === platformArchitecture,
 );
 if (platform?.digest !== platformDigest) {
   throw new Error(`reference image platform drift: ${platform?.digest ?? "missing"}`);
@@ -58,7 +61,7 @@ const config = await fetchJson(`${base}/blobs/${configDigest}`, "application/jso
 if (config.digest !== configDigest) {
   throw new Error(`reference image config content mismatch: ${config.digest}`);
 }
-if (config.body.os !== "linux" || config.body.architecture !== "amd64") {
+if (config.body.os !== platformOs || config.body.architecture !== platformArchitecture) {
   throw new Error(
     `reference image platform mismatch: ${config.body.os}/${config.body.architecture}`,
   );

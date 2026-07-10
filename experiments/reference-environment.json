@@ -32,6 +32,7 @@
     "platform": "linux/amd64",
     "platformDigest": "sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
     "configDigest": "sha256:753f831a898523662c36011748ba0729b59838745d577c61c91287fe1778bfe1",
+    "runtimeImage": "mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
     "executionUser": "root",
     "browserSandbox": "disabled-for-trusted-local-fixtures",
     "networkPolicy": "trusted-local-fixtures-only",
@@ -64,7 +65,10 @@
   "backgroundLoad": {
     "policy": "exclusive-qualification-job",
     "networkConsumers": ["github-actions-control-plane"],
-    "preflightRequired": true
+    "preflightRequired": true,
+    "maxLoadAverage1m": 1,
+    "maxProcessCount": 256,
+    "acceptanceReason": "within-reference-thresholds"
   },
   "preflight": {
     "requiredObservedFields": [

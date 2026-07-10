@@ -4,7 +4,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 
 import {
   ContractError,
-  normalizeRegistry,
+  assertRegistrySemantics,
   readJsonDocument,
 } from "./experiment-contract.mjs";
 
@@ -95,11 +95,24 @@ export function assertSchema(validator, document, label) {
   return document;
 }
 
+export function assertReferenceSemantics(reference) {
+  const expectedImage = `${reference.container.registry}/${reference.container.repository}@${reference.container.platformDigest}`;
+  if (reference.container.runtimeImage !== expectedImage) {
+    throw new ContractError(
+      "FADENO_K0_ENVIRONMENT_MISMATCH",
+      "reference runtime image is not bound to the platform digest",
+    );
+  }
+  return reference;
+}
+
 export function loadReferenceEnvironment(root, validators = createContractValidators(root)) {
-  return assertSchema(
-    validators.reference,
-    readJsonDocument(join(root, "experiments/reference-environment.json")),
-    "reference environment",
+  return assertReferenceSemantics(
+    assertSchema(
+      validators.reference,
+      readJsonDocument(join(root, "experiments/reference-environment.json")),
+      "reference environment",
+    ),
   );
 }
 
@@ -109,6 +122,6 @@ export function loadExperimentRegistry(root, validators = createContractValidato
     readJsonDocument(join(root, "experiments/registry.json")),
     "experiment registry",
   );
-  normalizeRegistry(registry);
+  assertRegistrySemantics(registry);
   return registry;
 }
