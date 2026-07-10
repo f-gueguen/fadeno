@@ -186,6 +186,19 @@ export function publishQualificationEvidence(options: Readonly<{
           join(artifactRoot, "failures", `${item.engine}.json`),
         ),
       );
+      for (const [name, source] of [
+        ["screenshot.png", item.screenshotPath],
+        ["trace.zip", item.tracePath],
+        ["error-context.md", item.errorContextPath],
+      ] as const) {
+        artifacts.push(
+          copyArtifact(
+            runDirectory,
+            source,
+            join(artifactRoot, "diagnostics", item.engine, name),
+          ),
+        );
+      }
     }
     artifacts.push(
       copyArtifact(

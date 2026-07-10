@@ -405,7 +405,9 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
     for (const child of plan.remove) child.remove();
     let cursor: Element | null = null;
     for (const child of plan.reverseChildren) {
-      if (child.nextElementSibling !== cursor) plan.parent.insertBefore(child, cursor);
+      if (child.parentElement !== plan.parent || child.nextElementSibling !== cursor) {
+        plan.parent.insertBefore(child, cursor);
+      }
       cursor = child;
     }
   }

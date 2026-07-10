@@ -34,6 +34,9 @@ export type QualificationFailedEvidence = Readonly<{
   recordsPath: string;
   failuresPath: string;
   summaryPath: string;
+  screenshotPath: string;
+  tracePath: string;
+  errorContextPath: string;
   summary: ReturnType<typeof verifyQualificationOutcome>;
 }>;
 
@@ -180,7 +183,16 @@ export function verifyQualificationReport(
       if (!isDeepStrictEqual(summaryDocument, summary)) {
         fail("FADENO_MORPH_QUALIFICATION_SUMMARY", `${engine}: summary differs from raw outcome`);
       }
-      failedEvidence.push({ engine, recordsPath, failuresPath, summaryPath, summary });
+      failedEvidence.push({
+        engine,
+        recordsPath,
+        failuresPath,
+        summaryPath,
+        screenshotPath: attachmentByName(result, verified, "screenshot"),
+        tracePath: attachmentByName(result, verified, "trace"),
+        errorContextPath: attachmentByName(result, verified, "error-context"),
+        summary,
+      });
     }
   }
   if (
