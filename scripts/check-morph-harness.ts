@@ -49,7 +49,7 @@ if (packageJson.devDependencies?.["@playwright/test"] !== "1.61.0") {
 }
 if (
   packageJson.scripts?.["experiment:morph"] !==
-  "node --experimental-strip-types experiments/morph/run.ts"
+  "node --no-warnings --experimental-strip-types experiments/morph/run.ts"
 ) {
   recordFailure("package.json: experiment:morph command differs");
 }
@@ -67,7 +67,7 @@ const commandRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-list-"));
 try {
   const result = spawnSync(
     process.execPath,
-    ["--experimental-strip-types", join(root, "experiments/morph/run.ts"), "--", "--list"],
+    ["--no-warnings", "--experimental-strip-types", join(root, "experiments/morph/run.ts"), "--", "--list"],
     {
       cwd: root,
       encoding: "utf8",
@@ -88,7 +88,7 @@ try {
   }
   const unsupported = spawnSync(
     process.execPath,
-    ["--experimental-strip-types", join(root, "experiments/morph/run.ts"), "--list", "--verify-harness"],
+    ["--no-warnings", "--experimental-strip-types", join(root, "experiments/morph/run.ts"), "--list", "--verify-harness"],
     { cwd: root, encoding: "utf8" },
   );
   if (

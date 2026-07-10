@@ -33,6 +33,7 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9
     env:
+      HOME: /root
       FADENO_EXPECT_REFERENCE: 1
       FADENO_REPOSITORY_VISIBILITY: private
       FADENO_RUNNER_LABEL: ubuntu-24.04

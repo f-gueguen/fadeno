@@ -10,7 +10,7 @@
   "scripts": {
     "check:experiment-contract": "node scripts/check-experiment-contract.mjs && node scripts/test-experiment-contract.mjs",
     "check:reference-image": "node scripts/check-reference-image.mjs",
-    "check:morph-harness": "node --experimental-strip-types scripts/check-morph-harness.ts && tsc -p experiments/morph/tsconfig.json",
+    "check:morph-harness": "node --no-warnings --experimental-strip-types scripts/check-morph-harness.ts && tsc -p experiments/morph/tsconfig.json",
     "check:docs": "node scripts/check-docs.mjs",
     "check:decisions": "node scripts/check-decisions.mjs",
     "check:ledgers": "node scripts/check-ledgers.mjs",
@@ -18,7 +18,7 @@
     "check:policies": "node scripts/policy-tests.mjs",
     "check": "pnpm check:docs && pnpm check:decisions && pnpm check:ledgers && pnpm check:model && pnpm check:policies && pnpm check:experiment-contract && pnpm check:morph-harness",
     "experiment:all": "node scripts/experiment-all.mjs",
-    "experiment:morph": "node --experimental-strip-types experiments/morph/run.ts"
+    "experiment:morph": "node --no-warnings --experimental-strip-types experiments/morph/run.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.61.0",

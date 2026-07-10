@@ -72,9 +72,22 @@ export async function executeMorphHarness(mode: "default" | "verify"): Promise<v
   rmSync(outputRoot, { recursive: true, force: true });
   mkdirSync(outputRoot, { recursive: true });
 
-  const preflight = await runMorphPreflight(root, {
-    requireReference: process.env.FADENO_EXPECT_REFERENCE === "1",
-  });
+  let preflight: Awaited<ReturnType<typeof runMorphPreflight>>;
+  try {
+    preflight = await runMorphPreflight(root, {
+      requireReference: process.env.FADENO_EXPECT_REFERENCE === "1",
+    });
+  } catch (error: unknown) {
+    writeFileSync(
+      join(outputRoot, "preflight-error.json"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        code: error instanceof Error && "code" in error ? String(error.code) : "FADENO_MORPH_INTERNAL",
+        message: error instanceof Error ? error.message : String(error),
+      }, null, 2)}\n`,
+    );
+    throw error;
+  }
   writeFileSync(join(outputRoot, "preflight.json"), `${JSON.stringify(preflight, null, 2)}\n`);
   console.log(
     `morph preflight passed (${preflight.classification}; ${Object.entries(preflight.browsers)
