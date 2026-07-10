@@ -1,0 +1,116 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/reference-environment-v1.json",
+  "schemaVersion": 1,
+  "id": "k0-linux-x64-v1",
+  "host": {
+    "provider": "github-actions",
+    "repositoryVisibility": "private",
+    "runnerLabel": "ubuntu-24.04",
+    "architecture": "x64",
+    "minimumHardware": {
+      "logicalCpuCount": 2,
+      "memoryMiB": 8192,
+      "storageMiB": 14336
+    },
+    "mutableObservedFields": [
+      "runnerImageVersion",
+      "runnerProvisionerVersion",
+      "operatingSystemVersion",
+      "kernelVersion",
+      "cpuModel",
+      "freeStorageMiB",
+      "loadAverage1m",
+      "processCount"
+    ],
+    "deviationPolicy": "classify-non-reference-before-measurement"
+  },
+  "container": {
+    "registry": "mcr.microsoft.com",
+    "repository": "playwright",
+    "tag": "v1.61.0-noble",
+    "indexDigest": "sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a",
+    "platform": "linux/amd64",
+    "platformDigest": "sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
+    "configDigest": "sha256:753f831a898523662c36011748ba0729b59838745d577c61c91287fe1778bfe1",
+    "executionUser": "root",
+    "browserSandbox": "disabled-for-trusted-local-fixtures",
+    "networkPolicy": "trusted-local-fixtures-only",
+    "createdAt": "2026-06-15T17:20:25.35354232Z",
+    "verifiedAt": "2026-07-10T11:39:01Z"
+  },
+  "toolchain": {
+    "node": "22.14.0",
+    "pnpm": "11.7.0",
+    "playwright": "1.61.0",
+    "lockfile": "pnpm-lock.yaml",
+    "lockHashAlgorithm": "sha256"
+  },
+  "browsers": {
+    "authority": "playwright-package-and-container-digest",
+    "chromeForTesting": "149.0.7827.55",
+    "firefox": "151.0",
+    "webkit": "26.5"
+  },
+  "storage": {
+    "mode": "ephemeral-local",
+    "persistenceBetweenJobs": false,
+    "minimumFreeMiB": 4096
+  },
+  "power": {
+    "policy": "provider-managed-continuous-power",
+    "telemetry": "not-exposed",
+    "comparisonPolicy": "relative-baseline-in-same-job"
+  },
+  "backgroundLoad": {
+    "policy": "exclusive-qualification-job",
+    "networkConsumers": ["github-actions-control-plane"],
+    "preflightRequired": true
+  },
+  "preflight": {
+    "requiredObservedFields": [
+      "host.runnerImageVersion",
+      "host.runnerProvisionerVersion",
+      "host.operatingSystemVersion",
+      "host.kernelVersion",
+      "host.cpuModel",
+      "host.logicalCpuCount",
+      "host.memoryMiB",
+      "host.advertisedStorageMiB",
+      "host.freeStorageMiB",
+      "backgroundLoad.loadAverage1m",
+      "backgroundLoad.processCount",
+      "container.platformDigest",
+      "container.configDigest",
+      "toolchain.node",
+      "toolchain.pnpm",
+      "toolchain.playwright",
+      "browsers.chromeForTesting",
+      "browsers.firefox",
+      "browsers.webkit"
+    ],
+    "browserCheckSlice": "K0-02",
+    "failurePolicy": "refuse-reference-classification"
+  },
+  "sources": [
+    {
+      "claim": "Private ubuntu-24.04 x64 runners provide 2 CPU, 8 GiB RAM, and 14 GiB SSD.",
+      "url": "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
+      "observedAt": "2026-07-10T11:38:00Z"
+    },
+    {
+      "claim": "Playwright 1.61.0 publishes a Noble container and requires the package version to match the image.",
+      "url": "https://playwright.dev/docs/docker",
+      "observedAt": "2026-07-10T11:38:00Z"
+    },
+    {
+      "claim": "Playwright 1.61.0 pins Chrome for Testing 149.0.7827.55, Firefox 151.0, and WebKit 26.5.",
+      "url": "https://playwright.dev/docs/release-notes#version-161",
+      "observedAt": "2026-07-10T11:38:00Z"
+    },
+    {
+      "claim": "The MCR tag resolved to the recorded index, linux/amd64 platform, and config digests.",
+      "url": "https://mcr.microsoft.com/v2/playwright/manifests/v1.61.0-noble",
+      "observedAt": "2026-07-10T11:39:01Z"
+    }
+  ]
+}

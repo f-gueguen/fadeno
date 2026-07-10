@@ -6,28 +6,27 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-01 — Experiment contracts and frozen reference environment
+K0-02 — Three-engine morph harness
 
 ## Exit criteria
 
-- [ ] The reference environment records the runner image and capacity,
-  operating system and architecture, Node.js and pnpm versions, browser builds,
-  storage mode, power policy, and prohibited background load.
-- [ ] The four private experiment directories follow one checked contract
-  without exposing a public package or API.
-- [ ] A versioned result-manifest schema requires source identity, environment,
-  dependency-lock hash, command, warmup, repetitions, raw measurements,
-  failures, and conclusion.
-- [ ] Positive and negative fixtures prove the schema accepts complete evidence
-  and rejects missing, malformed, non-finite, or path-escaping data.
-- [ ] The aggregate command contract names every experiment without pretending
-  that later harnesses or qualification results exist.
-- [ ] `pnpm check:experiment-contract` passes.
+- [ ] Chromium, Firefox, and WebKit projects execute through one private fixture
+  API in the K0-01 reference environment.
+- [ ] `pnpm experiment:morph -- --list` reports the complete fixture inventory
+  without running it.
+- [ ] A seeded passing fixture proves the harness can observe preservation.
+- [ ] A seeded failing fixture proves the harness fails for an undeclared state
+  loss instead of rewarding non-execution.
+- [ ] Failure output captures a trace, screenshot, structural operation, and
+  before/after state.
+- [ ] Browser binaries and mutable host facts pass the K0-01 preflight before a
+  run can be classified as reference evidence.
+- [ ] No structural update candidate or public export is introduced.
 - [ ] `pnpm check` passes from a frozen install.
 
 ## In progress
 
-- K0-01 entry preparation; implementation has not started.
+- K0-02 entry preparation; no browser harness has been implemented.
 
 ## Blockers
 
@@ -35,8 +34,8 @@ K0-01 — Experiment contracts and frozen reference environment
 
 ## Open questions
 
-- K0-01: the exact reproducible GitHub-hosted runner capacity and browser-build
-  pinning available to qualification jobs.
+- K0-02: the smallest fixture API that proves all three engines execute and
+  preserves seeded-failure integrity without defining the later morph input.
 - DG-A0-01: public package names after registry ownership is secured.
 
 ## Completed slices
@@ -45,3 +44,7 @@ K0-01 — Experiment contracts and frozen reference environment
   [`387d7f674dd193ae031cec52fd99a1f56242c170`](https://github.com/f-gueguen/fadeno/commit/387d7f674dd193ae031cec52fd99a1f56242c170),
   licensed under MIT by ADR 0013, and passed the frozen-install
   [`Check` run](https://github.com/f-gueguen/fadeno/actions/runs/29089431803).
+- K0-01 — The four private experiment directories, v1 evidence schemas,
+  hardened positive/negative fixtures, digest-pinned reference environment,
+  and deterministic aggregate list/refusal contract are checked without
+  claiming a harness or qualification result.

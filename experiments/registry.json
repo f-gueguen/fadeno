@@ -1,0 +1,42 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/registry-v1.json",
+  "schemaVersion": 1,
+  "experiments": [
+    {
+      "id": "extraction",
+      "directory": "extraction",
+      "hypothesis": "H2",
+      "command": "pnpm experiment:extraction",
+      "harnessSlice": "K0-05",
+      "qualificationSlice": "K0-06",
+      "status": "planned"
+    },
+    {
+      "id": "morph",
+      "directory": "morph",
+      "hypothesis": "H1",
+      "command": "pnpm experiment:morph",
+      "harnessSlice": "K0-02",
+      "qualificationSlice": "K0-04",
+      "status": "planned"
+    },
+    {
+      "id": "revalidation",
+      "directory": "revalidation",
+      "hypothesis": "H4",
+      "command": "pnpm experiment:revalidation",
+      "harnessSlice": "K0-09",
+      "qualificationSlice": "K0-10",
+      "status": "planned"
+    },
+    {
+      "id": "type-spine",
+      "directory": "type-spine",
+      "hypothesis": "H3",
+      "command": "pnpm experiment:type-spine",
+      "harnessSlice": "K0-07",
+      "qualificationSlice": "K0-08",
+      "status": "planned"
+    }
+  ]
+}

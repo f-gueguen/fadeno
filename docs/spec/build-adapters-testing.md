@@ -68,6 +68,19 @@ Test helpers may expose resource execution, action submission, page rendering,
 and document interaction only after the underlying public semantics exist. Test
 APIs cannot become a second runtime implementation.
 
+## Private experiment evidence
+
+K0 experiment results use the checked, versioned contract under
+`experiments/contract/` and the single `experiments/reference-environment.json`.
+The container and browser toolchain are digest-pinned. Mutable hosted-runner
+facts are recorded for every attempt, and a preflight deviation classifies the
+run as non-reference before measurement. Relative performance comparisons run
+in the same job because provider power telemetry is unavailable.
+
+This contract validates evidence shape and integrity only. It does not claim
+that any experiment harness, framework mechanism, browser support, or
+qualification result exists.
+
 ## Diagnostics and support
 
 - User errors provide a stable identifier, source location, concise reason,

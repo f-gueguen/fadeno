@@ -8,11 +8,17 @@
     "node": ">=22.14.0"
   },
   "scripts": {
+    "check:experiment-contract": "node scripts/check-experiment-contract.mjs && node scripts/test-experiment-contract.mjs",
+    "check:reference-image": "node scripts/check-reference-image.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:decisions": "node scripts/check-decisions.mjs",
     "check:ledgers": "node scripts/check-ledgers.mjs",
     "check:model": "node scripts/check-project-model.mjs",
     "check:policies": "node scripts/policy-tests.mjs",
-    "check": "pnpm check:docs && pnpm check:decisions && pnpm check:ledgers && pnpm check:model && pnpm check:policies"
+    "check": "pnpm check:docs && pnpm check:decisions && pnpm check:ledgers && pnpm check:model && pnpm check:policies && pnpm check:experiment-contract",
+    "experiment:all": "node scripts/experiment-all.mjs"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0"
   }
 }

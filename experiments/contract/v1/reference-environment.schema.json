@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/reference-environment-v1.json",
+  "title": "Fadeno K0 reference environment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "id",
+    "host",
+    "container",
+    "toolchain",
+    "browsers",
+    "storage",
+    "power",
+    "backgroundLoad",
+    "preflight",
+    "sources"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://fadeno.dev/schemas/experiment/reference-environment-v1.json"
+    },
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "repositoryVisibility",
+        "runnerLabel",
+        "architecture",
+        "minimumHardware",
+        "mutableObservedFields",
+        "deviationPolicy"
+      ],
+      "properties": {
+        "provider": { "const": "github-actions" },
+        "repositoryVisibility": { "const": "private" },
+        "runnerLabel": { "const": "ubuntu-24.04" },
+        "architecture": { "const": "x64" },
+        "minimumHardware": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["logicalCpuCount", "memoryMiB", "storageMiB"],
+          "properties": {
+            "logicalCpuCount": { "const": 2 },
+            "memoryMiB": { "const": 8192 },
+            "storageMiB": { "const": 14336 }
+          }
+        },
+        "mutableObservedFields": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "runnerImageVersion",
+              "runnerProvisionerVersion",
+              "operatingSystemVersion",
+              "kernelVersion",
+              "cpuModel",
+              "freeStorageMiB",
+              "loadAverage1m",
+              "processCount"
+            ]
+          }
+        },
+        "deviationPolicy": {
+          "const": "classify-non-reference-before-measurement"
+        }
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry",
+        "repository",
+        "tag",
+        "indexDigest",
+        "platform",
+        "platformDigest",
+        "configDigest",
+        "executionUser",
+        "browserSandbox",
+        "networkPolicy",
+        "createdAt",
+        "verifiedAt"
+      ],
+      "properties": {
+        "registry": { "const": "mcr.microsoft.com" },
+        "repository": { "const": "playwright" },
+        "tag": { "const": "v1.61.0-noble" },
+        "indexDigest": {
+          "const": "sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a"
+        },
+        "platform": { "const": "linux/amd64" },
+        "platformDigest": {
+          "const": "sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9"
+        },
+        "configDigest": {
+          "const": "sha256:753f831a898523662c36011748ba0729b59838745d577c61c91287fe1778bfe1"
+        },
+        "executionUser": { "const": "root" },
+        "browserSandbox": { "const": "disabled-for-trusted-local-fixtures" },
+        "networkPolicy": { "const": "trusted-local-fixtures-only" },
+        "createdAt": { "const": "2026-06-15T17:20:25.35354232Z" },
+        "verifiedAt": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "pnpm", "playwright", "lockfile", "lockHashAlgorithm"],
+      "properties": {
+        "node": { "const": "22.14.0" },
+        "pnpm": { "const": "11.7.0" },
+        "playwright": { "const": "1.61.0" },
+        "lockfile": { "const": "pnpm-lock.yaml" },
+        "lockHashAlgorithm": { "const": "sha256" }
+      }
+    },
+    "browsers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "chromeForTesting", "firefox", "webkit"],
+      "properties": {
+        "authority": {
+          "const": "playwright-package-and-container-digest"
+        },
+        "chromeForTesting": { "const": "149.0.7827.55" },
+        "firefox": { "const": "151.0" },
+        "webkit": { "const": "26.5" }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "persistenceBetweenJobs", "minimumFreeMiB"],
+      "properties": {
+        "mode": { "const": "ephemeral-local" },
+        "persistenceBetweenJobs": { "const": false },
+        "minimumFreeMiB": { "type": "integer", "minimum": 4096, "maximum": 14336 }
+      }
+    },
+    "power": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "telemetry", "comparisonPolicy"],
+      "properties": {
+        "policy": { "const": "provider-managed-continuous-power" },
+        "telemetry": { "const": "not-exposed" },
+        "comparisonPolicy": { "const": "relative-baseline-in-same-job" }
+      }
+    },
+    "backgroundLoad": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "networkConsumers", "preflightRequired"],
+      "properties": {
+        "policy": { "const": "exclusive-qualification-job" },
+        "networkConsumers": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "maxLength": 80 }
+        },
+        "preflightRequired": { "const": true }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredObservedFields", "browserCheckSlice", "failurePolicy"],
+      "properties": {
+        "requiredObservedFields": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9.]{0,79}$" }
+        },
+        "browserCheckSlice": { "const": "K0-02" },
+        "failurePolicy": { "const": "refuse-reference-classification" }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "url", "observedAt"],
+        "properties": {
+          "claim": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "url": { "type": "string", "pattern": "^https://", "maxLength": 500 },
+          "observedAt": { "$ref": "#/$defs/timestamp" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "fadeno-utc-timestamp"
+    }
+  }
+}

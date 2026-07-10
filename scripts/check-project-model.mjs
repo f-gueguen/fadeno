@@ -230,6 +230,54 @@ for (const hypothesis of ["H1", "H2", "H3", "H4"]) {
   }
 }
 
+let experimentRegistry;
+try {
+  experimentRegistry = JSON.parse(read("experiments/registry.json"));
+} catch (error) {
+  errors.push(`experiments/registry.json: invalid JSON (${error.message})`);
+  experimentRegistry = { experiments: [] };
+}
+const registryEntries = Array.isArray(experimentRegistry.experiments)
+  ? experimentRegistry.experiments
+  : [];
+const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
+const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
+  (match) => match[1],
+);
+for (const missing of setDifference(new Set(plannedDirectoryIds), new Set(registryIds))) {
+  errors.push(`experiments/registry.json: missing K0 directory ${missing}`);
+}
+for (const unknown of setDifference(new Set(registryIds), new Set(plannedDirectoryIds))) {
+  errors.push(`experiments/registry.json: unknown K0 directory ${unknown}`);
+}
+for (const duplicate of duplicates(registryIds)) {
+  errors.push(`experiments/registry.json: duplicate experiment ${duplicate}`);
+}
+
+const k0RowMap = new Map(k0Rows.map((cells) => [cells[0], cells]));
+for (const entry of registryEntries) {
+  if (!k0.includes(`pnpm experiment:${entry.id}`)) {
+    errors.push(`docs/roadmap/k0.md: missing command for experiment ${entry.id}`);
+  }
+  for (const field of ["harnessSlice", "qualificationSlice"]) {
+    const slice = entry[field];
+    const row = k0RowMap.get(slice);
+    if (!row) {
+      errors.push(`experiments/registry.json: ${entry.id} references missing ${slice}`);
+    } else if (!new RegExp(`\\b${entry.hypothesis}\\b`).test(row[3])) {
+      errors.push(
+        `experiments/registry.json: ${entry.id} ${slice} does not own ${entry.hypothesis}`,
+      );
+    }
+  }
+  if (
+    Number(String(entry.harnessSlice).slice(3)) >=
+    Number(String(entry.qualificationSlice).slice(3))
+  ) {
+    errors.push(`experiments/registry.json: ${entry.id} qualifies before its harness`);
+  }
+}
+
 const workflow = read("docs/contributor-workflow.md");
 for (const heading of [
   "## 1. Orient before editing",
