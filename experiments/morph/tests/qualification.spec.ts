@@ -214,10 +214,12 @@ async function prepareScenario(page: Page, scenario: MorphQualificationScenario)
         }
         media.pause();
         media.currentTime = 0.25;
-        if (media.seeking) {
-          await new Promise<void>((resolve) =>
-            media.addEventListener("seeked", () => resolve(), { once: true })
-          );
+        const deadline = performance.now() + 2_000;
+        while (Math.abs(media.currentTime - 0.25) > 0.002 && performance.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        if (Math.abs(media.currentTime - 0.25) > 0.002) {
+          throw new Error("FADENO_MORPH_MEDIA_SEEK_DID_NOT_SETTLE");
         }
       });
       break;

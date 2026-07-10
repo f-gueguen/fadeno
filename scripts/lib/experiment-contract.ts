@@ -516,6 +516,9 @@ export function stableRegistryListing(registry: any): string {
     harnessSlice: entry.harnessSlice,
     qualificationSlice: entry.qualificationSlice,
     status: entry.status,
+    ...(entry.status === "qualified"
+      ? { decision: entry.decision, decisionAdr: entry.decisionAdr }
+      : {}),
   }));
   return `${JSON.stringify({ schemaVersion: 1, experiments }, null, 2)}\n`;
 }
