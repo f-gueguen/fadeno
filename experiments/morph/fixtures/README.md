@@ -1,3 +1,5 @@
 # Morph fixtures
 
-Reserved for the review-approved K0-02 fixture API. K0-01 contains no fixtures.
+`catalog.ts` is the single private fixture inventory. It contains a passing
+sibling-insertion control and an intended undeclared-state-loss replacement
+control. Neither is a morph candidate.

@@ -10,15 +10,20 @@
   "scripts": {
     "check:experiment-contract": "node scripts/check-experiment-contract.mjs && node scripts/test-experiment-contract.mjs",
     "check:reference-image": "node scripts/check-reference-image.mjs",
+    "check:morph-harness": "node --experimental-strip-types scripts/check-morph-harness.ts && tsc -p experiments/morph/tsconfig.json",
     "check:docs": "node scripts/check-docs.mjs",
     "check:decisions": "node scripts/check-decisions.mjs",
     "check:ledgers": "node scripts/check-ledgers.mjs",
     "check:model": "node scripts/check-project-model.mjs",
     "check:policies": "node scripts/policy-tests.mjs",
-    "check": "pnpm check:docs && pnpm check:decisions && pnpm check:ledgers && pnpm check:model && pnpm check:policies && pnpm check:experiment-contract",
-    "experiment:all": "node scripts/experiment-all.mjs"
+    "check": "pnpm check:docs && pnpm check:decisions && pnpm check:ledgers && pnpm check:model && pnpm check:policies && pnpm check:experiment-contract && pnpm check:morph-harness",
+    "experiment:all": "node scripts/experiment-all.mjs",
+    "experiment:morph": "node --experimental-strip-types experiments/morph/run.ts"
   },
   "devDependencies": {
-    "ajv": "8.20.0"
+    "@playwright/test": "1.61.0",
+    "@types/node": "22.20.1",
+    "ajv": "8.20.0",
+    "typescript": "7.0.2"
   }
 }

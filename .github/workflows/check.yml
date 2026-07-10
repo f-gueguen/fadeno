@@ -26,3 +26,38 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+
+  morph-harness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9
+    env:
+      FADENO_EXPECT_REFERENCE: 1
+      FADENO_REPOSITORY_VISIBILITY: private
+      FADENO_RUNNER_LABEL: ubuntu-24.04
+      FADENO_ADVERTISED_LOGICAL_CPU: "2"
+      FADENO_ADVERTISED_MEMORY_MIB: "8192"
+      FADENO_ADVERTISED_STORAGE_MIB: "14336"
+      FADENO_CONTAINER_IMAGE: mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm experiment:morph -- --verify-harness
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: morph-harness-evidence
+          path: output/playwright/morph
+          if-no-files-found: error
+          retention-days: 14
