@@ -306,7 +306,7 @@ const commandCases = [
     status: 2,
     stdout: "",
     stderr:
-      "FADENO_K0_001: experiment execution is unavailable in K0-01; use --list to inspect the approved plan.\n",
+      "FADENO_K0_001: aggregate execution is unavailable until all four harnesses exist; use --list to inspect the approved plan.\n",
   },
   {
     name: "unsupported",

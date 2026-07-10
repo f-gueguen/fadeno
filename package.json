@@ -10,7 +10,7 @@
   "scripts": {
     "check:experiment-contract": "node --no-warnings --experimental-strip-types scripts/check-experiment-contract.ts && node --no-warnings --experimental-strip-types scripts/test-experiment-contract.ts",
     "check:reference-image": "node --no-warnings --experimental-strip-types scripts/check-reference-image.ts",
-    "check:morph-harness": "node --no-warnings --experimental-strip-types scripts/check-morph-harness.ts",
+    "check:morph-harness": "node --no-warnings --experimental-strip-types scripts/check-morph-harness.ts && tsc -p experiments/morph/tsconfig.json",
     "check:docs": "node --no-warnings --experimental-strip-types scripts/check-docs.ts",
     "check:decisions": "node --no-warnings --experimental-strip-types scripts/check-decisions.ts",
     "check:ledgers": "node --no-warnings --experimental-strip-types scripts/check-ledgers.ts",

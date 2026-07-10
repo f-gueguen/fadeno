@@ -31,7 +31,7 @@ function fail(code: string, message: string): never {
   throw new ContractError(code, message);
 }
 
-function scanObjectKeys(text) {
+function scanObjectKeys(text: string): void {
   let position = 0;
 
   function skipWhitespace() {
@@ -56,12 +56,12 @@ function scanObjectKeys(text) {
   }
 
   function scanPrimitive() {
-    while (position < text.length && !/[\s,\]}]/u.test(text[position])) {
+    while (position < text.length && !/[\s,\]}]/u.test(text[position] ?? "")) {
       position += 1;
     }
   }
 
-  function scanArray(depth) {
+  function scanArray(depth: number): void {
     position += 1;
     skipWhitespace();
     if (text[position] === "]") {
@@ -79,7 +79,7 @@ function scanObjectKeys(text) {
     }
   }
 
-  function scanObject(depth) {
+  function scanObject(depth: number): void {
     position += 1;
     skipWhitespace();
     if (text[position] === "}") {
@@ -170,11 +170,11 @@ export function parseJsonBuffer(
   return value;
 }
 
-export function readJsonDocument(path, options = {}) {
+export function readJsonDocument(path: string, options: { maxBytes?: number } = {}) {
   return parseJsonBuffer(readFileSync(path), path, options);
 }
 
-export function assertSafeRelativePath(path, label = "path") {
+export function assertSafeRelativePath(path: string, label = "path"): string {
   if (typeof path !== "string" || path.length === 0 || path.length > 240) {
     fail("FADENO_K0_PATH_INVALID", `${label}: invalid length`);
   }
@@ -188,7 +188,7 @@ export function assertSafeRelativePath(path, label = "path") {
   return path;
 }
 
-export function assertContainedArtifact(root, artifactPath) {
+export function assertContainedArtifact(root: string, artifactPath: string): string {
   assertSafeRelativePath(artifactPath, "artifact path");
   const rootReal = realpathSync(root);
   const candidate = join(rootReal, artifactPath);
@@ -214,7 +214,7 @@ export function assertContainedArtifact(root, artifactPath) {
   return candidateReal;
 }
 
-export function sha256File(path) {
+export function sha256File(path: string): string {
   const hash = createHash("sha256");
   const buffer = Buffer.allocUnsafe(64 * 1024);
   const descriptor = openSync(path, "r");
@@ -229,12 +229,12 @@ export function sha256File(path) {
   return hash.digest("hex");
 }
 
-function validateSourceProvenance(manifest, repositoryRoot) {
+function validateSourceProvenance(manifest: any, repositoryRoot: string): void {
   if (!repositoryRoot) {
     fail("FADENO_K0_REPOSITORY_CONTEXT", "repository root is required for provenance");
   }
   const lockArtifact = manifest.artifacts.find(
-    (artifact) => artifact.path === manifest.dependencyLock.artifact,
+    (artifact: any) => artifact.path === manifest.dependencyLock.artifact,
   );
   if (lockArtifact.bytes > MAX_LOCKFILE_BYTES) {
     fail("FADENO_K0_LOCK_TOO_LARGE", "dependency lock exceeds provenance limit");
@@ -272,7 +272,11 @@ function validateSourceProvenance(manifest, repositoryRoot) {
   }
 }
 
-export function validateArtifactRecords(manifest, manifestPath, repositoryRoot) {
+export function validateArtifactRecords(
+  manifest: any,
+  manifestPath: string,
+  repositoryRoot: string,
+): void {
   const resultRoot = dirname(manifestPath);
   const paths = new Set();
   for (const artifact of manifest.artifacts ?? []) {
@@ -309,7 +313,7 @@ export function validateArtifactRecords(manifest, manifestPath, repositoryRoot) 
     ["workload dataset", manifest.workload?.dataset],
   ]) {
     const artifact = (manifest.artifacts ?? []).find(
-      (candidate) => candidate.path === provenance?.artifact,
+      (candidate: any) => candidate.path === provenance?.artifact,
     );
     if (!artifact || artifact.sha256 !== provenance.sha256) {
       fail(
@@ -330,7 +334,7 @@ const SECRET_PATTERNS = [
   /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})\b/u,
 ];
 
-function assertNoSecrets(value, path = "manifest") {
+function assertNoSecrets(value: unknown, path = "manifest"): void {
   if (typeof value === "string") {
     if (SECRET_PATTERNS.some((pattern) => pattern.test(value))) {
       fail("FADENO_K0_SECRET_DETECTED", `${path}: secret-shaped value is forbidden`);
@@ -348,7 +352,11 @@ function assertNoSecrets(value, path = "manifest") {
   }
 }
 
-export function validateManifestSemantics(manifest, referenceEnvironment, registry) {
+export function validateManifestSemantics(
+  manifest: any,
+  referenceEnvironment: any,
+  registry: any,
+): void {
   assertNoSecrets(manifest);
   if (Date.parse(manifest.run.completedAt) < Date.parse(manifest.run.startedAt)) {
     fail("FADENO_K0_TIME_ORDER", "run.completedAt precedes run.startedAt");
@@ -357,7 +365,7 @@ export function validateManifestSemantics(manifest, referenceEnvironment, regist
     fail("FADENO_K0_ENVIRONMENT_MISMATCH", "manifest reference environment differs");
   }
   const registryEntry = registry.experiments.find(
-    (entry) => entry.id === manifest.experiment.id,
+    (entry: any) => entry.id === manifest.experiment.id,
   );
   if (!registryEntry) {
     fail("FADENO_K0_EXPERIMENT_UNKNOWN", "manifest experiment is absent from registry");
@@ -437,11 +445,12 @@ export function validateManifestSemantics(manifest, referenceEnvironment, regist
       "reference run does not satisfy the derived host and preflight policy",
     );
   }
-  const expectedConclusion = {
+  const conclusionByRunStatus: Record<string, string> = {
     passed: "pass",
     failed: "fail",
     inconclusive: "inconclusive",
-  }[manifest.run.status];
+  };
+  const expectedConclusion = conclusionByRunStatus[String(manifest.run.status)];
   if (manifest.conclusion.status !== expectedConclusion) {
     fail("FADENO_K0_CONCLUSION_MISMATCH", "run and conclusion statuses disagree");
   }
@@ -464,7 +473,7 @@ export function validateManifestSemantics(manifest, referenceEnvironment, regist
   }
 }
 
-export function assertRegistrySemantics(registry) {
+export function assertRegistrySemantics(registry: any): any[] {
   const seen = new Set();
   let priorId = "";
   for (const [index, entry] of registry.experiments.entries()) {
@@ -484,8 +493,8 @@ export function assertRegistrySemantics(registry) {
   return registry.experiments;
 }
 
-export function stableRegistryListing(registry) {
-  const experiments = assertRegistrySemantics(registry).map((entry) => ({
+export function stableRegistryListing(registry: any): string {
+  const experiments = assertRegistrySemantics(registry).map((entry: any) => ({
     id: entry.id,
     hypothesis: entry.hypothesis,
     command: entry.command,
@@ -496,7 +505,7 @@ export function stableRegistryListing(registry) {
   return `${JSON.stringify({ schemaVersion: 1, experiments }, null, 2)}\n`;
 }
 
-export function evaluateExperimentCommand(registry, args) {
+export function evaluateExperimentCommand(registry: any, args: string[]) {
   if (args[0] === "--") args = args.slice(1);
   if (args.length === 1 && args[0] === "--list") {
     return { exitCode: 0, stdout: stableRegistryListing(registry), stderr: "" };
@@ -512,11 +521,11 @@ export function evaluateExperimentCommand(registry, args) {
     exitCode: 2,
     stdout: "",
     stderr:
-      "FADENO_K0_001: experiment execution is unavailable in K0-01; use --list to inspect the approved plan.\n",
+      "FADENO_K0_001: aggregate execution is unavailable until all four harnesses exist; use --list to inspect the approved plan.\n",
   };
 }
 
-export function registryLoadFailureResult(error) {
+export function registryLoadFailureResult(error: unknown) {
   if (!(error instanceof ContractError)) throw error;
   return {
     exitCode: 65,

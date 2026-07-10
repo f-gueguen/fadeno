@@ -76,6 +76,8 @@ export async function executeMorphHarness(mode: "default" | "verify"): Promise<v
   try {
     preflight = await runMorphPreflight(root, {
       requireReference: process.env.FADENO_EXPECT_REFERENCE === "1",
+      maxReferenceWaitMilliseconds:
+        Number(process.env.FADENO_PREFLIGHT_WAIT_MS) || 0,
     });
   } catch (error: unknown) {
     writeFileSync(

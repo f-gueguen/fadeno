@@ -320,6 +320,7 @@ for (const required of [
   "runs-on: ubuntu-24.04",
   `image: ${reference.container.runtimeImage}`,
   "FADENO_EXPECT_REFERENCE: 1",
+  "FADENO_PREFLIGHT_WAIT_MS: \"180000\"",
   "pnpm experiment:morph -- --verify-harness",
   "if: always()",
   "output/playwright/morph",

@@ -121,7 +121,7 @@ export function classifyReferenceHost(
 
 export async function runMorphPreflight(
   root: string,
-  options: { requireReference?: boolean } = {},
+  options: { requireReference?: boolean; maxReferenceWaitMilliseconds?: number } = {},
 ) {
   const reference = readJsonDocument(
     join(root, "experiments/reference-environment.json"),
@@ -146,32 +146,48 @@ export async function runMorphPreflight(
   }
   assertBrowserCompatibility(versions, reference, packageVersion);
 
-  const filesystem = statfsSync(root);
-  const host = {
-    githubActions: process.env.GITHUB_ACTIONS === "true",
-    repositoryVisibility: process.env.FADENO_REPOSITORY_VISIBILITY ?? "unknown",
-    runnerLabel: process.env.FADENO_RUNNER_LABEL ?? "local",
-    runnerImageVersion: process.env.ImageVersion ?? "unknown",
-    runnerProvisionerVersion: process.env.Runner_Provisioner ?? "unknown",
-    operatingSystemVersion: process.env.ImageOS ?? platform(),
-    kernelVersion: release(),
-    architecture: process.arch === "x64" ? "x64" : process.arch,
-    cpuModel: cpus()[0]?.model ?? "unknown",
-    observedLogicalCpuCount: cpus().length,
-    observedMemoryMiB: Math.floor(totalmem() / 1024 / 1024),
-    advertisedLogicalCpuCount: integerEnvironment("FADENO_ADVERTISED_LOGICAL_CPU"),
-    advertisedMemoryMiB: integerEnvironment("FADENO_ADVERTISED_MEMORY_MIB"),
-    advertisedStorageMiB: integerEnvironment("FADENO_ADVERTISED_STORAGE_MIB"),
-    freeStorageMiB: Math.floor((filesystem.bavail * filesystem.bsize) / 1024 / 1024),
-    loadAverage1m: loadavg()[0] ?? Number.POSITIVE_INFINITY,
-    processCount: processCount(),
-    containerImage: process.env.FADENO_CONTAINER_IMAGE ?? "none",
-  } satisfies ReferenceHostSnapshot & Record<string, unknown>;
-  const classification = classifyReferenceHost(host, reference);
+  const sampleHost = () => {
+    const filesystem = statfsSync(root);
+    return {
+      githubActions: process.env.GITHUB_ACTIONS === "true",
+      repositoryVisibility: process.env.FADENO_REPOSITORY_VISIBILITY ?? "unknown",
+      runnerLabel: process.env.FADENO_RUNNER_LABEL ?? "local",
+      runnerImageVersion: process.env.ImageVersion ?? "unknown",
+      runnerProvisionerVersion: process.env.Runner_Provisioner ?? "unknown",
+      operatingSystemVersion: process.env.ImageOS ?? platform(),
+      kernelVersion: release(),
+      architecture: process.arch === "x64" ? "x64" : process.arch,
+      cpuModel: cpus()[0]?.model ?? "unknown",
+      observedLogicalCpuCount: cpus().length,
+      observedMemoryMiB: Math.floor(totalmem() / 1024 / 1024),
+      advertisedLogicalCpuCount: integerEnvironment("FADENO_ADVERTISED_LOGICAL_CPU"),
+      advertisedMemoryMiB: integerEnvironment("FADENO_ADVERTISED_MEMORY_MIB"),
+      advertisedStorageMiB: integerEnvironment("FADENO_ADVERTISED_STORAGE_MIB"),
+      freeStorageMiB: Math.floor((filesystem.bavail * filesystem.bsize) / 1024 / 1024),
+      loadAverage1m: loadavg()[0] ?? Number.POSITIVE_INFINITY,
+      processCount: processCount(),
+      containerImage: process.env.FADENO_CONTAINER_IMAGE ?? "none",
+    } satisfies ReferenceHostSnapshot & Record<string, unknown>;
+  };
+  const deadline = Date.now() + (options.maxReferenceWaitMilliseconds ?? 0);
+  let host = sampleHost();
+  let classification = classifyReferenceHost(host, reference);
+  while (
+    options.requireReference &&
+    classification.classification !== "reference" &&
+    classification.reasons.every((reason) =>
+      ["load-average", "process-count"].includes(reason),
+    ) &&
+    Date.now() < deadline
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+    host = sampleHost();
+    classification = classifyReferenceHost(host, reference);
+  }
   if (options.requireReference && classification.classification !== "reference") {
     throw new MorphHarnessError(
       "FADENO_MORPH_NON_REFERENCE",
-      `reference preflight failed: ${classification.reasons.join(",")}`,
+      `reference preflight failed: ${classification.reasons.join(",")} (load=${host.loadAverage1m}, processes=${host.processCount})`,
     );
   }
   return {
