@@ -89,7 +89,6 @@ type TraceEvidence = {
   playwrightVersion: string;
   errorFirstLine: string;
   attachments: Map<string, { contentType: string; sha1: string }>;
-  resources: Map<string, Buffer>;
 };
 
 function fail(code: string, message: string): never {
@@ -516,7 +515,6 @@ function verifyTraceZip(path: string, bytes: number): TraceEvidence {
       playwrightVersion,
       errorFirstLine,
       attachments: tracedAttachments,
-      resources: decodedEntries,
     };
   } finally {
     closeSync(descriptor);

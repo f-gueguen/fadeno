@@ -21,6 +21,7 @@ export default defineConfig({
   use: {
     acceptDownloads: false,
     serviceWorkers: "block",
+    viewport: { width: 1_280, height: 720 },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "off",
