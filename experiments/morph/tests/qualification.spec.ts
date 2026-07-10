@@ -8,10 +8,15 @@ import type { PrivateMorphResult } from "../candidate.ts";
 import { MORPH_QUALIFICATION_ASSETS, createQualificationFile } from "../fixtures/qualification-assets.ts";
 import type { QualificationState } from "../fixtures/qualification-corpus.ts";
 import type {
+  QualificationFailureEvidence,
   QualificationRecord,
   QualificationSnapshot,
 } from "../qualification-proof.ts";
-import { qualificationRepetitions, verifyQualificationRecords } from "../qualification-proof.ts";
+import {
+  qualificationRepetitions,
+  verifyQualificationOutcome,
+  verifyQualificationRecords,
+} from "../qualification-proof.ts";
 import {
   MORPH_QUALIFICATION_SCENARIOS,
 } from "../qualification-scenarios.ts";
@@ -377,10 +382,11 @@ async function captureSnapshot(
   page: Page,
   stateName: QualificationState,
   targetIdentity: string,
+  operationParentIdentity: string,
   dispatchSentinel: boolean,
 ): Promise<QualificationSnapshot> {
   return page.evaluate(
-    async ({ stateName, targetIdentity, dispatchSentinel }) => {
+    async ({ stateName, targetIdentity, operationParentIdentity, dispatchSentinel }) => {
       const currentWindow = window as typeof window & {
         __fadenoRoot?: Element;
         __fadenoTarget?: Element;
@@ -393,10 +399,11 @@ async function captureSnapshot(
       };
       const root = document.querySelector<HTMLElement>("#root");
       const target = document.getElementById(targetIdentity);
+      const operationParent = document.getElementById(operationParentIdentity);
       const originalRoot = currentWindow.__fadenoRoot;
       const originalTarget = currentWindow.__fadenoTarget;
       const instrumentation = currentWindow.__fadenoInstrumentation;
-      if (!root || !target || !originalRoot || !originalTarget || !instrumentation) {
+      if (!root || !target || !operationParent || !originalRoot || !originalTarget || !instrumentation) {
         throw new Error("FADENO_MORPH_SNAPSHOT_TARGET_MISSING");
       }
       if (dispatchSentinel) target.dispatchEvent(new Event("fadeno-sentinel"));
@@ -503,7 +510,7 @@ async function captureSnapshot(
             : null;
       return {
         serverClass: root.className,
-        order: Array.from(root.children).map((element) => element.id),
+        order: Array.from(operationParent.children).map((element) => element.id),
         rootOriginal: root === originalRoot,
         targetOriginal: target === originalTarget,
         originalTargetConnected: originalTarget.isConnected,
@@ -518,7 +525,7 @@ async function captureSnapshot(
         state,
       };
     },
-    { stateName, targetIdentity, dispatchSentinel },
+    { stateName, targetIdentity, operationParentIdentity, dispatchSentinel },
   );
 }
 
@@ -607,6 +614,7 @@ async function runScenario(
     page,
     scenario.fixture.state,
     scenario.fixture.targetIdentity,
+    scenario.operationParentIdentity,
     false,
   );
   const documentElementCount = await page.locator("*").count();
@@ -618,6 +626,7 @@ async function runScenario(
     page,
     scenario.fixture.state,
     scenario.fixture.targetIdentity,
+    scenario.operationParentIdentity,
     true,
   );
   const browserInstrumentation = await page.evaluate(() => {
@@ -670,6 +679,7 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
     throw new Error("FADENO_MORPH_BROWSER_IDENTITY_MISSING");
   }
   const records: QualificationRecord[] = [];
+  const failures: QualificationFailureEvidence[] = [];
   let blockedRequests: string[] = [];
   let pageErrors: string[] = [];
   let activeScenario: MorphQualificationScenario | undefined;
@@ -688,26 +698,49 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
         activeOrdinal = ordinal;
         blockedRequests = [];
         pageErrors = [];
-        records.push(
-          await runScenario(
+        try {
+          records.push(await runScenario(
             page,
             scenario,
             ordinal,
             engine,
             blockedRequests,
             pageErrors,
-          ),
-        );
+          ));
+        } catch (error: unknown) {
+          if (!(error instanceof QualificationScenarioProofError)) throw error;
+          failures.push({
+            operation: {
+              profile,
+              engine,
+              caseId: scenario.fixture.id,
+              state: scenario.fixture.state,
+              operation: scenario.fixture.operation,
+              ordinal,
+              failure: error.message,
+            },
+            observation: error.record,
+          });
+        }
         activeScenario = undefined;
         activeOrdinal = 0;
       }
     }
-    const summary = verifyQualificationRecords(records, profile, engine);
     await attachJson(testInfo, "qualification-records", records);
+    if (failures.length === 0) {
+      const summary = verifyQualificationRecords(records, profile, engine);
+      await attachJson(testInfo, "qualification-summary", summary);
+      return;
+    }
+    const summary = verifyQualificationOutcome(records, failures, profile, engine);
+    await attachJson(testInfo, "qualification-failures", failures);
     await attachJson(testInfo, "qualification-summary", summary);
+    throw new Error(
+      `FADENO_MORPH_QUALIFICATION_FAILURE: ${failures.length} of ${summary.expectedRecords} cells failed`,
+    );
   } catch (error: unknown) {
+    if (failures.length > 0) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    const proofRecord = error instanceof QualificationScenarioProofError ? error.record : null;
     await attachJson(testInfo, "qualification-records", records);
     await attachJson(testInfo, "qualification-summary", {
       profile,
@@ -716,7 +749,8 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
       completedRecords: records.length,
       failure: message,
     });
-    await attachJson(testInfo, "failure-operation", {
+    await attachJson(testInfo, "qualification-failures", [{
+      operation: {
       profile,
       engine,
       caseId: activeScenario?.fixture.id,
@@ -724,8 +758,9 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
       operation: activeScenario?.fixture.operation,
       ordinal: activeOrdinal,
       failure: message,
-    });
-    await attachJson(testInfo, "failure-before-after", proofRecord);
+      },
+      observation: null,
+    }]);
     throw new Error(`FADENO_MORPH_QUALIFICATION_FAILURE: ${message}`);
   }
 });

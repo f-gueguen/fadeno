@@ -22,9 +22,11 @@ import type { QualificationState } from "../experiments/morph/fixtures/qualifica
 import {
   MorphQualificationError,
   verifyQualificationFailureAlignment,
+  verifyQualificationOutcome,
   verifyQualificationRecords,
 } from "../experiments/morph/qualification-proof.ts";
 import type {
+  QualificationFailureEvidence,
   QualificationRecord,
   QualificationSnapshot,
 } from "../experiments/morph/qualification-proof.ts";
@@ -228,6 +230,21 @@ const failureOperation = {
   failure: "synthetic failure",
 };
 verifyQualificationFailureAlignment(failureOperation, failureRecord, "ci", "chromium");
+const failedMatrixRecords = baseRecords.slice(1);
+const failedMatrix: QualificationFailureEvidence[] = [{
+  operation: failureOperation,
+  observation: failureRecord,
+}];
+verifyQualificationOutcome(failedMatrixRecords, failedMatrix, "ci", "chromium");
+expectQualificationError("missing failed cell", "FADENO_MORPH_QUALIFICATION_MATRIX", () => {
+  verifyQualificationOutcome(failedMatrixRecords, [], "ci", "chromium");
+});
+expectQualificationError("duplicate failed cell", "FADENO_MORPH_QUALIFICATION_MATRIX", () => {
+  verifyQualificationOutcome(failedMatrixRecords, [...failedMatrix, ...failedMatrix], "ci", "chromium");
+});
+expectQualificationError("reordered passed outcome", "FADENO_MORPH_QUALIFICATION_MATRIX", () => {
+  verifyQualificationOutcome([...failedMatrixRecords].reverse(), failedMatrix, "ci", "chromium");
+});
 for (const [name, mutation] of [
   ["mismatched failure case", { caseId: "other-case" }],
   ["mismatched failure ordinal", { ordinal: 2 }],

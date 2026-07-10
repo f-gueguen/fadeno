@@ -121,14 +121,17 @@ export async function executeMorphQualification(
       `qualification child failed before reporting: ${child.signal ?? child.error?.message}`,
     );
   }
-  const evidence = verifyQualificationReport(reportPath, {
+  const outcome = verifyQualificationReport(reportPath, {
     profile,
     outputRoot: childOutput,
   });
-  if (child.status !== 0) {
+  if (
+    (outcome.status === "passed" && child.status !== 0) ||
+    (outcome.status === "failed" && child.status === 0)
+  ) {
     throw new MorphHarnessError(
       "FADENO_MORPH_CHILD_EXIT",
-      `qualification expected exit 0, received ${child.status}`,
+      `qualification ${outcome.status} report disagrees with child exit ${child.status}`,
     );
   }
   assertCleanMorphSource(root, sourceCommit);
@@ -143,10 +146,11 @@ export async function executeMorphQualification(
     startedAt,
     completedAt,
     preflight,
-    evidence,
+    outcome,
   });
+  const evidence = [...outcome.passed, ...outcome.failed];
   console.log(
-    `morph ${profile} passed (${evidence.length} engines, ${evidence[0]?.summary.cases ?? 0} cases, ${evidence[0]?.summary.repetitions ?? 0} repetitions, run ${identity.id})`,
+    `morph ${profile} completed with ${outcome.status} conclusion (${evidence.length} engines, run ${identity.id})`,
   );
   if (published.manifestPath) {
     console.log(`morph qualification manifest published (${published.manifestPath})`);

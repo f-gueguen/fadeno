@@ -18,6 +18,7 @@ export type MorphQualificationScenario = Readonly<{
   patch: PrivateMorphPatch;
   beforeOrder: readonly string[];
   afterOrder: readonly string[];
+  operationParentIdentity: string;
   insertedIdentity: string | null;
   removedIdentity: string | null;
 }>;
@@ -30,7 +31,10 @@ const insertedPeer = '<output id="inserted-peer" class="peer">inserted</output>'
 const removedPeer = '<output id="removed-peer" class="peer">removed</output>';
 const mediaSource = `data:audio/wav;base64,${createQualificationTone().toString("base64")}`;
 
-function targetRoots(state: QualificationState): readonly string[] {
+function targetRoots(
+  state: QualificationState,
+  phase: "current" | "incoming" = "current",
+): readonly string[] {
   switch (state) {
     case "focused-input-selection":
       return ['<input id="focused-input" aria-label="Focused input" value="server-default">'];
@@ -71,7 +75,9 @@ function targetRoots(state: QualificationState): readonly string[] {
       return ['<section id="scroll-anchor" class="document-spacer">Document spacer</section>'];
     case "element-scroll":
       return [
-        '<div id="scroll-container" class="scroll-box"><section id="scroll-content" class="scroll-content">Nested spacer</section></div>',
+        `<div id="scroll-container" class="scroll-box">${
+          phase === "incoming" ? insertedPeer : ""
+        }<section id="scroll-content" class="scroll-content">Nested spacer</section></div>`,
       ];
     case "island-identity":
       return ['<fadeno-island id="mounted-island">client-owned</fadeno-island>'];
@@ -91,59 +97,58 @@ function rootIdentities(roots: readonly string[]): string[] {
 export function createMorphQualificationScenario(
   fixture: MorphQualificationCase,
 ): MorphQualificationScenario {
-  const targets = targetRoots(fixture.state);
-  const targetIdentities = rootIdentities(targets);
+  const currentTargets = targetRoots(fixture.state, "current");
+  const incomingTargets = targetRoots(fixture.state, "incoming");
+  const targetIdentities = rootIdentities(currentTargets);
   let currentChildren: readonly string[];
   let incomingChildren: readonly string[];
+  let operationParentIdentity = "root";
+  let beforeOrder: readonly string[];
+  let afterOrder: readonly string[];
   let insertedIdentity: string | null = null;
   let removedIdentity: string | null = null;
   let replacementIdentities: readonly string[] = [];
 
   switch (fixture.operation) {
     case "insert-keyed":
-      currentChildren = [...targets, peerA];
-      incomingChildren = [...targets, insertedPeer, peerA];
+      if (fixture.structuralStress === "insert-inside-scroll-container-before-content") {
+        currentChildren = [...currentTargets, peerA];
+        incomingChildren = [...incomingTargets, peerA];
+        operationParentIdentity = fixture.targetIdentity;
+        beforeOrder = ["scroll-content"];
+        afterOrder = ["inserted-peer", "scroll-content"];
+      } else {
+        currentChildren = [...currentTargets, peerA];
+        incomingChildren = [insertedPeer, ...incomingTargets, peerA];
+        beforeOrder = [...targetIdentities, "peer-a"];
+        afterOrder = ["inserted-peer", ...targetIdentities, "peer-a"];
+      }
       insertedIdentity = "inserted-peer";
       break;
     case "remove-keyed":
-      currentChildren = [...targets, removedPeer, peerA];
-      incomingChildren = [...targets, peerA];
+      currentChildren = [removedPeer, ...currentTargets, peerA];
+      incomingChildren = [...incomingTargets, peerA];
+      beforeOrder = ["removed-peer", ...targetIdentities, "peer-a"];
+      afterOrder = [...targetIdentities, "peer-a"];
       removedIdentity = "removed-peer";
       break;
     case "reorder-keyed":
-      currentChildren = [...targets, peerA, peerB];
-      incomingChildren = [...targets, peerB, peerA];
+      currentChildren = [peerA, ...currentTargets, peerB];
+      incomingChildren = [...incomingTargets, peerB, peerA];
+      beforeOrder = ["peer-a", ...targetIdentities, "peer-b"];
+      afterOrder = [...targetIdentities, "peer-b", "peer-a"];
       break;
     case "intentional-replacement":
-      currentChildren = [...targets, peerA];
+      currentChildren = [...currentTargets, peerA];
       incomingChildren = [
         '<output id="replacement-target">after</output>',
         peerA,
       ];
+      beforeOrder = [...targetIdentities, "peer-a"];
+      afterOrder = [...targetIdentities, "peer-a"];
       replacementIdentities = [fixture.targetIdentity];
       break;
   }
-
-  const beforeOrder = [
-    ...targetIdentities,
-    ...(fixture.operation === "insert-keyed"
-      ? ["peer-a"]
-      : fixture.operation === "remove-keyed"
-        ? ["removed-peer", "peer-a"]
-        : fixture.operation === "reorder-keyed"
-          ? ["peer-a", "peer-b"]
-          : ["peer-a"]),
-  ];
-  const afterOrder = [
-    ...targetIdentities,
-    ...(fixture.operation === "insert-keyed"
-      ? ["inserted-peer", "peer-a"]
-      : fixture.operation === "remove-keyed"
-        ? ["peer-a"]
-        : fixture.operation === "reorder-keyed"
-          ? ["peer-b", "peer-a"]
-          : ["peer-a"]),
-  ];
   return {
     fixture,
     currentHtml: `${pagePrefix}<main id="root" class="before">${currentChildren.join("")}</main>`,
@@ -154,6 +159,7 @@ export function createMorphQualificationScenario(
     },
     beforeOrder,
     afterOrder,
+    operationParentIdentity,
     insertedIdentity,
     removedIdentity,
   };

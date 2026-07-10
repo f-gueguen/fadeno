@@ -19,7 +19,13 @@ import {
   loadReferenceEnvironment,
 } from "../../scripts/lib/experiment-validation.ts";
 import type { ReferenceEnvironment } from "../../scripts/lib/experiment-validation.ts";
-import type { QualificationEvidence } from "./qualification-report.ts";
+import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
+import type {
+  QualificationEvidence,
+  QualificationFailedEvidence,
+  QualificationReportOutcome,
+} from "./qualification-report.ts";
+import { qualificationRepetitions } from "./qualification-proof.ts";
 import type { ReferenceObservation } from "./preflight.ts";
 import type { MorphQualificationProfile } from "./qualification-scenarios.ts";
 
@@ -122,7 +128,7 @@ export function publishQualificationEvidence(options: Readonly<{
   startedAt: string;
   completedAt: string;
   preflight: MorphPreflight;
-  evidence: readonly QualificationEvidence[];
+  outcome: QualificationReportOutcome;
 }>): Readonly<{
   runRecordPath: string;
   manifestPath?: string;
@@ -138,8 +144,11 @@ export function publishQualificationEvidence(options: Readonly<{
     startedAt,
     completedAt,
     preflight,
-    evidence,
+    outcome,
   } = options;
+  const passedEvidence: readonly QualificationEvidence[] = outcome.passed;
+  const failedEvidence: readonly QualificationFailedEvidence[] = outcome.failed;
+  const evidence = [...passedEvidence, ...failedEvidence];
   const artifactRoot = join(runDirectory, "artifacts");
   mkdirSync(artifactRoot, { recursive: true });
   const artifacts: ArtifactRecord[] = [];
@@ -169,6 +178,15 @@ export function publishQualificationEvidence(options: Readonly<{
         join(artifactRoot, "records", `${item.engine}.json`),
       ),
     );
+    if ("failuresPath" in item) {
+      artifacts.push(
+        copyArtifact(
+          runDirectory,
+          item.failuresPath,
+          join(artifactRoot, "failures", `${item.engine}.json`),
+        ),
+      );
+    }
     artifacts.push(
       copyArtifact(
         runDirectory,
@@ -188,7 +206,7 @@ export function publishQualificationEvidence(options: Readonly<{
       profile,
       startedAt,
       completedAt,
-      status: "passed",
+      status: outcome.status,
     },
     source: {
       repository: "https://github.com/f-gueguen/fadeno",
@@ -203,11 +221,22 @@ export function publishQualificationEvidence(options: Readonly<{
     referenceClass: preflight.classification,
     matrix: {
       engines: evidence.length,
-      cases: evidence[0]?.summary.cases ?? 0,
-      repetitions: evidence[0]?.summary.repetitions ?? 0,
-      records: evidence.reduce((total, item) => total + item.summary.records, 0),
+      cases: MORPH_QUALIFICATION_CASES.length,
+      repetitions: qualificationRepetitions(profile),
+      records: evidence.reduce(
+        (total, item) => total + ("records" in item.summary
+          ? item.summary.records
+          : item.summary.completedRecords),
+        0,
+      ),
       intentionalReplacements: evidence.reduce(
-        (total, item) => total + item.summary.intentionalReplacements,
+        (total, item) => total + ("intentionalReplacements" in item.summary
+          ? item.summary.intentionalReplacements
+          : 0),
+        0,
+      ),
+      failedRecords: failedEvidence.reduce(
+        (total, item) => total + item.summary.failedRecords,
         0,
       ),
       retries: 0,
@@ -233,7 +262,7 @@ export function publishQualificationEvidence(options: Readonly<{
       attempt,
       startedAt,
       completedAt,
-      status: "passed",
+      status: outcome.status,
     },
     source: {
       repository: "https://github.com/f-gueguen/fadeno",
@@ -258,7 +287,7 @@ export function publishQualificationEvidence(options: Readonly<{
         sha256: corpus.sha256,
       },
       warmupIterations: 0,
-      measuredIterations: evidence[0]?.summary.repetitions ?? 0,
+      measuredIterations: qualificationRepetitions(profile),
       concurrency: 1,
     },
     measurements: [
@@ -276,11 +305,28 @@ export function publishQualificationEvidence(options: Readonly<{
         name: "intentional-replacement-count",
         unit: "count",
         values: [
-          evidence.reduce((total, item) => total + item.summary.intentionalReplacements, 0),
+          passedEvidence.reduce(
+            (total, item) => total + item.summary.intentionalReplacements,
+            0,
+          ),
+        ],
+      },
+      {
+        name: "qualification-failure-count",
+        unit: "count",
+        values: [
+          failedEvidence.reduce(
+            (total, item) => total + item.summary.failedRecords,
+            0,
+          ),
         ],
       },
     ],
-    failures: [],
+    failures: failedEvidence.map((item) => ({
+      code: "FADENO_MORPH_QUALIFICATION_STATE_LOSS",
+      message: `${item.engine}: ${item.summary.failedRecords} qualification cells failed`,
+      artifact: `artifacts/failures/${item.engine}.json`,
+    })),
     artifacts: manifestArtifacts,
     validator: {
       name: "fadeno-experiment-contract",
@@ -289,9 +335,10 @@ export function publishQualificationEvidence(options: Readonly<{
     },
     redaction: { policy: "fadeno-no-secrets-v1", fieldsRemoved: [] },
     conclusion: {
-      status: "pass",
-      summary:
-        "The private structural-preservation corpus completed in all three engines with the locked 100-repetition matrix and no undeclared failure.",
+      status: outcome.status === "passed" ? "pass" : "fail",
+      summary: outcome.status === "passed"
+        ? "The private structural-preservation corpus completed in all three engines with the locked 100-repetition matrix and no undeclared failure."
+        : "The locked structural-preservation matrix completed, with exact scroll continuity failures recorded for the milestone decision.",
     },
   };
   const validators = createContractValidators(root);

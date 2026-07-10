@@ -7,13 +7,14 @@ import {
   MorphHarnessError,
   verifyPortableHarnessAttachment,
 } from "./harness-report.ts";
-import type { QualificationRecord } from "./qualification-proof.ts";
+import type {
+  QualificationFailureEvidence,
+  QualificationRecord,
+} from "./qualification-proof.ts";
 import {
-  qualificationRepetitions,
-  verifyQualificationFailureAlignment,
+  verifyQualificationOutcome,
   verifyQualificationRecords,
 } from "./qualification-proof.ts";
-import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
 import type {
   MorphMachineAttachment as MachineAttachment,
   MorphMachineReport as MachineReport,
@@ -27,6 +28,22 @@ export type QualificationEvidence = Readonly<{
   summaryPath: string;
   summary: ReturnType<typeof verifyQualificationRecords>;
 }>;
+
+export type QualificationFailedEvidence = Readonly<{
+  engine: MorphProject;
+  recordsPath: string;
+  failuresPath: string;
+  summaryPath: string;
+  summary: ReturnType<typeof verifyQualificationOutcome>;
+}>;
+
+export type QualificationReportOutcome =
+  | Readonly<{ status: "passed"; passed: readonly QualificationEvidence[]; failed: readonly [] }>
+  | Readonly<{
+      status: "failed";
+      passed: readonly QualificationEvidence[];
+      failed: readonly QualificationFailedEvidence[];
+    }>;
 
 function fail(code: string, message: string): never {
   throw new MorphHarnessError(code, message);
@@ -53,7 +70,7 @@ export function verifyQualificationReport(
     profile: MorphQualificationProfile;
     outputRoot: string;
   }>,
-): readonly QualificationEvidence[] {
+): QualificationReportOutcome {
   const report = readJsonDocument(reportPath) as MachineReport;
   if (
     report.schemaVersion !== 1 ||
@@ -72,6 +89,7 @@ export function verifyQualificationReport(
 
   const seenPaths = new Set<string>();
   const evidence: QualificationEvidence[] = [];
+  const failedEvidence: QualificationFailedEvidence[] = [];
   let observedFailure = false;
   for (const result of report.results) {
     const engine = result.project as MorphProject;
@@ -89,8 +107,7 @@ export function verifyQualificationReport(
       ? ["qualification-records", "qualification-summary"]
       : [
           "error-context",
-          "failure-before-after",
-          "failure-operation",
+          "qualification-failures",
           "qualification-records",
           "qualification-summary",
           "screenshot",
@@ -147,29 +164,23 @@ export function verifyQualificationReport(
       evidence.push({ engine, recordsPath, summaryPath, summary });
     } else {
       observedFailure = true;
-      const expectedRecords = MORPH_QUALIFICATION_CASES.length * qualificationRepetitions(options.profile);
-      if (
-        !Array.isArray(records) ||
-        records.length >= expectedRecords ||
-        !summaryDocument ||
-        typeof summaryDocument !== "object" ||
-        (summaryDocument as Record<string, unknown>).profile !== options.profile ||
-        (summaryDocument as Record<string, unknown>).engine !== engine ||
-        (summaryDocument as Record<string, unknown>).expectedRecords !== expectedRecords ||
-        (summaryDocument as Record<string, unknown>).completedRecords !== records.length ||
-        typeof (summaryDocument as Record<string, unknown>).failure !== "string"
-      ) {
-        fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: partial summary differs`);
+      const failuresPath = attachmentByName(result, verified, "qualification-failures");
+      const failures = readJsonDocument(failuresPath, {
+        maxBytes: 20 * 1024 * 1024,
+      }) as QualificationFailureEvidence[];
+      if (!Array.isArray(records) || !Array.isArray(failures) || failures.length === 0) {
+        fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: failure matrix differs`);
       }
-      const operation = readJsonDocument(attachmentByName(result, verified, "failure-operation"));
-      const beforeAfter = readJsonDocument(attachmentByName(result, verified, "failure-before-after"));
-      if (
-        !operation ||
-        typeof operation !== "object"
-      ) {
-        fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: failure context differs`);
+      const summary = verifyQualificationOutcome(
+        records,
+        failures,
+        options.profile,
+        engine,
+      );
+      if (!isDeepStrictEqual(summaryDocument, summary)) {
+        fail("FADENO_MORPH_QUALIFICATION_SUMMARY", `${engine}: summary differs from raw outcome`);
       }
-      verifyQualificationFailureAlignment(operation, beforeAfter, options.profile, engine);
+      failedEvidence.push({ engine, recordsPath, failuresPath, summaryPath, summary });
     }
   }
   if (
@@ -178,8 +189,7 @@ export function verifyQualificationReport(
   ) {
     fail("FADENO_MORPH_QUALIFICATION_RUN_STATUS", "result statuses disagree with report status");
   }
-  if (observedFailure || report.status !== "passed") {
-    fail("FADENO_MORPH_QUALIFICATION_FAILURE", "qualification contains a verified browser failure");
-  }
-  return evidence;
+  return observedFailure
+    ? { status: "failed", passed: evidence, failed: failedEvidence }
+    : { status: "passed", passed: evidence, failed: [] };
 }

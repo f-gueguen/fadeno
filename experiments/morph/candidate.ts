@@ -374,7 +374,8 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
 
   const structurePlans: Array<Readonly<{
     parent: Element;
-    children: readonly Element[];
+    reverseChildren: readonly Element[];
+    remove: readonly Element[];
   }>> = [];
   for (const incomingElement of incoming.elements) {
     if (incomingElement.localName === opaqueElementName) continue;
@@ -385,7 +386,13 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
     const childElements = childIdentities.map((identity) =>
       desiredNodes.get(identity) ?? refuse(`planned child disappeared: ${identity}`)
     );
-    structurePlans.push({ parent, children: childElements });
+    const desiredChildren = new Set(childElements);
+    const remove = Array.from(parent.children).filter((child) => !desiredChildren.has(child));
+    structurePlans.push({
+      parent,
+      reverseChildren: [...childElements].reverse(),
+      remove,
+    });
   }
 
   // First DOM write occurs below. Every identity, surface, content, attribute,
@@ -395,15 +402,11 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
     for (const [name, value] of plan.set) plan.current.setAttribute(name, value);
   }
   for (const plan of structurePlans) {
-    let cursor = plan.parent.firstElementChild;
-    for (const child of plan.children) {
-      if (cursor !== child) plan.parent.insertBefore(child, cursor);
-      cursor = child.nextElementSibling;
-    }
-    while (cursor) {
-      const next = cursor.nextElementSibling;
-      cursor.remove();
-      cursor = next;
+    for (const child of plan.remove) child.remove();
+    let cursor: Element | null = null;
+    for (const child of plan.reverseChildren) {
+      if (child.nextElementSibling !== cursor) plan.parent.insertBefore(child, cursor);
+      cursor = child;
     }
   }
   for (const plan of textPlans) plan.element.textContent = plan.text;

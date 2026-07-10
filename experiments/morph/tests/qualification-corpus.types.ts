@@ -4,6 +4,7 @@ const validStructuralCase: MorphQualificationCase = {
   id: "valid-structural",
   state: "dirty-text",
   operation: "insert-keyed",
+  structuralStress: "insert-before-target",
   targetIdentity: "target",
   description: "valid",
 };
@@ -12,6 +13,7 @@ const validReplacementCase: MorphQualificationCase = {
   id: "valid-replacement",
   state: "intentional-replacement",
   operation: "intentional-replacement",
+  structuralStress: "replace-target",
   targetIdentity: "target",
   description: "valid",
 };
@@ -24,6 +26,7 @@ const invalidReplacementOperation: MorphQualificationCase = {
   id: "invalid-replacement",
   state: "intentional-replacement",
   operation: "insert-keyed",
+  structuralStress: "insert-before-target",
   targetIdentity: "target",
   description: "invalid",
 };
@@ -33,6 +36,7 @@ const invalidStructuralOperation: MorphQualificationCase = {
   id: "invalid-structural",
   state: "dirty-file",
   operation: "intentional-replacement",
+  structuralStress: "replace-target",
   targetIdentity: "target",
   description: "invalid",
 };

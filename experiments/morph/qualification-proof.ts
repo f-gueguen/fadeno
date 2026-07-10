@@ -7,6 +7,7 @@ import {
   MORPH_QUALIFICATION_PROFILES,
 } from "./fixtures/qualification-corpus.ts";
 import type {
+  MorphQualificationCase,
   QualificationState,
   StructuralOperation,
 } from "./fixtures/qualification-corpus.ts";
@@ -137,6 +138,11 @@ export type QualificationFailureOperation = Readonly<{
   failure: string;
 }>;
 
+export type QualificationFailureEvidence = Readonly<{
+  operation: QualificationFailureOperation;
+  observation: QualificationRecord;
+}>;
+
 export function verifyQualificationFailureAlignment(
   operation: unknown,
   observation: unknown,
@@ -168,6 +174,7 @@ export function verifyQualificationFailureAlignment(
     record.state !== failure.state ||
     record.operation !== failure.operation ||
     record.ordinal !== failure.ordinal ||
+    record.key !== `${engine}/${record.caseId}/${record.ordinal}` ||
     record.completed !== true
   ) {
     fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: failure context is misaligned`);
@@ -180,6 +187,14 @@ export function verifyQualificationFailureAlignment(
     QUALIFICATION_INSTRUMENTATION_KEYS,
     `${engine}.failure-instrumentation`,
   );
+  if (
+    !Number.isFinite(record.candidateRoundTripMilliseconds) ||
+    record.candidateRoundTripMilliseconds < 0 ||
+    !Number.isInteger(record.documentElementCount) ||
+    record.documentElementCount < 4
+  ) {
+    fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: failure metrics differ`);
+  }
 }
 
 function expectedState(state: QualificationState): Readonly<Record<string, unknown>> | null {
@@ -292,7 +307,11 @@ function assertFileState(
   }
 }
 
-function assertStructuralOperation(record: QualificationRecord, label: string): void {
+function assertStructuralOperation(
+  record: QualificationRecord,
+  fixture: MorphQualificationCase,
+  label: string,
+): void {
   const before = record.before.order;
   const after = record.after.order;
   const beforeSet = new Set(before);
@@ -312,10 +331,26 @@ function assertStructuralOperation(record: QualificationRecord, label: string): 
     if (!isDeepStrictEqual(inserted, ["inserted-peer"]) || before.some((id) => !afterSet.has(id))) {
       fail("FADENO_MORPH_QUALIFICATION_OPERATION", `${label}: insertion proof differs`);
     }
+    if (
+      fixture.structuralStress === "insert-inside-scroll-container-before-content"
+        ? !isDeepStrictEqual(before, ["scroll-content"]) ||
+          !isDeepStrictEqual(after, ["inserted-peer", "scroll-content"])
+        : before.indexOf(fixture.targetIdentity) < 0 ||
+          after[0] !== "inserted-peer" ||
+          after.indexOf(fixture.targetIdentity) !== before.indexOf(fixture.targetIdentity) + 1
+    ) {
+      fail("FADENO_MORPH_QUALIFICATION_OPERATION", `${label}: insertion stress differs`);
+    }
   } else if (record.operation === "remove-keyed") {
     const removed = before.filter((identity) => !afterSet.has(identity));
     if (!isDeepStrictEqual(removed, ["removed-peer"]) || after.some((id) => !beforeSet.has(id))) {
       fail("FADENO_MORPH_QUALIFICATION_OPERATION", `${label}: removal proof differs`);
+    }
+    if (
+      before[0] !== "removed-peer" ||
+      before.indexOf(fixture.targetIdentity) !== after.indexOf(fixture.targetIdentity) + 1
+    ) {
+      fail("FADENO_MORPH_QUALIFICATION_OPERATION", `${label}: removal stress differs`);
     }
   } else if (record.operation === "reorder-keyed") {
     if (
@@ -324,6 +359,9 @@ function assertStructuralOperation(record: QualificationRecord, label: string): 
       before.some((id) => !afterSet.has(id))
     ) {
       fail("FADENO_MORPH_QUALIFICATION_OPERATION", `${label}: reorder proof differs`);
+    }
+    if (before[0] !== "peer-a" || after[0] !== fixture.targetIdentity) {
+      fail("FADENO_MORPH_QUALIFICATION_OPERATION", `${label}: target reorder stress differs`);
     }
   } else if (!isDeepStrictEqual(before, after)) {
     fail("FADENO_MORPH_QUALIFICATION_OPERATION", `${label}: replacement order differs`);
@@ -468,7 +506,7 @@ function assertRecord(record: QualificationRecord, profile: MorphQualificationPr
   ) {
     fail("FADENO_MORPH_QUALIFICATION_TOP_LAYER", `${label}: top-layer proof differs`);
   }
-  assertStructuralOperation(record, label);
+  assertStructuralOperation(record, fixture, label);
 }
 
 export function qualificationRepetitions(profile: MorphQualificationProfile): number {
@@ -530,5 +568,78 @@ export function verifyQualificationRecords(
       (record) => record.candidateRoundTripMilliseconds,
     ),
     documentElementCounts: records.map((record) => record.documentElementCount),
+  };
+}
+
+export function verifyQualificationOutcome(
+  records: readonly QualificationRecord[],
+  failures: readonly QualificationFailureEvidence[],
+  profile: MorphQualificationProfile,
+  engine: MorphProject,
+): Readonly<{
+  profile: MorphQualificationProfile;
+  engine: MorphProject;
+  expectedRecords: number;
+  completedRecords: number;
+  passedRecords: number;
+  failedRecords: number;
+  failureKeys: readonly string[];
+  candidateRoundTripMilliseconds: readonly number[];
+  documentElementCounts: readonly number[];
+}> {
+  if (!MORPH_PROJECTS.includes(engine)) {
+    fail("FADENO_MORPH_QUALIFICATION_ENGINE", `unknown engine: ${engine}`);
+  }
+  const repetitions = qualificationRepetitions(profile);
+  const expectedKeys = MORPH_QUALIFICATION_CASES.flatMap((fixture) =>
+    Array.from(
+      { length: repetitions },
+      (_, index) => `${engine}/${fixture.id}/${index + 1}`,
+    )
+  );
+  const observations = [...records, ...failures.map((failure) => failure.observation)];
+  const byKey = new Map(observations.map((record) => [record.key, record]));
+  const failureKeySet = new Set(failures.map((failure) => failure.observation.key));
+  const expectedPassedKeys = expectedKeys.filter((key) => !failureKeySet.has(key));
+  const expectedFailureKeys = expectedKeys.filter((key) => failureKeySet.has(key));
+  if (
+    observations.length !== expectedKeys.length ||
+    byKey.size !== observations.length ||
+    expectedKeys.some((key) => !byKey.has(key)) ||
+    !isDeepStrictEqual(records.map((record) => record.key), expectedPassedKeys) ||
+    !isDeepStrictEqual(
+      failures.map((failure) => failure.observation.key),
+      expectedFailureKeys,
+    )
+  ) {
+    fail("FADENO_MORPH_QUALIFICATION_MATRIX", `${engine}: completed matrix differs`);
+  }
+  for (const record of records) {
+    if (record.engine !== engine) {
+      fail("FADENO_MORPH_QUALIFICATION_ENGINE", `${record.key}: engine differs`);
+    }
+    assertRecord(record, profile);
+  }
+  for (const failure of failures) {
+    verifyQualificationFailureAlignment(
+      failure.operation,
+      failure.observation,
+      profile,
+      engine,
+    );
+  }
+  const failureKeys = failures.map((failure) => failure.observation.key);
+  return {
+    profile,
+    engine,
+    expectedRecords: expectedKeys.length,
+    completedRecords: observations.length,
+    passedRecords: records.length,
+    failedRecords: failures.length,
+    failureKeys,
+    candidateRoundTripMilliseconds: observations.map(
+      (record) => record.candidateRoundTripMilliseconds,
+    ),
+    documentElementCounts: observations.map((record) => record.documentElementCount),
   };
 }

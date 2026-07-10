@@ -48,12 +48,29 @@ type QualificationCaseBase = Readonly<{
 
 export type MorphQualificationCase =
   | (QualificationCaseBase & Readonly<{
+      state: Exclude<QualificationState, "element-scroll" | "intentional-replacement">;
+      operation: "insert-keyed";
+      structuralStress: "insert-before-target";
+    }>)
+  | (QualificationCaseBase & Readonly<{
+      state: "element-scroll";
+      operation: "insert-keyed";
+      structuralStress: "insert-inside-scroll-container-before-content";
+    }>)
+  | (QualificationCaseBase & Readonly<{
       state: Exclude<QualificationState, "intentional-replacement">;
-      operation: StructuralOperation;
+      operation: "remove-keyed";
+      structuralStress: "remove-before-target";
+    }>)
+  | (QualificationCaseBase & Readonly<{
+      state: Exclude<QualificationState, "intentional-replacement">;
+      operation: "reorder-keyed";
+      structuralStress: "move-target-to-leading-position";
     }>)
   | (QualificationCaseBase & Readonly<{
       state: "intentional-replacement";
       operation: "intentional-replacement";
+      structuralStress: "replace-target";
     }>);
 
 export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Object.freeze([
@@ -61,6 +78,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "focused-input-selection-insert",
     state: "focused-input-selection",
     operation: "insert-keyed",
+    structuralStress: "insert-before-target",
     targetIdentity: "focused-input",
     description: "A focused input keeps object identity and its exact text selection during insertion.",
   }),
@@ -68,6 +86,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "focused-textarea-selection-remove",
     state: "focused-textarea-selection",
     operation: "remove-keyed",
+    structuralStress: "remove-before-target",
     targetIdentity: "focused-textarea",
     description: "A focused textarea keeps object identity and its exact text selection during removal.",
   }),
@@ -75,6 +94,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "focused-contenteditable-caret-reorder",
     state: "focused-contenteditable-caret",
     operation: "reorder-keyed",
+    structuralStress: "move-target-to-leading-position",
     targetIdentity: "focused-editor",
     description: "A focused contenteditable keeps object identity and its exact caret during reorder.",
   }),
@@ -82,6 +102,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "dirty-text-insert",
     state: "dirty-text",
     operation: "insert-keyed",
+    structuralStress: "insert-before-target",
     targetIdentity: "dirty-text",
     description: "A dirty text input keeps its user value while server-owned output is inserted.",
   }),
@@ -89,6 +110,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "dirty-checkbox-remove",
     state: "dirty-checkbox",
     operation: "remove-keyed",
+    structuralStress: "remove-before-target",
     targetIdentity: "dirty-checkbox",
     description: "A dirty checkbox keeps its checked state while a keyed peer is removed.",
   }),
@@ -96,6 +118,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "dirty-radio-reorder",
     state: "dirty-radio",
     operation: "reorder-keyed",
+    structuralStress: "move-target-to-leading-position",
     targetIdentity: "dirty-radio-a",
     description: "A dirty radio group keeps the selected original node while keyed peers reorder.",
   }),
@@ -103,6 +126,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "dirty-select-insert",
     state: "dirty-select",
     operation: "insert-keyed",
+    structuralStress: "insert-before-target",
     targetIdentity: "dirty-select",
     description: "A dirty select keeps its selected option while a keyed peer is inserted.",
   }),
@@ -110,6 +134,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "dirty-file-remove",
     state: "dirty-file",
     operation: "remove-keyed",
+    structuralStress: "remove-before-target",
     targetIdentity: "dirty-file",
     description: "A selected local file and its original input survive keyed peer removal.",
   }),
@@ -117,6 +142,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "details-open-reorder",
     state: "details-open",
     operation: "reorder-keyed",
+    structuralStress: "move-target-to-leading-position",
     targetIdentity: "open-details",
     description: "An open disclosure remains open on the original node during keyed reorder.",
   }),
@@ -124,6 +150,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "dialog-modal-insert",
     state: "dialog-modal",
     operation: "insert-keyed",
+    structuralStress: "insert-before-target",
     targetIdentity: "modal-dialog",
     description: "An open modal dialog remains modal on the original top-layer node during insertion.",
   }),
@@ -131,6 +158,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "dialog-nonmodal-remove",
     state: "dialog-nonmodal",
     operation: "remove-keyed",
+    structuralStress: "remove-before-target",
     targetIdentity: "nonmodal-dialog",
     description: "An open non-modal dialog remains open on the original node during removal.",
   }),
@@ -138,6 +166,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "popover-open-reorder",
     state: "popover-open",
     operation: "reorder-keyed",
+    structuralStress: "move-target-to-leading-position",
     targetIdentity: "open-popover",
     description: "An open popover remains open on the original top-layer node during keyed reorder.",
   }),
@@ -145,6 +174,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "media-playing-insert",
     state: "media-playing",
     operation: "insert-keyed",
+    structuralStress: "insert-before-target",
     targetIdentity: "playing-media",
     description: "Playing local media keeps identity, playback, and a non-reset clock during insertion.",
   }),
@@ -152,6 +182,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "media-paused-remove",
     state: "media-paused",
     operation: "remove-keyed",
+    structuralStress: "remove-before-target",
     targetIdentity: "paused-media",
     description: "Paused local media keeps identity and its exact current time during removal.",
   }),
@@ -159,6 +190,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "document-scroll-reorder",
     state: "document-scroll",
     operation: "reorder-keyed",
+    structuralStress: "move-target-to-leading-position",
     targetIdentity: "scroll-anchor",
     description: "Document scroll remains exact while keyed content outside the anchor reorders.",
   }),
@@ -166,6 +198,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "element-scroll-insert",
     state: "element-scroll",
     operation: "insert-keyed",
+    structuralStress: "insert-inside-scroll-container-before-content",
     targetIdentity: "scroll-container",
     description: "Nested element scroll remains exact while keyed content is inserted.",
   }),
@@ -173,6 +206,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "island-identity-remove",
     state: "island-identity",
     operation: "remove-keyed",
+    structuralStress: "remove-before-target",
     targetIdentity: "mounted-island",
     description: "A mounted private island sentinel keeps object and lifecycle identity during removal.",
   }),
@@ -180,6 +214,7 @@ export const MORPH_QUALIFICATION_CASES: readonly MorphQualificationCase[] = Obje
     id: "intentional-replacement-control",
     state: "intentional-replacement",
     operation: "intentional-replacement",
+    structuralStress: "replace-target",
     targetIdentity: "replacement-target",
     description: "A declared replacement disconnects the original node in every control repetition.",
   }),
