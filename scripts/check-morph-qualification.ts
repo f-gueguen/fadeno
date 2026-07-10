@@ -1,0 +1,527 @@
+import {
+  cpSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { MORPH_PROJECTS } from "../experiments/morph/contract.ts";
+import type { MorphProject } from "../experiments/morph/contract.ts";
+import { MorphHarnessError } from "../experiments/morph/harness-report.ts";
+import {
+  MORPH_QUALIFICATION_CASES,
+} from "../experiments/morph/fixtures/qualification-corpus.ts";
+import type { QualificationState } from "../experiments/morph/fixtures/qualification-corpus.ts";
+import {
+  MorphQualificationError,
+  verifyQualificationRecords,
+} from "../experiments/morph/qualification-proof.ts";
+import type {
+  QualificationRecord,
+  QualificationSnapshot,
+} from "../experiments/morph/qualification-proof.ts";
+import { verifyQualificationReport } from "../experiments/morph/qualification-report.ts";
+import {
+  createMorphQualificationScenario,
+} from "../experiments/morph/qualification-scenarios.ts";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const failures: string[] = [];
+
+function recordFailure(message: string): void {
+  failures.push(message);
+}
+
+function stateValue(
+  state: QualificationState,
+  phase: "before" | "after",
+): Readonly<Record<string, unknown>> {
+  switch (state) {
+    case "focused-input-selection":
+      return { value: "client-dirty", focused: true, selectionStart: 2, selectionEnd: 8 };
+    case "focused-textarea-selection":
+      return { value: "client-dirty", focused: true, selectionStart: 1, selectionEnd: 7 };
+    case "focused-contenteditable-caret":
+      return {
+        text: "editable-value",
+        focused: true,
+        anchorInTarget: true,
+        focusInTarget: true,
+        anchorOffset: 4,
+        focusOffset: 4,
+        collapsed: true,
+      };
+    case "dirty-text":
+      return { value: "client-dirty" };
+    case "dirty-checkbox":
+      return { checked: true };
+    case "dirty-radio":
+      return { checkedA: true, checkedB: false };
+    case "dirty-select":
+      return { value: "b", selectedIndex: 1 };
+    case "dirty-file":
+      return {
+        name: "qualification.txt",
+        contentType: "text/plain",
+        bytes: 18,
+        lastModified: 1_700_000_000_000,
+        text: "fadeno-k0-04-file\n",
+      };
+    case "details-open":
+      return { open: true };
+    case "dialog-modal":
+      return { open: true, modal: true };
+    case "dialog-nonmodal":
+      return { open: true, modal: false };
+    case "popover-open":
+      return { open: true };
+    case "media-playing":
+      return { paused: false, currentTime: phase === "before" ? 0.1 : 0.11, readyState: 4 };
+    case "media-paused":
+      return { paused: true, currentTime: 0.25, readyState: 4 };
+    case "document-scroll":
+      return { x: 0, y: 400 };
+    case "element-scroll":
+      return { left: 0, top: 120 };
+    case "island-identity":
+      return { connectedCount: 1, disconnectedCount: 0 };
+    case "intentional-replacement":
+      return { text: phase === "before" ? "before" : "after" };
+  }
+}
+
+function snapshot(
+  state: QualificationState,
+  phase: "before" | "after",
+  order: readonly string[],
+): QualificationSnapshot {
+  const replacement = state === "intentional-replacement" && phase === "after";
+  const file = state === "dirty-file";
+  const island = state === "island-identity";
+  const topLayer = ["dialog-modal", "dialog-nonmodal", "popover-open"].includes(state);
+  return {
+    serverClass: phase,
+    order,
+    rootOriginal: true,
+    targetOriginal: !replacement,
+    originalTargetConnected: !replacement,
+    currentTargetConnected: true,
+    ancestorsOriginal: !replacement,
+    expandoPreserved: !replacement,
+    listenerHits: phase === "after" && !replacement ? 1 : 0,
+    sameFileObject: file ? true : null,
+    islandLifecycleStable: island ? true : null,
+    topLayerStable: topLayer ? true : null,
+    state: stateValue(state, phase),
+  };
+}
+
+function syntheticRecords(engine: MorphProject): QualificationRecord[] {
+  const records: QualificationRecord[] = [];
+  for (const fixture of MORPH_QUALIFICATION_CASES) {
+    const scenario = createMorphQualificationScenario(fixture);
+    for (let ordinal = 1; ordinal <= 20; ordinal += 1) {
+      const replacement = fixture.state === "intentional-replacement";
+      records.push({
+        schemaVersion: 1,
+        profile: "ci",
+        engine,
+        caseId: fixture.id,
+        state: fixture.state,
+        operation: fixture.operation,
+        ordinal,
+        key: `${engine}/${fixture.id}/${ordinal}`,
+        completed: true,
+        candidateRoundTripMilliseconds: 1,
+        documentElementCount: 10,
+        candidate: {
+          rootIdentity: "root",
+          reusedIdentities: replacement ? ["root"] : ["root", fixture.targetIdentity],
+          replacedIdentities: replacement ? [fixture.targetIdentity] : [],
+        },
+        before: snapshot(fixture.state, "before", scenario.beforeOrder),
+        after: snapshot(fixture.state, "after", scenario.afterOrder),
+        instrumentation: {
+          setterCalls: [],
+          methodCalls: [],
+          events: [],
+          blockedRequests: [],
+          pageErrors: [],
+          unhandledRejections: [],
+        },
+      });
+    }
+  }
+  return records;
+}
+
+function mutableRecord(records: unknown[], index = 0): Record<string, unknown> {
+  const record = records[index];
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    throw new Error(`missing mutable record ${index}`);
+  }
+  return record as Record<string, unknown>;
+}
+
+function mutableChild(parent: Record<string, unknown>, key: string): Record<string, unknown> {
+  const child = parent[key];
+  if (!child || typeof child !== "object" || Array.isArray(child)) {
+    throw new Error(`missing mutable child ${key}`);
+  }
+  return child as Record<string, unknown>;
+}
+
+function expectQualificationError(
+  name: string,
+  code: string,
+  action: () => void,
+): void {
+  try {
+    action();
+    recordFailure(`${name}: expected ${code}`);
+  } catch (error: unknown) {
+    if (!(error instanceof MorphQualificationError) || error.code !== code) {
+      recordFailure(
+        `${name}: expected ${code}, received ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+}
+
+const baseRecords = syntheticRecords("chromium");
+verifyQualificationRecords(baseRecords, "ci", "chromium");
+
+const recordMutations: ReadonlyArray<Readonly<{
+  name: string;
+  code: string;
+  mutate(records: unknown[]): void;
+}>> = [
+  {
+    name: "missing matrix cell",
+    code: "FADENO_MORPH_QUALIFICATION_MATRIX",
+    mutate: (records) => { records.pop(); },
+  },
+  {
+    name: "duplicate matrix cell",
+    code: "FADENO_MORPH_QUALIFICATION_MATRIX",
+    mutate: (records) => { mutableRecord(records, 1).key = mutableRecord(records).key; },
+  },
+  {
+    name: "reordered matrix",
+    code: "FADENO_MORPH_QUALIFICATION_MATRIX",
+    mutate: (records) => { records.reverse(); },
+  },
+  {
+    name: "wrong engine",
+    code: "FADENO_MORPH_QUALIFICATION_ENGINE",
+    mutate: (records) => { mutableRecord(records).engine = "firefox"; },
+  },
+  {
+    name: "wrong profile",
+    code: "FADENO_MORPH_QUALIFICATION_RECORD",
+    mutate: (records) => { mutableRecord(records).profile = "qualification"; },
+  },
+  {
+    name: "wrong state",
+    code: "FADENO_MORPH_QUALIFICATION_RECORD",
+    mutate: (records) => { mutableRecord(records).state = "dirty-file"; },
+  },
+  {
+    name: "wrong operation",
+    code: "FADENO_MORPH_QUALIFICATION_RECORD",
+    mutate: (records) => { mutableRecord(records).operation = "remove-keyed"; },
+  },
+  {
+    name: "incomplete cell",
+    code: "FADENO_MORPH_QUALIFICATION_RECORD",
+    mutate: (records) => { mutableRecord(records).completed = false; },
+  },
+  {
+    name: "negative timing",
+    code: "FADENO_MORPH_QUALIFICATION_RECORD",
+    mutate: (records) => { mutableRecord(records).candidateRoundTripMilliseconds = -1; },
+  },
+  {
+    name: "empty document",
+    code: "FADENO_MORPH_QUALIFICATION_RECORD",
+    mutate: (records) => { mutableRecord(records).documentElementCount = 0; },
+  },
+  {
+    name: "wrong candidate root",
+    code: "FADENO_MORPH_QUALIFICATION_CANDIDATE",
+    mutate: (records) => { mutableChild(mutableRecord(records), "candidate").rootIdentity = "other"; },
+  },
+  {
+    name: "duplicate reused identity",
+    code: "FADENO_MORPH_QUALIFICATION_CANDIDATE",
+    mutate: (records) => { mutableChild(mutableRecord(records), "candidate").reusedIdentities = ["root", "root"]; },
+  },
+  ...[
+    ["setterCalls", "value"],
+    ["methodCalls", "focus"],
+    ["events", "input"],
+    ["blockedRequests", "https://example.invalid"],
+    ["pageErrors", "runtime"],
+    ["unhandledRejections", "rejection"],
+  ].map(([field, value]) => ({
+    name: `hidden ${field}`,
+    code: "FADENO_MORPH_QUALIFICATION_TRANSIENT",
+    mutate: (records: unknown[]) => {
+      mutableChild(mutableRecord(records), "instrumentation")[field ?? ""] = [value];
+    },
+  })),
+  {
+    name: "root replacement",
+    code: "FADENO_MORPH_QUALIFICATION_CONTINUITY",
+    mutate: (records) => { mutableChild(mutableRecord(records), "after").rootOriginal = false; },
+  },
+  {
+    name: "target replacement",
+    code: "FADENO_MORPH_QUALIFICATION_CONTINUITY",
+    mutate: (records) => { mutableChild(mutableRecord(records), "after").targetOriginal = false; },
+  },
+  {
+    name: "ancestor replacement",
+    code: "FADENO_MORPH_QUALIFICATION_CONTINUITY",
+    mutate: (records) => { mutableChild(mutableRecord(records), "after").ancestorsOriginal = false; },
+  },
+  {
+    name: "lost expando",
+    code: "FADENO_MORPH_QUALIFICATION_CONTINUITY",
+    mutate: (records) => { mutableChild(mutableRecord(records), "after").expandoPreserved = false; },
+  },
+  {
+    name: "lost listener",
+    code: "FADENO_MORPH_QUALIFICATION_CONTINUITY",
+    mutate: (records) => { mutableChild(mutableRecord(records), "after").listenerHits = 0; },
+  },
+  {
+    name: "dirty value restored",
+    code: "FADENO_MORPH_QUALIFICATION_STATE",
+    mutate: (records) => { mutableChild(mutableChild(mutableRecord(records), "after"), "state").value = "server-default"; },
+  },
+  {
+    name: "missing insertion",
+    code: "FADENO_MORPH_QUALIFICATION_OPERATION",
+    mutate: (records) => {
+      mutableChild(mutableRecord(records), "after").order = mutableChild(mutableRecord(records), "before").order;
+    },
+  },
+  {
+    name: "file object replaced",
+    code: "FADENO_MORPH_QUALIFICATION_FILE",
+    mutate: (records) => {
+      const index = records.findIndex((record) => mutableRecord([record]).state === "dirty-file");
+      mutableChild(mutableRecord(records, index), "after").sameFileObject = false;
+    },
+  },
+  {
+    name: "file bytes changed",
+    code: "FADENO_MORPH_QUALIFICATION_FILE",
+    mutate: (records) => {
+      const index = records.findIndex((record) => mutableRecord([record]).state === "dirty-file");
+      mutableChild(mutableChild(mutableRecord(records, index), "after"), "state").bytes = 0;
+    },
+  },
+  {
+    name: "island lifecycle changed",
+    code: "FADENO_MORPH_QUALIFICATION_ISLAND",
+    mutate: (records) => {
+      const index = records.findIndex((record) => mutableRecord([record]).state === "island-identity");
+      mutableChild(mutableRecord(records, index), "after").islandLifecycleStable = false;
+    },
+  },
+  {
+    name: "top layer changed",
+    code: "FADENO_MORPH_QUALIFICATION_TOP_LAYER",
+    mutate: (records) => {
+      const index = records.findIndex((record) => mutableRecord([record]).state === "dialog-modal");
+      mutableChild(mutableRecord(records, index), "after").topLayerStable = false;
+    },
+  },
+  {
+    name: "media reset",
+    code: "FADENO_MORPH_QUALIFICATION_STATE",
+    mutate: (records) => {
+      const index = records.findIndex((record) => mutableRecord([record]).state === "media-playing");
+      mutableChild(mutableChild(mutableRecord(records, index), "after"), "state").currentTime = 0;
+    },
+  },
+  {
+    name: "declared replacement reused",
+    code: "FADENO_MORPH_QUALIFICATION_REPLACEMENT",
+    mutate: (records) => {
+      const index = records.findIndex(
+        (record) => mutableRecord([record]).state === "intentional-replacement",
+      );
+      mutableChild(mutableRecord(records, index), "after").targetOriginal = true;
+    },
+  },
+];
+
+for (const mutation of recordMutations) {
+  const records = structuredClone(baseRecords) as unknown[];
+  mutation.mutate(records);
+  expectQualificationError(mutation.name, mutation.code, () => {
+    verifyQualificationRecords(records as QualificationRecord[], "ci", "chromium");
+  });
+}
+
+function writeJson(path: string, value: unknown): void {
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+const reportRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-qualification-"));
+try {
+  const results = MORPH_PROJECTS.map((engine) => {
+    const records = syntheticRecords(engine);
+    const summary = {
+      profile: "ci",
+      engine,
+      cases: MORPH_QUALIFICATION_CASES.length,
+      repetitions: 20,
+      records: records.length,
+      intentionalReplacements: 20,
+      candidateRoundTripMilliseconds: records.map(() => 1),
+      documentElementCounts: records.map(() => 10),
+    };
+    const directory = join(reportRoot, engine);
+    mkdirSync(directory);
+    const recordsPath = join(directory, "records.json");
+    const summaryPath = join(directory, "summary.json");
+    writeJson(recordsPath, records);
+    writeJson(summaryPath, summary);
+    return {
+      project: engine,
+      title: "qualification-ci",
+      status: "passed",
+      expectedStatus: "passed",
+      errors: [],
+      attachments: [
+        {
+          name: "qualification-records",
+          contentType: "application/json",
+          path: relative(reportRoot, recordsPath),
+          bytes: statSync(recordsPath).size,
+        },
+        {
+          name: "qualification-summary",
+          contentType: "application/json",
+          path: relative(reportRoot, summaryPath),
+          bytes: statSync(summaryPath).size,
+        },
+      ],
+    };
+  });
+  const reportPath = join(reportRoot, "report.json");
+  writeJson(reportPath, { schemaVersion: 1, status: "passed", results });
+  verifyQualificationReport(reportPath, { profile: "ci", outputRoot: reportRoot });
+
+  const portableRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-qualification-portable-"));
+  try {
+    const copy = join(portableRoot, "evidence");
+    cpSync(reportRoot, copy, { recursive: true });
+    verifyQualificationReport(join(copy, "report.json"), { profile: "ci", outputRoot: copy });
+  } finally {
+    rmSync(portableRoot, { recursive: true, force: true });
+  }
+
+  const reportMutations: ReadonlyArray<Readonly<{
+    name: string;
+    code: string;
+    mutate(caseRoot: string, report: Record<string, unknown>): void;
+  }>> = [
+    {
+      name: "missing project result",
+      code: "FADENO_MORPH_QUALIFICATION_EXECUTION_COUNT",
+      mutate: (_caseRoot, report) => {
+        const current = report.results as unknown[];
+        report.results = current.slice(0, 2);
+      },
+    },
+    {
+      name: "wrong attachment content type",
+      code: "FADENO_MORPH_ATTACHMENT_CONTENT_TYPE",
+      mutate: (_caseRoot, report) => {
+        const result = (report.results as Array<Record<string, unknown>>)[0];
+        const attachment = (result?.attachments as Array<Record<string, unknown>>)[0];
+        if (attachment) attachment.contentType = "text/plain";
+      },
+    },
+    {
+      name: "duplicate attachment path",
+      code: "FADENO_MORPH_QUALIFICATION_ATTACHMENT_DUPLICATE",
+      mutate: (_caseRoot, report) => {
+        const current = report.results as Array<Record<string, unknown>>;
+        const first = (current[0]?.attachments as Array<Record<string, unknown>>)[0];
+        const second = (current[1]?.attachments as Array<Record<string, unknown>>)[0];
+        if (first && second) {
+          second.path = first.path;
+          second.bytes = first.bytes;
+        }
+      },
+    },
+    {
+      name: "escaping attachment path",
+      code: "FADENO_MORPH_ATTACHMENT_PATH",
+      mutate: (_caseRoot, report) => {
+        const result = (report.results as Array<Record<string, unknown>>)[0];
+        const attachment = (result?.attachments as Array<Record<string, unknown>>)[0];
+        if (attachment) attachment.path = "../escape.json";
+      },
+    },
+    {
+      name: "fabricated summary",
+      code: "FADENO_MORPH_QUALIFICATION_SUMMARY",
+      mutate: (caseRoot, report) => {
+        const result = (report.results as Array<Record<string, unknown>>)[0];
+        const attachment = (result?.attachments as Array<Record<string, unknown>>)[1];
+        if (!attachment || typeof attachment.path !== "string") return;
+        const path = join(caseRoot, attachment.path);
+        const summary = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+        summary.records = 1;
+        writeJson(path, summary);
+        attachment.bytes = statSync(path).size;
+      },
+    },
+  ];
+  for (const mutation of reportMutations) {
+    const caseRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-qualification-case-"));
+    try {
+      cpSync(reportRoot, caseRoot, { recursive: true });
+      const caseReportPath = join(caseRoot, "report.json");
+      const report = JSON.parse(readFileSync(caseReportPath, "utf8")) as Record<string, unknown>;
+      mutation.mutate(caseRoot, report);
+      writeJson(caseReportPath, report);
+      try {
+        verifyQualificationReport(caseReportPath, { profile: "ci", outputRoot: caseRoot });
+        recordFailure(`${mutation.name}: expected ${mutation.code}`);
+      } catch (error: unknown) {
+        if (!(error instanceof MorphHarnessError) || error.code !== mutation.code) {
+          recordFailure(
+            `${mutation.name}: expected ${mutation.code}, received ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+    } finally {
+      rmSync(caseRoot, { recursive: true, force: true });
+    }
+  }
+} finally {
+  rmSync(reportRoot, { recursive: true, force: true });
+}
+
+if (failures.length > 0) {
+  console.error(failures.join("\n"));
+  process.exit(1);
+}
+
+console.log(
+  `morph qualification verifier passed (${recordMutations.length} record mutations, 5 report mutations)`,
+);

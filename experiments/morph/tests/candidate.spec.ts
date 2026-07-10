@@ -244,6 +244,64 @@ async function runCandidateControl(
     { ...CANDIDATE_PATCH, replacementIdentities: ["status", "status"] },
     "replacement identity is duplicated",
   );
+  await assertCandidateRefusal(
+    page,
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
+        '<main id="root" class="after"><input id="target" aria-label="Control after" value="server-after"><output id="inserted-peer">inserted</output><output id="status">after</output></main>',
+    },
+    "incoming identity conflicts with current document: inserted-peer",
+    `${CANDIDATE_CURRENT_HTML}<aside id="inserted-peer"></aside>`,
+  );
+  await assertCandidateRefusal(
+    page,
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
+        '<main id="root" class="after"><section id="container"></section><input id="target" aria-label="Control after" value="server-after"><output id="status">after</output></main>',
+    },
+    "reused element parent differs: target",
+    '<!doctype html><meta charset="utf-8"><main id="root" class="before"><section id="container"><input id="target" aria-label="Control before" value="server-before"></section><output id="status">before</output></main>',
+  );
+  await assertCandidateRefusal(
+    page,
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
+        '<main id="root" class="after"><input id="target" open aria-label="Control after" value="server-after"><output id="status">after</output></main>',
+    },
+    "incoming attribute owner is unsupported: open",
+  );
+  await assertCandidateRefusal(
+    page,
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
+        '<main id="root" class="after"><input id="target" aria-label="Control after" value="server-after"><audio id="remote-media" src="https://example.invalid/media.wav"></audio><output id="status">after</output></main>',
+    },
+    "incoming media source must be a local WAV data URL",
+  );
+  await assertCandidateRefusal(
+    page,
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
+        '<main id="root" class="after"><input id="target" aria-label="Control after" value="server-after"><fadeno-island id="island">changed</fadeno-island><output id="status">after</output></main>',
+    },
+    "reused opaque island content differs: island",
+    '<!doctype html><meta charset="utf-8"><main id="root" class="before"><input id="target" aria-label="Control before" value="server-before"><fadeno-island id="island">original</fadeno-island><output id="status">before</output></main>',
+  );
+  await assertCandidateRefusal(
+    page,
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
+        '<main id="root" class="after"><input id="target" aria-label="Control after" value="server-after"><details id="status"><summary id="summary">after</summary></details></main>',
+    },
+    "declared replacement must be a non-opaque leaf: status",
+    '<!doctype html><meta charset="utf-8"><main id="root" class="before"><input id="target" aria-label="Control before" value="server-before"><details id="status"><summary id="summary">before</summary></details></main>',
+  );
 
   await prepareCandidatePage(page);
   const before = await captureCandidateState(page);
