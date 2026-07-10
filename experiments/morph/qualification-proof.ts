@@ -75,10 +75,111 @@ function exactKeys(value: unknown, expected: readonly string[], label: string): 
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     fail("FADENO_MORPH_QUALIFICATION_SHAPE", `${label}: expected object`);
   }
-  const actual = Object.keys(value).sort();
-  if (!isDeepStrictEqual(actual, [...expected].sort())) {
+  const actual = Object.keys(value);
+  const expectedSet = new Set(expected);
+  if (
+    actual.length !== expected.length ||
+    expectedSet.size !== expected.length ||
+    actual.some((key) => !expectedSet.has(key))
+  ) {
     fail("FADENO_MORPH_QUALIFICATION_SHAPE", `${label}: keys differ`);
   }
+}
+
+const QUALIFICATION_RECORD_KEYS = [
+  "schemaVersion",
+  "profile",
+  "engine",
+  "caseId",
+  "state",
+  "operation",
+  "ordinal",
+  "key",
+  "completed",
+  "candidateRoundTripMilliseconds",
+  "documentElementCount",
+  "candidate",
+  "before",
+  "after",
+  "instrumentation",
+] as const;
+const QUALIFICATION_SNAPSHOT_KEYS = [
+  "serverClass",
+  "order",
+  "rootOriginal",
+  "targetOriginal",
+  "originalTargetConnected",
+  "currentTargetConnected",
+  "ancestorsOriginal",
+  "expandoPreserved",
+  "listenerHits",
+  "sameFileObject",
+  "islandLifecycleStable",
+  "topLayerStable",
+  "state",
+] as const;
+const QUALIFICATION_INSTRUMENTATION_KEYS = [
+  "setterCalls",
+  "methodCalls",
+  "events",
+  "blockedRequests",
+  "pageErrors",
+  "unhandledRejections",
+] as const;
+
+export type QualificationFailureOperation = Readonly<{
+  profile: MorphQualificationProfile;
+  engine: MorphProject;
+  caseId: string;
+  state: QualificationState;
+  operation: StructuralOperation | "intentional-replacement";
+  ordinal: number;
+  failure: string;
+}>;
+
+export function verifyQualificationFailureAlignment(
+  operation: unknown,
+  observation: unknown,
+  profile: MorphQualificationProfile,
+  engine: MorphProject,
+): void {
+  exactKeys(
+    operation,
+    ["profile", "engine", "caseId", "state", "operation", "ordinal", "failure"],
+    `${engine}.failure-operation`,
+  );
+  exactKeys(observation, QUALIFICATION_RECORD_KEYS, `${engine}.failure-before-after`);
+  const failure = operation as QualificationFailureOperation;
+  const record = observation as QualificationRecord;
+  if (
+    failure.profile !== profile ||
+    failure.engine !== engine ||
+    typeof failure.caseId !== "string" ||
+    typeof failure.state !== "string" ||
+    typeof failure.operation !== "string" ||
+    !Number.isInteger(failure.ordinal) ||
+    failure.ordinal < 1 ||
+    typeof failure.failure !== "string" ||
+    failure.failure.length === 0 ||
+    record.schemaVersion !== 1 ||
+    record.profile !== failure.profile ||
+    record.engine !== failure.engine ||
+    record.caseId !== failure.caseId ||
+    record.state !== failure.state ||
+    record.operation !== failure.operation ||
+    record.ordinal !== failure.ordinal ||
+    record.completed !== true
+  ) {
+    fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: failure context is misaligned`);
+  }
+  exactKeys(record.candidate, ["rootIdentity", "reusedIdentities", "replacedIdentities"], `${engine}.failure-candidate`);
+  exactKeys(record.before, QUALIFICATION_SNAPSHOT_KEYS, `${engine}.failure-before`);
+  exactKeys(record.after, QUALIFICATION_SNAPSHOT_KEYS, `${engine}.failure-after`);
+  exactKeys(
+    record.instrumentation,
+    QUALIFICATION_INSTRUMENTATION_KEYS,
+    `${engine}.failure-instrumentation`,
+  );
 }
 
 function expectedState(state: QualificationState): Readonly<Record<string, unknown>> | null {
@@ -235,23 +336,7 @@ function assertRecord(record: QualificationRecord, profile: MorphQualificationPr
   const label = `${record.engine}/${record.caseId}/${record.ordinal}`;
   exactKeys(
     record,
-    [
-      "schemaVersion",
-      "profile",
-      "engine",
-      "caseId",
-      "state",
-      "operation",
-      "ordinal",
-      "key",
-      "completed",
-      "candidateRoundTripMilliseconds",
-      "documentElementCount",
-      "candidate",
-      "before",
-      "after",
-      "instrumentation",
-    ],
+    QUALIFICATION_RECORD_KEYS,
     label,
   );
   if (
@@ -279,34 +364,13 @@ function assertRecord(record: QualificationRecord, profile: MorphQualificationPr
   }
   exactKeys(
     record.before,
-    [
-      "serverClass",
-      "order",
-      "rootOriginal",
-      "targetOriginal",
-      "originalTargetConnected",
-      "currentTargetConnected",
-      "ancestorsOriginal",
-      "expandoPreserved",
-      "listenerHits",
-      "sameFileObject",
-      "islandLifecycleStable",
-      "topLayerStable",
-      "state",
-    ],
+    QUALIFICATION_SNAPSHOT_KEYS,
     `${label}.before`,
   );
   exactKeys(record.after, Object.keys(record.before), `${label}.after`);
   exactKeys(
     record.instrumentation,
-    [
-      "setterCalls",
-      "methodCalls",
-      "events",
-      "blockedRequests",
-      "pageErrors",
-      "unhandledRejections",
-    ],
+    QUALIFICATION_INSTRUMENTATION_KEYS,
     `${label}.instrumentation`,
   );
   for (const [name, values] of Object.entries(record.instrumentation)) {

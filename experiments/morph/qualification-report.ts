@@ -7,29 +7,19 @@ import {
   MorphHarnessError,
   verifyPortableHarnessAttachment,
 } from "./harness-report.ts";
-import type { MachineAttachment } from "./harness-report.ts";
 import type { QualificationRecord } from "./qualification-proof.ts";
 import {
   qualificationRepetitions,
+  verifyQualificationFailureAlignment,
   verifyQualificationRecords,
 } from "./qualification-proof.ts";
 import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
+import type {
+  MorphMachineAttachment as MachineAttachment,
+  MorphMachineReport as MachineReport,
+  MorphMachineResult as MachineResult,
+} from "./machine-report.ts";
 import type { MorphQualificationProfile } from "./qualification-scenarios.ts";
-
-type MachineResult = {
-  project: string;
-  title: string;
-  status: string;
-  expectedStatus: string;
-  errors: string[];
-  attachments: MachineAttachment[];
-};
-
-type MachineReport = {
-  schemaVersion: number;
-  status: string;
-  results: MachineResult[];
-};
 
 export type QualificationEvidence = Readonly<{
   engine: MorphProject;
@@ -106,11 +96,15 @@ export function verifyQualificationReport(
           "screenshot",
           "trace",
         ];
+    const attachmentNames = result.attachments.map(
+      (attachment: MachineAttachment) => attachment.name,
+    );
+    const attachmentNameSet = new Set(attachmentNames);
+    const expectedAttachmentNameSet = new Set(expectedAttachmentNames);
     if (
-      !isDeepStrictEqual(
-        result.attachments.map((attachment) => attachment.name).sort(),
-        expectedAttachmentNames,
-      )
+      attachmentNames.length !== expectedAttachmentNames.length ||
+      attachmentNameSet.size !== attachmentNames.length ||
+      attachmentNames.some((name: string) => !expectedAttachmentNameSet.has(name))
     ) {
       fail("FADENO_MORPH_QUALIFICATION_ATTACHMENT_SET", `${engine}: attachment set differs`);
     }
@@ -146,9 +140,6 @@ export function verifyQualificationReport(
     const records = readJsonDocument(recordsPath, { maxBytes: 20 * 1024 * 1024 }) as QualificationRecord[];
     const summaryDocument = readJsonDocument(summaryPath);
     if (passing) {
-      if (report.status !== "passed") {
-        fail("FADENO_MORPH_QUALIFICATION_RUN_STATUS", "passing results disagree with report status");
-      }
       const summary = verifyQualificationRecords(records, options.profile, engine);
       if (!isDeepStrictEqual(summaryDocument, summary)) {
         fail("FADENO_MORPH_QUALIFICATION_SUMMARY", `${engine}: summary differs from raw records`);
@@ -174,17 +165,18 @@ export function verifyQualificationReport(
       const beforeAfter = readJsonDocument(attachmentByName(result, verified, "failure-before-after"));
       if (
         !operation ||
-        typeof operation !== "object" ||
-        (operation as Record<string, unknown>).profile !== options.profile ||
-        (operation as Record<string, unknown>).engine !== engine ||
-        typeof (operation as Record<string, unknown>).nextCase !== "string" ||
-        !Number.isInteger((operation as Record<string, unknown>).nextOrdinal) ||
-        typeof (operation as Record<string, unknown>).failure !== "string" ||
-        (records.length === 0 ? beforeAfter !== null : !isDeepStrictEqual(beforeAfter, records.at(-1)))
+        typeof operation !== "object"
       ) {
         fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: failure context differs`);
       }
+      verifyQualificationFailureAlignment(operation, beforeAfter, options.profile, engine);
     }
+  }
+  if (
+    (observedFailure && report.status === "passed") ||
+    (!observedFailure && report.status !== "passed")
+  ) {
+    fail("FADENO_MORPH_QUALIFICATION_RUN_STATUS", "result statuses disagree with report status");
   }
   if (observedFailure || report.status !== "passed") {
     fail("FADENO_MORPH_QUALIFICATION_FAILURE", "qualification contains a verified browser failure");

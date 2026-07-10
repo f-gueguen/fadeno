@@ -13,6 +13,11 @@ import { crc32, inflateRawSync, inflateSync } from "node:zlib";
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import { MORPH_PROJECTS } from "./contract.ts";
 import type { MorphFixture } from "./fixtures/catalog.ts";
+import type {
+  MorphMachineAttachment,
+  MorphMachineReport,
+  MorphMachineResult,
+} from "./machine-report.ts";
 
 const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
 const BEFORE_STATE = {
@@ -107,27 +112,9 @@ export class MorphHarnessError extends Error {
   }
 }
 
-export type MachineAttachment = {
-  name: string;
-  contentType: string;
-  path?: string;
-  bytes: number;
-};
-
-type MachineResult = {
-  project: string;
-  title: string;
-  status: string;
-  expectedStatus: string;
-  errors: string[];
-  attachments: MachineAttachment[];
-};
-
-type MachineReport = {
-  schemaVersion: number;
-  status: string;
-  results: MachineResult[];
-};
+export type MachineAttachment = MorphMachineAttachment;
+type MachineReport = MorphMachineReport;
+type MachineResult = MorphMachineResult;
 
 type VerifyOptions = {
   fixture: MorphFixture;
@@ -661,7 +648,9 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
     const expectedAttachmentNames = expected === "failed"
       ? ["before-after", "error-context", "operation", "screenshot", "trace"]
       : ["before-after", "operation"];
-    const attachmentNames = result.attachments.map((attachment) => attachment.name).sort();
+    const attachmentNames = result.attachments.map(
+      (attachment: MachineAttachment) => attachment.name,
+    ).sort();
     if (!isDeepStrictEqual(attachmentNames, expectedAttachmentNames)) {
       fail("FADENO_MORPH_ATTACHMENT_SET", `${result.project}: attachment set differs`);
     }
@@ -683,7 +672,8 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
       requiredAttachment(result, "screenshot", verifiedPaths);
       requiredAttachment(result, "trace", verifiedPaths);
       if (
-        traceEvidence?.browserName !== result.project ||
+        !traceEvidence ||
+        traceEvidence.browserName !== result.project ||
         !traceEvidence.title.endsWith(`› ${fixture.id}`) ||
         traceEvidence.playwrightVersion !== "1.61.0" ||
         traceEvidence.errorFirstLine !== `Error: ${fixture.diagnostic}`

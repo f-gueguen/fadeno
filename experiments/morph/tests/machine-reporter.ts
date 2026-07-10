@@ -6,23 +6,10 @@ import type {
   TestCase,
   TestResult,
 } from "@playwright/test/reporter";
-
-type ReportResult = {
-  project: string;
-  title: string;
-  status: string;
-  expectedStatus: string;
-  errors: string[];
-  attachments: Array<{
-    name: string;
-    contentType: string;
-    path: string | undefined;
-    bytes: number;
-  }>;
-};
+import type { MorphMachineResult } from "../machine-report.ts";
 
 export default class MorphMachineReporter implements Reporter {
-  private readonly results: ReportResult[] = [];
+  private readonly results: MorphMachineResult[] = [];
 
   onTestEnd(test: TestCase, result: TestResult): void {
     const outputRoot = process.env.FADENO_MORPH_CHILD_OUTPUT;
@@ -33,25 +20,30 @@ export default class MorphMachineReporter implements Reporter {
       status: result.status,
       expectedStatus: test.expectedStatus,
       errors: result.errors.map((error) => error.message ?? String(error)),
-      attachments: result.attachments.map((attachment) => ({
-        name: attachment.name,
-        contentType: attachment.contentType,
-        path: attachment.path
-          ? (() => {
-              const portablePath = relative(outputRoot, attachment.path);
-              if (
-                portablePath === "" ||
-                portablePath === ".." ||
-                portablePath.startsWith(`..${sep}`) ||
-                isAbsolute(portablePath)
-              ) {
-                throw new Error(`FADENO_MORPH_ATTACHMENT_PATH: ${attachment.name}`);
-              }
-              return portablePath;
-            })()
-          : undefined,
-        bytes: attachment.path ? statSync(attachment.path).size : 0,
-      })),
+      attachments: result.attachments.map((attachment) => {
+        if (!attachment.path) {
+          return {
+            name: attachment.name,
+            contentType: attachment.contentType,
+            bytes: 0,
+          };
+        }
+        const portablePath = relative(outputRoot, attachment.path);
+        if (
+          portablePath === "" ||
+          portablePath === ".." ||
+          portablePath.startsWith(`..${sep}`) ||
+          isAbsolute(portablePath)
+        ) {
+          throw new Error(`FADENO_MORPH_ATTACHMENT_PATH: ${attachment.name}`);
+        }
+        return {
+          name: attachment.name,
+          contentType: attachment.contentType,
+          path: portablePath,
+          bytes: statSync(attachment.path).size,
+        };
+      }),
     });
   }
 

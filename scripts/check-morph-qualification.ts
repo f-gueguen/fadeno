@@ -20,6 +20,7 @@ import {
 import type { QualificationState } from "../experiments/morph/fixtures/qualification-corpus.ts";
 import {
   MorphQualificationError,
+  verifyQualificationFailureAlignment,
   verifyQualificationRecords,
 } from "../experiments/morph/qualification-proof.ts";
 import type {
@@ -196,6 +197,31 @@ function expectQualificationError(
 
 const baseRecords = syntheticRecords("chromium");
 verifyQualificationRecords(baseRecords, "ci", "chromium");
+const failureRecord = baseRecords[0];
+if (!failureRecord) throw new Error("missing synthetic failure record");
+const failureOperation = {
+  profile: failureRecord.profile,
+  engine: failureRecord.engine,
+  caseId: failureRecord.caseId,
+  state: failureRecord.state,
+  operation: failureRecord.operation,
+  ordinal: failureRecord.ordinal,
+  failure: "synthetic failure",
+};
+verifyQualificationFailureAlignment(failureOperation, failureRecord, "ci", "chromium");
+for (const [name, mutation] of [
+  ["mismatched failure case", { caseId: "other-case" }],
+  ["mismatched failure ordinal", { ordinal: 2 }],
+] as const) {
+  expectQualificationError(name, "FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", () => {
+    verifyQualificationFailureAlignment(
+      { ...failureOperation, ...mutation },
+      failureRecord,
+      "ci",
+      "chromium",
+    );
+  });
+}
 
 const recordMutations: ReadonlyArray<Readonly<{
   name: string;
@@ -457,6 +483,17 @@ try {
       },
     },
     {
+      name: "mixed failure is inspected",
+      code: "FADENO_MORPH_QUALIFICATION_ATTACHMENT_SET",
+      mutate: (_caseRoot, report) => {
+        report.status = "failed";
+        const result = (report.results as Array<Record<string, unknown>>).at(-1);
+        if (!result) return;
+        result.status = "failed";
+        result.errors = ["Error: FADENO_MORPH_QUALIFICATION_FAILURE: synthetic"];
+      },
+    },
+    {
       name: "wrong attachment content type",
       code: "FADENO_MORPH_ATTACHMENT_CONTENT_TYPE",
       mutate: (_caseRoot, report) => {
@@ -534,5 +571,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `morph qualification verifier passed (${recordMutations.length} record mutations, 5 report mutations)`,
+  `morph qualification verifier passed (${recordMutations.length} record mutations, 2 failure alignment mutations, 6 report mutations)`,
 );

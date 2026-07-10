@@ -36,12 +36,53 @@ type Instrumentation = {
   unhandledRejections: string[];
 };
 
+class QualificationScenarioProofError extends Error {
+  readonly record: QualificationRecord;
+
+  constructor(record: QualificationRecord, cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = "QualificationScenarioProofError";
+    this.record = record;
+  }
+}
+
 async function settle(page: Page): Promise<void> {
   await page.evaluate(() =>
     new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
     )
   );
+}
+
+async function resetUnhandledRejectionCollector(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const currentWindow = window as typeof window & {
+      __fadenoUnhandledRejections?: string[];
+      __fadenoUnhandledHandler?: (event: PromiseRejectionEvent) => void;
+    };
+    if (currentWindow.__fadenoUnhandledHandler) {
+      window.removeEventListener("unhandledrejection", currentWindow.__fadenoUnhandledHandler);
+    }
+    currentWindow.__fadenoUnhandledRejections = [];
+    currentWindow.__fadenoUnhandledHandler = (event) => {
+      currentWindow.__fadenoUnhandledRejections?.push(String(event.reason));
+    };
+    window.addEventListener("unhandledrejection", currentWindow.__fadenoUnhandledHandler);
+  });
+}
+
+async function verifyUnhandledRejectionSensor(page: Page): Promise<void> {
+  await page.setContent("<!doctype html><meta charset=\"utf-8\">");
+  await resetUnhandledRejectionCollector(page);
+  await page.evaluate(() => {
+    void Promise.reject(new Error("FADENO_MORPH_REJECTION_SENSOR"));
+  });
+  await settle(page);
+  const observed = await page.evaluate(() => {
+    const currentWindow = window as typeof window & { __fadenoUnhandledRejections?: string[] };
+    return currentWindow.__fadenoUnhandledRejections ?? [];
+  });
+  expect(observed).toEqual(["Error: FADENO_MORPH_REJECTION_SENSOR"]);
 }
 
 async function prepareScenario(page: Page, scenario: MorphQualificationScenario): Promise<void> {
@@ -71,6 +112,7 @@ async function prepareScenario(page: Page, scenario: MorphQualificationScenario)
     }
   });
   await page.setContent(scenario.currentHtml);
+  await resetUnhandledRejectionCollector(page);
 
   switch (scenario.fixture.state) {
     case "focused-input-selection": {
@@ -202,7 +244,7 @@ async function installInstrumentation(
         __fadenoAncestors?: Array<readonly [string, Element]>;
         __fadenoOriginalFile?: File | undefined;
         __fadenoInstrumentation?: Instrumentation;
-        __fadenoUnhandledHandler?: (event: PromiseRejectionEvent) => void;
+        __fadenoUnhandledRejections?: string[];
         __fadenoIslandConnected?: number;
         __fadenoIslandDisconnected?: number;
         __fadenoIslandBaseline?: readonly [number, number];
@@ -215,7 +257,7 @@ async function installInstrumentation(
         methodCalls: [],
         events: [],
         listenerHits: 0,
-        unhandledRejections: [],
+        unhandledRejections: currentWindow.__fadenoUnhandledRejections ?? [],
       };
       currentWindow.__fadenoRoot = root;
       currentWindow.__fadenoTarget = target;
@@ -325,13 +367,6 @@ async function installInstrumentation(
       if (stateName === "document-scroll") {
         window.addEventListener("scroll", () => instrumentation.events.push("window-scroll"));
       }
-      if (currentWindow.__fadenoUnhandledHandler) {
-        window.removeEventListener("unhandledrejection", currentWindow.__fadenoUnhandledHandler);
-      }
-      currentWindow.__fadenoUnhandledHandler = (event) => {
-        instrumentation.unhandledRejections.push(String(event.reason));
-      };
-      window.addEventListener("unhandledrejection", currentWindow.__fadenoUnhandledHandler);
       currentWindow.__fadenoInstrumentation = instrumentation;
     },
     { stateName, targetIdentity },
@@ -603,8 +638,7 @@ async function runScenario(
     blockedRequests: [...blockedRequests],
     pageErrors: [...pageErrors],
   };
-  assertBrowserProof(scenario, candidate, before, after, instrumentation);
-  return {
+  const record: QualificationRecord = {
     schemaVersion: 1,
     profile,
     engine,
@@ -621,6 +655,12 @@ async function runScenario(
     after,
     instrumentation,
   };
+  try {
+    assertBrowserProof(scenario, candidate, before, after, instrumentation);
+  } catch (error: unknown) {
+    throw new QualificationScenarioProofError(record, error);
+  }
+  return record;
 }
 
 test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
@@ -632,6 +672,9 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
   const records: QualificationRecord[] = [];
   let blockedRequests: string[] = [];
   let pageErrors: string[] = [];
+  let activeScenario: MorphQualificationScenario | undefined;
+  let activeOrdinal = 0;
+  await verifyUnhandledRejectionSensor(page);
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route(/^https?:\/\//u, async (route) => {
     blockedRequests.push(route.request().url());
@@ -641,6 +684,8 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
   try {
     for (const scenario of MORPH_QUALIFICATION_SCENARIOS) {
       for (let ordinal = 1; ordinal <= repetitions; ordinal += 1) {
+        activeScenario = scenario;
+        activeOrdinal = ordinal;
         blockedRequests = [];
         pageErrors = [];
         records.push(
@@ -653,6 +698,8 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
             pageErrors,
           ),
         );
+        activeScenario = undefined;
+        activeOrdinal = 0;
       }
     }
     const summary = verifyQualificationRecords(records, profile, engine);
@@ -660,6 +707,7 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
     await attachJson(testInfo, "qualification-summary", summary);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
+    const proofRecord = error instanceof QualificationScenarioProofError ? error.record : null;
     await attachJson(testInfo, "qualification-records", records);
     await attachJson(testInfo, "qualification-summary", {
       profile,
@@ -671,11 +719,13 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
     await attachJson(testInfo, "failure-operation", {
       profile,
       engine,
-      nextCase: MORPH_QUALIFICATION_SCENARIOS[Math.floor(records.length / repetitions)]?.fixture.id,
-      nextOrdinal: (records.length % repetitions) + 1,
+      caseId: activeScenario?.fixture.id,
+      state: activeScenario?.fixture.state,
+      operation: activeScenario?.fixture.operation,
+      ordinal: activeOrdinal,
       failure: message,
     });
-    await attachJson(testInfo, "failure-before-after", records.at(-1) ?? null);
+    await attachJson(testInfo, "failure-before-after", proofRecord);
     throw new Error(`FADENO_MORPH_QUALIFICATION_FAILURE: ${message}`);
   }
 });
