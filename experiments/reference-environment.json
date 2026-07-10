@@ -14,7 +14,7 @@
     },
     "mutableObservedFields": [
       "runnerImageVersion",
-      "runnerProvisionerVersion",
+      "runnerName",
       "operatingSystemVersion",
       "kernelVersion",
       "cpuModel",
@@ -74,7 +74,7 @@
   "preflight": {
     "requiredObservedFields": [
       "host.runnerImageVersion",
-      "host.runnerProvisionerVersion",
+      "host.runnerName",
       "host.operatingSystemVersion",
       "host.kernelVersion",
       "host.cpuModel",

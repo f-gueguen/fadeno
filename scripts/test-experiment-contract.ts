@@ -23,13 +23,13 @@ import {
   stableRegistryListing,
   validateArtifactRecords,
   validateManifestSemantics,
-} from "./lib/experiment-contract.mjs";
+} from "./lib/experiment-contract.ts";
 import {
   createContractValidators,
   assertReferenceSemantics,
   loadExperimentRegistry,
   loadReferenceEnvironment,
-} from "./lib/experiment-validation.mjs";
+} from "./lib/experiment-validation.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureRoot = join(root, "experiments/contract/fixtures");
@@ -284,7 +284,7 @@ if (
   recordFailure(`registry failure diagnostic drift: ${JSON.stringify(registryFailureResult)}`);
 }
 
-const cliPath = join(root, "scripts/experiment-all.mjs");
+const cliPath = join(root, "scripts/experiment-all.ts");
 const commandCases = [
   {
     name: "list-with-separator",
@@ -306,7 +306,7 @@ const commandCases = [
     status: 2,
     stdout: "",
     stderr:
-      "FADENO_K0_001: experiment execution is unavailable in K0-01; use --list to inspect the approved plan.\n",
+      "FADENO_K0_001: aggregate execution is unavailable until all four harnesses exist; use --list to inspect the approved plan.\n",
   },
   {
     name: "unsupported",
@@ -317,7 +317,7 @@ const commandCases = [
   },
 ];
 for (const fixture of commandCases) {
-  const result = spawnSync(process.execPath, [cliPath, ...fixture.args], {
+  const result = spawnSync(process.execPath, ["--no-warnings", "--experimental-strip-types", cliPath, ...fixture.args], {
     cwd: root,
     encoding: "utf8",
   });

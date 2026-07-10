@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "experiment": "morph",
+  "fixtures": [
+    {
+      "id": "seeded-preservation-control",
+      "kind": "passing-control",
+      "operation": "insert-unrelated-sibling",
+      "description": "Dirty focused input survives a proven unrelated sibling insertion."
+    },
+    {
+      "id": "seeded-undeclared-state-loss",
+      "kind": "seeded-failure",
+      "operation": "replace-focused-control",
+      "description": "Replacing a dirty focused input must be detected as undeclared state loss.",
+      "diagnostic": "FADENO_MORPH_STATE_LOSS"
+    }
+  ]
+}

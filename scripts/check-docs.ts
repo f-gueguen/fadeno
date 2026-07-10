@@ -71,7 +71,7 @@ const checkedTextExtensions = new Set([
   ".json",
   ".jsx",
   ".md",
-  ".mjs",
+  ".ts",
   ".toml",
   ".ts",
   ".tsx",

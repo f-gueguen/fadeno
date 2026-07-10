@@ -6,27 +6,23 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-02 — Three-engine morph harness
+K0-03 — Private structural HTML-update candidate
 
 ## Exit criteria
 
-- [ ] Chromium, Firefox, and WebKit projects execute through one private fixture
-  API in the K0-01 reference environment.
-- [ ] `pnpm experiment:morph -- --list` reports the complete fixture inventory
-  without running it.
-- [ ] A seeded passing fixture proves the harness can observe preservation.
-- [ ] A seeded failing fixture proves the harness fails for an undeclared state
-  loss instead of rewarding non-execution.
-- [ ] Failure output captures a trace, screenshot, structural operation, and
-  before/after state.
-- [ ] Browser binaries and mutable host facts pass the K0-01 preflight before a
-  run can be classified as reference evidence.
-- [ ] No structural update candidate or public export is introduced.
+- [ ] One private structural HTML-update candidate consumes a minimal patch
+  input without creating a public API or export.
+- [ ] Structural identity is explicit enough for the K0-02 passing control and
+  later preservation fixtures to distinguish reuse from replacement.
+- [ ] `pnpm experiment:morph -- --fixture intentional-replacement` executes a
+  reviewed control that proves declared replacement remains possible.
+- [ ] Candidate input, structural identity, and intentional replacement remain
+  private to `experiments/morph/`.
 - [ ] `pnpm check` passes from a frozen install.
 
 ## In progress
 
-- K0-02 entry preparation; no browser harness has been implemented.
+- K0-03 entry preparation; no structural update candidate has been implemented.
 
 ## Blockers
 
@@ -34,8 +30,8 @@ K0-02 — Three-engine morph harness
 
 ## Open questions
 
-- K0-02: the smallest fixture API that proves all three engines execute and
-  preserves seeded-failure integrity without defining the later morph input.
+- K0-03: the smallest private patch input and identity rule that can exercise
+  intentional replacement without pre-committing the K0-04 result.
 - DG-A0-01: public package names after registry ownership is secured.
 
 ## Completed slices
@@ -48,3 +44,8 @@ K0-02 — Three-engine morph harness
   hardened positive/negative fixtures, digest-pinned reference environment,
   and deterministic aggregate list/refusal contract are checked without
   claiming a harness or qualification result.
+- K0-02 — The strict-TypeScript fixture API runs a proven preservation control
+  and a proven undeclared-state-loss control in Chromium, Firefox, and WebKit;
+  the digest-qualified reference job verifies browser identity and retains
+  trace, screenshot, operation, and before/after evidence without introducing
+  a morph candidate or qualification result.

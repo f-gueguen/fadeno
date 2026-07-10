@@ -7,12 +7,12 @@ import {
   readJsonDocument,
   validateArtifactRecords,
   validateManifestSemantics,
-} from "./lib/experiment-contract.mjs";
+} from "./lib/experiment-contract.ts";
 import {
   createContractValidators,
   loadExperimentRegistry,
   loadReferenceEnvironment,
-} from "./lib/experiment-validation.mjs";
+} from "./lib/experiment-validation.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureRoot = join(root, "experiments/contract/fixtures");
@@ -88,7 +88,10 @@ for (const entry of registry.experiments) {
     recordFailure(`${entry.id}: ${entry.status} experiment is missing ${scriptName}`);
   }
 }
-if (packageJson.scripts?.["experiment:all"] !== "node scripts/experiment-all.mjs") {
+if (
+  packageJson.scripts?.["experiment:all"] !==
+  "node --no-warnings --experimental-strip-types scripts/experiment-all.ts"
+) {
   recordFailure("package.json: experiment:all does not own the aggregate contract");
 }
 

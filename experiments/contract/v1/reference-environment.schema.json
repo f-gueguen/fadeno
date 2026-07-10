@@ -62,7 +62,7 @@
           "items": {
             "enum": [
               "runnerImageVersion",
-              "runnerProvisionerVersion",
+              "runnerName",
               "operatingSystemVersion",
               "kernelVersion",
               "cpuModel",

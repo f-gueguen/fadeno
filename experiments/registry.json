@@ -18,7 +18,7 @@
       "command": "pnpm experiment:morph",
       "harnessSlice": "K0-02",
       "qualificationSlice": "K0-04",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "revalidation",

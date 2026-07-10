@@ -13,7 +13,7 @@ results.
   manifests with no unknown properties.
 
 Schemas use JSON Schema 2020-12, stable local identities, strict Ajv validation,
-and no network-loaded references. `scripts/check-experiment-contract.mjs`
+and no network-loaded references. `scripts/check-experiment-contract.ts`
 self-validates every schema before compiling it.
 
 ## Authority and projections
@@ -60,7 +60,8 @@ the reference environment and enable a reviewed non-root/seccomp policy first.
   ordered JSON document plus a final newline to stdout, and writes nothing to
   stderr. The separator-less `--list` form is accepted for compatibility.
 - `pnpm --silent experiment:all` exits `2` before side effects with diagnostic
-  `FADENO_K0_001` while no execution harness exists.
+  `FADENO_K0_001` until all four private harnesses exist. Individual available
+  harnesses run through their own root commands.
 - An unsupported argument passed to the underlying script exits `64` before
   side effects with diagnostic
   `FADENO_K0_002`.

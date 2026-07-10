@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { loadExperimentRegistry } from "./lib/experiment-validation.mjs";
+import { loadExperimentRegistry } from "./lib/experiment-validation.ts";
 
 const root = process.cwd();
 const errors = [];
@@ -56,13 +56,13 @@ if (scopeSet.size < 20) {
   errors.push("docs/product/scope.md: feature inventory is unexpectedly incomplete");
 }
 
-const scopeRows = new Map(
+const scopeRows = new Map<string, string[]>(
   tableRows(read("docs/product/scope.md"), /^\| [A-Z]+-\d{2} \|/).map((cells) => [
     cells[0],
     cells,
   ]),
 );
-const traceRows = new Map(
+const traceRows = new Map<string, string[]>(
   tableRows(read("docs/traceability.md"), /^\| [A-Z]+-\d{2} \|/).map((cells) => [
     cells[0],
     cells,
