@@ -40,6 +40,7 @@ export type QualificationRecord = Readonly<{
   key: string;
   completed: true;
   candidateRoundTripMilliseconds: number;
+  observationWindowMilliseconds: number;
   documentElementCount: number;
   candidate: Readonly<{
     rootIdentity: string;
@@ -98,6 +99,7 @@ const QUALIFICATION_RECORD_KEYS = [
   "key",
   "completed",
   "candidateRoundTripMilliseconds",
+  "observationWindowMilliseconds",
   "documentElementCount",
   "candidate",
   "before",
@@ -202,6 +204,8 @@ export function verifyQualificationFailureAlignment(
   if (
     !Number.isFinite(record.candidateRoundTripMilliseconds) ||
     record.candidateRoundTripMilliseconds < 0 ||
+    !Number.isFinite(record.observationWindowMilliseconds) ||
+    record.observationWindowMilliseconds < record.candidateRoundTripMilliseconds ||
     !Number.isInteger(record.documentElementCount) ||
     record.documentElementCount < 4
   ) {
@@ -315,6 +319,7 @@ function assertMediaState(
   before: Readonly<Record<string, unknown>>,
   after: Readonly<Record<string, unknown>>,
   label: string,
+  observationWindowMilliseconds: number,
 ): void {
   exactKeys(before, ["paused", "currentTime", "readyState"], `${label}.before.state`);
   exactKeys(after, ["paused", "currentTime", "readyState"], `${label}.after.state`);
@@ -336,7 +341,7 @@ function assertMediaState(
       after.paused !== false ||
       beforeTime <= 0.02 ||
       afterTime < beforeTime - 0.01 ||
-      afterTime > beforeTime + 0.5
+      afterTime > beforeTime + observationWindowMilliseconds / 1_000 + 0.1
     ) {
       fail("FADENO_MORPH_QUALIFICATION_STATE", `${label}: playing media continuity differs`);
     }
@@ -450,6 +455,8 @@ function assertRecord(record: QualificationRecord, profile: MorphQualificationPr
     record.completed !== true ||
     !Number.isFinite(record.candidateRoundTripMilliseconds) ||
     record.candidateRoundTripMilliseconds < 0 ||
+    !Number.isFinite(record.observationWindowMilliseconds) ||
+    record.observationWindowMilliseconds < record.candidateRoundTripMilliseconds ||
     !Number.isInteger(record.documentElementCount) ||
     record.documentElementCount < 4
   ) {
@@ -524,7 +531,13 @@ function assertRecord(record: QualificationRecord, profile: MorphQualificationPr
       fail("FADENO_MORPH_QUALIFICATION_CONTINUITY", `${label}: retained identity proof differs`);
     }
     if (record.state === "media-playing" || record.state === "media-paused") {
-      assertMediaState(record.state, record.before.state, record.after.state, label);
+      assertMediaState(
+        record.state,
+        record.before.state,
+        record.after.state,
+        label,
+        record.observationWindowMilliseconds,
+      );
     } else if (record.state === "dirty-file") {
       assertFileState(record.before.state, record.after.state, label);
     } else {

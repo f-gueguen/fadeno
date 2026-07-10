@@ -154,6 +154,7 @@ function syntheticRecords(engine: MorphProject): QualificationRecord[] {
         key: `${engine}/${fixture.id}/${ordinal}`,
         completed: true,
         candidateRoundTripMilliseconds: 1,
+        observationWindowMilliseconds: 2,
         documentElementCount: 10,
         candidate: {
           rootIdentity: "root",

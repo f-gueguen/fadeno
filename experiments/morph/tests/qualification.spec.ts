@@ -535,6 +535,7 @@ function assertBrowserProof(
   before: QualificationSnapshot,
   after: QualificationSnapshot,
   instrumentation: QualificationRecord["instrumentation"],
+  observationWindowMilliseconds: number,
 ): void {
   expect(before.serverClass).toBe("before");
   expect(after.serverClass).toBe("after");
@@ -576,7 +577,9 @@ function assertBrowserProof(
       expect(after.state.paused).toBe(false);
       expect(beforeTime).toBeGreaterThan(0.02);
       expect(afterTime).toBeGreaterThanOrEqual(beforeTime - 0.01);
-      expect(afterTime).toBeLessThanOrEqual(beforeTime + 0.5);
+      expect(afterTime).toBeLessThanOrEqual(
+        beforeTime + observationWindowMilliseconds / 1_000 + 0.1,
+      );
     } else if (scenario.fixture.state === "media-paused") {
       expect(before.state.paused).toBe(true);
       expect(after.state.paused).toBe(true);
@@ -618,6 +621,7 @@ async function runScenario(
     false,
   );
   const documentElementCount = await page.locator("*").count();
+  const observationStarted = performance.now();
   const started = performance.now();
   const candidate = await page.evaluate(applyPrivateMorphCandidate, scenario.patch);
   const candidateRoundTripMilliseconds = performance.now() - started;
@@ -629,6 +633,7 @@ async function runScenario(
     scenario.operationParentIdentity,
     true,
   );
+  const observationWindowMilliseconds = performance.now() - observationStarted;
   const browserInstrumentation = await page.evaluate(() => {
     const currentWindow = window as typeof window & {
       __fadenoInstrumentation?: Instrumentation;
@@ -658,6 +663,7 @@ async function runScenario(
     key: `${engine}/${scenario.fixture.id}/${ordinal}`,
     completed: true,
     candidateRoundTripMilliseconds,
+    observationWindowMilliseconds,
     documentElementCount,
     candidate,
     before,
@@ -665,7 +671,14 @@ async function runScenario(
     instrumentation,
   };
   try {
-    assertBrowserProof(scenario, candidate, before, after, instrumentation);
+    assertBrowserProof(
+      scenario,
+      candidate,
+      before,
+      after,
+      instrumentation,
+      observationWindowMilliseconds,
+    );
   } catch (error: unknown) {
     throw new QualificationScenarioProofError(record, error);
   }
