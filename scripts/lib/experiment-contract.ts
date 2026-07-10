@@ -270,6 +270,21 @@ function validateSourceProvenance(manifest: any, repositoryRoot: string): void {
   if (sourceLockDigest !== manifest.dependencyLock.sha256) {
     fail("FADENO_K0_LOCK_SOURCE_MISMATCH", "recorded lock differs from source commit");
   }
+  const datasetSourcePath = manifest.workload?.dataset?.sourcePath;
+  if (datasetSourcePath) {
+    const datasetAtCommit = spawnSync("git", ["show", `${commit}:${datasetSourcePath}`], {
+      cwd: repositoryRoot,
+      encoding: null,
+      maxBuffer: MAX_JSON_BYTES,
+    });
+    if (datasetAtCommit.status !== 0 || datasetAtCommit.error) {
+      fail("FADENO_K0_DATASET_SOURCE_MISSING", "workload dataset is unavailable at source commit");
+    }
+    const sourceDatasetDigest = createHash("sha256").update(datasetAtCommit.stdout).digest("hex");
+    if (sourceDatasetDigest !== manifest.workload.dataset.sha256) {
+      fail("FADENO_K0_DATASET_SOURCE_MISMATCH", "recorded dataset differs from source commit");
+    }
+  }
 }
 
 export function validateArtifactRecords(

@@ -44,43 +44,9 @@ jobs:
         with:
           node-version-file: .node-version
 
-      - name: Run harness in the observed reference container
-        shell: bash
-        run: |
-          set -euo pipefail
-          image="mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9"
-          : "${ImageVersion:?runner image version is unavailable}"
-          : "${ImageOS:?runner operating system version is unavailable}"
-          : "${RUNNER_NAME:?runner name is unavailable}"
-          docker pull "$image"
-          node_root="$(dirname "$(dirname "$(command -v node)")")"
-          container_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")"
-          container_config_digest="$(docker image inspect --format '{{.Id}}' "$image")"
-          container_platform_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$image")"
-          container_platform_digest="${container_platform_digest##*@}"
-          docker run --rm --ipc=host \
-            --env HOME=/root \
-            --env GITHUB_ACTIONS=true \
-            --env FADENO_EXPECT_REFERENCE=1 \
-            --env FADENO_PREFLIGHT_WAIT_MS=180000 \
-            --env FADENO_REPOSITORY_VISIBILITY=private \
-            --env FADENO_RUNNER_LABEL=ubuntu-24.04 \
-            --env FADENO_RUNNER_IMAGE_VERSION="$ImageVersion" \
-            --env FADENO_RUNNER_NAME="$RUNNER_NAME" \
-            --env FADENO_OPERATING_SYSTEM_VERSION="$ImageOS" \
-            --env FADENO_ADVERTISED_LOGICAL_CPU=2 \
-            --env FADENO_ADVERTISED_MEMORY_MIB=8192 \
-            --env FADENO_ADVERTISED_STORAGE_MIB=14336 \
-            --env FADENO_CONTAINER_IMAGE="$image" \
-            --env FADENO_CONTAINER_PLATFORM="$container_platform" \
-            --env FADENO_CONTAINER_PLATFORM_DIGEST="$container_platform_digest" \
-            --env FADENO_CONTAINER_CONFIG_DIGEST="$container_config_digest" \
-            --env PATH=/opt/fadeno-node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-            --volume "$node_root:/opt/fadeno-node:ro" \
-            --volume "$GITHUB_WORKSPACE:/work" \
-            --workdir /work \
-            "$image" \
-            /bin/bash -c 'set -euo pipefail; git config --global --add safe.directory /work; mkdir -p /tmp/corepack /tmp/pnpm-store; corepack enable --install-directory /tmp/corepack; export PATH="/tmp/corepack:$PATH"; pnpm install --frozen-lockfile --store-dir /tmp/pnpm-store; pnpm experiment:morph -- --verify-harness; cp -R output/playwright/morph output/playwright/morph-harness; pnpm experiment:morph -- --fixture intentional-replacement; pnpm experiment:morph -- --ci'
+      - uses: ./.github/actions/morph-reference
+        with:
+          profile: ci
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
@@ -109,43 +75,9 @@ jobs:
         with:
           node-version-file: .node-version
 
-      - name: Run 100-repetition qualification in the observed reference container
-        shell: bash
-        run: |
-          set -euo pipefail
-          image="mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9"
-          : "${ImageVersion:?runner image version is unavailable}"
-          : "${ImageOS:?runner operating system version is unavailable}"
-          : "${RUNNER_NAME:?runner name is unavailable}"
-          docker pull "$image"
-          node_root="$(dirname "$(dirname "$(command -v node)")")"
-          container_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")"
-          container_config_digest="$(docker image inspect --format '{{.Id}}' "$image")"
-          container_platform_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$image")"
-          container_platform_digest="${container_platform_digest##*@}"
-          docker run --rm --ipc=host \
-            --env HOME=/root \
-            --env GITHUB_ACTIONS=true \
-            --env FADENO_EXPECT_REFERENCE=1 \
-            --env FADENO_PREFLIGHT_WAIT_MS=180000 \
-            --env FADENO_REPOSITORY_VISIBILITY=private \
-            --env FADENO_RUNNER_LABEL=ubuntu-24.04 \
-            --env FADENO_RUNNER_IMAGE_VERSION="$ImageVersion" \
-            --env FADENO_RUNNER_NAME="$RUNNER_NAME" \
-            --env FADENO_OPERATING_SYSTEM_VERSION="$ImageOS" \
-            --env FADENO_ADVERTISED_LOGICAL_CPU=2 \
-            --env FADENO_ADVERTISED_MEMORY_MIB=8192 \
-            --env FADENO_ADVERTISED_STORAGE_MIB=14336 \
-            --env FADENO_CONTAINER_IMAGE="$image" \
-            --env FADENO_CONTAINER_PLATFORM="$container_platform" \
-            --env FADENO_CONTAINER_PLATFORM_DIGEST="$container_platform_digest" \
-            --env FADENO_CONTAINER_CONFIG_DIGEST="$container_config_digest" \
-            --env PATH=/opt/fadeno-node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-            --volume "$node_root:/opt/fadeno-node:ro" \
-            --volume "$GITHUB_WORKSPACE:/work" \
-            --workdir /work \
-            "$image" \
-            /bin/bash -c 'set -euo pipefail; git config --global --add safe.directory /work; mkdir -p /tmp/corepack /tmp/pnpm-store; corepack enable --install-directory /tmp/corepack; export PATH="/tmp/corepack:$PATH"; pnpm install --frozen-lockfile --store-dir /tmp/pnpm-store; pnpm experiment:morph -- --qualify'
+      - uses: ./.github/actions/morph-reference
+        with:
+          profile: qualification
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()

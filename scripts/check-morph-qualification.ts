@@ -10,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 import { MORPH_PROJECTS } from "../experiments/morph/contract.ts";
 import type { MorphProject } from "../experiments/morph/contract.ts";
@@ -28,6 +29,7 @@ import type {
   QualificationSnapshot,
 } from "../experiments/morph/qualification-proof.ts";
 import { verifyQualificationReport } from "../experiments/morph/qualification-report.ts";
+import { assertCleanMorphSource } from "../experiments/morph/qualification-runner.ts";
 import {
   createMorphQualificationScenario,
 } from "../experiments/morph/qualification-scenarios.ts";
@@ -195,6 +197,23 @@ function expectQualificationError(
   }
 }
 
+function expectHarnessError(
+  name: string,
+  code: string,
+  action: () => void,
+): void {
+  try {
+    action();
+    recordFailure(`${name}: expected ${code}`);
+  } catch (error: unknown) {
+    if (!(error instanceof MorphHarnessError) || error.code !== code) {
+      recordFailure(
+        `${name}: expected ${code}, received ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+}
+
 const baseRecords = syntheticRecords("chromium");
 verifyQualificationRecords(baseRecords, "ci", "chromium");
 const failureRecord = baseRecords[0];
@@ -221,6 +240,33 @@ for (const [name, mutation] of [
       "chromium",
     );
   });
+}
+
+const sourceRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-source-"));
+try {
+  const git = (args: readonly string[]): void => {
+    const result = spawnSync("git", [...args], { cwd: sourceRoot, encoding: "utf8" });
+    if (result.status !== 0 || result.error) {
+      throw new Error(`git ${args.join(" ")} failed: ${result.stderr || result.error?.message}`);
+    }
+  };
+  git(["init", "--quiet"]);
+  git(["config", "user.name", "Fadeno Contract"]);
+  git(["config", "user.email", "contract@fadeno.invalid"]);
+  writeFileSync(join(sourceRoot, "source.txt"), "clean\n");
+  git(["add", "source.txt"]);
+  git(["commit", "--quiet", "-m", "source fixture"]);
+  const sourceCommit = assertCleanMorphSource(sourceRoot);
+  writeFileSync(join(sourceRoot, "source.txt"), "changed\n");
+  expectHarnessError("dirty source after execution", "FADENO_MORPH_SOURCE_DIRTY", () => {
+    assertCleanMorphSource(sourceRoot, sourceCommit);
+  });
+  writeFileSync(join(sourceRoot, "source.txt"), "clean\n");
+  expectHarnessError("changed source commit", "FADENO_MORPH_SOURCE_CHANGED", () => {
+    assertCleanMorphSource(sourceRoot, "0000000000000000000000000000000000000000");
+  });
+} finally {
+  rmSync(sourceRoot, { recursive: true, force: true });
 }
 
 const recordMutations: ReadonlyArray<Readonly<{

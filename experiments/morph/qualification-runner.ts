@@ -21,9 +21,9 @@ const require = createRequire(import.meta.url);
 const playwrightCli = require.resolve("@playwright/test/cli");
 const configPath = join(experimentRoot, "playwright.config.ts");
 
-function runGit(args: readonly string[]): string {
+function runGit(repositoryRoot: string, args: readonly string[]): string {
   const result = spawnSync("git", [...args], {
-    cwd: root,
+    cwd: repositoryRoot,
     encoding: "utf8",
     maxBuffer: 4 * 1024 * 1024,
   });
@@ -36,17 +36,26 @@ function runGit(args: readonly string[]): string {
   return result.stdout.trim();
 }
 
-function cleanSourceCommit(): string {
-  const status = runGit(["status", "--porcelain=v1", "--untracked-files=all"]);
+export function assertCleanMorphSource(
+  repositoryRoot: string,
+  expectedCommit?: string,
+): string {
+  const status = runGit(repositoryRoot, ["status", "--porcelain=v1", "--untracked-files=all"]);
   if (status !== "") {
     throw new MorphHarnessError(
       "FADENO_MORPH_SOURCE_DIRTY",
       "qualification requires a clean tracked and untracked working tree",
     );
   }
-  const commit = runGit(["rev-parse", "HEAD"]);
+  const commit = runGit(repositoryRoot, ["rev-parse", "HEAD"]);
   if (!/^[a-f0-9]{40}$/u.test(commit)) {
     throw new MorphHarnessError("FADENO_MORPH_SOURCE_COMMIT", "source commit is invalid");
+  }
+  if (expectedCommit && commit !== expectedCommit) {
+    throw new MorphHarnessError(
+      "FADENO_MORPH_SOURCE_CHANGED",
+      "qualification source commit changed during execution",
+    );
   }
   return commit;
 }
@@ -71,9 +80,9 @@ function runIdentity(
 export async function executeMorphQualification(
   profile: MorphQualificationProfile,
 ): Promise<void> {
-  const sourceCommit = cleanSourceCommit();
+  const sourceCommit = assertCleanMorphSource(root);
   const preflight = await runMorphPreflight(root, {
-    requireReference: process.env.FADENO_EXPECT_REFERENCE === "1",
+    requireReference: profile === "qualification" || process.env.FADENO_EXPECT_REFERENCE === "1",
     maxReferenceWaitMilliseconds: Number(process.env.FADENO_PREFLIGHT_WAIT_MS) || 0,
   });
   const startedAt = new Date().toISOString();
@@ -122,6 +131,7 @@ export async function executeMorphQualification(
       `qualification expected exit 0, received ${child.status}`,
     );
   }
+  assertCleanMorphSource(root, sourceCommit);
   const completedAt = new Date().toISOString();
   const published = publishQualificationEvidence({
     root,

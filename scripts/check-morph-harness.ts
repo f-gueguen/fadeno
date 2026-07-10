@@ -63,6 +63,10 @@ const playwrightConfigSource = readFileSync(
   join(root, "experiments/morph/playwright.config.ts"),
   "utf8",
 );
+const referenceActionSource = readFileSync(
+  join(root, ".github/actions/morph-reference/action.yml"),
+  "utf8",
+);
 
 type ReportAttachment = {
   name: string;
@@ -988,6 +992,24 @@ try {
 const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
 for (const required of [
   "runs-on: ubuntu-24.04",
+  "uses: ./.github/actions/morph-reference",
+  "profile: ci",
+  "profile: qualification",
+  "if: always()",
+  "output/playwright/morph",
+  "output/playwright/morph-harness",
+  "output/playwright/morph-qualification",
+  "path: |\n            output/playwright/morph\n            output/playwright/morph-harness",
+]) {
+  if (!workflow.includes(required)) recordFailure(`workflow: missing ${required}`);
+}
+if (
+  (workflow.match(/uses: \.\/\.github\/actions\/morph-reference/gu) ?? []).length !== 2 ||
+  workflow.includes("docker run --rm --ipc=host")
+) {
+  recordFailure("workflow: reference policy must have exactly one composite owner");
+}
+for (const required of [
   `image=\"${reference.container.runtimeImage}\"`,
   "docker run --rm --ipc=host",
   "--env FADENO_EXPECT_REFERENCE=1",
@@ -998,12 +1020,12 @@ for (const required of [
   "pnpm experiment:morph -- --verify-harness",
   "cp -R output/playwright/morph output/playwright/morph-harness",
   "pnpm experiment:morph -- --fixture intentional-replacement",
-  "if: always()",
-  "output/playwright/morph",
-  "output/playwright/morph-harness",
-  "path: |\n            output/playwright/morph\n            output/playwright/morph-harness",
+  "pnpm experiment:morph -- --ci",
+  "pnpm experiment:morph -- --qualify",
 ]) {
-  if (!workflow.includes(required)) recordFailure(`workflow: missing ${required}`);
+  if (!referenceActionSource.includes(required)) {
+    recordFailure(`reference action: missing ${required}`);
+  }
 }
 
 if (failures.length > 0) {

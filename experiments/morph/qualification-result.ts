@@ -253,6 +253,7 @@ export function publishQualificationEvidence(options: Readonly<{
     workload: {
       dataset: {
         id: "h1-structural-preservation-corpus-v1",
+        sourcePath: "experiments/morph/fixtures/qualification-corpus.golden.json",
         artifact: corpus.path,
         sha256: corpus.sha256,
       },

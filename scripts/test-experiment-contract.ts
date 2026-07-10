@@ -191,6 +191,17 @@ expectContractError("unknown source commit", "FADENO_K0_SOURCE_COMMIT_UNKNOWN", 
   validateArtifactRecords(unknownSource, baseManifestPath, root);
 });
 
+const datasetSourceMismatch = structuredClone(baseManifest);
+datasetSourceMismatch.workload.dataset.sourcePath = "package.json";
+expectContractError(
+  "dataset differs from source commit",
+  "FADENO_K0_DATASET_SOURCE_MISMATCH",
+  () => {
+    validateManifestSemantics(datasetSourceMismatch, reference, registry);
+    validateArtifactRecords(datasetSourceMismatch, baseManifestPath, root);
+  },
+);
+
 const lockMismatchRoot = mkdtempSync(join(tmpdir(), "fadeno-k0-lock-"));
 try {
   const artifactRoot = join(lockMismatchRoot, "artifacts");
