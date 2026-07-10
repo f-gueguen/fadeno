@@ -28,9 +28,11 @@ K0-04 — H1 browser-state-preservation qualification
 
 ## In progress
 
-- The reviewed K0-04 closed corpus contract is locked in typed source and a
-  checked JSON projection. Candidate expansion, repeated browser execution,
-  immutable manifests, and the H1 decision ADR have not yet been implemented.
+- The reviewed K0-04 closed corpus is locked in typed source and a checked JSON
+  projection. The private candidate, independent continuity instrumentation,
+  exact-matrix verifier, and non-overwriting result writer are implemented; a
+  local 20-repetition three-engine probe passed. Hosted reference execution,
+  tracked immutable manifests, and the H1 decision ADR remain incomplete.
 
 ## Blockers
 

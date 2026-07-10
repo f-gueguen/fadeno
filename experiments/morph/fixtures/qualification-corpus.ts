@@ -1,4 +1,5 @@
 import { MORPH_PROJECTS } from "../contract.ts";
+import { MORPH_QUALIFICATION_ASSETS } from "./qualification-assets.ts";
 
 export const MORPH_QUALIFICATION_PROFILES = Object.freeze([
   Object.freeze({ id: "ci", repetitions: 20 }),
@@ -33,8 +34,8 @@ export const MORPH_QUALIFICATION_OPERATIONS = Object.freeze([
   "intentional-replacement",
 ] as const);
 
-type QualificationState = (typeof MORPH_QUALIFICATION_STATES)[number];
-type StructuralOperation = Exclude<
+export type QualificationState = (typeof MORPH_QUALIFICATION_STATES)[number];
+export type StructuralOperation = Exclude<
   (typeof MORPH_QUALIFICATION_OPERATIONS)[number],
   "intentional-replacement"
 >;
@@ -195,6 +196,7 @@ export function morphQualificationCorpusDocument() {
     workers: 1,
     projects: MORPH_PROJECTS,
     profiles: MORPH_QUALIFICATION_PROFILES,
+    assets: MORPH_QUALIFICATION_ASSETS,
     cases: MORPH_QUALIFICATION_CASES,
   } as const;
 }

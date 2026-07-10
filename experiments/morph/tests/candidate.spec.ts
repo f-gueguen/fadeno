@@ -173,7 +173,7 @@ async function runCandidateControl(
         "",
       ),
     },
-    "current and incoming identity order differs",
+    "declared replacement is not observed: status",
   );
   await assertCandidateRefusal(
     page,
@@ -182,7 +182,7 @@ async function runCandidateControl(
       replacementHtml:
         '<main id="root" class="after"><section id="target"><input id="nested"></section><output id="status">after</output></main>',
     },
-    "incoming root has unsupported nested elements",
+    "element kind differs: target",
   );
   await assertCandidateRefusal(
     page,
@@ -215,8 +215,13 @@ async function runCandidateControl(
   );
   await assertCandidateRefusal(
     page,
-    { ...CANDIDATE_PATCH, replacementIdentities: [] },
-    "reused element content differs: status",
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
+        '<main id="root" class="after"><textarea id="target" aria-label="Control after">server-after</textarea><output id="status">after</output></main>',
+    },
+    "reused state-owned content differs: target",
+    '<!doctype html><meta charset="utf-8"><main id="root" class="before"><textarea id="target" aria-label="Control before">server-before</textarea><output id="status">before</output></main>',
   );
   await assertCandidateRefusal(
     page,

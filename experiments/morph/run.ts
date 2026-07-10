@@ -7,6 +7,8 @@ const hasBareSeparator = rawArgs.length === 1 && rawArgs[0] === "--";
 
 const isIntentionalReplacement =
   args.length === 2 && args[0] === "--fixture" && args[1] === "intentional-replacement";
+const isCi = args.length === 1 && args[0] === "--ci";
+const isQualification = args.length === 1 && args[0] === "--qualify";
 
 if (!hasBareSeparator && args.length === 1 && args[0] === "--list") {
   process.stdout.write(stableMorphInventory());
@@ -14,17 +16,24 @@ if (!hasBareSeparator && args.length === 1 && args[0] === "--list") {
   !hasBareSeparator &&
   (args.length === 0 ||
     (args.length === 1 && args[0] === "--verify-harness") ||
-    isIntentionalReplacement)
+    isIntentionalReplacement ||
+    isCi ||
+    isQualification)
 ) {
   try {
-    const { executeMorphHarness } = await import("./harness-runner.ts");
-    await executeMorphHarness(
-      isIntentionalReplacement
-        ? "intentional-replacement"
-        : args[0] === "--verify-harness"
-          ? "verify"
-          : "default",
-    );
+    if (isCi || isQualification) {
+      const { executeMorphQualification } = await import("./qualification-runner.ts");
+      await executeMorphQualification(isQualification ? "qualification" : "ci");
+    } else {
+      const { executeMorphHarness } = await import("./harness-runner.ts");
+      await executeMorphHarness(
+        isIntentionalReplacement
+          ? "intentional-replacement"
+          : args[0] === "--verify-harness"
+            ? "verify"
+            : "default",
+      );
+    }
   } catch (error: unknown) {
     const code =
       error instanceof Error && "code" in error

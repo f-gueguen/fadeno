@@ -54,6 +54,11 @@ const candidateSpecSource = readFileSync(
   join(root, "experiments/morph/tests/candidate.spec.ts"),
   "utf8",
 );
+const qualificationSpecSource = readFileSync(
+  join(root, "experiments/morph/tests/qualification.spec.ts"),
+  "utf8",
+);
+const candidateSource = readFileSync(join(root, "experiments/morph/candidate.ts"), "utf8");
 const playwrightConfigSource = readFileSync(
   join(root, "experiments/morph/playwright.config.ts"),
   "utf8",
@@ -289,11 +294,35 @@ if (!candidateSpecSource.includes('from "../candidate.ts"')) {
   recordFailure("K0-03 candidate spec must import the private candidate directly");
 }
 if (
-  !playwrightConfigSource.includes(
-    'fixtureId === "intentional-replacement" ? "candidate.spec.ts" : "harness.spec.ts"',
-  )
+  !playwrightConfigSource.includes('qualificationProfile\n    ? "qualification.spec.ts"') ||
+  !playwrightConfigSource.includes('fixtureId === "intentional-replacement"') ||
+  !playwrightConfigSource.includes('? "candidate.spec.ts"') ||
+  !playwrightConfigSource.includes(': "harness.spec.ts"')
 ) {
-  recordFailure("Playwright config must isolate K0-02 and K0-03 specs by fixture");
+  recordFailure("Playwright config must isolate K0-02, K0-03, and K0-04 specs");
+}
+if (!qualificationSpecSource.includes('from "../candidate.ts"')) {
+  recordFailure("K0-04 qualification spec must drive the private candidate directly");
+}
+for (const forbiddenStateRestoration of [
+  ".focus(",
+  ".blur(",
+  ".setSelectionRange(",
+  ".showModal(",
+  ".showPopover(",
+  ".hidePopover(",
+  ".play(",
+  ".pause(",
+  ".scrollTo(",
+  ".scrollTop =",
+  ".scrollLeft =",
+  ".currentTime =",
+  ".checked =",
+  ".value =",
+]) {
+  if (candidateSource.includes(forbiddenStateRestoration)) {
+    recordFailure(`private candidate restores browser state through ${forbiddenStateRestoration}`);
+  }
 }
 for (const file of readdirSync(join(root, "experiments/morph/results"))) {
   if (file !== "README.md") recordFailure(`experiments/morph/results: unexpected ${file}`);

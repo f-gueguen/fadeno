@@ -13,6 +13,11 @@
     and the intended seeded failure in all three engines.
   - `pnpm experiment:morph -- --fixture intentional-replacement` runs the K0-03
     candidate-backed reuse and declared-replacement control.
+  - `pnpm experiment:morph -- --ci` runs the exact 20-repetition K0-04 matrix
+    from a clean source commit and writes a unique non-overwriting raw run.
+  - `pnpm experiment:morph -- --qualify` runs the exact 100-repetition matrix
+    in the frozen reference environment and atomically publishes a validated
+    v1 result manifest.
 
 K0-02 owns the data-oriented fixture API, three-engine runner, seeded harness
 failure, reference preflight, and verified failure artifacts. K0-03 owns one
@@ -37,6 +42,25 @@ in-page calls as navigation or action evidence and does not claim native
 equivalence, history, request ordering, recovery, transport, protocol, browser
 support, or resolution of DG-V2-01. Those obligations remain open for later
 gates.
+
+K0-04 extends the same private candidate only for this locked corpus. The root
+and every candidate-owned descendant use a unique nonempty HTML `id`; current
+identities remain unique across the whole document. Reused elements keep the
+same element kind and parent identity, while keyed siblings may be inserted,
+removed, or reordered and declared same-kind non-opaque leaves may be
+replaced. Nested native elements are limited to the reviewed allowlist;
+`fadeno-island` is an opaque reused leaf; media is limited to the hashed local
+WAV data URL; event, style, executable, and external-resource attributes are
+refused.
+
+The complete current/incoming identity, kind, attribute, content, replacement,
+parent, desired-node, and child-order plan is validated before the first DOM
+write. The candidate never reads or restores focus, selection, values, checked
+state, files, open/top-layer state, media time/playback, or scroll. Independent
+runtime instrumentation treats any state setter, restoration method, transient
+state event, object replacement, ancestor replacement, lifecycle disconnect,
+external request, runtime error, or unhandled rejection as qualification
+failure.
 
 ## K0-03 entry contract
 
@@ -75,10 +99,11 @@ evidence.
 Reference CI retains their failure artifacts separately before running and
 retaining the K0-03 candidate evidence.
 
-This private rule is not a selector protocol, public identity contract, or
-resolution of DG-V2-01. It does not cover nested reconciliation, insertion,
-removal, reorder, transport, ordering, recovery, protocol versioning, or H1
-qualification; K0-04 and later decision gates own those questions.
+At the K0-03 exit this private rule did not cover nested reconciliation,
+insertion, removal, reorder, or H1 qualification; K0-04 owns that subsequent
+private evidence. Neither slice creates a selector protocol, public identity
+contract, transport, ordering/recovery mechanism, protocol version, or
+resolution of DG-V2-01.
 
 The passing control inserts an unrelated sibling and proves focused dirty-input
 identity and state survive. The seeded failure replaces that input, proves the

@@ -84,6 +84,10 @@ const CANDIDATE_AFTER_STATE = {
 const ATTACHMENT_CONTENT_TYPES = {
   operation: "application/json",
   "before-after": "application/json",
+  "qualification-records": "application/json",
+  "qualification-summary": "application/json",
+  "failure-operation": "application/json",
+  "failure-before-after": "application/json",
   screenshot: "image/png",
   trace: "application/zip",
   "error-context": "text/markdown",
@@ -103,7 +107,7 @@ export class MorphHarnessError extends Error {
   }
 }
 
-type MachineAttachment = {
+export type MachineAttachment = {
   name: string;
   contentType: string;
   path?: string;
@@ -130,7 +134,7 @@ type VerifyOptions = {
   outputRoot: string;
 };
 
-type TraceEvidence = {
+export type TraceEvidence = {
   browserName: string;
   title: string;
   playwrightVersion: string;
@@ -579,10 +583,24 @@ function verifyAttachmentFormat(attachment: MachineAttachment, path: string): Tr
   }
   if (attachment.name === "screenshot") verifyPng(path, attachment.bytes);
   if (attachment.name === "trace") return verifyTraceZip(path, attachment.bytes);
-  if (attachment.name === "operation" || attachment.name === "before-after") {
-    readJsonDocument(path);
+  if (attachment.contentType === "application/json") {
+    readJsonDocument(
+      path,
+      attachment.name === "qualification-records"
+        ? { maxBytes: 20 * 1024 * 1024 }
+        : {},
+    );
   }
   return undefined;
+}
+
+export function verifyPortableHarnessAttachment(
+  attachment: MachineAttachment,
+  outputRoot: string,
+): Readonly<{ path: string; traceEvidence?: TraceEvidence }> {
+  const path = containedAttachment(outputRoot, attachment);
+  const traceEvidence = verifyAttachmentFormat(attachment, path);
+  return traceEvidence ? { path, traceEvidence } : { path };
 }
 
 function requiredAttachment(
