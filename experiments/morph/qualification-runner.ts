@@ -155,4 +155,10 @@ export async function executeMorphQualification(
   if (published.manifestPath) {
     console.log(`morph qualification manifest published (${published.manifestPath})`);
   }
+  if (outcome.status === "failed") {
+    throw new MorphHarnessError(
+      "FADENO_MORPH_HYPOTHESIS_FAILED",
+      "qualification evidence was published, but no accepted decision signature authorizes this failure outcome",
+    );
+  }
 }

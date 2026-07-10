@@ -143,6 +143,11 @@ export type QualificationFailureEvidence = Readonly<{
   observation: QualificationRecord;
 }>;
 
+export type QualificationFailureClassification = Readonly<{
+  key: string;
+  categories: readonly string[];
+}>;
+
 export function verifyQualificationFailureAlignment(
   operation: unknown,
   observation: unknown,
@@ -157,6 +162,9 @@ export function verifyQualificationFailureAlignment(
   exactKeys(observation, QUALIFICATION_RECORD_KEYS, `${engine}.failure-before-after`);
   const failure = operation as QualificationFailureOperation;
   const record = observation as QualificationRecord;
+  const fixture = MORPH_QUALIFICATION_CASES.find(
+    (candidate) => candidate.id === failure.caseId,
+  );
   if (
     failure.profile !== profile ||
     failure.engine !== engine ||
@@ -167,6 +175,10 @@ export function verifyQualificationFailureAlignment(
     failure.ordinal < 1 ||
     typeof failure.failure !== "string" ||
     failure.failure.length === 0 ||
+    !fixture ||
+    failure.state !== fixture.state ||
+    failure.operation !== fixture.operation ||
+    failure.ordinal > qualificationRepetitions(profile) ||
     record.schemaVersion !== 1 ||
     record.profile !== failure.profile ||
     record.engine !== failure.engine ||
@@ -195,6 +207,58 @@ export function verifyQualificationFailureAlignment(
   ) {
     fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: failure metrics differ`);
   }
+}
+
+const OBSERVED_FAILURE_CODES = new Set([
+  "FADENO_MORPH_QUALIFICATION_CANDIDATE",
+  "FADENO_MORPH_QUALIFICATION_CONTINUITY",
+  "FADENO_MORPH_QUALIFICATION_FILE",
+  "FADENO_MORPH_QUALIFICATION_ISLAND",
+  "FADENO_MORPH_QUALIFICATION_OPERATION",
+  "FADENO_MORPH_QUALIFICATION_REPLACEMENT",
+  "FADENO_MORPH_QUALIFICATION_STATE",
+  "FADENO_MORPH_QUALIFICATION_TOP_LAYER",
+  "FADENO_MORPH_QUALIFICATION_TRANSIENT",
+]);
+
+function observedFailureCode(record: QualificationRecord, profile: MorphQualificationProfile): string {
+  try {
+    assertRecord(record, profile);
+  } catch (error: unknown) {
+    if (error instanceof MorphQualificationError && OBSERVED_FAILURE_CODES.has(error.code)) {
+      return error.code;
+    }
+    throw error;
+  }
+  fail(
+    "FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE",
+    `${record.key}: passing observation was declared failed`,
+  );
+}
+
+export function classifyQualificationFailure(
+  record: QualificationRecord,
+  profile: MorphQualificationProfile,
+): QualificationFailureClassification {
+  const code = observedFailureCode(record, profile);
+  if (record.state === "document-scroll" || record.state === "element-scroll") {
+    const expectedEvent = record.state === "document-scroll" ? "window-scroll" : "scroll";
+    const normalized = structuredClone(record) as QualificationRecord;
+    (normalized.after as { state: Readonly<Record<string, unknown>> }).state = normalized.before.state;
+    (normalized.instrumentation as { events: readonly string[] }).events = [];
+    if (
+      !isDeepStrictEqual(record.after.state, record.before.state) &&
+      isDeepStrictEqual(record.instrumentation.events, [expectedEvent])
+    ) {
+      try {
+        assertRecord(normalized, profile);
+        return { key: record.key, categories: ["scroll-position", "scroll-event"] };
+      } catch {
+        // Fall through to the independently derived general predicate below.
+      }
+    }
+  }
+  return { key: record.key, categories: [code] };
 }
 
 function expectedState(state: QualificationState): Readonly<Record<string, unknown>> | null {
@@ -584,6 +648,8 @@ export function verifyQualificationOutcome(
   passedRecords: number;
   failedRecords: number;
   failureKeys: readonly string[];
+  failures: readonly QualificationFailureClassification[];
+  intentionalReplacements: number;
   candidateRoundTripMilliseconds: readonly number[];
   documentElementCounts: readonly number[];
 }> {
@@ -629,6 +695,9 @@ export function verifyQualificationOutcome(
     );
   }
   const failureKeys = failures.map((failure) => failure.observation.key);
+  const classifications = failures.map((failure) =>
+    classifyQualificationFailure(failure.observation, profile)
+  );
   return {
     profile,
     engine,
@@ -637,6 +706,12 @@ export function verifyQualificationOutcome(
     passedRecords: records.length,
     failedRecords: failures.length,
     failureKeys,
+    failures: classifications,
+    intentionalReplacements: observations.filter(
+      (record) =>
+        record.state === "intentional-replacement" &&
+        isDeepStrictEqual(record.candidate.replacedIdentities, ["replacement-target"]),
+    ).length,
     candidateRoundTripMilliseconds: observations.map(
       (record) => record.candidateRoundTripMilliseconds,
     ),

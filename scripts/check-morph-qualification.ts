@@ -218,8 +218,11 @@ function expectHarnessError(
 
 const baseRecords = syntheticRecords("chromium");
 verifyQualificationRecords(baseRecords, "ci", "chromium");
-const failureRecord = baseRecords[0];
-if (!failureRecord) throw new Error("missing synthetic failure record");
+const passingFailureRecord = baseRecords.find((record) => record.state === "document-scroll");
+if (!passingFailureRecord) throw new Error("missing synthetic failure record");
+const failureRecord = structuredClone(passingFailureRecord) as QualificationRecord;
+(failureRecord.after.state as { y: number }).y = 380;
+(failureRecord.instrumentation.events as string[]).push("window-scroll");
 const failureOperation = {
   profile: failureRecord.profile,
   engine: failureRecord.engine,
@@ -230,12 +233,20 @@ const failureOperation = {
   failure: "synthetic failure",
 };
 verifyQualificationFailureAlignment(failureOperation, failureRecord, "ci", "chromium");
-const failedMatrixRecords = baseRecords.slice(1);
+const failedMatrixRecords = baseRecords.filter((record) => record.key !== failureRecord.key);
 const failedMatrix: QualificationFailureEvidence[] = [{
   operation: failureOperation,
   observation: failureRecord,
 }];
 verifyQualificationOutcome(failedMatrixRecords, failedMatrix, "ci", "chromium");
+expectQualificationError("passing record declared failed", "FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", () => {
+  verifyQualificationOutcome(
+    baseRecords.filter((record) => record.key !== passingFailureRecord.key),
+    [{ operation: failureOperation, observation: passingFailureRecord }],
+    "ci",
+    "chromium",
+  );
+});
 expectQualificationError("missing failed cell", "FADENO_MORPH_QUALIFICATION_MATRIX", () => {
   verifyQualificationOutcome(failedMatrixRecords, [], "ci", "chromium");
 });

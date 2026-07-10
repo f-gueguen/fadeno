@@ -230,9 +230,7 @@ export function publishQualificationEvidence(options: Readonly<{
         0,
       ),
       intentionalReplacements: evidence.reduce(
-        (total, item) => total + ("intentionalReplacements" in item.summary
-          ? item.summary.intentionalReplacements
-          : 0),
+        (total, item) => total + item.summary.intentionalReplacements,
         0,
       ),
       failedRecords: failedEvidence.reduce(
@@ -305,7 +303,7 @@ export function publishQualificationEvidence(options: Readonly<{
         name: "intentional-replacement-count",
         unit: "count",
         values: [
-          passedEvidence.reduce(
+          evidence.reduce(
             (total, item) => total + item.summary.intentionalReplacements,
             0,
           ),
@@ -323,8 +321,10 @@ export function publishQualificationEvidence(options: Readonly<{
       },
     ],
     failures: failedEvidence.map((item) => ({
-      code: "FADENO_MORPH_QUALIFICATION_STATE_LOSS",
-      message: `${item.engine}: ${item.summary.failedRecords} qualification cells failed`,
+      code: "FADENO_MORPH_QUALIFICATION_FAILURE",
+      message: `${item.engine}: ${item.summary.failedRecords} cells failed (${[
+        ...new Set(item.summary.failures.flatMap((failure) => failure.categories)),
+      ].join(", ")})`,
       artifact: `artifacts/failures/${item.engine}.json`,
     })),
     artifacts: manifestArtifacts,
@@ -338,7 +338,7 @@ export function publishQualificationEvidence(options: Readonly<{
       status: outcome.status === "passed" ? "pass" : "fail",
       summary: outcome.status === "passed"
         ? "The private structural-preservation corpus completed in all three engines with the locked 100-repetition matrix and no undeclared failure."
-        : "The locked structural-preservation matrix completed, with exact scroll continuity failures recorded for the milestone decision.",
+        : "The locked structural-preservation matrix completed with independently classified preservation failures recorded for the milestone decision.",
     },
   };
   const validators = createContractValidators(root);
