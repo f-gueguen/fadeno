@@ -45,6 +45,8 @@ export type ReferenceEnvironment = {
       memoryMiB: number;
       storageMiB: number;
     };
+    mutableObservedFields: string[];
+    deviationPolicy: string;
   };
   storage: { minimumFreeMiB: number };
   backgroundLoad: { maxLoadAverage1m: number; maxProcessCount: number };
@@ -71,6 +73,11 @@ export type ReferenceEnvironment = {
     lockHashAlgorithm: string;
   };
   browsers: { chromeForTesting: string; firefox: string; webkit: string };
+  preflight: {
+    requiredObservedFields: string[];
+    browserCheckSlice: string;
+    failurePolicy: string;
+  };
 };
 
 const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => AjvInstance;

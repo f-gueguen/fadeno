@@ -16,18 +16,38 @@ const require = createRequire(import.meta.url);
 const browserTypes = { chromium, firefox, webkit } satisfies Record<MorphProject, typeof chromium>;
 type BrowserVersions = Record<MorphProject, string>;
 
-export type ReferenceHostSnapshot = {
-  provider: string;
-  repositoryVisibility: string;
-  runnerLabel: string;
-  architecture: string;
-  advertisedLogicalCpuCount: number | null;
-  advertisedMemoryMiB: number | null;
-  advertisedStorageMiB: number | null;
-  freeStorageMiB: number;
-  loadAverage1m: number;
-  processCount: number | null;
-  containerImage: string;
+export type ReferenceObservation = {
+  host: {
+    provider: string;
+    repositoryVisibility: string;
+    runnerLabel: string;
+    runnerImageVersion: string;
+    runnerName: string;
+    operatingSystemVersion: string;
+    kernelVersion: string;
+    architecture: string;
+    cpuModel: string;
+    observedLogicalCpuCount: number;
+    observedMemoryMiB: number;
+    advertisedLogicalCpuCount: number | null;
+    advertisedMemoryMiB: number | null;
+    advertisedStorageMiB: number | null;
+    freeStorageMiB: number;
+    loadAverage1m: number;
+    processCount: number | null;
+  };
+  container: {
+    runtimeImage: string;
+    platform: string;
+    platformDigest: string;
+    configDigest: string;
+  };
+  toolchain: {
+    node: string;
+    pnpm: string;
+    playwright: string;
+  };
+  browsers: BrowserVersions;
 };
 
 function integerEnvironment(name: string): number | null {
@@ -38,6 +58,11 @@ function integerEnvironment(name: string): number | null {
 function processCount(): number | null {
   const result = spawnSync("ps", ["-A", "-o", "pid="], { encoding: "utf8" });
   return result.status === 0 ? result.stdout.trim().split(/\n/u).filter(Boolean).length : null;
+}
+
+function commandVersion(command: string, args: string[]): string {
+  const result = spawnSync(command, args, { encoding: "utf8" });
+  return result.status === 0 && result.stdout.trim() !== "" ? result.stdout.trim() : "unknown";
 }
 
 export function assertBrowserCompatibility(
@@ -68,36 +93,81 @@ export function assertBrowserCompatibility(
 }
 
 export function classifyReferenceHost(
-  snapshot: ReferenceHostSnapshot,
+  observation: ReferenceObservation,
   reference: ReferenceEnvironment,
 ): { classification: "reference" | "non-reference"; reasons: string[] } {
+  const { host, container, toolchain, browsers } = observation;
   const reasons: string[] = [];
   const expected = reference.host.minimumHardware;
+  const observedFields: Record<string, unknown> = {
+    "host.runnerImageVersion": host.runnerImageVersion,
+    "host.runnerName": host.runnerName,
+    "host.operatingSystemVersion": host.operatingSystemVersion,
+    "host.kernelVersion": host.kernelVersion,
+    "host.cpuModel": host.cpuModel,
+    "host.logicalCpuCount": host.observedLogicalCpuCount,
+    "host.memoryMiB": host.observedMemoryMiB,
+    "host.advertisedStorageMiB": host.advertisedStorageMiB,
+    "host.freeStorageMiB": host.freeStorageMiB,
+    "backgroundLoad.loadAverage1m": host.loadAverage1m,
+    "backgroundLoad.processCount": host.processCount,
+    "container.platformDigest": container.platformDigest,
+    "container.configDigest": container.configDigest,
+    "toolchain.node": toolchain.node,
+    "toolchain.pnpm": toolchain.pnpm,
+    "toolchain.playwright": toolchain.playwright,
+    "browsers.chromeForTesting": browsers.chromium,
+    "browsers.firefox": browsers.firefox,
+    "browsers.webkit": browsers.webkit,
+  };
+  for (const field of reference.preflight.requiredObservedFields) {
+    const value = observedFields[field];
+    if (
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      value === "unknown" ||
+      (typeof value === "number" && !Number.isFinite(value))
+    ) {
+      reasons.push(`missing:${field}`);
+    }
+  }
   const checks: Array<readonly [boolean, string]> = [
-    [snapshot.provider === reference.host.provider, "provider"],
-    [snapshot.repositoryVisibility === reference.host.repositoryVisibility, "visibility"],
-    [snapshot.runnerLabel === reference.host.runnerLabel, "runner-label"],
-    [snapshot.architecture === reference.host.architecture, "architecture"],
-    [snapshot.advertisedLogicalCpuCount === expected.logicalCpuCount, "cpu-advertisement"],
-    [snapshot.advertisedMemoryMiB === expected.memoryMiB, "memory-advertisement"],
-    [snapshot.advertisedStorageMiB === expected.storageMiB, "storage-advertisement"],
+    [host.provider === reference.host.provider, "provider"],
+    [host.repositoryVisibility === reference.host.repositoryVisibility, "visibility"],
+    [host.runnerLabel === reference.host.runnerLabel, "runner-label"],
+    [host.architecture === reference.host.architecture, "architecture"],
+    [host.observedLogicalCpuCount >= expected.logicalCpuCount, "observed-cpu"],
+    [host.observedMemoryMiB >= Math.floor(expected.memoryMiB * 0.95), "observed-memory"],
+    [host.advertisedLogicalCpuCount === expected.logicalCpuCount, "cpu-advertisement"],
+    [host.advertisedMemoryMiB === expected.memoryMiB, "memory-advertisement"],
+    [host.advertisedStorageMiB === expected.storageMiB, "storage-advertisement"],
     [
-      Number.isFinite(snapshot.freeStorageMiB) &&
-        snapshot.freeStorageMiB >= reference.storage.minimumFreeMiB,
+      Number.isFinite(host.freeStorageMiB) &&
+        host.freeStorageMiB >= reference.storage.minimumFreeMiB,
       "free-storage",
     ],
     [
-      Number.isFinite(snapshot.loadAverage1m) &&
-        snapshot.loadAverage1m <= reference.backgroundLoad.maxLoadAverage1m,
+      Number.isFinite(host.loadAverage1m) &&
+        host.loadAverage1m <= reference.backgroundLoad.maxLoadAverage1m,
       "load-average",
     ],
     [
-      Number.isInteger(snapshot.processCount) &&
-        snapshot.processCount !== null &&
-        snapshot.processCount <= reference.backgroundLoad.maxProcessCount,
+      Number.isInteger(host.processCount) &&
+        host.processCount !== null &&
+        host.processCount <= reference.backgroundLoad.maxProcessCount,
       "process-count",
     ],
-    [snapshot.containerImage === reference.container.runtimeImage, "container-image"],
+    [container.runtimeImage === reference.container.runtimeImage, "container-image"],
+    [container.platform === reference.container.platform, "container-platform"],
+    [container.platformDigest === reference.container.platformDigest, "container-platform-digest"],
+    [container.configDigest === reference.container.configDigest, "container-config-digest"],
+    [toolchain.node === reference.toolchain.node, "node-version"],
+    [toolchain.pnpm === reference.toolchain.pnpm, "pnpm-version"],
+    [toolchain.playwright === reference.toolchain.playwright, "playwright-version"],
+    [browsers.chromium === reference.browsers.chromeForTesting, "chromium-version"],
+    [browsers.firefox === reference.browsers.firefox, "firefox-version"],
+    [browsers.webkit === reference.browsers.webkit, "webkit-version"],
   ];
   for (const [accepted, reason] of checks) if (!accepted) reasons.push(reason);
   return { classification: reasons.length === 0 ? "reference" : "non-reference", reasons };
@@ -128,32 +198,48 @@ export async function runMorphPreflight(
   }
   assertBrowserCompatibility(versions, reference, packageVersion);
 
-  const sampleHost = () => {
+  const immutableObservation = {
+    container: {
+      runtimeImage: process.env.FADENO_CONTAINER_IMAGE ?? "unknown",
+      platform: process.env.FADENO_CONTAINER_PLATFORM ?? "unknown",
+      platformDigest: process.env.FADENO_CONTAINER_PLATFORM_DIGEST ?? "unknown",
+      configDigest: process.env.FADENO_CONTAINER_CONFIG_DIGEST ?? "unknown",
+    },
+    toolchain: {
+      node: process.versions.node,
+      pnpm: commandVersion("pnpm", ["--version"]),
+      playwright: packageVersion,
+    },
+    browsers: versions,
+  } as const;
+  const sampleObservation = (): ReferenceObservation => {
     const filesystem = statfsSync(root);
     return {
-      provider: process.env.GITHUB_ACTIONS === "true" ? "github-actions" : "local",
-      repositoryVisibility: process.env.FADENO_REPOSITORY_VISIBILITY ?? "unknown",
-      runnerLabel: process.env.FADENO_RUNNER_LABEL ?? "local",
-      runnerImageVersion: process.env.ImageVersion ?? "unknown",
-      runnerProvisionerVersion: process.env.Runner_Provisioner ?? "unknown",
-      operatingSystemVersion: process.env.ImageOS ?? platform(),
-      kernelVersion: release(),
-      architecture: process.arch === "x64" ? "x64" : process.arch,
-      cpuModel: cpus()[0]?.model ?? "unknown",
-      observedLogicalCpuCount: cpus().length,
-      observedMemoryMiB: Math.floor(totalmem() / 1024 / 1024),
-      advertisedLogicalCpuCount: integerEnvironment("FADENO_ADVERTISED_LOGICAL_CPU"),
-      advertisedMemoryMiB: integerEnvironment("FADENO_ADVERTISED_MEMORY_MIB"),
-      advertisedStorageMiB: integerEnvironment("FADENO_ADVERTISED_STORAGE_MIB"),
-      freeStorageMiB: Math.floor((filesystem.bavail * filesystem.bsize) / 1024 / 1024),
-      loadAverage1m: loadavg()[0] ?? Number.POSITIVE_INFINITY,
-      processCount: processCount(),
-      containerImage: process.env.FADENO_CONTAINER_IMAGE ?? "none",
-    } satisfies ReferenceHostSnapshot & Record<string, unknown>;
+      host: {
+        provider: process.env.GITHUB_ACTIONS === "true" ? "github-actions" : "local",
+        repositoryVisibility: process.env.FADENO_REPOSITORY_VISIBILITY ?? "unknown",
+        runnerLabel: process.env.FADENO_RUNNER_LABEL ?? "local",
+        runnerImageVersion: process.env.FADENO_RUNNER_IMAGE_VERSION ?? "unknown",
+        runnerName: process.env.FADENO_RUNNER_NAME ?? "unknown",
+        operatingSystemVersion: process.env.FADENO_OPERATING_SYSTEM_VERSION ?? platform(),
+        kernelVersion: release(),
+        architecture: process.arch === "x64" ? "x64" : process.arch,
+        cpuModel: cpus()[0]?.model ?? "unknown",
+        observedLogicalCpuCount: cpus().length,
+        observedMemoryMiB: Math.floor(totalmem() / 1024 / 1024),
+        advertisedLogicalCpuCount: integerEnvironment("FADENO_ADVERTISED_LOGICAL_CPU"),
+        advertisedMemoryMiB: integerEnvironment("FADENO_ADVERTISED_MEMORY_MIB"),
+        advertisedStorageMiB: integerEnvironment("FADENO_ADVERTISED_STORAGE_MIB"),
+        freeStorageMiB: Math.floor((filesystem.bavail * filesystem.bsize) / 1024 / 1024),
+        loadAverage1m: loadavg()[0] ?? Number.POSITIVE_INFINITY,
+        processCount: processCount(),
+      },
+      ...immutableObservation,
+    };
   };
   const deadline = Date.now() + (options.maxReferenceWaitMilliseconds ?? 0);
-  let host = sampleHost();
-  let classification = classifyReferenceHost(host, reference);
+  let observation = sampleObservation();
+  let classification = classifyReferenceHost(observation, reference);
   while (
     options.requireReference &&
     classification.classification !== "reference" &&
@@ -163,21 +249,19 @@ export async function runMorphPreflight(
     Date.now() < deadline
   ) {
     await new Promise((resolve) => setTimeout(resolve, 5_000));
-    host = sampleHost();
-    classification = classifyReferenceHost(host, reference);
+    observation = sampleObservation();
+    classification = classifyReferenceHost(observation, reference);
   }
   if (options.requireReference && classification.classification !== "reference") {
     throw new MorphHarnessError(
       "FADENO_MORPH_NON_REFERENCE",
-      `reference preflight failed: ${classification.reasons.join(",")} (load=${host.loadAverage1m}, processes=${host.processCount})`,
+      `reference preflight failed: ${classification.reasons.join(",")} (load=${observation.host.loadAverage1m}, processes=${observation.host.processCount})`,
     );
   }
   return {
     schemaVersion: 1,
     observedAt: new Date().toISOString(),
-    packageVersion,
-    browsers: versions,
-    host,
+    ...observation,
     ...classification,
   };
 }

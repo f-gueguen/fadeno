@@ -26,7 +26,7 @@
       "runnerLabel": "ubuntu-24.04",
       "runnerImage": "ubuntu-24.04",
       "runnerImageVersion": "20260705.232.1",
-      "runnerProvisionerVersion": "20260624.560",
+      "runnerName": "GitHub Actions 42",
       "operatingSystemVersion": "24.04.4",
       "kernelVersion": "6.11.0",
       "architecture": "x64",

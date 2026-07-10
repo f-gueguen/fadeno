@@ -208,31 +208,67 @@ try {
 }
 
 const reference = readJsonDocument(join(root, "experiments/reference-environment.json"));
-const referenceSnapshot = {
-  provider: reference.host.provider,
-  repositoryVisibility: reference.host.repositoryVisibility,
-  runnerLabel: reference.host.runnerLabel,
-  architecture: reference.host.architecture,
-  advertisedLogicalCpuCount: reference.host.minimumHardware.logicalCpuCount,
-  advertisedMemoryMiB: reference.host.minimumHardware.memoryMiB,
-  advertisedStorageMiB: reference.host.minimumHardware.storageMiB,
-  freeStorageMiB: reference.storage.minimumFreeMiB,
-  loadAverage1m: reference.backgroundLoad.maxLoadAverage1m,
-  processCount: reference.backgroundLoad.maxProcessCount,
-  containerImage: reference.container.runtimeImage,
-};
-if (classifyReferenceHost(referenceSnapshot, reference).classification !== "reference") {
-  recordFailure("reference host boundary unexpectedly rejected");
-}
-const localSnapshot = { ...referenceSnapshot, provider: "local" };
-if (classifyReferenceHost(localSnapshot, reference).classification !== "non-reference") {
-  recordFailure("non-reference host was not downgraded");
-}
 const browserVersions = {
   chromium: reference.browsers.chromeForTesting,
   firefox: reference.browsers.firefox,
   webkit: reference.browsers.webkit,
 };
+const referenceObservation = {
+  host: {
+    provider: reference.host.provider,
+    repositoryVisibility: reference.host.repositoryVisibility,
+    runnerLabel: reference.host.runnerLabel,
+    runnerImageVersion: "20260705.232.1",
+    runnerName: "GitHub Actions 42",
+    operatingSystemVersion: "ubuntu24",
+    kernelVersion: "6.17.0-1018-azure",
+    architecture: reference.host.architecture,
+    cpuModel: "AMD EPYC 7763 64-Core Processor",
+    observedLogicalCpuCount: reference.host.minimumHardware.logicalCpuCount,
+    observedMemoryMiB: reference.host.minimumHardware.memoryMiB,
+    advertisedLogicalCpuCount: reference.host.minimumHardware.logicalCpuCount,
+    advertisedMemoryMiB: reference.host.minimumHardware.memoryMiB,
+    advertisedStorageMiB: reference.host.minimumHardware.storageMiB,
+    freeStorageMiB: reference.storage.minimumFreeMiB,
+    loadAverage1m: reference.backgroundLoad.maxLoadAverage1m,
+    processCount: reference.backgroundLoad.maxProcessCount,
+  },
+  container: {
+    runtimeImage: reference.container.runtimeImage,
+    platform: reference.container.platform,
+    platformDigest: reference.container.platformDigest,
+    configDigest: reference.container.configDigest,
+  },
+  toolchain: {
+    node: reference.toolchain.node,
+    pnpm: reference.toolchain.pnpm,
+    playwright: reference.toolchain.playwright,
+  },
+  browsers: browserVersions,
+};
+if (classifyReferenceHost(referenceObservation, reference).classification !== "reference") {
+  recordFailure("reference host boundary unexpectedly rejected");
+}
+const localObservation = {
+  ...referenceObservation,
+  host: { ...referenceObservation.host, provider: "local" },
+};
+if (classifyReferenceHost(localObservation, reference).classification !== "non-reference") {
+  recordFailure("non-reference host was not downgraded");
+}
+for (const [name, mutation] of [
+  ["runner image", { host: { ...referenceObservation.host, runnerImageVersion: "unknown" } }],
+  ["runner identity", { host: { ...referenceObservation.host, runnerName: "unknown" } }],
+  ["node", { toolchain: { ...referenceObservation.toolchain, node: "0" } }],
+  ["pnpm", { toolchain: { ...referenceObservation.toolchain, pnpm: "0" } }],
+  ["platform digest", { container: { ...referenceObservation.container, platformDigest: "sha256:0" } }],
+  ["config digest", { container: { ...referenceObservation.container, configDigest: "sha256:0" } }],
+] as const) {
+  const mutated = { ...referenceObservation, ...mutation };
+  if (classifyReferenceHost(mutated, reference).classification !== "non-reference") {
+    recordFailure(`${name}: reference mismatch was accepted`);
+  }
+}
 assertBrowserCompatibility(browserVersions, reference, reference.toolchain.playwright);
 expectHarnessError("browser version mismatch", "FADENO_MORPH_BROWSER_VERSION", () => {
   assertBrowserCompatibility({ ...browserVersions, webkit: "0" }, reference, "1.61.0");
@@ -585,9 +621,13 @@ try {
 const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
 for (const required of [
   "runs-on: ubuntu-24.04",
-  `image: ${reference.container.runtimeImage}`,
-  "FADENO_EXPECT_REFERENCE: 1",
-  "FADENO_PREFLIGHT_WAIT_MS: \"180000\"",
+  `image=\"${reference.container.runtimeImage}\"`,
+  "docker run --rm --ipc=host",
+  "--env FADENO_EXPECT_REFERENCE=1",
+  "--env FADENO_RUNNER_IMAGE_VERSION=\"$ImageVersion\"",
+  "--env FADENO_RUNNER_NAME=\"$RUNNER_NAME\"",
+  "--env FADENO_CONTAINER_PLATFORM_DIGEST=\"$container_platform_digest\"",
+  "--env FADENO_CONTAINER_CONFIG_DIGEST=\"$container_config_digest\"",
   "pnpm experiment:morph -- --verify-harness",
   "if: always()",
   "output/playwright/morph",
