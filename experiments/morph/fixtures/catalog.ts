@@ -1,7 +1,10 @@
 export type MorphFixture = Readonly<{
   id: string;
-  kind: "passing-control" | "seeded-failure";
-  operation: "insert-unrelated-sibling" | "replace-focused-control";
+  kind: "passing-control" | "seeded-failure" | "candidate-control";
+  operation:
+    | "insert-unrelated-sibling"
+    | "replace-focused-control"
+    | "apply-private-candidate";
   description: string;
   diagnostic?: string;
 }>;
@@ -19,6 +22,12 @@ export const MORPH_FIXTURES: readonly MorphFixture[] = Object.freeze([
     operation: "replace-focused-control",
     description: "Replacing a dirty focused input must be detected as undeclared state loss.",
     diagnostic: "FADENO_MORPH_STATE_LOSS",
+  }),
+  Object.freeze({
+    id: "intentional-replacement",
+    kind: "candidate-control",
+    operation: "apply-private-candidate",
+    description: "One private patch reuses the dirty focused input and replaces a declared peer.",
   }),
 ]);
 

@@ -22,11 +22,10 @@ K0-03 — Private structural HTML-update candidate
 
 ## In progress
 
-- K0-03 entry contract passed a fresh adversarial review. The candidate will
-  prevalidate one explicit root, exact unique direct-child identities, and the
-  declared replacement subset before any DOM write. Its three-engine control
-  must prove reuse and replacement in the same patch. No candidate has been
-  implemented yet.
+- The K0-03 private candidate, atomic refusal matrix, type fixtures, exact CLI
+  grammar, and candidate-produced operation/state proof are implemented. Local
+  contract checks and the exact three-engine intentional-replacement command
+  pass; hosted evidence and final independent reviews remain pending.
 
 ## Blockers
 

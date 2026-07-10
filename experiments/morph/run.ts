@@ -3,12 +3,25 @@ import { stableMorphInventory } from "./fixtures/catalog.ts";
 let args = process.argv.slice(2);
 if (args[0] === "--") args = args.slice(1);
 
+const isIntentionalReplacement =
+  args.length === 2 && args[0] === "--fixture" && args[1] === "intentional-replacement";
+
 if (args.length === 1 && args[0] === "--list") {
   process.stdout.write(stableMorphInventory());
-} else if (args.length === 0 || (args.length === 1 && args[0] === "--verify-harness")) {
+} else if (
+  args.length === 0 ||
+  (args.length === 1 && args[0] === "--verify-harness") ||
+  isIntentionalReplacement
+) {
   try {
     const { executeMorphHarness } = await import("./harness-runner.ts");
-    await executeMorphHarness(args[0] === "--verify-harness" ? "verify" : "default");
+    await executeMorphHarness(
+      isIntentionalReplacement
+        ? "intentional-replacement"
+        : args[0] === "--verify-harness"
+          ? "verify"
+          : "default",
+    );
   } catch (error: unknown) {
     const code =
       error instanceof Error && "code" in error

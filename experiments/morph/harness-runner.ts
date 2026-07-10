@@ -66,7 +66,9 @@ function verifyChild(
   });
 }
 
-export async function executeMorphHarness(mode: "default" | "verify"): Promise<void> {
+export async function executeMorphHarness(
+  mode: "default" | "verify" | "intentional-replacement",
+): Promise<void> {
   const outputRoot = join(root, "output/playwright/morph");
   rmSync(outputRoot, { recursive: true, force: true });
   mkdirSync(outputRoot, { recursive: true });
@@ -110,6 +112,18 @@ export async function executeMorphHarness(mode: "default" | "verify"): Promise<v
     const child = runChild(fixture.id, join(outputRoot, directoryName));
     verifyChild(child, fixture, expectedStatus, expectedExit);
   };
+
+  if (mode === "intentional-replacement") {
+    await runBatch(
+      "preflight-intentional-replacement",
+      "intentional-replacement",
+      "intentional-replacement",
+      "passed",
+      0,
+    );
+    console.log("private morph candidate passed (3 engines, reuse and declared replacement)");
+    return;
+  }
 
   await runBatch(
     "preflight",

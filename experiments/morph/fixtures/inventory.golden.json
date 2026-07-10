@@ -14,6 +14,12 @@
       "operation": "replace-focused-control",
       "description": "Replacing a dirty focused input must be detected as undeclared state loss.",
       "diagnostic": "FADENO_MORPH_STATE_LOSS"
+    },
+    {
+      "id": "intentional-replacement",
+      "kind": "candidate-control",
+      "operation": "apply-private-candidate",
+      "description": "One private patch reuses the dirty focused input and replaces a declared peer."
     }
   ]
 }

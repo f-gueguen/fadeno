@@ -33,6 +33,48 @@ const REPLACEMENT_STATE = {
     selectionEnd: 6,
   },
 };
+const CANDIDATE_BEFORE_STATE = {
+  rootClass: "before",
+  target: {
+    nodeIdentity: "original",
+    state: {
+      value: "dirty-client-value",
+      focused: true,
+      selectionStart: 2,
+      selectionEnd: 8,
+    },
+    server: {
+      valueAttribute: "server-before",
+      ariaLabel: "Control before",
+    },
+  },
+  replacement: {
+    nodeIdentity: "original",
+    originalConnected: true,
+    text: "before",
+  },
+};
+const CANDIDATE_AFTER_STATE = {
+  rootClass: "after",
+  target: {
+    nodeIdentity: "original",
+    state: {
+      value: "dirty-client-value",
+      focused: true,
+      selectionStart: 2,
+      selectionEnd: 8,
+    },
+    server: {
+      valueAttribute: "server-after",
+      ariaLabel: "Control after",
+    },
+  },
+  replacement: {
+    nodeIdentity: "replacement",
+    originalConnected: false,
+    text: "after",
+  },
+};
 const ATTACHMENT_CONTENT_TYPES = {
   operation: "application/json",
   "before-after": "application/json",
@@ -631,24 +673,42 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
 
     const operation = readJsonDocument(operationPath);
     const states = readJsonDocument(statePath);
-    const expectedOperation = fixture.kind === "passing-control"
-      ? {
-          fixture: fixture.id,
-          engine: result.project,
-          kind: fixture.operation,
-          completed: true,
-          siblingInserted: true,
-          targetIdentityPreserved: true,
-        }
-      : {
-          fixture: fixture.id,
-          engine: result.project,
-          kind: fixture.operation,
-          completed: true,
-          replacementCompleted: true,
-          targetIdentityChanged: true,
-          stateLossObserved: true,
-        };
+    let expectedOperation: Record<string, unknown>;
+    if (fixture.kind === "passing-control") {
+      expectedOperation = {
+        fixture: fixture.id,
+        engine: result.project,
+        kind: fixture.operation,
+        completed: true,
+        siblingInserted: true,
+        targetIdentityPreserved: true,
+      };
+    } else if (fixture.kind === "candidate-control") {
+      expectedOperation = {
+        fixture: fixture.id,
+        engine: result.project,
+        kind: fixture.operation,
+        completed: true,
+        rootIdentity: "root",
+        reusedIdentities: ["root", "target"],
+        replacedIdentities: ["status"],
+        preservedTargetIdentity: true,
+        replacedTargetIdentity: true,
+        originalReplacementDisconnected: true,
+        dirtyStatePreserved: true,
+        serverOwnedContentUpdated: true,
+      };
+    } else {
+      expectedOperation = {
+        fixture: fixture.id,
+        engine: result.project,
+        kind: fixture.operation,
+        completed: true,
+        replacementCompleted: true,
+        targetIdentityChanged: true,
+        stateLossObserved: true,
+      };
+    }
     if (
       !isDeepStrictEqual(operation, expectedOperation) ||
       states.fixture !== fixture.id ||
@@ -656,12 +716,19 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
     ) {
       fail("FADENO_MORPH_OPERATION_PROOF", `${result.project}: operation proof differs`);
     }
-    if (!isDeepStrictEqual(states.before, BEFORE_STATE)) {
+    const expectedBefore = fixture.kind === "candidate-control"
+      ? CANDIDATE_BEFORE_STATE
+      : BEFORE_STATE;
+    if (!isDeepStrictEqual(states.before, expectedBefore)) {
       fail("FADENO_MORPH_STATE_PROOF", `${result.project}: initial dirty focused state differs`);
     }
     if (fixture.kind === "passing-control") {
       if (!isDeepStrictEqual(states.after, BEFORE_STATE)) {
         fail("FADENO_MORPH_STATE_PROOF", `${result.project}: passing state differs`);
+      }
+    } else if (fixture.kind === "candidate-control") {
+      if (!isDeepStrictEqual(states.after, CANDIDATE_AFTER_STATE)) {
+        fail("FADENO_MORPH_STATE_PROOF", `${result.project}: candidate state differs`);
       }
     } else {
       if (!isDeepStrictEqual(states.after, REPLACEMENT_STATE)) {

@@ -11,8 +11,8 @@
     WebKit.
   - `pnpm experiment:morph -- --verify-harness` proves both the passing control
     and the intended seeded failure in all three engines.
-  - `pnpm experiment:morph -- --fixture intentional-replacement` is reserved by
-    K0-03 for the candidate-backed reuse and declared-replacement control.
+  - `pnpm experiment:morph -- --fixture intentional-replacement` runs the K0-03
+    candidate-backed reuse and declared-replacement control.
 
 K0-02 owns the data-oriented fixture API, three-engine runner, seeded harness
 failure, reference preflight, and verified failure artifacts. K0-03 owns one
@@ -23,7 +23,7 @@ runs use the central [contract](../contract/README.md),
 
 ## K0-03 entry contract
 
-The candidate remains a disposable private TypeScript module in this directory.
+The candidate is a disposable private TypeScript module in this directory.
 Its input contains one inert replacement-HTML string, one explicit update-root
 identity, and a set of explicitly declared replacement identities. For this
 slice only, structural identity is the unique, nonempty standard HTML `id` on
@@ -61,6 +61,6 @@ reports, while Playwright/browser mismatches or missing engines fail the run.
 The digest-qualified reference CI job must classify itself `reference`.
 
 K0-02 introduced no structural update candidate, qualification result, result
-manifest, public export, or package boundary. K0-03 may add only the private
+manifest, public export, or package boundary. K0-03 adds only the private
 candidate described above and still adds no qualification result, public
 export, or package boundary.

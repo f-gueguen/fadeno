@@ -252,18 +252,31 @@ try {
   ) {
     recordFailure(`morph --list contract failed: ${JSON.stringify(result)}`);
   }
-  const unsupported = spawnSync(
-    process.execPath,
-    ["--no-warnings", "--experimental-strip-types", join(root, "experiments/morph/run.ts"), "--list", "--verify-harness"],
-    { cwd: root, encoding: "utf8" },
-  );
-  if (
-    unsupported.status !== 64 ||
-    unsupported.stdout !== "" ||
-    unsupported.stderr !==
-      "FADENO_MORPH_USAGE: unsupported arguments: --list --verify-harness\n"
-  ) {
-    recordFailure(`morph usage contract failed: ${JSON.stringify(unsupported)}`);
+  for (const unsupportedArguments of [
+    ["--list", "--verify-harness"],
+    ["--fixture"],
+    ["--fixture", "unknown"],
+    ["--fixture", "intentional-replacement", "extra"],
+    ["--fixture", "intentional-replacement", "--fixture", "intentional-replacement"],
+  ]) {
+    const unsupported = spawnSync(
+      process.execPath,
+      [
+        "--no-warnings",
+        "--experimental-strip-types",
+        join(root, "experiments/morph/run.ts"),
+        ...unsupportedArguments,
+      ],
+      { cwd: root, encoding: "utf8" },
+    );
+    if (
+      unsupported.status !== 64 ||
+      unsupported.stdout !== "" ||
+      unsupported.stderr !==
+        `FADENO_MORPH_USAGE: unsupported arguments: ${unsupportedArguments.join(" ")}\n`
+    ) {
+      recordFailure(`morph usage contract failed: ${JSON.stringify(unsupported)}`);
+    }
   }
 } finally {
   rmSync(commandRoot, { recursive: true, force: true });
@@ -738,6 +751,125 @@ try {
       outputRoot: reportRoot,
     });
   });
+
+  const candidateFixture = getMorphFixture("intentional-replacement");
+  const candidateBefore = {
+    rootClass: "before",
+    target: {
+      nodeIdentity: "original",
+      state: {
+        value: "dirty-client-value",
+        focused: true,
+        selectionStart: 2,
+        selectionEnd: 8,
+      },
+      server: {
+        valueAttribute: "server-before",
+        ariaLabel: "Control before",
+      },
+    },
+    replacement: {
+      nodeIdentity: "original",
+      originalConnected: true,
+      text: "before",
+    },
+  };
+  const candidateAfter = {
+    rootClass: "after",
+    target: {
+      nodeIdentity: "original",
+      state: {
+        value: "dirty-client-value",
+        focused: true,
+        selectionStart: 2,
+        selectionEnd: 8,
+      },
+      server: {
+        valueAttribute: "server-after",
+        ariaLabel: "Control after",
+      },
+    },
+    replacement: {
+      nodeIdentity: "replacement",
+      originalConnected: false,
+      text: "after",
+    },
+  };
+  const candidateResults: ReportResult[] = passingResults.map((result): ReportResult => {
+    const operationAttachment = requireAttachment(result, "operation");
+    const stateAttachment = requireAttachment(result, "before-after");
+    writeFileSync(
+      attachmentFile(reportRoot, operationAttachment),
+      `${JSON.stringify({
+        fixture: candidateFixture.id,
+        engine: result.project,
+        kind: candidateFixture.operation,
+        completed: true,
+        rootIdentity: "root",
+        reusedIdentities: ["root", "target"],
+        replacedIdentities: ["status"],
+        preservedTargetIdentity: true,
+        replacedTargetIdentity: true,
+        originalReplacementDisconnected: true,
+        dirtyStatePreserved: true,
+        serverOwnedContentUpdated: true,
+      })}\n`,
+    );
+    writeFileSync(
+      attachmentFile(reportRoot, stateAttachment),
+      `${JSON.stringify({
+        fixture: candidateFixture.id,
+        engine: result.project,
+        before: candidateBefore,
+        after: candidateAfter,
+      })}\n`,
+    );
+    return {
+      ...result,
+      title: candidateFixture.id,
+      attachments: result.attachments.map((item) => ({
+        ...item,
+        bytes: readFileSync(attachmentFile(reportRoot, item)).byteLength,
+      })),
+    };
+  });
+  writeReport(candidateResults, "passed");
+  verifyHarnessReport(reportPath, {
+    fixture: candidateFixture,
+    expected: "passed",
+    outputRoot: reportRoot,
+  });
+
+  const candidateOperation = requireAttachment(requireResult(candidateResults, 0), "operation");
+  const missingReuse = readJsonDocument(attachmentFile(reportRoot, candidateOperation));
+  missingReuse.reusedIdentities = ["root"];
+  writeFileSync(attachmentFile(reportRoot, candidateOperation), `${JSON.stringify(missingReuse)}\n`);
+  candidateOperation.bytes = readFileSync(attachmentFile(reportRoot, candidateOperation)).byteLength;
+  writeReport(candidateResults, "passed");
+  expectHarnessError("missing candidate reuse", "FADENO_MORPH_OPERATION_PROOF", () => {
+    verifyHarnessReport(reportPath, {
+      fixture: candidateFixture,
+      expected: "passed",
+      outputRoot: reportRoot,
+    });
+  });
+  missingReuse.reusedIdentities = ["root", "target"];
+  writeFileSync(attachmentFile(reportRoot, candidateOperation), `${JSON.stringify(missingReuse)}\n`);
+  candidateOperation.bytes = readFileSync(attachmentFile(reportRoot, candidateOperation)).byteLength;
+
+  const candidateState = requireAttachment(requireResult(candidateResults, 1), "before-after");
+  const falsePreservation = readJsonDocument(attachmentFile(reportRoot, candidateState));
+  falsePreservation.after.target.nodeIdentity = "replacement";
+  writeFileSync(attachmentFile(reportRoot, candidateState), `${JSON.stringify(falsePreservation)}\n`);
+  candidateState.bytes = readFileSync(attachmentFile(reportRoot, candidateState)).byteLength;
+  writeReport(candidateResults, "passed");
+  expectHarnessError("false candidate preservation", "FADENO_MORPH_STATE_PROOF", () => {
+    verifyHarnessReport(reportPath, {
+      fixture: candidateFixture,
+      expected: "passed",
+      outputRoot: reportRoot,
+    });
+  });
 } finally {
   rmSync(reportRoot, { recursive: true, force: true });
 }
@@ -764,4 +896,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (2 fixtures, 3 engines, 22 report mutations)");
+console.log("morph harness contract passed (3 fixtures, 3 engines, 24 report mutations)");
