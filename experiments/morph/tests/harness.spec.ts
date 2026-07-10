@@ -106,7 +106,7 @@ async function assertCandidateRefusal(
   currentHtml = CANDIDATE_CURRENT_HTML,
 ): Promise<void> {
   await prepareCandidatePage(page, currentHtml);
-  const beforeMarkup = await page.locator("#root").evaluate((element) => element.outerHTML);
+  const beforeMarkup = await page.locator("#root").first().evaluate((element) => element.outerHTML);
   const beforeState = await captureCandidateState(page);
   const message = await page.evaluate(applyPrivateMorphCandidate, patch).then(
     () => "",
@@ -115,7 +115,9 @@ async function assertCandidateRefusal(
   expect(message, `FADENO_MORPH_CANDIDATE_REFUSAL_${reason}`).toContain(
     `FADENO_MORPH_CANDIDATE_REFUSED: ${reason}`,
   );
-  expect(await page.locator("#root").evaluate((element) => element.outerHTML)).toBe(beforeMarkup);
+  expect(await page.locator("#root").first().evaluate((element) => element.outerHTML)).toBe(
+    beforeMarkup,
+  );
   expect(await captureCandidateState(page)).toEqual(beforeState);
 }
 
@@ -137,6 +139,18 @@ async function runCandidateControl(
       ),
     },
     "current root identity is missing or ambiguous",
+  );
+  await assertCandidateRefusal(
+    page,
+    CANDIDATE_PATCH,
+    "current root identity is missing or ambiguous",
+    `${CANDIDATE_CURRENT_HTML}<main id="root"><input id="other"><output id="other-status"></output></main>`,
+  );
+  await assertCandidateRefusal(
+    page,
+    CANDIDATE_PATCH,
+    "current element identity is missing",
+    CANDIDATE_CURRENT_HTML.replace("</main>", "<span>unidentified</span></main>"),
   );
   await assertCandidateRefusal(
     page,

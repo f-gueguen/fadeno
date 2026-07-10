@@ -885,6 +885,7 @@ for (const required of [
   "--env FADENO_CONTAINER_PLATFORM_DIGEST=\"$container_platform_digest\"",
   "--env FADENO_CONTAINER_CONFIG_DIGEST=\"$container_config_digest\"",
   "pnpm experiment:morph -- --verify-harness",
+  "pnpm experiment:morph -- --fixture intentional-replacement",
   "if: always()",
   "output/playwright/morph",
 ]) {
