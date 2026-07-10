@@ -6,7 +6,7 @@ import { statfsSync } from "node:fs";
 
 import { chromium, firefox, webkit } from "@playwright/test";
 
-import { readJsonDocument } from "../../scripts/lib/experiment-contract.mjs";
+import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import { MorphHarnessError } from "./harness-report.ts";
 
 const require = createRequire(import.meta.url);

@@ -1,7 +1,7 @@
 import { realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, sep } from "node:path";
 
-import { readJsonDocument } from "../../scripts/lib/experiment-contract.mjs";
+import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import type { MorphFixture } from "./fixtures/catalog.ts";
 
 const PROJECTS = ["chromium", "firefox", "webkit"];

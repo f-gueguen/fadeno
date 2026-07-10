@@ -16,7 +16,10 @@ export const MAX_JSON_DEPTH = 128;
 const MAX_LOCKFILE_BYTES = 4 * 1024 * 1024;
 
 export class ContractError extends Error {
-  constructor(code, message, details) {
+  readonly code: string;
+  readonly details: unknown;
+
+  constructor(code: string, message: string, details?: unknown) {
     super(message);
     this.name = "ContractError";
     this.code = code;
@@ -24,7 +27,7 @@ export class ContractError extends Error {
   }
 }
 
-function fail(code, message) {
+function fail(code: string, message: string): never {
   throw new ContractError(code, message);
 }
 
@@ -125,7 +128,11 @@ function scanObjectKeys(text) {
   scanValue();
 }
 
-export function parseJsonBuffer(buffer, label, options = {}) {
+export function parseJsonBuffer(
+  buffer: Buffer,
+  label: string,
+  options: { maxBytes?: number } = {},
+) {
   const maxBytes = options.maxBytes ?? MAX_JSON_BYTES;
   if (!Buffer.isBuffer(buffer)) {
     fail("FADENO_K0_JSON_INPUT", `${label}: expected a Buffer`);

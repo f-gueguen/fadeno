@@ -1,18 +1,28 @@
 import { join } from "node:path";
 
-import Ajv2020 from "ajv/dist/2020.js";
+import Ajv2020Module from "ajv/dist/2020.js";
 
 import {
   ContractError,
   assertRegistrySemantics,
   readJsonDocument,
-} from "./experiment-contract.mjs";
+} from "./experiment-contract.ts";
 
 export const SCHEMA_FILES = [
   "reference-environment.schema.json",
   "experiment-registry.schema.json",
   "result-manifest.schema.json",
 ];
+
+type AjvInstance = {
+  addFormat(name: string, format: unknown): void;
+  validateSchema(schema: unknown): boolean;
+  compile(schema: unknown): ((document: unknown) => boolean) & { errors?: Array<Record<string, unknown>> };
+  errors: unknown;
+  errorsText(errors: unknown): string;
+};
+
+const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => AjvInstance;
 
 function isUtcTimestamp(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z$/u.exec(

@@ -2,8 +2,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
-import { parseJsonBuffer } from "./lib/experiment-contract.mjs";
-import { loadReferenceEnvironment } from "./lib/experiment-validation.mjs";
+import { parseJsonBuffer } from "./lib/experiment-contract.ts";
+import { loadReferenceEnvironment } from "./lib/experiment-validation.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const reference = loadReferenceEnvironment(root);

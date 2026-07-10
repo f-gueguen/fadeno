@@ -13,7 +13,7 @@ results.
   manifests with no unknown properties.
 
 Schemas use JSON Schema 2020-12, stable local identities, strict Ajv validation,
-and no network-loaded references. `scripts/check-experiment-contract.mjs`
+and no network-loaded references. `scripts/check-experiment-contract.ts`
 self-validates every schema before compiling it.
 
 ## Authority and projections

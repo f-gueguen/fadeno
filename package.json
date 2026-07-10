@@ -8,16 +8,17 @@
     "node": ">=22.14.0"
   },
   "scripts": {
-    "check:experiment-contract": "node scripts/check-experiment-contract.mjs && node scripts/test-experiment-contract.mjs",
-    "check:reference-image": "node scripts/check-reference-image.mjs",
-    "check:morph-harness": "node --no-warnings --experimental-strip-types scripts/check-morph-harness.ts && tsc -p experiments/morph/tsconfig.json",
-    "check:docs": "node scripts/check-docs.mjs",
-    "check:decisions": "node scripts/check-decisions.mjs",
-    "check:ledgers": "node scripts/check-ledgers.mjs",
-    "check:model": "node scripts/check-project-model.mjs",
-    "check:policies": "node scripts/policy-tests.mjs",
-    "check": "pnpm check:docs && pnpm check:decisions && pnpm check:ledgers && pnpm check:model && pnpm check:policies && pnpm check:experiment-contract && pnpm check:morph-harness",
-    "experiment:all": "node scripts/experiment-all.mjs",
+    "check:experiment-contract": "node --no-warnings --experimental-strip-types scripts/check-experiment-contract.ts && node --no-warnings --experimental-strip-types scripts/test-experiment-contract.ts",
+    "check:reference-image": "node --no-warnings --experimental-strip-types scripts/check-reference-image.ts",
+    "check:morph-harness": "node --no-warnings --experimental-strip-types scripts/check-morph-harness.ts",
+    "check:docs": "node --no-warnings --experimental-strip-types scripts/check-docs.ts",
+    "check:decisions": "node --no-warnings --experimental-strip-types scripts/check-decisions.ts",
+    "check:ledgers": "node --no-warnings --experimental-strip-types scripts/check-ledgers.ts",
+    "check:model": "node --no-warnings --experimental-strip-types scripts/check-project-model.ts",
+    "check:policies": "node --no-warnings --experimental-strip-types scripts/policy-tests.ts",
+    "check:types": "tsc -p tsconfig.scripts.json",
+    "check": "pnpm check:docs && pnpm check:decisions && pnpm check:ledgers && pnpm check:model && pnpm check:policies && pnpm check:experiment-contract && pnpm check:morph-harness && pnpm check:types",
+    "experiment:all": "node --no-warnings --experimental-strip-types scripts/experiment-all.ts",
     "experiment:morph": "node --no-warnings --experimental-strip-types experiments/morph/run.ts"
   },
   "devDependencies": {

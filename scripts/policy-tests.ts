@@ -33,10 +33,14 @@ function expectPolicyFailure(name, script, expectedDiagnostic, mutate) {
   const { copy, temporaryRoot } = copyRepository();
   try {
     mutate(copy);
-    const result = spawnSync(process.execPath, [`scripts/${script}`], {
+    const result = spawnSync(
+      process.execPath,
+      ["--no-warnings", "--experimental-strip-types", `scripts/${script}`],
+      {
       cwd: copy,
       encoding: "utf8",
-    });
+      },
+    );
     const output = `${result.stdout}${result.stderr}`;
     if (result.status === 0) {
       failures.push(`${name}: policy script unexpectedly passed`);
@@ -48,15 +52,15 @@ function expectPolicyFailure(name, script, expectedDiagnostic, mutate) {
   }
 }
 
-expectPolicyFailure("broken Markdown anchor", "check-docs.mjs", "section-that-does-not-exist", (copy) => {
+expectPolicyFailure("broken Markdown anchor", "check-docs.ts", "section-that-does-not-exist", (copy) => {
   appendFileSync(join(copy, "README.md"), "\n[Broken anchor](#section-that-does-not-exist)\n");
 });
 
-expectPolicyFailure("missing project license", "check-docs.mjs", "LICENSE", (copy) => {
+expectPolicyFailure("missing project license", "check-docs.ts", "LICENSE", (copy) => {
   rmSync(join(copy, "LICENSE"));
 });
 
-expectPolicyFailure("invented traceability authority", "check-project-model.mjs", "no linked decision authority", (copy) => {
+expectPolicyFailure("invented traceability authority", "check-project-model.ts", "no linked decision authority", (copy) => {
   const path = join(copy, "docs/traceability.md");
   const content = readFileSync(path, "utf8").replace(
     /^\| GOV-01 \|.*$/m,
@@ -65,7 +69,7 @@ expectPolicyFailure("invented traceability authority", "check-project-model.mjs"
   writeFileSync(path, content);
 });
 
-expectPolicyFailure("missing K0 dependency", "check-project-model.mjs", "K0-99", (copy) => {
+expectPolicyFailure("missing K0 dependency", "check-project-model.ts", "K0-99", (copy) => {
   const path = join(copy, "docs/roadmap/k0.md");
   const content = readFileSync(path, "utf8").replace(/^\| K0-02 \|.*$/m, (line) => {
     const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
@@ -75,11 +79,11 @@ expectPolicyFailure("missing K0 dependency", "check-project-model.mjs", "K0-99",
   writeFileSync(path, content);
 });
 
-expectPolicyFailure("unknown root feature", "check-project-model.mjs", "UNKNOWN-99", (copy) => {
+expectPolicyFailure("unknown root feature", "check-project-model.ts", "UNKNOWN-99", (copy) => {
   appendFileSync(join(copy, "AGENTS.md"), "\nImplement UNKNOWN-99.\n");
 });
 
-expectPolicyFailure("swapped experiment mapping", "check-project-model.mjs", "mapping differs from K0 plan", (copy) => {
+expectPolicyFailure("swapped experiment mapping", "check-project-model.ts", "mapping differs from K0 plan", (copy) => {
   const path = join(copy, "experiments/registry.json");
   const registry = JSON.parse(readFileSync(path, "utf8"));
   const morph = registry.experiments.find((entry) => entry.id === "morph");
@@ -90,7 +94,7 @@ expectPolicyFailure("swapped experiment mapping", "check-project-model.mjs", "ma
   writeFileSync(path, `${JSON.stringify(registry, null, 2)}\n`);
 });
 
-expectPolicyFailure("duplicate experiment hypothesis", "check-project-model.mjs", "duplicate hypothesis H2", (copy) => {
+expectPolicyFailure("duplicate experiment hypothesis", "check-project-model.ts", "duplicate hypothesis H2", (copy) => {
   const path = join(copy, "experiments/registry.json");
   const registry = JSON.parse(readFileSync(path, "utf8"));
   registry.experiments.find((entry) => entry.id === "morph").hypothesis = "H2";

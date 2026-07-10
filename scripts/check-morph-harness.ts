@@ -22,7 +22,7 @@ import {
   assertBrowserCompatibility,
   classifyReferenceHost,
 } from "../experiments/morph/preflight.ts";
-import { readJsonDocument } from "./lib/experiment-contract.mjs";
+import { readJsonDocument } from "./lib/experiment-contract.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];

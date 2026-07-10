@@ -4,8 +4,8 @@ import { dirname, join } from "node:path";
 import {
   evaluateExperimentCommand,
   registryLoadFailureResult,
-} from "./lib/experiment-contract.mjs";
-import { loadExperimentRegistry } from "./lib/experiment-validation.mjs";
+} from "./lib/experiment-contract.ts";
+import { loadExperimentRegistry } from "./lib/experiment-validation.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
