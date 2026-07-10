@@ -1,17 +1,20 @@
 import { stableMorphInventory } from "./fixtures/catalog.ts";
 
-let args = process.argv.slice(2);
+const rawArgs = process.argv.slice(2);
+let args = rawArgs;
 if (args[0] === "--") args = args.slice(1);
+const hasBareSeparator = rawArgs.length === 1 && rawArgs[0] === "--";
 
 const isIntentionalReplacement =
   args.length === 2 && args[0] === "--fixture" && args[1] === "intentional-replacement";
 
-if (args.length === 1 && args[0] === "--list") {
+if (!hasBareSeparator && args.length === 1 && args[0] === "--list") {
   process.stdout.write(stableMorphInventory());
 } else if (
-  args.length === 0 ||
-  (args.length === 1 && args[0] === "--verify-harness") ||
-  isIntentionalReplacement
+  !hasBareSeparator &&
+  (args.length === 0 ||
+    (args.length === 1 && args[0] === "--verify-harness") ||
+    isIntentionalReplacement)
 ) {
   try {
     const { executeMorphHarness } = await import("./harness-runner.ts");
@@ -32,6 +35,7 @@ if (args.length === 1 && args[0] === "--list") {
     process.exitCode = 1;
   }
 } else {
-  console.error(`FADENO_MORPH_USAGE: unsupported arguments: ${args.join(" ")}`);
+  const displayArguments = hasBareSeparator ? rawArgs : args;
+  console.error(`FADENO_MORPH_USAGE: unsupported arguments: ${displayArguments.join(" ")}`);
   process.exitCode = 64;
 }

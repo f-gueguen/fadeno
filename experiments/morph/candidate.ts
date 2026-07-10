@@ -22,6 +22,12 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
     typeof value === "string" && value.trim().length > 0;
   const elementName = (element: Element): string =>
     `${element.namespaceURI ?? ""}:${element.localName}`;
+  const supportedElementNames = new Set([
+    "http://www.w3.org/1999/xhtml:main",
+    "http://www.w3.org/1999/xhtml:input",
+    "http://www.w3.org/1999/xhtml:output",
+  ]);
+  const supportedAttributeNames = new Set(["id", "class", "aria-label", "value"]);
   const rootChildNodesAreSupported = (root: Element): boolean =>
     Array.from(root.childNodes).every(
       (node) =>
@@ -55,6 +61,17 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
       set.push([name, value]);
     }
     return { current, remove, set };
+  };
+  const validateElementSurface = (element: Element, side: "current" | "incoming"): void => {
+    if (!supportedElementNames.has(elementName(element))) {
+      refuse(`${side} element kind is unsupported: ${element.localName}`);
+    }
+    const unsupportedAttribute = element.getAttributeNames().find(
+      (name) => !supportedAttributeNames.has(name),
+    );
+    if (unsupportedAttribute) {
+      refuse(`${side} attribute is unsupported: ${unsupportedAttribute}`);
+    }
   };
 
   if (
@@ -93,9 +110,13 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
     refuse("incoming root identity differs");
   }
 
-  const currentRootMatches = Array.from(document.querySelectorAll("[id]")).filter(
-    (element) => element.id === input.rootIdentity,
-  );
+  const documentIdentities = new Map<string, Element[]>();
+  for (const element of document.querySelectorAll("[id]")) {
+    const matches = documentIdentities.get(element.id);
+    if (matches) matches.push(element);
+    else documentIdentities.set(element.id, [element]);
+  }
+  const currentRootMatches = documentIdentities.get(input.rootIdentity) ?? [];
   if (currentRootMatches.length !== 1) refuse("current root identity is missing or ambiguous");
   const currentRoot = currentRootMatches[0] ??
     refuse("current root identity is missing or ambiguous");
@@ -112,8 +133,21 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
       refuse(`identity is not observed on both sides: ${identity}`);
     const incomingElement = incoming.identities.get(identity) ??
       refuse(`identity is not observed on both sides: ${identity}`);
+    const documentMatches = documentIdentities.get(identity) ?? [];
+    if (documentMatches.length !== 1 || documentMatches[0] !== currentElement) {
+      refuse(`current document identity is missing or ambiguous: ${identity}`);
+    }
     if (elementName(currentElement) !== elementName(incomingElement)) {
-      refuse(`undeclared element replacement: ${identity}`);
+      refuse(`element kind differs: ${identity}`);
+    }
+    validateElementSurface(currentElement, "current");
+    validateElementSurface(incomingElement, "incoming");
+    if (
+      identity !== input.rootIdentity &&
+      !replacementSet.has(identity) &&
+      currentElement.innerHTML !== incomingElement.innerHTML
+    ) {
+      refuse(`reused element content differs: ${identity}`);
     }
   }
   for (const identity of replacementSet) {

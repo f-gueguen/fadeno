@@ -25,7 +25,7 @@ K0-03 — Private structural HTML-update candidate
 - The K0-03 private candidate, atomic refusal matrix, type fixtures, exact CLI
   grammar, and candidate-produced operation/state proof are implemented. Local
   contract checks and the exact three-engine intentional-replacement command
-  pass; hosted evidence and final independent reviews remain pending.
+  pass. Final audit hardening and refreshed hosted evidence remain pending.
 
 ## Blockers
 
@@ -33,6 +33,12 @@ K0-03 — Private structural HTML-update candidate
 
 ## Open questions
 
+- K0-04: before adding the full preservation corpus, reassess whether
+  scenario-specific evidence policy should split from the stable artifact/trace
+  verifier and its mutation checker; K0-03 keeps their two-key independence.
+- K0-04: measure the one-shot candidate's document-wide identity scan under the
+  repeated corpus before introducing a cached index or retained root handle;
+  K0-03 avoids stale lifecycle state while enforcing ambiguity refusal.
 - DG-A0-01: public package names after registry ownership is secured.
 
 ## Completed slices

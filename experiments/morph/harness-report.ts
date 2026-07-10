@@ -121,7 +121,6 @@ type MachineReport = {
 
 type VerifyOptions = {
   fixture: MorphFixture;
-  expected: "passed" | "failed";
   outputRoot: string;
 };
 
@@ -597,7 +596,8 @@ function requiredAttachment(
 }
 
 export function verifyHarnessReport(reportPath: string, options: VerifyOptions): MachineReport {
-  const { fixture, expected, outputRoot } = options;
+  const { fixture, outputRoot } = options;
+  const expected = fixture.expectedStatus;
   const report = readJsonDocument(reportPath) as MachineReport;
   if (report.schemaVersion !== 1 || !Array.isArray(report.results)) {
     fail("FADENO_MORPH_REPORT_SHAPE", "machine report shape is invalid");
