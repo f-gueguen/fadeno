@@ -271,6 +271,12 @@ const shortRegistry = structuredClone(registry);
 shortRegistry.experiments.pop();
 if (registrySchema(shortRegistry)) recordFailure("short registry: schema unexpectedly passed");
 
+const undecidedQualifiedRegistry = structuredClone(registry);
+undecidedQualifiedRegistry.experiments[1].status = "qualified";
+if (registrySchema(undecidedQualifiedRegistry)) {
+  recordFailure("qualified registry without decision: schema unexpectedly passed");
+}
+
 const reorderedRegistry = structuredClone(registry);
 reorderedRegistry.experiments.reverse();
 expectContractError("registry ordering", "FADENO_K0_REGISTRY_INVALID", () => {
