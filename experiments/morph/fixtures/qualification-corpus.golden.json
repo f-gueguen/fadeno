@@ -32,8 +32,8 @@
     "media": {
       "id": "local-tone-wav-v2",
       "contentType": "audio/wav",
-      "bytes": 160044,
-      "sha256": "5d7ddccd5107e6907dc51aeac1dada71671d7c3d704cf696aaef4519de535d9c"
+      "bytes": 20044,
+      "sha256": "f232acfec4d8afc2d2644f111e08d345a0b32ae3e0f68616fda5e40d7843eaab"
     }
   },
   "cases": [
