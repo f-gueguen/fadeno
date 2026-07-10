@@ -22,8 +22,8 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
     typeof value === "string" && value.trim().length > 0;
   const elementName = (element: Element): string =>
     `${element.namespaceURI ?? ""}:${element.localName}`;
-  const supportedElementNames = new Set([
-    "http://www.w3.org/1999/xhtml:main",
+  const supportedRootElementName = "http://www.w3.org/1999/xhtml:main";
+  const supportedChildElementNames = new Set([
     "http://www.w3.org/1999/xhtml:input",
     "http://www.w3.org/1999/xhtml:output",
   ]);
@@ -62,9 +62,17 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
     }
     return { current, remove, set };
   };
-  const validateElementSurface = (element: Element, side: "current" | "incoming"): void => {
-    if (!supportedElementNames.has(elementName(element))) {
-      refuse(`${side} element kind is unsupported: ${element.localName}`);
+  const validateElementSurface = (
+    element: Element,
+    side: "current" | "incoming",
+    position: "root" | "child",
+  ): void => {
+    const name = elementName(element);
+    const supported = position === "root"
+      ? name === supportedRootElementName
+      : supportedChildElementNames.has(name);
+    if (!supported) {
+      refuse(`${side} ${position} element kind is unsupported: ${element.localName}`);
     }
     const unsupportedAttribute = element.getAttributeNames().find(
       (name) => !supportedAttributeNames.has(name),
@@ -140,8 +148,9 @@ export function applyPrivateMorphCandidate(input: PrivateMorphPatch): PrivateMor
     if (elementName(currentElement) !== elementName(incomingElement)) {
       refuse(`element kind differs: ${identity}`);
     }
-    validateElementSurface(currentElement, "current");
-    validateElementSurface(incomingElement, "incoming");
+    const position = identity === input.rootIdentity ? "root" : "child";
+    validateElementSurface(currentElement, "current", position);
+    validateElementSurface(incomingElement, "incoming", position);
     if (
       identity !== input.rootIdentity &&
       !replacementSet.has(identity) &&

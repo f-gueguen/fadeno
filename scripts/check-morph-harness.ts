@@ -776,7 +776,10 @@ try {
 
   const candidateFixture = getMorphFixture("intentional-replacement");
   const candidateBefore = {
-    rootClass: "before",
+    root: {
+      nodeIdentity: "original",
+      class: "before",
+    },
     target: {
       nodeIdentity: "original",
       state: {
@@ -797,7 +800,10 @@ try {
     },
   };
   const candidateAfter = {
-    rootClass: "after",
+    root: {
+      nodeIdentity: "original",
+      class: "after",
+    },
     target: {
       nodeIdentity: "original",
       state: {
@@ -830,6 +836,7 @@ try {
         rootIdentity: "root",
         reusedIdentities: ["root", "target"],
         replacedIdentities: ["status"],
+        preservedRootIdentity: true,
         preservedTargetIdentity: true,
         replacedTargetIdentity: true,
         originalReplacementDisconnected: true,
@@ -889,6 +896,17 @@ try {
       outputRoot: reportRoot,
     });
   });
+  falsePreservation.after.target.nodeIdentity = "original";
+  falsePreservation.after.root.nodeIdentity = "replacement";
+  writeFileSync(attachmentFile(reportRoot, candidateState), `${JSON.stringify(falsePreservation)}\n`);
+  candidateState.bytes = readFileSync(attachmentFile(reportRoot, candidateState)).byteLength;
+  writeReport(candidateResults, "passed");
+  expectHarnessError("false candidate root reuse", "FADENO_MORPH_STATE_PROOF", () => {
+    verifyHarnessReport(reportPath, {
+      fixture: candidateFixture,
+      outputRoot: reportRoot,
+    });
+  });
 } finally {
   rmSync(reportRoot, { recursive: true, force: true });
 }
@@ -919,4 +937,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (3 fixtures, 3 engines, 24 report mutations)");
+console.log("morph harness contract passed (3 fixtures, 3 engines, 25 report mutations)");

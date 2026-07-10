@@ -34,7 +34,10 @@ const REPLACEMENT_STATE = {
   },
 };
 const CANDIDATE_BEFORE_STATE = {
-  rootClass: "before",
+  root: {
+    nodeIdentity: "original",
+    class: "before",
+  },
   target: {
     nodeIdentity: "original",
     state: {
@@ -55,7 +58,10 @@ const CANDIDATE_BEFORE_STATE = {
   },
 };
 const CANDIDATE_AFTER_STATE = {
-  rootClass: "after",
+  root: {
+    nodeIdentity: "original",
+    class: "after",
+  },
   target: {
     nodeIdentity: "original",
     state: {
@@ -692,6 +698,7 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
         rootIdentity: "root",
         reusedIdentities: ["root", "target"],
         replacedIdentities: ["status"],
+        preservedRootIdentity: true,
         preservedTargetIdentity: true,
         replacedTargetIdentity: true,
         originalReplacementDisconnected: true,

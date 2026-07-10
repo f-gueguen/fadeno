@@ -16,6 +16,7 @@ const fixture = selectedFixture;
 
 declare global {
   interface Window {
+    __fadenoOriginalRoot: HTMLElement;
     __fadenoOriginalTarget: HTMLInputElement;
     __fadenoOriginalReplacement: HTMLOutputElement;
   }
@@ -39,9 +40,13 @@ async function prepareCandidatePage(page: Page, html = CANDIDATE_CURRENT_HTML): 
     (element as HTMLInputElement).setSelectionRange(2, 8),
   );
   await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>("#root");
     const target = document.querySelector<HTMLInputElement>("#target");
     const replacement = document.querySelector<HTMLOutputElement>("#status");
-    if (!target || !replacement) throw new Error("FADENO_MORPH_CANDIDATE_SETUP_MISSING");
+    if (!root || !target || !replacement) {
+      throw new Error("FADENO_MORPH_CANDIDATE_SETUP_MISSING");
+    }
+    window.__fadenoOriginalRoot = root;
     window.__fadenoOriginalTarget = target;
     window.__fadenoOriginalReplacement = replacement;
   });
@@ -56,7 +61,10 @@ async function captureCandidateState(page: Page) {
       throw new Error("FADENO_MORPH_CANDIDATE_STATE_MISSING");
     }
     return {
-      rootClass: root.className,
+      root: {
+        nodeIdentity: root === window.__fadenoOriginalRoot ? "original" : "replacement",
+        class: root.className,
+      },
       target: {
         nodeIdentity: target === window.__fadenoOriginalTarget ? "original" : "replacement",
         state: {
@@ -181,6 +189,26 @@ async function runCandidateControl(
     {
       ...CANDIDATE_PATCH,
       replacementHtml:
+        '<output id="root" class="after"><input id="target" aria-label="Control after" value="server-after"><output id="status">after</output></output>',
+    },
+    "current root element kind is unsupported: output",
+    '<!doctype html><meta charset="utf-8"><output id="root" class="before"><input id="target" aria-label="Control before" value="server-before"><output id="status">before</output></output>',
+  );
+  await assertCandidateRefusal(
+    page,
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
+        '<main id="root" class="after"><input id="target" aria-label="Control after" value="server-after"><main id="status">after</main></main>',
+    },
+    "current child element kind is unsupported: main",
+    '<!doctype html><meta charset="utf-8"><main id="root" class="before"><input id="target" aria-label="Control before" value="server-before"><main id="status">before</main></main>',
+  );
+  await assertCandidateRefusal(
+    page,
+    {
+      ...CANDIDATE_PATCH,
+      replacementHtml:
         '<main id="root" class="after"><textarea id="target" aria-label="Control after">server-after</textarea><output id="status">after</output></main>',
     },
     "element kind differs: target",
@@ -223,6 +251,7 @@ async function runCandidateControl(
       throw new Error("FADENO_MORPH_CANDIDATE_PROOF_MISSING");
     }
     return {
+      preservedRootIdentity: root === window.__fadenoOriginalRoot,
       preservedTargetIdentity: target === window.__fadenoOriginalTarget,
       replacedTargetIdentity: replacement !== window.__fadenoOriginalReplacement,
       originalReplacementDisconnected: !window.__fadenoOriginalReplacement.isConnected,
@@ -255,6 +284,7 @@ async function runCandidateControl(
     replacedIdentities: ["status"],
   });
   expect(independentProof).toEqual({
+    preservedRootIdentity: true,
     preservedTargetIdentity: true,
     replacedTargetIdentity: true,
     originalReplacementDisconnected: true,

@@ -49,11 +49,12 @@ page scripts or mutation-time side effects; those environments are outside the
 narrow K0-03 surface and require later evidence.
 
 The `intentional-replacement` control must exercise both candidate paths in one
-patch: the dirty focused input is the exact reused object with state intact,
-while a second declared element is a distinct replacement whose original is
-disconnected. Candidate-produced reused/replaced identity evidence is checked
-against independent DOM observations in Chromium, Firefox, and WebKit. The
-existing K0-02 controls remain independent harness-integrity evidence.
+patch: the root and dirty focused input are the exact reused objects, the input
+keeps its state, and a second declared element is a distinct replacement whose
+original is disconnected. Candidate-produced reused/replaced identity evidence
+is checked against independent DOM observations in Chromium, Firefox, and
+WebKit. The existing K0-02 controls remain independent harness-integrity
+evidence.
 Reference CI retains their failure artifacts separately before running and
 retaining the K0-03 candidate evidence.
 
