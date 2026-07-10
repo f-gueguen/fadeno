@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/reference-environment-v1.json",
+  "title": "Fadeno K0 reference environment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "id",
+    "host",
+    "container",
+    "toolchain",
+    "browsers",
+    "storage",
+    "power",
+    "backgroundLoad",
+    "preflight",
+    "sources"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://fadeno.dev/schemas/experiment/reference-environment-v1.json"
+    },
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "repositoryVisibility",
+        "runnerLabel",
+        "architecture",
+        "minimumHardware",
+        "mutableObservedFields",
+        "deviationPolicy"
+      ],
+      "properties": {
+        "provider": { "type": "string", "pattern": "^[a-z][a-z-]{0,31}$" },
+        "repositoryVisibility": { "const": "private" },
+        "runnerLabel": { "$ref": "#/$defs/shortString" },
+        "architecture": { "enum": ["x64", "arm64"] },
+        "minimumHardware": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["logicalCpuCount", "memoryMiB", "storageMiB"],
+          "properties": {
+            "logicalCpuCount": { "type": "integer", "minimum": 1, "maximum": 512 },
+            "memoryMiB": { "type": "integer", "minimum": 1024, "maximum": 1048576 },
+            "storageMiB": { "type": "integer", "minimum": 1024, "maximum": 10485760 }
+          }
+        },
+        "mutableObservedFields": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "runnerImageVersion",
+              "runnerProvisionerVersion",
+              "operatingSystemVersion",
+              "kernelVersion",
+              "cpuModel",
+              "freeStorageMiB",
+              "loadAverage1m",
+              "processCount"
+            ]
+          }
+        },
+        "deviationPolicy": {
+          "const": "classify-non-reference-before-measurement"
+        }
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry",
+        "repository",
+        "tag",
+        "indexDigest",
+        "platform",
+        "platformDigest",
+        "configDigest",
+        "runtimeImage",
+        "executionUser",
+        "browserSandbox",
+        "networkPolicy",
+        "createdAt",
+        "verifiedAt"
+      ],
+      "properties": {
+        "registry": { "type": "string", "pattern": "^[a-z0-9.-]+$", "maxLength": 253 },
+        "repository": { "type": "string", "pattern": "^[a-z0-9._/-]+$", "maxLength": 200 },
+        "tag": { "$ref": "#/$defs/shortString" },
+        "indexDigest": { "$ref": "#/$defs/sha256Digest" },
+        "platform": { "type": "string", "pattern": "^[a-z0-9]+/[a-z0-9]+$", "maxLength": 40 },
+        "platformDigest": { "$ref": "#/$defs/sha256Digest" },
+        "configDigest": { "$ref": "#/$defs/sha256Digest" },
+        "runtimeImage": { "$ref": "#/$defs/digestImage" },
+        "executionUser": { "enum": ["root", "non-root"] },
+        "browserSandbox": { "enum": ["disabled-for-trusted-local-fixtures", "enabled"] },
+        "networkPolicy": { "enum": ["trusted-local-fixtures-only", "network-disabled"] },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "verifiedAt": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "pnpm", "playwright", "lockfile", "lockHashAlgorithm"],
+      "properties": {
+        "node": { "$ref": "#/$defs/shortString" },
+        "pnpm": { "$ref": "#/$defs/shortString" },
+        "playwright": { "$ref": "#/$defs/shortString" },
+        "lockfile": { "const": "pnpm-lock.yaml" },
+        "lockHashAlgorithm": { "const": "sha256" }
+      }
+    },
+    "browsers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "chromeForTesting", "firefox", "webkit"],
+      "properties": {
+        "authority": {
+          "const": "playwright-package-and-container-digest"
+        },
+        "chromeForTesting": { "$ref": "#/$defs/shortString" },
+        "firefox": { "$ref": "#/$defs/shortString" },
+        "webkit": { "$ref": "#/$defs/shortString" }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "persistenceBetweenJobs", "minimumFreeMiB"],
+      "properties": {
+        "mode": { "const": "ephemeral-local" },
+        "persistenceBetweenJobs": { "const": false },
+        "minimumFreeMiB": { "type": "integer", "minimum": 4096, "maximum": 14336 }
+      }
+    },
+    "power": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "telemetry", "comparisonPolicy"],
+      "properties": {
+        "policy": { "const": "provider-managed-continuous-power" },
+        "telemetry": { "const": "not-exposed" },
+        "comparisonPolicy": { "const": "relative-baseline-in-same-job" }
+      }
+    },
+    "backgroundLoad": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "networkConsumers", "preflightRequired", "maxLoadAverage1m", "maxProcessCount", "maxPreflightAgeSeconds", "acceptanceReason"],
+      "properties": {
+        "policy": { "const": "exclusive-qualification-job" },
+        "networkConsumers": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "maxLength": 80 }
+        },
+        "preflightRequired": { "const": true },
+        "maxLoadAverage1m": { "type": "number", "minimum": 0, "maximum": 2 },
+        "maxProcessCount": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "maxPreflightAgeSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+        "acceptanceReason": { "const": "within-reference-thresholds" }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredObservedFields", "browserCheckSlice", "failurePolicy"],
+      "properties": {
+        "requiredObservedFields": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9.]{0,79}$" }
+        },
+        "browserCheckSlice": { "const": "K0-02" },
+        "failurePolicy": { "const": "refuse-reference-classification" }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "url", "observedAt"],
+        "properties": {
+          "claim": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "url": { "type": "string", "pattern": "^https://", "maxLength": 500 },
+          "observedAt": { "$ref": "#/$defs/timestamp" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digestImage": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$",
+      "maxLength": 500
+    },
+    "sha256Digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "shortString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "fadeno-utc-timestamp"
+    }
+  }
+}

@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { loadExperimentRegistry } from "./lib/experiment-validation.mjs";
+
 const root = process.cwd();
 const errors = [];
 
@@ -227,6 +229,62 @@ for (const [index, cells] of k0Rows.entries()) {
 for (const hypothesis of ["H1", "H2", "H3", "H4"]) {
   if (!k0Rows.some((cells) => new RegExp(`\\b${hypothesis}\\b`).test(cells[3]))) {
     errors.push(`docs/roadmap/k0.md: no atomic slice owns ${hypothesis}`);
+  }
+}
+
+let experimentRegistry;
+try {
+  experimentRegistry = loadExperimentRegistry(root);
+} catch (error) {
+  errors.push(`experiments/registry.json: invalid contract (${error.code ?? error.message})`);
+  experimentRegistry = { experiments: [] };
+}
+const registryEntries = experimentRegistry.experiments;
+const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
+const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
+  (match) => match[1],
+);
+for (const missing of setDifference(new Set(plannedDirectoryIds), new Set(registryIds))) {
+  errors.push(`experiments/registry.json: missing K0 directory ${missing}`);
+}
+for (const unknown of setDifference(new Set(registryIds), new Set(plannedDirectoryIds))) {
+  errors.push(`experiments/registry.json: unknown K0 directory ${unknown}`);
+}
+const roadmapExperimentMappings = new Map();
+for (const row of k0Rows) {
+  const command = row[5].match(
+    /`pnpm experiment:([a-z-]+) -- --(list|qualify)`/,
+  );
+  if (!command) continue;
+  const [, id, mode] = command;
+  const hypothesis = row[3].match(/\bH[1-4]\b/)?.[0];
+  const mapping = roadmapExperimentMappings.get(id) ?? {};
+  mapping[mode === "list" ? "harness" : "qualification"] = {
+    slice: row[0],
+    hypothesis,
+  };
+  roadmapExperimentMappings.set(id, mapping);
+}
+for (const duplicate of duplicates(registryEntries.map((entry) => entry.hypothesis))) {
+  errors.push(`experiments/registry.json: duplicate hypothesis ${duplicate}`);
+}
+for (const entry of registryEntries) {
+  const expected = roadmapExperimentMappings.get(entry.id);
+  if (
+    !expected?.harness ||
+    !expected?.qualification ||
+    expected.harness.slice !== entry.harnessSlice ||
+    expected.qualification.slice !== entry.qualificationSlice ||
+    expected.harness.hypothesis !== entry.hypothesis ||
+    expected.qualification.hypothesis !== entry.hypothesis
+  ) {
+    errors.push(`experiments/registry.json: ${entry.id} mapping differs from K0 plan`);
+  }
+  if (
+    Number(String(entry.harnessSlice).slice(3)) >=
+    Number(String(entry.qualificationSlice).slice(3))
+  ) {
+    errors.push(`experiments/registry.json: ${entry.id} qualifies before its harness`);
   }
 }
 

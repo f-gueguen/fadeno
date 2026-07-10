@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,10 +25,11 @@ function copyRepository() {
       return name !== ".git" && name !== "node_modules" && !path.startsWith("node_modules/");
     },
   });
+  symlinkSync(join(root, "node_modules"), join(copy, "node_modules"), "dir");
   return { copy, temporaryRoot };
 }
 
-function expectPolicyFailure(name, script, mutate) {
+function expectPolicyFailure(name, script, expectedDiagnostic, mutate) {
   const { copy, temporaryRoot } = copyRepository();
   try {
     mutate(copy);
@@ -35,23 +37,26 @@ function expectPolicyFailure(name, script, mutate) {
       cwd: copy,
       encoding: "utf8",
     });
+    const output = `${result.stdout}${result.stderr}`;
     if (result.status === 0) {
       failures.push(`${name}: policy script unexpectedly passed`);
+    } else if (!output.includes(expectedDiagnostic)) {
+      failures.push(`${name}: missing expected diagnostic ${expectedDiagnostic}`);
     }
   } finally {
     rmSync(temporaryRoot, { force: true, recursive: true });
   }
 }
 
-expectPolicyFailure("broken Markdown anchor", "check-docs.mjs", (copy) => {
+expectPolicyFailure("broken Markdown anchor", "check-docs.mjs", "section-that-does-not-exist", (copy) => {
   appendFileSync(join(copy, "README.md"), "\n[Broken anchor](#section-that-does-not-exist)\n");
 });
 
-expectPolicyFailure("missing project license", "check-docs.mjs", (copy) => {
+expectPolicyFailure("missing project license", "check-docs.mjs", "LICENSE", (copy) => {
   rmSync(join(copy, "LICENSE"));
 });
 
-expectPolicyFailure("invented traceability authority", "check-project-model.mjs", (copy) => {
+expectPolicyFailure("invented traceability authority", "check-project-model.mjs", "no linked decision authority", (copy) => {
   const path = join(copy, "docs/traceability.md");
   const content = readFileSync(path, "utf8").replace(
     /^\| GOV-01 \|.*$/m,
@@ -60,7 +65,7 @@ expectPolicyFailure("invented traceability authority", "check-project-model.mjs"
   writeFileSync(path, content);
 });
 
-expectPolicyFailure("missing K0 dependency", "check-project-model.mjs", (copy) => {
+expectPolicyFailure("missing K0 dependency", "check-project-model.mjs", "K0-99", (copy) => {
   const path = join(copy, "docs/roadmap/k0.md");
   const content = readFileSync(path, "utf8").replace(/^\| K0-02 \|.*$/m, (line) => {
     const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
@@ -70,8 +75,26 @@ expectPolicyFailure("missing K0 dependency", "check-project-model.mjs", (copy) =
   writeFileSync(path, content);
 });
 
-expectPolicyFailure("unknown root feature", "check-project-model.mjs", (copy) => {
+expectPolicyFailure("unknown root feature", "check-project-model.mjs", "UNKNOWN-99", (copy) => {
   appendFileSync(join(copy, "AGENTS.md"), "\nImplement UNKNOWN-99.\n");
+});
+
+expectPolicyFailure("swapped experiment mapping", "check-project-model.mjs", "mapping differs from K0 plan", (copy) => {
+  const path = join(copy, "experiments/registry.json");
+  const registry = JSON.parse(readFileSync(path, "utf8"));
+  const morph = registry.experiments.find((entry) => entry.id === "morph");
+  const extraction = registry.experiments.find((entry) => entry.id === "extraction");
+  for (const field of ["hypothesis", "harnessSlice", "qualificationSlice"]) {
+    [morph[field], extraction[field]] = [extraction[field], morph[field]];
+  }
+  writeFileSync(path, `${JSON.stringify(registry, null, 2)}\n`);
+});
+
+expectPolicyFailure("duplicate experiment hypothesis", "check-project-model.mjs", "duplicate hypothesis H2", (copy) => {
+  const path = join(copy, "experiments/registry.json");
+  const registry = JSON.parse(readFileSync(path, "utf8"));
+  registry.experiments.find((entry) => entry.id === "morph").hypothesis = "H2";
+  writeFileSync(path, `${JSON.stringify(registry, null, 2)}\n`);
 });
 
 if (failures.length > 0) {
@@ -79,4 +102,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("policy mutation tests passed (5 expected failures detected)");
+console.log("policy mutation tests passed (7 expected failures detected)");

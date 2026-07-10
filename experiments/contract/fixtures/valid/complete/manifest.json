@@ -1,0 +1,128 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/result-manifest-v1.json",
+  "schemaVersion": 1,
+  "experiment": {
+    "id": "morph",
+    "contractVersion": 1
+  },
+  "run": {
+    "id": "20260710T113900Z-bdac342-a1",
+    "attempt": 1,
+    "startedAt": "2026-07-10T11:39:00Z",
+    "completedAt": "2026-07-10T11:39:10Z",
+    "status": "passed"
+  },
+  "source": {
+    "repository": "https://github.com/f-gueguen/fadeno",
+    "commit": "bdac3420165d6ae6c1493643d726a7e4ba0d236a",
+    "dirty": false
+  },
+  "environment": {
+    "referenceId": "k0-linux-x64-v1",
+    "referenceClass": "reference",
+    "host": {
+      "provider": "github-actions",
+      "repositoryVisibility": "private",
+      "runnerLabel": "ubuntu-24.04",
+      "runnerImage": "ubuntu-24.04",
+      "runnerImageVersion": "20260705.232.1",
+      "runnerProvisionerVersion": "20260624.560",
+      "operatingSystemVersion": "24.04.4",
+      "kernelVersion": "6.11.0",
+      "architecture": "x64",
+      "cpuModel": "GitHub-hosted x64 reference fixture",
+      "logicalCpuCount": 2,
+      "memoryMiB": 8192,
+      "advertisedStorageMiB": 14336,
+      "freeStorageMiB": 8192
+    },
+    "container": {
+      "image": "mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
+      "indexDigest": "sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a",
+      "platform": "linux/amd64",
+      "platformDigest": "sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
+      "configDigest": "sha256:753f831a898523662c36011748ba0729b59838745d577c61c91287fe1778bfe1",
+      "executionUser": "root",
+      "browserSandbox": "disabled-for-trusted-local-fixtures",
+      "networkPolicy": "trusted-local-fixtures-only"
+    },
+    "toolchain": {
+      "node": "22.14.0",
+      "pnpm": "11.7.0",
+      "playwright": "1.61.0"
+    },
+    "browsers": {
+      "chromeForTesting": "149.0.7827.55",
+      "firefox": "151.0",
+      "webkit": "26.5"
+    },
+    "power": {
+      "policy": "provider-managed-continuous-power",
+      "telemetry": "not-exposed"
+    },
+    "backgroundLoad": {
+      "preflightObservedAt": "2026-07-10T11:38:00Z",
+      "loadAverage1m": 0.1,
+      "processCount": 120,
+      "accepted": true,
+      "reason": "within-reference-thresholds"
+    }
+  },
+  "dependencyLock": {
+    "path": "pnpm-lock.yaml",
+    "artifact": "artifacts/pnpm-lock.yaml",
+    "sha256": "878a7b60746fb21ffe11029327f29ea50cfc840bfeb9e0b3cbb46a77f828b7e7"
+  },
+  "command": {
+    "cwd": ".",
+    "argv": ["pnpm", "experiment:morph", "--", "--qualify"]
+  },
+  "workload": {
+    "dataset": {
+      "id": "contract-fixture-v1",
+      "artifact": "artifacts/dataset.json",
+      "sha256": "218589323cbe80b7ed077e3ee36f1663e7cb5f8f4e4ad02c938ad8a5c2c5a6b9"
+    },
+    "warmupIterations": 1,
+    "measuredIterations": 2,
+    "concurrency": 1
+  },
+  "measurements": [
+    {
+      "name": "latency",
+      "unit": "ms",
+      "values": [12.5, 13]
+    }
+  ],
+  "failures": [],
+  "artifacts": [
+    {
+      "path": "artifacts/pnpm-lock.yaml",
+      "sha256": "878a7b60746fb21ffe11029327f29ea50cfc840bfeb9e0b3cbb46a77f828b7e7",
+      "bytes": 115
+    },
+    {
+      "path": "artifacts/dataset.json",
+      "sha256": "218589323cbe80b7ed077e3ee36f1663e7cb5f8f4e4ad02c938ad8a5c2c5a6b9",
+      "bytes": 17
+    },
+    {
+      "path": "artifacts/measurements.json",
+      "sha256": "5fc4f4e9e011d639c57b006af48d22e84b8ae29225250a8b5eceb696c1789855",
+      "bytes": 24
+    }
+  ],
+  "validator": {
+    "name": "fadeno-experiment-contract",
+    "version": 1,
+    "schemaId": "https://fadeno.dev/schemas/experiment/result-manifest-v1.json"
+  },
+  "redaction": {
+    "policy": "fadeno-no-secrets-v1",
+    "fieldsRemoved": []
+  },
+  "conclusion": {
+    "status": "pass",
+    "summary": "Contract fixture only; this is not experiment evidence."
+  }
+}

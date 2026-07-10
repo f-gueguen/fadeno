@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "valid": [
+    "valid/complete/manifest.json"
+  ],
+  "mutations": [
+    {
+      "name": "missing-source-commit",
+      "operation": "delete",
+      "pointer": "/source/commit",
+      "stage": "schema",
+      "keyword": "required",
+      "instancePath": "/source"
+    },
+    {
+      "name": "path-escape",
+      "operation": "set",
+      "pointer": "/artifacts/0/path",
+      "value": "../outside.json",
+      "stage": "schema",
+      "keyword": "pattern",
+      "instancePath": "/artifacts/0/path"
+    },
+    {
+      "name": "negative-repetitions",
+      "operation": "set",
+      "pointer": "/workload/measuredIterations",
+      "value": -1,
+      "stage": "schema",
+      "keyword": "minimum",
+      "instancePath": "/workload/measuredIterations"
+    },
+    {
+      "name": "invalid-calendar-timestamp",
+      "operation": "set",
+      "pointer": "/run/startedAt",
+      "value": "2026-02-31T11:39:00Z",
+      "stage": "schema",
+      "keyword": "format",
+      "instancePath": "/run/startedAt"
+    },
+    {
+      "name": "unexpected-secret-property",
+      "operation": "set",
+      "pointer": "/secret",
+      "value": "must-not-be-accepted",
+      "stage": "schema",
+      "keyword": "additionalProperties",
+      "instancePath": ""
+    },
+    {
+      "name": "secret-bearing-summary",
+      "operation": "set",
+      "pointer": "/conclusion/summary",
+      "value": "Authorization: Bearer super-secret-token",
+      "stage": "semantic",
+      "code": "FADENO_K0_SECRET_DETECTED"
+    },
+    {
+      "name": "secret-bearing-command",
+      "operation": "set",
+      "pointer": "/command/argv",
+      "value": ["pnpm", "experiment:morph", "--token=ghp_abcdefghijklmnopqrstuvwxyz123456"],
+      "stage": "semantic",
+      "code": "FADENO_K0_SECRET_DETECTED"
+    },
+    {
+      "name": "secret-bearing-failure",
+      "operation": "append",
+      "pointer": "/failures",
+      "value": {
+        "code": "FIXTURE_SECRET",
+        "message": "Cookie: sessionid=super-secret-session"
+      },
+      "stage": "semantic",
+      "code": "FADENO_K0_SECRET_DETECTED"
+    },
+    {
+      "name": "environment-digest-mismatch",
+      "operation": "set",
+      "pointer": "/environment/container/platformDigest",
+      "value": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "stage": "semantic",
+      "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
+    },
+    {
+      "name": "reference-hardware-mismatch",
+      "operation": "set",
+      "pointer": "/environment/host/logicalCpuCount",
+      "value": 4,
+      "stage": "semantic",
+      "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
+    },
+    {
+      "name": "reference-load-mismatch",
+      "operation": "set",
+      "pointer": "/environment/backgroundLoad/loadAverage1m",
+      "value": 2,
+      "stage": "semantic",
+      "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
+    },
+    {
+      "name": "late-reference-preflight",
+      "operation": "set",
+      "pointer": "/environment/backgroundLoad/preflightObservedAt",
+      "value": "2026-07-10T11:39:01Z",
+      "stage": "semantic",
+      "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
+    },
+    {
+      "name": "stale-reference-preflight",
+      "operation": "set",
+      "pointer": "/environment/backgroundLoad/preflightObservedAt",
+      "value": "2000-01-01T00:00:00Z",
+      "stage": "semantic",
+      "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
+    },
+    {
+      "name": "reference-reason-mismatch",
+      "operation": "set",
+      "pointer": "/environment/backgroundLoad/reason",
+      "value": "self-approved",
+      "stage": "semantic",
+      "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
+    },
+    {
+      "name": "time-order",
+      "operation": "set",
+      "pointer": "/run/completedAt",
+      "value": "2026-07-10T11:38:59Z",
+      "stage": "semantic",
+      "code": "FADENO_K0_TIME_ORDER"
+    },
+    {
+      "name": "command-experiment-mismatch",
+      "operation": "set",
+      "pointer": "/command/argv",
+      "value": ["pnpm", "experiment:extraction", "--", "--qualify"],
+      "stage": "semantic",
+      "code": "FADENO_K0_COMMAND_MISMATCH"
+    },
+    {
+      "name": "run-attempt-mismatch",
+      "operation": "set",
+      "pointer": "/run/attempt",
+      "value": 2,
+      "stage": "semantic",
+      "code": "FADENO_K0_RUN_IDENTITY_MISMATCH"
+    },
+    {
+      "name": "run-commit-mismatch",
+      "operation": "set",
+      "pointer": "/source/commit",
+      "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "stage": "semantic",
+      "code": "FADENO_K0_RUN_IDENTITY_MISMATCH"
+    },
+    {
+      "name": "run-timestamp-mismatch",
+      "operation": "set",
+      "pointer": "/run/startedAt",
+      "value": "2026-07-10T11:39:01Z",
+      "stage": "semantic",
+      "code": "FADENO_K0_RUN_IDENTITY_MISMATCH"
+    },
+    {
+      "name": "failed-background-preflight",
+      "operation": "set",
+      "pointer": "/environment/backgroundLoad/accepted",
+      "value": false,
+      "stage": "semantic",
+      "code": "FADENO_K0_ENVIRONMENT_MISMATCH"
+    },
+    {
+      "name": "artifact-hash-mismatch",
+      "operation": "set",
+      "pointer": "/artifacts/0/sha256",
+      "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "stage": "artifact",
+      "code": "FADENO_K0_ARTIFACT_HASH"
+    },
+    {
+      "name": "dependency-lock-provenance-mismatch",
+      "operation": "set",
+      "pointer": "/dependencyLock/sha256",
+      "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "stage": "artifact",
+      "code": "FADENO_K0_PROVENANCE_MISMATCH"
+    },
+    {
+      "name": "dataset-provenance-mismatch",
+      "operation": "set",
+      "pointer": "/workload/dataset/sha256",
+      "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "stage": "artifact",
+      "code": "FADENO_K0_PROVENANCE_MISMATCH"
+    },
+    {
+      "name": "unknown-experiment",
+      "operation": "set",
+      "pointer": "/experiment/id",
+      "value": "unknown",
+      "stage": "semantic",
+      "code": "FADENO_K0_EXPERIMENT_UNKNOWN"
+    },
+    {
+      "name": "conclusion-mismatch",
+      "operation": "set",
+      "pointer": "/conclusion/status",
+      "value": "fail",
+      "stage": "semantic",
+      "code": "FADENO_K0_CONCLUSION_MISMATCH"
+    },
+    {
+      "name": "passed-without-measurements",
+      "operation": "set",
+      "pointer": "/measurements",
+      "value": [],
+      "stage": "semantic",
+      "code": "FADENO_K0_EVIDENCE_EMPTY"
+    },
+    {
+      "name": "passed-without-artifacts",
+      "operation": "set",
+      "pointer": "/artifacts",
+      "value": [],
+      "stage": "semantic",
+      "code": "FADENO_K0_EVIDENCE_EMPTY"
+    },
+    {
+      "name": "duplicate-measurement",
+      "operation": "append",
+      "pointer": "/measurements",
+      "value": {
+        "name": "latency",
+        "unit": "ms",
+        "values": [14]
+      },
+      "stage": "semantic",
+      "code": "FADENO_K0_MEASUREMENT_DUPLICATE"
+    },
+    {
+      "name": "duplicate-artifact",
+      "operation": "append",
+      "pointer": "/artifacts",
+      "value": {
+        "path": "artifacts/measurements.json",
+        "sha256": "5fc4f4e9e011d639c57b006af48d22e84b8ae29225250a8b5eceb696c1789855",
+        "bytes": 24
+      },
+      "stage": "artifact",
+      "code": "FADENO_K0_ARTIFACT_DUPLICATE"
+    },
+    {
+      "name": "unrecorded-failure-artifact",
+      "operation": "append",
+      "pointer": "/failures",
+      "value": {
+        "code": "SEE_MISSING_ARTIFACT",
+        "message": "Sanitized fixture failure.",
+        "artifact": "artifacts/missing.json"
+      },
+      "stage": "artifact",
+      "code": "FADENO_K0_ARTIFACT_MISSING"
+    },
+    {
+      "name": "missing-artifact",
+      "operation": "set",
+      "pointer": "/artifacts/0/path",
+      "value": "artifacts/missing.json",
+      "stage": "artifact",
+      "code": "FADENO_K0_ARTIFACT_MISSING"
+    }
+  ],
+  "raw": [
+    {
+      "path": "raw/duplicate-key.json",
+      "code": "FADENO_K0_JSON_DUPLICATE_KEY"
+    },
+    {
+      "path": "raw/non-finite.json",
+      "code": "FADENO_K0_JSON_SYNTAX"
+    },
+    {
+      "path": "raw/prototype-key.json",
+      "code": "FADENO_K0_JSON_PROTOTYPE_KEY"
+    },
+    {
+      "path": "raw/truncated.json",
+      "code": "FADENO_K0_JSON_SYNTAX"
+    }
+  ],
+  "synthetic": [
+    "FADENO_K0_JSON_TOO_LARGE",
+    "FADENO_K0_JSON_ENCODING",
+    "FADENO_K0_JSON_BOM",
+    "FADENO_K0_JSON_DEPTH",
+    "FADENO_K0_PATH_ESCAPE"
+  ]
+}
