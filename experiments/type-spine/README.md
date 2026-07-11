@@ -17,6 +17,10 @@ and thresholds in the [K0 plan](../../docs/roadmap/k0.md).
 The K0-07 generator accepts normalized semantic records only. It emits one
 private, inspectable declaration artifact under an ownership manifest, refuses
 unowned or symlinked output, replaces owned output transactionally, and leaves
-byte-identical output untouched. Its fixed candidate names and file layout are
-experiment ABI, not public route, form, context, or package syntax. K0-08 must
-still qualify H3 on the 1,000-route corpus before any GO/NARROW/PIVOT decision.
+byte-identical output untouched. A failed replacement restores the prior owned
+tree or retains its exact backup for explicit recovery. Semantic IDs and keys
+are bounded opaque values that are quoted in output; they do not choose route,
+form, or field naming or cross-category collision policy. The fixed candidate
+names and file layout are experiment ABI, not public route, form, context, or
+package syntax. K0-08 must still qualify H3 on the 1,000-route corpus before any
+GO/NARROW/PIVOT decision.

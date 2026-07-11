@@ -5,6 +5,16 @@ import { fileURLToPath } from "node:url";
 
 export const TYPE_SPINE_CANDIDATE_ABI = "generated/candidate-types.ts";
 
+export type TypeSpineScalar = "boolean" | "number" | "string";
+export type TypeSpineEntry = Readonly<{ key: string; type: TypeSpineScalar }>;
+export type TypeSpineInput = Readonly<{
+  schemaVersion: 1;
+  visibility: "private-harness-control";
+  routes: readonly Readonly<{ id: string; parameters: readonly TypeSpineEntry[] }>[];
+  forms: readonly Readonly<{ id: string; fields: readonly TypeSpineEntry[] }>[];
+  context: readonly TypeSpineEntry[];
+}>;
+
 export const TYPE_SPINE_INPUT = Object.freeze({
   schemaVersion: 1,
   visibility: "private-harness-control",
@@ -23,7 +33,7 @@ export const TYPE_SPINE_INPUT = Object.freeze({
     { key: "actorId", type: "string" },
     { key: "csrfToken", type: "string" },
   ],
-} as const);
+} as const satisfies TypeSpineInput);
 
 export const TYPE_SPINE_VALID_FIXTURES = [
   "valid/action-fields.ts",

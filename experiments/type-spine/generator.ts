@@ -11,19 +11,14 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
-import { TYPE_SPINE_CANDIDATE_ABI } from "./contract.ts";
-
-export type TypeSpineScalar = "boolean" | "number" | "string";
-export type TypeSpineEntry = Readonly<{ key: string; type: TypeSpineScalar }>;
-export type TypeSpineInput = Readonly<{
-  schemaVersion: 1;
-  visibility: "private-harness-control";
-  routes: readonly Readonly<{ id: string; parameters: readonly TypeSpineEntry[] }>[];
-  forms: readonly Readonly<{ id: string; fields: readonly TypeSpineEntry[] }>[];
-  context: readonly TypeSpineEntry[];
-}>;
+import {
+  TYPE_SPINE_CANDIDATE_ABI,
+  type TypeSpineEntry,
+  type TypeSpineInput,
+  type TypeSpineScalar,
+} from "./contract.ts";
 
 export type TypeSpineGeneration = Readonly<{
   files: readonly string[];
@@ -36,8 +31,6 @@ const GENERATOR_VERSION = 1;
 const MAX_ITEMS = 2_000;
 const MAX_ENTRIES = 256;
 const MAX_TEXT_BYTES = 128;
-const safeId = /^[a-z][a-z0-9-]*$/u;
-const safeKey = /^[A-Za-z][A-Za-z0-9]*$/u;
 const forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
 const scalarTypes = new Set<TypeSpineScalar>(["boolean", "number", "string"]);
 
@@ -60,15 +53,31 @@ function assertPlainRecord(value: unknown): asserts value is Record<string, unkn
 }
 
 function assertExactKeys(value: Record<string, unknown>, expected: readonly string[]): void {
-  const actual = Object.keys(value).sort(compareText);
-  const wanted = [...expected].sort(compareText);
-  if (JSON.stringify(actual) !== JSON.stringify(wanted)) fail("INPUT_SHAPE");
+  const actual = Object.keys(value);
+  const wanted = new Set(expected);
+  if (actual.length !== wanted.size || actual.some((key) => !wanted.has(key))) fail("INPUT_SHAPE");
 }
 
-function assertText(value: unknown, pattern: RegExp, code: string): asserts value is string {
+function isWellFormedUnicode(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const unit = value.charCodeAt(index);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!Number.isFinite(next) || next < 0xdc00 || next > 0xdfff) return false;
+      index += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
+  }
+  return true;
+}
+
+function assertOpaqueText(value: unknown, code: string): asserts value is string {
   if (
-    typeof value !== "string" || Buffer.byteLength(value, "utf8") > MAX_TEXT_BYTES ||
-    !pattern.test(value) || [...value].some((character) => character.codePointAt(0)! < 0x20)
+    typeof value !== "string" || Buffer.byteLength(value, "utf8") === 0 ||
+    Buffer.byteLength(value, "utf8") > MAX_TEXT_BYTES || !isWellFormedUnicode(value) ||
+    [...value].some((character) => {
+      const point = character.codePointAt(0)!;
+      return point < 0x20 || (point >= 0x7f && point <= 0x9f);
+    })
   ) fail(code);
 }
 
@@ -77,7 +86,7 @@ function validateEntries(value: unknown, label: string): readonly TypeSpineEntry
   const entries = value.map((candidate) => {
     assertPlainRecord(candidate);
     assertExactKeys(candidate, ["key", "type"]);
-    assertText(candidate.key, safeKey, `${label}_KEY`);
+    assertOpaqueText(candidate.key, `${label}_KEY`);
     if (forbiddenKeys.has(candidate.key)) fail(`${label}_KEY`);
     if (typeof candidate.type !== "string" || !scalarTypes.has(candidate.type as TypeSpineScalar)) {
       fail(`${label}_TYPE`);
@@ -100,17 +109,17 @@ export function normalizeTypeSpineInput(value: unknown): TypeSpineInput {
   const routes = value.routes.map((candidate) => {
     assertPlainRecord(candidate);
     assertExactKeys(candidate, ["id", "parameters"]);
-    assertText(candidate.id, safeId, "ROUTE_ID");
+    assertOpaqueText(candidate.id, "ROUTE_ID");
     return { id: candidate.id, parameters: validateEntries(candidate.parameters, "ROUTE_PARAMETER") };
   }).sort((left, right) => compareText(left.id, right.id));
   const forms = value.forms.map((candidate) => {
     assertPlainRecord(candidate);
     assertExactKeys(candidate, ["id", "fields"]);
-    assertText(candidate.id, safeId, "FORM_ID");
+    assertOpaqueText(candidate.id, "FORM_ID");
     return { id: candidate.id, fields: validateEntries(candidate.fields, "FORM_FIELD") };
   }).sort((left, right) => compareText(left.id, right.id));
-  const ids = [...routes.map(({ id }) => id), ...forms.map(({ id }) => id)];
-  if (new Set(ids).size !== ids.length) fail("SEMANTIC_ID_DUPLICATE");
+  if (new Set(routes.map(({ id }) => id)).size !== routes.length) fail("ROUTE_ID_DUPLICATE");
+  if (new Set(forms.map(({ id }) => id)).size !== forms.length) fail("FORM_ID_DUPLICATE");
 
   return Object.freeze({
     schemaVersion: 1,
@@ -126,8 +135,7 @@ function renderRecord(entries: readonly TypeSpineEntry[]): string {
   return `{ ${entries.map(({ key, type }) => `readonly ${JSON.stringify(key)}: ${type}`).join("; ")} }`;
 }
 
-export function renderTypeSpineCandidate(input: TypeSpineInput): string {
-  const normalized = normalizeTypeSpineInput(input);
+function renderNormalizedCandidate(normalized: TypeSpineInput): string {
   const routeMembers = normalized.routes.map(
     ({ id, parameters }) => `  readonly ${JSON.stringify(id)}: ${renderRecord(parameters)};`,
   );
@@ -161,6 +169,10 @@ export function renderTypeSpineCandidate(input: TypeSpineInput): string {
   ].join("\n");
 }
 
+export function renderTypeSpineCandidate(input: TypeSpineInput): string {
+  return renderNormalizedCandidate(normalizeTypeSpineInput(input));
+}
+
 function stableOwner(candidate: string): string {
   return `${JSON.stringify({
     schemaVersion: 1,
@@ -184,27 +196,22 @@ function assertNoSymlinkComponents(path: string): void {
   }
 }
 
-function inventory(root: string): string[] {
-  const found: string[] = [];
-  const visit = (directory: string): void => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const absolute = join(directory, entry.name);
-      if (entry.isSymbolicLink()) fail("OUTPUT_SYMLINK");
-      if (entry.isDirectory()) visit(absolute);
-      else if (entry.isFile()) found.push(relative(root, absolute).split(sep).join("/"));
-      else fail("OUTPUT_ENTRY");
-    }
-  };
-  visit(root);
-  return found.sort(compareText);
-}
-
 function validateOwnedRoot(root: string): void {
-  const entries = inventory(root);
+  const entries = readdirSync(root, { withFileTypes: true });
   if (entries.length === 0) return;
-  if (JSON.stringify(entries) !== JSON.stringify([OWNER_FILE, TYPE_SPINE_CANDIDATE_ABI].sort(compareText))) {
+  const ownerEntry = entries.find(({ name }) => name === OWNER_FILE);
+  const generatedEntry = entries.find(({ name }) => name === dirname(TYPE_SPINE_CANDIDATE_ABI));
+  if (
+    entries.length !== 2 || ownerEntry?.isFile() !== true || ownerEntry.isSymbolicLink() ||
+    generatedEntry?.isDirectory() !== true || generatedEntry.isSymbolicLink()
+  ) {
     fail("OUTPUT_UNOWNED");
   }
+  const generated = readdirSync(join(root, dirname(TYPE_SPINE_CANDIDATE_ABI)), { withFileTypes: true });
+  if (
+    generated.length !== 1 || generated[0]?.name !== basename(TYPE_SPINE_CANDIDATE_ABI) ||
+    generated[0]?.isFile() !== true || generated[0].isSymbolicLink()
+  ) fail("OUTPUT_UNOWNED");
   let marker: unknown;
   try {
     marker = JSON.parse(readFileSync(join(root, OWNER_FILE), "utf8"));
@@ -231,7 +238,13 @@ function validateOwnedRoot(root: string): void {
   }
 }
 
-export function generateTypeSpine(input: TypeSpineInput, outputRoot: string): TypeSpineGeneration {
+type HarnessFault = "publish" | "publish-and-obstruct-restore";
+
+function generateTypeSpineInternal(
+  input: TypeSpineInput,
+  outputRoot: string,
+  fault?: HarnessFault,
+): TypeSpineGeneration {
   const normalized = normalizeTypeSpineInput(input);
   if (!isAbsolute(outputRoot)) fail("OUTPUT_ABSOLUTE");
   const root = resolve(outputRoot);
@@ -244,7 +257,7 @@ export function generateTypeSpine(input: TypeSpineInput, outputRoot: string): Ty
     validateOwnedRoot(root);
   }
 
-  const candidate = renderTypeSpineCandidate(normalized);
+  const candidate = renderNormalizedCandidate(normalized);
   const owner = stableOwner(candidate);
   if (
     existsSync(join(root, TYPE_SPINE_CANDIDATE_ABI)) &&
@@ -256,6 +269,7 @@ export function generateTypeSpine(input: TypeSpineInput, outputRoot: string): Ty
   const transaction = mkdtempSync(join(parent, `.${basename(root)}-stage-`));
   const stagedRoot = join(transaction, "root");
   const backup = join(transaction, "previous");
+  let preserveTransaction = false;
   try {
     mkdirSync(join(stagedRoot, dirname(TYPE_SPINE_CANDIDATE_ABI)), { recursive: true });
     writeFileSync(join(stagedRoot, TYPE_SPINE_CANDIDATE_ABI), candidate, { encoding: "utf8", flag: "wx" });
@@ -264,13 +278,39 @@ export function generateTypeSpine(input: TypeSpineInput, outputRoot: string): Ty
     const hadRoot = existsSync(root);
     if (hadRoot) renameSync(root, backup);
     try {
+      if (fault !== undefined) throw new Error("FADENO_TYPE_SPINE_INJECTED_PUBLISH_FAILURE");
       renameSync(stagedRoot, root);
     } catch (error: unknown) {
-      if (hadRoot && existsSync(backup) && !existsSync(root)) renameSync(backup, root);
+      if (hadRoot && existsSync(backup)) {
+        if (fault === "publish-and-obstruct-restore") mkdirSync(root);
+        if (!existsSync(root)) {
+          try {
+            renameSync(backup, root);
+          } catch {
+            // The preserved backup below is the recovery contract.
+          }
+        }
+        if (existsSync(backup)) {
+          preserveTransaction = true;
+          throw new Error(`FADENO_TYPE_SPINE_RECOVERY_REQUIRED:${backup}`);
+        }
+      }
       throw error;
     }
     return { files: [TYPE_SPINE_CANDIDATE_ABI], replacements: 1 };
   } finally {
-    rmSync(transaction, { recursive: true, force: true });
+    if (!preserveTransaction) rmSync(transaction, { recursive: true, force: true });
   }
+}
+
+export function generateTypeSpine(input: TypeSpineInput, outputRoot: string): TypeSpineGeneration {
+  return generateTypeSpineInternal(input, outputRoot);
+}
+
+export function generateTypeSpineWithFaultForHarness(
+  input: TypeSpineInput,
+  outputRoot: string,
+  fault: HarnessFault,
+): TypeSpineGeneration {
+  return generateTypeSpineInternal(input, outputRoot, fault);
 }

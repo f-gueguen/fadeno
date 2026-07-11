@@ -10,21 +10,25 @@ K0-07 — establish only the filesystem/type-generation harness
 
 ## Exit criteria
 
-- [ ] A pre-implementation contract locks filesystem roots and route, form,
+- [x] A pre-implementation contract locks filesystem roots and route, form,
   field, and context fixture shapes without choosing DG-V1-02 syntax.
-- [ ] A private generator shell consumes the fixture API through explicit,
+- [x] A private generator shell consumes the fixture API through explicit,
   deterministic inputs and emits only inspectable stock-TypeScript artifacts.
-- [ ] Seeded valid and invalid consumers prove the harness can distinguish
+- [x] Seeded valid and invalid consumers prove the harness can distinguish
   accepted declarations from source-located type errors.
-- [ ] Generated paths are contained and two harness generations are
+- [x] Generated paths are contained and two harness generations are
   byte-identical without claiming H3 qualification.
-- [ ] Frozen install, `pnpm check`, and `pnpm experiment:type-spine -- --list`
+- [x] Frozen install, `pnpm check`, and `pnpm experiment:type-spine -- --list`
   pass with no public package or authoring API.
 
 ## In progress
 
-- K0-07 entry authority is being challenged before the fixture and generator
-  harness contract is locked.
+- The locked semantic-record contract drives one private generated declaration;
+  its stock-TypeScript valid, invalid, missing-output, and permissive-output
+  controls pass with contained transactional generation and hostile-input,
+  ownership, traversal, and symlink refusal coverage.
+- Local frozen install/check and the hosted checks must pass at the final PR
+  head; independent review and merge remain in progress.
 
 ## Blockers
 

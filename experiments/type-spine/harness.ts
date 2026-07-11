@@ -7,8 +7,10 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -22,16 +24,18 @@ import {
   TYPE_SPINE_INPUT,
   TYPE_SPINE_INVALID_FIXTURES,
   TYPE_SPINE_VALID_FIXTURES,
+  TYPE_SPINE_CANDIDATE_ABI,
+  type TypeSpineInput,
 } from "./contract.ts";
 import {
   generateTypeSpine,
-  type TypeSpineInput,
+  generateTypeSpineWithFaultForHarness,
   type TypeSpineGeneration,
 } from "./generator.ts";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const fixturesRoot = join(root, "fixtures");
-const candidatePath = "generated/candidate-types.ts";
+const candidatePath = TYPE_SPINE_CANDIDATE_ABI;
 const tsc = join(dirname(createRequire(import.meta.url).resolve("typescript/package.json")), "bin/tsc");
 
 type TypeScriptRun = Readonly<{ status: number; output: string }>;
@@ -123,7 +127,7 @@ function verifyStockTypeScript(candidate: string, workspace: string): void {
 
 function snapshot(path: string): string {
   if (!existsSync(path)) return "absent";
-  if (lstatSync(path).isSymbolicLink()) return `link:${readFileSync(path, "utf8")}`;
+  if (lstatSync(path).isSymbolicLink()) return `link:${readlinkSync(path)}`;
   if (!lstatSync(path).isDirectory()) return `file:${readFileSync(path).toString("hex")}`;
   const records: string[] = [];
   const visit = (directory: string): void => {
@@ -181,10 +185,11 @@ function verifyRefusals(workspace: string): void {
   mkdirSync(unsafeParent);
   const hostileInputs: readonly unknown[] = [
     { ...TYPE_SPINE_INPUT, routes: [...TYPE_SPINE_INPUT.routes, TYPE_SPINE_INPUT.routes[0]] },
-    { ...TYPE_SPINE_INPUT, routes: [{ id: "../escape", parameters: [] }] },
+    { ...TYPE_SPINE_INPUT, forms: [...TYPE_SPINE_INPUT.forms, TYPE_SPINE_INPUT.forms[0]] },
     { ...TYPE_SPINE_INPUT, routes: [{ id: "route", parameters: [{ key: "__proto__", type: "string" }] }] },
     { ...TYPE_SPINE_INPUT, context: [{ key: "line\nbreak", type: "string" }] },
-    { ...TYPE_SPINE_INPUT, forms: [{ id: 'bad";type Injected=never', fields: [] }] },
+    { ...TYPE_SPINE_INPUT, forms: [{ id: "\ud800", fields: [] }] },
+    { ...TYPE_SPINE_INPUT, context: [{ key: "x".repeat(129), type: "string" }] },
   ];
   hostileInputs.forEach((input, index) => expectRefusal(
     () => generateTypeSpine(input as TypeSpineInput, join(unsafeParent, `output-${index}`)),
@@ -197,10 +202,41 @@ function verifyRefusals(workspace: string): void {
   writeFileSync(join(unowned, "user.txt"), "keep\n");
   expectRefusal(() => generateTypeSpine(TYPE_SPINE_INPUT, unowned), unowned, "unowned root");
 
+  const unownedDirectory = join(workspace, "unowned-directory");
+  mkdirSync(join(unownedDirectory, "keep"), { recursive: true });
+  expectRefusal(
+    () => generateTypeSpine(TYPE_SPINE_INPUT, unownedDirectory),
+    unownedDirectory,
+    "unowned empty directory",
+  );
+
+  const ownedExtraDirectory = join(workspace, "owned-extra-directory");
+  generateTypeSpine(TYPE_SPINE_INPUT, ownedExtraDirectory);
+  mkdirSync(join(ownedExtraDirectory, "keep"));
+  expectRefusal(
+    () => generateTypeSpine(TYPE_SPINE_INPUT, ownedExtraDirectory),
+    ownedExtraDirectory,
+    "owned root with extra empty directory",
+  );
+
   const tampered = join(workspace, "tampered");
   generateTypeSpine(TYPE_SPINE_INPUT, tampered);
   writeFileSync(join(tampered, candidatePath), "tampered\n");
   expectRefusal(() => generateTypeSpine(TYPE_SPINE_INPUT, tampered), tampered, "tampered owned root");
+
+  for (const [index, path] of ["/absolute.ts", "../escape.ts", "generated\\candidate-types.ts"].entries()) {
+    const markerRoot = join(workspace, `tampered-marker-${index}`);
+    generateTypeSpine(TYPE_SPINE_INPUT, markerRoot);
+    const markerPath = join(markerRoot, ".fadeno-type-spine-owner.json");
+    const marker = JSON.parse(readFileSync(markerPath, "utf8")) as { files: [{ path: string }] };
+    marker.files[0].path = path;
+    writeFileSync(markerPath, `${JSON.stringify(marker)}\n`);
+    expectRefusal(
+      () => generateTypeSpine(TYPE_SPINE_INPUT, markerRoot),
+      markerRoot,
+      `tampered marker path ${index}`,
+    );
+  }
 
   const target = join(workspace, "symlink-target");
   mkdirSync(target);
@@ -220,6 +256,66 @@ function verifyRefusals(workspace: string): void {
   mkdirSync(stale);
   symlinkSync(join(workspace, "outside"), join(stale, "generated"), "dir");
   expectRefusal(() => generateTypeSpine(TYPE_SPINE_INPUT, stale), stale, "stale symlink entry");
+
+  expectRefusal(
+    () => generateTypeSpine(TYPE_SPINE_INPUT, "relative-output"),
+    workspace,
+    "relative output root",
+  );
+}
+
+function verifyOpaqueSemantics(workspace: string): void {
+  const sharedId = 'shared / 日本語 ! " quoted';
+  const opaque: TypeSpineInput = {
+    ...TYPE_SPINE_INPUT,
+    routes: [{ id: sharedId, parameters: [{ key: "opaque key", type: "string" }] }],
+    forms: [{ id: sharedId, fields: [{ key: "quoted field", type: "boolean" }] }],
+    context: [{ key: "context value", type: "number" }],
+  };
+  const output = join(workspace, "opaque-semantics");
+  generateTypeSpine(opaque, output);
+  const source = readFileSync(join(output, candidatePath), "utf8");
+  if (!source.includes(JSON.stringify(sharedId)) || !source.includes(JSON.stringify("opaque key"))) {
+    fail("opaque semantic values were not safely quoted");
+  }
+  const compiled = runTypeScript([join(output, candidatePath)]);
+  if (compiled.status !== 0 || compiled.output !== "") {
+    fail(`opaque semantic declaration failed stock TypeScript\n${compiled.output}`);
+  }
+}
+
+function verifyTransactionRecovery(workspace: string): void {
+  const output = join(workspace, "transaction-recovery");
+  generateTypeSpine(TYPE_SPINE_INPUT, output);
+  const before = snapshot(output);
+  try {
+    generateTypeSpineWithFaultForHarness(alternateInput(TYPE_SPINE_INPUT), output, "publish");
+    fail("injected publish failure was accepted");
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.endsWith("was accepted")) throw error;
+  }
+  if (snapshot(output) !== before) fail("publish failure did not restore the original output");
+
+  let recovery = "";
+  try {
+    generateTypeSpineWithFaultForHarness(
+      alternateInput(TYPE_SPINE_INPUT),
+      output,
+      "publish-and-obstruct-restore",
+    );
+    fail("injected restoration obstruction was accepted");
+  } catch (error: unknown) {
+    const prefix = "FADENO_TYPE_SPINE_RECOVERY_REQUIRED:";
+    if (error instanceof Error && error.message.startsWith(prefix)) recovery = error.message.slice(prefix.length);
+    else throw error;
+  }
+  if (recovery === "" || snapshot(recovery) !== before) {
+    fail("restoration obstruction did not preserve a recoverable backup");
+  }
+  rmSync(output, { recursive: true, force: true });
+  renameSync(recovery, output);
+  if (snapshot(output) !== before) fail("preserved backup could not recover the original output");
+  rmSync(dirname(recovery), { recursive: true, force: true });
 }
 
 export function executeTypeSpineHarness(): TypeSpineGeneration {
@@ -230,15 +326,28 @@ export function executeTypeSpineHarness(): TypeSpineGeneration {
     if (first.replacements !== 1) fail("first generation did not publish");
     const firstBytes = snapshot(outputA);
     const candidate = readFileSync(join(outputA, candidatePath), "utf8");
-    const mtime = statSync(join(outputA, candidatePath), { bigint: true }).mtimeNs;
+    const candidateMtime = statSync(join(outputA, candidatePath), { bigint: true }).mtimeNs;
+    const ownerMtime = statSync(join(outputA, ".fadeno-type-spine-owner.json"), { bigint: true }).mtimeNs;
     const noChange = generateTypeSpine(TYPE_SPINE_INPUT, outputA);
     if (
       noChange.replacements !== 0 || snapshot(outputA) !== firstBytes ||
-      statSync(join(outputA, candidatePath), { bigint: true }).mtimeNs !== mtime
+      statSync(join(outputA, candidatePath), { bigint: true }).mtimeNs !== candidateMtime ||
+      statSync(join(outputA, ".fadeno-type-spine-owner.json"), { bigint: true }).mtimeNs !== ownerMtime
     ) fail("unchanged generation rewrote output");
 
     const outputReversed = join(workspace, "output-reversed");
-    generateTypeSpine(reverseInput(TYPE_SPINE_INPUT), outputReversed);
+    const previousEnvironment = { TZ: process.env.TZ, LANG: process.env.LANG, LC_ALL: process.env.LC_ALL };
+    try {
+      process.env.TZ = "Pacific/Kiritimati";
+      process.env.LANG = "tr_TR.UTF-8";
+      process.env.LC_ALL = "tr_TR.UTF-8";
+      generateTypeSpine(reverseInput(TYPE_SPINE_INPUT), outputReversed);
+    } finally {
+      for (const [key, value] of Object.entries(previousEnvironment)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
     if (snapshot(outputReversed) !== firstBytes) fail("input ordering changed generated bytes");
 
     const alternate = alternateInput(TYPE_SPINE_INPUT);
@@ -252,7 +361,9 @@ export function executeTypeSpineHarness(): TypeSpineGeneration {
     if (snapshot(outputA) !== firstBytes) fail("A-B-A generation did not reproduce exact output");
 
     verifyStockTypeScript(candidate, workspace);
+    verifyOpaqueSemantics(workspace);
     verifyRefusals(workspace);
+    verifyTransactionRecovery(workspace);
     return first;
   } finally {
     rmSync(workspace, { recursive: true, force: true });
