@@ -2,7 +2,8 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertStableLocalCiSnapshot, LOCAL_CI_STEPS } from "./lib/local-ci-contract.ts";
+import type { LocalCiStep } from "./lib/local-ci-contract.ts";
+import { runLocalCi } from "./lib/local-ci-runner.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -13,40 +14,20 @@ function gitOutput(args: readonly string[]): string {
   return result.stdout.trim();
 }
 
-function gitHead(root: string): string {
-  void root;
-  return gitOutput(["rev-parse", "HEAD"]);
-}
-
-function gitStatus(root: string): string {
-  void root;
-  return gitOutput(["status", "--porcelain=v1", "--untracked-files=all"]);
-}
-
-function assertRepository(expectedHead: string, stage: string): void {
-  assertStableLocalCiSnapshot(expectedHead, gitHead(root), gitStatus(root), stage);
-}
-
-function run(): void {
-  if (process.argv.length !== 2) {
-    console.error(`FADENO_LOCAL_CI_USAGE: unsupported arguments: ${process.argv.slice(2).join(" ")}`);
-    process.exitCode = 64;
-    return;
-  }
-  const startHead = gitHead(root);
-  assertRepository(startHead, "start");
-  for (const step of LOCAL_CI_STEPS) {
-    const result = spawnSync("pnpm", [...step.args], { cwd: root, stdio: "inherit" });
-    if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error(`FADENO_LOCAL_CI_STEP:${step.name}`);
-    assertRepository(startHead, step.name);
-  }
-  console.log(`local CI passed at ${startHead}`);
-}
-
 try {
-  run();
+  runLocalCi({
+    gitHead: () => gitOutput(["rev-parse", "HEAD"]),
+    gitStatus: () => gitOutput(["status", "--porcelain=v1", "--untracked-files=all"]),
+    runStep: (step: LocalCiStep) => {
+      const result = spawnSync("pnpm", [...step.args], { cwd: root, stdio: "inherit" });
+      if (result.error) throw result.error;
+      if (result.status !== 0) throw new Error(`FADENO_LOCAL_CI_STEP:${step.name}`);
+    },
+    report: (message) => console.log(message),
+  }, process.argv.slice(2));
 } catch (error: unknown) {
   console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
+  process.exitCode = error instanceof Error && error.message.startsWith("FADENO_LOCAL_CI_USAGE:")
+    ? 64
+    : 1;
 }

@@ -10,7 +10,7 @@
   "scripts": {
     "check:experiment-contract": "node --no-warnings --experimental-strip-types scripts/check-experiment-contract.ts && node --no-warnings --experimental-strip-types scripts/test-experiment-contract.ts",
     "check:reference-image": "node --no-warnings --experimental-strip-types scripts/check-reference-image.ts",
-    "check:browser-reference": "node --no-warnings --experimental-strip-types scripts/check-browser-reference.ts",
+    "check:browser-reference": "node --no-warnings --experimental-strip-types scripts/check-browser-reference.ts && node --no-warnings --experimental-strip-types scripts/test-browser-reference.ts",
     "check:morph-harness": "node --no-warnings --experimental-strip-types scripts/check-morph-harness.ts && node --no-warnings --experimental-strip-types scripts/check-morph-qualification.ts && tsc -p experiments/morph/tsconfig.json && tsc -p experiments/morph/tsconfig.checker.json",
     "check:extraction-harness": "node --no-warnings --experimental-strip-types scripts/check-extraction-harness.ts && tsc -p experiments/extraction/tsconfig.json",
     "check:extraction-candidate": "node --no-warnings --experimental-strip-types scripts/check-extraction-candidate.ts",

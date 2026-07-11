@@ -10,22 +10,22 @@ GOV-01 — replace unavailable hosted merge validation with local validation
 
 ## Exit criteria
 
-- [ ] ADR 0016 records the maintainer-operated, commit-bound merge gate without
+- [x] ADR 0016 records the maintainer-operated, commit-bound merge gate without
   changing K0 reference qualification.
-- [ ] `pnpm ci:local` refuses dirty or changing state and runs frozen install
+- [x] `pnpm ci:local` refuses dirty or changing state and runs frozen install
   before the complete repository check.
-- [ ] Mutation tests lock command ownership, order, documentation, and absence
+- [x] Mutation tests lock command ownership, order, documentation, and absence
   of active hosted workflows.
-- [ ] Historical hosted evidence, immutable results, and the frozen K0
+- [x] Historical hosted evidence, immutable results, and the frozen K0
   reference environment remain unchanged.
-- [ ] The exact final commit passes `pnpm ci:local` before review and merge.
+- [x] The exact final commit passes `pnpm ci:local` before review and merge.
 
 ## In progress
 
-- GitHub Actions cannot allocate runners because of account billing; its jobs
-  fail before checkout and provide no execution evidence.
-- The local replacement is limited to repository merge validation. K0 reference
-  qualification remains a separate versioned-environment decision.
+- The clean final commit runs the local merge gate; independent review and
+  merge remain in progress.
+- K0 reference qualification remains a separate versioned-environment decision
+  and is not satisfied by local merge validation.
 
 ## Blockers
 

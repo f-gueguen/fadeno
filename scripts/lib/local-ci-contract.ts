@@ -4,6 +4,7 @@ import { join } from "node:path";
 export const LOCAL_CI_COMMAND = "pnpm ci:local";
 export const LOCAL_CI_PACKAGE_SCRIPT =
   "node --no-warnings --experimental-strip-types scripts/local-ci.ts";
+export type LocalCiStep = Readonly<{ name: string; args: readonly string[] }>;
 export const LOCAL_CI_STEPS = Object.freeze([
   Object.freeze({ name: "frozen-install", args: Object.freeze(["install", "--frozen-lockfile"]) }),
   Object.freeze({ name: "repository-check", args: Object.freeze(["check"]) }),
@@ -11,7 +12,6 @@ export const LOCAL_CI_STEPS = Object.freeze([
 
 export type LocalCiProjection = {
   packageJson: { scripts?: Record<string, string> };
-  runnerSource: string;
   contributorWorkflow: string;
   pullRequestTemplate: string;
   readme: string;
@@ -37,7 +37,6 @@ export function loadLocalCiProjection(root: string): LocalCiProjection {
   ) as { host?: { provider?: unknown } };
   return {
     packageJson: JSON.parse(readFileSync(join(root, "package.json"), "utf8")),
-    runnerSource: readFileSync(join(root, "scripts/local-ci.ts"), "utf8"),
     contributorWorkflow: readFileSync(join(root, "docs/contributor-workflow.md"), "utf8"),
     pullRequestTemplate: readFileSync(join(root, ".github/pull_request_template.md"), "utf8"),
     readme: readFileSync(join(root, "README.md"), "utf8"),
@@ -64,22 +63,16 @@ export function validateLocalCiProjection(
   if ((check.match(/pnpm check:local-ci-contract/gu) ?? []).length !== 1) {
     errors.push("package: main check must consume local CI contract once");
   }
-  if (JSON.stringify(steps) !== JSON.stringify(LOCAL_CI_STEPS)) {
+  const lockedSteps = JSON.stringify([
+    { name: "frozen-install", args: ["install", "--frozen-lockfile"] },
+    { name: "repository-check", args: ["check"] },
+  ]);
+  if (JSON.stringify(steps) !== lockedSteps) {
     errors.push("contract: local CI steps or order differ");
   }
-  for (const token of [
-    "LOCAL_CI_STEPS",
-    "gitHead(root)",
-    "gitStatus(root)",
-    "assertStableLocalCiSnapshot",
-    'stdio: "inherit"',
-  ]) {
-    if (!projection.runnerSource.includes(token)) errors.push(`runner: missing ${token}`);
+  if (steps.some((step) => step.args.some((argument) => argument.includes("qualify")))) {
+    errors.push("contract: local merge validation must remain non-reference");
   }
-  if (
-    projection.runnerSource.includes("FADENO_EXPECT_REFERENCE") ||
-    projection.runnerSource.includes("--qualify")
-  ) errors.push("runner: local merge validation must remain non-reference");
   for (const [path, content] of [
     ["README.md", projection.readme],
     ["docs/contributor-workflow.md", projection.contributorWorkflow],
