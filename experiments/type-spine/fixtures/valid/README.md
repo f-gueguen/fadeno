@@ -1,3 +1,3 @@
 # Valid type-spine fixtures
 
-Reserved for K0-07 stock-TypeScript consumers that must compile.
+K0-07 consumers that must compile under the pinned stock TypeScript compiler.
