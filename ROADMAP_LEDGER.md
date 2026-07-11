@@ -6,28 +6,26 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-05 — extraction and module-graph harness
+K0-06 — qualify H2 extraction and refusal diagnostics
 
 ## Exit criteria
 
-- [x] The reviewed accepted/rejected interaction corpus is locked before an
-  extraction candidate is implemented.
-- [x] The three-engine harness proves browser identity, module/network
-  observation, and stable diagnostics with seeded passing and failing controls.
-- [x] The slice adds no public extraction API and makes no H2 viability claim.
-- [x] `pnpm install --frozen-lockfile`, `pnpm check`, and the K0-05 harness
-  command pass in the required environments.
+- [ ] The pre-candidate qualification contract locks real server roots, nested
+  selected closures, decision outcomes, diagnostics, 100 ordinals, and the H1
+  identity-operation inventory.
+- [ ] A checker-backed private candidate classifies the complete graph before
+  transactional emission and produces deterministic, contained artifacts.
+- [ ] Chromium, Firefox, and WebKit complete the locked accepted/rejected and
+  handler-identity matrix with no retries in the reference environment.
+- [ ] Immutable raw evidence and a go/narrow/pivot ADR resolve H2 and DG-V3-01
+  without publishing experiment syntax or packages.
+- [ ] Frozen install, `pnpm check`, and `pnpm experiment:extraction -- --qualify`
+  pass for the pinned code and evidence commits.
 
 ## In progress
 
-- The exact 5 accepted and 10 rejected TypeScript qualification sources,
-  support declarations, hashes, private source-grounded module roles/edges,
-  triggers, and classifications are locked separately from the executable seed.
-- The seed runs in Chromium, Firefox, and WebKit and retains actual browser
-  identity, response bodies/content types/hashes, request timing, no-JavaScript
-  baseline, stable refusal diagnostic, and canary boundary evidence.
-- Local frozen install/check and the hosted `check` and `extraction-harness`
-  jobs pass at the current PR head; final review and merge remain in progress.
+- Pre-implementation challenge findings are being incorporated into the locked
+  K0-06 qualification contract before candidate code is added.
 
 ## Blockers
 
@@ -62,3 +60,7 @@ K0-05 — extraction and module-graph harness
   document/element scroll while retaining the 16 passing preservation classes;
   exact failure signatures, portable evidence, and immutable result manifests
   gate any later change without creating a public patch protocol.
+- K0-05 — The locked 5/10 TypeScript corpus and separate executable seed prove
+  actual three-engine browser identity, response/module/request evidence, and a
+  canary-bearing refusal boundary in merged commit `04792c5`, without an
+  extractor, H2 decision, or public API.

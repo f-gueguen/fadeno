@@ -20,3 +20,10 @@ not a qualification case and its shared-module edge is not imposed on the corpus
 Both inventories are private experiment input, not
 an accepted extraction syntax or external schema. No analyzer, extractor,
 result, qualification decision, or public export exists yet.
+
+K0-06 adds a separately golden-bound companion root containing the private
+`seedInteraction` experiment marker, nested closures, one positive plain-data
+capture, and deliberately unrelated imports. Its pre-locked decision policy is:
+GO only at 5/5; NARROW only when tabs alone fails and the four named core classes
+plus every boundary pass; PIVOT on any core, identity, boundary, determinism, or
+generation-safety failure.
