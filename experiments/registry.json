@@ -40,7 +40,7 @@
       "command": "pnpm experiment:type-spine",
       "harnessSlice": "K0-07",
       "qualificationSlice": "K0-08",
-      "status": "planned"
+      "status": "available"
     }
   ]
 }

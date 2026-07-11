@@ -97,8 +97,12 @@ if (TYPE_SPINE_CANDIDATE_ABI !== "generated/candidate-types.ts") {
 const registry = readJsonDocument(join(root, "experiments/registry.json"));
 const entry = registry.experiments.find((item: { id: string }) => item.id === "type-spine");
 const packageJson = readJsonDocument(join(root, "package.json"));
-if (entry?.status !== "planned" || packageJson.scripts["experiment:type-spine"] !== undefined) {
-  throw new Error("K0-07 pre-candidate contract exposed an experiment command");
+if (
+  entry?.status !== "available" ||
+  packageJson.scripts["experiment:type-spine"] !==
+    "node --no-warnings --experimental-strip-types experiments/type-spine/run.ts"
+) {
+  throw new Error("K0-07 type-spine experiment command differs");
 }
 
-console.log("type-spine pre-candidate contract passed (4 valid, 4 invalid fixtures)");
+console.log("type-spine contract passed (4 valid, 4 invalid fixtures)");
