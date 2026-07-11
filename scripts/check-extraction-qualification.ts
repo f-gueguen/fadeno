@@ -6,6 +6,7 @@ import { EXTRACTION_ACCEPTED_CLASSES } from "../experiments/extraction/fixtures/
 import { EXTRACTION_IDENTITY_CASES } from "../experiments/extraction/qualification-contract.ts";
 import {
   decideExtractionOutcome,
+  decideExtractionObservations,
   expectedInteractionState,
   verifyExtractionQualificationObservation,
 } from "../experiments/extraction/qualification-proof.ts";
@@ -15,6 +16,9 @@ import type {
 } from "../experiments/extraction/qualification-proof.ts";
 import { verifyExtractionQualificationReport } from "../experiments/extraction/qualification-report.ts";
 import type { ExtractionQualificationReport } from "../experiments/extraction/qualification-report.ts";
+import { MORPH_QUALIFICATION_CASES } from "../experiments/morph/fixtures/qualification-corpus.ts";
+import { createMorphQualificationScenario } from "../experiments/morph/qualification-scenarios.ts";
+import { expectedMorphQualificationState } from "../experiments/morph/qualification-state.ts";
 
 const moduleBodies = new Map(
   EXTRACTION_ACCEPTED_CLASSES.map((fixtureId) => [
@@ -37,6 +41,32 @@ const inventory: GeneratedInventory = {
   }),
 };
 
+function syntheticScenarioState(state: (typeof EXTRACTION_IDENTITY_CASES)[number]["state"]) {
+  const expected = expectedMorphQualificationState(state);
+  if (expected) return expected;
+  if (state === "dirty-file") return {
+    name: "qualification.txt",
+    contentType: "text/plain",
+    bytes: 18,
+    lastModified: 1,
+    text: "fadeno-k0-04-file\n",
+    sameFile: true,
+  };
+  if (state === "media-playing") return {
+    paused: false,
+    currentTime: 0.25,
+    readyState: 4,
+    playbackRate: 0.5,
+  };
+  if (state === "media-paused") return {
+    paused: true,
+    currentTime: 0.25,
+    readyState: 4,
+    playbackRate: 1,
+  };
+  throw new Error(`missing synthetic scenario state: ${state}`);
+}
+
 function observation(project: ExtractionProject): ExtractionQualificationObservation {
   const inventoryByFixture = new Map(inventory.files.map((file) => [file.fixtureId, file]));
   return {
@@ -47,6 +77,7 @@ function observation(project: ExtractionProject): ExtractionQualificationObserva
       const generated = inventoryByFixture.get(fixtureId)!;
       const body = moduleBodies.get(fixtureId)!;
       return {
+        status: "passed" as const,
         fixtureId,
         preTriggerRequests: ["/", "/document.js"],
         firstTriggerRequests: [`/handlers/${fixtureId}.js`],
@@ -68,7 +99,25 @@ function observation(project: ExtractionProject): ExtractionQualificationObserva
           after: expectedInteractionState(fixtureId, index + 1),
           effects: index + 1,
         })),
-        identity: EXTRACTION_IDENTITY_CASES.map((identityCase, index) => ({
+        identity: EXTRACTION_IDENTITY_CASES.map((identityCase, index) => {
+          const morphFixture = MORPH_QUALIFICATION_CASES.find(
+            (item) => item.id === identityCase.id,
+          );
+          if (!morphFixture) throw new Error(`missing synthetic H1 case: ${identityCase.id}`);
+          const scenario = createMorphQualificationScenario(morphFixture);
+          const beforeOrder = scenario.operationParentIdentity === "root"
+            ? [...scenario.beforeOrder, "handler-trigger"]
+            : scenario.beforeOrder;
+          const afterOrder = scenario.operationParentIdentity === "root"
+            ? [...scenario.afterOrder, "handler-trigger"]
+            : scenario.afterOrder;
+          const scenarioState = syntheticScenarioState(identityCase.state);
+          const scenarioStateAfter = identityCase.state === "document-scroll"
+            ? { x: 0, y: 380 }
+            : identityCase.state === "element-scroll"
+              ? { left: 0, top: 140 }
+              : scenarioState;
+          return {
           caseId: identityCase.id,
           operation: identityCase.operation,
           ordinal: 101 + index,
@@ -76,14 +125,19 @@ function observation(project: ExtractionProject): ExtractionQualificationObserva
           scenarioTargetSame: true,
           reusedScenarioTarget: true,
           scenarioState: identityCase.state,
-          scenarioStatePass: true,
-          beforeOrder: ["before"],
-          afterOrder: ["after"],
+          scenarioStateBefore: scenarioState,
+          scenarioStateAfter,
+          scenarioObservationMilliseconds: 1,
+          targetIdentity: scenario.fixture.targetIdentity,
+          operationParentIdentity: scenario.operationParentIdentity,
+          beforeOrder,
+          afterOrder,
           handlerReferenceStable: true,
           moduleEvaluations: 1,
           effectDelta: 1,
           after: expectedInteractionState(fixtureId, 101 + index),
-        })),
+          };
+        }),
       };
     }),
   };
@@ -96,13 +150,35 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function observationDecisionWithFailure(fixtureId: string) {
+  const observations = new Map(EXTRACTION_PROJECTS.map((project) => {
+    const original = clone(observation(project));
+    const value = {
+      ...original,
+      fixtures: original.fixtures.map((fixture) => fixture.fixtureId === fixtureId
+        ? { status: "failed" as const, fixtureId: fixture.fixtureId, failure: "seeded" }
+        : fixture),
+    };
+    return [project, value] as const;
+  }));
+  return decideExtractionObservations(observations, {
+    rejectedBoundariesPass: true,
+    identityPass: true,
+    deterministicGenerationPass: true,
+    outputSafetyPass: true,
+  }).decision;
+}
+
 for (const [name, mutate] of [
   ["missing ordinal", (value: any) => { value.fixtures[0].interactions.pop(); }],
   ["wrong state", (value: any) => { value.fixtures[0].interactions[4].after = { expanded: false, hidden: false }; }],
   ["early handler", (value: any) => { value.fixtures[0].preTriggerRequests.push("/handlers/toggle.js"); }],
   ["module reevaluation", (value: any) => { value.fixtures[0].moduleEvaluations = 2; }],
   ["lost target", (value: any) => { value.fixtures[0].identity[0].targetSame = false; }],
-  ["lost scenario state", (value: any) => { value.fixtures[0].identity[0].scenarioStatePass = false; }],
+  ["lost scenario state", (value: any) => { value.fixtures[0].identity[0].scenarioStateAfter.focused = false; }],
+  ["wrong scenario order", (value: any) => { value.fixtures[0].identity[0].afterOrder.reverse(); }],
+  ["wrong scenario identity", (value: any) => { value.fixtures[0].identity[0].scenarioTargetSame = false; }],
+  ["unreported reuse", (value: any) => { value.fixtures[0].identity[0].reusedScenarioTarget = false; }],
   ["repeat request", (value: any) => { value.fixtures[0].laterRequests.push("/handlers/toggle.js"); }],
   ["response divergence", (value: any) => { value.fixtures[0].response.body += "// divergent\n"; }],
   ["browser mismatch", (value: any) => { value.observedBrowser = "firefox"; }],
@@ -166,7 +242,9 @@ if (
   decideExtractionOutcome({ accepted: all, rejectedBoundariesPass: true, identityPass: true, deterministicGenerationPass: true, outputSafetyPass: true }) !== "go" ||
   decideExtractionOutcome({ accepted: ["toggle", "disclosure", "menu", "local-counter"], rejectedBoundariesPass: true, identityPass: true, deterministicGenerationPass: true, outputSafetyPass: true }) !== "narrow" ||
   decideExtractionOutcome({ accepted: ["toggle", "disclosure", "tabs", "menu"], rejectedBoundariesPass: true, identityPass: true, deterministicGenerationPass: true, outputSafetyPass: true }) !== "pivot" ||
-  decideExtractionOutcome({ accepted: all, rejectedBoundariesPass: false, identityPass: true, deterministicGenerationPass: true, outputSafetyPass: true }) !== "pivot"
+  decideExtractionOutcome({ accepted: all, rejectedBoundariesPass: false, identityPass: true, deterministicGenerationPass: true, outputSafetyPass: true }) !== "pivot" ||
+  observationDecisionWithFailure("tabs") !== "narrow" ||
+  observationDecisionWithFailure("toggle") !== "pivot"
 ) throw new Error("K0-06 decision table differs");
 
-console.log("extraction qualification verifier passed (9 observation, 5 report, 4 decision mutations)");
+console.log("extraction qualification verifier passed (12 observation, 5 report, 6 decision controls)");

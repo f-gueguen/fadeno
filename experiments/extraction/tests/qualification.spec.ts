@@ -6,7 +6,10 @@ import { join } from "node:path";
 
 import { applyPrivateMorphCandidate } from "../../morph/candidate.ts";
 import { MORPH_QUALIFICATION_CASES } from "../../morph/fixtures/qualification-corpus.ts";
-import { createMorphQualificationScenario } from "../../morph/qualification-scenarios.ts";
+import {
+  createMorphQualificationScenario,
+  MORPH_QUALIFICATION_PAGE_STYLE,
+} from "../../morph/qualification-scenarios.ts";
 import {
   morphQualificationStatePreserved,
   prepareMorphQualificationState,
@@ -25,6 +28,7 @@ import type {
   ExtractionQualificationObservation,
   GeneratedInventory,
   InteractionState,
+  PassedExtractionQualificationFixture,
 } from "../qualification-proof.ts";
 
 const ORIGIN = "https://extraction-qualification.invalid";
@@ -63,7 +67,7 @@ function documentModule(
   const adapter = adapters[fixtureId];
   return [
     `const snapshot = () => ${adapter.snapshot};`,
-    'const trigger = document.querySelector("#trigger");',
+    'const trigger = document.querySelector("#handler-trigger");',
     "let modulePromise;",
     "let initialHandler;",
     "let ordinal = 0;",
@@ -116,7 +120,7 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
     const handlerPath = join(generatedRoot, `${fixtureId}.js`);
     const handlerBody = readFileSync(handlerPath);
     const requests: string[] = [];
-    const responseTasks: Promise<ExtractionQualificationObservation["fixtures"][number]["response"]>[] = [];
+    const responseTasks: Promise<PassedExtractionQualificationFixture["response"]>[] = [];
     const page = await browser.newPage({ serviceWorkers: "block" });
     page.on("response", (response: Response) => {
       if (pathOf(response.url()) !== `/handlers/${fixtureId}.js`) return;
@@ -138,7 +142,7 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         await route.fulfill({
           status: 200,
           contentType: "text/html",
-          body: `<!doctype html><html><body><main id="identity-root"><section id="extraction-ui">${adapters[fixtureId].html}</section></main><script type="module" src="/document.js"></script></body></html>`,
+          body: `<!doctype html><html><head><style>${MORPH_QUALIFICATION_PAGE_STYLE}#handler-trigger{position:fixed;right:0;top:0}</style></head><body><main id="identity-root"><button id="handler-trigger">Run handler</button><section id="extraction-ui">${adapters[fixtureId].html}</section></main><script type="module" src="/document.js"></script></body></html>`,
         });
       } else if (path === "/document.js") {
         await route.fulfill({ status: 200, contentType: "text/javascript", body: documentModule(fixtureId) });
@@ -148,12 +152,13 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         await route.abort("blockedbyclient");
       }
     });
+    try {
     await page.goto(`${ORIGIN}/`);
     const preTriggerRequests = [...requests];
-    const interactions: ExtractionQualificationObservation["fixtures"][number]["interactions"][number][] = [];
+    const interactions: PassedExtractionQualificationFixture["interactions"][number][] = [];
     for (let ordinal = 1; ordinal <= 100; ordinal += 1) {
       const beforeRequests = requests.length;
-      await page.locator("#trigger").click();
+      await page.locator("#handler-trigger").click();
       await expect.poll(() => page.evaluate(() =>
         (globalThis as typeof globalThis & { __fadenoLast?: { ordinal: number } })
           .__fadenoLast?.ordinal
@@ -174,7 +179,10 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
       interactions.push(record);
       if (ordinal > 1) expect(requests.slice(beforeRequests)).toEqual([]);
     }
-    const identity: ExtractionQualificationObservation["fixtures"][number]["identity"][number][] = [];
+    if (process.env.FADENO_EXTRACTION_SEEDED_FAILURE === fixtureId) {
+      throw new Error(`FADENO_EXTRACTION_SEEDED_ACCEPTED_FAILURE: ${fixtureId}`);
+    }
+    const identity: PassedExtractionQualificationFixture["identity"][number][] = [];
     for (let index = 0; index < EXTRACTION_IDENTITY_CASES.length; index += 1) {
       const identityCase = EXTRACTION_IDENTITY_CASES[index]!;
       const morphFixture = MORPH_QUALIFICATION_CASES.find((item) => item.id === identityCase.id);
@@ -186,13 +194,19 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
           __fadenoTriggerNode?: Element;
           __fadenoScenarioTarget?: Element;
         };
-        const ui = document.querySelector("#extraction-ui");
+        const handlerTrigger = document.querySelector("#handler-trigger");
         const identityHost = document.querySelector("#identity-root");
-        if (!ui || !identityHost) throw new Error("identity UI root is absent");
+        if (!handlerTrigger || !identityHost) throw new Error("identity trigger is absent");
         const template = document.createElement("template");
-        template.innerHTML = value.currentHtml;
+        template.innerHTML = value.currentHtml.replace(
+          "</main>",
+          `${handlerTrigger.outerHTML}</main>`,
+        );
         const nextRoot = template.content.querySelector("#root");
         if (!nextRoot) throw new Error("identity scenario root is absent");
+        const triggerPlaceholder = nextRoot.querySelector("#handler-trigger");
+        if (!triggerPlaceholder) throw new Error("identity trigger placeholder is absent");
+        triggerPlaceholder.replaceWith(handlerTrigger);
         const currentScenario = document.querySelector("#root");
         if (currentScenario) currentScenario.replaceWith(nextRoot);
         else identityHost.prepend(nextRoot);
@@ -201,9 +215,12 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         if (!scenarioTarget || !operationParent) throw new Error("identity target is absent");
         state.__fadenoScenarioTarget = scenarioTarget;
         return {
-          replacementHtml: value.replacementHtml,
+          replacementHtml: value.replacementHtml.replace(
+            "</main>",
+            `${handlerTrigger.outerHTML}</main>`,
+          ),
           beforeOrder: Array.from(operationParent.children).map((child) => child.id),
-          triggerSame: state.__fadenoTriggerNode === document.querySelector("#trigger"),
+          triggerSame: state.__fadenoTriggerNode === document.querySelector("#handler-trigger"),
         };
       }, {
         currentHtml: scenario.currentHtml,
@@ -211,20 +228,39 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         targetIdentity: scenario.fixture.targetIdentity,
         operationParentIdentity: scenario.operationParentIdentity,
       });
-      expect(prepared.beforeOrder).toEqual(scenario.beforeOrder);
+      const beforeOrder = scenario.operationParentIdentity === "root"
+        ? [...scenario.beforeOrder, "handler-trigger"]
+        : scenario.beforeOrder;
+      const afterOrder = scenario.operationParentIdentity === "root"
+        ? [...scenario.afterOrder, "handler-trigger"]
+        : scenario.afterOrder;
+      expect(prepared.beforeOrder).toEqual(beforeOrder);
       await prepareMorphQualificationState(page, scenario);
       const scenarioStateBefore = await readMorphQualificationState(page, scenario);
+      const scenarioStarted = performance.now();
       const morphResult = await page.evaluate(applyPrivateMorphCandidate, {
         ...scenario.patch,
         replacementHtml: prepared.replacementHtml,
       });
       const scenarioStateAfter = await readMorphQualificationState(page, scenario);
+      const scenarioObservationMilliseconds = performance.now() - scenarioStarted;
       const scenarioStatePass = morphQualificationStatePreserved(
         scenario.fixture.state,
         scenarioStateBefore,
         scenarioStateAfter,
+        scenarioObservationMilliseconds,
       );
-      expect(scenarioStatePass).toBe(true);
+      const expectedStatePass = ![
+        "document-scroll",
+        "element-scroll",
+      ].includes(scenario.fixture.state);
+      if (scenarioStatePass !== expectedStatePass) {
+        throw new Error(`FADENO_EXTRACTION_H1_STATE: ${scenario.fixture.id}: ${JSON.stringify({
+          before: scenarioStateBefore,
+          after: scenarioStateAfter,
+          scenarioObservationMilliseconds,
+        })}`);
+      }
       const afterScenario = await page.evaluate((value) => {
         const state = globalThis as typeof globalThis & {
           __fadenoTriggerNode?: Element;
@@ -233,7 +269,7 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         const operationParent = document.getElementById(value.operationParentIdentity);
         const scenarioTarget = document.getElementById(value.targetIdentity);
         return {
-          targetSame: state.__fadenoTriggerNode === document.querySelector("#trigger"),
+          targetSame: state.__fadenoTriggerNode === document.querySelector("#handler-trigger"),
           scenarioTargetSame: state.__fadenoScenarioTarget === scenarioTarget,
           afterOrder: operationParent
             ? Array.from(operationParent.children).map((child) => child.id)
@@ -243,10 +279,10 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         targetIdentity: scenario.fixture.targetIdentity,
         operationParentIdentity: scenario.operationParentIdentity,
       });
-      expect(afterScenario.afterOrder).toEqual(scenario.afterOrder);
+      expect(afterScenario.afterOrder).toEqual(afterOrder);
       await releaseMorphQualificationState(page, scenario);
       const beforeRequests = requests.length;
-      await page.locator("#trigger").click();
+      await page.locator("#handler-trigger").click();
       const ordinal = 101 + index;
       await expect.poll(() => page.evaluate(() =>
         (globalThis as typeof globalThis & { __fadenoLast?: { ordinal: number } })
@@ -273,7 +309,11 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
           scenario.fixture.targetIdentity,
         ),
         scenarioState: scenario.fixture.state,
-        scenarioStatePass,
+        scenarioStateBefore,
+        scenarioStateAfter,
+        scenarioObservationMilliseconds,
+        targetIdentity: scenario.fixture.targetIdentity,
+        operationParentIdentity: scenario.operationParentIdentity,
         beforeOrder: prepared.beforeOrder,
         afterOrder: afterScenario.afterOrder,
         handlerReferenceStable: record.handlerReferenceStable,
@@ -297,6 +337,7 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
       throw new Error(`unexpected handler responses: ${fixtureId}`);
     }
     fixtures.push({
+      status: "passed",
       fixtureId,
       preTriggerRequests,
       firstTriggerRequests: requests.slice(preTriggerRequests.length, preTriggerRequests.length + 1),
@@ -309,7 +350,15 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
       interactions,
       identity,
     });
+    } catch (error: unknown) {
+      fixtures.push({
+        status: "failed",
+        fixtureId,
+        failure: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
     await page.close();
+    }
   }
 
   const observation: ExtractionQualificationObservation = {

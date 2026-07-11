@@ -11,6 +11,36 @@ import type { MorphQualificationScenario } from "./qualification-scenarios.ts";
 
 export type MorphQualificationState = Readonly<Record<string, unknown>>;
 
+export function expectedMorphQualificationState(
+  state: QualificationState,
+): MorphQualificationState | undefined {
+  switch (state) {
+    case "focused-input-selection":
+      return { value: "client-dirty", focused: true, selectionStart: 2, selectionEnd: 8 };
+    case "focused-textarea-selection":
+      return { value: "client-dirty", focused: true, selectionStart: 1, selectionEnd: 7 };
+    case "focused-contenteditable-caret":
+      return { text: "editable-value", focused: true, anchorInTarget: true,
+        focusInTarget: true, anchorOffset: 4, focusOffset: 4, collapsed: true };
+    case "dirty-text": return { value: "client-dirty" };
+    case "dirty-checkbox": return { checked: true };
+    case "dirty-radio": return { checkedA: true, checkedB: false };
+    case "dirty-select": return { value: "b", selectedIndex: 1 };
+    case "details-open": return { open: true };
+    case "dialog-modal": return { open: true, modal: true };
+    case "dialog-nonmodal": return { open: true, modal: false };
+    case "popover-open": return { open: true };
+    case "document-scroll": return { x: 0, y: 400 };
+    case "element-scroll": return { left: 0, top: 120 };
+    case "island-identity": return { connectedCount: 1, disconnectedCount: 0 };
+    case "dirty-file":
+    case "media-playing":
+    case "media-paused":
+    case "intentional-replacement":
+      return undefined;
+  }
+}
+
 async function settle(page: Page): Promise<void> {
   await page.evaluate(() =>
     new Promise<void>((resolve) =>
@@ -123,6 +153,25 @@ export async function prepareMorphQualificationState(
       await target.evaluate((element) => { element.scrollTop = 120; });
       break;
     case "island-identity":
+      await page.evaluate(() => {
+        const state = window as typeof window & {
+          __fadenoIslandConnected?: number;
+          __fadenoIslandDisconnected?: number;
+        };
+        state.__fadenoIslandConnected ??= 0;
+        state.__fadenoIslandDisconnected ??= 0;
+        if (!customElements.get("fadeno-island")) {
+          customElements.define("fadeno-island", class extends HTMLElement {
+            connectedCallback(): void {
+              state.__fadenoIslandConnected = (state.__fadenoIslandConnected ?? 0) + 1;
+            }
+            disconnectedCallback(): void {
+              state.__fadenoIslandDisconnected = (state.__fadenoIslandDisconnected ?? 0) + 1;
+            }
+          });
+        }
+      });
+      break;
     case "intentional-replacement":
       break;
   }
@@ -182,11 +231,18 @@ export function readMorphQualificationState(
       case "media-paused": {
         const media = target as HTMLAudioElement;
         return { paused: media.paused, currentTime: Number(media.currentTime.toFixed(6)),
-          playbackRate: media.playbackRate };
+          readyState: media.readyState, playbackRate: media.playbackRate };
       }
       case "document-scroll": return { x: window.scrollX, y: window.scrollY };
       case "element-scroll": return { left: target.scrollLeft, top: target.scrollTop };
-      case "island-identity": return { connected: target.isConnected };
+      case "island-identity": {
+        const current = window as typeof window & {
+          __fadenoIslandConnected?: number;
+          __fadenoIslandDisconnected?: number;
+        };
+        return { connectedCount: current.__fadenoIslandConnected ?? 0,
+          disconnectedCount: current.__fadenoIslandDisconnected ?? 0 };
+      }
       case "intentional-replacement": return { text: target.textContent };
     }
   }, { state: scenario.fixture.state, targetIdentity: scenario.fixture.targetIdentity });
@@ -196,21 +252,33 @@ export function morphQualificationStatePreserved(
   state: QualificationState,
   before: MorphQualificationState,
   after: MorphQualificationState,
+  observationWindowMilliseconds: number,
 ): boolean {
   if (state === "media-playing") {
     const beforeTime = Number(before.currentTime);
     const afterTime = Number(after.currentTime);
     return before.paused === false && after.paused === false &&
       before.playbackRate === 0.5 && after.playbackRate === 0.5 &&
-      beforeTime > 0.02 && afterTime >= beforeTime - 0.01 && afterTime <= beforeTime + 1;
+      Number(before.readyState) >= 2 && Number(after.readyState) >= 2 &&
+      beforeTime > 0.02 && afterTime >= beforeTime - 0.01 &&
+      afterTime <= beforeTime + observationWindowMilliseconds / 1_000 * 0.5 + 0.1;
   }
   if (state === "media-paused") {
     return before.paused === true && after.paused === true &&
       before.playbackRate === 1 && after.playbackRate === 1 &&
-      Math.abs(Number(before.currentTime) - 0.25) <= 0.01 &&
-      Math.abs(Number(after.currentTime) - Number(before.currentTime)) <= 0.01;
+      Number(before.readyState) >= 2 && Number(after.readyState) >= 2 &&
+      Math.abs(Number(before.currentTime) - 0.25) <= 0.002 &&
+      Math.abs(Number(after.currentTime) - Number(before.currentTime)) <= 0.002;
   }
-  return isDeepStrictEqual(before, after);
+  if (state === "dirty-file") {
+    return before.name === "qualification.txt" && before.contentType === "text/plain" &&
+      before.bytes === 18 && before.text === "fadeno-k0-04-file\n" &&
+      typeof before.lastModified === "number" && before.lastModified > 0 &&
+      before.sameFile === true && isDeepStrictEqual(after, before);
+  }
+  const expected = expectedMorphQualificationState(state);
+  return expected !== undefined && isDeepStrictEqual(before, expected) &&
+    isDeepStrictEqual(after, expected);
 }
 
 export async function releaseMorphQualificationState(

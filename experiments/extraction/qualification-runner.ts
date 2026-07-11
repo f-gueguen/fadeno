@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 
 import { runBrowserPreflight } from "../browser-preflight.ts";
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
+import { inspectExperimentSource } from "../../scripts/lib/experiment-source.ts";
 import {
   emitAcceptedHandler,
   ExtractionCandidate,
@@ -32,28 +33,13 @@ import {
 } from "./qualification-report.ts";
 import type { ExtractionQualificationReport } from "./qualification-report.ts";
 import type { GeneratedInventory } from "./qualification-proof.ts";
+import { decideExtractionObservations } from "./qualification-proof.ts";
 
 const experimentRoot = dirname(fileURLToPath(import.meta.url));
 const root = join(experimentRoot, "../..");
 
-function runGit(args: readonly string[]): string {
-  const child = spawnSync("git", [...args], {
-    cwd: root,
-    encoding: "utf8",
-    maxBuffer: 4 * 1024 * 1024,
-  });
-  if (child.status !== 0 || child.error || child.signal) {
-    throw new Error(`FADENO_EXTRACTION_SOURCE_GIT: ${child.stderr || child.error?.message}`);
-  }
-  return child.stdout.trim();
-}
-
 function sourceIdentity(requireClean: boolean): Readonly<{ commit: string; dirty: boolean }> {
-  const status = runGit(["status", "--porcelain=v1", "--untracked-files=all"]);
-  if (requireClean && status !== "") throw new Error("FADENO_EXTRACTION_SOURCE_DIRTY");
-  const commit = runGit(["rev-parse", "HEAD"]);
-  if (!/^[a-f0-9]{40}$/u.test(commit)) throw new Error("FADENO_EXTRACTION_SOURCE_COMMIT");
-  return { commit, dirty: status !== "" };
+  return inspectExperimentSource(root, { requireClean });
 }
 
 function generatedInventory(
@@ -114,6 +100,8 @@ export async function executeExtractionQualification(options: Readonly<{
 
   const diagnostics = [];
   const canaries: string[] = [];
+  let rejectedBoundariesPass = true;
+  let deterministicGenerationPass = true;
   let inventory: GeneratedInventory;
   const candidate = new ExtractionCandidate();
   try {
@@ -123,22 +111,37 @@ export async function executeExtractionQualification(options: Readonly<{
     let writerStarted = false;
     let serverStarted = false;
     let browserStarted = false;
-    const diagnostic = runQualificationBoundary(candidate.analyze(fixtureId), canary, {
-      emitBrowserArtifact() { writerStarted = true; },
-      startServer() { serverStarted = true; },
-      startBrowser() { browserStarted = true; },
-    });
-    const expected = EXTRACTION_DIAGNOSTIC_EXPECTATIONS[fixtureId];
-    if (
-      !diagnostic ||
-      diagnostic.id !== expected.id ||
-      diagnostic.message !== expected.message ||
-      diagnostic.explanation !== expected.explanation ||
-      diagnostic.correction !== expected.correction ||
-      JSON.stringify(diagnostic).includes(canary) ||
-      writerStarted || serverStarted || browserStarted
-    ) throw new Error(`FADENO_EXTRACTION_REJECTION_BOUNDARY: ${fixtureId}`);
-    diagnostics.push({ fixtureId, ...diagnostic });
+    try {
+      const diagnostic = runQualificationBoundary(candidate.analyze(fixtureId), canary, {
+        emitBrowserArtifact() { writerStarted = true; },
+        startServer() { serverStarted = true; },
+        startBrowser() { browserStarted = true; },
+      });
+      const expected = EXTRACTION_DIAGNOSTIC_EXPECTATIONS[fixtureId];
+      if (process.env.FADENO_EXTRACTION_SEEDED_BOUNDARY_FAILURE === fixtureId) {
+        throw new Error(`seeded boundary failure: ${fixtureId}`);
+      }
+      if (
+        !diagnostic ||
+        diagnostic.id !== expected.id ||
+        diagnostic.message !== expected.message ||
+        diagnostic.explanation !== expected.explanation ||
+        diagnostic.correction !== expected.correction ||
+        JSON.stringify(diagnostic).includes(canary) ||
+        writerStarted || serverStarted || browserStarted
+      ) throw new Error("boundary observation differs");
+      diagnostics.push({ status: "passed", fixtureId, ...diagnostic });
+    } catch (error: unknown) {
+      rejectedBoundariesPass = false;
+      diagnostics.push({
+        status: "failed",
+        fixtureId,
+        failure: error instanceof Error ? error.message : String(error),
+        writerStarted,
+        serverStarted,
+        browserStarted,
+      });
+    }
   }
   writeFileSync(
     join(outputRoot, "rejected-diagnostics.json"),
@@ -161,7 +164,7 @@ export async function executeExtractionQualification(options: Readonly<{
       first.bytes !== second.bytes ||
       first.handlerIdentity !== second.handlerIdentity ||
       !readFileSync(first.path).equals(readFileSync(second.path))
-    ) throw new Error(`FADENO_EXTRACTION_NON_DETERMINISTIC: ${first.fixtureId}`);
+    ) deterministicGenerationPass = false;
   }
   inventory = generatedInventory(generated, generatedRoot);
   writeFileSync(
@@ -207,15 +210,30 @@ export async function executeExtractionQualification(options: Readonly<{
   if (child.status !== 0 || child.error || child.signal) {
     throw new Error(`FADENO_EXTRACTION_QUALIFICATION_CHILD: ${child.status ?? child.signal}`);
   }
-  verifyExtractionQualificationReport(
+  const observations = verifyExtractionQualificationReport(
     readJsonDocument(join(outputRoot, "qualification-report.json")) as
       ExtractionQualificationReport,
     inventory,
     (path) => readFileSync(join(outputRoot, path)),
   );
+  const outcome = decideExtractionObservations(observations, {
+    rejectedBoundariesPass,
+    identityPass: true,
+    deterministicGenerationPass,
+    outputSafetyPass: true,
+  });
+  writeFileSync(join(outputRoot, "decision.json"), `${JSON.stringify({
+    schemaVersion: 1,
+    ...outcome,
+    rejectedBoundariesPass,
+    identityPass: true,
+    deterministicGenerationPass,
+    outputSafetyPass: true,
+  }, null, 2)}\n`);
   const expectedFiles = [
     ...EXTRACTION_ACCEPTED_CLASSES.map((fixtureId) => `generated/${fixtureId}.js`),
     "generated/inventory.json",
+    "decision.json",
     "preflight.json",
     "qualification-observations/chromium.json",
     "qualification-observations/firefox.json",
@@ -227,6 +245,10 @@ export async function executeExtractionQualification(options: Readonly<{
   if (JSON.stringify(exactFiles(outputRoot)) !== JSON.stringify(expectedFiles)) {
     throw new Error("FADENO_EXTRACTION_QUALIFICATION_EVIDENCE_SET");
   }
+  inspectExperimentSource(root, {
+    requireClean: options.requireClean,
+    expectedCommit: source.commit,
+  });
   const evidence = exactFiles(outputRoot).map((path) =>
     readFileSync(join(outputRoot, path), "utf8")
   );
@@ -249,6 +271,6 @@ export async function executeExtractionQualification(options: Readonly<{
   rmSync(runnerOutput, { recursive: true, force: true });
   rmSync(comparisonRoot, { recursive: true, force: true });
   console.log(
-    `extraction qualification passed (5 accepted × 117 ordinals × 3 engines; 10 rejected)`,
+    `extraction qualification completed with ${outcome.decision} decision (${outcome.accepted.length} accepted; 10 rejected boundaries)`,
   );
 }

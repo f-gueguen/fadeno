@@ -23,8 +23,10 @@ export type MorphQualificationScenario = Readonly<{
   removedIdentity: string | null;
 }>;
 
+export const MORPH_QUALIFICATION_PAGE_STYLE =
+  "html,body{margin:0}.peer{display:block;height:20px}.document-spacer{display:block;height:2400px}.scroll-box{display:block;width:240px;height:80px;overflow:auto}.scroll-content{display:block;height:600px}";
 const pagePrefix =
-  '<!doctype html><meta charset="utf-8"><style>html,body{margin:0}.peer{display:block;height:20px}.document-spacer{display:block;height:2400px}.scroll-box{display:block;width:240px;height:80px;overflow:auto}.scroll-content{display:block;height:600px}</style>';
+  `<!doctype html><meta charset="utf-8"><style>${MORPH_QUALIFICATION_PAGE_STYLE}</style>`;
 const peerA = '<output id="peer-a" class="peer">peer-a</output>';
 const peerB = '<output id="peer-b" class="peer">peer-b</output>';
 const insertedPeer = '<output id="inserted-peer" class="peer">inserted</output>';

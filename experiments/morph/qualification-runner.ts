@@ -9,6 +9,11 @@ import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import {
+  ExperimentSourceError,
+  inspectExperimentSource,
+} from "../../scripts/lib/experiment-source.ts";
+
 import { MorphHarnessError } from "./harness-report.ts";
 import { verifyAcceptedQualificationFailure } from "./qualification-decision.ts";
 import { runMorphPreflight } from "./preflight.ts";
@@ -22,43 +27,25 @@ const require = createRequire(import.meta.url);
 const playwrightCli = require.resolve("@playwright/test/cli");
 const configPath = join(experimentRoot, "playwright.config.ts");
 
-function runGit(repositoryRoot: string, args: readonly string[]): string {
-  const result = spawnSync("git", [...args], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-    maxBuffer: 4 * 1024 * 1024,
-  });
-  if (result.status !== 0 || result.error) {
-    throw new MorphHarnessError(
-      "FADENO_MORPH_SOURCE_GIT",
-      `git ${args.join(" ")} failed: ${result.stderr || result.error?.message || result.status}`,
-    );
-  }
-  return result.stdout.trim();
-}
-
 export function assertCleanMorphSource(
   repositoryRoot: string,
   expectedCommit?: string,
 ): string {
-  const status = runGit(repositoryRoot, ["status", "--porcelain=v1", "--untracked-files=all"]);
-  if (status !== "") {
-    throw new MorphHarnessError(
-      "FADENO_MORPH_SOURCE_DIRTY",
-      "qualification requires a clean tracked and untracked working tree",
-    );
+  try {
+    return inspectExperimentSource(repositoryRoot, {
+      requireClean: true,
+      ...(expectedCommit ? { expectedCommit } : {}),
+    }).commit;
+  } catch (error: unknown) {
+    if (!(error instanceof ExperimentSourceError)) throw error;
+    const codes = {
+      git: "FADENO_MORPH_SOURCE_GIT",
+      dirty: "FADENO_MORPH_SOURCE_DIRTY",
+      commit: "FADENO_MORPH_SOURCE_COMMIT",
+      changed: "FADENO_MORPH_SOURCE_CHANGED",
+    } as const;
+    throw new MorphHarnessError(codes[error.code], error.message);
   }
-  const commit = runGit(repositoryRoot, ["rev-parse", "HEAD"]);
-  if (!/^[a-f0-9]{40}$/u.test(commit)) {
-    throw new MorphHarnessError("FADENO_MORPH_SOURCE_COMMIT", "source commit is invalid");
-  }
-  if (expectedCommit && commit !== expectedCommit) {
-    throw new MorphHarnessError(
-      "FADENO_MORPH_SOURCE_CHANGED",
-      "qualification source commit changed during execution",
-    );
-  }
-  return commit;
 }
 
 function runIdentity(

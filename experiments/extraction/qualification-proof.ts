@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 import { scanImports } from "./import-scan.ts";
+import { MORPH_QUALIFICATION_CASES } from "../morph/fixtures/qualification-corpus.ts";
+import { createMorphQualificationScenario } from "../morph/qualification-scenarios.ts";
+import { morphQualificationStatePreserved } from "../morph/qualification-state.ts";
 import {
   EXTRACTION_ACCEPTED_CLASSES,
 } from "./fixtures/catalog.ts";
@@ -12,11 +15,8 @@ import type { ExtractionProject } from "./contract.ts";
 
 export type InteractionState = Readonly<Record<string, string | number | boolean>>;
 
-export type ExtractionQualificationObservation = Readonly<{
-  schemaVersion: 1;
-  projectName: ExtractionProject;
-  observedBrowser: ExtractionProject;
-  fixtures: readonly Readonly<{
+export type PassedExtractionQualificationFixture = Readonly<{
+  status: "passed";
     fixtureId: (typeof EXTRACTION_ACCEPTED_CLASSES)[number];
     preTriggerRequests: readonly string[];
     firstTriggerRequests: readonly string[];
@@ -46,7 +46,11 @@ export type ExtractionQualificationObservation = Readonly<{
       scenarioTargetSame: boolean;
       reusedScenarioTarget: boolean;
       scenarioState: string;
-      scenarioStatePass: boolean;
+      scenarioStateBefore: Readonly<Record<string, unknown>>;
+      scenarioStateAfter: Readonly<Record<string, unknown>>;
+      scenarioObservationMilliseconds: number;
+      targetIdentity: string;
+      operationParentIdentity: string;
       beforeOrder: readonly string[];
       afterOrder: readonly string[];
       handlerReferenceStable: boolean;
@@ -54,7 +58,21 @@ export type ExtractionQualificationObservation = Readonly<{
       effectDelta: number;
       after: InteractionState;
     }>[];
-  }>[];
+}>;
+export type FailedExtractionQualificationFixture = Readonly<{
+  status: "failed";
+  fixtureId: (typeof EXTRACTION_ACCEPTED_CLASSES)[number];
+  failure: string;
+}>;
+
+export type ExtractionQualificationObservation = Readonly<{
+  schemaVersion: 1;
+  projectName: ExtractionProject;
+  observedBrowser: ExtractionProject;
+  fixtures: readonly (
+    | PassedExtractionQualificationFixture
+    | FailedExtractionQualificationFixture
+  )[];
 }>;
 
 export type GeneratedInventory = Readonly<{
@@ -88,6 +106,28 @@ export function decideExtractionOutcome(input: Readonly<{
   }
   const narrow = ["toggle", "disclosure", "menu", "local-counter"].sort();
   return isDeepStrictEqual([...input.accepted].sort(), narrow) ? "narrow" : "pivot";
+}
+
+export function decideExtractionObservations(
+  observations: ReadonlyMap<ExtractionProject, ExtractionQualificationObservation>,
+  boundaries: Readonly<{
+    rejectedBoundariesPass: boolean;
+    identityPass: boolean;
+    deterministicGenerationPass: boolean;
+    outputSafetyPass: boolean;
+  }>,
+): Readonly<{ decision: ExtractionDecision; accepted: readonly string[] }> {
+  const accepted = EXTRACTION_ACCEPTED_CLASSES.filter((fixtureId) =>
+    [...observations.values()].every((observation) =>
+      observation.fixtures.some((fixture) =>
+        fixture.fixtureId === fixtureId && fixture.status === "passed"
+      )
+    )
+  );
+  return {
+    accepted,
+    decision: decideExtractionOutcome({ accepted, ...boundaries }),
+  };
 }
 
 function counterValue(ordinal: number): number {
@@ -134,6 +174,12 @@ export function verifyExtractionQualificationObservation(
 
   const inventoryByFixture = new Map(inventory.files.map((file) => [file.fixtureId, file]));
   for (const fixture of observation.fixtures) {
+    if (fixture.status === "failed") {
+      if (fixture.failure.trim() === "") {
+        throw new Error(`FADENO_EXTRACTION_QUALIFICATION_FAILURE: ${fixture.fixtureId}`);
+      }
+      continue;
+    }
     const generated = inventoryByFixture.get(fixture.fixtureId);
     const handlerPath = `/handlers/${fixture.fixtureId}.js`;
     if (
@@ -172,7 +218,22 @@ export function verifyExtractionQualificationObservation(
     for (let index = 0; index < fixture.identity.length; index += 1) {
       const record = fixture.identity[index]!;
       const expected = EXTRACTION_IDENTITY_CASES[index]!;
+      const morphFixture = MORPH_QUALIFICATION_CASES.find((item) => item.id === expected.id);
+      if (!morphFixture) {
+        throw new Error(`FADENO_EXTRACTION_QUALIFICATION_H1_CASE: ${expected.id}`);
+      }
+      const scenario = createMorphQualificationScenario(morphFixture);
+      const expectedBeforeOrder = scenario.operationParentIdentity === "root"
+        ? [...scenario.beforeOrder, "handler-trigger"]
+        : scenario.beforeOrder;
+      const expectedAfterOrder = scenario.operationParentIdentity === "root"
+        ? [...scenario.afterOrder, "handler-trigger"]
+        : scenario.afterOrder;
       const ordinal = 101 + index;
+      const expectedStatePass = ![
+        "document-scroll",
+        "element-scroll",
+      ].includes(scenario.fixture.state);
       if (
         record.caseId !== expected.id ||
         record.operation !== expected.operation ||
@@ -181,9 +242,18 @@ export function verifyExtractionQualificationObservation(
         !record.scenarioTargetSame ||
         !record.reusedScenarioTarget ||
         record.scenarioState !== expected.state ||
-        !record.scenarioStatePass ||
-        record.beforeOrder.length === 0 ||
-        record.afterOrder.length === 0 ||
+        record.targetIdentity !== scenario.fixture.targetIdentity ||
+        record.operationParentIdentity !== scenario.operationParentIdentity ||
+        !isDeepStrictEqual(record.beforeOrder, expectedBeforeOrder) ||
+        !isDeepStrictEqual(record.afterOrder, expectedAfterOrder) ||
+        !Number.isFinite(record.scenarioObservationMilliseconds) ||
+        record.scenarioObservationMilliseconds < 0 ||
+        morphQualificationStatePreserved(
+          scenario.fixture.state,
+          record.scenarioStateBefore,
+          record.scenarioStateAfter,
+          record.scenarioObservationMilliseconds,
+        ) !== expectedStatePass ||
         !record.handlerReferenceStable ||
         record.moduleEvaluations !== 1 ||
         record.effectDelta !== 1 ||

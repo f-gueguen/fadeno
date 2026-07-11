@@ -21,6 +21,7 @@ import {
   classifySelectedClosure,
   emitAcceptedHandler,
   ExtractionCandidate,
+  measureCaptureEnvelope,
   measurePlainCapture,
 } from "../experiments/extraction/candidate.ts";
 import type { ExtractionFixtureId } from "../experiments/extraction/candidate.ts";
@@ -139,6 +140,15 @@ try {
   } catch (error: unknown) {
     if (error instanceof Error && error.message.startsWith("K0-06")) throw error;
   }
+  const linkedAncestor = join(temporary, "linked-ancestor");
+  symlinkSync(outside, linkedAncestor, "dir");
+  const nestedLinkedRoot = join(linkedAncestor, "not-created");
+  try {
+    assertContainedOutput(nestedLinkedRoot, join(nestedLinkedRoot, "escape.js"));
+    throw new Error("K0-06 symlink output ancestor was accepted");
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.startsWith("K0-06")) throw error;
+  }
   }
   finally {
     candidate[Symbol.dispose]();
@@ -206,9 +216,13 @@ try {
     "",
   ].join("\n"));
   writeFileSync(join(metamorphic, "closure-cases.ts"), [
+    'import { renamed as serverValue } from "./renamed-barrel.ts";',
     'import { renamedServerCall } from "./server-call-barrel.ts";',
+    'import * as serverNamespace from "./server-call-barrel.ts";',
     'import { safe } from "./safe.ts";',
     'export const server = () => { renamedServerCall(); safe(); };',
+    'export const serverValueReference = (output: HTMLElement) => { output.textContent = serverValue; safe(); };',
+    'export const serverNamespaceCall = () => { serverNamespace.renamedServerCall(); safe(); };',
     'export const random = () => { Math.random(); safe(); };',
     'export const timer = () => { setInterval(() => {}, 1); safe(); };',
     'export const opaque = () => { new AbortController(); safe(); };',
@@ -231,6 +245,11 @@ try {
     'const multibyte = "界".repeat(21845);',
     'const nested = Object.freeze({ a: Object.freeze(["界", -1, true, null]) });',
     'const unknown = createValue();',
+    'const envelopeAt = "x".repeat(65524);',
+    'const envelopeOver = "x".repeat(65525);',
+    'const multiA = "x".repeat(32760);',
+    'const multiB = "x".repeat(32760);',
+    'const huge = "x".repeat(1000000000);',
     'declare function createValue(): unknown;',
     "",
   ].join("\n"));
@@ -281,6 +300,8 @@ try {
     };
     const closureExpectations = {
       server: "FADENO_K0_EXTRACT_SERVER_IMPORT",
+      serverValueReference: "FADENO_K0_EXTRACT_SERVER_IMPORT",
+      serverNamespaceCall: "FADENO_K0_EXTRACT_SERVER_IMPORT",
       random: "FADENO_K0_EXTRACT_NON_DETERMINISTIC_CAPTURE",
       timer: "FADENO_K0_EXTRACT_ASYNC_LIFETIME",
       opaque: "FADENO_K0_EXTRACT_OPAQUE_CAPTURE",
@@ -315,6 +336,30 @@ try {
       capture("nested") !== Buffer.byteLength(JSON.stringify({ a: ["界", -1, true, null] })) ||
       capture("unknown") !== undefined
     ) throw new Error("K0-06 serialized capture measurement differs");
+    const initializer = (name: string) => {
+      const statement = captureSource.statements.find((item) =>
+        ast.isVariableStatement(item) &&
+        ast.isIdentifier(item.declarationList.declarations[0]?.name) &&
+        item.declarationList.declarations[0]?.name.text === name
+      );
+      const value = statement && ast.isVariableStatement(statement)
+        ? statement.declarationList.declarations[0]?.initializer
+        : undefined;
+      if (!value) throw new Error(`K0-06 capture initializer is absent: ${name}`);
+      return value;
+    };
+    if (
+      measureCaptureEnvelope([["value", initializer("envelopeAt")]]) !== 65_536 ||
+      measureCaptureEnvelope([["value", initializer("envelopeOver")]]) !== 65_537 ||
+      measureCaptureEnvelope([
+        ["a", initializer("multiA")],
+        ["b", initializer("multiB")],
+      ]) !== Buffer.byteLength(JSON.stringify({
+        a: "x".repeat(32_760),
+        b: "x".repeat(32_760),
+      })) ||
+      measureCaptureEnvelope([["value", initializer("huge")]]) !== 65_537
+    ) throw new Error("K0-06 serialized capture envelope differs");
   } finally {
     api.close();
   }
