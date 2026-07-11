@@ -6,6 +6,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -23,6 +24,8 @@ import {
   stableRegistryListing,
   validateArtifactRecords,
   validateManifestSemantics,
+  validateSourceIntegrationAttestations,
+  validateAttestedSourceIntegration,
 } from "./lib/experiment-contract.ts";
 import {
   createContractValidators,
@@ -54,6 +57,142 @@ function expectContractError(name, expectedCode, action) {
       recordFailure(`${name}: expected ${expectedCode}, received ${error.code}`);
     }
   }
+}
+
+const sourceAttestations = readJsonDocument(
+  join(root, "experiments/source-integration-attestations.json"),
+);
+validateSourceIntegrationAttestations(sourceAttestations);
+for (const [name, mutateAttestation] of [
+  ["wrong integration method", (document) => { document.attestations[0].method = "merge"; }],
+  ["same source and integration", (document) => {
+    document.attestations[0].integratedCommit = document.attestations[0].sourceCommit;
+  }],
+  ["unbound result id", (document) => { document.attestations[0].resultRunId = "unbound"; }],
+  ["duplicate integration", (document) => {
+    document.attestations.push(structuredClone(document.attestations[0]));
+  }],
+] as const) {
+  const document = structuredClone(sourceAttestations);
+  mutateAttestation(document);
+  expectContractError(name, "FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", () => {
+    validateSourceIntegrationAttestations(document);
+  });
+}
+
+const extractionManifestPath = join(
+  root,
+  "experiments/extraction/results/20260711T072809Z-267cd0f-a1/manifest.json",
+);
+const extractionManifest = readJsonDocument(extractionManifestPath);
+validateAttestedSourceIntegration(
+  extractionManifest,
+  extractionManifestPath,
+  root,
+  sourceAttestations,
+);
+for (const [name, expectedCode, mutateAttestation] of [
+  ["wrong attested experiment", "FADENO_K0_SOURCE_COMMIT_UNAPPROVED", (document) => {
+    document.attestations[0].experimentId = "morph";
+  }],
+  ["wrong attested manifest", "FADENO_K0_SOURCE_COMMIT_UNAPPROVED", (document) => {
+    document.attestations[0].manifestPath =
+      "experiments/contract/fixtures/valid/minimal/manifest.json";
+  }],
+  ["integration lacks result", "FADENO_K0_SOURCE_INTEGRATION_RESULT", (document) => {
+    document.attestations[0].integratedCommit =
+      "dcb7d04b1e5eaca64eb81a7f66ef3177efb9297e";
+    document.attestations[0].pullRequest = 7;
+  }],
+  ["integration is nonancestor", "FADENO_K0_SOURCE_INTEGRATION_UNAPPROVED", (document) => {
+    document.attestations[0].integratedCommit =
+      "1ceaf5c97cf1ba6a68b10e5f4c8c97c872f0cb8d";
+  }],
+  ["integration subject differs", "FADENO_K0_SOURCE_INTEGRATION_UNAPPROVED", (document) => {
+    document.attestations[0].pullRequest = 10;
+  }],
+] as const) {
+  const document = structuredClone(sourceAttestations);
+  mutateAttestation(document);
+  expectContractError(name, expectedCode, () => {
+    validateAttestedSourceIntegration(extractionManifest, extractionManifestPath, root, document);
+  });
+}
+
+const integrationRepository = mkdtempSync(join(tmpdir(), "fadeno-k0-integration-"));
+const runGit = (args) => {
+  const child = spawnSync("git", args, { cwd: integrationRepository, encoding: "utf8" });
+  if (child.status !== 0) throw new Error(`integration git failed: ${child.stderr}`);
+  return child.stdout.trim();
+};
+try {
+  runGit(["init", "-b", "main"]);
+  runGit(["config", "user.name", "Fadeno Contract Test"]);
+  runGit(["config", "user.email", "contract@example.invalid"]);
+  writeFileSync(join(integrationRepository, "base.txt"), "base\n");
+  runGit(["add", "."]);
+  runGit(["commit", "-m", "base"]);
+  const baseCommit = runGit(["rev-parse", "HEAD"]);
+  runGit(["update-ref", "refs/remotes/origin/main", baseCommit]);
+
+  const syntheticRunId = "20260711T000000Z-aaaaaaa-a1";
+  const syntheticResultRoot = join(integrationRepository, "results", syntheticRunId);
+  mkdirSync(syntheticResultRoot, { recursive: true });
+  const artifactBody = Buffer.from("evidence\n");
+  writeFileSync(join(syntheticResultRoot, "artifact.txt"), artifactBody);
+  const syntheticManifest = {
+    experiment: { id: "synthetic" },
+    run: { id: syntheticRunId },
+    source: {
+      repository: "https://github.com/f-gueguen/fadeno",
+      commit: "a".repeat(40),
+    },
+    artifacts: [{
+      path: "artifact.txt",
+      sha256: createHash("sha256").update(artifactBody).digest("hex"),
+      bytes: artifactBody.byteLength,
+    }],
+  };
+  const syntheticManifestPath = join(syntheticResultRoot, "manifest.json");
+  writeFileSync(syntheticManifestPath, `${JSON.stringify(syntheticManifest, null, 2)}\n`);
+  runGit(["add", "."]);
+  runGit(["commit", "-m", "feature result (#99)"]);
+  const featureCommit = runGit(["rev-parse", "HEAD"]);
+  writeFileSync(join(integrationRepository, "later.txt"), "later\n");
+  runGit(["add", "."]);
+  runGit(["commit", "-m", "later feature work"]);
+  const syntheticAttestations = {
+    schemaVersion: 1,
+    attestations: [{
+      repository: syntheticManifest.source.repository,
+      experimentId: syntheticManifest.experiment.id,
+      manifestPath: `results/${syntheticRunId}/manifest.json`,
+      resultRunId: syntheticRunId,
+      sourceCommit: syntheticManifest.source.commit,
+      method: "squash",
+      pullRequest: 99,
+      integratedCommit: featureCommit,
+    }],
+  };
+  expectContractError(
+    "feature commit is not integrated",
+    "FADENO_K0_SOURCE_INTEGRATION_UNAPPROVED",
+    () => validateAttestedSourceIntegration(
+      syntheticManifest,
+      syntheticManifestPath,
+      integrationRepository,
+      syntheticAttestations,
+    ),
+  );
+  runGit(["update-ref", "refs/remotes/origin/main", featureCommit]);
+  validateAttestedSourceIntegration(
+    syntheticManifest,
+    syntheticManifestPath,
+    integrationRepository,
+    syntheticAttestations,
+  );
+} finally {
+  rmSync(integrationRepository, { recursive: true, force: true });
 }
 
 function mutate(document, mutation) {

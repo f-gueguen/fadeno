@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "attestations": [
+    {
+      "repository": "https://github.com/f-gueguen/fadeno",
+      "experimentId": "extraction",
+      "manifestPath": "experiments/extraction/results/20260711T072809Z-267cd0f-a1/manifest.json",
+      "resultRunId": "20260711T072809Z-267cd0f-a1",
+      "sourceCommit": "267cd0f2e8c6a71762007fc1d4fde52b49a026a5",
+      "method": "squash",
+      "pullRequest": 11,
+      "integratedCommit": "f71dbb6a410ea81910737c00c75c4704fd1c0631"
+    }
+  ]
+}

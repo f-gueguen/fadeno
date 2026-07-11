@@ -7,6 +7,8 @@ import {
   readJsonDocument,
   validateArtifactRecords,
   validateManifestSemantics,
+  validateSourceIntegrationAttestations,
+  validateSourceIntegrationAttestationInventory,
 } from "./lib/experiment-contract.ts";
 import {
   createContractValidators,
@@ -27,6 +29,11 @@ const validators = createContractValidators(root);
 const { ajv, schemas, manifest: manifestSchema } = validators;
 const reference = loadReferenceEnvironment(root, validators);
 const registry = loadExperimentRegistry(root, validators);
+const sourceIntegrationAttestations = readJsonDocument(
+  join(root, "experiments/source-integration-attestations.json"),
+);
+validateSourceIntegrationAttestations(sourceIntegrationAttestations);
+validateSourceIntegrationAttestationInventory(sourceIntegrationAttestations, root);
 
 const packageJson = readJsonDocument(join(root, "package.json"));
 const ajvPackage = require("ajv/package.json");

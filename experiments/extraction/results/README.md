@@ -15,3 +15,11 @@ pinned directory. GitHub reported artifact ID `8246311306` and archive digest
 This is a manual hosted-artifact attestation; the persistent verifier owns the
 stronger extracted-file hashes, semantics, source ancestry, and cross-record
 consistency after GitHub artifact retention expires.
+
+PR 11 was squash-merged as commit `f71dbb6`, so the exact qualification source
+commit is intentionally not a Git ancestor of `main`. The tracked
+[source-integration attestation](../../source-integration-attestations.json)
+binds that result/source pair to the squash commit; the persistent verifier
+requires the attested integration commit to be an ancestor, contain the exact
+manifest and every hashed result artifact, and match the recorded lock and
+qualification contract from its tree.

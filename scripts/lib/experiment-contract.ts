@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 export const MAX_JSON_BYTES = 1024 * 1024;
 export const MAX_JSON_DEPTH = 128;
 const MAX_LOCKFILE_BYTES = 4 * 1024 * 1024;
+const MAX_INTEGRATED_ARTIFACT_BYTES = 4 * 1024 * 1024;
 
 export class ContractError extends Error {
   readonly code: string;
@@ -24,6 +25,46 @@ export class ContractError extends Error {
     this.name = "ContractError";
     this.code = code;
     this.details = details;
+  }
+}
+
+export function validateSourceIntegrationAttestations(document: any): void {
+  if (
+    document?.schemaVersion !== 1 || !Array.isArray(document.attestations) ||
+    Object.keys(document).sort().join(",") !== "attestations,schemaVersion"
+  ) fail("FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", "attestation document differs");
+  const identities = new Set<string>();
+  const expectedKeys = [
+    "experimentId",
+    "integratedCommit",
+    "manifestPath",
+    "method",
+    "pullRequest",
+    "repository",
+    "resultRunId",
+    "sourceCommit",
+  ].join(",");
+  const manifestPaths = new Set<string>();
+  for (const item of document.attestations) {
+    const identity = `${item?.experimentId}:${item?.sourceCommit}:${item?.resultRunId}`;
+    if (
+      !item || Object.keys(item).sort().join(",") !== expectedKeys ||
+      item.method !== "squash" ||
+      !Number.isSafeInteger(item.pullRequest) || item.pullRequest < 1 ||
+      !/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(item.repository) ||
+      !/^[a-z][a-z0-9-]*$/u.test(item.experimentId) ||
+      typeof item.manifestPath !== "string" ||
+      item.manifestPath.includes("\\") || item.manifestPath.startsWith("/") ||
+      item.manifestPath.split("/").includes("..") || !item.manifestPath.endsWith("/manifest.json") ||
+      !/^[0-9a-f]{40}$/u.test(item.sourceCommit) ||
+      !/^[0-9a-f]{40}$/u.test(item.integratedCommit) ||
+      item.sourceCommit === item.integratedCommit ||
+      typeof item.resultRunId !== "string" ||
+      !item.resultRunId.includes(item.sourceCommit.slice(0, 7)) ||
+      identities.has(identity) || manifestPaths.has(item.manifestPath)
+    ) fail("FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", "attestation entry differs");
+    identities.add(identity);
+    manifestPaths.add(item.manifestPath);
   }
 }
 
@@ -229,7 +270,114 @@ export function sha256File(path: string): string {
   return hash.digest("hex");
 }
 
-function validateSourceProvenance(manifest: any, repositoryRoot: string): void {
+export function validateAttestedSourceIntegration(
+  manifest: any,
+  manifestPath: string,
+  repositoryRoot: string,
+  attestations: any,
+): string {
+  validateSourceIntegrationAttestations(attestations);
+  const canonicalRoot = realpathSync(repositoryRoot);
+  const canonicalManifest = realpathSync(manifestPath);
+  const repositoryManifestPath = relative(canonicalRoot, canonicalManifest).split(sep).join("/");
+  if (
+    repositoryManifestPath.startsWith("../") ||
+    repositoryManifestPath === ".." ||
+    isAbsolute(repositoryManifestPath)
+  ) fail("FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", "manifest path escapes repository");
+  const attestation = attestations.attestations.find((item: any) =>
+    item.sourceCommit === manifest.source.commit &&
+    item.resultRunId === manifest.run.id &&
+    item.repository === manifest.source.repository &&
+    item.experimentId === manifest.experiment.id &&
+    item.manifestPath === repositoryManifestPath
+  );
+  if (!attestation) {
+    fail("FADENO_K0_SOURCE_COMMIT_UNAPPROVED", "source integration is not attested");
+  }
+  const integratedObject = spawnSync(
+    "git",
+    ["cat-file", "-e", `${attestation.integratedCommit}^{commit}`],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  const integratedAncestor = spawnSync(
+    "git",
+    ["merge-base", "--is-ancestor", attestation.integratedCommit, "origin/main"],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  const integratedSubject = spawnSync(
+    "git",
+    ["show", "-s", "--format=%s", attestation.integratedCommit],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  );
+  if (
+    integratedObject.status !== 0 || integratedAncestor.status !== 0 ||
+    integratedSubject.status !== 0 ||
+    !integratedSubject.stdout.trim().endsWith(`(#${attestation.pullRequest})`)
+  ) fail("FADENO_K0_SOURCE_INTEGRATION_UNAPPROVED", "integrated source is not approved");
+  const manifestAtIntegration = spawnSync(
+    "git",
+    ["show", `${attestation.integratedCommit}:${repositoryManifestPath}`],
+    { cwd: repositoryRoot, encoding: "buffer", maxBuffer: MAX_JSON_BYTES },
+  );
+  const manifestBody = readFileSync(canonicalManifest);
+  if (
+    manifestAtIntegration.status !== 0 || manifestAtIntegration.error ||
+    !manifestAtIntegration.stdout.equals(manifestBody)
+  ) fail("FADENO_K0_SOURCE_INTEGRATION_RESULT", "integrated manifest differs");
+  for (const artifact of manifest.artifacts) {
+    if (artifact.bytes > MAX_INTEGRATED_ARTIFACT_BYTES) {
+      fail("FADENO_K0_SOURCE_INTEGRATION_RESULT", "integrated artifact exceeds limit");
+    }
+    const repositoryArtifactPath = relative(
+      canonicalRoot,
+      join(dirname(canonicalManifest), artifact.path),
+    ).split(sep).join("/");
+    const artifactAtIntegration = spawnSync(
+      "git",
+      ["show", `${attestation.integratedCommit}:${repositoryArtifactPath}`],
+      { cwd: repositoryRoot, encoding: "buffer", maxBuffer: MAX_INTEGRATED_ARTIFACT_BYTES },
+    );
+    if (
+      artifactAtIntegration.status !== 0 || artifactAtIntegration.error ||
+      artifactAtIntegration.stdout.byteLength !== artifact.bytes ||
+      createHash("sha256").update(artifactAtIntegration.stdout).digest("hex") !== artifact.sha256
+    ) fail("FADENO_K0_SOURCE_INTEGRATION_RESULT", "integrated artifact differs");
+  }
+  return attestation.integratedCommit;
+}
+
+export function validateSourceIntegrationAttestationInventory(
+  attestations: any,
+  repositoryRoot: string,
+): void {
+  validateSourceIntegrationAttestations(attestations);
+  for (const attestation of attestations.attestations) {
+    const manifestPath = join(repositoryRoot, attestation.manifestPath);
+    const manifest = readJsonDocument(manifestPath);
+    if (
+      manifest.experiment?.id !== attestation.experimentId ||
+      manifest.run?.id !== attestation.resultRunId ||
+      manifest.source?.repository !== attestation.repository ||
+      manifest.source?.commit !== attestation.sourceCommit
+    ) fail("FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", "attestation is not bound to manifest");
+    const sourceAncestor = spawnSync(
+      "git",
+      ["merge-base", "--is-ancestor", attestation.sourceCommit, "HEAD"],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+    if (sourceAncestor.status === 0) {
+      fail("FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", "ancestor source needs no attestation");
+    }
+    validateAttestedSourceIntegration(manifest, manifestPath, repositoryRoot, attestations);
+  }
+}
+
+function validateSourceProvenance(
+  manifest: any,
+  manifestPath: string,
+  repositoryRoot: string,
+): void {
   if (!repositoryRoot) {
     fail("FADENO_K0_REPOSITORY_CONTEXT", "repository root is required for provenance");
   }
@@ -244,19 +392,46 @@ function validateSourceProvenance(manifest: any, repositoryRoot: string): void {
     cwd: repositoryRoot,
     encoding: "utf8",
   });
-  if (objectCheck.status !== 0) {
-    fail("FADENO_K0_SOURCE_COMMIT_UNKNOWN", "source commit is absent from repository history");
-  }
   const ancestorCheck = spawnSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], {
     cwd: repositoryRoot,
     encoding: "utf8",
   });
-  if (ancestorCheck.status !== 0) {
-    fail("FADENO_K0_SOURCE_COMMIT_UNAPPROVED", "source commit is not an ancestor of HEAD");
+  let effectiveCommit = commit;
+  if (objectCheck.status !== 0 || ancestorCheck.status !== 0) {
+    const attestations = readJsonDocument(
+      join(repositoryRoot, "experiments/source-integration-attestations.json"),
+    );
+    validateSourceIntegrationAttestations(attestations);
+    const repositoryManifestPath = relative(
+      realpathSync(repositoryRoot),
+      realpathSync(manifestPath),
+    ).split(sep).join("/");
+    const hasMatchingAttestation = attestations.attestations.some((item: any) =>
+      item.sourceCommit === commit && item.resultRunId === manifest.run.id &&
+      item.repository === manifest.source.repository &&
+      item.experimentId === manifest.experiment.id &&
+      item.manifestPath === repositoryManifestPath
+    );
+    if (!hasMatchingAttestation) {
+      fail(
+        objectCheck.status !== 0
+          ? "FADENO_K0_SOURCE_COMMIT_UNKNOWN"
+          : "FADENO_K0_SOURCE_COMMIT_UNAPPROVED",
+        objectCheck.status !== 0
+          ? "source commit is absent from repository history"
+          : "source commit is not an ancestor of HEAD",
+      );
+    }
+    effectiveCommit = validateAttestedSourceIntegration(
+      manifest,
+      manifestPath,
+      repositoryRoot,
+      attestations,
+    );
   }
   const lockAtCommit = spawnSync(
     "git",
-    ["show", `${commit}:${manifest.dependencyLock.path}`],
+    ["show", `${effectiveCommit}:${manifest.dependencyLock.path}`],
     {
       cwd: repositoryRoot,
       encoding: null,
@@ -272,7 +447,7 @@ function validateSourceProvenance(manifest: any, repositoryRoot: string): void {
   }
   const datasetSourcePath = manifest.workload?.dataset?.sourcePath;
   if (datasetSourcePath) {
-    const datasetAtCommit = spawnSync("git", ["show", `${commit}:${datasetSourcePath}`], {
+    const datasetAtCommit = spawnSync("git", ["show", `${effectiveCommit}:${datasetSourcePath}`], {
       cwd: repositoryRoot,
       encoding: null,
       maxBuffer: MAX_JSON_BYTES,
@@ -337,7 +512,7 @@ export function validateArtifactRecords(
       );
     }
   }
-  validateSourceProvenance(manifest, repositoryRoot);
+  validateSourceProvenance(manifest, manifestPath, repositoryRoot);
 }
 
 const SECRET_PATTERNS = [

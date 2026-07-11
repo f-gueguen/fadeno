@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
 import {
   cpSync,
   mkdtempSync,
@@ -392,15 +391,9 @@ if (resultEntries.length === 1) {
     const manifestWithoutRun = manifest.artifacts.filter(
       (artifact: { path: string }) => artifact.path !== "run.json",
     );
-    const sourceCheck = spawnSync(
-      "git",
-      ["merge-base", "--is-ancestor", manifest.source.commit, "HEAD"],
-      { cwd: root },
-    );
     if (
       manifest.experiment.id !== "extraction" ||
       manifest.source.dirty !== false ||
-      sourceCheck.status !== 0 ||
       manifest.run.id !== pinnedRunId ||
       !pinnedRunId.includes(manifest.source.commit.slice(0, 7)) ||
       manifest.run.status !== "passed" ||
