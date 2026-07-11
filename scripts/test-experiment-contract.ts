@@ -511,6 +511,12 @@ if (registrySchema(escapingRegistry)) {
   recordFailure("escaping registry: schema unexpectedly passed");
 }
 
+const malformedSplitSliceRegistry = structuredClone(registry);
+malformedSplitSliceRegistry.experiments[3].qualificationSlice = "K0-08AA";
+if (registrySchema(malformedSplitSliceRegistry)) {
+  recordFailure("malformed split slice registry: schema unexpectedly passed");
+}
+
 const registryFailureResult = registryLoadFailureResult(
   new ContractError("FADENO_K0_SCHEMA_REJECTED", "fixture rejection"),
 );

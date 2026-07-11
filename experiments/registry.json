@@ -39,7 +39,7 @@
       "hypothesis": "H3",
       "command": "pnpm experiment:type-spine",
       "harnessSlice": "K0-07",
-      "qualificationSlice": "K0-08",
+      "qualificationSlice": "K0-08B",
       "status": "available"
     }
   ]

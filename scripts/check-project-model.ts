@@ -180,16 +180,36 @@ for (const id of ["H1", "H2", "H3", "H4"]) {
   }
 }
 
-const k0Rows = tableRows(k0, /^\| K0-\d{2} \|/);
+const expectedK0Ids = [
+  "K0-01",
+  "K0-02",
+  "K0-03",
+  "K0-04",
+  "K0-05",
+  "K0-06",
+  "K0-07",
+  "K0-08A",
+  "K0-08B",
+  "K0-09",
+  "K0-10",
+  "K0-11",
+];
+const k0Rows = tableRows(k0, /^\| K0-\d{2}[A-Z]? \|/);
 const k0Ids = k0Rows.map((cells) => cells[0]);
 const k0Set = new Set(k0Ids);
+const k0Order = new Map(k0Ids.map((id, index) => [id, index]));
+if (k0Ids.length !== expectedK0Ids.length) {
+  errors.push(
+    `docs/roadmap/k0.md: expected ${expectedK0Ids.length} slices, found ${k0Ids.length}`,
+  );
+}
 for (const duplicate of duplicates(k0Ids)) {
   errors.push(`docs/roadmap/k0.md: duplicate slice ${duplicate}`);
 }
 
 for (const [index, cells] of k0Rows.entries()) {
   const slice = cells[0];
-  const expected = `K0-${String(index + 1).padStart(2, "0")}`;
+  const expected = expectedK0Ids[index];
   if (slice !== expected) {
     errors.push(`docs/roadmap/k0.md: expected slice ${expected}, found ${slice}`);
   }
@@ -228,7 +248,7 @@ for (const [index, cells] of k0Rows.entries()) {
   for (const dependency of dependencies) {
     if (!k0Set.has(dependency)) {
       errors.push(`docs/roadmap/k0.md: ${slice} depends on missing ${dependency}`);
-    } else if (Number(dependency.slice(3)) >= Number(slice.slice(3))) {
+    } else if ((k0Order.get(dependency) ?? Infinity) >= (k0Order.get(slice) ?? -1)) {
       errors.push(`docs/roadmap/k0.md: ${slice} dependency ${dependency} is not earlier`);
     }
   }
@@ -288,8 +308,8 @@ for (const entry of registryEntries) {
     errors.push(`experiments/registry.json: ${entry.id} mapping differs from K0 plan`);
   }
   if (
-    Number(String(entry.harnessSlice).slice(3)) >=
-    Number(String(entry.qualificationSlice).slice(3))
+    (k0Order.get(String(entry.harnessSlice)) ?? Infinity) >=
+    (k0Order.get(String(entry.qualificationSlice)) ?? -1)
   ) {
     errors.push(`experiments/registry.json: ${entry.id} qualifies before its harness`);
   }
