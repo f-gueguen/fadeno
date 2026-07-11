@@ -225,6 +225,7 @@ try {
   ].join("\n"));
   writeFileSync(join(metamorphic, "safe.ts"), [
     "export function safe(): void {}",
+    "export const safeValue = 1;",
     "",
   ].join("\n"));
   writeFileSync(join(metamorphic, "closure-cases.ts"), [
@@ -232,6 +233,8 @@ try {
     'import { renamedServerCall } from "./server-call-barrel.ts";',
     'import * as serverNamespace from "./server-call-barrel.ts";',
     'import { safe } from "./safe.ts";',
+    'import { safeValue } from "./safe.ts";',
+    'import * as safeNamespace from "./safe.ts";',
     'import { safe as extraSafe } from "./safe-extra.ts";',
     'function localHelper(): void {}',
     'export const server = () => { renamedServerCall(); safe(); };',
@@ -247,6 +250,8 @@ try {
     'export const sameSourceHelper = () => { localHelper(); safe(); };',
     'export const extraImportedHelper = () => { extraSafe(); safe(); };',
     'export const unresolvedValue = () => { void missingRuntimeValue; safe(); };',
+    'export const importedValue = () => { void safeValue; safe(); };',
+    'export const namespaceValue = () => { void safeNamespace.safeValue; safe(); };',
     'export function outer(rootParameter: string) { return () => { void rootParameter; safe(); }; }',
     "",
   ].join("\n"));
@@ -343,6 +348,8 @@ try {
       sameSourceHelper: "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
       extraImportedHelper: "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
       unresolvedValue: "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
+      importedValue: "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
+      namespaceValue: "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
     } as const;
     for (const [name, expected] of Object.entries(closureExpectations)) {
       if (classifySelectedClosure(project, closureSource, closure(name))?.id !== expected) {
@@ -430,7 +437,9 @@ try {
         a: "x".repeat(32_760),
         b: "x".repeat(32_760),
       })) ||
-      measureCaptureEnvelope([["value", initializer("huge")]]) !== 65_537
+      measureCaptureEnvelope([["value", initializer("huge")]]) !== 65_537 ||
+      measureCaptureEnvelope([["__proto__", initializer("multiA")]]) !== undefined ||
+      measureCaptureEnvelope([["constructor", initializer("multiA")]]) !== undefined
     ) throw new Error("K0-06 serialized capture envelope differs");
   } finally {
     api.close();

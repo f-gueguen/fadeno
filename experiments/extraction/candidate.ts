@@ -266,8 +266,11 @@ export function measurePlainCapture(node: Node): number | undefined {
 function evaluateCaptureEnvelope(
   entries: readonly (readonly [string, Node])[],
 ): CaptureEvaluation {
-  const payload: { [key: string]: PlainCapture } = {};
+  const payload: { [key: string]: PlainCapture } = Object.create(null) as {
+    [key: string]: PlainCapture;
+  };
   for (const [name, initializer] of entries) {
+    if (unsafePlainCaptureKeys.has(name)) return unknownCapture;
     const evaluated = evaluatePlainCapture(initializer);
     if (!evaluated.known) return evaluated;
     payload[name] = evaluated.value;
@@ -498,10 +501,16 @@ export function classifySelectedClosure(
       dependency.fileName.includes(`${sep}node_modules${sep}`) ||
       /\/lib\.[^/]+\.d\.ts$/u.test(dependency.fileName.split(sep).join("/"))
     ) return;
+    const dependencyDiagnostic = classifyReachableModule(project, dependency);
+    if (dependencyDiagnostic) {
+      found = dependencyDiagnostic;
+      return;
+    }
     if (declaration && ast.isFunctionDeclaration(declaration)) {
       externalFunctions.add(declaration);
+      return;
     }
-    found = classifyReachableModule(project, dependency);
+    found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW");
   });
   if (found) return found;
   return externalFunctions.size > (options.allowedExternalFunctions ?? 1)

@@ -16,6 +16,7 @@ import { isDeepStrictEqual } from "node:util";
 
 import { EXTRACTION_PROJECTS } from "../experiments/extraction/contract.ts";
 import type { ExtractionProject } from "../experiments/extraction/contract.ts";
+import { browserManifestEnvironment } from "../experiments/browser-preflight.ts";
 import { EXTRACTION_ACCEPTED_CLASSES } from "../experiments/extraction/fixtures/catalog.ts";
 import { EXTRACTION_REJECTION_CLASSES } from "../experiments/extraction/fixtures/catalog.ts";
 import {
@@ -325,6 +326,8 @@ if (resultEntries.length === 1) {
       outputSafetyPass: decision.outputSafetyPass === true,
     });
     const run = readJsonDocument(join(runRoot, "run.json"));
+    const sourceRecord = readJsonDocument(join(runRoot, "source.json"));
+    const preflight = readJsonDocument(join(runRoot, "preflight.json"));
     const pinnedDiagnostics = readJsonDocument(join(runRoot, "rejected-diagnostics.json"));
     const contract = readJsonDocument(join(runRoot, "artifacts/qualification-contract.json"));
     const recomputedRoot = mkdtempSync(
@@ -410,8 +413,15 @@ if (resultEntries.length === 1) {
       decision.deterministicGenerationPass !== recomputedGenerationPass ||
       decision.outputSafetyPass !== recomputedOutputSafetyPass ||
       !recomputedBoundariesPass || !recomputedGenerationPass || !recomputedOutputSafetyPass ||
-      run.run.id !== manifest.run.id ||
+      !isDeepStrictEqual(run.run, manifest.run) ||
       !isDeepStrictEqual(run.source, manifest.source) ||
+      !isDeepStrictEqual(sourceRecord, { schemaVersion: 1, ...manifest.source }) ||
+      !isDeepStrictEqual(
+        manifest.environment,
+        browserManifestEnvironment(preflight, reference),
+      ) ||
+      !isDeepStrictEqual(run.command, manifest.command.argv) ||
+      manifest.command.cwd !== "." ||
       run.decision !== derived.decision ||
       !isDeepStrictEqual(run.accepted, derived.accepted) ||
       !isDeepStrictEqual(run.matrix, expectedMatrix) ||
@@ -493,6 +503,33 @@ if (resultEntries.length === 1) {
       const manifest = readJsonDocument(join(runRoot, "manifest.json"));
       const run = readJsonDocument(join(runRoot, "run.json"));
       run.matrix.identityCases = 999;
+      const runBody = Buffer.from(`${JSON.stringify(run, null, 2)}\n`);
+      writeFileSync(join(runRoot, "run.json"), runBody);
+      updateRecord(manifest.artifacts, "run.json", runBody);
+      writeFileSync(join(runRoot, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    });
+    assertCoordinatedMutationRejected("source", (runRoot) => {
+      const source = readJsonDocument(join(runRoot, "source.json"));
+      source.commit = "0".repeat(40);
+      rewriteCoordinatedArtifact(
+        runRoot,
+        "source.json",
+        Buffer.from(`${JSON.stringify(source, null, 2)}\n`),
+      );
+    });
+    assertCoordinatedMutationRejected("preflight", (runRoot) => {
+      const preflight = readJsonDocument(join(runRoot, "preflight.json"));
+      preflight.host.cpuModel = "forged";
+      rewriteCoordinatedArtifact(
+        runRoot,
+        "preflight.json",
+        Buffer.from(`${JSON.stringify(preflight, null, 2)}\n`),
+      );
+    });
+    assertCoordinatedMutationRejected("run-status", (runRoot) => {
+      const manifest = readJsonDocument(join(runRoot, "manifest.json"));
+      const run = readJsonDocument(join(runRoot, "run.json"));
+      run.run.status = "failed";
       const runBody = Buffer.from(`${JSON.stringify(run, null, 2)}\n`);
       writeFileSync(join(runRoot, "run.json"), runBody);
       updateRecord(manifest.artifacts, "run.json", runBody);
