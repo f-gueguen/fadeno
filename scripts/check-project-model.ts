@@ -6,6 +6,15 @@ import { loadExperimentRegistry } from "./lib/experiment-validation.ts";
 const root = process.cwd();
 const errors = [];
 
+let experimentRegistry;
+try {
+  experimentRegistry = loadExperimentRegistry(root);
+} catch (error) {
+  errors.push(`experiments/registry.json: invalid contract (${error.code ?? error.message})`);
+  experimentRegistry = { experiments: [] };
+}
+const registryEntries = experimentRegistry.experiments;
+
 function read(path) {
   return readFileSync(join(root, path), "utf8");
 }
@@ -155,10 +164,16 @@ const hypotheses = read("docs/ledgers/hypotheses.md");
 const hypothesisIds = new Set(
   [...hypotheses.matchAll(/^## (H\d+) — /gm)].map((match) => match[1]),
 );
+const resolvedHypothesisIds = new Set(
+  registryEntries
+    .filter((entry) => entry.status === "qualified")
+    .map((entry) => entry.hypothesis),
+);
+const knownHypothesisIds = new Set([...hypothesisIds, ...resolvedHypothesisIds]);
 const k0 = read("docs/roadmap/k0.md");
 for (const id of ["H1", "H2", "H3", "H4"]) {
-  if (!hypothesisIds.has(id)) {
-    errors.push(`docs/ledgers/hypotheses.md: K0 references missing ${id}`);
+  if (!knownHypothesisIds.has(id)) {
+    errors.push(`project model: K0 references missing active or resolved ${id}`);
   }
   if (!new RegExp(`\\b${id}\\b`).test(k0)) {
     errors.push(`docs/roadmap/k0.md: missing ${id} threshold`);
@@ -196,7 +211,7 @@ for (const [index, cells] of k0Rows.entries()) {
   }
 
   for (const hypothesis of cells[3].matchAll(/\b(H\d+)\b/g)) {
-    if (!hypothesisIds.has(hypothesis[1])) {
+    if (!knownHypothesisIds.has(hypothesis[1])) {
       errors.push(`docs/roadmap/k0.md: ${slice} references unknown ${hypothesis[1]}`);
     }
   }
@@ -232,14 +247,6 @@ for (const hypothesis of ["H1", "H2", "H3", "H4"]) {
   }
 }
 
-let experimentRegistry;
-try {
-  experimentRegistry = loadExperimentRegistry(root);
-} catch (error) {
-  errors.push(`experiments/registry.json: invalid contract (${error.code ?? error.message})`);
-  experimentRegistry = { experiments: [] };
-}
-const registryEntries = experimentRegistry.experiments;
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],

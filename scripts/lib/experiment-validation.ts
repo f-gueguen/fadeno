@@ -35,6 +35,7 @@ type ContractValidators = {
 };
 
 export type ReferenceEnvironment = {
+  id: string;
   host: {
     provider: string;
     repositoryVisibility: string;
@@ -49,7 +50,16 @@ export type ReferenceEnvironment = {
     deviationPolicy: string;
   };
   storage: { minimumFreeMiB: number };
-  backgroundLoad: { maxLoadAverage1m: number; maxProcessCount: number };
+  backgroundLoad: {
+    maxLoadAverage1m: number;
+    maxProcessCount: number;
+    maxPreflightAgeSeconds: number;
+    acceptanceReason: string;
+  };
+  power: {
+    policy: string;
+    telemetry: string;
+  };
   container: {
     registry: string;
     repository: string;

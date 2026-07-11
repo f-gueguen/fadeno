@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "run": {
+    "id": "20260711T022119Z-5888bbf-a1",
+    "attempt": 1,
+    "profile": "qualification",
+    "startedAt": "2026-07-11T02:21:19.092Z",
+    "completedAt": "2026-07-11T02:46:45.795Z",
+    "status": "failed"
+  },
+  "source": {
+    "repository": "https://github.com/f-gueguen/fadeno",
+    "commit": "5888bbff175bedf61c85bbeaed90dc927a55a593",
+    "dirty": false
+  },
+  "command": [
+    "pnpm",
+    "experiment:morph",
+    "--",
+    "--qualify"
+  ],
+  "corpus": {
+    "path": "artifacts/corpus.json",
+    "sha256": "e2a32fa8b93aa83121b4c7f9342d1cc4f29669f44df7756943d03a23435132fb"
+  },
+  "referenceClass": "reference",
+  "matrix": {
+    "engines": 3,
+    "cases": 18,
+    "repetitions": 100,
+    "records": 5400,
+    "intentionalReplacements": 300,
+    "failedRecords": 600,
+    "retries": 0
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/pnpm-lock.yaml",
+      "sha256": "2fd513727b54e906b09a03d5e77104eb2f766703bf4eeb9ec1c670446fee492a",
+      "bytes": 10265
+    },
+    {
+      "path": "artifacts/corpus.json",
+      "sha256": "e2a32fa8b93aa83121b4c7f9342d1cc4f29669f44df7756943d03a23435132fb",
+      "bytes": 6612
+    },
+    {
+      "path": "artifacts/preflight.json",
+      "sha256": "6e90be8a3f0199e31562c94f61c45e8918bc3396b46025bfd293c7e72f021d77",
+      "bytes": 1302
+    },
+    {
+      "path": "artifacts/records/chromium.json",
+      "sha256": "57fa10abac2db9fcb7539760be06124af36a61918322d6b718a787ab3d1a5f2c",
+      "bytes": 3086144
+    },
+    {
+      "path": "artifacts/failures/chromium.json",
+      "sha256": "84dcc4ced6e66d5d37643cf6207dda3b9f2b56ebaa021c22dd56fb2c27661dc3",
+      "bytes": 532129
+    },
+    {
+      "path": "artifacts/diagnostics/chromium/diagnostic-failure.json",
+      "sha256": "f8f210604e9c19ca8f10f1a8af027b1351bb8457d666821d340b10f2c818cb6a",
+      "bytes": 2463
+    },
+    {
+      "path": "artifacts/diagnostics/chromium/screenshot.png",
+      "sha256": "4243316c482e3c458f459f13f46d9df157d05d0b8dc0b4d60e54ff50c00d76ef",
+      "bytes": 4955
+    },
+    {
+      "path": "artifacts/diagnostics/chromium/trace.zip",
+      "sha256": "69a9794ef75cd40ea5f3a085c2a827ab780dfc652e57d331634c40b8cc3894cf",
+      "bytes": 39094
+    },
+    {
+      "path": "artifacts/diagnostics/chromium/error-context.md",
+      "sha256": "7f7b2806d125e9d125eb6984a82902817fe848f192530a21e7b0f140506c2a9c",
+      "bytes": 5146
+    },
+    {
+      "path": "artifacts/summaries/chromium.json",
+      "sha256": "c2c7d2284300bebc6882ea83c6b556ec66b5bcbe59cb2b36f1b6de108e8d2a2f",
+      "bytes": 92272
+    },
+    {
+      "path": "artifacts/records/firefox.json",
+      "sha256": "1c4020ed3da646f1392d25fc97ebaf8bfadb877bba017b1763641f974a00d8ad",
+      "bytes": 3083208
+    },
+    {
+      "path": "artifacts/failures/firefox.json",
+      "sha256": "2cdc0b929c8658e411bf22a1399e3d1eb4b2a8ef0be190a2fef8f1a43b0efd2a",
+      "bytes": 531466
+    },
+    {
+      "path": "artifacts/diagnostics/firefox/diagnostic-failure.json",
+      "sha256": "a153ec88fb860811df8807f802c9886a3a3028acc7164b174291fbb9c67a32c6",
+      "bytes": 2461
+    },
+    {
+      "path": "artifacts/diagnostics/firefox/screenshot.png",
+      "sha256": "a56d4309d10ed414cfb20c4e1c5999f883a9143121da224cefab9cd5aababad4",
+      "bytes": 6537
+    },
+    {
+      "path": "artifacts/diagnostics/firefox/trace.zip",
+      "sha256": "0cb77e7cd5bd6643c368eeaf0f9bb3f317c02b960128f99b939520fda9094d0f",
+      "bytes": 43318
+    },
+    {
+      "path": "artifacts/diagnostics/firefox/error-context.md",
+      "sha256": "7f7b2806d125e9d125eb6984a82902817fe848f192530a21e7b0f140506c2a9c",
+      "bytes": 5146
+    },
+    {
+      "path": "artifacts/summaries/firefox.json",
+      "sha256": "f73651030291a1bcbfb328b1bc0930853ba3ee91935d7a3b44b73a87fa74310e",
+      "bytes": 92249
+    },
+    {
+      "path": "artifacts/records/webkit.json",
+      "sha256": "b1807ad2b7731db1f8af5eb02c12462e099fa89d94adb3797d1fb320aeab35f5",
+      "bytes": 3079785
+    },
+    {
+      "path": "artifacts/failures/webkit.json",
+      "sha256": "407044e78019b906b67d2f7249bb2fb589d3020f527a14890d3f28b9d7e46e4e",
+      "bytes": 530948
+    },
+    {
+      "path": "artifacts/diagnostics/webkit/diagnostic-failure.json",
+      "sha256": "a2409c28369dabde62b83eb4855b183b205977d793f0184899fc26a88a148abf",
+      "bytes": 2457
+    },
+    {
+      "path": "artifacts/diagnostics/webkit/screenshot.png",
+      "sha256": "36927fb21cb0f650da174fad4de92cd93c2a14ff2f63dde39ae4fb1bcc6e2a01",
+      "bytes": 6453
+    },
+    {
+      "path": "artifacts/diagnostics/webkit/trace.zip",
+      "sha256": "4e55078272d89fd0d66397b6a166a9107b66ab32d2b7d8986723286742d12e8d",
+      "bytes": 37477
+    },
+    {
+      "path": "artifacts/diagnostics/webkit/error-context.md",
+      "sha256": "7f7b2806d125e9d125eb6984a82902817fe848f192530a21e7b0f140506c2a9c",
+      "bytes": 5146
+    },
+    {
+      "path": "artifacts/summaries/webkit.json",
+      "sha256": "e658c23dce781c1eb1b4db05f3c1e0538867cf876a9ee7fb8a8c806936fc0385",
+      "bytes": 91508
+    }
+  ]
+}

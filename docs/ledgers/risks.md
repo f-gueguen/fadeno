@@ -5,7 +5,7 @@ scope. It is not a feature list.
 
 | Risk | Current control | Escalation trigger |
 | --- | --- | --- |
-| Browser updates destroy user state | H1 runs before action enhancement | Any declared preservation case has no reliable cross-browser strategy |
+| Browser updates destroy user state | ADR 0014 narrows structural reuse; DG-V2-01 must own affected scroll | V2 proceeds without explicit scroll management or patch-boundary refusal |
 | Handler extraction is too magical or too narrow | H2 requires explicit fixtures and refusal diagnostics | Useful interactions require hidden hydration or broad closure capture |
 | Security semantics drift behind runtime work | Each trust boundary ships with threat and negative tests | A boundary is implemented without size, origin, authorization, and logging behavior |
 | Revalidation is correct but too expensive | H4 measures a representative slice before public actions | Baseline latency or query load is unsuitable for interactive CRUD |

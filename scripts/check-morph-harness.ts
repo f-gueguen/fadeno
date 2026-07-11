@@ -7,16 +7,23 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { crc32, deflateSync } from "node:zlib";
-import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
 import { getMorphFixture, stableMorphInventory } from "../experiments/morph/fixtures/catalog.ts";
+import {
+  MORPH_QUALIFICATION_CASES,
+  MORPH_QUALIFICATION_OPERATIONS,
+  MORPH_QUALIFICATION_PROFILES,
+  MORPH_QUALIFICATION_STATES,
+  stableMorphQualificationCorpus,
+} from "../experiments/morph/fixtures/qualification-corpus.ts";
 import {
   MorphHarnessError,
   verifyHarnessReport,
@@ -26,7 +33,26 @@ import {
   assertBrowserCompatibility,
   classifyReferenceHost,
 } from "../experiments/morph/preflight.ts";
-import { readJsonDocument } from "./lib/experiment-contract.ts";
+import { verifyAcceptedQualificationFailure } from "../experiments/morph/qualification-decision.ts";
+import {
+  manifestEnvironment,
+  verifyPublishedQualificationOutcome,
+} from "../experiments/morph/qualification-result.ts";
+import {
+  readJsonDocument,
+  sha256File,
+  validateArtifactRecords,
+  validateManifestSemantics,
+} from "./lib/experiment-contract.ts";
+import {
+  createContractValidators,
+  loadReferenceEnvironment,
+} from "./lib/experiment-validation.ts";
+import {
+  createSyntheticPng,
+  createSyntheticPngChunk,
+  createSyntheticTraceZip,
+} from "./lib/synthetic-browser-artifacts.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const failures: string[] = [];
@@ -34,7 +60,15 @@ const goldenInventory = readFileSync(
   join(root, "experiments/morph/fixtures/inventory.golden.json"),
   "utf8",
 );
+const goldenQualificationCorpus = readFileSync(
+  join(root, "experiments/morph/fixtures/qualification-corpus.golden.json"),
+  "utf8",
+);
 const runnerSource = readFileSync(join(root, "experiments/morph/harness-runner.ts"), "utf8");
+const qualificationRunnerSource = readFileSync(
+  join(root, "experiments/morph/qualification-runner.ts"),
+  "utf8",
+);
 const harnessSpecSource = readFileSync(
   join(root, "experiments/morph/tests/harness.spec.ts"),
   "utf8",
@@ -43,10 +77,30 @@ const candidateSpecSource = readFileSync(
   join(root, "experiments/morph/tests/candidate.spec.ts"),
   "utf8",
 );
+const qualificationSpecSource = readFileSync(
+  join(root, "experiments/morph/tests/qualification.spec.ts"),
+  "utf8",
+);
+const candidateSource = readFileSync(join(root, "experiments/morph/candidate.ts"), "utf8");
 const playwrightConfigSource = readFileSync(
   join(root, "experiments/morph/playwright.config.ts"),
   "utf8",
 );
+const referenceActionSource = readFileSync(
+  join(root, ".github/actions/morph-reference/action.yml"),
+  "utf8",
+);
+const decisionGateOffset = qualificationRunnerSource.indexOf(
+  "verifyAcceptedQualificationFailure(root, outcome, profile)",
+);
+const publicationOffset = qualificationRunnerSource.indexOf("publishQualificationEvidence({");
+if (
+  decisionGateOffset < 0 ||
+  publicationOffset < 0 ||
+  decisionGateOffset > publicationOffset
+) {
+  recordFailure("qualification runner: failed outcome must be decision-gated before publication");
+}
 
 type ReportAttachment = {
   name: string;
@@ -96,123 +150,67 @@ function attachmentFile(root: string, attachment: ReportAttachment): string {
   return join(root, attachment.path);
 }
 
-function createTraceZip(
-  project: string,
-  fixtureId: string,
-  diagnostic: string,
-  attachments: ReadonlyArray<{ name: string; contentType: string; data: Buffer }>,
-): Buffer {
-  const tracedAttachments = attachments.map(({ name, contentType, data }) => ({
-    name,
-    contentType,
-    sha1: createHash("sha1").update(data).digest("hex"),
-  }));
-  const testRecords = [
-    {
-      version: 8,
-      type: "context-options",
-      origin: "testRunner",
-      playwrightVersion: "1.61.0",
-    },
-    ...tracedAttachments.map((attachment) => ({ type: "after", attachments: [attachment] })),
-    { type: "error", message: `Error: ${diagnostic}\nsynthetic seeded failure` },
-  ];
-  const entries: Array<readonly [string, Buffer]> = [
-    ["test.trace", Buffer.from(`${testRecords.map((record) => JSON.stringify(record)).join("\n")}\n`)],
-    [
-      "0-trace.trace",
-      Buffer.from(`${JSON.stringify({
-        type: "context-options",
-        browserName: project,
-        playwrightVersion: "1.61.0",
-        title: `harness.spec.ts:1 › ${fixtureId}`,
-      })}\n`),
-    ],
-    ["0-trace.network", Buffer.alloc(0)],
-    ...attachments.map(({ data }, index) => [
-      `resources/${tracedAttachments[index]?.sha1}`,
-      data,
-    ] as const),
-  ];
-  const localRecords: Buffer[] = [];
-  const centralRecords: Buffer[] = [];
-  let localOffset = 0;
-  for (const [entryName, data] of entries) {
-    const name = Buffer.from(entryName);
-    const checksum = crc32(data) >>> 0;
-    const local = Buffer.alloc(30 + name.length + data.length);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt32LE(checksum, 14);
-    local.writeUInt32LE(data.length, 18);
-    local.writeUInt32LE(data.length, 22);
-    local.writeUInt16LE(name.length, 26);
-    name.copy(local, 30);
-    data.copy(local, 30 + name.length);
-
-    const central = Buffer.alloc(46 + name.length);
-    central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
-    central.writeUInt16LE(20, 6);
-    central.writeUInt32LE(checksum, 16);
-    central.writeUInt32LE(data.length, 20);
-    central.writeUInt32LE(data.length, 24);
-    central.writeUInt16LE(name.length, 28);
-    central.writeUInt32LE(localOffset, 42);
-    name.copy(central, 46);
-    localRecords.push(local);
-    centralRecords.push(central);
-    localOffset += local.length;
-  }
-  const centralDirectory = Buffer.concat(centralRecords);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(entries.length, 8);
-  end.writeUInt16LE(entries.length, 10);
-  end.writeUInt32LE(centralDirectory.length, 12);
-  end.writeUInt32LE(localOffset, 16);
-  return Buffer.concat([...localRecords, centralDirectory, end]);
-}
-
-function pngChunk(type: string, data: Buffer): Buffer {
-  const typeBytes = Buffer.from(type, "ascii");
-  const chunk = Buffer.alloc(12 + data.length);
-  chunk.writeUInt32BE(data.length, 0);
-  typeBytes.copy(chunk, 4);
-  data.copy(chunk, 8);
-  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])) >>> 0, 8 + data.length);
-  return chunk;
-}
-
-function createPng(seed: number): Buffer {
-  const width = 1_280;
-  const height = 720;
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(width, 0);
-  header.writeUInt32BE(height, 4);
-  header[8] = 8;
-  header[9] = 2;
-  const rows = Buffer.alloc(height * (1 + width * 3));
-  rows[1] = seed;
-  rows[2] = 255 - seed;
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    pngChunk("IHDR", header),
-    pngChunk("IDAT", deflateSync(rows)),
-    pngChunk("IEND", Buffer.alloc(0)),
-  ]);
-}
-
 const validPngs = new Map<string, Buffer>([
-  ["chromium", createPng(40)],
-  ["firefox", createPng(80)],
-  ["webkit", createPng(120)],
+  ["chromium", createSyntheticPng(40)],
+  ["firefox", createSyntheticPng(80)],
+  ["webkit", createSyntheticPng(120)],
 ]);
 const validPng = validPngs.get("chromium");
 if (!validPng) throw new Error("synthetic Chromium PNG missing");
 
 const packageJson = readJsonDocument(join(root, "package.json"));
 const registry = readJsonDocument(join(root, "experiments/registry.json"));
+const contractValidators = createContractValidators(root);
+const validManifest = readJsonDocument(
+  join(root, "experiments/contract/fixtures/valid/complete/manifest.json"),
+);
+const referenceEnvironment = loadReferenceEnvironment(root);
+const validEnvironment = validManifest.environment;
+const projectedEnvironment = manifestEnvironment(
+  {
+    schemaVersion: 1,
+    observedAt: validEnvironment.backgroundLoad.preflightObservedAt,
+    classification: validEnvironment.referenceClass,
+    reasons: [],
+    host: {
+      provider: validEnvironment.host.provider,
+      repositoryVisibility: validEnvironment.host.repositoryVisibility,
+      runnerLabel: validEnvironment.host.runnerLabel,
+      runnerImageVersion: validEnvironment.host.runnerImageVersion,
+      runnerName: validEnvironment.host.runnerName,
+      operatingSystemVersion: validEnvironment.host.operatingSystemVersion,
+      kernelVersion: validEnvironment.host.kernelVersion,
+      architecture: validEnvironment.host.architecture,
+      cpuModel: validEnvironment.host.cpuModel,
+      observedLogicalCpuCount: validEnvironment.host.logicalCpuCount,
+      advertisedLogicalCpuCount: validEnvironment.host.logicalCpuCount,
+      observedMemoryMiB: validEnvironment.host.memoryMiB,
+      advertisedMemoryMiB: validEnvironment.host.memoryMiB,
+      advertisedStorageMiB: validEnvironment.host.advertisedStorageMiB,
+      freeStorageMiB: validEnvironment.host.freeStorageMiB,
+      loadAverage1m: validEnvironment.backgroundLoad.loadAverage1m,
+      processCount: validEnvironment.backgroundLoad.processCount,
+    },
+    container: {
+      runtimeImage: validEnvironment.container.image,
+      platform: validEnvironment.container.platform,
+      platformDigest: validEnvironment.container.platformDigest,
+      configDigest: validEnvironment.container.configDigest,
+    },
+    toolchain: validEnvironment.toolchain,
+    browsers: {
+      chromium: validEnvironment.browsers.chromeForTesting,
+      firefox: validEnvironment.browsers.firefox,
+      webkit: validEnvironment.browsers.webkit,
+    },
+  },
+  referenceEnvironment,
+);
+const projectedManifest = structuredClone(validManifest);
+projectedManifest.environment = projectedEnvironment;
+if (!contractValidators.manifest(projectedManifest)) {
+  recordFailure("morph qualification: projected manifest environment violates the result schema");
+}
 if (packageJson.devDependencies?.["@playwright/test"] !== "1.61.0") {
   recordFailure("package.json: @playwright/test must be pinned to 1.61.0");
 }
@@ -222,14 +220,53 @@ if (
 ) {
   recordFailure("package.json: experiment:morph command differs");
 }
+const morphRegistryEntry = registry.experiments.find((entry: { id?: string }) => entry.id === "morph");
+if (!morphRegistryEntry || !["available", "qualified"].includes(morphRegistryEntry.status)) {
+  recordFailure("experiment registry: morph harness is unavailable");
+}
 if (
-  registry.experiments.find((entry: { id?: string }) => entry.id === "morph")?.status !==
-  "available"
+  morphRegistryEntry?.status === "qualified" &&
+  (morphRegistryEntry.decision !== "narrow" ||
+    morphRegistryEntry.decisionAdr !== "docs/adr/0014-narrow-structural-preservation.md")
 ) {
-  recordFailure("experiment registry: morph harness is not available");
+  recordFailure("experiment registry: morph qualification decision differs");
 }
 if (existsSync(join(root, "experiments/morph/package.json"))) {
   recordFailure("experiments/morph: package boundary is forbidden");
+}
+if (stableMorphQualificationCorpus() !== goldenQualificationCorpus) {
+  recordFailure("K0-04 qualification corpus differs from its checked JSON projection");
+}
+const qualificationCaseIds = MORPH_QUALIFICATION_CASES.map((fixture) => fixture.id);
+if (
+  new Set(qualificationCaseIds).size !== qualificationCaseIds.length ||
+  qualificationCaseIds.some((id) => !/^[a-z][a-z0-9-]*$/u.test(id))
+) {
+  recordFailure("K0-04 qualification case IDs must be unique stable identifiers");
+}
+if (
+  JSON.stringify(MORPH_QUALIFICATION_CASES.map((fixture) => fixture.state)) !==
+  JSON.stringify(MORPH_QUALIFICATION_STATES)
+) {
+  recordFailure("K0-04 qualification corpus must cover each locked state exactly once");
+}
+if (
+  JSON.stringify([...new Set(MORPH_QUALIFICATION_CASES.map((fixture) => fixture.operation))]) !==
+  JSON.stringify(MORPH_QUALIFICATION_OPERATIONS)
+) {
+  recordFailure("K0-04 qualification corpus structural operation set differs");
+}
+if (
+  JSON.stringify(MORPH_QUALIFICATION_PROFILES) !==
+    JSON.stringify([
+      { id: "ci", repetitions: 20 },
+      { id: "qualification", repetitions: 100 },
+    ]) ||
+  MORPH_QUALIFICATION_CASES.some(
+    (fixture) => fixture.targetIdentity.trim() === "" || fixture.description.trim() === "",
+  )
+) {
+  recordFailure("K0-04 qualification profile or case metadata differs");
 }
 if (
   runnerSource.includes("FADENO_MORPH_OUTPUT_ROOT") ||
@@ -244,14 +281,217 @@ if (!candidateSpecSource.includes('from "../candidate.ts"')) {
   recordFailure("K0-03 candidate spec must import the private candidate directly");
 }
 if (
-  !playwrightConfigSource.includes(
-    'fixtureId === "intentional-replacement" ? "candidate.spec.ts" : "harness.spec.ts"',
-  )
+  !playwrightConfigSource.includes('qualificationProfile\n    ? "qualification.spec.ts"') ||
+  !playwrightConfigSource.includes('fixtureId === "intentional-replacement"') ||
+  !playwrightConfigSource.includes('? "candidate.spec.ts"') ||
+  !playwrightConfigSource.includes(': "harness.spec.ts"')
 ) {
-  recordFailure("Playwright config must isolate K0-02 and K0-03 specs by fixture");
+  recordFailure("Playwright config must isolate K0-02, K0-03, and K0-04 specs");
 }
-for (const file of readdirSync(join(root, "experiments/morph/results"))) {
-  if (file !== "README.md") recordFailure(`experiments/morph/results: unexpected ${file}`);
+if (!qualificationSpecSource.includes('from "../candidate.ts"')) {
+  recordFailure("K0-04 qualification spec must drive the private candidate directly");
+}
+for (const forbiddenStateRestoration of [
+  ".focus(",
+  ".blur(",
+  ".setSelectionRange(",
+  ".showModal(",
+  ".showPopover(",
+  ".hidePopover(",
+  ".play(",
+  ".pause(",
+  ".scrollTo(",
+  ".scrollTop =",
+  ".scrollLeft =",
+  ".currentTime =",
+  ".checked =",
+  ".value =",
+]) {
+  if (candidateSource.includes(forbiddenStateRestoration)) {
+    recordFailure(`private candidate restores browser state through ${forbiddenStateRestoration}`);
+  }
+}
+const pinnedRunId = "20260711T022119Z-5888bbf-a1";
+const resultEntries = readdirSync(join(root, "experiments/morph/results")).sort();
+if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].sort())) {
+  recordFailure("experiments/morph/results: pinned run set differs");
+} else {
+  const pinnedRoot = join(root, "experiments/morph/results", pinnedRunId);
+  const verifyPinnedRun = (runRoot: string): void => {
+    const manifestPath = join(runRoot, "manifest.json");
+    const manifest = readJsonDocument(manifestPath);
+    if (!contractValidators.manifest(manifest)) throw new Error("manifest schema differs");
+    validateManifestSemantics(manifest, referenceEnvironment, registry);
+    validateArtifactRecords(manifest, manifestPath, root);
+    if (
+      manifest.source.commit !== "5888bbff175bedf61c85bbeaed90dc927a55a593" ||
+      manifest.run.id !== pinnedRunId ||
+      manifest.run.status !== "failed" ||
+      manifest.conclusion.status !== "fail"
+    ) {
+      throw new Error("manifest identity or conclusion differs");
+    }
+    const outcome = verifyPublishedQualificationOutcome(
+      runRoot,
+      "qualification",
+      manifest,
+    );
+    verifyAcceptedQualificationFailure(root, outcome, "qualification");
+    const run = readJsonDocument(join(runRoot, "run.json"));
+    const evidence = [...outcome.passed, ...outcome.failed];
+    const expectedMatrix = {
+      engines: MORPH_PROJECTS.length,
+      cases: MORPH_QUALIFICATION_CASES.length,
+      repetitions: 100,
+      records: evidence.reduce((total, item) => total + item.summary.completedRecords, 0),
+      intentionalReplacements: evidence.reduce(
+        (total, item) => total + item.summary.intentionalReplacements,
+        0,
+      ),
+      failedRecords: outcome.failed.reduce(
+        (total, item) => total + item.summary.failedRecords,
+        0,
+      ),
+      retries: 0,
+    };
+    const manifestArtifacts = manifest.artifacts.filter(
+      (artifact: { path: string }) => artifact.path !== "run.json",
+    );
+    const expectedMeasurements = [
+      {
+        name: "candidate-round-trip",
+        unit: "ms",
+        values: evidence.flatMap((item) => item.summary.candidateRoundTripMilliseconds),
+      },
+      {
+        name: "document-element-count",
+        unit: "count",
+        values: evidence.flatMap((item) => item.summary.documentElementCounts),
+      },
+      {
+        name: "intentional-replacement-count",
+        unit: "count",
+        values: [expectedMatrix.intentionalReplacements],
+      },
+      {
+        name: "qualification-failure-count",
+        unit: "count",
+        values: [expectedMatrix.failedRecords],
+      },
+    ];
+    const expectedFailures = outcome.failed.map((item) => ({
+      code: "FADENO_MORPH_QUALIFICATION_FAILURE",
+      message: `${item.engine}: ${item.summary.failedRecords} cells failed (${[
+        ...new Set(item.summary.failures.flatMap((failure) => failure.categories)),
+      ].join(", ")})`,
+      artifact: `artifacts/failures/${item.engine}.json`,
+    }));
+    if (
+      run.run.id !== manifest.run.id ||
+      run.run.attempt !== manifest.run.attempt ||
+      run.run.startedAt !== manifest.run.startedAt ||
+      run.run.completedAt !== manifest.run.completedAt ||
+      run.run.status !== manifest.run.status ||
+      !isDeepStrictEqual(run.source, manifest.source) ||
+      !isDeepStrictEqual(run.matrix, expectedMatrix) ||
+      !isDeepStrictEqual(run.artifacts, manifestArtifacts) ||
+      !isDeepStrictEqual(manifest.measurements, expectedMeasurements) ||
+      !isDeepStrictEqual(manifest.failures, expectedFailures) ||
+      run.corpus.path !== manifest.workload.dataset.artifact ||
+      run.corpus.sha256 !== manifest.workload.dataset.sha256
+    ) {
+      throw new Error("run record differs from manifest or derived outcome");
+    }
+  };
+  try {
+    verifyPinnedRun(pinnedRoot);
+    const mutationRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-pinned-mutation-"));
+    try {
+      cpSync(pinnedRoot, mutationRoot, { recursive: true });
+      const failurePath = join(mutationRoot, "artifacts/failures/chromium.json");
+      writeFileSync(failurePath, "[]\n");
+      const manifestPath = join(mutationRoot, "manifest.json");
+      const manifest = readJsonDocument(manifestPath);
+      const artifact = manifest.artifacts.find(
+        (entry: { path: string }) => entry.path === "artifacts/failures/chromium.json",
+      );
+      if (!artifact) throw new Error("mutation artifact is missing");
+      artifact.sha256 = sha256File(failurePath);
+      artifact.bytes = statSync(failurePath).size;
+      writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+      try {
+        verifyPinnedRun(mutationRoot);
+        throw new Error("rewritten canonical failure artifact was accepted");
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "rewritten canonical failure artifact was accepted") {
+          throw error;
+        }
+      }
+
+      cpSync(pinnedRoot, mutationRoot, { recursive: true, force: true });
+      const missingArtifactManifestPath = join(mutationRoot, "manifest.json");
+      const missingArtifactManifest = readJsonDocument(missingArtifactManifestPath);
+      missingArtifactManifest.artifacts = missingArtifactManifest.artifacts.filter(
+        (entry: { path: string }) => entry.path !== "artifacts/records/chromium.json",
+      );
+      writeFileSync(
+        missingArtifactManifestPath,
+        `${JSON.stringify(missingArtifactManifest, null, 2)}\n`,
+      );
+      try {
+        verifyPinnedRun(mutationRoot);
+        throw new Error("unlisted canonical record artifact was accepted");
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "unlisted canonical record artifact was accepted") {
+          throw error;
+        }
+      }
+
+      cpSync(pinnedRoot, mutationRoot, { recursive: true, force: true });
+      const tracePath = join(mutationRoot, "artifacts/diagnostics/chromium/trace.zip");
+      writeFileSync(tracePath, "not a trace\n");
+      const traceManifestPath = join(mutationRoot, "manifest.json");
+      const traceManifest = readJsonDocument(traceManifestPath);
+      const traceArtifact = traceManifest.artifacts.find(
+        (entry: { path: string }) => entry.path === "artifacts/diagnostics/chromium/trace.zip",
+      );
+      if (!traceArtifact) throw new Error("trace mutation artifact is missing");
+      traceArtifact.sha256 = sha256File(tracePath);
+      traceArtifact.bytes = statSync(tracePath).size;
+      writeFileSync(traceManifestPath, `${JSON.stringify(traceManifest, null, 2)}\n`);
+      try {
+        verifyPinnedRun(mutationRoot);
+        throw new Error("rewritten canonical trace was accepted");
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "rewritten canonical trace was accepted") {
+          throw error;
+        }
+      }
+
+      cpSync(pinnedRoot, mutationRoot, { recursive: true, force: true });
+      const measurementManifestPath = join(mutationRoot, "manifest.json");
+      const measurementManifest = readJsonDocument(measurementManifestPath);
+      measurementManifest.measurements[0].values[0] += 1;
+      writeFileSync(
+        measurementManifestPath,
+        `${JSON.stringify(measurementManifest, null, 2)}\n`,
+      );
+      try {
+        verifyPinnedRun(mutationRoot);
+        throw new Error("rewritten manifest measurement was accepted");
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "rewritten manifest measurement was accepted") {
+          throw error;
+        }
+      }
+    } finally {
+      rmSync(mutationRoot, { recursive: true, force: true });
+    }
+  } catch (error: unknown) {
+    recordFailure(
+      `experiments/morph/results: pinned run is invalid (${error instanceof Error ? error.message : String(error)})`,
+    );
+  }
 }
 
 const commandRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-list-"));
@@ -431,7 +671,12 @@ try {
       { name: "screenshot", contentType: "image/png", data: readFileSync(screenshot) },
       { name: "error-context", contentType: "text/markdown", data: readFileSync(errorContext) },
     ];
-    const traceBytes = createTraceZip(project, fixture.id, fixtureDiagnostic, boundAttachments);
+    const traceBytes = createSyntheticTraceZip(
+      project,
+      fixture.id,
+      fixtureDiagnostic,
+      boundAttachments,
+    );
     syntheticTraces.set(project, traceBytes);
     writeFileSync(trace, traceBytes);
     return {
@@ -561,7 +806,7 @@ try {
   if (!chromiumTraceZip) throw new Error("synthetic Chromium trace missing");
   writeFileSync(attachmentFile(reportRoot, firstTrace), chromiumTraceZip);
 
-  const fabricatedTraceZip = createTraceZip(
+  const fabricatedTraceZip = createSyntheticTraceZip(
     "chromium",
     fixture.id,
     fixture.diagnostic,
@@ -638,7 +883,7 @@ try {
 
   const unknownCriticalPng = Buffer.concat([
     validPng.subarray(0, 33),
-    pngChunk("ABCD", Buffer.alloc(0)),
+    createSyntheticPngChunk("ABCD", Buffer.alloc(0)),
     validPng.subarray(33),
   ]);
   writeFileSync(attachmentFile(reportRoot, firstScreenshot), unknownCriticalPng);
@@ -914,6 +1159,24 @@ try {
 const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
 for (const required of [
   "runs-on: ubuntu-24.04",
+  "uses: ./.github/actions/morph-reference",
+  "profile: ci",
+  "profile: qualification",
+  "if: always()",
+  "output/playwright/morph",
+  "output/playwright/morph-harness",
+  "output/playwright/morph-qualification",
+  "path: |\n            output/playwright/morph\n            output/playwright/morph-harness",
+]) {
+  if (!workflow.includes(required)) recordFailure(`workflow: missing ${required}`);
+}
+if (
+  (workflow.match(/uses: \.\/\.github\/actions\/morph-reference/gu) ?? []).length !== 2 ||
+  workflow.includes("docker run --rm --ipc=host")
+) {
+  recordFailure("workflow: reference policy must have exactly one composite owner");
+}
+for (const required of [
   `image=\"${reference.container.runtimeImage}\"`,
   "docker run --rm --ipc=host",
   "--env FADENO_EXPECT_REFERENCE=1",
@@ -924,12 +1187,12 @@ for (const required of [
   "pnpm experiment:morph -- --verify-harness",
   "cp -R output/playwright/morph output/playwright/morph-harness",
   "pnpm experiment:morph -- --fixture intentional-replacement",
-  "if: always()",
-  "output/playwright/morph",
-  "output/playwright/morph-harness",
-  "path: |\n            output/playwright/morph\n            output/playwright/morph-harness",
+  "pnpm experiment:morph -- --ci",
+  "pnpm experiment:morph -- --qualify",
 ]) {
-  if (!workflow.includes(required)) recordFailure(`workflow: missing ${required}`);
+  if (!referenceActionSource.includes(required)) {
+    recordFailure(`reference action: missing ${required}`);
+  }
 }
 
 if (failures.length > 0) {
@@ -937,4 +1200,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("morph harness contract passed (3 fixtures, 3 engines, 25 report mutations)");
+console.log(
+  `morph harness contract passed (3 controls, ${MORPH_QUALIFICATION_CASES.length} qualification cases, 3 engines, 25 report mutations)`,
+);

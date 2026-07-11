@@ -33,8 +33,28 @@
           "command": { "type": "string", "pattern": "^pnpm experiment:[a-z-]+$", "maxLength": 80 },
           "harnessSlice": { "type": "string", "pattern": "^K0-[0-9]{2}$" },
           "qualificationSlice": { "type": "string", "pattern": "^K0-[0-9]{2}$" },
-          "status": { "enum": ["planned", "available"] }
-        }
+          "status": { "enum": ["planned", "available", "qualified"] },
+          "decision": { "enum": ["go", "narrow", "pivot"] },
+          "decisionAdr": {
+            "type": "string",
+            "pattern": "^docs/adr/[0-9]{4}-[a-z0-9-]+\\.md$"
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "status": { "const": "qualified" } } },
+            "then": {
+              "properties": {
+                "decision": { "enum": ["go", "narrow", "pivot"] },
+                "decisionAdr": {
+                  "type": "string",
+                  "pattern": "^docs/adr/[0-9]{4}-[a-z0-9-]+\\.md$"
+                }
+              },
+              "required": ["decision", "decisionAdr"]
+            }
+          }
+        ]
       }
     }
   }

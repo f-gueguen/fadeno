@@ -1,4 +1,7 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["../../scripts/check-morph-harness.ts"]
+  "include": [
+    "../../scripts/check-morph-harness.ts",
+    "../../scripts/check-morph-qualification.ts"
+  ]
 }

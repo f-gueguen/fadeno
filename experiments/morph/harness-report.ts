@@ -13,6 +13,11 @@ import { crc32, inflateRawSync, inflateSync } from "node:zlib";
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import { MORPH_PROJECTS } from "./contract.ts";
 import type { MorphFixture } from "./fixtures/catalog.ts";
+import type {
+  MorphMachineAttachment,
+  MorphMachineReport,
+  MorphMachineResult,
+} from "./machine-report.ts";
 
 const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
 const BEFORE_STATE = {
@@ -84,6 +89,11 @@ const CANDIDATE_AFTER_STATE = {
 const ATTACHMENT_CONTENT_TYPES = {
   operation: "application/json",
   "before-after": "application/json",
+  "qualification-records": "application/json",
+  "qualification-summary": "application/json",
+  "qualification-failures": "application/json",
+  "diagnostic-record": "application/json",
+  "diagnostic-failure": "application/json",
   screenshot: "image/png",
   trace: "application/zip",
   "error-context": "text/markdown",
@@ -103,40 +113,45 @@ export class MorphHarnessError extends Error {
   }
 }
 
-type MachineAttachment = {
-  name: string;
-  contentType: string;
-  path?: string;
-  bytes: number;
-};
-
-type MachineResult = {
-  project: string;
-  title: string;
-  status: string;
-  expectedStatus: string;
-  errors: string[];
-  attachments: MachineAttachment[];
-};
-
-type MachineReport = {
-  schemaVersion: number;
-  status: string;
-  results: MachineResult[];
-};
+export type MachineAttachment = MorphMachineAttachment;
+type MachineReport = MorphMachineReport;
+type MachineResult = MorphMachineResult;
 
 type VerifyOptions = {
   fixture: MorphFixture;
   outputRoot: string;
 };
 
-type TraceEvidence = {
+export type TraceEvidence = {
   browserName: string;
   title: string;
   playwrightVersion: string;
   errorFirstLine: string;
   attachments: Map<string, { contentType: string; sha1: string }>;
 };
+
+export function verifyTraceAttachmentBindings(
+  result: MachineResult,
+  verifiedPaths: ReadonlyMap<MachineAttachment, string>,
+  traceEvidence: TraceEvidence,
+): void {
+  for (const attachment of result.attachments) {
+    if (attachment.name === "trace") continue;
+    const traced = traceEvidence.attachments.get(attachment.name);
+    const path = verifiedPaths.get(attachment);
+    if (
+      !traced ||
+      !path ||
+      traced.contentType !== attachment.contentType ||
+      traced.sha1 !== sha1File(path)
+    ) {
+      fail(
+        "FADENO_MORPH_TRACE_ATTACHMENT",
+        `${result.project}: ${attachment.name} is not bound to the trace`,
+      );
+    }
+  }
+}
 
 function fail(code: string, message: string): never {
   throw new MorphHarnessError(code, message);
@@ -579,10 +594,24 @@ function verifyAttachmentFormat(attachment: MachineAttachment, path: string): Tr
   }
   if (attachment.name === "screenshot") verifyPng(path, attachment.bytes);
   if (attachment.name === "trace") return verifyTraceZip(path, attachment.bytes);
-  if (attachment.name === "operation" || attachment.name === "before-after") {
-    readJsonDocument(path);
+  if (attachment.contentType === "application/json") {
+    readJsonDocument(
+      path,
+      attachment.name === "qualification-records"
+        ? { maxBytes: 20 * 1024 * 1024 }
+        : {},
+    );
   }
   return undefined;
+}
+
+export function verifyPortableHarnessAttachment(
+  attachment: MachineAttachment,
+  outputRoot: string,
+): Readonly<{ path: string; traceEvidence?: TraceEvidence }> {
+  const path = containedAttachment(outputRoot, attachment);
+  const traceEvidence = verifyAttachmentFormat(attachment, path);
+  return traceEvidence ? { path, traceEvidence } : { path };
 }
 
 function requiredAttachment(
@@ -643,7 +672,9 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
     const expectedAttachmentNames = expected === "failed"
       ? ["before-after", "error-context", "operation", "screenshot", "trace"]
       : ["before-after", "operation"];
-    const attachmentNames = result.attachments.map((attachment) => attachment.name).sort();
+    const attachmentNames = result.attachments.map(
+      (attachment: MachineAttachment) => attachment.name,
+    ).sort();
     if (!isDeepStrictEqual(attachmentNames, expectedAttachmentNames)) {
       fail("FADENO_MORPH_ATTACHMENT_SET", `${result.project}: attachment set differs`);
     }
@@ -665,7 +696,8 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
       requiredAttachment(result, "screenshot", verifiedPaths);
       requiredAttachment(result, "trace", verifiedPaths);
       if (
-        traceEvidence?.browserName !== result.project ||
+        !traceEvidence ||
+        traceEvidence.browserName !== result.project ||
         !traceEvidence.title.endsWith(`› ${fixture.id}`) ||
         traceEvidence.playwrightVersion !== "1.61.0" ||
         traceEvidence.errorFirstLine !== `Error: ${fixture.diagnostic}`
@@ -743,22 +775,7 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
       }
     }
     if (expected === "failed" && traceEvidence) {
-      for (const attachment of result.attachments) {
-        if (attachment.name === "trace") continue;
-        const traced = traceEvidence.attachments.get(attachment.name);
-        const path = verifiedPaths.get(attachment);
-        if (
-          !traced ||
-          !path ||
-          traced.contentType !== attachment.contentType ||
-          traced.sha1 !== sha1File(path)
-        ) {
-          fail(
-            "FADENO_MORPH_TRACE_ATTACHMENT",
-            `${result.project}: ${attachment.name} is not bound to the trace`,
-          );
-        }
-      }
+      verifyTraceAttachmentBindings(result, verifiedPaths, traceEvidence);
     }
   }
   return report;

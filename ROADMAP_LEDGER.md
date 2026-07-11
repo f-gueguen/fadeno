@@ -6,30 +6,21 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-04 — H1 browser-state-preservation qualification
+K0-05 — extraction and module-graph harness
 
 ## Exit criteria
 
-- [ ] The reviewed corpus covers focus/selection/caret, dirty controls,
-  disclosure/dialog/popover, media, document/element scroll, structural
-  insert/remove/reorder, and intentional replacement.
-- [ ] Chromium, Firefox, and WebKit execute every fixture for 20 CI repetitions
-  and 100 qualification repetitions without retrying failures.
-- [ ] There are zero undeclared state-loss, focus-transfer, runtime-error, or
-  unhandled-promise failures; intentional replacement occurs in every declared
-  control.
-- [ ] Failure evidence names the structural operation and exact before/after
-  state through the checked portable artifact contract.
-- [ ] Immutable raw manifests support an effective go, narrow, or pivot ADR and
-  update H1, PATCH-01 traceability, specifications, risks, and support claims
-  without creating a public patch protocol.
-- [ ] `pnpm install --frozen-lockfile`, `pnpm check`, and
-  `pnpm experiment:morph -- --qualify` pass on the required environments.
+- [ ] The reviewed accepted/rejected interaction corpus is locked before an
+  extraction candidate is implemented.
+- [ ] The three-engine harness proves browser identity, module/network
+  observation, and stable diagnostics with seeded passing and failing controls.
+- [ ] The slice adds no public extraction API and makes no H2 viability claim.
+- [ ] `pnpm install --frozen-lockfile`, `pnpm check`, and the K0-05 harness
+  command pass in the required environments.
 
 ## In progress
 
-- K0-04 entry preparation only. No qualification corpus, repeated result,
-  immutable manifest, or H1 decision ADR has been implemented.
+- K0-05 corpus review and harness planning have not started.
 
 ## Blockers
 
@@ -37,12 +28,6 @@ K0-04 — H1 browser-state-preservation qualification
 
 ## Open questions
 
-- K0-04: before adding the full preservation corpus, reassess whether
-  scenario-specific evidence policy should split from the stable artifact/trace
-  verifier and its mutation checker; K0-03 keeps their two-key independence.
-- K0-04: measure the one-shot candidate's document-wide identity scan under the
-  repeated corpus before introducing a cached index or retained root handle;
-  K0-03 avoids stale lifecycle state while enforcing ambiguity refusal.
 - DG-A0-01: public package names after registry ownership is secured.
 
 ## Completed slices
@@ -65,3 +50,8 @@ K0-04 — H1 browser-state-preservation qualification
   peer replacement in Chromium, Firefox, and WebKit, refuses ambiguous or
   unsupported input without partial mutation, and retains independent K0-02 and
   K0-03 reference evidence without resolving H1 or DG-V2-01.
+- K0-04 — The locked 18-case corpus completed 20 and 100 no-retry repetitions
+  in Chromium, Firefox, and WebKit. ADR 0014 narrows H1 around layout-affecting
+  document/element scroll while retaining the 16 passing preservation classes;
+  exact failure signatures, portable evidence, and immutable result manifests
+  gate any later change without creating a public patch protocol.

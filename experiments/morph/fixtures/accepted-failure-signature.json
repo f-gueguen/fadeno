@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "diagnosticCase": "element-scroll-insert",
+  "failureCases": [
+    {
+      "caseId": "document-scroll-reorder",
+      "categories": ["scroll-position", "scroll-event"]
+    },
+    {
+      "caseId": "element-scroll-insert",
+      "categories": ["scroll-position", "scroll-event"]
+    }
+  ]
+}
