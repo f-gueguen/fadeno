@@ -6,8 +6,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import {
+  readJsonDocument,
   sha256File,
   validateArtifactRecords,
   validateManifestSemantics,
@@ -20,12 +22,21 @@ import {
 } from "../../scripts/lib/experiment-validation.ts";
 import type { ReferenceEnvironment } from "../../scripts/lib/experiment-validation.ts";
 import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
+import { MORPH_PROJECTS } from "./contract.ts";
+import { MorphHarnessError } from "./harness-report.ts";
 import type {
   QualificationEvidence,
   QualificationFailedEvidence,
   QualificationReportOutcome,
 } from "./qualification-report.ts";
-import { qualificationRepetitions } from "./qualification-proof.ts";
+import {
+  qualificationRepetitions,
+  verifyQualificationOutcome,
+} from "./qualification-proof.ts";
+import type {
+  QualificationFailureEvidence,
+  QualificationRecord,
+} from "./qualification-proof.ts";
 import type { ReferenceObservation } from "./preflight.ts";
 import type { MorphQualificationProfile } from "./qualification-scenarios.ts";
 
@@ -41,6 +52,49 @@ type ArtifactRecord = Readonly<{
   sha256: string;
   bytes: number;
 }>;
+
+export function verifyPublishedQualificationOutcome(
+  runDirectory: string,
+  profile: MorphQualificationProfile,
+): QualificationReportOutcome {
+  const passed: QualificationEvidence[] = [];
+  const failed: QualificationFailedEvidence[] = [];
+  for (const engine of MORPH_PROJECTS) {
+    const recordsPath = join(runDirectory, "artifacts/records", `${engine}.json`);
+    const failuresPath = join(runDirectory, "artifacts/failures", `${engine}.json`);
+    const summaryPath = join(runDirectory, "artifacts/summaries", `${engine}.json`);
+    const records = readJsonDocument(recordsPath, {
+      maxBytes: 20 * 1024 * 1024,
+    }) as QualificationRecord[];
+    const failures = readJsonDocument(failuresPath, {
+      maxBytes: 20 * 1024 * 1024,
+    }) as QualificationFailureEvidence[];
+    const summary = verifyQualificationOutcome(records, failures, profile, engine);
+    if (!isDeepStrictEqual(readJsonDocument(summaryPath), summary)) {
+      throw new MorphHarnessError(
+        "FADENO_MORPH_PUBLISHED_SUMMARY",
+        `${engine}: published summary differs from records and failures`,
+      );
+    }
+    if (failures.length === 0) {
+      passed.push({ engine, recordsPath, summaryPath, summary });
+    } else {
+      failed.push({
+        engine,
+        recordsPath,
+        failuresPath,
+        summaryPath,
+        screenshotPath: join(runDirectory, "artifacts/diagnostics", engine, "screenshot.png"),
+        tracePath: join(runDirectory, "artifacts/diagnostics", engine, "trace.zip"),
+        errorContextPath: join(runDirectory, "artifacts/diagnostics", engine, "error-context.md"),
+        summary,
+      });
+    }
+  }
+  return failed.length === 0
+    ? { status: "passed", passed, failed: [] }
+    : { status: "failed", passed, failed };
+}
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);

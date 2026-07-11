@@ -15,6 +15,7 @@ import type {
   QualificationRecord,
   QualificationSnapshot,
 } from "../qualification-proof.ts";
+import { loadQualificationDecisionSignature } from "../qualification-decision.ts";
 import {
   qualificationRepetitions,
   verifyQualificationOutcome,
@@ -790,8 +791,9 @@ test(`qualification-matrix-${profile}`, async ({ page }, testInfo: TestInfo) => 
 test(`qualification-diagnostic-${profile}`, async ({ page }, testInfo: TestInfo) => {
   test.setTimeout(60_000);
   const engine = qualificationEngine(page);
+  const decisionSignature = loadQualificationDecisionSignature();
   const scenario = MORPH_QUALIFICATION_SCENARIOS.find(
-    (candidate) => candidate.fixture.id === "element-scroll-insert",
+    (candidate) => candidate.fixture.id === decisionSignature.diagnosticCase,
   );
   if (!scenario) throw new Error("FADENO_MORPH_DIAGNOSTIC_SCENARIO_MISSING");
   const blockedRequests: string[] = [];

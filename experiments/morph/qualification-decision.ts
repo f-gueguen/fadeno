@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
+import { loadExperimentRegistry } from "../../scripts/lib/experiment-validation.ts";
 import { MORPH_PROJECTS } from "./contract.ts";
 import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
 import { MorphHarnessError } from "./harness-report.ts";
@@ -12,13 +14,21 @@ import type { MorphQualificationProfile } from "./qualification-scenarios.ts";
 
 export type QualificationDecisionSignature = Readonly<{
   schemaVersion: 1;
-  decision: "narrow";
-  adr: string;
+  diagnosticCase: string;
   failureCases: readonly Readonly<{
     caseId: string;
     categories: readonly string[];
   }>[];
 }>;
+
+const signaturePath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures/accepted-failure-signature.json",
+);
+
+export function loadQualificationDecisionSignature(): QualificationDecisionSignature {
+  return readJsonDocument(signaturePath) as QualificationDecisionSignature;
+}
 
 function fail(message: string): never {
   throw new MorphHarnessError("FADENO_MORPH_DECISION_SIGNATURE", message);
@@ -37,10 +47,9 @@ export function verifyQualificationDecisionSignature(
   profile: MorphQualificationProfile,
 ): void {
   if (
-    !hasExactKeys(signature, ["schemaVersion", "decision", "adr", "failureCases"]) ||
+    !hasExactKeys(signature, ["schemaVersion", "diagnosticCase", "failureCases"]) ||
     signature.schemaVersion !== 1 ||
-    signature.decision !== "narrow" ||
-    !/^docs\/adr\/[0-9]{4}-[a-z0-9-]+\.md$/u.test(signature.adr) ||
+    typeof signature.diagnosticCase !== "string" ||
     !Array.isArray(signature.failureCases) ||
     signature.failureCases.length === 0 ||
     outcome.status !== "failed" ||
@@ -65,6 +74,7 @@ export function verifyQualificationDecisionSignature(
     }
     cases.set(entry.caseId, entry.categories);
   }
+  if (!cases.has(signature.diagnosticCase)) fail("accepted diagnostic case is invalid");
   const repetitions = qualificationRepetitions(profile);
   const expectedFailures = signature.failureCases.length * repetitions;
   const engines = new Set(outcome.failed.map((item) => item.engine));
@@ -96,11 +106,21 @@ export function verifyAcceptedQualificationFailure(
   outcome: QualificationReportOutcome,
   profile: MorphQualificationProfile,
 ): void {
-  const path = join(root, "experiments/morph/fixtures/accepted-failure-signature.json");
-  if (!existsSync(path)) fail("no accepted failure signature exists");
-  const signature = readJsonDocument(path) as QualificationDecisionSignature;
+  if (!existsSync(signaturePath)) fail("no accepted failure signature exists");
+  const signature = loadQualificationDecisionSignature();
   verifyQualificationDecisionSignature(signature, outcome, profile);
-  const adr = join(root, signature.adr);
+  const registry = loadExperimentRegistry(root);
+  const experiment = registry.experiments.find(
+    (entry: { id?: string }) => entry.id === "morph",
+  );
+  if (
+    experiment?.status !== "qualified" ||
+    experiment.decision !== "narrow" ||
+    typeof experiment.decisionAdr !== "string"
+  ) {
+    fail("morph registry lacks an accepted narrow decision");
+  }
+  const adr = join(root, experiment.decisionAdr);
   if (!existsSync(adr) || !readFileSync(adr, "utf8").includes("- Status: Accepted")) {
     fail("accepted failure signature lacks an effective ADR");
   }

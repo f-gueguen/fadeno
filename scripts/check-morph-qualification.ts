@@ -29,7 +29,6 @@ import {
   MorphQualificationError,
   verifyQualificationFailureAlignment,
   verifyQualificationOutcome,
-  verifyQualificationRecords,
 } from "../experiments/morph/qualification-proof.ts";
 import type {
   QualificationFailureEvidence,
@@ -237,7 +236,7 @@ function expectHarnessError(
 }
 
 const baseRecords = syntheticRecords("chromium");
-verifyQualificationRecords(baseRecords, "ci", "chromium");
+verifyQualificationOutcome(baseRecords, [], "ci", "chromium");
 const passingFailureRecord = baseRecords.find((record) => record.state === "document-scroll");
 if (!passingFailureRecord) throw new Error("missing synthetic failure record");
 const failureRecord = structuredClone(passingFailureRecord) as QualificationRecord;
@@ -327,8 +326,7 @@ function syntheticFailedEvidence(engine: MorphProject): Readonly<{
 
 const decisionSignature: QualificationDecisionSignature = {
   schemaVersion: 1,
-  decision: "narrow",
-  adr: "docs/adr/0014-narrow-structural-preservation.md",
+  diagnosticCase: "element-scroll-insert",
   failureCases: [
     {
       caseId: "document-scroll-reorder",
@@ -582,7 +580,7 @@ for (const mutation of recordMutations) {
   const records = structuredClone(baseRecords) as unknown[];
   mutation.mutate(records);
   expectQualificationError(mutation.name, mutation.code, () => {
-    verifyQualificationRecords(records as QualificationRecord[], "ci", "chromium");
+    verifyQualificationOutcome(records as QualificationRecord[], [], "ci", "chromium");
   });
 }
 

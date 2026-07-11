@@ -1,7 +1,6 @@
 {
   "schemaVersion": 1,
-  "decision": "narrow",
-  "adr": "docs/adr/0014-narrow-structural-preservation.md",
+  "diagnosticCase": "element-scroll-insert",
   "failureCases": [
     {
       "caseId": "document-scroll-reorder",

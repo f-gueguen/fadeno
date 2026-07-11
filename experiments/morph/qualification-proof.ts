@@ -609,62 +609,6 @@ export function qualificationRepetitions(profile: MorphQualificationProfile): nu
   return entry.repetitions;
 }
 
-export function verifyQualificationRecords(
-  records: readonly QualificationRecord[],
-  profile: MorphQualificationProfile,
-  engine: MorphProject,
-): Readonly<{
-  profile: MorphQualificationProfile;
-  engine: MorphProject;
-  cases: number;
-  repetitions: number;
-  records: number;
-  intentionalReplacements: number;
-  candidateRoundTripMilliseconds: readonly number[];
-  documentElementCounts: readonly number[];
-}> {
-  if (!MORPH_PROJECTS.includes(engine)) {
-    fail("FADENO_MORPH_QUALIFICATION_ENGINE", `unknown engine: ${engine}`);
-  }
-  const repetitions = qualificationRepetitions(profile);
-  const expectedKeys: string[] = [];
-  for (const fixture of MORPH_QUALIFICATION_CASES) {
-    for (let ordinal = 1; ordinal <= repetitions; ordinal += 1) {
-      expectedKeys.push(`${engine}/${fixture.id}/${ordinal}`);
-    }
-  }
-  if (records.length !== expectedKeys.length) {
-    fail(
-      "FADENO_MORPH_QUALIFICATION_MATRIX",
-      `${engine}: expected ${expectedKeys.length} records, received ${records.length}`,
-    );
-  }
-  const actualKeys = records.map((record) => record.key);
-  if (!isDeepStrictEqual(actualKeys, expectedKeys) || new Set(actualKeys).size !== actualKeys.length) {
-    fail("FADENO_MORPH_QUALIFICATION_MATRIX", `${engine}: record matrix differs`);
-  }
-  for (const record of records) {
-    if (record.engine !== engine) {
-      fail("FADENO_MORPH_QUALIFICATION_ENGINE", `${record.key}: engine differs`);
-    }
-    assertRecord(record, profile);
-  }
-  return {
-    profile,
-    engine,
-    cases: MORPH_QUALIFICATION_CASES.length,
-    repetitions,
-    records: records.length,
-    intentionalReplacements: records.filter(
-      (record) => record.state === "intentional-replacement",
-    ).length,
-    candidateRoundTripMilliseconds: records.map(
-      (record) => record.candidateRoundTripMilliseconds,
-    ),
-    documentElementCounts: records.map((record) => record.documentElementCount),
-  };
-}
-
 export function verifyQualificationOutcome(
   records: readonly QualificationRecord[],
   failures: readonly QualificationFailureEvidence[],

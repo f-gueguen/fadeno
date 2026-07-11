@@ -7,12 +7,14 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 import { getMorphFixture, stableMorphInventory } from "../experiments/morph/fixtures/catalog.ts";
 import {
@@ -32,10 +34,13 @@ import {
   classifyReferenceHost,
 } from "../experiments/morph/preflight.ts";
 import { verifyAcceptedQualificationFailure } from "../experiments/morph/qualification-decision.ts";
-import { verifyQualificationReport } from "../experiments/morph/qualification-report.ts";
-import { manifestEnvironment } from "../experiments/morph/qualification-result.ts";
+import {
+  manifestEnvironment,
+  verifyPublishedQualificationOutcome,
+} from "../experiments/morph/qualification-result.ts";
 import {
   readJsonDocument,
+  sha256File,
   validateArtifactRecords,
   validateManifestSemantics,
 } from "./lib/experiment-contract.ts";
@@ -312,12 +317,10 @@ if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].
   recordFailure("experiments/morph/results: pinned run set differs");
 } else {
   const pinnedRoot = join(root, "experiments/morph/results", pinnedRunId);
-  try {
-    const manifestPath = join(pinnedRoot, "manifest.json");
+  const verifyPinnedRun = (runRoot: string): void => {
+    const manifestPath = join(runRoot, "manifest.json");
     const manifest = readJsonDocument(manifestPath);
-    if (!contractValidators.manifest(manifest)) {
-      throw new Error("manifest schema differs");
-    }
+    if (!contractValidators.manifest(manifest)) throw new Error("manifest schema differs");
     validateManifestSemantics(manifest, referenceEnvironment, registry);
     validateArtifactRecords(manifest, manifestPath, root);
     if (
@@ -328,11 +331,70 @@ if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].
     ) {
       throw new Error("manifest identity or conclusion differs");
     }
-    const outcome = verifyQualificationReport(join(pinnedRoot, "report.json"), {
-      profile: "qualification",
-      outputRoot: join(pinnedRoot, "playwright"),
-    });
+    const outcome = verifyPublishedQualificationOutcome(runRoot, "qualification");
     verifyAcceptedQualificationFailure(root, outcome, "qualification");
+    const run = readJsonDocument(join(runRoot, "run.json"));
+    const evidence = [...outcome.passed, ...outcome.failed];
+    const expectedMatrix = {
+      engines: MORPH_PROJECTS.length,
+      cases: MORPH_QUALIFICATION_CASES.length,
+      repetitions: 100,
+      records: evidence.reduce((total, item) => total + item.summary.completedRecords, 0),
+      intentionalReplacements: evidence.reduce(
+        (total, item) => total + item.summary.intentionalReplacements,
+        0,
+      ),
+      failedRecords: outcome.failed.reduce(
+        (total, item) => total + item.summary.failedRecords,
+        0,
+      ),
+      retries: 0,
+    };
+    const manifestArtifacts = manifest.artifacts.filter(
+      (artifact: { path: string }) => artifact.path !== "run.json",
+    );
+    if (
+      run.run.id !== manifest.run.id ||
+      run.run.attempt !== manifest.run.attempt ||
+      run.run.startedAt !== manifest.run.startedAt ||
+      run.run.completedAt !== manifest.run.completedAt ||
+      run.run.status !== manifest.run.status ||
+      !isDeepStrictEqual(run.source, manifest.source) ||
+      !isDeepStrictEqual(run.matrix, expectedMatrix) ||
+      !isDeepStrictEqual(run.artifacts, manifestArtifacts) ||
+      run.corpus.path !== manifest.workload.dataset.artifact ||
+      run.corpus.sha256 !== manifest.workload.dataset.sha256
+    ) {
+      throw new Error("run record differs from manifest or derived outcome");
+    }
+  };
+  try {
+    verifyPinnedRun(pinnedRoot);
+    const mutationRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-pinned-mutation-"));
+    try {
+      cpSync(pinnedRoot, mutationRoot, { recursive: true });
+      const failurePath = join(mutationRoot, "artifacts/failures/chromium.json");
+      writeFileSync(failurePath, "[]\n");
+      const manifestPath = join(mutationRoot, "manifest.json");
+      const manifest = readJsonDocument(manifestPath);
+      const artifact = manifest.artifacts.find(
+        (entry: { path: string }) => entry.path === "artifacts/failures/chromium.json",
+      );
+      if (!artifact) throw new Error("mutation artifact is missing");
+      artifact.sha256 = sha256File(failurePath);
+      artifact.bytes = statSync(failurePath).size;
+      writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+      try {
+        verifyPinnedRun(mutationRoot);
+        throw new Error("rewritten canonical failure artifact was accepted");
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "rewritten canonical failure artifact was accepted") {
+          throw error;
+        }
+      }
+    } finally {
+      rmSync(mutationRoot, { recursive: true, force: true });
+    }
   } catch (error: unknown) {
     recordFailure(
       `experiments/morph/results: pinned run is invalid (${error instanceof Error ? error.message : String(error)})`,
