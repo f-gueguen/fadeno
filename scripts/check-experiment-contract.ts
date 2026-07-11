@@ -11,6 +11,7 @@ import {
   validateSourceIntegrationAttestationInventory,
 } from "./lib/experiment-contract.ts";
 import {
+  assertSchema,
   createContractValidators,
   loadExperimentRegistry,
   loadReferenceEnvironment,
@@ -29,8 +30,10 @@ const validators = createContractValidators(root);
 const { ajv, schemas, manifest: manifestSchema } = validators;
 const reference = loadReferenceEnvironment(root, validators);
 const registry = loadExperimentRegistry(root, validators);
-const sourceIntegrationAttestations = readJsonDocument(
-  join(root, "experiments/source-integration-attestations.json"),
+const sourceIntegrationAttestations = assertSchema(
+  validators.sourceIntegration,
+  readJsonDocument(join(root, "experiments/source-integration-attestations.json")),
+  "source integration attestations",
 );
 validateSourceIntegrationAttestations(sourceIntegrationAttestations);
 validateSourceIntegrationAttestationInventory(sourceIntegrationAttestations, root);
@@ -114,7 +117,12 @@ for (const fixture of validDocuments) {
   }
   try {
     validateManifestSemantics(fixture.document, reference, registry);
-    validateArtifactRecords(fixture.document, fixture.path, root);
+      validateArtifactRecords(
+        fixture.document,
+        fixture.path,
+        root,
+        validators.sourceIntegration,
+      );
   } catch (error) {
     recordFailure(`${fixture.path}: ${error.message}`);
   }

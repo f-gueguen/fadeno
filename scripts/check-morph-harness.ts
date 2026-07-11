@@ -318,7 +318,12 @@ if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].
     const manifest = readJsonDocument(manifestPath);
     if (!contractValidators.manifest(manifest)) throw new Error("manifest schema differs");
     validateManifestSemantics(manifest, referenceEnvironment, registry);
-    validateArtifactRecords(manifest, manifestPath, root);
+    validateArtifactRecords(
+      manifest,
+      manifestPath,
+      root,
+      contractValidators.sourceIntegration,
+    );
     if (
       manifest.source.commit !== "5888bbff175bedf61c85bbeaed90dc927a55a593" ||
       manifest.run.id !== pinnedRunId ||

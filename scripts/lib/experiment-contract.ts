@@ -29,37 +29,12 @@ export class ContractError extends Error {
 }
 
 export function validateSourceIntegrationAttestations(document: any): void {
-  if (
-    document?.schemaVersion !== 1 || !Array.isArray(document.attestations) ||
-    Object.keys(document).sort().join(",") !== "attestations,schemaVersion"
-  ) fail("FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", "attestation document differs");
   const identities = new Set<string>();
-  const expectedKeys = [
-    "experimentId",
-    "integratedCommit",
-    "manifestPath",
-    "method",
-    "pullRequest",
-    "repository",
-    "resultRunId",
-    "sourceCommit",
-  ].join(",");
   const manifestPaths = new Set<string>();
   for (const item of document.attestations) {
     const identity = `${item?.experimentId}:${item?.sourceCommit}:${item?.resultRunId}`;
     if (
-      !item || Object.keys(item).sort().join(",") !== expectedKeys ||
-      item.method !== "squash" ||
-      !Number.isSafeInteger(item.pullRequest) || item.pullRequest < 1 ||
-      !/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(item.repository) ||
-      !/^[a-z][a-z0-9-]*$/u.test(item.experimentId) ||
-      typeof item.manifestPath !== "string" ||
-      item.manifestPath.includes("\\") || item.manifestPath.startsWith("/") ||
-      item.manifestPath.split("/").includes("..") || !item.manifestPath.endsWith("/manifest.json") ||
-      !/^[0-9a-f]{40}$/u.test(item.sourceCommit) ||
-      !/^[0-9a-f]{40}$/u.test(item.integratedCommit) ||
       item.sourceCommit === item.integratedCommit ||
-      typeof item.resultRunId !== "string" ||
       !item.resultRunId.includes(item.sourceCommit.slice(0, 7)) ||
       identities.has(identity) || manifestPaths.has(item.manifestPath)
     ) fail("FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", "attestation entry differs");
@@ -377,6 +352,7 @@ function validateSourceProvenance(
   manifest: any,
   manifestPath: string,
   repositoryRoot: string,
+  sourceIntegrationValidator?: ((document: unknown) => boolean) & { errors?: unknown },
 ): void {
   if (!repositoryRoot) {
     fail("FADENO_K0_REPOSITORY_CONTEXT", "repository root is required for provenance");
@@ -401,6 +377,9 @@ function validateSourceProvenance(
     const attestations = readJsonDocument(
       join(repositoryRoot, "experiments/source-integration-attestations.json"),
     );
+    if (!sourceIntegrationValidator || !sourceIntegrationValidator(attestations)) {
+      fail("FADENO_K0_SCHEMA_REJECTED", "source integration attestation schema differs");
+    }
     validateSourceIntegrationAttestations(attestations);
     const repositoryManifestPath = relative(
       realpathSync(repositoryRoot),
@@ -429,9 +408,10 @@ function validateSourceProvenance(
       attestations,
     );
   }
+  const inputProvenanceCommit = objectCheck.status === 0 ? commit : effectiveCommit;
   const lockAtCommit = spawnSync(
     "git",
-    ["show", `${effectiveCommit}:${manifest.dependencyLock.path}`],
+    ["show", `${inputProvenanceCommit}:${manifest.dependencyLock.path}`],
     {
       cwd: repositoryRoot,
       encoding: null,
@@ -447,11 +427,15 @@ function validateSourceProvenance(
   }
   const datasetSourcePath = manifest.workload?.dataset?.sourcePath;
   if (datasetSourcePath) {
-    const datasetAtCommit = spawnSync("git", ["show", `${effectiveCommit}:${datasetSourcePath}`], {
+    const datasetAtCommit = spawnSync(
+      "git",
+      ["show", `${inputProvenanceCommit}:${datasetSourcePath}`],
+      {
       cwd: repositoryRoot,
       encoding: null,
       maxBuffer: MAX_JSON_BYTES,
-    });
+      },
+    );
     if (datasetAtCommit.status !== 0 || datasetAtCommit.error) {
       fail("FADENO_K0_DATASET_SOURCE_MISSING", "workload dataset is unavailable at source commit");
     }
@@ -466,6 +450,7 @@ export function validateArtifactRecords(
   manifest: any,
   manifestPath: string,
   repositoryRoot: string,
+  sourceIntegrationValidator?: ((document: unknown) => boolean) & { errors?: unknown },
 ): void {
   const resultRoot = dirname(manifestPath);
   const paths = new Set();
@@ -512,7 +497,12 @@ export function validateArtifactRecords(
       );
     }
   }
-  validateSourceProvenance(manifest, manifestPath, repositoryRoot);
+  validateSourceProvenance(
+    manifest,
+    manifestPath,
+    repositoryRoot,
+    sourceIntegrationValidator,
+  );
 }
 
 const SECRET_PATTERNS = [

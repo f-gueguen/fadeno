@@ -307,7 +307,7 @@ if (resultEntries.length === 1) {
     const reference = loadReferenceEnvironment(root);
     const registry = loadExperimentRegistry(root, validators);
     validateManifestSemantics(manifest, reference, registry);
-    validateArtifactRecords(manifest, manifestPath, root);
+    validateArtifactRecords(manifest, manifestPath, root, validators.sourceIntegration);
     const decision = readJsonDocument(join(runRoot, "decision.json"));
     const inventory = readJsonDocument(join(runRoot, "generated/inventory.json")) as
       GeneratedInventory;
