@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "results": [
+    {
+      "project": "chromium",
+      "title": "qualification-matrix-qualification",
+      "status": "passed",
+      "expectedStatus": "passed",
+      "errors": [],
+      "attachments": [
+        {
+          "name": "qualification-records",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-chromium/attachments/qualification-records-0a484d65281f27391c35d688e6073b6f94062b3b.json",
+          "bytes": 3086360
+        },
+        {
+          "name": "qualification-failures",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-chromium/attachments/qualification-failures-1f85205f5a1d0bd7219f462a08dbdf962392a60d.json",
+          "bytes": 532007
+        },
+        {
+          "name": "qualification-summary",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-chromium/attachments/qualification-summary-e4c7ba16aecf20fd11e24a09f52fa61c4c57b293.json",
+          "bytes": 92271
+        }
+      ]
+    },
+    {
+      "project": "chromium",
+      "title": "qualification-diagnostic-qualification",
+      "status": "failed",
+      "expectedStatus": "passed",
+      "errors": [
+        "Error: FADENO_MORPH_QUALIFICATION_FAILURE: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 3\u001b[39m\n\n\u001b[32m- Array []\u001b[39m\n\u001b[31m+ Array [\u001b[39m\n\u001b[31m+   \"scroll\",\u001b[39m\n\u001b[31m+ ]\u001b[39m"
+      ],
+      "attachments": [
+        {
+          "name": "diagnostic-failure",
+          "contentType": "application/json",
+          "path": "qualification-qualification-diagnostic-qualification-chromium/attachments/diagnostic-failure-2b2a8053d678d35e79cf9c698463b2b167747bbc.json",
+          "bytes": 2463
+        },
+        {
+          "name": "screenshot",
+          "contentType": "image/png",
+          "path": "qualification-qualification-diagnostic-qualification-chromium/test-failed-1.png",
+          "bytes": 4955
+        },
+        {
+          "name": "error-context",
+          "contentType": "text/markdown",
+          "path": "qualification-qualification-diagnostic-qualification-chromium/error-context.md",
+          "bytes": 5101
+        },
+        {
+          "name": "trace",
+          "contentType": "application/zip",
+          "path": "qualification-qualification-diagnostic-qualification-chromium/trace.zip",
+          "bytes": 38178
+        }
+      ]
+    },
+    {
+      "project": "firefox",
+      "title": "qualification-matrix-qualification",
+      "status": "passed",
+      "expectedStatus": "passed",
+      "errors": [],
+      "attachments": [
+        {
+          "name": "qualification-records",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-firefox/attachments/qualification-records-fe70d7b9306eb31fc99e44f689c5438c8a8346b2.json",
+          "bytes": 3082985
+        },
+        {
+          "name": "qualification-failures",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-firefox/attachments/qualification-failures-6c7ba21b0e663a5bc8f8451022ecd4211caffa0a.json",
+          "bytes": 531546
+        },
+        {
+          "name": "qualification-summary",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-firefox/attachments/qualification-summary-cabcb3573c14f065769da8534da92921f22ba362.json",
+          "bytes": 91900
+        }
+      ]
+    },
+    {
+      "project": "firefox",
+      "title": "qualification-diagnostic-qualification",
+      "status": "failed",
+      "expectedStatus": "passed",
+      "errors": [
+        "Error: FADENO_MORPH_QUALIFICATION_FAILURE: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 3\u001b[39m\n\n\u001b[32m- Array []\u001b[39m\n\u001b[31m+ Array [\u001b[39m\n\u001b[31m+   \"scroll\",\u001b[39m\n\u001b[31m+ ]\u001b[39m"
+      ],
+      "attachments": [
+        {
+          "name": "diagnostic-failure",
+          "contentType": "application/json",
+          "path": "qualification-qualification-diagnostic-qualification-firefox/attachments/diagnostic-failure-004a41101cab6d80d2b1c2c2aa6e6cab8480dea4.json",
+          "bytes": 2460
+        },
+        {
+          "name": "screenshot",
+          "contentType": "image/png",
+          "path": "qualification-qualification-diagnostic-qualification-firefox/test-failed-1.png",
+          "bytes": 6537
+        },
+        {
+          "name": "error-context",
+          "contentType": "text/markdown",
+          "path": "qualification-qualification-diagnostic-qualification-firefox/error-context.md",
+          "bytes": 5101
+        },
+        {
+          "name": "trace",
+          "contentType": "application/zip",
+          "path": "qualification-qualification-diagnostic-qualification-firefox/trace.zip",
+          "bytes": 44417
+        }
+      ]
+    },
+    {
+      "project": "webkit",
+      "title": "qualification-matrix-qualification",
+      "status": "passed",
+      "expectedStatus": "passed",
+      "errors": [],
+      "attachments": [
+        {
+          "name": "qualification-records",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-webkit/attachments/qualification-records-30be0bbe3f3e01ecf0953aa6d7606737577c204a.json",
+          "bytes": 3079821
+        },
+        {
+          "name": "qualification-failures",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-webkit/attachments/qualification-failures-d0e3b7d33844d9c8686b5a99db5310eeb64ce541.json",
+          "bytes": 530887
+        },
+        {
+          "name": "qualification-summary",
+          "contentType": "application/json",
+          "path": "qualification-qualification-matrix-qualification-webkit/attachments/qualification-summary-8a72654d98d055430e20c8151dde81273ef719db.json",
+          "bytes": 91378
+        }
+      ]
+    },
+    {
+      "project": "webkit",
+      "title": "qualification-diagnostic-qualification",
+      "status": "failed",
+      "expectedStatus": "passed",
+      "errors": [
+        "Error: FADENO_MORPH_QUALIFICATION_FAILURE: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 3\u001b[39m\n\n\u001b[32m- Array []\u001b[39m\n\u001b[31m+ Array [\u001b[39m\n\u001b[31m+   \"scroll\",\u001b[39m\n\u001b[31m+ ]\u001b[39m"
+      ],
+      "attachments": [
+        {
+          "name": "diagnostic-failure",
+          "contentType": "application/json",
+          "path": "qualification-qualification-diagnostic-qualification-webkit/attachments/diagnostic-failure-af1e035ef6ddd9542b11baf90b4c893b5e5c3941.json",
+          "bytes": 2456
+        },
+        {
+          "name": "screenshot",
+          "contentType": "image/png",
+          "path": "qualification-qualification-diagnostic-qualification-webkit/test-failed-1.png",
+          "bytes": 6453
+        },
+        {
+          "name": "error-context",
+          "contentType": "text/markdown",
+          "path": "qualification-qualification-diagnostic-qualification-webkit/error-context.md",
+          "bytes": 5101
+        },
+        {
+          "name": "trace",
+          "contentType": "application/zip",
+          "path": "qualification-qualification-diagnostic-qualification-webkit/trace.zip",
+          "bytes": 37387
+        }
+      ]
+    }
+  ]
+}

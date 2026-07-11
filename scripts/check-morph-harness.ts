@@ -31,8 +31,14 @@ import {
   assertBrowserCompatibility,
   classifyReferenceHost,
 } from "../experiments/morph/preflight.ts";
+import { verifyAcceptedQualificationFailure } from "../experiments/morph/qualification-decision.ts";
+import { verifyQualificationReport } from "../experiments/morph/qualification-report.ts";
 import { manifestEnvironment } from "../experiments/morph/qualification-result.ts";
-import { readJsonDocument } from "./lib/experiment-contract.ts";
+import {
+  readJsonDocument,
+  validateArtifactRecords,
+  validateManifestSemantics,
+} from "./lib/experiment-contract.ts";
 import {
   createContractValidators,
   loadReferenceEnvironment,
@@ -149,6 +155,7 @@ if (!validPng) throw new Error("synthetic Chromium PNG missing");
 
 const packageJson = readJsonDocument(join(root, "package.json"));
 const registry = readJsonDocument(join(root, "experiments/registry.json"));
+const contractValidators = createContractValidators(root);
 const validManifest = readJsonDocument(
   join(root, "experiments/contract/fixtures/valid/complete/manifest.json"),
 );
@@ -196,7 +203,7 @@ const projectedEnvironment = manifestEnvironment(
 );
 const projectedManifest = structuredClone(validManifest);
 projectedManifest.environment = projectedEnvironment;
-if (!createContractValidators(root).manifest(projectedManifest)) {
+if (!contractValidators.manifest(projectedManifest)) {
   recordFailure("morph qualification: projected manifest environment violates the result schema");
 }
 if (packageJson.devDependencies?.["@playwright/test"] !== "1.61.0") {
@@ -299,8 +306,38 @@ for (const forbiddenStateRestoration of [
     recordFailure(`private candidate restores browser state through ${forbiddenStateRestoration}`);
   }
 }
-for (const file of readdirSync(join(root, "experiments/morph/results"))) {
-  if (file !== "README.md") recordFailure(`experiments/morph/results: unexpected ${file}`);
+const pinnedRunId = "20260711T014123Z-b2472dc-a1";
+const resultEntries = readdirSync(join(root, "experiments/morph/results")).sort();
+if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].sort())) {
+  recordFailure("experiments/morph/results: pinned run set differs");
+} else {
+  const pinnedRoot = join(root, "experiments/morph/results", pinnedRunId);
+  try {
+    const manifestPath = join(pinnedRoot, "manifest.json");
+    const manifest = readJsonDocument(manifestPath);
+    if (!contractValidators.manifest(manifest)) {
+      throw new Error("manifest schema differs");
+    }
+    validateManifestSemantics(manifest, referenceEnvironment, registry);
+    validateArtifactRecords(manifest, manifestPath, root);
+    if (
+      manifest.source.commit !== "b2472dc24a780da28f3f3aef8fbd976a6076e5dd" ||
+      manifest.run.id !== pinnedRunId ||
+      manifest.run.status !== "failed" ||
+      manifest.conclusion.status !== "fail"
+    ) {
+      throw new Error("manifest identity or conclusion differs");
+    }
+    const outcome = verifyQualificationReport(join(pinnedRoot, "report.json"), {
+      profile: "qualification",
+      outputRoot: join(pinnedRoot, "playwright"),
+    });
+    verifyAcceptedQualificationFailure(root, outcome, "qualification");
+  } catch (error: unknown) {
+    recordFailure(
+      `experiments/morph/results: pinned run is invalid (${error instanceof Error ? error.message : String(error)})`,
+    );
+  }
 }
 
 const commandRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-list-"));

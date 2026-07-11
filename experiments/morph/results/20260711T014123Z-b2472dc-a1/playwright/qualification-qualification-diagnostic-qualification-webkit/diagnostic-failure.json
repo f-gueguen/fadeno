@@ -1,0 +1,86 @@
+{
+  "operation": {
+    "profile": "qualification",
+    "engine": "webkit",
+    "caseId": "element-scroll-insert",
+    "state": "element-scroll",
+    "operation": "insert-keyed",
+    "ordinal": 100,
+    "failure": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // deep equality\u001b[22m\n\n\u001b[32m- Expected  - 1\u001b[39m\n\u001b[31m+ Received  + 3\u001b[39m\n\n\u001b[32m- Array []\u001b[39m\n\u001b[31m+ Array [\u001b[39m\n\u001b[31m+   \"scroll\",\u001b[39m\n\u001b[31m+ ]\u001b[39m"
+  },
+  "observation": {
+    "schemaVersion": 1,
+    "profile": "qualification",
+    "engine": "webkit",
+    "caseId": "element-scroll-insert",
+    "state": "element-scroll",
+    "operation": "insert-keyed",
+    "ordinal": 100,
+    "key": "webkit/element-scroll-insert/100",
+    "completed": true,
+    "candidateRoundTripMilliseconds": 4.921161000034772,
+    "observationWindowMilliseconds": 41.8832200000179,
+    "documentElementCount": 9,
+    "candidate": {
+      "rootIdentity": "root",
+      "reusedIdentities": [
+        "root",
+        "scroll-container",
+        "scroll-content",
+        "peer-a"
+      ],
+      "replacedIdentities": []
+    },
+    "before": {
+      "serverClass": "before",
+      "order": [
+        "scroll-content"
+      ],
+      "rootOriginal": true,
+      "targetOriginal": true,
+      "originalTargetConnected": true,
+      "currentTargetConnected": true,
+      "ancestorsOriginal": true,
+      "expandoPreserved": true,
+      "listenerHits": 0,
+      "sameFileObject": null,
+      "islandLifecycleStable": null,
+      "topLayerStable": null,
+      "state": {
+        "left": 0,
+        "top": 120
+      }
+    },
+    "after": {
+      "serverClass": "after",
+      "order": [
+        "inserted-peer",
+        "scroll-content"
+      ],
+      "rootOriginal": true,
+      "targetOriginal": true,
+      "originalTargetConnected": true,
+      "currentTargetConnected": true,
+      "ancestorsOriginal": true,
+      "expandoPreserved": true,
+      "listenerHits": 1,
+      "sameFileObject": null,
+      "islandLifecycleStable": null,
+      "topLayerStable": null,
+      "state": {
+        "left": 0,
+        "top": 140
+      }
+    },
+    "instrumentation": {
+      "setterCalls": [],
+      "methodCalls": [],
+      "events": [
+        "scroll"
+      ],
+      "unhandledRejections": [],
+      "blockedRequests": [],
+      "pageErrors": []
+    }
+  }
+}
