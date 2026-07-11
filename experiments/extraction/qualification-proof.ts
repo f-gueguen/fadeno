@@ -62,6 +62,28 @@ export type GeneratedInventory = Readonly<{
   }>[];
 }>;
 
+export type ExtractionDecision = "go" | "narrow" | "pivot";
+
+export function decideExtractionOutcome(input: Readonly<{
+  accepted: readonly string[];
+  rejectedBoundariesPass: boolean;
+  identityPass: boolean;
+  deterministicGenerationPass: boolean;
+  outputSafetyPass: boolean;
+}>): ExtractionDecision {
+  if (
+    !input.rejectedBoundariesPass ||
+    !input.identityPass ||
+    !input.deterministicGenerationPass ||
+    !input.outputSafetyPass
+  ) return "pivot";
+  if (isDeepStrictEqual([...input.accepted].sort(), [...EXTRACTION_ACCEPTED_CLASSES].sort())) {
+    return "go";
+  }
+  const narrow = ["toggle", "disclosure", "menu", "local-counter"].sort();
+  return isDeepStrictEqual([...input.accepted].sort(), narrow) ? "narrow" : "pivot";
+}
+
 function counterValue(ordinal: number): number {
   const steps = [1, 2, -1, 3];
   let value = 0;
