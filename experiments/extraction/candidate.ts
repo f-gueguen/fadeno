@@ -567,7 +567,9 @@ function findRoot(project: Project, fixtureId: ExtractionFixtureId) {
     );
   }
   const captureStatements = captureEvaluation.known
-    ? Object.entries(captureEvaluation.value).map(
+    ? Object.entries(
+        captureEvaluation.value as { [key: string]: PlainCapture },
+      ).map(
         ([name, value]) => `const ${name} = ${JSON.stringify(value)};`,
       )
     : [];
