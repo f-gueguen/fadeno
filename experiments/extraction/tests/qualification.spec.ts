@@ -7,6 +7,12 @@ import { join } from "node:path";
 import { applyPrivateMorphCandidate } from "../../morph/candidate.ts";
 import { MORPH_QUALIFICATION_CASES } from "../../morph/fixtures/qualification-corpus.ts";
 import { createMorphQualificationScenario } from "../../morph/qualification-scenarios.ts";
+import {
+  morphQualificationStatePreserved,
+  prepareMorphQualificationState,
+  readMorphQualificationState,
+  releaseMorphQualificationState,
+} from "../../morph/qualification-state.ts";
 import { EXTRACTION_PROJECTS } from "../contract.ts";
 import type { ExtractionProject } from "../contract.ts";
 import { EXTRACTION_ACCEPTED_CLASSES } from "../fixtures/catalog.ts";
@@ -181,24 +187,21 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
           __fadenoScenarioTarget?: Element;
         };
         const ui = document.querySelector("#extraction-ui");
-        const currentRoot = document.querySelector("#root, #identity-root");
-        if (!ui || !currentRoot) throw new Error("identity UI root is absent");
+        const identityHost = document.querySelector("#identity-root");
+        if (!ui || !identityHost) throw new Error("identity UI root is absent");
         const template = document.createElement("template");
         template.innerHTML = value.currentHtml;
         const nextRoot = template.content.querySelector("#root");
         if (!nextRoot) throw new Error("identity scenario root is absent");
-        nextRoot.append(ui);
-        currentRoot.replaceWith(nextRoot);
+        const currentScenario = document.querySelector("#root");
+        if (currentScenario) currentScenario.replaceWith(nextRoot);
+        else identityHost.prepend(nextRoot);
         const scenarioTarget = document.getElementById(value.targetIdentity);
         const operationParent = document.getElementById(value.operationParentIdentity);
         if (!scenarioTarget || !operationParent) throw new Error("identity target is absent");
         state.__fadenoScenarioTarget = scenarioTarget;
-        const replacementHtml = value.replacementHtml.replace(
-          "</main>",
-          `${ui.outerHTML}</main>`,
-        );
         return {
-          replacementHtml,
+          replacementHtml: value.replacementHtml,
           beforeOrder: Array.from(operationParent.children).map((child) => child.id),
           triggerSame: state.__fadenoTriggerNode === document.querySelector("#trigger"),
         };
@@ -209,10 +212,19 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         operationParentIdentity: scenario.operationParentIdentity,
       });
       expect(prepared.beforeOrder).toEqual(scenario.beforeOrder);
+      await prepareMorphQualificationState(page, scenario);
+      const scenarioStateBefore = await readMorphQualificationState(page, scenario);
       const morphResult = await page.evaluate(applyPrivateMorphCandidate, {
         ...scenario.patch,
         replacementHtml: prepared.replacementHtml,
       });
+      const scenarioStateAfter = await readMorphQualificationState(page, scenario);
+      const scenarioStatePass = morphQualificationStatePreserved(
+        scenario.fixture.state,
+        scenarioStateBefore,
+        scenarioStateAfter,
+      );
+      expect(scenarioStatePass).toBe(true);
       const afterScenario = await page.evaluate((value) => {
         const state = globalThis as typeof globalThis & {
           __fadenoTriggerNode?: Element;
@@ -232,6 +244,7 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         operationParentIdentity: scenario.operationParentIdentity,
       });
       expect(afterScenario.afterOrder).toEqual(scenario.afterOrder);
+      await releaseMorphQualificationState(page, scenario);
       const beforeRequests = requests.length;
       await page.locator("#trigger").click();
       const ordinal = 101 + index;
@@ -259,6 +272,8 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         reusedScenarioTarget: morphResult.reusedIdentities.includes(
           scenario.fixture.targetIdentity,
         ),
+        scenarioState: scenario.fixture.state,
+        scenarioStatePass,
         beforeOrder: prepared.beforeOrder,
         afterOrder: afterScenario.afterOrder,
         handlerReferenceStable: record.handlerReferenceStable,

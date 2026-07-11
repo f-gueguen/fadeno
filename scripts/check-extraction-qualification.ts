@@ -75,6 +75,8 @@ function observation(project: ExtractionProject): ExtractionQualificationObserva
           targetSame: true,
           scenarioTargetSame: true,
           reusedScenarioTarget: true,
+          scenarioState: identityCase.state,
+          scenarioStatePass: true,
           beforeOrder: ["before"],
           afterOrder: ["after"],
           handlerReferenceStable: true,
@@ -100,6 +102,7 @@ for (const [name, mutate] of [
   ["early handler", (value: any) => { value.fixtures[0].preTriggerRequests.push("/handlers/toggle.js"); }],
   ["module reevaluation", (value: any) => { value.fixtures[0].moduleEvaluations = 2; }],
   ["lost target", (value: any) => { value.fixtures[0].identity[0].targetSame = false; }],
+  ["lost scenario state", (value: any) => { value.fixtures[0].identity[0].scenarioStatePass = false; }],
   ["repeat request", (value: any) => { value.fixtures[0].laterRequests.push("/handlers/toggle.js"); }],
   ["response divergence", (value: any) => { value.fixtures[0].response.body += "// divergent\n"; }],
   ["browser mismatch", (value: any) => { value.observedBrowser = "firefox"; }],
@@ -166,4 +169,4 @@ if (
   decideExtractionOutcome({ accepted: all, rejectedBoundariesPass: false, identityPass: true, deterministicGenerationPass: true, outputSafetyPass: true }) !== "pivot"
 ) throw new Error("K0-06 decision table differs");
 
-console.log("extraction qualification verifier passed (8 observation, 5 report, 4 decision mutations)");
+console.log("extraction qualification verifier passed (9 observation, 5 report, 4 decision mutations)");

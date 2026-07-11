@@ -5,10 +5,6 @@ import type { Page, TestInfo } from "@playwright/test";
 
 import { applyPrivateMorphCandidate } from "../candidate.ts";
 import type { PrivateMorphResult } from "../candidate.ts";
-import {
-  MORPH_QUALIFICATION_ASSETS,
-  createQualificationFile,
-} from "../fixtures/qualification-assets.ts";
 import type { QualificationState } from "../fixtures/qualification-corpus.ts";
 import type {
   QualificationFailureEvidence,
@@ -23,6 +19,7 @@ import {
 import {
   MORPH_QUALIFICATION_SCENARIOS,
 } from "../qualification-scenarios.ts";
+import { prepareMorphQualificationState } from "../qualification-state.ts";
 import type {
   MorphQualificationProfile,
   MorphQualificationScenario,
@@ -122,127 +119,7 @@ async function prepareScenario(page: Page, scenario: MorphQualificationScenario)
   await page.setContent(scenario.currentHtml);
   await resetUnhandledRejectionCollector(page);
 
-  switch (scenario.fixture.state) {
-    case "focused-input-selection": {
-      const target = page.locator(`#${scenario.fixture.targetIdentity}`);
-      await target.fill("client-dirty");
-      await target.focus();
-      await target.evaluate((element) =>
-        (element as HTMLInputElement).setSelectionRange(2, 8)
-      );
-      break;
-    }
-    case "focused-textarea-selection": {
-      const target = page.locator(`#${scenario.fixture.targetIdentity}`);
-      await target.fill("client-dirty");
-      await target.focus();
-      await target.evaluate((element) =>
-        (element as HTMLTextAreaElement).setSelectionRange(1, 7)
-      );
-      break;
-    }
-    case "focused-contenteditable-caret":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate((element) => {
-        const text = element.firstChild;
-        if (!text) throw new Error("FADENO_MORPH_EDITOR_TEXT_MISSING");
-        (element as HTMLElement).focus();
-        const range = document.createRange();
-        range.setStart(text, 4);
-        range.collapse(true);
-        const selection = document.getSelection();
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      });
-      break;
-    case "dirty-text":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).fill("client-dirty");
-      break;
-    case "dirty-checkbox":
-    case "dirty-radio":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).check();
-      break;
-    case "dirty-select":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).selectOption("b");
-      break;
-    case "dirty-file":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).setInputFiles({
-        name: MORPH_QUALIFICATION_ASSETS.file.name,
-        mimeType: MORPH_QUALIFICATION_ASSETS.file.contentType,
-        buffer: createQualificationFile(),
-      });
-      break;
-    case "details-open":
-      await page.locator("#details-summary").click();
-      break;
-    case "dialog-modal":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate((element) =>
-        (element as HTMLDialogElement).showModal()
-      );
-      break;
-    case "dialog-nonmodal":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate((element) =>
-        (element as HTMLDialogElement).show()
-      );
-      break;
-    case "popover-open":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate((element) =>
-        (element as HTMLElement).showPopover()
-      );
-      break;
-    case "media-playing":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate(async (element) => {
-        const media = element as HTMLAudioElement;
-        if (media.readyState < 2) {
-          await new Promise<void>((resolve, reject) => {
-            media.addEventListener("canplay", () => resolve(), { once: true });
-            media.addEventListener("error", () => reject(new Error("media failed")), { once: true });
-          });
-        }
-        media.playbackRate = 0.5;
-        await media.play();
-        const deadline = performance.now() + 2_000;
-        while (media.currentTime <= 0.02 && performance.now() < deadline) {
-          await new Promise((resolve) => setTimeout(resolve, 10));
-        }
-        if (media.currentTime <= 0.02) throw new Error("FADENO_MORPH_MEDIA_DID_NOT_ADVANCE");
-      });
-      break;
-    case "media-paused":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate(async (element) => {
-        const media = element as HTMLAudioElement;
-        if (media.readyState < 2) {
-          await new Promise<void>((resolve, reject) => {
-            media.addEventListener("canplay", () => resolve(), { once: true });
-            media.addEventListener("error", () => reject(new Error("media failed")), { once: true });
-          });
-        }
-        media.pause();
-        media.currentTime = 0.25;
-        const deadline = performance.now() + 2_000;
-        while (
-          (Math.abs(media.currentTime - 0.25) > 0.002 || media.seeking) &&
-          performance.now() < deadline
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, 10));
-        }
-        if (Math.abs(media.currentTime - 0.25) > 0.002 || media.seeking) {
-          throw new Error("FADENO_MORPH_MEDIA_SEEK_DID_NOT_SETTLE");
-        }
-      });
-      break;
-    case "document-scroll":
-      await page.evaluate(() => window.scrollTo(0, 400));
-      break;
-    case "element-scroll":
-      await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate((element) => {
-        element.scrollTop = 120;
-      });
-      break;
-    case "island-identity":
-    case "intentional-replacement":
-      break;
-  }
-  await settle(page);
+  await prepareMorphQualificationState(page, scenario);
 }
 
 async function installInstrumentation(

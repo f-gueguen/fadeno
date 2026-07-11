@@ -45,6 +45,8 @@ export type ExtractionQualificationObservation = Readonly<{
       targetSame: boolean;
       scenarioTargetSame: boolean;
       reusedScenarioTarget: boolean;
+      scenarioState: string;
+      scenarioStatePass: boolean;
       beforeOrder: readonly string[];
       afterOrder: readonly string[];
       handlerReferenceStable: boolean;
@@ -178,6 +180,8 @@ export function verifyExtractionQualificationObservation(
         !record.targetSame ||
         !record.scenarioTargetSame ||
         !record.reusedScenarioTarget ||
+        record.scenarioState !== expected.state ||
+        !record.scenarioStatePass ||
         record.beforeOrder.length === 0 ||
         record.afterOrder.length === 0 ||
         !record.handlerReferenceStable ||
