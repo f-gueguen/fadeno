@@ -2,6 +2,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   rmSync,
   symlinkSync,
@@ -45,7 +46,7 @@ if (stableExtractionDiagnosticSnapshots() !== golden) {
   throw new Error("K0-06 extraction diagnostics differ from their golden snapshots");
 }
 
-const temporary = mkdtempSync(join(tmpdir(), "fadeno-extraction-candidate-"));
+const temporary = mkdtempSync(join(realpathSync(tmpdir()), "fadeno-extraction-candidate-"));
 try {
   const candidate = new ExtractionCandidate();
   try {
@@ -149,6 +150,17 @@ try {
   } catch (error: unknown) {
     if (error instanceof Error && error.message.startsWith("K0-06")) throw error;
   }
+  const intermediateTarget = join(outside, "existing");
+  mkdirSync(intermediateTarget);
+  const intermediateLink = join(temporary, "intermediate-link");
+  symlinkSync(outside, intermediateLink, "dir");
+  const intermediateRoot = join(intermediateLink, "existing", "not-created");
+  try {
+    assertContainedOutput(intermediateRoot, join(intermediateRoot, "escape.js"));
+    throw new Error("K0-06 intermediate symlink output ancestor was accepted");
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.startsWith("K0-06")) throw error;
+  }
   }
   finally {
     candidate[Symbol.dispose]();
@@ -157,7 +169,7 @@ try {
   rmSync(temporary, { recursive: true, force: true });
 }
 
-const metamorphic = mkdtempSync(join(tmpdir(), "fadeno-extraction-metamorphic-"));
+const metamorphic = mkdtempSync(join(realpathSync(tmpdir()), "fadeno-extraction-metamorphic-"));
 try {
   writeFileSync(join(metamorphic, "tsconfig.json"), `${JSON.stringify({
     compilerOptions: { strict: true, target: "ES2022", module: "ES2022" },
@@ -266,6 +278,11 @@ try {
     'const multiA = "x".repeat(32760);',
     'const multiB = "x".repeat(32760);',
     'const huge = "x".repeat(1000000000);',
+    "const nonFinite = 1e309;",
+    "const negativeZero = -0;",
+    'const prototypeKey = { "__proto__": 1 };',
+    'const constructorKey = { constructor: 1 };',
+    'const nestedPrototypeKey = { safe: { prototype: 1 } };',
     'declare function createValue(): unknown;',
     "",
   ].join("\n"));
@@ -387,7 +404,9 @@ try {
       capture("at") !== 65_536 || capture("over") !== 65_537 ||
       (capture("multibyte") ?? 0) <= 65_536 ||
       capture("nested") !== Buffer.byteLength(JSON.stringify({ a: ["界", -1, true, null] })) ||
-      capture("unknown") !== undefined
+      capture("unknown") !== undefined || capture("nonFinite") !== undefined ||
+      capture("negativeZero") !== undefined || capture("prototypeKey") !== undefined ||
+      capture("constructorKey") !== undefined || capture("nestedPrototypeKey") !== undefined
     ) throw new Error("K0-06 serialized capture measurement differs");
     const initializer = (name: string) => {
       const statement = captureSource.statements.find((item) =>

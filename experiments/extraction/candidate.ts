@@ -167,10 +167,18 @@ function propertyName(node: Node): string | undefined {
   }
 }
 
+const unsafePlainCaptureKeys = new Set(["__proto__", "constructor", "prototype"]);
+
+function finiteJsonNumber(value: number): CaptureEvaluation {
+  return Number.isFinite(value) && !Object.is(value, -0)
+    ? { known: true, overLimit: false, value }
+    : unknownCapture;
+}
+
 function evaluatePlainCapture(node: Node): CaptureEvaluation {
   if (ast.isStringLiteral(node)) return { known: true, overLimit: false, value: node.text };
   if (ast.isNumericLiteral(node)) {
-    return { known: true, overLimit: false, value: Number(node.text) };
+    return finiteJsonNumber(Number(node.text));
   }
   if (node.kind === ast.SyntaxKind.TrueKeyword) {
     return { known: true, overLimit: false, value: true };
@@ -185,7 +193,7 @@ function evaluatePlainCapture(node: Node): CaptureEvaluation {
     ast.isPrefixUnaryExpression(node) &&
     node.operator === ast.SyntaxKind.MinusToken &&
     ast.isNumericLiteral(node.operand)
-  ) return { known: true, overLimit: false, value: -Number(node.operand.text) };
+  ) return finiteJsonNumber(-Number(node.operand.text));
   if (
     ast.isCallExpression(node) &&
     ast.isPropertyAccessExpression(node.expression) &&
@@ -226,13 +234,17 @@ function evaluatePlainCapture(node: Node): CaptureEvaluation {
     return { known: true, overLimit: false, value: values };
   }
   if (ast.isObjectLiteralExpression(node)) {
-    const value: { [key: string]: PlainCapture } = {};
+    const value: { [key: string]: PlainCapture } = Object.create(null) as {
+      [key: string]: PlainCapture;
+    };
     for (const property of node.properties) {
       if (!ast.isPropertyAssignment(property)) return unknownCapture;
       const key = propertyName(property.name);
       const result = evaluatePlainCapture(property.initializer);
       if (!result.known && result.overLimit) return result;
-      if (key === undefined || !result.known) return unknownCapture;
+      if (key === undefined || unsafePlainCaptureKeys.has(key) || !result.known) {
+        return unknownCapture;
+      }
       value[key] = result.value;
     }
     return { known: true, overLimit: false, value };
@@ -689,34 +701,29 @@ export class ExtractionCandidate implements Disposable {
 export function assertContainedOutput(root: string, destination: string): void {
   const resolvedRoot = resolve(root);
   const resolvedDestination = resolve(destination);
-  if (existsSync(resolvedRoot) && lstatSync(resolvedRoot).isSymbolicLink()) {
-    throw new Error("FADENO_EXTRACTION_OUTPUT_SYMLINK");
-  }
-  let rootCursor = resolvedRoot;
-  while (true) {
-    if (existsSync(rootCursor)) {
-      if (lstatSync(rootCursor).isSymbolicLink()) {
+  const assertNoSymlinkComponent = (path: string): void => {
+    const components: string[] = [];
+    let cursor = path;
+    while (true) {
+      components.push(cursor);
+      const parent = dirname(cursor);
+      if (parent === cursor) break;
+      cursor = parent;
+    }
+    for (const component of components.reverse()) {
+      if (existsSync(component) && lstatSync(component).isSymbolicLink()) {
         throw new Error("FADENO_EXTRACTION_OUTPUT_SYMLINK");
       }
-      break;
     }
-    const parent = dirname(rootCursor);
-    if (parent === rootCursor) break;
-    rootCursor = parent;
-  }
+  };
+  assertNoSymlinkComponent(resolvedRoot);
   if (
     resolvedDestination === resolvedRoot ||
     !resolvedDestination.startsWith(`${resolvedRoot}${sep}`)
   ) {
     throw new Error("FADENO_EXTRACTION_OUTPUT_ESCAPE");
   }
-  let cursor = dirname(resolvedDestination);
-  while (cursor.startsWith(resolvedRoot) && cursor !== resolvedRoot) {
-    if (existsSync(cursor) && lstatSync(cursor).isSymbolicLink()) {
-      throw new Error("FADENO_EXTRACTION_OUTPUT_SYMLINK");
-    }
-    cursor = dirname(cursor);
-  }
+  assertNoSymlinkComponent(dirname(resolvedDestination));
 }
 
 export function emitAcceptedHandler(

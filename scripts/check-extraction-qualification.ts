@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +17,16 @@ import { isDeepStrictEqual } from "node:util";
 import { EXTRACTION_PROJECTS } from "../experiments/extraction/contract.ts";
 import type { ExtractionProject } from "../experiments/extraction/contract.ts";
 import { EXTRACTION_ACCEPTED_CLASSES } from "../experiments/extraction/fixtures/catalog.ts";
-import { EXTRACTION_IDENTITY_CASES } from "../experiments/extraction/qualification-contract.ts";
+import { EXTRACTION_REJECTION_CLASSES } from "../experiments/extraction/fixtures/catalog.ts";
+import {
+  EXTRACTION_DIAGNOSTIC_EXPECTATIONS,
+  EXTRACTION_IDENTITY_CASES,
+} from "../experiments/extraction/qualification-contract.ts";
+import {
+  emitAcceptedHandler,
+  ExtractionCandidate,
+} from "../experiments/extraction/candidate.ts";
+import { observeOutputSafety } from "../experiments/extraction/qualification-runner.ts";
 import {
   decideExtractionOutcome,
   decideExtractionObservations,
@@ -308,6 +325,70 @@ if (resultEntries.length === 1) {
       outputSafetyPass: decision.outputSafetyPass === true,
     });
     const run = readJsonDocument(join(runRoot, "run.json"));
+    const pinnedDiagnostics = readJsonDocument(join(runRoot, "rejected-diagnostics.json"));
+    const contract = readJsonDocument(join(runRoot, "artifacts/qualification-contract.json"));
+    const recomputedRoot = mkdtempSync(
+      join(realpathSync(tmpdir()), "fadeno-extraction-result-recompute-"),
+    );
+    let recomputedBoundariesPass = true;
+    let recomputedGenerationPass = true;
+    const candidate = new ExtractionCandidate();
+    try {
+      const expectedDiagnostics = EXTRACTION_REJECTION_CLASSES.map((fixtureId) => {
+        const diagnostic = candidate.analyze(fixtureId).diagnostic;
+        const expected = EXTRACTION_DIAGNOSTIC_EXPECTATIONS[fixtureId];
+        if (!diagnostic || !isDeepStrictEqual(
+          { id: diagnostic.id, severity: diagnostic.severity, message: diagnostic.message,
+            explanation: diagnostic.explanation, correction: diagnostic.correction },
+          expected,
+        )) recomputedBoundariesPass = false;
+        return diagnostic ? { status: "passed", fixtureId, ...diagnostic } : undefined;
+      });
+      if (!isDeepStrictEqual(pinnedDiagnostics, {
+        schemaVersion: 1,
+        diagnostics: expectedDiagnostics,
+      })) recomputedBoundariesPass = false;
+      const firstRoot = join(recomputedRoot, "first");
+      const secondRoot = join(recomputedRoot, "second");
+      const inventoryByFixture = new Map(inventory.files.map((file) => [file.fixtureId, file]));
+      for (const fixtureId of EXTRACTION_ACCEPTED_CLASSES) {
+        const analysis = candidate.analyze(fixtureId);
+        const first = emitAcceptedHandler(analysis, firstRoot);
+        const second = emitAcceptedHandler(analysis, secondRoot);
+        const pinned = inventoryByFixture.get(fixtureId);
+        if (
+          !pinned || first.sha256 !== second.sha256 || first.bytes !== second.bytes ||
+          first.handlerIdentity !== second.handlerIdentity ||
+          !readFileSync(first.path).equals(readFileSync(second.path)) ||
+          first.sha256 !== pinned.sha256 || first.bytes !== pinned.bytes ||
+          first.handlerIdentity !== pinned.handlerIdentity ||
+          !readFileSync(first.path).equals(readFileSync(join(runRoot, pinned.path)))
+        ) recomputedGenerationPass = false;
+      }
+    } finally {
+      candidate[Symbol.dispose]();
+    }
+    const recomputedOutputSafetyPass = observeOutputSafety(join(recomputedRoot, "safety"));
+    rmSync(recomputedRoot, { recursive: true, force: true });
+    const measurements = Object.fromEntries(
+      manifest.measurements.map((measurement: { name: string; values: unknown[] }) => [
+        measurement.name,
+        measurement.values,
+      ]),
+    );
+    const expectedMatrix = {
+      engines: EXTRACTION_PROJECTS.length,
+      acceptedClasses: derived.accepted.length,
+      interactionOrdinals: contract.interactionOrdinals,
+      identityCases: EXTRACTION_IDENTITY_CASES.length,
+      rejectedBoundaries: EXTRACTION_REJECTION_CLASSES.length,
+      retries: contract.retries,
+    };
+    const expectedSummary =
+      `The locked private extraction corpus completed with a ${derived.decision.toUpperCase()} decision: ${derived.accepted.length} accepted interaction classes, ${EXTRACTION_REJECTION_CLASSES.length} rejected boundaries, and zero retries.`;
+    const manifestWithoutRun = manifest.artifacts.filter(
+      (artifact: { path: string }) => artifact.path !== "run.json",
+    );
     const sourceCheck = spawnSync(
       "git",
       ["merge-base", "--is-ancestor", manifest.source.commit, "HEAD"],
@@ -325,26 +406,98 @@ if (resultEntries.length === 1) {
       !isDeepStrictEqual(derived.accepted, EXTRACTION_ACCEPTED_CLASSES) ||
       decision.decision !== derived.decision ||
       !isDeepStrictEqual(decision.accepted, derived.accepted) ||
+      decision.rejectedBoundariesPass !== recomputedBoundariesPass ||
+      decision.deterministicGenerationPass !== recomputedGenerationPass ||
+      decision.outputSafetyPass !== recomputedOutputSafetyPass ||
+      !recomputedBoundariesPass || !recomputedGenerationPass || !recomputedOutputSafetyPass ||
       run.run.id !== manifest.run.id ||
-      !isDeepStrictEqual(run.source, manifest.source)
+      !isDeepStrictEqual(run.source, manifest.source) ||
+      run.decision !== derived.decision ||
+      !isDeepStrictEqual(run.accepted, derived.accepted) ||
+      !isDeepStrictEqual(run.matrix, expectedMatrix) ||
+      !isDeepStrictEqual(run.artifacts, manifestWithoutRun) ||
+      !isDeepStrictEqual(measurements["accepted-interaction-class-count"], [derived.accepted.length]) ||
+      !isDeepStrictEqual(measurements["identity-case-count"], [EXTRACTION_IDENTITY_CASES.length]) ||
+      !isDeepStrictEqual(measurements["rejected-boundary-count"], [EXTRACTION_REJECTION_CLASSES.length]) ||
+      !isDeepStrictEqual(measurements["retry-count"], [contract.retries]) ||
+      manifest.workload.measuredIterations !== contract.interactionOrdinals ||
+      manifest.conclusion.summary !== expectedSummary
     ) throw new Error("K0-06 immutable extraction result provenance differs");
   };
   verifyPinnedResult(pinnedRoot);
-  const mutationRoot = mkdtempSync(join(tmpdir(), "fadeno-extraction-result-mutation-"));
-  try {
-    cpSync(pinnedRoot, mutationRoot, { recursive: true });
-    writeFileSync(join(mutationRoot, "decision.json"), "{}\n");
+  const mutationRoot = mkdtempSync(join(
+    realpathSync(tmpdir()),
+    "fadeno-extraction-result-mutation-",
+  ));
+  const updateRecord = (
+    records: Array<{ path: string; sha256: string; bytes: number }>,
+    path: string,
+    body: Buffer,
+  ): void => {
+    const record = records.find((item) => item.path === path);
+    if (!record) throw new Error(`K0-06 mutation artifact is absent: ${path}`);
+    record.sha256 = createHash("sha256").update(body).digest("hex");
+    record.bytes = body.byteLength;
+  };
+  const rewriteCoordinatedArtifact = (
+    runRoot: string,
+    path: string,
+    body: Buffer,
+  ): void => {
+    writeFileSync(join(runRoot, path), body);
+    const manifest = readJsonDocument(join(runRoot, "manifest.json"));
+    const run = readJsonDocument(join(runRoot, "run.json"));
+    updateRecord(run.artifacts, path, body);
+    updateRecord(manifest.artifacts, path, body);
+    const runBody = Buffer.from(`${JSON.stringify(run, null, 2)}\n`);
+    writeFileSync(join(runRoot, "run.json"), runBody);
+    updateRecord(manifest.artifacts, "run.json", runBody);
+    writeFileSync(join(runRoot, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  };
+  const assertCoordinatedMutationRejected = (
+    name: string,
+    mutate: (runRoot: string) => void,
+  ): void => {
+    const runRoot = join(mutationRoot, name);
+    cpSync(pinnedRoot, runRoot, { recursive: true });
+    mutate(runRoot);
     try {
-      verifyPinnedResult(mutationRoot);
-      throw new Error("K0-06 mutated extraction result was accepted");
+      verifyPinnedResult(runRoot);
+      throw new Error(`K0-06 coordinated ${name} mutation was accepted`);
     } catch (error: unknown) {
       if (
         error instanceof Error &&
-        error.message === "K0-06 mutated extraction result was accepted"
-      ) {
-        throw error;
-      }
+        error.message === `K0-06 coordinated ${name} mutation was accepted`
+      ) throw error;
     }
+  };
+  try {
+    assertCoordinatedMutationRejected("diagnostics", (runRoot) => {
+      const diagnostics = readJsonDocument(join(runRoot, "rejected-diagnostics.json"));
+      diagnostics.diagnostics[0].status = "failed";
+      rewriteCoordinatedArtifact(
+        runRoot,
+        "rejected-diagnostics.json",
+        Buffer.from(`${JSON.stringify(diagnostics, null, 2)}\n`),
+      );
+    });
+    assertCoordinatedMutationRejected("generated", (runRoot) => {
+      const path = "generated/toggle.js";
+      rewriteCoordinatedArtifact(
+        runRoot,
+        path,
+        Buffer.concat([readFileSync(join(runRoot, path)), Buffer.from("// forged\n")]),
+      );
+    });
+    assertCoordinatedMutationRejected("run-summary", (runRoot) => {
+      const manifest = readJsonDocument(join(runRoot, "manifest.json"));
+      const run = readJsonDocument(join(runRoot, "run.json"));
+      run.matrix.identityCases = 999;
+      const runBody = Buffer.from(`${JSON.stringify(run, null, 2)}\n`);
+      writeFileSync(join(runRoot, "run.json"), runBody);
+      updateRecord(manifest.artifacts, "run.json", runBody);
+      writeFileSync(join(runRoot, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    });
   } finally {
     rmSync(mutationRoot, { recursive: true, force: true });
   }

@@ -81,7 +81,7 @@ function exactFiles(rootDirectory: string): string[] {
   return files.sort();
 }
 
-function observeOutputSafety(controlRoot: string): boolean {
+export function observeOutputSafety(controlRoot: string): boolean {
   if (process.env.FADENO_EXTRACTION_SEEDED_OUTPUT_SAFETY_FAILURE === "1") return false;
   const outside = join(controlRoot, "outside");
   const contained = join(controlRoot, "contained");
@@ -103,7 +103,16 @@ function observeOutputSafety(controlRoot: string): boolean {
   symlinkSync(outside, linkedAncestor, "dir");
   const nestedRoot = join(linkedAncestor, "not-created");
   const ancestorSymlink = rejects(nestedRoot, join(nestedRoot, "escape.js"));
-  return traversal && rootSymlink && ancestorSymlink;
+  const intermediateTarget = join(outside, "existing");
+  mkdirSync(intermediateTarget);
+  const intermediateLink = join(controlRoot, "intermediate-link");
+  symlinkSync(outside, intermediateLink, "dir");
+  const intermediateRoot = join(intermediateLink, "existing", "not-created");
+  const intermediateSymlink = rejects(
+    intermediateRoot,
+    join(intermediateRoot, "escape.js"),
+  );
+  return traversal && rootSymlink && ancestorSymlink && intermediateSymlink;
 }
 
 export function assertNoQualificationCanary(
