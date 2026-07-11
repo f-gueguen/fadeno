@@ -49,6 +49,21 @@ export type GeneratedHandler = Readonly<{
   handlerIdentity: string;
 }>;
 
+export function runQualificationBoundary(
+  analysis: ExtractionAnalysis,
+  secretCanary: string,
+  callbacks: Readonly<{
+    emitBrowserArtifact: (source: string) => void;
+    startServer: () => void;
+    startBrowser: () => void;
+  }>,
+): ExtractionDiagnostic | undefined {
+  if (analysis.diagnostic) return analysis.diagnostic;
+  callbacks.emitBrowserArtifact(`export const leaked = ${JSON.stringify(secretCanary)};`);
+  callbacks.startServer();
+  callbacks.startBrowser();
+}
+
 const experimentRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = join(experimentRoot, "../..");
 const fixtureRoot = join(experimentRoot, "fixtures");
@@ -325,26 +340,42 @@ function findRoot(project: Project, fixtureId: ExtractionFixtureId) {
   const captureStatements = declaration.body.statements
     .filter(ast.isVariableStatement)
     .map((statement) => statement.getText(sourceFile));
+  const isPlainCapture = (node: Node): boolean => {
+    if (
+      ast.isStringLiteral(node) ||
+      ast.isNumericLiteral(node) ||
+      node.kind === ast.SyntaxKind.TrueKeyword ||
+      node.kind === ast.SyntaxKind.FalseKeyword ||
+      node.kind === ast.SyntaxKind.NullKeyword
+    ) return true;
+    if (
+      ast.isPrefixUnaryExpression(node) &&
+      node.operator === ast.SyntaxKind.MinusToken &&
+      ast.isNumericLiteral(node.operand)
+    ) return true;
+    if (
+      ast.isCallExpression(node) &&
+      ast.isPropertyAccessExpression(node.expression) &&
+      ast.isIdentifier(node.expression.expression) &&
+      node.expression.expression.text === "Object" &&
+      node.expression.name.text === "freeze" &&
+      node.arguments.length === 1
+    ) return isPlainCapture(node.arguments[0]!);
+    if (ast.isArrayLiteralExpression(node)) {
+      return node.elements.every(isPlainCapture);
+    }
+    if (ast.isObjectLiteralExpression(node)) {
+      return node.properties.every((property) =>
+        ast.isPropertyAssignment(property) && isPlainCapture(property.initializer)
+      );
+    }
+    return false;
+  };
   let captureDiagnostic: ExtractionDiagnostic | undefined;
   for (const statement of declaration.body.statements.filter(ast.isVariableStatement)) {
     for (const item of statement.declarationList.declarations) {
       const initializer = item.initializer;
-      const plainFrozenObject = initializer &&
-        ast.isCallExpression(initializer) &&
-        ast.isPropertyAccessExpression(initializer.expression) &&
-        ast.isIdentifier(initializer.expression.expression) &&
-        initializer.expression.expression.text === "Object" &&
-        initializer.expression.name.text === "freeze" &&
-        initializer.arguments.length === 1 &&
-        ast.isObjectLiteralExpression(initializer.arguments[0]!) &&
-        initializer.arguments[0]!.properties.every((property) =>
-          ast.isPropertyAssignment(property) &&
-          (ast.isStringLiteral(property.initializer) ||
-            ast.isNumericLiteral(property.initializer) ||
-            property.initializer.kind === ast.SyntaxKind.TrueKeyword ||
-            property.initializer.kind === ast.SyntaxKind.FalseKeyword ||
-            property.initializer.kind === ast.SyntaxKind.NullKeyword)
-        );
+      const plainFrozenObject = Boolean(initializer && isPlainCapture(initializer));
       if (!plainFrozenObject && initializer) {
         captureDiagnostic = diagnosticFor(
           sourceFile,

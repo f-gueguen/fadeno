@@ -113,3 +113,31 @@ jobs:
           path: output/playwright/extraction
           if-no-files-found: error
           retention-days: 14
+
+  extraction-qualification:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+
+      - uses: ./.github/actions/browser-reference
+        with:
+          task: extraction-qualification
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: extraction-qualification-evidence
+          path: output/playwright/extraction-qualification
+          if-no-files-found: error
+          retention-days: 30

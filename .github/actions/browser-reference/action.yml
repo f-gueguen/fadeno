@@ -16,7 +16,7 @@ runs:
       run: |
         set -euo pipefail
         case "$FADENO_REFERENCE_TASK" in
-          morph-ci | morph-qualification | extraction-harness) ;;
+          morph-ci | morph-qualification | extraction-harness | extraction-qualification) ;;
           *)
             echo "unsupported browser reference task: $FADENO_REFERENCE_TASK" >&2
             exit 64
@@ -74,6 +74,9 @@ runs:
                 ;;
               extraction-harness)
                 pnpm experiment:extraction -- --verify-harness
+                ;;
+              extraction-qualification)
+                pnpm experiment:extraction -- --qualify
                 ;;
               *) exit 64 ;;
             esac

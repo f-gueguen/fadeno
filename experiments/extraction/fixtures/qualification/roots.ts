@@ -41,9 +41,10 @@ export function menuRoot() {
 }
 
 export function localCounterRoot() {
-  const capture = Object.freeze({ step: 1 });
-  return seedInteraction((output: HTMLOutputElement): void => {
-    counterBehavior(output, capture.step);
+  const capture = Object.freeze({ steps: Object.freeze([1, 2, -1, 3]) });
+  return seedInteraction((output: HTMLOutputElement, ordinal: number): void => {
+    const step = capture.steps[(ordinal - 1) % capture.steps.length] ?? 0;
+    counterBehavior(output, step);
   });
 }
 

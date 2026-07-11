@@ -45,6 +45,10 @@ for (const required of [
   "task: extraction-harness",
   "name: extraction-harness-evidence",
   "path: output/playwright/extraction",
+  "extraction-qualification:",
+  "task: extraction-qualification",
+  "name: extraction-qualification-evidence",
+  "path: output/playwright/extraction-qualification",
   "if: always()",
 ]) {
   if (!workflow.includes(required)) {
