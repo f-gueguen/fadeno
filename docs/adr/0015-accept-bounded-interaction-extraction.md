@@ -15,9 +15,9 @@ engines, deterministic generation, response and request evidence, and the
 accepted H1 identity-operation signature before implementing a candidate.
 
 The exact clean source commit
-[`6d8bc84`](https://github.com/f-gueguen/fadeno/commit/6d8bc84043a92eb38e6b4abf8d2331bd1559a723)
+[`829ea53`](https://github.com/f-gueguen/fadeno/commit/829ea53e3176bcd1ba88b17f5ed67e8c712f0d68)
 completed that matrix in the pinned reference environment in
-[hosted run 29143682525](https://github.com/f-gueguen/fadeno/actions/runs/29143682525)
+[hosted run 29144117748](https://github.com/f-gueguen/fadeno/actions/runs/29144117748)
 with no retries. All five accepted classes passed in
 Chromium, Firefox, and WebKit. All ten rejected classes stopped at their source
 boundary with the locked diagnostic and no browser artifact. The generated
@@ -45,8 +45,10 @@ interaction extraction for V3 using this semantic contract:
    statically resolved, self-contained behavior function plus the referenced
    root-body plain captures; root parameters, additional helpers, unresolved
    values, and behavior functions with external dependencies are refused.
-2. Captures are bounded plain JSON data. Their single canonical serialized
-   envelope may not exceed 65,536 UTF-8 bytes.
+2. Captures are bounded plain JSON data. Numbers must be finite and preserve
+   their JSON meaning, so negative zero is refused; prototype-sensitive object
+   keys are also refused. The single canonical serialized envelope may not
+   exceed 65,536 UTF-8 bytes.
 3. Server-only imports, secrets, opaque capabilities, class instances, cyclic
    data, non-literal dynamic imports, ambient environment switching,
    unbounded async lifetimes, oversized envelopes, non-deterministic
@@ -64,7 +66,7 @@ interaction extraction for V3 using this semantic contract:
    exactly, while the two known layout-affecting scroll cases remain narrowed
    rather than being misreported as preservation.
 7. Emission is transactional, byte-deterministic, and confined against lexical
-   traversal plus root, descendant, and nearest-existing-ancestor symlinks.
+   traversal plus symlinks in every existing output-path component.
 
 The K0 marker function, fixture roots, candidate classes, generated filenames,
 diagnostic identifiers, and report schemas remain private evidence code. This

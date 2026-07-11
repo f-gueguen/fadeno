@@ -64,8 +64,10 @@ framing, against a 65,536-byte UTF-8 limit before emission. Only referenced
 root-body variable declarations may enter that envelope. Root parameters,
 same-source helpers, extra imported helpers, unresolved runtime values, and
 behavior functions with dependencies are refused conservatively. Emission is
-transactional and rejects traversal plus symlinked roots, descendants, and the
-nearest existing ancestor of a not-yet-created root.
+transactional and rejects traversal plus symlinks in every existing output-path
+component. Capture numbers must be finite and must not lose negative-zero
+semantics through JSON; `__proto__`, `constructor`, and `prototype` object keys
+are refused at every nesting depth.
 
 ## Diagnostics
 

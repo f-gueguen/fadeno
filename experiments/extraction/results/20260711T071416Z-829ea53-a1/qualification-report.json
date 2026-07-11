@@ -12,7 +12,7 @@
         "name": "qualification-observation",
         "contentType": "application/json",
         "path": "qualification-observations/chromium.json",
-        "sha256": "c05816e3d7d69aa6181fd81d068bd8bd0033b581a6f344ccc7c08d2f7f3d2dd7"
+        "sha256": "026c5949e0a19b8513ba2a1215ee6723ac107b26c0ce1aa109461386949adc15"
       }
     },
     {
@@ -25,7 +25,7 @@
         "name": "qualification-observation",
         "contentType": "application/json",
         "path": "qualification-observations/firefox.json",
-        "sha256": "bc6fd031325e95dc585b3f76d3611dd9dddc9f431afac8bd59196768ee14528a"
+        "sha256": "3cd564cb1848e8bda60a57e0f6e1472bf0fd8b11beca7e8da48bfa46cf629d66"
       }
     },
     {
@@ -38,7 +38,7 @@
         "name": "qualification-observation",
         "contentType": "application/json",
         "path": "qualification-observations/webkit.json",
-        "sha256": "5397e5d4759549cefb75b429b0f4a2d409ef3f1e579faf1441a67328970970df"
+        "sha256": "b936abf306be8fa60a5caa9fe28630601d6e614d87cbde7237dff30dc151f6fc"
       }
     }
   ]

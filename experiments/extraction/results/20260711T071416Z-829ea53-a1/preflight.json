@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
-  "observedAt": "2026-07-11T06:58:52.989Z",
+  "observedAt": "2026-07-11T07:14:16.419Z",
   "host": {
     "provider": "github-actions",
     "repositoryVisibility": "private",
     "runnerLabel": "ubuntu-24.04",
     "runnerImageVersion": "20260705.232.1",
-    "runnerName": "GitHub Actions 1000001152",
+    "runnerName": "GitHub Actions 1000001159",
     "operatingSystemVersion": "ubuntu24",
     "kernelVersion": "6.17.0-1018-azure",
     "architecture": "x64",
-    "cpuModel": "AMD EPYC 7763 64-Core Processor",
+    "cpuModel": "AMD EPYC 9V74 80-Core Processor",
     "observedLogicalCpuCount": 2,
     "observedMemoryMiB": 7938,
     "advertisedLogicalCpuCount": 2,
     "advertisedMemoryMiB": 8192,
     "advertisedStorageMiB": 14336,
-    "freeStorageMiB": 12962,
-    "loadAverage1m": 1,
+    "freeStorageMiB": 12963,
+    "loadAverage1m": 0.99,
     "processCount": 5
   },
   "container": {
