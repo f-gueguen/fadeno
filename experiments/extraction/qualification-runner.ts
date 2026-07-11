@@ -92,7 +92,6 @@ export async function executeExtractionQualification(options: Readonly<{
   requireClean: boolean;
   requireReference: boolean;
 }>): Promise<void> {
-  const startedAt = new Date().toISOString();
   const source = sourceIdentity(options.requireClean);
   const outputRoot = join(root, "output/playwright/extraction-qualification");
   const runnerOutput = join(root, "output/playwright/extraction-qualification-runner");
@@ -187,6 +186,7 @@ export async function executeExtractionQualification(options: Readonly<{
         maxReferenceWaitMilliseconds: Number(process.env.FADENO_PREFLIGHT_WAIT_MS) || 0,
       })
     : { schemaVersion: 1, classification: "local", observedAt: new Date().toISOString() };
+  const startedAt = new Date().toISOString();
   writeFileSync(join(outputRoot, "preflight.json"), `${JSON.stringify(preflight, null, 2)}\n`);
   writeFileSync(join(outputRoot, "source.json"), `${JSON.stringify({
     schemaVersion: 1,
