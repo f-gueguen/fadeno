@@ -20,7 +20,8 @@
     "check:types": "tsc -p tsconfig.scripts.json",
     "check": "pnpm check:docs && pnpm check:decisions && pnpm check:ledgers && pnpm check:model && pnpm check:policies && pnpm check:experiment-contract && pnpm check:morph-harness && pnpm check:extraction-harness && pnpm check:types",
     "experiment:all": "node --no-warnings --experimental-strip-types scripts/experiment-all.ts",
-    "experiment:morph": "node --no-warnings --experimental-strip-types experiments/morph/run.ts"
+    "experiment:morph": "node --no-warnings --experimental-strip-types experiments/morph/run.ts",
+    "experiment:extraction": "node --no-warnings --experimental-strip-types experiments/extraction/run.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.61.0",

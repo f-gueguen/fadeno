@@ -9,7 +9,7 @@
       "command": "pnpm experiment:extraction",
       "harnessSlice": "K0-05",
       "qualificationSlice": "K0-06",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "morph",
