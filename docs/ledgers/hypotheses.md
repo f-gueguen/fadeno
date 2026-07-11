@@ -5,21 +5,6 @@ Results enter ADRs and conformance tests; Git history carries completed trials.
 The [detailed K0 plan](../roadmap/k0.md) owns qualification fixtures, repetitions,
 quantitative thresholds, artifacts, and atomic delivery slices.
 
-## H2 — Bounded interaction extraction
-
-- Claim: common local interactions can compile to lazy browser handlers without
-  hydrating their server-rendered fragment.
-- Experiment: publish an accepted and rejected fixture corpus covering toggles,
-  disclosure, tabs, menus, local counters, captured values, imports, async work,
-  and identity across server updates.
-- Pass: accepted fixtures load only their handler path on interaction; rejected
-  fixtures receive stable diagnostics; no fixture silently expands to fragment
-  hydration.
-- Pivot: if the useful accepted subset is too narrow or handler identity is
-  unreliable, make islands the explicit client boundary and remove extraction
-  from the initial release.
-- Status: Not started.
-
 ## H3 — Stock-TypeScript type spine
 
 - Claim: generated declarations plus stock `tsc` can validate route parameters,

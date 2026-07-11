@@ -47,7 +47,7 @@ a signal to choose a client-first framework.
 | TEST-01 | Unit, type, integration, no-JavaScript, real-browser, security, and adapter conformance harnesses | K0/V1 | Accepted | [Build and diagnostics](../spec/build-adapters-testing.md) |
 | ENH-01 | Enhanced links and forms with history, focus, scroll, pending, cancellation, ordering, and recovery | V2 | Accepted outcome; protocol requires DG-V2-01 | [Navigation and patching](../spec/navigation-patching-preservation.md) |
 | PATCH-01 | Server-derived updates that preserve browser, user, and island-owned state | K0/V2 | Narrowed by ADR 0014; scroll boundary requires DG-V2-01 | [Navigation and patching](../spec/navigation-patching-preservation.md) |
-| INT-01 | Lazy bounded event-handler extraction without fragment hydration | K0/V3 | Hypothesis H2 | [Compiler and analyzer](../spec/compiler-analyzer.md) |
+| INT-01 | Lazy bounded event-handler extraction without fragment hydration | K0/V3 | [ADR 0015](../adr/0015-accept-bounded-interaction-extraction.md) | [Compiler and analyzer](../spec/compiler-analyzer.md) |
 | ISLAND-01 | Explicit client-owned islands with serializable inputs, fallback HTML, lifecycle, and update isolation | V3 | Accepted outcome; authoring contract requires DG-V3-02 | [Islands and lifecycle](../spec/islands-lifecycle.md) |
 | DX-01 | Stable diagnostics, human explanations, machine output, generated-reference validation, and framework checks | V1/A0 | Accepted; external schema requires DG-A0-02 | [Compiler and analyzer](../spec/compiler-analyzer.md) |
 | CSS-01 | Native CSS baseline; any scoped-CSS compiler surface must earn a separate decision | A0 | Open decision DG-A0-03 | [Decision gates](../ledgers/decision-gates.md) |

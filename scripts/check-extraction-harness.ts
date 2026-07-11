@@ -29,6 +29,7 @@ import type {
 } from "../experiments/extraction/contract.ts";
 import { verifyExtractionRunReport } from "../experiments/extraction/evidence-proof.ts";
 import { stableExtractionHarnessSeed } from "../experiments/extraction/seed/catalog.ts";
+import { stableExtractionQualificationContract } from "../experiments/extraction/qualification-contract.ts";
 import {
   DOCUMENT_HTML,
   DOCUMENT_MODULE,
@@ -44,6 +45,10 @@ for (const required of [
   "task: extraction-harness",
   "name: extraction-harness-evidence",
   "path: output/playwright/extraction",
+  "extraction-qualification:",
+  "task: extraction-qualification",
+  "name: extraction-qualification-evidence",
+  "path: output/playwright/extraction-qualification",
   "if: always()",
 ]) {
   if (!workflow.includes(required)) {
@@ -58,12 +63,19 @@ const seedGolden = readFileSync(
   join(root, "experiments/extraction/seed/inventory.golden.json"),
   "utf8",
 );
+const qualificationGolden = readFileSync(
+  join(root, "experiments/extraction/qualification-contract.golden.json"),
+  "utf8",
+);
 
 if (stableExtractionInventory() !== golden) {
   throw new Error("K0-05 extraction corpus differs from its checked golden projection");
 }
 if (stableExtractionHarnessSeed() !== seedGolden) {
   throw new Error("K0-05 executable seed differs from its checked golden graph");
+}
+if (stableExtractionQualificationContract() !== qualificationGolden) {
+  throw new Error("K0-06 extraction qualification contract differs from its golden projection");
 }
 if (
   EXTRACTION_ACCEPTED_CLASSES.length !== 5 ||

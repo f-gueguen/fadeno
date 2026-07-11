@@ -39,9 +39,11 @@ export type ExtractionRunReport = Readonly<{
 }>;
 
 export type ExtractionDiagnostic = Readonly<{
-  id: "FADENO_K0_EXTRACT_SERVER_IMPORT";
+  id: string;
   severity: "error";
   source: string;
   range: Readonly<{ line: number; column: number; length: number }>;
   message: string;
+  explanation: string;
+  correction: string;
 }>;

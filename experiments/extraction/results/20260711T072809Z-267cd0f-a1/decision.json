@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "accepted": [
+    "toggle",
+    "disclosure",
+    "tabs",
+    "menu",
+    "local-counter"
+  ],
+  "decision": "go",
+  "rejectedBoundariesPass": true,
+  "identityPass": true,
+  "deterministicGenerationPass": true,
+  "outputSafetyPass": true
+}

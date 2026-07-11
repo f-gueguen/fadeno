@@ -32,8 +32,10 @@ Extraction is allowed only when captures and operations satisfy the validated
 plain-data and closure rules. A pattern outside those rules receives a stable,
 teaching diagnostic. It is never silently converted into broader hydration.
 
-The exact accepted syntax and closure corpus is not yet public behavior; it is
-the subject of [the extraction hypothesis](../ledgers/hypotheses.md).
+ADR 0015 accepts the bounded closure, import, plain-data capture, identity, and
+lazy-loading semantics for V3. The exact K0 authoring marker and candidate
+remain private evidence code; a later implementation may expose only a
+stock-TypeScript surface that preserves this refusal-first boundary.
 
 ## Generated artifacts
 

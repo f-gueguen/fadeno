@@ -1,0 +1,227 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/result-manifest-v1.json",
+  "schemaVersion": 1,
+  "experiment": {
+    "id": "extraction",
+    "contractVersion": 1
+  },
+  "run": {
+    "id": "20260711T072809Z-267cd0f-a1",
+    "attempt": 1,
+    "startedAt": "2026-07-11T07:28:09.197Z",
+    "completedAt": "2026-07-11T07:29:56.977Z",
+    "status": "passed"
+  },
+  "source": {
+    "repository": "https://github.com/f-gueguen/fadeno",
+    "commit": "267cd0f2e8c6a71762007fc1d4fde52b49a026a5",
+    "dirty": false
+  },
+  "environment": {
+    "referenceId": "k0-linux-x64-v1",
+    "referenceClass": "reference",
+    "host": {
+      "provider": "github-actions",
+      "repositoryVisibility": "private",
+      "runnerLabel": "ubuntu-24.04",
+      "runnerImage": "ubuntu-24.04",
+      "runnerImageVersion": "20260705.232.1",
+      "runnerName": "GitHub Actions 1000001170",
+      "operatingSystemVersion": "ubuntu24",
+      "kernelVersion": "6.17.0-1018-azure",
+      "architecture": "x64",
+      "cpuModel": "INTEL(R) XEON(R) PLATINUM 8573C",
+      "logicalCpuCount": 2,
+      "memoryMiB": 8192,
+      "advertisedStorageMiB": 14336,
+      "freeStorageMiB": 12963
+    },
+    "container": {
+      "image": "mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
+      "indexDigest": "sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a",
+      "platform": "linux/amd64",
+      "platformDigest": "sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
+      "configDigest": "sha256:753f831a898523662c36011748ba0729b59838745d577c61c91287fe1778bfe1",
+      "executionUser": "root",
+      "browserSandbox": "disabled-for-trusted-local-fixtures",
+      "networkPolicy": "trusted-local-fixtures-only"
+    },
+    "toolchain": {
+      "node": "22.14.0",
+      "pnpm": "11.7.0",
+      "playwright": "1.61.0"
+    },
+    "browsers": {
+      "chromeForTesting": "149.0.7827.55",
+      "firefox": "151.0",
+      "webkit": "26.5"
+    },
+    "power": {
+      "policy": "provider-managed-continuous-power",
+      "telemetry": "not-exposed"
+    },
+    "backgroundLoad": {
+      "preflightObservedAt": "2026-07-11T07:28:09.197Z",
+      "loadAverage1m": 0.97,
+      "processCount": 5,
+      "accepted": true,
+      "reason": "within-reference-thresholds"
+    }
+  },
+  "dependencyLock": {
+    "path": "pnpm-lock.yaml",
+    "artifact": "artifacts/pnpm-lock.yaml",
+    "sha256": "2fd513727b54e906b09a03d5e77104eb2f766703bf4eeb9ec1c670446fee492a"
+  },
+  "command": {
+    "cwd": ".",
+    "argv": [
+      "pnpm",
+      "experiment:extraction",
+      "--",
+      "--qualify"
+    ]
+  },
+  "workload": {
+    "dataset": {
+      "id": "h2-bounded-extraction-corpus-v1",
+      "sourcePath": "experiments/extraction/qualification-contract.golden.json",
+      "artifact": "artifacts/qualification-contract.json",
+      "sha256": "a42daf521edd0f34245d279fd500bbba0e27670f74754cd05e50e25817a66d59"
+    },
+    "warmupIterations": 0,
+    "measuredIterations": 100,
+    "concurrency": 1
+  },
+  "measurements": [
+    {
+      "name": "accepted-interaction-class-count",
+      "unit": "count",
+      "values": [
+        5
+      ]
+    },
+    {
+      "name": "identity-case-count",
+      "unit": "count",
+      "values": [
+        17
+      ]
+    },
+    {
+      "name": "rejected-boundary-count",
+      "unit": "count",
+      "values": [
+        10
+      ]
+    },
+    {
+      "name": "retry-count",
+      "unit": "count",
+      "values": [
+        0
+      ]
+    }
+  ],
+  "failures": [],
+  "artifacts": [
+    {
+      "path": "artifacts/pnpm-lock.yaml",
+      "sha256": "2fd513727b54e906b09a03d5e77104eb2f766703bf4eeb9ec1c670446fee492a",
+      "bytes": 10265
+    },
+    {
+      "path": "artifacts/qualification-contract.json",
+      "sha256": "a42daf521edd0f34245d279fd500bbba0e27670f74754cd05e50e25817a66d59",
+      "bytes": 5777
+    },
+    {
+      "path": "decision.json",
+      "sha256": "a98ecce763afdc0dbee27c1968ee5160d423f75d852d0eeb9eae5aa2e3bfab74",
+      "bytes": 267
+    },
+    {
+      "path": "generated/disclosure.js",
+      "sha256": "25a234491426b70ecf3c8b0783d7c393020b0e5674a582bb406c4b4089997fcc",
+      "bytes": 474
+    },
+    {
+      "path": "generated/inventory.json",
+      "sha256": "9b92c5591249ef8827c20c2dfbbc00d8a399d40057df126575356d8c6c7ce28d",
+      "bytes": 1431
+    },
+    {
+      "path": "generated/local-counter.js",
+      "sha256": "3a706460315d5f504724d955986f32f08110f088c3c62a77e93b526fb0168259",
+      "bytes": 625
+    },
+    {
+      "path": "generated/menu.js",
+      "sha256": "ed8bf4d79ad9268dc6defaf280d7044f1ba47be93a3f80532a6b61a1cbee612f",
+      "bytes": 539
+    },
+    {
+      "path": "generated/tabs.js",
+      "sha256": "078088c6b1d7df3cf3c177666d7fddcaee09fd4e23dfc57c799c7381eafdae85",
+      "bytes": 572
+    },
+    {
+      "path": "generated/toggle.js",
+      "sha256": "0b682dd819eabbbbb8d9037876574dbc8e7b1c6a9840cf3c76ea20114b08a5e4",
+      "bytes": 607
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "6e55a1f2a5ad1ff6a07564cf98c30029fcb09409d48506f009d953a72480ac38",
+      "bytes": 1305
+    },
+    {
+      "path": "qualification-observations/chromium.json",
+      "sha256": "414adc0da10fb384ddc36f4933c1e823066b03e9dd4c5eb67c29d0b289cdd0d5",
+      "bytes": 316353
+    },
+    {
+      "path": "qualification-observations/firefox.json",
+      "sha256": "9c5cc479e20f83208ceb89ee03b6b273fc1634fff44fb0c752445b1dc7afe0ae",
+      "bytes": 316349
+    },
+    {
+      "path": "qualification-observations/webkit.json",
+      "sha256": "d0ce7db5edc730f128c0b0201ef456263f8c4c5bc6ff176d874a7a308dd0ed6c",
+      "bytes": 316346
+    },
+    {
+      "path": "qualification-report.json",
+      "sha256": "3319e7374af9ba331aba995d13ed95ececdabc2254a03395f77cb41dae3d1d43",
+      "bytes": 1369
+    },
+    {
+      "path": "rejected-diagnostics.json",
+      "sha256": "4b28a22842189cd9827980408cf7e42e5dc3d3a933b537da6bf9110b02d6d900",
+      "bytes": 5329
+    },
+    {
+      "path": "source.json",
+      "sha256": "da39d09c4c9884726337d72f97c9f55570434abb31a68e964ae4ebfefda98ed6",
+      "bytes": 154
+    },
+    {
+      "path": "run.json",
+      "sha256": "b083db28a3cf062d1017b89bebd848faa9634218edfd499a3e212c25ff6322ee",
+      "bytes": 3312
+    }
+  ],
+  "validator": {
+    "name": "fadeno-experiment-contract",
+    "version": 1,
+    "schemaId": "https://fadeno.dev/schemas/experiment/result-manifest-v1.json"
+  },
+  "redaction": {
+    "policy": "fadeno-no-secrets-v1",
+    "fieldsRemoved": []
+  },
+  "conclusion": {
+    "status": "pass",
+    "summary": "The locked private extraction corpus completed with a GO decision: 5 accepted interaction classes, 10 rejected boundaries, and zero retries."
+  }
+}

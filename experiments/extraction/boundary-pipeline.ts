@@ -33,7 +33,10 @@ export function verifySeededBoundaryRejection(
     diagnostic.range.line !== 1 ||
     diagnostic.range.column !== 24 ||
     diagnostic.range.length !== 21 ||
-    diagnostic.message !== "A browser handler cannot import a server-only module." ||
+    diagnostic.message !== "A browser handler cannot reach a server-only import." ||
+    diagnostic.explanation !==
+      "docs/diagnostics/extraction.md#fadeno-k0-extract-server-import" ||
+    diagnostic.correction !== "Move secret access behind a resource or action." ||
     JSON.stringify(diagnostic).includes(canary) ||
     execution.writerStarted ||
     execution.serverStarted ||

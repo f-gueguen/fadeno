@@ -8,7 +8,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const action = readFileSync(join(root, ".github/actions/browser-reference/action.yml"), "utf8");
 const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
 const reference = readJsonDocument(join(root, "experiments/reference-environment.json"));
-const tasks = ["morph-ci", "morph-qualification", "extraction-harness"];
+const tasks = [
+  "morph-ci",
+  "morph-qualification",
+  "extraction-harness",
+  "extraction-qualification",
+];
 
 for (const required of [
   `image=\"${reference.container.runtimeImage}\"`,
@@ -24,6 +29,7 @@ for (const required of [
   "pnpm experiment:morph -- --ci",
   "pnpm experiment:morph -- --qualify",
   "pnpm experiment:extraction -- --verify-harness",
+  "pnpm experiment:extraction -- --qualify",
 ]) {
   if (!action.includes(required)) throw new Error(`browser reference action missing: ${required}`);
 }

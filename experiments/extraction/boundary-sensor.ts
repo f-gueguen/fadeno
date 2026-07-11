@@ -14,6 +14,8 @@ export function senseServerImport(
     severity: "error",
     source: sourceName,
     range: violation.range,
-    message: "A browser handler cannot import a server-only module.",
+    message: "A browser handler cannot reach a server-only import.",
+    explanation: "docs/diagnostics/extraction.md#fadeno-k0-extract-server-import",
+    correction: "Move secret access behind a resource or action.",
   };
 }

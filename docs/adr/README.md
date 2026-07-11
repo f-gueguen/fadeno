@@ -24,6 +24,7 @@ effective decision.
 12. [ADR 0012 — Evidence-gated support and operations](0012-evidence-gated-support-and-operations.md)
 13. [ADR 0013 — MIT license](0013-mit-license.md)
 14. [ADR 0014 — Narrow structural preservation around scroll-affecting layout](0014-narrow-structural-preservation.md)
+15. [ADR 0015 — Accept bounded interaction extraction](0015-accept-bounded-interaction-extraction.md)
 
 ## Superseded decisions
 

@@ -25,7 +25,7 @@ behavior:
 - stock-TypeScript declarations for route parameters and links;
 - action-field and request-context declarations when their public contracts
   exist;
-- extracted browser handler modules only after H2 is accepted;
+- extracted browser handler modules under ADR 0015's accepted private contract;
 - a diagnostic registry and machine output only when there is a consumer.
 
 Generation is reproducible: a clean second run over identical inputs produces
@@ -44,12 +44,13 @@ behavior. Positive and negative type fixtures are public conformance artifacts.
 
 ## Interaction extraction
 
-H2 owns whether extraction is viable. Before DG-V3-01 resolves the public
-contract, extraction work remains private experiment code.
+ADR 0015 accepts bounded extraction as a V3 implementation ingredient without
+publishing the K0 marker syntax, candidate, filenames, or diagnostic schema.
+The accepted semantic contract requires:
 
-If accepted:
-
-1. browser modules contain only the selected handler and permitted dependencies;
+1. browser modules contain only the selected handler and one statically
+   resolved self-contained behavior function; additional dependency emission
+   is not accepted by the K0 corpus;
 2. captured values satisfy the accepted serialization/plain-data corpus;
 3. server imports, secrets, opaque capabilities, and unsupported closures are
    rejected with teaching diagnostics;
@@ -57,6 +58,17 @@ If accepted:
    it;
 5. the compiler never substitutes whole-fragment hydration for a rejected
    handler.
+
+Capture analysis measures one canonical JSON envelope, including names and
+framing, against a 65,536-byte UTF-8 limit before emission. Only referenced
+root-body variable declarations may enter that envelope. Root parameters,
+same-source helpers, every imported runtime value or namespace member other
+than the one self-contained behavior function, unresolved runtime values, and
+behavior functions with dependencies are refused conservatively. Emission is
+transactional and rejects traversal plus symlinks in every existing output-path
+component. Capture numbers must be finite and must not lose negative-zero
+semantics through JSON; `__proto__`, `constructor`, and `prototype` object keys
+are refused at every nesting depth.
 
 ## Diagnostics
 

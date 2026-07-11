@@ -9,7 +9,9 @@
       "command": "pnpm experiment:extraction",
       "harnessSlice": "K0-05",
       "qualificationSlice": "K0-06",
-      "status": "available"
+      "status": "qualified",
+      "decision": "go",
+      "decisionAdr": "docs/adr/0015-accept-bounded-interaction-extraction.md"
     },
     {
       "id": "morph",

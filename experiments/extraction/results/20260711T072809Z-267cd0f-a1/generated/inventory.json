@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "fixtureId": "toggle",
+      "path": "generated/toggle.js",
+      "sha256": "0b682dd819eabbbbb8d9037876574dbc8e7b1c6a9840cf3c76ea20114b08a5e4",
+      "bytes": 607,
+      "handlerIdentity": "cf5872fa652b195df6c4e2e43cae8b8609fd4512ef058c11f1cefd75dc32bedb"
+    },
+    {
+      "fixtureId": "disclosure",
+      "path": "generated/disclosure.js",
+      "sha256": "25a234491426b70ecf3c8b0783d7c393020b0e5674a582bb406c4b4089997fcc",
+      "bytes": 474,
+      "handlerIdentity": "94581e65b8432be2650e2aa73ed3c84f14891864c002571f7e957b9736c9b755"
+    },
+    {
+      "fixtureId": "tabs",
+      "path": "generated/tabs.js",
+      "sha256": "078088c6b1d7df3cf3c177666d7fddcaee09fd4e23dfc57c799c7381eafdae85",
+      "bytes": 572,
+      "handlerIdentity": "6a310e79af506c6a67b13aa63c1306309b8bf8215d855a9cc4c8d673ff1592df"
+    },
+    {
+      "fixtureId": "menu",
+      "path": "generated/menu.js",
+      "sha256": "ed8bf4d79ad9268dc6defaf280d7044f1ba47be93a3f80532a6b61a1cbee612f",
+      "bytes": 539,
+      "handlerIdentity": "87028b1bcdbe3dd5ab3417f1a8e29a3c37a61bc1e6ff76132c2aaad76beee163"
+    },
+    {
+      "fixtureId": "local-counter",
+      "path": "generated/local-counter.js",
+      "sha256": "3a706460315d5f504724d955986f32f08110f088c3c62a77e93b526fb0168259",
+      "bytes": 625,
+      "handlerIdentity": "99014513f0385340901228709d539c505a1cf2e839e1f7b6deff2021a3941613"
+    }
+  ]
+}

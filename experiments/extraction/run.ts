@@ -13,6 +13,20 @@ if (args.length === 1 && args[0] === "--list") {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   }
+} else if (
+  args.length === 1 &&
+  (args[0] === "--verify-qualification" || args[0] === "--qualify")
+) {
+  try {
+    const { executeExtractionQualification } = await import("./qualification-runner.ts");
+    await executeExtractionQualification({
+      requireClean: args[0] === "--qualify",
+      requireReference: args[0] === "--qualify" || process.env.FADENO_EXPECT_REFERENCE === "1",
+    });
+  } catch (error: unknown) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
 } else {
   console.error(`FADENO_EXTRACTION_USAGE: unsupported arguments: ${args.join(" ")}`);
   process.exitCode = 64;

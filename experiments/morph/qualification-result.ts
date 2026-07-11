@@ -20,7 +20,6 @@ import {
   loadExperimentRegistry,
   loadReferenceEnvironment,
 } from "../../scripts/lib/experiment-validation.ts";
-import type { ReferenceEnvironment } from "../../scripts/lib/experiment-validation.ts";
 import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
 import { MORPH_PROJECTS } from "./contract.ts";
 import { verifyQualificationDiagnosticSelection } from "./qualification-decision.ts";
@@ -49,15 +48,11 @@ import type {
   QualificationFailureEvidence,
   QualificationRecord,
 } from "./qualification-proof.ts";
-import type { ReferenceObservation } from "./preflight.ts";
 import type { MorphQualificationProfile } from "./qualification-scenarios.ts";
+import { browserManifestEnvironment } from "../browser-preflight.ts";
+import type { BrowserPreflightResult } from "../browser-preflight.ts";
 
-type MorphPreflight = Readonly<ReferenceObservation & {
-  schemaVersion: number;
-  observedAt: string;
-  classification: "reference" | "non-reference";
-  reasons: readonly string[];
-}>;
+type MorphPreflight = BrowserPreflightResult;
 
 type ArtifactRecord = Readonly<{
   path: string;
@@ -217,61 +212,7 @@ function copyArtifact(
   return artifactRecord(runDirectory, destination);
 }
 
-export function manifestEnvironment(
-  preflight: MorphPreflight,
-  reference: ReferenceEnvironment,
-) {
-  const host = preflight.host;
-  return {
-    referenceId: reference.id,
-    referenceClass: preflight.classification,
-    host: {
-      provider: host.provider,
-      repositoryVisibility: host.repositoryVisibility,
-      runnerLabel: host.runnerLabel,
-      runnerImage: host.runnerLabel,
-      runnerImageVersion: host.runnerImageVersion,
-      runnerName: host.runnerName,
-      operatingSystemVersion: host.operatingSystemVersion,
-      kernelVersion: host.kernelVersion,
-      architecture: host.architecture,
-      cpuModel: host.cpuModel,
-      logicalCpuCount: host.advertisedLogicalCpuCount ?? host.observedLogicalCpuCount,
-      memoryMiB: host.advertisedMemoryMiB ?? host.observedMemoryMiB,
-      advertisedStorageMiB: host.advertisedStorageMiB ?? reference.host.minimumHardware.storageMiB,
-      freeStorageMiB: host.freeStorageMiB,
-    },
-    container: {
-      image: preflight.container.runtimeImage,
-      indexDigest: reference.container.indexDigest,
-      platform: preflight.container.platform,
-      platformDigest: preflight.container.platformDigest,
-      configDigest: preflight.container.configDigest,
-      executionUser: reference.container.executionUser,
-      browserSandbox: reference.container.browserSandbox,
-      networkPolicy: reference.container.networkPolicy,
-    },
-    toolchain: preflight.toolchain,
-    browsers: {
-      chromeForTesting: preflight.browsers.chromium,
-      firefox: preflight.browsers.firefox,
-      webkit: preflight.browsers.webkit,
-    },
-    power: {
-      policy: reference.power.policy,
-      telemetry: reference.power.telemetry,
-    },
-    backgroundLoad: {
-      preflightObservedAt: preflight.observedAt,
-      loadAverage1m: host.loadAverage1m,
-      processCount: host.processCount,
-      accepted: preflight.classification === "reference",
-      reason: preflight.classification === "reference"
-        ? reference.backgroundLoad.acceptanceReason
-        : `non-reference:${preflight.reasons.join(",") || "host"}`,
-    },
-  };
-}
+export const manifestEnvironment = browserManifestEnvironment;
 
 export function publishQualificationEvidence(options: Readonly<{
   root: string;
@@ -443,7 +384,7 @@ export function publishQualificationEvidence(options: Readonly<{
       commit: sourceCommit,
       dirty: false,
     },
-    environment: manifestEnvironment(preflight, reference),
+    environment: browserManifestEnvironment(preflight, reference),
     dependencyLock: {
       path: "pnpm-lock.yaml",
       artifact: lock.path,
