@@ -37,11 +37,21 @@ and [detailed K0 plan](docs/roadmap/k0.md).
 - [ROADMAP_LEDGER.md](ROADMAP_LEDGER.md) tracks current execution state only;
   it does not make architectural decisions.
 
-Run all currently available checks with:
+During development, run all currently available checks with:
 
 ```sh
 pnpm check
 ```
+
+The final committed PR head uses the internal local merge gate:
+
+```sh
+pnpm ci:local
+```
+
+That command requires a clean tree, runs a frozen install followed by the full
+check, and reports the exact unchanged commit. It is repository validation, not
+a public Fadeno CLI or K0 reference-qualification command.
 
 Coding agents and contributors follow the
 [canonical change workflow](docs/contributor-workflow.md), including small PRs,

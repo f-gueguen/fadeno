@@ -25,4 +25,4 @@ evidence result delivered by this change.
 - [ ] Examples, generated artifacts, and documentation agree with code.
 - [ ] Publishable-package changes include version intent, including first release.
 - [ ] Compatibility changes include migration guidance and fixtures.
-- [ ] `pnpm check` passes from a frozen install.
+- [ ] The exact final commit passes `pnpm ci:local` from a clean worktree.

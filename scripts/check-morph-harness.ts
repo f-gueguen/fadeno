@@ -1157,20 +1157,6 @@ try {
   rmSync(reportRoot, { recursive: true, force: true });
 }
 
-const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
-for (const required of [
-  "runs-on: ubuntu-24.04",
-  "uses: ./.github/actions/browser-reference",
-  "task: morph-ci",
-  "task: morph-qualification",
-  "if: always()",
-  "output/playwright/morph",
-  "output/playwright/morph-harness",
-  "output/playwright/morph-qualification",
-  "path: |\n            output/playwright/morph\n            output/playwright/morph-harness",
-]) {
-  if (!workflow.includes(required)) recordFailure(`workflow: missing ${required}`);
-}
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
