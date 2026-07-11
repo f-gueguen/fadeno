@@ -39,6 +39,7 @@ export const TYPE_SPINE_VALID_FIXTURES = [
   "valid/action-fields.ts",
   "valid/context.ts",
   "valid/link.ts",
+  "valid/link-union.ts",
   "valid/route-params.ts",
 ] as const;
 
@@ -46,6 +47,7 @@ export const TYPE_SPINE_INVALID_FIXTURES = Object.freeze({
   "invalid/action-fields.ts": { code: 2353, line: 5, anchor: "unknownField" },
   "invalid/context.ts": { code: 2339, line: 4, anchor: "tenantId" },
   "invalid/link.ts": { code: 2344, line: 3, anchor: '"missing"' },
+  "invalid/link-union.ts": { code: 2322, line: 3, anchor: "link" },
   "invalid/route-params.ts": { code: 2741, line: 3, anchor: "parameters" },
 });
 

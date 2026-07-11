@@ -118,4 +118,4 @@ if (
   throw new Error("K0-07 type-spine experiment command differs");
 }
 
-console.log("type-spine contract passed (4 valid, 4 invalid fixtures)");
+console.log("type-spine contract passed (5 valid, 5 invalid fixtures)");

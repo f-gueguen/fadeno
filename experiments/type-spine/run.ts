@@ -9,7 +9,7 @@ if (args.length === 1 && args[0] === "--list") {
   try {
     const { executeTypeSpineHarness } = await import("./harness.ts");
     const result = executeTypeSpineHarness();
-    console.log(`type-spine harness passed (${result.files.length} artifact, 4 valid, 4 invalid)`);
+    console.log(`type-spine harness passed (${result.files.length} artifact, 5 valid, 5 invalid)`);
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

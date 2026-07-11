@@ -16,7 +16,8 @@ quantitative thresholds, artifacts, and atomic delivery slices.
   byte-identical.
 - Pivot: if source locations or inference are inadequate, narrow the generated
   contract before adding editor-specific tooling.
-- Status: Not started.
+- Status: In progress.
+- Progress: K0-07 harness available; K0-08 qualification pending.
 
 ## H4 — Correctness-first revalidation viability
 

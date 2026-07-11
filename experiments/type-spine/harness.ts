@@ -92,9 +92,9 @@ function verifyStockTypeScript(candidate: string, workspace: string): void {
     if (column === 0) fail(`${fixture} contract anchor is absent from line ${expected.line}`);
     const invalid = runTypeScript([source]);
     const escapedFixture = fixture.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    const diagnostics = invalid.output.trim().split("\n").filter(Boolean);
+    const diagnostics = invalid.output.trim().split("\n").filter((line) => /: error TS\d+:/u.test(line));
     const exact = new RegExp(
-      `^(?!.*(?:generated|harness))[^\\n]*fixtures/${escapedFixture}\\(${expected.line},${column}\\): error TS${expected.code}:`,
+      `^[^\\n]*fixtures/${escapedFixture}\\(${expected.line},${column}\\): error TS${expected.code}:`,
     );
     if (invalid.status === 0 || diagnostics.length !== 1 || !exact.test(diagnostics[0] ?? "")) {
       fail(`${fixture} diagnostic differed\n${invalid.output}`);
@@ -109,6 +109,7 @@ function verifyStockTypeScript(candidate: string, workspace: string): void {
   }
 
   const permissive = [
+    "export type RouteId = string;",
     "export type RouteParameters<Id extends string> = Record<string, unknown>;",
     "export type LinkInput<Id extends string> = { readonly route: string; readonly parameters: Record<string, unknown> };",
     "export type ActionFields<Id extends string> = Record<string, unknown>;",
@@ -360,7 +361,9 @@ export function executeTypeSpineHarness(): TypeSpineGeneration {
     generateTypeSpine(TYPE_SPINE_INPUT, outputA);
     if (snapshot(outputA) !== firstBytes) fail("A-B-A generation did not reproduce exact output");
 
-    verifyStockTypeScript(candidate, workspace);
+    const diagnosticWorkspace = join(workspace, "harness-generated-parent");
+    mkdirSync(diagnosticWorkspace);
+    verifyStockTypeScript(candidate, diagnosticWorkspace);
     verifyOpaqueSemantics(workspace);
     verifyRefusals(workspace);
     verifyTransactionRecovery(workspace);
