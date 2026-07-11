@@ -67,6 +67,66 @@ export type ReferenceObservation = {
   browsers: BrowserVersions;
 };
 
+export type BrowserPreflightResult = Readonly<ReferenceObservation & {
+  schemaVersion: 1;
+  observedAt: string;
+  classification: "reference" | "non-reference";
+  reasons: readonly string[];
+}>;
+
+export function browserManifestEnvironment(
+  preflight: BrowserPreflightResult,
+  reference: ReferenceEnvironment,
+) {
+  const host = preflight.host;
+  return {
+    referenceId: reference.id,
+    referenceClass: preflight.classification,
+    host: {
+      provider: host.provider,
+      repositoryVisibility: host.repositoryVisibility,
+      runnerLabel: host.runnerLabel,
+      runnerImage: host.runnerLabel,
+      runnerImageVersion: host.runnerImageVersion,
+      runnerName: host.runnerName,
+      operatingSystemVersion: host.operatingSystemVersion,
+      kernelVersion: host.kernelVersion,
+      architecture: host.architecture,
+      cpuModel: host.cpuModel,
+      logicalCpuCount: host.advertisedLogicalCpuCount ?? host.observedLogicalCpuCount,
+      memoryMiB: host.advertisedMemoryMiB ?? host.observedMemoryMiB,
+      advertisedStorageMiB: host.advertisedStorageMiB ?? reference.host.minimumHardware.storageMiB,
+      freeStorageMiB: host.freeStorageMiB,
+    },
+    container: {
+      image: preflight.container.runtimeImage,
+      indexDigest: reference.container.indexDigest,
+      platform: preflight.container.platform,
+      platformDigest: preflight.container.platformDigest,
+      configDigest: preflight.container.configDigest,
+      executionUser: reference.container.executionUser,
+      browserSandbox: reference.container.browserSandbox,
+      networkPolicy: reference.container.networkPolicy,
+    },
+    toolchain: preflight.toolchain,
+    browsers: {
+      chromeForTesting: preflight.browsers.chromium,
+      firefox: preflight.browsers.firefox,
+      webkit: preflight.browsers.webkit,
+    },
+    power: { policy: reference.power.policy, telemetry: reference.power.telemetry },
+    backgroundLoad: {
+      preflightObservedAt: preflight.observedAt,
+      loadAverage1m: host.loadAverage1m,
+      processCount: host.processCount,
+      accepted: preflight.classification === "reference",
+      reason: preflight.classification === "reference"
+        ? reference.backgroundLoad.acceptanceReason
+        : `non-reference:${preflight.reasons.join(",") || "host"}`,
+    },
+  };
+}
+
 function integerEnvironment(name: string): number | null {
   const value = Number(process.env[name]);
   return Number.isInteger(value) ? value : null;
@@ -282,7 +342,7 @@ export async function runBrowserPreflight(
     );
   }
   return {
-    schemaVersion: 1,
+    schemaVersion: 1 as const,
     observedAt: new Date().toISOString(),
     ...observation,
     ...classification,

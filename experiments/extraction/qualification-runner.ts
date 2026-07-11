@@ -13,6 +13,7 @@ import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runBrowserPreflight } from "../browser-preflight.ts";
+import type { BrowserPreflightResult } from "../browser-preflight.ts";
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import { inspectExperimentSource } from "../../scripts/lib/experiment-source.ts";
 import {
@@ -34,6 +35,10 @@ import {
 import type { ExtractionQualificationReport } from "./qualification-report.ts";
 import type { GeneratedInventory } from "./qualification-proof.ts";
 import { decideExtractionObservations } from "./qualification-proof.ts";
+import {
+  extractionQualificationRunId,
+  publishExtractionQualificationEvidence,
+} from "./qualification-result.ts";
 
 const experimentRoot = dirname(fileURLToPath(import.meta.url));
 const root = join(experimentRoot, "../..");
@@ -87,6 +92,7 @@ export async function executeExtractionQualification(options: Readonly<{
   requireClean: boolean;
   requireReference: boolean;
 }>): Promise<void> {
+  const startedAt = new Date().toISOString();
   const source = sourceIdentity(options.requireClean);
   const outputRoot = join(root, "output/playwright/extraction-qualification");
   const runnerOutput = join(root, "output/playwright/extraction-qualification-runner");
@@ -245,10 +251,6 @@ export async function executeExtractionQualification(options: Readonly<{
   if (JSON.stringify(exactFiles(outputRoot)) !== JSON.stringify(expectedFiles)) {
     throw new Error("FADENO_EXTRACTION_QUALIFICATION_EVIDENCE_SET");
   }
-  inspectExperimentSource(root, {
-    requireClean: options.requireClean,
-    expectedCommit: source.commit,
-  });
   const evidence = exactFiles(outputRoot).map((path) =>
     readFileSync(join(outputRoot, path), "utf8")
   );
@@ -268,6 +270,24 @@ export async function executeExtractionQualification(options: Readonly<{
     throw new Error("FADENO_EXTRACTION_QUALIFICATION_CANARY_SENSOR_CONTROL");
   }
   assertNoQualificationCanary([...evidence, ...transient], canaries);
+  inspectExperimentSource(root, {
+    requireClean: options.requireClean,
+    expectedCommit: source.commit,
+  });
+  if (options.requireReference) {
+    const published = publishExtractionQualificationEvidence({
+      root,
+      runDirectory: outputRoot,
+      runId: extractionQualificationRunId(startedAt, source.commit),
+      sourceCommit: source.commit,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      preflight: preflight as BrowserPreflightResult,
+      decision: outcome.decision,
+      accepted: outcome.accepted,
+    });
+    console.log(`extraction qualification manifest published (${published.manifestPath})`);
+  }
   rmSync(runnerOutput, { recursive: true, force: true });
   rmSync(comparisonRoot, { recursive: true, force: true });
   console.log(
