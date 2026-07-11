@@ -25,11 +25,12 @@
   "stockTypeScript": {
     "version": "7.0.2",
     "tscExecutable": "node_modules/typescript/bin/tsc",
-    "tsserverExecutable": "node_modules/typescript/bin/tsserver",
+    "languageServerExecutable": "node_modules/typescript/bin/tsc",
+    "languageServerArguments": ["--lsp", "--stdio"],
     "compilerArguments": ["--noEmit", "--strict", "--target", "ES2022", "--module", "ESNext", "--moduleResolution", "Bundler", "--allowImportingTsExtensions", "--skipLibCheck", "false", "--incremental", "false", "--pretty", "false"],
-    "languageServiceCommands": ["open", "quickinfo", "definition"]
+    "languageServiceCommands": ["initialize", "textDocument/didOpen", "textDocument/hover", "textDocument/definition"]
   },
-  "requiredGates": ["valid-consumers", "invalid-source-diagnostics", "byte-determinism", "stale-output", "stock-tsc", "stock-tsserver", "clean-latency", "incremental-latency"],
+  "requiredGates": ["valid-consumers", "invalid-source-diagnostics", "byte-determinism", "stale-output", "stock-tsc", "stock-language-server", "clean-latency", "incremental-latency"],
   "decision": {
     "go": "all-gates-pass",
     "narrow": "all-non-performance-gates-pass-and-any-latency-gate-fails",

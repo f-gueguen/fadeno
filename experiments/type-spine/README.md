@@ -7,7 +7,9 @@
 - Commands: `pnpm experiment:type-spine -- --list` prints the locked private
   contract without generating files; `pnpm experiment:type-spine --
   --verify-harness` runs contained deterministic generation and the seeded
-  stock-TypeScript controls.
+  stock-TypeScript controls; and `pnpm experiment:type-spine --
+  --verify-qualification` checks the frozen corpus/runner contracts plus real
+  stock `tsc` and TypeScript 7 LSP consumption without recording a result.
 
 `fixtures/`, `tests/`, and `results/` are reserved by the K0 plan. K0-07 owns
 the filesystem/generator harness and seeded consumers; K0-08 owns the 1,000

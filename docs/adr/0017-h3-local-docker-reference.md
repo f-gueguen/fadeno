@@ -64,7 +64,8 @@ and must report one replacement with the expected changed digest and exact type
 delta. The no-change fast path is never a performance sample.
 
 - GO requires every correctness, determinism, stale-output, stock `tsc`, stock
-  `tsserver`, clean-latency, and incremental-latency gate to pass.
+  TypeScript 7 LSP language-server, clean-latency, and incremental-latency gate
+  to pass. TypeScript 7 replaced the custom `tsserver` protocol with LSP.
 - NARROW requires all non-performance gates to pass while either latency gate
   fails.
 - PIVOT follows a type-correctness, source-location, deterministic-generation,

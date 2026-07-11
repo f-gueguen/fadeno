@@ -14,8 +14,9 @@ K0-08A — establish H3 qualification capability without collecting a result
   H1/H2 browser reference unchanged.
 - [x] An independently checked private 1,000-route corpus locks topology and
   scalar coverage without choosing DG-V1-02 or DG-V1-05 syntax.
-- [ ] Stock `tsc` and `tsserver` controls prove exact valid/invalid diagnostics
-  and generated-symbol consumption.
+- [x] Stock `tsc` and the TypeScript 7 LSP language server (the stock successor
+  to `tsserver`) prove exact valid/invalid diagnostics and generated-symbol
+  consumption.
 - [ ] The runner locks clean and real A/B incremental generation, interleaved
   no-retry timings, pre/postflight, p95 derivation, and decision projection.
 - [ ] `pnpm ci:local` and `pnpm experiment:type-spine --

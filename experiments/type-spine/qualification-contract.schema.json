@@ -32,16 +32,17 @@
     },
     "stockTypeScript": {
       "type": "object", "additionalProperties": false,
-      "required": ["version", "tscExecutable", "tsserverExecutable", "compilerArguments", "languageServiceCommands"],
+      "required": ["version", "tscExecutable", "languageServerExecutable", "languageServerArguments", "compilerArguments", "languageServiceCommands"],
       "properties": {
         "version": { "const": "7.0.2" },
         "tscExecutable": { "const": "node_modules/typescript/bin/tsc" },
-        "tsserverExecutable": { "const": "node_modules/typescript/bin/tsserver" },
+        "languageServerExecutable": { "const": "node_modules/typescript/bin/tsc" },
+        "languageServerArguments": { "const": ["--lsp", "--stdio"] },
         "compilerArguments": { "type": "array", "minItems": 15, "maxItems": 15, "items": { "type": "string" } },
-        "languageServiceCommands": { "const": ["open", "quickinfo", "definition"] }
+        "languageServiceCommands": { "const": ["initialize", "textDocument/didOpen", "textDocument/hover", "textDocument/definition"] }
       }
     },
-    "requiredGates": { "const": ["valid-consumers", "invalid-source-diagnostics", "byte-determinism", "stale-output", "stock-tsc", "stock-tsserver", "clean-latency", "incremental-latency"] },
+    "requiredGates": { "const": ["valid-consumers", "invalid-source-diagnostics", "byte-determinism", "stale-output", "stock-tsc", "stock-language-server", "clean-latency", "incremental-latency"] },
     "decision": { "const": { "go": "all-gates-pass", "narrow": "all-non-performance-gates-pass-and-any-latency-gate-fails", "pivot": "any-correctness-determinism-stale-or-stock-tool-gate-fails", "inconclusive": "environment-preflight-postflight-or-evidence-integrity-fails" } },
     "capabilitySlice": { "const": { "slice": "K0-08A", "immutableResultsAllowed": false, "decisionAllowed": false } },
     "executionSlice": { "const": { "slice": "K0-08B", "requiredSource": "exact-clean-merged-k0-08a-main-commit", "publishEveryReferenceValidAttempt": true } }

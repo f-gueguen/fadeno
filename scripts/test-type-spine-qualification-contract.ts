@@ -14,6 +14,7 @@ type MutableContract = {
     thresholds: { incrementalToCleanMaximumRatio: number };
   };
   decision: { narrow: string };
+  stockTypeScript: { languageServerArguments: string[] };
   capabilitySlice: { immutableResultsAllowed: boolean };
   executionSlice: { requiredSource: string };
 };
@@ -29,6 +30,7 @@ const mutations: readonly ((document: MutableContract) => void)[] = [
   (document) => { document.measurement.percentile.method = "linear"; },
   (document) => { document.measurement.thresholds.incrementalToCleanMaximumRatio = 0.5; },
   (document) => { document.decision.narrow = "ignore-latency"; },
+  (document) => { document.stockTypeScript.languageServerArguments = ["--server"]; },
   (document) => { document.capabilitySlice.immutableResultsAllowed = true; },
   (document) => { document.executionSlice.requiredSource = "working-tree"; },
 ];
