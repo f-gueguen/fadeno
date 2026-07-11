@@ -1,9 +1,17 @@
 # Extraction results
 
 The first immutable run is the K0-06 GO qualification from exact clean source
-commit [`829ea53`](https://github.com/f-gueguen/fadeno/commit/829ea53e3176bcd1ba88b17f5ed67e8c712f0d68)
-in [hosted run 29144117748](https://github.com/f-gueguen/fadeno/actions/runs/29144117748).
-Its [validated manifest](20260711T071416Z-829ea53-a1/manifest.json) retains the
+commit [`267cd0f`](https://github.com/f-gueguen/fadeno/commit/267cd0f2e8c6a71762007fc1d4fde52b49a026a5)
+in [hosted run 29144470073](https://github.com/f-gueguen/fadeno/actions/runs/29144470073).
+Its [validated manifest](20260711T072809Z-267cd0f-a1/manifest.json) retains the
 complete three-engine observations, deterministic generated handlers, ten
 refusal diagnostics, decision record, reference preflight, lockfile, and exact
 source identity.
+
+Immediately after the hosted job completed, the downloaded
+`extraction-qualification-evidence` archive was compared byte-for-byte with the
+pinned directory. GitHub reported artifact ID `8246311306` and archive digest
+`sha256:e3ec01059ee0c08aca0dc45f9e665f8ed3f86d7c0791b8031ef13f49c86d3cf0`.
+This is a manual hosted-artifact attestation; the persistent verifier owns the
+stronger extracted-file hashes, semantics, source ancestry, and cross-record
+consistency after GitHub artifact retention expires.

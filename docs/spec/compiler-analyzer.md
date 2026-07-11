@@ -62,7 +62,8 @@ The accepted semantic contract requires:
 Capture analysis measures one canonical JSON envelope, including names and
 framing, against a 65,536-byte UTF-8 limit before emission. Only referenced
 root-body variable declarations may enter that envelope. Root parameters,
-same-source helpers, extra imported helpers, unresolved runtime values, and
+same-source helpers, every imported runtime value or namespace member other
+than the one self-contained behavior function, unresolved runtime values, and
 behavior functions with dependencies are refused conservatively. Emission is
 transactional and rejects traversal plus symlinks in every existing output-path
 component. Capture numbers must be finite and must not lose negative-zero

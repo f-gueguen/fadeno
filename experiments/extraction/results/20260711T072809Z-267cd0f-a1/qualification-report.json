@@ -12,7 +12,7 @@
         "name": "qualification-observation",
         "contentType": "application/json",
         "path": "qualification-observations/chromium.json",
-        "sha256": "026c5949e0a19b8513ba2a1215ee6723ac107b26c0ce1aa109461386949adc15"
+        "sha256": "414adc0da10fb384ddc36f4933c1e823066b03e9dd4c5eb67c29d0b289cdd0d5"
       }
     },
     {
@@ -25,7 +25,7 @@
         "name": "qualification-observation",
         "contentType": "application/json",
         "path": "qualification-observations/firefox.json",
-        "sha256": "3cd564cb1848e8bda60a57e0f6e1472bf0fd8b11beca7e8da48bfa46cf629d66"
+        "sha256": "9c5cc479e20f83208ceb89ee03b6b273fc1634fff44fb0c752445b1dc7afe0ae"
       }
     },
     {
@@ -38,7 +38,7 @@
         "name": "qualification-observation",
         "contentType": "application/json",
         "path": "qualification-observations/webkit.json",
-        "sha256": "b936abf306be8fa60a5caa9fe28630601d6e614d87cbde7237dff30dc151f6fc"
+        "sha256": "d0ce7db5edc730f128c0b0201ef456263f8c4c5bc6ff176d874a7a308dd0ed6c"
       }
     }
   ]

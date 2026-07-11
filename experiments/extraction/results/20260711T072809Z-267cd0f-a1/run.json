@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "run": {
-    "id": "20260711T071416Z-829ea53-a1",
+    "id": "20260711T072809Z-267cd0f-a1",
     "attempt": 1,
-    "startedAt": "2026-07-11T07:14:16.420Z",
-    "completedAt": "2026-07-11T07:16:08.108Z",
+    "startedAt": "2026-07-11T07:28:09.197Z",
+    "completedAt": "2026-07-11T07:29:56.977Z",
     "status": "passed"
   },
   "source": {
     "repository": "https://github.com/f-gueguen/fadeno",
-    "commit": "829ea53e3176bcd1ba88b17f5ed67e8c712f0d68",
+    "commit": "267cd0f2e8c6a71762007fc1d4fde52b49a026a5",
     "dirty": false
   },
   "command": [
@@ -82,27 +82,27 @@
     },
     {
       "path": "preflight.json",
-      "sha256": "38dcbc81895f69eedf3f125b0fd86fa06fda9a21a0ab2156aff5b5635367b2c4",
+      "sha256": "6e55a1f2a5ad1ff6a07564cf98c30029fcb09409d48506f009d953a72480ac38",
       "bytes": 1305
     },
     {
       "path": "qualification-observations/chromium.json",
-      "sha256": "026c5949e0a19b8513ba2a1215ee6723ac107b26c0ce1aa109461386949adc15",
-      "bytes": 316357
+      "sha256": "414adc0da10fb384ddc36f4933c1e823066b03e9dd4c5eb67c29d0b289cdd0d5",
+      "bytes": 316353
     },
     {
       "path": "qualification-observations/firefox.json",
-      "sha256": "3cd564cb1848e8bda60a57e0f6e1472bf0fd8b11beca7e8da48bfa46cf629d66",
-      "bytes": 316348
+      "sha256": "9c5cc479e20f83208ceb89ee03b6b273fc1634fff44fb0c752445b1dc7afe0ae",
+      "bytes": 316349
     },
     {
       "path": "qualification-observations/webkit.json",
-      "sha256": "b936abf306be8fa60a5caa9fe28630601d6e614d87cbde7237dff30dc151f6fc",
-      "bytes": 316342
+      "sha256": "d0ce7db5edc730f128c0b0201ef456263f8c4c5bc6ff176d874a7a308dd0ed6c",
+      "bytes": 316346
     },
     {
       "path": "qualification-report.json",
-      "sha256": "baa50e23276d8a5db59a330579e9d80754bddac3e41098615aaf0302cb04ad54",
+      "sha256": "3319e7374af9ba331aba995d13ed95ececdabc2254a03395f77cb41dae3d1d43",
       "bytes": 1369
     },
     {
@@ -112,7 +112,7 @@
     },
     {
       "path": "source.json",
-      "sha256": "64de5ceda7de770faa7203fb2346ce46de3cf87c90f63425057536b350c69586",
+      "sha256": "da39d09c4c9884726337d72f97c9f55570434abb31a68e964ae4ebfefda98ed6",
       "bytes": 154
     }
   ]

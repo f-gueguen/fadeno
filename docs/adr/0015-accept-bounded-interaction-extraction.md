@@ -15,9 +15,9 @@ engines, deterministic generation, response and request evidence, and the
 accepted H1 identity-operation signature before implementing a candidate.
 
 The exact clean source commit
-[`829ea53`](https://github.com/f-gueguen/fadeno/commit/829ea53e3176bcd1ba88b17f5ed67e8c712f0d68)
+[`267cd0f`](https://github.com/f-gueguen/fadeno/commit/267cd0f2e8c6a71762007fc1d4fde52b49a026a5)
 completed that matrix in the pinned reference environment in
-[hosted run 29144117748](https://github.com/f-gueguen/fadeno/actions/runs/29144117748)
+[hosted run 29144470073](https://github.com/f-gueguen/fadeno/actions/runs/29144470073)
 with no retries. All five accepted classes passed in
 Chromium, Firefox, and WebKit. All ten rejected classes stopped at their source
 boundary with the locked diagnostic and no browser artifact. The generated

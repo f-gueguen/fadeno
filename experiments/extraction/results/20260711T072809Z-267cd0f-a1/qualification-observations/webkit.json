@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "projectName": "chromium",
-  "observedBrowser": "chromium",
+  "projectName": "webkit",
+  "observedBrowser": "webkit",
   "fixtures": [
     {
       "status": "passed",
@@ -1552,7 +1552,7 @@
             "selectionStart": 2,
             "selectionEnd": 8
           },
-          "scenarioObservationMilliseconds": 6.49960800000008,
+          "scenarioObservationMilliseconds": 7.554377000000386,
           "targetIdentity": "focused-input",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1594,7 +1594,7 @@
             "selectionStart": 1,
             "selectionEnd": 7
           },
-          "scenarioObservationMilliseconds": 5.9213579999996,
+          "scenarioObservationMilliseconds": 6.278782999999748,
           "targetIdentity": "focused-textarea",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1642,7 +1642,7 @@
             "focusOffset": 4,
             "collapsed": true
           },
-          "scenarioObservationMilliseconds": 4.869779999999992,
+          "scenarioObservationMilliseconds": 5.671191000000363,
           "targetIdentity": "focused-editor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1679,7 +1679,7 @@
           "scenarioStateAfter": {
             "value": "client-dirty"
           },
-          "scenarioObservationMilliseconds": 4.165318999999727,
+          "scenarioObservationMilliseconds": 4.469358000000284,
           "targetIdentity": "dirty-text",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1715,7 +1715,7 @@
           "scenarioStateAfter": {
             "checked": true
           },
-          "scenarioObservationMilliseconds": 3.955678999999691,
+          "scenarioObservationMilliseconds": 5.136905999999726,
           "targetIdentity": "dirty-checkbox",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1753,7 +1753,7 @@
             "checkedA": true,
             "checkedB": false
           },
-          "scenarioObservationMilliseconds": 4.0849090000001524,
+          "scenarioObservationMilliseconds": 11.645442999999432,
           "targetIdentity": "dirty-radio-a",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1794,7 +1794,7 @@
             "value": "b",
             "selectedIndex": 1
           },
-          "scenarioObservationMilliseconds": 4.70599299999958,
+          "scenarioObservationMilliseconds": 5.688782000000174,
           "targetIdentity": "dirty-select",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1828,7 +1828,7 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754063273,
+            "lastModified": 1783754970840,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
@@ -1836,11 +1836,11 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754063273,
+            "lastModified": 1783754970840,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
-          "scenarioObservationMilliseconds": 4.440254000000095,
+          "scenarioObservationMilliseconds": 5.588659999999436,
           "targetIdentity": "dirty-file",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1876,7 +1876,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.460818999999901,
+          "scenarioObservationMilliseconds": 5.274180999999771,
           "targetIdentity": "open-details",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1915,7 +1915,7 @@
             "open": true,
             "modal": true
           },
-          "scenarioObservationMilliseconds": 4.0537670000003345,
+          "scenarioObservationMilliseconds": 13.026440999999977,
           "targetIdentity": "modal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1953,7 +1953,7 @@
             "open": true,
             "modal": false
           },
-          "scenarioObservationMilliseconds": 3.988078000000314,
+          "scenarioObservationMilliseconds": 5.5014060000003155,
           "targetIdentity": "nonmodal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -1989,7 +1989,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.663966000000073,
+          "scenarioObservationMilliseconds": 4.392617999999857,
           "targetIdentity": "open-popover",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -2022,17 +2022,17 @@
           "scenarioState": "media-playing",
           "scenarioStateBefore": {
             "paused": false,
-            "currentTime": 0.028147,
-            "readyState": 4,
+            "currentTime": 0.042522,
+            "readyState": 3,
             "playbackRate": 0.5
           },
           "scenarioStateAfter": {
             "paused": false,
-            "currentTime": 0.031472,
-            "readyState": 4,
+            "currentTime": 0.045776,
+            "readyState": 3,
             "playbackRate": 0.5
           },
-          "scenarioObservationMilliseconds": 6.532447999999931,
+          "scenarioObservationMilliseconds": 6.375812999999653,
           "targetIdentity": "playing-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -2065,16 +2065,16 @@
           "scenarioStateBefore": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
           "scenarioStateAfter": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
-          "scenarioObservationMilliseconds": 6.3646499999995285,
+          "scenarioObservationMilliseconds": 6.3206099999997605,
           "targetIdentity": "paused-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -2112,7 +2112,7 @@
             "x": 0,
             "y": 380
           },
-          "scenarioObservationMilliseconds": 4.1746180000000095,
+          "scenarioObservationMilliseconds": 4.992366999999831,
           "targetIdentity": "scroll-anchor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -2151,7 +2151,7 @@
             "left": 0,
             "top": 140
           },
-          "scenarioObservationMilliseconds": 4.264965999999731,
+          "scenarioObservationMilliseconds": 4.828841999999895,
           "targetIdentity": "scroll-container",
           "operationParentIdentity": "scroll-container",
           "beforeOrder": [
@@ -2185,7 +2185,7 @@
             "connectedCount": 1,
             "disconnectedCount": 0
           },
-          "scenarioObservationMilliseconds": 4.354346000000078,
+          "scenarioObservationMilliseconds": 4.770367000000078,
           "targetIdentity": "mounted-island",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3558,7 +3558,7 @@
             "selectionStart": 2,
             "selectionEnd": 8
           },
-          "scenarioObservationMilliseconds": 6.684849999999642,
+          "scenarioObservationMilliseconds": 8.503402000000278,
           "targetIdentity": "focused-input",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3599,7 +3599,7 @@
             "selectionStart": 1,
             "selectionEnd": 7
           },
-          "scenarioObservationMilliseconds": 4.264625000001615,
+          "scenarioObservationMilliseconds": 6.343122999998741,
           "targetIdentity": "focused-textarea",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3646,7 +3646,7 @@
             "focusOffset": 4,
             "collapsed": true
           },
-          "scenarioObservationMilliseconds": 4.490892000001622,
+          "scenarioObservationMilliseconds": 5.461549000001469,
           "targetIdentity": "focused-editor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3682,7 +3682,7 @@
           "scenarioStateAfter": {
             "value": "client-dirty"
           },
-          "scenarioObservationMilliseconds": 4.128290999999081,
+          "scenarioObservationMilliseconds": 4.432179999999789,
           "targetIdentity": "dirty-text",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3717,7 +3717,7 @@
           "scenarioStateAfter": {
             "checked": true
           },
-          "scenarioObservationMilliseconds": 4.805905999999595,
+          "scenarioObservationMilliseconds": 5.338028999998642,
           "targetIdentity": "dirty-checkbox",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3754,7 +3754,7 @@
             "checkedA": true,
             "checkedB": false
           },
-          "scenarioObservationMilliseconds": 4.028585000000021,
+          "scenarioObservationMilliseconds": 5.30521299999964,
           "targetIdentity": "dirty-radio-a",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3794,7 +3794,7 @@
             "value": "b",
             "selectedIndex": 1
           },
-          "scenarioObservationMilliseconds": 4.174795000000813,
+          "scenarioObservationMilliseconds": 6.0242130000006,
           "targetIdentity": "dirty-select",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3827,7 +3827,7 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754068738,
+            "lastModified": 1783754976950,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
@@ -3835,11 +3835,11 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754068738,
+            "lastModified": 1783754976950,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
-          "scenarioObservationMilliseconds": 4.416809000000285,
+          "scenarioObservationMilliseconds": 5.635921999999482,
           "targetIdentity": "dirty-file",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3874,7 +3874,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.125861000000441,
+          "scenarioObservationMilliseconds": 4.836814000000231,
           "targetIdentity": "open-details",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3912,7 +3912,7 @@
             "open": true,
             "modal": true
           },
-          "scenarioObservationMilliseconds": 4.065180999999939,
+          "scenarioObservationMilliseconds": 8.67304999999942,
           "targetIdentity": "modal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3949,7 +3949,7 @@
             "open": true,
             "modal": false
           },
-          "scenarioObservationMilliseconds": 4.048930999999357,
+          "scenarioObservationMilliseconds": 5.057418000000325,
           "targetIdentity": "nonmodal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -3984,7 +3984,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.142783000001145,
+          "scenarioObservationMilliseconds": 5.072457000000213,
           "targetIdentity": "open-popover",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -4016,17 +4016,17 @@
           "scenarioState": "media-playing",
           "scenarioStateBefore": {
             "paused": false,
-            "currentTime": 0.025421,
-            "readyState": 4,
+            "currentTime": 0.037429,
+            "readyState": 3,
             "playbackRate": 0.5
           },
           "scenarioStateAfter": {
             "paused": false,
-            "currentTime": 0.027817,
-            "readyState": 4,
+            "currentTime": 0.041688,
+            "readyState": 3,
             "playbackRate": 0.5
           },
-          "scenarioObservationMilliseconds": 6.66710299999977,
+          "scenarioObservationMilliseconds": 8.40108699999837,
           "targetIdentity": "playing-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -4058,16 +4058,16 @@
           "scenarioStateBefore": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
           "scenarioStateAfter": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
-          "scenarioObservationMilliseconds": 6.4201260000008915,
+          "scenarioObservationMilliseconds": 6.9234789999991335,
           "targetIdentity": "paused-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -4104,7 +4104,7 @@
             "x": 0,
             "y": 380
           },
-          "scenarioObservationMilliseconds": 4.1954920000007405,
+          "scenarioObservationMilliseconds": 6.777662000000419,
           "targetIdentity": "scroll-anchor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -4142,7 +4142,7 @@
             "left": 0,
             "top": 140
           },
-          "scenarioObservationMilliseconds": 4.428672000000006,
+          "scenarioObservationMilliseconds": 5.034394000000248,
           "targetIdentity": "scroll-container",
           "operationParentIdentity": "scroll-container",
           "beforeOrder": [
@@ -4175,7 +4175,7 @@
             "connectedCount": 1,
             "disconnectedCount": 0
           },
-          "scenarioObservationMilliseconds": 4.086145999999644,
+          "scenarioObservationMilliseconds": 4.655023999999685,
           "targetIdentity": "mounted-island",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -5947,7 +5947,7 @@
             "selectionStart": 2,
             "selectionEnd": 8
           },
-          "scenarioObservationMilliseconds": 5.711747999999716,
+          "scenarioObservationMilliseconds": 6.839286999998876,
           "targetIdentity": "focused-input",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -5990,7 +5990,7 @@
             "selectionStart": 1,
             "selectionEnd": 7
           },
-          "scenarioObservationMilliseconds": 4.368701999999757,
+          "scenarioObservationMilliseconds": 5.738326999999117,
           "targetIdentity": "focused-textarea",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6039,7 +6039,7 @@
             "focusOffset": 4,
             "collapsed": true
           },
-          "scenarioObservationMilliseconds": 4.67859800000042,
+          "scenarioObservationMilliseconds": 5.125159999999596,
           "targetIdentity": "focused-editor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6077,7 +6077,7 @@
           "scenarioStateAfter": {
             "value": "client-dirty"
           },
-          "scenarioObservationMilliseconds": 4.173783000000185,
+          "scenarioObservationMilliseconds": 4.9348359999967215,
           "targetIdentity": "dirty-text",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6114,7 +6114,7 @@
           "scenarioStateAfter": {
             "checked": true
           },
-          "scenarioObservationMilliseconds": 3.9845529999984137,
+          "scenarioObservationMilliseconds": 5.077040000000125,
           "targetIdentity": "dirty-checkbox",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6153,7 +6153,7 @@
             "checkedA": true,
             "checkedB": false
           },
-          "scenarioObservationMilliseconds": 3.9595399999998335,
+          "scenarioObservationMilliseconds": 5.924038000001019,
           "targetIdentity": "dirty-radio-a",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6195,7 +6195,7 @@
             "value": "b",
             "selectedIndex": 1
           },
-          "scenarioObservationMilliseconds": 4.1804229999997915,
+          "scenarioObservationMilliseconds": 5.378015000002051,
           "targetIdentity": "dirty-select",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6230,7 +6230,7 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754074273,
+            "lastModified": 1783754983061,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
@@ -6238,11 +6238,11 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754074273,
+            "lastModified": 1783754983061,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
-          "scenarioObservationMilliseconds": 4.498956999999791,
+          "scenarioObservationMilliseconds": 5.297759000000951,
           "targetIdentity": "dirty-file",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6279,7 +6279,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.121558999999252,
+          "scenarioObservationMilliseconds": 5.381907999999385,
           "targetIdentity": "open-details",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6319,7 +6319,7 @@
             "open": true,
             "modal": true
           },
-          "scenarioObservationMilliseconds": 4.037788000001456,
+          "scenarioObservationMilliseconds": 5.261136000000988,
           "targetIdentity": "modal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6358,7 +6358,7 @@
             "open": true,
             "modal": false
           },
-          "scenarioObservationMilliseconds": 4.898720000001049,
+          "scenarioObservationMilliseconds": 5.26198800000202,
           "targetIdentity": "nonmodal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6395,7 +6395,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.323202999999921,
+          "scenarioObservationMilliseconds": 4.708958999999595,
           "targetIdentity": "open-popover",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6429,17 +6429,17 @@
           "scenarioState": "media-playing",
           "scenarioStateBefore": {
             "paused": false,
-            "currentTime": 0.02521,
-            "readyState": 4,
+            "currentTime": 0.034687,
+            "readyState": 3,
             "playbackRate": 0.5
           },
           "scenarioStateAfter": {
             "paused": false,
-            "currentTime": 0.027539,
-            "readyState": 4,
+            "currentTime": 0.038254,
+            "readyState": 3,
             "playbackRate": 0.5
           },
-          "scenarioObservationMilliseconds": 6.516779999998107,
+          "scenarioObservationMilliseconds": 7.130423000002338,
           "targetIdentity": "playing-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6473,16 +6473,16 @@
           "scenarioStateBefore": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
           "scenarioStateAfter": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
-          "scenarioObservationMilliseconds": 6.497396000002482,
+          "scenarioObservationMilliseconds": 6.7153050000015355,
           "targetIdentity": "paused-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6521,7 +6521,7 @@
             "x": 0,
             "y": 380
           },
-          "scenarioObservationMilliseconds": 4.483904000000621,
+          "scenarioObservationMilliseconds": 7.194597999998223,
           "targetIdentity": "scroll-anchor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -6561,7 +6561,7 @@
             "left": 0,
             "top": 140
           },
-          "scenarioObservationMilliseconds": 4.738739000000351,
+          "scenarioObservationMilliseconds": 5.175873000000138,
           "targetIdentity": "scroll-container",
           "operationParentIdentity": "scroll-container",
           "beforeOrder": [
@@ -6596,7 +6596,7 @@
             "connectedCount": 1,
             "disconnectedCount": 0
           },
-          "scenarioObservationMilliseconds": 4.151012999998784,
+          "scenarioObservationMilliseconds": 5.658371999998053,
           "targetIdentity": "mounted-island",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8170,7 +8170,7 @@
             "selectionStart": 2,
             "selectionEnd": 8
           },
-          "scenarioObservationMilliseconds": 6.0349199999982375,
+          "scenarioObservationMilliseconds": 6.701933999996982,
           "targetIdentity": "focused-input",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8212,7 +8212,7 @@
             "selectionStart": 1,
             "selectionEnd": 7
           },
-          "scenarioObservationMilliseconds": 4.496031999999104,
+          "scenarioObservationMilliseconds": 4.999595000001136,
           "targetIdentity": "focused-textarea",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8260,7 +8260,7 @@
             "focusOffset": 4,
             "collapsed": true
           },
-          "scenarioObservationMilliseconds": 5.6947369999979855,
+          "scenarioObservationMilliseconds": 5.354918000000907,
           "targetIdentity": "focused-editor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8297,7 +8297,7 @@
           "scenarioStateAfter": {
             "value": "client-dirty"
           },
-          "scenarioObservationMilliseconds": 4.510701000002882,
+          "scenarioObservationMilliseconds": 5.004357999998319,
           "targetIdentity": "dirty-text",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8333,7 +8333,7 @@
           "scenarioStateAfter": {
             "checked": true
           },
-          "scenarioObservationMilliseconds": 4.147468999999546,
+          "scenarioObservationMilliseconds": 5.252526000000216,
           "targetIdentity": "dirty-checkbox",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8371,7 +8371,7 @@
             "checkedA": true,
             "checkedB": false
           },
-          "scenarioObservationMilliseconds": 4.171049000000494,
+          "scenarioObservationMilliseconds": 5.859595999998419,
           "targetIdentity": "dirty-radio-a",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8412,7 +8412,7 @@
             "value": "b",
             "selectedIndex": 1
           },
-          "scenarioObservationMilliseconds": 4.339101999998093,
+          "scenarioObservationMilliseconds": 5.126928000001499,
           "targetIdentity": "dirty-select",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8446,7 +8446,7 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754079706,
+            "lastModified": 1783754989219,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
@@ -8454,11 +8454,11 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754079706,
+            "lastModified": 1783754989219,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
-          "scenarioObservationMilliseconds": 5.344216000001325,
+          "scenarioObservationMilliseconds": 6.248458000001847,
           "targetIdentity": "dirty-file",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8494,7 +8494,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.4795130000020436,
+          "scenarioObservationMilliseconds": 5.320761999999377,
           "targetIdentity": "open-details",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8533,7 +8533,7 @@
             "open": true,
             "modal": true
           },
-          "scenarioObservationMilliseconds": 4.212030999999115,
+          "scenarioObservationMilliseconds": 5.434400000001915,
           "targetIdentity": "modal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8571,7 +8571,7 @@
             "open": true,
             "modal": false
           },
-          "scenarioObservationMilliseconds": 4.330358999999589,
+          "scenarioObservationMilliseconds": 5.290215000000899,
           "targetIdentity": "nonmodal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8607,7 +8607,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.154383999997663,
+          "scenarioObservationMilliseconds": 6.102150000002439,
           "targetIdentity": "open-popover",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8640,17 +8640,17 @@
           "scenarioState": "media-playing",
           "scenarioStateBefore": {
             "paused": false,
-            "currentTime": 0.032917,
-            "readyState": 4,
+            "currentTime": 0.036461,
+            "readyState": 3,
             "playbackRate": 0.5
           },
           "scenarioStateAfter": {
             "paused": false,
-            "currentTime": 0.036322,
-            "readyState": 4,
+            "currentTime": 0.040534,
+            "readyState": 3,
             "playbackRate": 0.5
           },
-          "scenarioObservationMilliseconds": 6.777348999999958,
+          "scenarioObservationMilliseconds": 8.014789999997447,
           "targetIdentity": "playing-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8683,16 +8683,16 @@
           "scenarioStateBefore": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
           "scenarioStateAfter": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
-          "scenarioObservationMilliseconds": 6.6427309999999125,
+          "scenarioObservationMilliseconds": 7.840556999999535,
           "targetIdentity": "paused-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8730,7 +8730,7 @@
             "x": 0,
             "y": 380
           },
-          "scenarioObservationMilliseconds": 4.380750000000262,
+          "scenarioObservationMilliseconds": 5.473504000001412,
           "targetIdentity": "scroll-anchor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -8769,7 +8769,7 @@
             "left": 0,
             "top": 140
           },
-          "scenarioObservationMilliseconds": 4.322838000000047,
+          "scenarioObservationMilliseconds": 4.977731999999378,
           "targetIdentity": "scroll-container",
           "operationParentIdentity": "scroll-container",
           "beforeOrder": [
@@ -8803,7 +8803,7 @@
             "connectedCount": 1,
             "disconnectedCount": 0
           },
-          "scenarioObservationMilliseconds": 4.1616050000011455,
+          "scenarioObservationMilliseconds": 5.548048000000563,
           "targetIdentity": "mounted-island",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10176,7 +10176,7 @@
             "selectionStart": 2,
             "selectionEnd": 8
           },
-          "scenarioObservationMilliseconds": 6.755425999999716,
+          "scenarioObservationMilliseconds": 9.186495000001742,
           "targetIdentity": "focused-input",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10217,7 +10217,7 @@
             "selectionStart": 1,
             "selectionEnd": 7
           },
-          "scenarioObservationMilliseconds": 4.613389999998617,
+          "scenarioObservationMilliseconds": 6.987143999998807,
           "targetIdentity": "focused-textarea",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10264,7 +10264,7 @@
             "focusOffset": 4,
             "collapsed": true
           },
-          "scenarioObservationMilliseconds": 4.678358000001026,
+          "scenarioObservationMilliseconds": 6.474349000000075,
           "targetIdentity": "focused-editor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10300,7 +10300,7 @@
           "scenarioStateAfter": {
             "value": "client-dirty"
           },
-          "scenarioObservationMilliseconds": 4.33410499999809,
+          "scenarioObservationMilliseconds": 5.6855910000012955,
           "targetIdentity": "dirty-text",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10335,7 +10335,7 @@
           "scenarioStateAfter": {
             "checked": true
           },
-          "scenarioObservationMilliseconds": 4.35372500000085,
+          "scenarioObservationMilliseconds": 5.943873000000167,
           "targetIdentity": "dirty-checkbox",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10372,7 +10372,7 @@
             "checkedA": true,
             "checkedB": false
           },
-          "scenarioObservationMilliseconds": 5.201370999999199,
+          "scenarioObservationMilliseconds": 6.1546459999990475,
           "targetIdentity": "dirty-radio-a",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10412,7 +10412,7 @@
             "value": "b",
             "selectedIndex": 1
           },
-          "scenarioObservationMilliseconds": 4.3827390000005835,
+          "scenarioObservationMilliseconds": 5.66526199999862,
           "targetIdentity": "dirty-select",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10445,7 +10445,7 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754085223,
+            "lastModified": 1783754995788,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
@@ -10453,11 +10453,11 @@
             "name": "qualification.txt",
             "contentType": "text/plain",
             "bytes": 18,
-            "lastModified": 1783754085223,
+            "lastModified": 1783754995788,
             "text": "fadeno-k0-04-file\n",
             "sameFile": true
           },
-          "scenarioObservationMilliseconds": 4.7687649999970745,
+          "scenarioObservationMilliseconds": 6.157129999999597,
           "targetIdentity": "dirty-file",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10492,7 +10492,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.474662000000535,
+          "scenarioObservationMilliseconds": 5.950628999999026,
           "targetIdentity": "open-details",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10530,7 +10530,7 @@
             "open": true,
             "modal": true
           },
-          "scenarioObservationMilliseconds": 4.360609999999724,
+          "scenarioObservationMilliseconds": 5.816135000000941,
           "targetIdentity": "modal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10567,7 +10567,7 @@
             "open": true,
             "modal": false
           },
-          "scenarioObservationMilliseconds": 4.388557000002038,
+          "scenarioObservationMilliseconds": 6.201618999999482,
           "targetIdentity": "nonmodal-dialog",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10602,7 +10602,7 @@
           "scenarioStateAfter": {
             "open": true
           },
-          "scenarioObservationMilliseconds": 4.459359000000404,
+          "scenarioObservationMilliseconds": 5.560679000001983,
           "targetIdentity": "open-popover",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10634,17 +10634,17 @@
           "scenarioState": "media-playing",
           "scenarioStateBefore": {
             "paused": false,
-            "currentTime": 0.031955,
-            "readyState": 4,
+            "currentTime": 0.043808,
+            "readyState": 3,
             "playbackRate": 0.5
           },
           "scenarioStateAfter": {
             "paused": false,
-            "currentTime": 0.035403,
-            "readyState": 4,
+            "currentTime": 0.048184,
+            "readyState": 3,
             "playbackRate": 0.5
           },
-          "scenarioObservationMilliseconds": 6.842026000002079,
+          "scenarioObservationMilliseconds": 8.570598999998765,
           "targetIdentity": "playing-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10676,16 +10676,16 @@
           "scenarioStateBefore": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
           "scenarioStateAfter": {
             "paused": true,
             "currentTime": 0.25,
-            "readyState": 4,
+            "readyState": 3,
             "playbackRate": 1
           },
-          "scenarioObservationMilliseconds": 7.277416000000812,
+          "scenarioObservationMilliseconds": 6.980618000001414,
           "targetIdentity": "paused-media",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10722,7 +10722,7 @@
             "x": 0,
             "y": 380
           },
-          "scenarioObservationMilliseconds": 5.1804750000010245,
+          "scenarioObservationMilliseconds": 7.812461000001349,
           "targetIdentity": "scroll-anchor",
           "operationParentIdentity": "root",
           "beforeOrder": [
@@ -10760,7 +10760,7 @@
             "left": 0,
             "top": 140
           },
-          "scenarioObservationMilliseconds": 4.5719480000007025,
+          "scenarioObservationMilliseconds": 5.321261000000959,
           "targetIdentity": "scroll-container",
           "operationParentIdentity": "scroll-container",
           "beforeOrder": [
@@ -10793,7 +10793,7 @@
             "connectedCount": 1,
             "disconnectedCount": 0
           },
-          "scenarioObservationMilliseconds": 4.352812999997695,
+          "scenarioObservationMilliseconds": 5.809034000001702,
           "targetIdentity": "mounted-island",
           "operationParentIdentity": "root",
           "beforeOrder": [
