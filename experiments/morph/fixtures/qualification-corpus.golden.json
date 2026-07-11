@@ -30,10 +30,10 @@
       "sha256": "fbdf3c457faf4f0aa07029488752bb73256e5593153e9ba0d6152fb3a9072e9a"
     },
     "media": {
-      "id": "local-tone-wav-v2",
+      "id": "local-tone-wav-v1",
       "contentType": "audio/wav",
-      "bytes": 64044,
-      "sha256": "93905e66a3f4a4c8aa0c39cbc7e3da0f09658181f1edc84d0aeea9747c7aca0e"
+      "bytes": 32044,
+      "sha256": "795aba0de10545c31b1d5ece785c8ea0cba0a0dd749be85c81f19ca7ebb9e47d"
     }
   },
   "cases": [

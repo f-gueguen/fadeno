@@ -10,7 +10,7 @@ export function createQualificationFile(): Buffer {
 
 export function createQualificationTone(): Buffer {
   const sampleRate = 8_000;
-  const sampleCount = sampleRate * 4;
+  const sampleCount = sampleRate * 2;
   const bytes = Buffer.alloc(44 + sampleCount * 2);
   bytes.write("RIFF", 0);
   bytes.writeUInt32LE(36 + sampleCount * 2, 4);
@@ -43,7 +43,7 @@ export const MORPH_QUALIFICATION_ASSETS = Object.freeze({
     sha256: sha256(file),
   }),
   media: Object.freeze({
-    id: "local-tone-wav-v2",
+    id: "local-tone-wav-v1",
     contentType: "audio/wav",
     bytes: tone.byteLength,
     sha256: sha256(tone),

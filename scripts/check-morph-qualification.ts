@@ -101,9 +101,14 @@ function stateValue(
     case "popover-open":
       return { open: true };
     case "media-playing":
-      return { paused: false, currentTime: phase === "before" ? 0.1 : 0.11, readyState: 4 };
+      return {
+        paused: false,
+        currentTime: phase === "before" ? 0.1 : 0.11,
+        readyState: 4,
+        playbackRate: 0.5,
+      };
     case "media-paused":
-      return { paused: true, currentTime: 0.25, readyState: 4 };
+      return { paused: true, currentTime: 0.25, readyState: 4, playbackRate: 1 };
     case "document-scroll":
       return { x: 0, y: 400 };
     case "element-scroll":

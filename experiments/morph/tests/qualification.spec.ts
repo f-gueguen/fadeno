@@ -126,7 +126,7 @@ async function verifyMediaAssetSensor(page: Page): Promise<void> {
     return result;
   });
   expect(proof.error).toBeNull();
-  expect(proof.duration).toBeGreaterThanOrEqual(3.9);
+  expect(proof.duration).toBeGreaterThanOrEqual(1.9);
   expect(proof.currentTime).toBeGreaterThan(0.02);
   expect(proof.paused).toBe(false);
 }
@@ -236,6 +236,7 @@ async function prepareScenario(page: Page, scenario: MorphQualificationScenario)
             media.addEventListener("error", () => reject(new Error("media failed")), { once: true });
           });
         }
+        media.playbackRate = 0.5;
         await media.play();
         const deadline = performance.now() + 2_000;
         while (media.currentTime <= 0.02 && performance.now() < deadline) {
@@ -379,8 +380,8 @@ async function installInstrumentation(
         "details-open": ["open"],
         "dialog-modal": ["open"],
         "dialog-nonmodal": ["open"],
-        "media-playing": ["currentTime"],
-        "media-paused": ["currentTime"],
+        "media-playing": ["currentTime", "playbackRate"],
+        "media-paused": ["currentTime", "playbackRate"],
         "element-scroll": ["scrollLeft", "scrollTop"],
       };
       const stateMethods: Partial<Record<QualificationState, readonly string[]>> = {
@@ -518,6 +519,7 @@ async function captureSnapshot(
               paused: media.paused,
               currentTime: Number(media.currentTime.toFixed(6)),
               readyState: media.readyState,
+              playbackRate: media.playbackRate,
             };
           }
           case "document-scroll":
@@ -621,14 +623,18 @@ function assertBrowserProof(
       const afterTime = Number(after.state.currentTime);
       expect(before.state.paused).toBe(false);
       expect(after.state.paused).toBe(false);
+      expect(before.state.playbackRate).toBe(0.5);
+      expect(after.state.playbackRate).toBe(0.5);
       expect(beforeTime).toBeGreaterThan(0.02);
       expect(afterTime).toBeGreaterThanOrEqual(beforeTime - 0.01);
       expect(afterTime).toBeLessThanOrEqual(
-        beforeTime + observationWindowMilliseconds / 1_000 + 0.1,
+        beforeTime + observationWindowMilliseconds / 1_000 * 0.5 + 0.1,
       );
     } else if (scenario.fixture.state === "media-paused") {
       expect(before.state.paused).toBe(true);
       expect(after.state.paused).toBe(true);
+      expect(before.state.playbackRate).toBe(1);
+      expect(after.state.playbackRate).toBe(1);
       expect(Number(before.state.currentTime)).toBeCloseTo(0.25, 2);
       expect(Number(after.state.currentTime)).toBeCloseTo(Number(before.state.currentTime), 2);
     } else {

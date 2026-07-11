@@ -321,13 +321,15 @@ function assertMediaState(
   label: string,
   observationWindowMilliseconds: number,
 ): void {
-  exactKeys(before, ["paused", "currentTime", "readyState"], `${label}.before.state`);
-  exactKeys(after, ["paused", "currentTime", "readyState"], `${label}.after.state`);
+  exactKeys(before, ["paused", "currentTime", "readyState", "playbackRate"], `${label}.before.state`);
+  exactKeys(after, ["paused", "currentTime", "readyState", "playbackRate"], `${label}.after.state`);
   const beforeTime = before.currentTime;
   const afterTime = after.currentTime;
   if (
     typeof beforeTime !== "number" ||
     typeof afterTime !== "number" ||
+    typeof before.playbackRate !== "number" ||
+    typeof after.playbackRate !== "number" ||
     typeof before.readyState !== "number" ||
     typeof after.readyState !== "number" ||
     before.readyState < 2 ||
@@ -339,15 +341,19 @@ function assertMediaState(
     if (
       before.paused !== false ||
       after.paused !== false ||
+      before.playbackRate !== 0.5 ||
+      after.playbackRate !== 0.5 ||
       beforeTime <= 0.02 ||
       afterTime < beforeTime - 0.01 ||
-      afterTime > beforeTime + observationWindowMilliseconds / 1_000 + 0.1
+      afterTime > beforeTime + observationWindowMilliseconds / 1_000 * 0.5 + 0.1
     ) {
       fail("FADENO_MORPH_QUALIFICATION_STATE", `${label}: playing media continuity differs`);
     }
   } else if (
     before.paused !== true ||
     after.paused !== true ||
+    before.playbackRate !== 1 ||
+    after.playbackRate !== 1 ||
     Math.abs(beforeTime - 0.25) > 0.002 ||
     Math.abs(afterTime - beforeTime) > 0.002
   ) {
