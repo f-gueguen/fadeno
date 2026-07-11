@@ -11,8 +11,11 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 30_000,
-  outputDir: process.env.FADENO_EXTRACTION_OUTPUT ?? join(root, "../../output/playwright/extraction"),
-  reporter: "line",
+  outputDir: join(
+    process.env.FADENO_EXTRACTION_OUTPUT ?? join(root, "../../output/playwright/extraction"),
+    ".playwright",
+  ),
+  reporter: [[join(root, "machine-reporter.ts")]],
   use: { serviceWorkers: "block", screenshot: "off", trace: "off", video: "off" },
   projects: EXTRACTION_PROJECTS.map((name) => ({ name, use: { browserName: name } })),
 });

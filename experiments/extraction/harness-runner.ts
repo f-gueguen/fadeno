@@ -1,36 +1,66 @@
-import { createRequire } from "node:module";
-import { existsSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import {
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { senseSeededServerImport } from "./boundary-sensor.ts";
+
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
-import { verifyAcceptedObservation } from "./accepted-proof.ts";
-import { EXTRACTION_PROJECTS } from "./contract.ts";
-import type { ExtractionObservation } from "./contract.ts";
+import { runSeededBoundaryPipeline } from "./boundary-pipeline.ts";
+import type { ExtractionRunReport } from "./contract.ts";
+import { verifyExtractionRunReport } from "./evidence-proof.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const experimentRoot = join(root, "experiments/extraction");
 
 export function executeExtractionHarness(): void {
-  const rejectedOutput = join(root, "output/playwright/extraction-rejected");
-  rmSync(rejectedOutput, { recursive: true, force: true });
-  const diagnostic = senseSeededServerImport(
-    join(experimentRoot, "fixtures/rejected/server-secret.ts"),
-  );
+  const output = join(root, "output/playwright/extraction");
+  rmSync(output, { recursive: true, force: true });
+  mkdirSync(output, { recursive: true });
+  const canary = process.env.FADENO_EXTRACTION_SECRET_CANARY ?? `fadeno-canary-${randomUUID()}`;
+  let writerStarted = false;
+  let serverStarted = false;
+  let browserStarted = false;
+  const diagnostic = runSeededBoundaryPipeline({
+    handler: {
+      sourceName: "rejected/server-secret.ts",
+      source: readFileSync(
+        join(experimentRoot, "fixtures/rejected/server-secret.ts"),
+        "utf8",
+      ),
+    },
+    serverCapability: { secret: canary },
+    emitBrowserArtifact(source) {
+      writerStarted = true;
+      writeFileSync(join(output, "forbidden-browser-artifact.js"), source);
+    },
+    startServer() { serverStarted = true; },
+    startBrowser() { browserStarted = true; },
+  });
+  if (!diagnostic) throw new Error("FADENO_EXTRACTION_SEEDED_REJECTION_MISSING");
   const serialized = JSON.stringify(diagnostic);
   if (
-    diagnostic.source !== "server-secret.ts" ||
+    diagnostic.source !== "rejected/server-secret.ts" ||
     diagnostic.range.line !== 1 ||
     diagnostic.range.column !== 24 ||
-    serialized.includes(process.env.FADENO_EXTRACTION_SECRET_CANARY ?? "never-present-canary") ||
-    existsSync(rejectedOutput)
+    serialized.includes(canary) ||
+    writerStarted ||
+    serverStarted ||
+    browserStarted
   ) {
     throw new Error("FADENO_EXTRACTION_REJECTED_CONTROL");
   }
+  writeFileSync(
+    join(output, "rejected-diagnostic.json"),
+    `${JSON.stringify(diagnostic, null, 2)}\n`,
+  );
 
-  const output = join(root, "output/playwright/extraction");
-  rmSync(output, { recursive: true, force: true });
   const require = createRequire(import.meta.url);
   const cli = require.resolve("@playwright/test/cli");
   const result = spawnSync(
@@ -48,10 +78,23 @@ export function executeExtractionHarness(): void {
   if (result.status !== 0 || result.error || result.signal) {
     throw new Error(`FADENO_EXTRACTION_ACCEPTED_CONTROL: ${result.status ?? result.signal}`);
   }
-  for (const engine of EXTRACTION_PROJECTS) {
-    verifyAcceptedObservation(
-      readJsonDocument(join(output, "observations", `${engine}.json`)) as ExtractionObservation,
-    );
+  verifyExtractionRunReport(
+    readJsonDocument(join(output, "run-report.json")) as ExtractionRunReport,
+    (path) => readFileSync(join(output, path)),
+  );
+  const evidenceText = [serialized, result.stdout ?? "", result.stderr ?? ""];
+  const pending = [output];
+  while (pending.length > 0) {
+    const directory = pending.pop();
+    if (!directory) continue;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) pending.push(path);
+      else evidenceText.push(readFileSync(path, "utf8"));
+    }
+  }
+  if (evidenceText.some((value) => value.includes(canary))) {
+    throw new Error("FADENO_EXTRACTION_SECRET_CANARY_LEAK");
   }
   console.log(`extraction rejected seed: ${diagnostic.id} at ${diagnostic.source}:${diagnostic.range.line}:${diagnostic.range.column}`);
 }

@@ -1,16 +1,14 @@
 import { expect, test } from "@playwright/test";
 import type { Route } from "@playwright/test";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { createHash } from "node:crypto";
 
+import { EXTRACTION_PROJECTS } from "../contract.ts";
 import type { ExtractionObservation, ExtractionProject } from "../contract.ts";
 import { verifyAcceptedObservation } from "../accepted-proof.ts";
 import {
   DOCUMENT_MODULE,
   EXTRACTION_ORIGIN,
-  HANDLER_MODULE,
   RUNTIME_RESPONSES,
-  SHARED_MODULE,
 } from "../runtime-fixture.ts";
 
 function pathOf(url: string): string {
@@ -29,7 +27,15 @@ async function fulfill(route: Route): Promise<void> {
 }
 
 test("seeded-accepted-loading-control", async ({ browser, page }, testInfo) => {
-  const engine = testInfo.project.name as ExtractionProject;
+  if (!EXTRACTION_PROJECTS.includes(testInfo.project.name as ExtractionProject)) {
+    throw new Error(`unexpected extraction project: ${testInfo.project.name}`);
+  }
+  const projectName = testInfo.project.name as ExtractionProject;
+  const browserName = browser.browserType().name();
+  if (!EXTRACTION_PROJECTS.includes(browserName as ExtractionProject)) {
+    throw new Error(`unexpected extraction browser: ${browserName}`);
+  }
+  const observedBrowser = browserName as ExtractionProject;
   const requests: string[] = [];
   let releaseHandler: (() => void) | undefined;
   let observeHandler: (() => void) | undefined;
@@ -74,16 +80,18 @@ test("seeded-accepted-loading-control", async ({ browser, page }, testInfo) => {
   await context.close();
 
   const observation: ExtractionObservation = {
-    schemaVersion: 1,
-    engine,
+    schemaVersion: 2,
+    projectName,
+    observedBrowser,
     preTriggerRequests,
     firstTriggerRequests,
     secondTriggerRequests: requests.slice(beforeSecond),
-    responseSources: {
-      "/document.js": DOCUMENT_MODULE,
-      "/handler.js": HANDLER_MODULE,
-      "/shared.js": SHARED_MODULE,
-    },
+    responses: Object.fromEntries(
+      [...RUNTIME_RESPONSES].map(([path, response]) => [path, {
+        ...response,
+        sha256: createHash("sha256").update(response.body).digest("hex"),
+      }]),
+    ),
     valueWhileHandlerBlocked,
     valueAfterFirstTrigger,
     valueAfterSecondTrigger: await page.locator("#value").textContent() ?? "",
@@ -91,11 +99,6 @@ test("seeded-accepted-loading-control", async ({ browser, page }, testInfo) => {
     noJavaScriptRequests,
   };
   verifyAcceptedObservation(observation);
-  const outputRoot = process.env.FADENO_EXTRACTION_OUTPUT;
-  if (!outputRoot) throw new Error("FADENO_EXTRACTION_OUTPUT is required");
-  const observationRoot = join(outputRoot, "observations");
-  mkdirSync(observationRoot, { recursive: true });
-  writeFileSync(join(observationRoot, `${engine}.json`), `${JSON.stringify(observation, null, 2)}\n`);
   await testInfo.attach("accepted-observation", {
     body: Buffer.from(`${JSON.stringify(observation, null, 2)}\n`),
     contentType: "application/json",
