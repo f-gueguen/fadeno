@@ -11,6 +11,8 @@ results.
 - `v1/experiment-registry.schema.json` validates registry structure and bounds.
 - `v1/result-manifest.schema.json` validates bounded, versioned result
   manifests with no unknown properties.
+- `v1/source-integration-attestations.schema.json` validates bounded records
+  that bind exact experiment sources to squash-integrated result trees.
 
 Schemas use JSON Schema 2020-12, stable local identities, strict Ajv validation,
 and no network-loaded references. `scripts/check-experiment-contract.ts`

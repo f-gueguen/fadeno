@@ -464,7 +464,7 @@ export function publishQualificationEvidence(options: Readonly<{
   validateManifestSemantics(manifest, reference, registry);
   const temporaryManifest = join(runDirectory, "manifest.tmp.json");
   writeJson(temporaryManifest, manifest);
-  validateArtifactRecords(manifest, temporaryManifest, root);
+  validateArtifactRecords(manifest, temporaryManifest, root, validators.sourceIntegration);
   const manifestPath = join(runDirectory, "manifest.json");
   renameSync(temporaryManifest, manifestPath);
   return { runRecordPath, manifestPath, artifacts: manifestArtifacts };

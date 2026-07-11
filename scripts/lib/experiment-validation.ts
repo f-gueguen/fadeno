@@ -12,6 +12,7 @@ export const SCHEMA_FILES = [
   "reference-environment.schema.json",
   "experiment-registry.schema.json",
   "result-manifest.schema.json",
+  "source-integration-attestations.schema.json",
 ];
 
 type AjvInstance = {
@@ -32,6 +33,7 @@ type ContractValidators = {
   reference: SchemaValidator;
   registry: SchemaValidator;
   manifest: SchemaValidator;
+  sourceIntegration: SchemaValidator;
 };
 
 export type ReferenceEnvironment = {
@@ -165,6 +167,7 @@ export function createContractValidators(root: string): ContractValidators {
     reference: ajv.compile(schemas.get("reference-environment.schema.json")),
     registry: ajv.compile(schemas.get("experiment-registry.schema.json")),
     manifest: ajv.compile(schemas.get("result-manifest.schema.json")),
+    sourceIntegration: ajv.compile(schemas.get("source-integration-attestations.schema.json")),
   };
 }
 

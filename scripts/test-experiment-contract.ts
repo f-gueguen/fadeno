@@ -6,6 +6,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -23,8 +24,11 @@ import {
   stableRegistryListing,
   validateArtifactRecords,
   validateManifestSemantics,
+  validateSourceIntegrationAttestations,
+  validateAttestedSourceIntegration,
 } from "./lib/experiment-contract.ts";
 import {
+  assertSchema,
   createContractValidators,
   assertReferenceSemantics,
   loadExperimentRegistry,
@@ -34,7 +38,11 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureRoot = join(root, "experiments/contract/fixtures");
 const validators = createContractValidators(root);
-const { registry: registrySchema, manifest: manifestSchema } = validators;
+const {
+  registry: registrySchema,
+  manifest: manifestSchema,
+  sourceIntegration: sourceIntegrationSchema,
+} = validators;
 const reference = loadReferenceEnvironment(root, validators);
 const registry = loadExperimentRegistry(root, validators);
 const failures = [];
@@ -54,6 +62,207 @@ function expectContractError(name, expectedCode, action) {
       recordFailure(`${name}: expected ${expectedCode}, received ${error.code}`);
     }
   }
+}
+
+const sourceAttestations = readJsonDocument(
+  join(root, "experiments/source-integration-attestations.json"),
+);
+assertSchema(sourceIntegrationSchema, sourceAttestations, "source integration attestations");
+validateSourceIntegrationAttestations(sourceAttestations);
+for (const [name, mutateAttestation] of [
+  ["attestation wrong method", (document) => { document.attestations[0].method = "merge"; }],
+  ["attestation extra property", (document) => { document.attestations[0].extra = true; }],
+  ["attestation invalid path", (document) => { document.attestations[0].manifestPath = "../manifest.json"; }],
+  ["attestation invalid commit", (document) => { document.attestations[0].sourceCommit = "xyz"; }],
+] as const) {
+  const document = structuredClone(sourceAttestations);
+  mutateAttestation(document);
+  expectContractError(name, "FADENO_K0_SCHEMA_REJECTED", () => {
+    assertSchema(sourceIntegrationSchema, document, name);
+  });
+}
+for (const [name, mutateAttestation] of [
+  ["same source and integration", (document) => {
+    document.attestations[0].integratedCommit = document.attestations[0].sourceCommit;
+  }],
+  ["unbound result id", (document) => { document.attestations[0].resultRunId = "unbound"; }],
+  ["duplicate integration", (document) => {
+    document.attestations.push(structuredClone(document.attestations[0]));
+  }],
+] as const) {
+  const document = structuredClone(sourceAttestations);
+  mutateAttestation(document);
+  expectContractError(name, "FADENO_K0_SOURCE_INTEGRATION_ATTESTATION", () => {
+    validateSourceIntegrationAttestations(document);
+  });
+}
+
+const extractionManifestPath = join(
+  root,
+  "experiments/extraction/results/20260711T072809Z-267cd0f-a1/manifest.json",
+);
+const extractionManifest = readJsonDocument(extractionManifestPath);
+validateAttestedSourceIntegration(
+  extractionManifest,
+  extractionManifestPath,
+  root,
+  sourceAttestations,
+);
+for (const [name, expectedCode, mutateAttestation] of [
+  ["wrong attested experiment", "FADENO_K0_SOURCE_COMMIT_UNAPPROVED", (document) => {
+    document.attestations[0].experimentId = "morph";
+  }],
+  ["wrong attested manifest", "FADENO_K0_SOURCE_COMMIT_UNAPPROVED", (document) => {
+    document.attestations[0].manifestPath =
+      "experiments/contract/fixtures/valid/minimal/manifest.json";
+  }],
+  ["integration lacks result", "FADENO_K0_SOURCE_INTEGRATION_RESULT", (document) => {
+    document.attestations[0].integratedCommit =
+      "dcb7d04b1e5eaca64eb81a7f66ef3177efb9297e";
+    document.attestations[0].pullRequest = 7;
+  }],
+  ["integration is nonancestor", "FADENO_K0_SOURCE_INTEGRATION_UNAPPROVED", (document) => {
+    document.attestations[0].integratedCommit =
+      "1ceaf5c97cf1ba6a68b10e5f4c8c97c872f0cb8d";
+  }],
+  ["integration subject differs", "FADENO_K0_SOURCE_INTEGRATION_UNAPPROVED", (document) => {
+    document.attestations[0].pullRequest = 10;
+  }],
+] as const) {
+  const document = structuredClone(sourceAttestations);
+  mutateAttestation(document);
+  expectContractError(name, expectedCode, () => {
+    validateAttestedSourceIntegration(extractionManifest, extractionManifestPath, root, document);
+  });
+}
+
+const integrationRepository = mkdtempSync(join(tmpdir(), "fadeno-k0-integration-"));
+const runGit = (args) => {
+  const child = spawnSync("git", args, { cwd: integrationRepository, encoding: "utf8" });
+  if (child.status !== 0) throw new Error(`integration git failed: ${child.stderr}`);
+  return child.stdout.trim();
+};
+try {
+  runGit(["init", "-b", "main"]);
+  runGit(["config", "user.name", "Fadeno Contract Test"]);
+  runGit(["config", "user.email", "contract@example.invalid"]);
+  writeFileSync(join(integrationRepository, "base.txt"), "base\n");
+  runGit(["add", "."]);
+  runGit(["commit", "-m", "base"]);
+  const baseCommit = runGit(["rev-parse", "HEAD"]);
+  runGit(["update-ref", "refs/remotes/origin/main", baseCommit]);
+
+  runGit(["switch", "-c", "source"]);
+  writeFileSync(join(integrationRepository, "pnpm-lock.yaml"), "source-lock\n");
+  writeFileSync(join(integrationRepository, "dataset.json"), "source-dataset\n");
+  runGit(["add", "."]);
+  runGit(["commit", "-m", "exact experiment source"]);
+  const syntheticSourceCommit = runGit(["rev-parse", "HEAD"]);
+  runGit(["switch", "main"]);
+
+  const syntheticRunId = `20260711T000000Z-${syntheticSourceCommit.slice(0, 7)}-a1`;
+  const syntheticResultRoot = join(
+    integrationRepository,
+    "experiments/synthetic/results",
+    syntheticRunId,
+  );
+  mkdirSync(syntheticResultRoot, { recursive: true });
+  const artifactBody = Buffer.from("evidence\n");
+  const integratedLock = Buffer.from("integrated-lock\n");
+  const integratedDataset = Buffer.from("integrated-dataset\n");
+  writeFileSync(join(integrationRepository, "pnpm-lock.yaml"), integratedLock);
+  writeFileSync(join(integrationRepository, "dataset.json"), integratedDataset);
+  writeFileSync(join(syntheticResultRoot, "artifact.txt"), artifactBody);
+  writeFileSync(join(syntheticResultRoot, "lock.yaml"), integratedLock);
+  writeFileSync(join(syntheticResultRoot, "dataset.json"), integratedDataset);
+  const record = (path, body) => ({
+    path,
+    sha256: createHash("sha256").update(body).digest("hex"),
+    bytes: body.byteLength,
+  });
+  const lockRecord = record("lock.yaml", integratedLock);
+  const datasetRecord = record("dataset.json", integratedDataset);
+  const syntheticManifest = {
+    experiment: { id: "synthetic" },
+    run: { id: syntheticRunId },
+    source: {
+      repository: "https://github.com/f-gueguen/fadeno",
+      commit: syntheticSourceCommit,
+    },
+    dependencyLock: {
+      path: "pnpm-lock.yaml",
+      artifact: lockRecord.path,
+      sha256: lockRecord.sha256,
+    },
+    workload: { dataset: {
+      sourcePath: "dataset.json",
+      artifact: datasetRecord.path,
+      sha256: datasetRecord.sha256,
+    } },
+    failures: [],
+    artifacts: [record("artifact.txt", artifactBody), lockRecord, datasetRecord],
+  };
+  const syntheticManifestPath = join(syntheticResultRoot, "manifest.json");
+  writeFileSync(syntheticManifestPath, `${JSON.stringify(syntheticManifest, null, 2)}\n`);
+  runGit(["add", "."]);
+  runGit(["commit", "-m", "feature result (#99)"]);
+  const featureCommit = runGit(["rev-parse", "HEAD"]);
+  const syntheticAttestations = {
+    $schema: "https://fadeno.dev/schemas/experiment/source-integration-attestations-v1.json",
+    schemaVersion: 1,
+    attestations: [{
+      repository: syntheticManifest.source.repository,
+      experimentId: syntheticManifest.experiment.id,
+      manifestPath: `experiments/synthetic/results/${syntheticRunId}/manifest.json`,
+      resultRunId: syntheticRunId,
+      sourceCommit: syntheticManifest.source.commit,
+      method: "squash",
+      pullRequest: 99,
+      integratedCommit: featureCommit,
+    }],
+  };
+  assertSchema(
+    sourceIntegrationSchema,
+    syntheticAttestations,
+    "synthetic source integration attestations",
+  );
+  mkdirSync(join(integrationRepository, "experiments"), { recursive: true });
+  writeFileSync(
+    join(integrationRepository, "experiments/source-integration-attestations.json"),
+    `${JSON.stringify(syntheticAttestations, null, 2)}\n`,
+  );
+  writeFileSync(join(integrationRepository, "later.txt"), "later\n");
+  runGit(["add", "."]);
+  runGit(["commit", "-m", "later feature work"]);
+  expectContractError(
+    "feature commit is not integrated",
+    "FADENO_K0_SOURCE_INTEGRATION_UNAPPROVED",
+    () => validateAttestedSourceIntegration(
+      syntheticManifest,
+      syntheticManifestPath,
+      integrationRepository,
+      syntheticAttestations,
+    ),
+  );
+  runGit(["update-ref", "refs/remotes/origin/main", featureCommit]);
+  validateAttestedSourceIntegration(
+    syntheticManifest,
+    syntheticManifestPath,
+    integrationRepository,
+    syntheticAttestations,
+  );
+  expectContractError(
+    "attested integration cannot replace source input provenance",
+    "FADENO_K0_LOCK_SOURCE_MISMATCH",
+    () => validateArtifactRecords(
+      syntheticManifest,
+      syntheticManifestPath,
+      integrationRepository,
+      sourceIntegrationSchema,
+    ),
+  );
+} finally {
+  rmSync(integrationRepository, { recursive: true, force: true });
 }
 
 function mutate(document, mutation) {
@@ -178,7 +387,7 @@ for (const mutation of fixtureIndex.mutations) {
   expectContractError(mutation.name, mutation.code, () => {
     validateManifestSemantics(document, reference, registry);
     if (mutation.stage === "artifact") {
-      validateArtifactRecords(document, baseManifestPath, root);
+      validateArtifactRecords(document, baseManifestPath, root, sourceIntegrationSchema);
     }
   });
 }
@@ -188,7 +397,7 @@ unknownSource.source.commit = "dddddddddddddddddddddddddddddddddddddddd";
 unknownSource.run.id = "20260710T113900Z-ddddddd-a1";
 expectContractError("unknown source commit", "FADENO_K0_SOURCE_COMMIT_UNKNOWN", () => {
   validateManifestSemantics(unknownSource, reference, registry);
-  validateArtifactRecords(unknownSource, baseManifestPath, root);
+  validateArtifactRecords(unknownSource, baseManifestPath, root, sourceIntegrationSchema);
 });
 
 const datasetSourceMismatch = structuredClone(baseManifest);
@@ -198,7 +407,12 @@ expectContractError(
   "FADENO_K0_DATASET_SOURCE_MISMATCH",
   () => {
     validateManifestSemantics(datasetSourceMismatch, reference, registry);
-    validateArtifactRecords(datasetSourceMismatch, baseManifestPath, root);
+    validateArtifactRecords(
+      datasetSourceMismatch,
+      baseManifestPath,
+      root,
+      sourceIntegrationSchema,
+    );
   },
 );
 
@@ -226,7 +440,12 @@ try {
     "FADENO_K0_LOCK_SOURCE_MISMATCH",
     () => {
       validateManifestSemantics(lockMismatch, reference, registry);
-      validateArtifactRecords(lockMismatch, join(lockMismatchRoot, "manifest.json"), root);
+      validateArtifactRecords(
+        lockMismatch,
+        join(lockMismatchRoot, "manifest.json"),
+        root,
+        sourceIntegrationSchema,
+      );
     },
   );
 } finally {
