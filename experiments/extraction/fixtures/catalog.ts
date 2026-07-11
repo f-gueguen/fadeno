@@ -27,7 +27,7 @@ export const EXTRACTION_REJECTION_CLASSES = [
 type AcceptedClass = (typeof EXTRACTION_ACCEPTED_CLASSES)[number];
 type RejectionClass = (typeof EXTRACTION_REJECTION_CLASSES)[number];
 
-type Fixture = Readonly<{
+type QualificationFixture = Readonly<{
   id: string;
   classification: "accepted" | "rejected";
   interactionClass?: AcceptedClass;
@@ -38,7 +38,7 @@ type Fixture = Readonly<{
   edges: readonly Readonly<{ from: string; to: string; kind: "lazy" | "static" | "forbidden" }>[];
 }>;
 
-const accepted = EXTRACTION_ACCEPTED_CLASSES.map((interactionClass): Fixture => ({
+const accepted = EXTRACTION_ACCEPTED_CLASSES.map((interactionClass): QualificationFixture => ({
   id: interactionClass,
   classification: "accepted",
   interactionClass,
@@ -47,15 +47,11 @@ const accepted = EXTRACTION_ACCEPTED_CLASSES.map((interactionClass): Fixture => 
   modules: [
     { id: "document", role: "document" },
     { id: "handler", role: "handler" },
-    { id: "shared", role: "shared" },
   ],
-  edges: [
-    { from: "document", to: "handler", kind: "lazy" },
-    { from: "handler", to: "shared", kind: "static" },
-  ],
+  edges: [{ from: "document", to: "handler", kind: "lazy" }],
 }));
 
-const rejected = EXTRACTION_REJECTION_CLASSES.map((rejectionClass): Fixture => ({
+const rejected = EXTRACTION_REJECTION_CLASSES.map((rejectionClass): QualificationFixture => ({
   id: rejectionClass,
   classification: "rejected",
   rejectionClass,
@@ -73,7 +69,10 @@ const rejected = EXTRACTION_REJECTION_CLASSES.map((rejectionClass): Fixture => (
     : [],
 }));
 
-export const EXTRACTION_FIXTURES: readonly Fixture[] = [...accepted, ...rejected];
+export const EXTRACTION_QUALIFICATION_FIXTURES: readonly QualificationFixture[] = [
+  ...accepted,
+  ...rejected,
+];
 
 const fixtureRoot = dirname(fileURLToPath(import.meta.url));
 
@@ -98,17 +97,24 @@ function actualSourceFiles(root: string): string[] {
 }
 
 export function stableExtractionInventory(root = fixtureRoot): string {
-  const declared = EXTRACTION_FIXTURES.map((fixture) => fixture.source).sort();
+  const declared = EXTRACTION_QUALIFICATION_FIXTURES.map((fixture) => fixture.source).sort();
   const actual = actualSourceFiles(root);
   if (JSON.stringify(actual) !== JSON.stringify(declared)) {
     throw new Error("FADENO_EXTRACTION_FIXTURE_SET: declared and actual sources differ");
   }
+  if (lstatSync(join(root, "server-only.d.ts")).isSymbolicLink()) {
+    throw new Error("FADENO_EXTRACTION_FIXTURE_FILE: server-only.d.ts");
+  }
   return `${JSON.stringify({
     schemaVersion: 1,
     visibility: "private-experiment",
-    fixtures: EXTRACTION_FIXTURES.map((fixture) => ({
+    fixtures: EXTRACTION_QUALIFICATION_FIXTURES.map((fixture) => ({
       ...fixture,
       source: { path: fixture.source, sha256: sha256(join(root, fixture.source)) },
     })),
+    supportSources: [{
+      path: "server-only.d.ts",
+      sha256: sha256(join(root, "server-only.d.ts")),
+    }],
   })}\n`;
 }

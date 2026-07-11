@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   EXTRACTION_ACCEPTED_CLASSES,
-  EXTRACTION_FIXTURES,
+  EXTRACTION_QUALIFICATION_FIXTURES,
   EXTRACTION_REJECTION_CLASSES,
   stableExtractionInventory,
 } from "../experiments/extraction/fixtures/catalog.ts";
@@ -25,6 +25,7 @@ import type {
   ExtractionRunReport,
 } from "../experiments/extraction/contract.ts";
 import { verifyExtractionRunReport } from "../experiments/extraction/evidence-proof.ts";
+import { stableExtractionHarnessSeed } from "../experiments/extraction/seed/catalog.ts";
 import {
   DOCUMENT_HTML,
   DOCUMENT_MODULE,
@@ -33,19 +34,39 @@ import {
 } from "../experiments/extraction/runtime-fixture.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
+for (const required of [
+  "extraction-harness:",
+  "uses: ./.github/actions/browser-reference",
+  "task: extraction-harness",
+  "name: extraction-harness-evidence",
+  "path: output/playwright/extraction",
+  "if: always()",
+]) {
+  if (!workflow.includes(required)) {
+    throw new Error(`K0-05 extraction workflow wiring missing: ${required}`);
+  }
+}
 const golden = readFileSync(
   join(root, "experiments/extraction/fixtures/inventory.golden.json"),
+  "utf8",
+);
+const seedGolden = readFileSync(
+  join(root, "experiments/extraction/seed/inventory.golden.json"),
   "utf8",
 );
 
 if (stableExtractionInventory() !== golden) {
   throw new Error("K0-05 extraction corpus differs from its checked golden projection");
 }
+if (stableExtractionHarnessSeed() !== seedGolden) {
+  throw new Error("K0-05 executable seed differs from its checked golden graph");
+}
 if (
   EXTRACTION_ACCEPTED_CLASSES.length !== 5 ||
   EXTRACTION_REJECTION_CLASSES.length !== 10 ||
-  EXTRACTION_FIXTURES.length !== 15 ||
-  new Set(EXTRACTION_FIXTURES.map((fixture) => fixture.id)).size !== 15
+  EXTRACTION_QUALIFICATION_FIXTURES.length !== 15 ||
+  new Set(EXTRACTION_QUALIFICATION_FIXTURES.map((fixture) => fixture.id)).size !== 15
 ) {
   throw new Error("K0-05 extraction corpus cardinality or identity differs");
 }
@@ -179,7 +200,7 @@ if (acceptedDiagnostic || acceptedCallbacks !== 3 || !emitted.includes(canary)) 
   throw new Error("K0-05 accepted pipeline did not reach seeded browser boundaries");
 }
 if (
-  EXTRACTION_FIXTURES.some(
+  EXTRACTION_QUALIFICATION_FIXTURES.some(
     (fixture) =>
       fixture.classification === "accepted" &&
       (!fixture.modules.some((module) => module.role === "handler") ||
