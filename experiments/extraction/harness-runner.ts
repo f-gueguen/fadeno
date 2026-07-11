@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
@@ -24,7 +24,9 @@ const experimentRoot = join(root, "experiments/extraction");
 
 export function executeExtractionHarness(): void {
   const output = join(root, "output/playwright/extraction");
+  const runnerOutput = join(root, "output/playwright/extraction-runner");
   rmSync(output, { recursive: true, force: true });
+  rmSync(runnerOutput, { recursive: true, force: true });
   mkdirSync(output, { recursive: true });
   const canary = process.env.FADENO_EXTRACTION_SECRET_CANARY ?? `fadeno-canary-${randomUUID()}`;
   let writerStarted = false;
@@ -66,7 +68,11 @@ export function executeExtractionHarness(): void {
       cwd: root,
       encoding: "utf8",
       maxBuffer: 16 * 1024 * 1024,
-      env: { ...process.env, FADENO_EXTRACTION_OUTPUT: output },
+      env: {
+        ...process.env,
+        FADENO_EXTRACTION_OUTPUT: output,
+        FADENO_EXTRACTION_RUNNER_OUTPUT: runnerOutput,
+      },
     },
   );
   process.stdout.write(result.stdout ?? "");
@@ -78,8 +84,30 @@ export function executeExtractionHarness(): void {
     readJsonDocument(join(output, "run-report.json")) as ExtractionRunReport,
     (path) => readFileSync(join(output, path)),
   );
+  const portableFiles: string[] = [];
+  const portablePending = [output];
+  while (portablePending.length > 0) {
+    const directory = portablePending.pop();
+    if (!directory) continue;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isSymbolicLink()) throw new Error("FADENO_EXTRACTION_EVIDENCE_SYMLINK");
+      if (entry.isDirectory()) portablePending.push(path);
+      else portableFiles.push(relative(output, path).split(sep).join("/"));
+    }
+  }
+  const expectedPortableFiles = [
+    "attachments/chromium.json",
+    "attachments/firefox.json",
+    "attachments/webkit.json",
+    "rejected-diagnostic.json",
+    "run-report.json",
+  ];
+  if (JSON.stringify(portableFiles.sort()) !== JSON.stringify(expectedPortableFiles)) {
+    throw new Error("FADENO_EXTRACTION_EVIDENCE_SET");
+  }
   const evidenceText = [serialized, result.stdout ?? "", result.stderr ?? ""];
-  const pending = [output];
+  const pending = [output, runnerOutput];
   while (pending.length > 0) {
     const directory = pending.pop();
     if (!directory) continue;
@@ -92,5 +120,6 @@ export function executeExtractionHarness(): void {
   if (evidenceText.some((value) => value.includes(canary))) {
     throw new Error("FADENO_EXTRACTION_SECRET_CANARY_LEAK");
   }
+  rmSync(runnerOutput, { recursive: true, force: true });
   console.log(`extraction rejected seed: ${diagnostic.id} at ${diagnostic.source}:${diagnostic.range.line}:${diagnostic.range.column}`);
 }

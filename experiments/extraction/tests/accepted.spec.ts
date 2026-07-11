@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type { Route } from "@playwright/test";
+import type { Response, Route } from "@playwright/test";
 import { createHash } from "node:crypto";
 
 import { EXTRACTION_PROJECTS } from "../contract.ts";
@@ -37,6 +37,23 @@ test("seeded-accepted-loading-control", async ({ browser, page }, testInfo) => {
   }
   const observedBrowser = browserName as ExtractionProject;
   const requests: string[] = [];
+  const capturedResponses: Promise<readonly [string, Readonly<{
+    body: string;
+    contentType: string;
+    sha256: string;
+  }>]>[] = [];
+  page.on("response", (response: Response) => {
+    if (new URL(response.url()).origin !== EXTRACTION_ORIGIN) return;
+    capturedResponses.push((async () => {
+      const body = (await response.body()).toString("utf8");
+      const contentType = response.headers()["content-type"]?.split(";", 1)[0] ?? "";
+      return [pathOf(response.url()), {
+        body,
+        contentType,
+        sha256: createHash("sha256").update(body).digest("hex"),
+      }] as const;
+    })());
+  });
   let releaseHandler: (() => void) | undefined;
   let observeHandler: (() => void) | undefined;
   const handlerRequested = new Promise<void>((resolve) => { observeHandler = resolve; });
@@ -86,12 +103,7 @@ test("seeded-accepted-loading-control", async ({ browser, page }, testInfo) => {
     preTriggerRequests,
     firstTriggerRequests,
     secondTriggerRequests: requests.slice(beforeSecond),
-    responses: Object.fromEntries(
-      [...RUNTIME_RESPONSES].map(([path, response]) => [path, {
-        ...response,
-        sha256: createHash("sha256").update(response.body).digest("hex"),
-      }]),
-    ),
+    responses: Object.fromEntries(await Promise.all(capturedResponses)),
     valueWhileHandlerBlocked,
     valueAfterFirstTrigger,
     valueAfterSecondTrigger: await page.locator("#value").textContent() ?? "",
