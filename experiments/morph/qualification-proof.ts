@@ -586,6 +586,17 @@ function assertRecord(record: QualificationRecord, profile: MorphQualificationPr
   assertStructuralOperation(record, fixture, label);
 }
 
+export function verifyQualificationDiagnosticRecord(
+  record: QualificationRecord,
+  profile: MorphQualificationProfile,
+  engine: MorphProject,
+): void {
+  if (record.engine !== engine) {
+    fail("FADENO_MORPH_QUALIFICATION_ENGINE", `${record.key}: engine differs`);
+  }
+  assertRecord(record, profile);
+}
+
 export function qualificationRepetitions(profile: MorphQualificationProfile): number {
   const entry = MORPH_QUALIFICATION_PROFILES.find((candidate) => candidate.id === profile);
   if (!entry) fail("FADENO_MORPH_QUALIFICATION_PROFILE", `unknown profile: ${profile}`);

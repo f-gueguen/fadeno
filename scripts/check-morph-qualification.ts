@@ -587,45 +587,52 @@ function writeJson(path: string, value: unknown): void {
 
 const reportRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-qualification-"));
 try {
-  const results = MORPH_PROJECTS.map((engine) => {
+  const results = MORPH_PROJECTS.flatMap((engine) => {
     const records = syntheticRecords(engine);
-    const summary = {
-      profile: "ci",
-      engine,
-      cases: MORPH_QUALIFICATION_CASES.length,
-      repetitions: 20,
-      records: records.length,
-      intentionalReplacements: 20,
-      candidateRoundTripMilliseconds: records.map(() => 1),
-      documentElementCounts: records.map(() => 10),
-    };
+    const failures: QualificationFailureEvidence[] = [];
+    const summary = verifyQualificationOutcome(records, failures, "ci", engine);
     const directory = join(reportRoot, engine);
     mkdirSync(directory);
     const recordsPath = join(directory, "records.json");
+    const failuresPath = join(directory, "failures.json");
     const summaryPath = join(directory, "summary.json");
+    const diagnosticPath = join(directory, "diagnostic.json");
+    const diagnostic = records.find(
+      (record) => record.caseId === "element-scroll-insert" && record.ordinal === 20,
+    );
+    if (!diagnostic) throw new Error(`missing passing diagnostic ${engine}`);
     writeJson(recordsPath, records);
+    writeJson(failuresPath, failures);
     writeJson(summaryPath, summary);
-    return {
-      project: engine,
-      title: "qualification-ci",
-      status: "passed",
-      expectedStatus: "passed",
-      errors: [],
-      attachments: [
-        {
-          name: "qualification-records",
-          contentType: "application/json",
-          path: relative(reportRoot, recordsPath),
-          bytes: statSync(recordsPath).size,
-        },
-        {
-          name: "qualification-summary",
-          contentType: "application/json",
-          path: relative(reportRoot, summaryPath),
-          bytes: statSync(summaryPath).size,
-        },
-      ],
-    };
+    writeJson(diagnosticPath, diagnostic);
+    const attachment = (name: string, path: string) => ({
+      name,
+      contentType: "application/json",
+      path: relative(reportRoot, path),
+      bytes: statSync(path).size,
+    });
+    return [
+      {
+        project: engine,
+        title: "qualification-matrix-ci",
+        status: "passed",
+        expectedStatus: "passed",
+        errors: [],
+        attachments: [
+          attachment("qualification-records", recordsPath),
+          attachment("qualification-failures", failuresPath),
+          attachment("qualification-summary", summaryPath),
+        ],
+      },
+      {
+        project: engine,
+        title: "qualification-diagnostic-ci",
+        status: "passed",
+        expectedStatus: "passed",
+        errors: [],
+        attachments: [attachment("diagnostic-record", diagnosticPath)],
+      },
+    ];
   });
   const reportPath = join(reportRoot, "report.json");
   writeJson(reportPath, { schemaVersion: 1, status: "passed", results });
@@ -642,7 +649,7 @@ try {
 
   const failedRoot = mkdtempSync(join(tmpdir(), "fadeno-morph-qualification-failed-"));
   try {
-    const failedResults = MORPH_PROJECTS.map((engine, index) => {
+    const failedResults = MORPH_PROJECTS.flatMap((engine, index) => {
       const matrix = syntheticFailedEvidence(engine);
       const directory = join(failedRoot, engine);
       mkdirSync(directory);
@@ -659,14 +666,18 @@ try {
       const screenshot = join(directory, "screenshot.png");
       const errorContext = join(directory, "error-context.md");
       const trace = join(directory, "trace.zip");
+      const diagnosticPath = join(directory, "diagnostic-failure.json");
+      const diagnostic = matrix.failures.find(
+        (failure) =>
+          failure.observation.caseId === "element-scroll-insert" &&
+          failure.observation.ordinal === 20,
+      );
+      if (!diagnostic) throw new Error(`missing failed diagnostic ${engine}`);
+      writeJson(diagnosticPath, diagnostic);
       writeFileSync(screenshot, createSyntheticPng(40 + index * 40));
-      writeFileSync(errorContext, "# qualification-ci\n\nSynthetic failed matrix.\n");
+      writeFileSync(errorContext, "# qualification-diagnostic-ci\n\nSynthetic failed matrix.\n");
       const bound = [
-        ...attachmentPaths.map(({ name, contentType, path }) => ({
-          name,
-          contentType,
-          data: readFileSync(path),
-        })),
+        { name: "diagnostic-failure", contentType: "application/json", data: readFileSync(diagnosticPath) },
         { name: "screenshot", contentType: "image/png", data: readFileSync(screenshot) },
         { name: "error-context", contentType: "text/markdown", data: readFileSync(errorContext) },
       ];
@@ -674,30 +685,41 @@ try {
         trace,
         createSyntheticTraceZip(
           engine,
-          "qualification-ci",
+          "qualification-diagnostic-ci",
           "FADENO_MORPH_QUALIFICATION_FAILURE: synthetic",
           bound,
         ),
       );
-      const paths = [
-        ...attachmentPaths,
+      const diagnosticPaths = [
+        { name: "diagnostic-failure", contentType: "application/json", path: diagnosticPath },
         { name: "screenshot", contentType: "image/png", path: screenshot },
         { name: "error-context", contentType: "text/markdown", path: errorContext },
         { name: "trace", contentType: "application/zip", path: trace },
       ];
-      return {
-        project: engine,
-        title: "qualification-ci",
-        status: "failed",
-        expectedStatus: "passed",
-        errors: ["Error: FADENO_MORPH_QUALIFICATION_FAILURE: synthetic"],
-        attachments: paths.map(({ name, contentType, path }) => ({
-          name,
-          contentType,
-          path: relative(failedRoot, path),
-          bytes: statSync(path).size,
-        })),
-      };
+      const portable = ({ name, contentType, path }: { name: string; contentType: string; path: string }) => ({
+        name,
+        contentType,
+        path: relative(failedRoot, path),
+        bytes: statSync(path).size,
+      });
+      return [
+        {
+          project: engine,
+          title: "qualification-matrix-ci",
+          status: "passed",
+          expectedStatus: "passed",
+          errors: [],
+          attachments: attachmentPaths.map(portable),
+        },
+        {
+          project: engine,
+          title: "qualification-diagnostic-ci",
+          status: "failed",
+          expectedStatus: "passed",
+          errors: ["Error: FADENO_MORPH_QUALIFICATION_FAILURE: synthetic"],
+          attachments: diagnosticPaths.map(portable),
+        },
+      ];
     });
     const failedReport = join(failedRoot, "report.json");
     writeJson(failedReport, { schemaVersion: 1, status: "failed", results: failedResults });
@@ -708,7 +730,9 @@ try {
     if (verifiedFailure.status !== "failed" || verifiedFailure.failed.length !== 3) {
       recordFailure("complete failed report: verified outcome differs");
     }
-    const firstResult = failedResults[0];
+    const firstResult = failedResults.find(
+      (result) => result.title === "qualification-diagnostic-ci",
+    );
     const firstScreenshot = firstResult?.attachments.find(
       (attachment) => attachment.name === "screenshot",
     );
@@ -739,7 +763,7 @@ try {
     },
     {
       name: "mixed failure is inspected",
-      code: "FADENO_MORPH_QUALIFICATION_ATTACHMENT_SET",
+      code: "FADENO_MORPH_QUALIFICATION_DIAGNOSTIC",
       mutate: (_caseRoot, report) => {
         report.status = "failed";
         const result = (report.results as Array<Record<string, unknown>>).at(-1);
@@ -763,7 +787,7 @@ try {
       mutate: (_caseRoot, report) => {
         const current = report.results as Array<Record<string, unknown>>;
         const first = (current[0]?.attachments as Array<Record<string, unknown>>)[0];
-        const second = (current[1]?.attachments as Array<Record<string, unknown>>)[0];
+        const second = (current[2]?.attachments as Array<Record<string, unknown>>)[0];
         if (first && second) {
           second.path = first.path;
           second.bytes = first.bytes;
@@ -784,11 +808,13 @@ try {
       code: "FADENO_MORPH_QUALIFICATION_SUMMARY",
       mutate: (caseRoot, report) => {
         const result = (report.results as Array<Record<string, unknown>>)[0];
-        const attachment = (result?.attachments as Array<Record<string, unknown>>)[1];
+        const attachment = (result?.attachments as Array<Record<string, unknown>>).find(
+          (item) => item.name === "qualification-summary",
+        );
         if (!attachment || typeof attachment.path !== "string") return;
         const path = join(caseRoot, attachment.path);
         const summary = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-        summary.records = 1;
+        summary.completedRecords = 1;
         writeJson(path, summary);
         attachment.bytes = statSync(path).size;
       },

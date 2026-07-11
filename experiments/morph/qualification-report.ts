@@ -14,8 +14,10 @@ import type {
   QualificationRecord,
 } from "./qualification-proof.ts";
 import {
+  classifyQualificationFailure,
+  verifyQualificationDiagnosticRecord,
+  verifyQualificationFailureAlignment,
   verifyQualificationOutcome,
-  verifyQualificationRecords,
 } from "./qualification-proof.ts";
 import type {
   MorphMachineAttachment as MachineAttachment,
@@ -28,7 +30,7 @@ export type QualificationEvidence = Readonly<{
   engine: MorphProject;
   recordsPath: string;
   summaryPath: string;
-  summary: ReturnType<typeof verifyQualificationRecords>;
+  summary: ReturnType<typeof verifyQualificationOutcome>;
 }>;
 
 export type QualificationFailedEvidence = Readonly<{
@@ -84,131 +86,162 @@ export function verifyQualificationReport(
   ) {
     fail("FADENO_MORPH_QUALIFICATION_REPORT_SHAPE", "qualification report shape is invalid");
   }
-  if (report.results.length !== MORPH_PROJECTS.length) {
-    fail("FADENO_MORPH_QUALIFICATION_EXECUTION_COUNT", "expected exactly three qualification executions");
+  if (report.results.length !== MORPH_PROJECTS.length * 2) {
+    fail("FADENO_MORPH_QUALIFICATION_EXECUTION_COUNT", "expected matrix and diagnostic executions");
   }
-  const projects = report.results.map((result) => result.project).sort();
-  if (!isDeepStrictEqual(projects, [...MORPH_PROJECTS].sort())) {
-    fail("FADENO_MORPH_QUALIFICATION_PROJECT_SET", "qualification browser project set differs");
-  }
-
   const seenPaths = new Set<string>();
-  const evidence: QualificationEvidence[] = [];
+  const passedEvidence: QualificationEvidence[] = [];
   const failedEvidence: QualificationFailedEvidence[] = [];
-  let observedFailure = false;
-  for (const result of report.results) {
-    const engine = result.project as MorphProject;
-    if (
-      result.title !== `qualification-${options.profile}` ||
-      result.expectedStatus !== "passed" ||
-      !["passed", "failed", "timedout", "interrupted"].includes(result.status) ||
-      !Array.isArray(result.errors) ||
-      !Array.isArray(result.attachments)
-    ) {
-      fail("FADENO_MORPH_QUALIFICATION_TEST_IDENTITY", `${engine}: test identity differs`);
-    }
-    const passing = result.status === "passed";
-    const expectedAttachmentNames = passing
-      ? ["qualification-records", "qualification-summary"]
-      : [
-          "error-context",
-          "qualification-failures",
-          "qualification-records",
-          "qualification-summary",
-          "screenshot",
-          "trace",
-        ];
-    const attachmentNames = result.attachments.map(
-      (attachment: MachineAttachment) => attachment.name,
+  for (const engine of MORPH_PROJECTS) {
+    const engineResults = report.results.filter((result) => result.project === engine);
+    const matrix = engineResults.find(
+      (result) => result.title === `qualification-matrix-${options.profile}`,
     );
-    const attachmentNameSet = new Set(attachmentNames);
-    const expectedAttachmentNameSet = new Set(expectedAttachmentNames);
+    const diagnostic = engineResults.find(
+      (result) => result.title === `qualification-diagnostic-${options.profile}`,
+    );
     if (
-      attachmentNames.length !== expectedAttachmentNames.length ||
-      attachmentNameSet.size !== attachmentNames.length ||
-      attachmentNames.some((name: string) => !expectedAttachmentNameSet.has(name))
+      engineResults.length !== 2 ||
+      !matrix ||
+      !diagnostic ||
+      matrix.expectedStatus !== "passed" ||
+      matrix.status !== "passed" ||
+      matrix.errors.length !== 0
     ) {
-      fail("FADENO_MORPH_QUALIFICATION_ATTACHMENT_SET", `${engine}: attachment set differs`);
+      fail("FADENO_MORPH_QUALIFICATION_TEST_IDENTITY", `${engine}: execution identity differs`);
     }
-    if (passing ? result.errors.length !== 0 : result.errors.length !== 1) {
-      fail("FADENO_MORPH_QUALIFICATION_DIAGNOSTIC", `${engine}: diagnostic count differs`);
+    const matrixNames = matrix.attachments.map(
+      (attachment: MachineAttachment) => attachment.name,
+    ).sort();
+    if (!isDeepStrictEqual(matrixNames, [
+      "qualification-failures",
+      "qualification-records",
+      "qualification-summary",
+    ])) {
+      fail("FADENO_MORPH_QUALIFICATION_ATTACHMENT_SET", `${engine}: matrix attachments differ`);
     }
-    if (!passing && !result.errors[0]?.startsWith("Error: FADENO_MORPH_QUALIFICATION_FAILURE:")) {
-      fail("FADENO_MORPH_QUALIFICATION_DIAGNOSTIC", `${engine}: failure diagnostic differs`);
-    }
-
-    const verified = new Map<MachineAttachment, string>();
-    let traceEvidence: TraceEvidence | undefined;
-    for (const attachment of result.attachments) {
-      const verifiedAttachment = verifyPortableHarnessAttachment(attachment, options.outputRoot);
-      if (seenPaths.has(verifiedAttachment.path)) {
+    const matrixVerified = new Map<MachineAttachment, string>();
+    for (const attachment of matrix.attachments) {
+      const verified = verifyPortableHarnessAttachment(attachment, options.outputRoot);
+      if (seenPaths.has(verified.path)) {
         fail("FADENO_MORPH_QUALIFICATION_ATTACHMENT_DUPLICATE", `${engine}: duplicate attachment path`);
       }
-      seenPaths.add(verifiedAttachment.path);
-      verified.set(attachment, verifiedAttachment.path);
-      if (attachment.name === "trace") {
-        const trace = verifiedAttachment.traceEvidence;
-        if (
-          !trace ||
-          trace.browserName !== engine ||
-          !trace.title.endsWith(`› qualification-${options.profile}`) ||
-          !trace.errorFirstLine.startsWith("Error: FADENO_MORPH_QUALIFICATION_FAILURE:")
-        ) {
-          fail("FADENO_MORPH_QUALIFICATION_TRACE", `${engine}: trace identity differs`);
-        }
-        traceEvidence = trace;
-      }
+      seenPaths.add(verified.path);
+      matrixVerified.set(attachment, verified.path);
     }
-    if (!passing && traceEvidence) {
-      verifyTraceAttachmentBindings(result, verified, traceEvidence);
-    }
-    const recordsPath = attachmentByName(result, verified, "qualification-records");
-    const summaryPath = attachmentByName(result, verified, "qualification-summary");
+    const recordsPath = attachmentByName(matrix, matrixVerified, "qualification-records");
+    const failuresPath = attachmentByName(matrix, matrixVerified, "qualification-failures");
+    const summaryPath = attachmentByName(matrix, matrixVerified, "qualification-summary");
     const records = readJsonDocument(recordsPath, { maxBytes: 20 * 1024 * 1024 }) as QualificationRecord[];
-    const summaryDocument = readJsonDocument(summaryPath);
-    if (passing) {
-      const summary = verifyQualificationRecords(records, options.profile, engine);
-      if (!isDeepStrictEqual(summaryDocument, summary)) {
-        fail("FADENO_MORPH_QUALIFICATION_SUMMARY", `${engine}: summary differs from raw records`);
-      }
-      evidence.push({ engine, recordsPath, summaryPath, summary });
-    } else {
-      observedFailure = true;
-      const failuresPath = attachmentByName(result, verified, "qualification-failures");
-      const failures = readJsonDocument(failuresPath, {
-        maxBytes: 20 * 1024 * 1024,
-      }) as QualificationFailureEvidence[];
-      if (!Array.isArray(records) || !Array.isArray(failures) || failures.length === 0) {
-        fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: failure matrix differs`);
-      }
-      const summary = verifyQualificationOutcome(
-        records,
-        failures,
-        options.profile,
-        engine,
-      );
-      if (!isDeepStrictEqual(summaryDocument, summary)) {
-        fail("FADENO_MORPH_QUALIFICATION_SUMMARY", `${engine}: summary differs from raw outcome`);
-      }
-      failedEvidence.push({
-        engine,
-        recordsPath,
-        failuresPath,
-        summaryPath,
-        screenshotPath: attachmentByName(result, verified, "screenshot"),
-        tracePath: attachmentByName(result, verified, "trace"),
-        errorContextPath: attachmentByName(result, verified, "error-context"),
-        summary,
-      });
+    const failures = readJsonDocument(failuresPath, {
+      maxBytes: 20 * 1024 * 1024,
+    }) as QualificationFailureEvidence[];
+    if (!Array.isArray(records) || !Array.isArray(failures)) {
+      fail("FADENO_MORPH_QUALIFICATION_FAILURE_EVIDENCE", `${engine}: matrix documents differ`);
     }
+    const summary = verifyQualificationOutcome(records, failures, options.profile, engine);
+    if (!isDeepStrictEqual(readJsonDocument(summaryPath), summary)) {
+      fail("FADENO_MORPH_QUALIFICATION_SUMMARY", `${engine}: summary differs from raw outcome`);
+    }
+
+    if (failures.length === 0) {
+      if (
+        diagnostic.expectedStatus !== "passed" ||
+        diagnostic.status !== "passed" ||
+        diagnostic.errors.length !== 0 ||
+        !isDeepStrictEqual(
+          diagnostic.attachments.map((item: MachineAttachment) => item.name),
+          ["diagnostic-record"],
+        )
+      ) {
+        fail("FADENO_MORPH_QUALIFICATION_DIAGNOSTIC", `${engine}: passing diagnostic differs`);
+      }
+      const verified = new Map<MachineAttachment, string>();
+      const attachment = diagnostic.attachments[0];
+      if (!attachment) fail("FADENO_MORPH_QUALIFICATION_DIAGNOSTIC", `${engine}: diagnostic missing`);
+      const evidence = verifyPortableHarnessAttachment(attachment, options.outputRoot);
+      verified.set(attachment, evidence.path);
+      const record = readJsonDocument(
+        attachmentByName(diagnostic, verified, "diagnostic-record"),
+      ) as QualificationRecord;
+      verifyQualificationDiagnosticRecord(record, options.profile, engine);
+      passedEvidence.push({ engine, recordsPath, summaryPath, summary });
+      continue;
+    }
+
+    if (
+      diagnostic.expectedStatus !== "passed" ||
+      diagnostic.status !== "failed" ||
+      diagnostic.errors.length !== 1 ||
+      !diagnostic.errors[0]?.startsWith("Error: FADENO_MORPH_QUALIFICATION_FAILURE:")
+    ) {
+      fail("FADENO_MORPH_QUALIFICATION_DIAGNOSTIC", `${engine}: failed diagnostic differs`);
+    }
+    const expectedDiagnosticNames = [
+      "diagnostic-failure",
+      "error-context",
+      "screenshot",
+      "trace",
+    ];
+    if (!isDeepStrictEqual(
+      diagnostic.attachments.map((item: MachineAttachment) => item.name).sort(),
+      expectedDiagnosticNames,
+    )) {
+      fail("FADENO_MORPH_QUALIFICATION_ATTACHMENT_SET", `${engine}: diagnostic attachments differ`);
+    }
+    const diagnosticVerified = new Map<MachineAttachment, string>();
+    let traceEvidence: TraceEvidence | undefined;
+    for (const attachment of diagnostic.attachments) {
+      const verified = verifyPortableHarnessAttachment(attachment, options.outputRoot);
+      if (seenPaths.has(verified.path)) {
+        fail("FADENO_MORPH_QUALIFICATION_ATTACHMENT_DUPLICATE", `${engine}: duplicate attachment path`);
+      }
+      seenPaths.add(verified.path);
+      diagnosticVerified.set(attachment, verified.path);
+      if (attachment.name === "trace") traceEvidence = verified.traceEvidence;
+    }
+    if (
+      !traceEvidence ||
+      traceEvidence.browserName !== engine ||
+      !traceEvidence.title.endsWith(`› qualification-diagnostic-${options.profile}`) ||
+      !traceEvidence.errorFirstLine.startsWith("Error: FADENO_MORPH_QUALIFICATION_FAILURE:")
+    ) {
+      fail("FADENO_MORPH_QUALIFICATION_TRACE", `${engine}: diagnostic trace differs`);
+    }
+    verifyTraceAttachmentBindings(diagnostic, diagnosticVerified, traceEvidence);
+    const diagnosticFailure = readJsonDocument(
+      attachmentByName(diagnostic, diagnosticVerified, "diagnostic-failure"),
+    ) as QualificationFailureEvidence;
+    verifyQualificationFailureAlignment(
+      diagnosticFailure.operation,
+      diagnosticFailure.observation,
+      options.profile,
+      engine,
+    );
+    const classification = classifyQualificationFailure(
+      diagnosticFailure.observation,
+      options.profile,
+    );
+    const matrixClassification = summary.failures.find((item) => item.key === classification.key);
+    if (!matrixClassification || !isDeepStrictEqual(matrixClassification, classification)) {
+      fail("FADENO_MORPH_QUALIFICATION_DIAGNOSTIC", `${engine}: diagnostic is absent from matrix`);
+    }
+    failedEvidence.push({
+      engine,
+      recordsPath,
+      failuresPath,
+      summaryPath,
+      screenshotPath: attachmentByName(diagnostic, diagnosticVerified, "screenshot"),
+      tracePath: attachmentByName(diagnostic, diagnosticVerified, "trace"),
+      errorContextPath: attachmentByName(diagnostic, diagnosticVerified, "error-context"),
+      summary,
+    });
   }
-  if (
-    (observedFailure && report.status === "passed") ||
-    (!observedFailure && report.status !== "passed")
-  ) {
+  const observedFailure = failedEvidence.length > 0;
+  if ((observedFailure && report.status !== "failed") || (!observedFailure && report.status !== "passed")) {
     fail("FADENO_MORPH_QUALIFICATION_RUN_STATUS", "result statuses disagree with report status");
   }
   return observedFailure
-    ? { status: "failed", passed: evidence, failed: failedEvidence }
-    : { status: "passed", passed: evidence, failed: [] };
+    ? { status: "failed", passed: passedEvidence, failed: failedEvidence }
+    : { status: "passed", passed: passedEvidence, failed: [] };
 }

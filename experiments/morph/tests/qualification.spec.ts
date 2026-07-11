@@ -19,7 +19,6 @@ import type {
 import {
   qualificationRepetitions,
   verifyQualificationOutcome,
-  verifyQualificationRecords,
 } from "../qualification-proof.ts";
 import {
   MORPH_QUALIFICATION_SCENARIOS,
@@ -732,12 +731,17 @@ async function runScenario(
   return record;
 }
 
-test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
-  test.setTimeout(profile === "qualification" ? 15 * 60_000 : 5 * 60_000);
+function qualificationEngine(page: Page): QualificationRecord["engine"] {
   const engine = page.context().browser()?.browserType().name();
   if (engine !== "chromium" && engine !== "firefox" && engine !== "webkit") {
     throw new Error("FADENO_MORPH_BROWSER_IDENTITY_MISSING");
   }
+  return engine;
+}
+
+test(`qualification-matrix-${profile}`, async ({ page }, testInfo: TestInfo) => {
+  test.setTimeout(profile === "qualification" ? 15 * 60_000 : 5 * 60_000);
+  const engine = qualificationEngine(page);
   const records: QualificationRecord[] = [];
   const failures: QualificationFailureEvidence[] = [];
   let blockedRequests: string[] = [];
@@ -788,19 +792,10 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
       }
     }
     await attachJson(testInfo, "qualification-records", records);
-    if (failures.length === 0) {
-      const summary = verifyQualificationRecords(records, profile, engine);
-      await attachJson(testInfo, "qualification-summary", summary);
-      return;
-    }
     const summary = verifyQualificationOutcome(records, failures, profile, engine);
     await attachJson(testInfo, "qualification-failures", failures);
     await attachJson(testInfo, "qualification-summary", summary);
-    throw new Error(
-      `FADENO_MORPH_QUALIFICATION_FAILURE: ${failures.length} of ${summary.expectedRecords} cells failed`,
-    );
   } catch (error: unknown) {
-    if (failures.length > 0) throw error;
     const message = error instanceof Error ? error.message : String(error);
     await attachJson(testInfo, "qualification-records", records);
     await attachJson(testInfo, "qualification-summary", {
@@ -823,5 +818,50 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
       observation: null,
     }]);
     throw new Error(`FADENO_MORPH_QUALIFICATION_FAILURE: ${message}`);
+  }
+});
+
+test(`qualification-diagnostic-${profile}`, async ({ page }, testInfo: TestInfo) => {
+  test.setTimeout(60_000);
+  const engine = qualificationEngine(page);
+  const scenario = MORPH_QUALIFICATION_SCENARIOS.find(
+    (candidate) => candidate.fixture.id === "element-scroll-insert",
+  );
+  if (!scenario) throw new Error("FADENO_MORPH_DIAGNOSTIC_SCENARIO_MISSING");
+  const blockedRequests: string[] = [];
+  const pageErrors: string[] = [];
+  await verifyUnhandledRejectionSensor(page);
+  await verifyMediaAssetSensor(page);
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.route(/^https?:\/\//u, async (route) => {
+    blockedRequests.push(route.request().url());
+    await route.abort("blockedbyclient");
+  });
+  try {
+    const record = await runScenario(
+      page,
+      scenario,
+      repetitions,
+      engine,
+      blockedRequests,
+      pageErrors,
+    );
+    await attachJson(testInfo, "diagnostic-record", record);
+  } catch (error: unknown) {
+    if (!(error instanceof QualificationScenarioProofError)) throw error;
+    const failure: QualificationFailureEvidence = {
+      operation: {
+        profile,
+        engine,
+        caseId: scenario.fixture.id,
+        state: scenario.fixture.state,
+        operation: scenario.fixture.operation,
+        ordinal: repetitions,
+        failure: error.message,
+      },
+      observation: error.record,
+    };
+    await attachJson(testInfo, "diagnostic-failure", failure);
+    throw new Error(`FADENO_MORPH_QUALIFICATION_FAILURE: ${error.message}`);
   }
 });

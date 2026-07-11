@@ -92,6 +92,8 @@ const ATTACHMENT_CONTENT_TYPES = {
   "qualification-records": "application/json",
   "qualification-summary": "application/json",
   "qualification-failures": "application/json",
+  "diagnostic-record": "application/json",
+  "diagnostic-failure": "application/json",
   screenshot: "image/png",
   trace: "application/zip",
   "error-context": "text/markdown",

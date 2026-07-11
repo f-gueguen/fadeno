@@ -148,7 +148,10 @@ export function publishQualificationEvidence(options: Readonly<{
   } = options;
   const passedEvidence: readonly QualificationEvidence[] = outcome.passed;
   const failedEvidence: readonly QualificationFailedEvidence[] = outcome.failed;
-  const evidence = [...passedEvidence, ...failedEvidence];
+  const evidence: Array<QualificationEvidence | QualificationFailedEvidence> = [
+    ...passedEvidence,
+    ...failedEvidence,
+  ];
   const artifactRoot = join(runDirectory, "artifacts");
   mkdirSync(artifactRoot, { recursive: true });
   const artifacts: ArtifactRecord[] = [];
@@ -237,9 +240,7 @@ export function publishQualificationEvidence(options: Readonly<{
       cases: MORPH_QUALIFICATION_CASES.length,
       repetitions: qualificationRepetitions(profile),
       records: evidence.reduce(
-        (total, item) => total + ("records" in item.summary
-          ? item.summary.records
-          : item.summary.completedRecords),
+        (total, item) => total + item.summary.completedRecords,
         0,
       ),
       intentionalReplacements: evidence.reduce(
