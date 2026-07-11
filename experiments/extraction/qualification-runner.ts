@@ -12,7 +12,7 @@ import { createRequire } from "node:module";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { runMorphPreflight } from "../morph/preflight.ts";
+import { runBrowserPreflight } from "../browser-preflight.ts";
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import {
   emitAcceptedHandler,
@@ -88,6 +88,15 @@ function exactFiles(rootDirectory: string): string[] {
   return files.sort();
 }
 
+export function assertNoQualificationCanary(
+  bodies: readonly (string | Buffer)[],
+  canaries: readonly string[],
+): void {
+  if (canaries.some((canary) => bodies.some((body) => body.includes(canary)))) {
+    throw new Error("FADENO_EXTRACTION_QUALIFICATION_CANARY_LEAK");
+  }
+}
+
 export async function executeExtractionQualification(options: Readonly<{
   requireClean: boolean;
   requireReference: boolean;
@@ -105,8 +114,10 @@ export async function executeExtractionQualification(options: Readonly<{
 
   const diagnostics = [];
   const canaries: string[] = [];
-  using candidate = new ExtractionCandidate();
-  for (const fixtureId of EXTRACTION_REJECTION_CLASSES) {
+  let inventory: GeneratedInventory;
+  const candidate = new ExtractionCandidate();
+  try {
+    for (const fixtureId of EXTRACTION_REJECTION_CLASSES) {
     const canary = `fadeno-${fixtureId}-${randomUUID()}`;
     canaries.push(canary);
     let writerStarted = false;
@@ -152,14 +163,17 @@ export async function executeExtractionQualification(options: Readonly<{
       !readFileSync(first.path).equals(readFileSync(second.path))
     ) throw new Error(`FADENO_EXTRACTION_NON_DETERMINISTIC: ${first.fixtureId}`);
   }
-  const inventory = generatedInventory(generated, generatedRoot);
+  inventory = generatedInventory(generated, generatedRoot);
   writeFileSync(
     join(generatedRoot, "inventory.json"),
     `${JSON.stringify(inventory, null, 2)}\n`,
   );
+  } finally {
+    candidate[Symbol.dispose]();
+  }
 
   const preflight = options.requireReference
-    ? await runMorphPreflight(root, {
+    ? await runBrowserPreflight(root, {
         requireReference: true,
         maxReferenceWaitMilliseconds: Number(process.env.FADENO_PREFLIGHT_WAIT_MS) || 0,
       })
@@ -219,9 +233,19 @@ export async function executeExtractionQualification(options: Readonly<{
   const transient = existsSync(runnerOutput) ? exactFiles(runnerOutput).map((path) =>
     readFileSync(join(runnerOutput, path), "utf8")
   ) : [];
-  if (canaries.some((canary) => [...evidence, ...transient].some((body) => body.includes(canary)))) {
-    throw new Error("FADENO_EXTRACTION_QUALIFICATION_CANARY_LEAK");
+  let canarySensorRejectedControl = false;
+  try {
+    assertNoQualificationCanary([`negative-control:${canaries[0]}`], canaries);
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      error.message === "FADENO_EXTRACTION_QUALIFICATION_CANARY_LEAK"
+    ) canarySensorRejectedControl = true;
   }
+  if (!canarySensorRejectedControl) {
+    throw new Error("FADENO_EXTRACTION_QUALIFICATION_CANARY_SENSOR_CONTROL");
+  }
+  assertNoQualificationCanary([...evidence, ...transient], canaries);
   rmSync(runnerOutput, { recursive: true, force: true });
   rmSync(comparisonRoot, { recursive: true, force: true });
   console.log(

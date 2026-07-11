@@ -69,6 +69,17 @@ const repositoryRoot = join(experimentRoot, "../..");
 const fixtureRoot = join(experimentRoot, "fixtures");
 const rootSourcePath = join(fixtureRoot, "qualification/roots.ts");
 const projectPath = join(experimentRoot, "tsconfig.json");
+const MAX_CAPTURE_BYTES = 65_536;
+
+type PlainCapture = null | boolean | number | string | PlainCapture[] | {
+  [key: string]: PlainCapture;
+};
+
+type CaptureEvaluation =
+  | Readonly<{ known: true; value: PlainCapture }>
+  | Readonly<{ known: false }>;
+
+const unknownCapture: CaptureEvaluation = { known: false };
 
 function visit(root: Node, callback: (node: Node) => void): void {
   const visitor = (node: Node): Node => {
@@ -149,29 +160,97 @@ function isTopLevelVariableInitializer(node: ast.CallExpression): boolean {
   return Boolean(cursor);
 }
 
-export function classifyModule(sourceFile: SourceFile): ExtractionDiagnostic | undefined {
-  for (const statement of sourceFile.statements) {
-    if (
-      (ast.isImportDeclaration(statement) || ast.isExportDeclaration(statement)) &&
-      statement.moduleSpecifier &&
-      ast.isStringLiteral(statement.moduleSpecifier) &&
-      statement.moduleSpecifier.text.startsWith("server-only:")
-    ) {
-      return diagnosticFor(
-        sourceFile,
-        statement.moduleSpecifier,
-        "FADENO_K0_EXTRACT_SERVER_IMPORT",
-        statement.moduleSpecifier.text.includes("database") ? "database" : "secret",
-      );
-    }
+function propertyName(node: Node): string | undefined {
+  if (ast.isIdentifier(node) || ast.isStringLiteral(node) || ast.isNumericLiteral(node)) {
+    return node.text;
   }
+}
 
-  let found: ExtractionDiagnostic | undefined;
-  visit(sourceFile, (node) => {
-    if (found) return;
+function evaluatePlainCapture(node: Node): CaptureEvaluation {
+  if (ast.isStringLiteral(node)) return { known: true, value: node.text };
+  if (ast.isNumericLiteral(node)) return { known: true, value: Number(node.text) };
+  if (node.kind === ast.SyntaxKind.TrueKeyword) return { known: true, value: true };
+  if (node.kind === ast.SyntaxKind.FalseKeyword) return { known: true, value: false };
+  if (node.kind === ast.SyntaxKind.NullKeyword) return { known: true, value: null };
+  if (
+    ast.isPrefixUnaryExpression(node) &&
+    node.operator === ast.SyntaxKind.MinusToken &&
+    ast.isNumericLiteral(node.operand)
+  ) return { known: true, value: -Number(node.operand.text) };
+  if (
+    ast.isCallExpression(node) &&
+    ast.isPropertyAccessExpression(node.expression) &&
+    ast.isIdentifier(node.expression.expression) &&
+    node.expression.expression.text === "Object" &&
+    node.expression.name.text === "freeze" &&
+    node.arguments.length === 1
+  ) return evaluatePlainCapture(node.arguments[0]!);
+  if (
+    ast.isCallExpression(node) &&
+    ast.isPropertyAccessExpression(node.expression) &&
+    node.expression.name.text === "repeat" &&
+    node.arguments.length === 1 &&
+    ast.isNumericLiteral(node.arguments[0]!)
+  ) {
+    const owner = evaluatePlainCapture(node.expression.expression);
+    const repetitions = Number(node.arguments[0]!.text);
     if (
-      ast.isTypeOfExpression(node) &&
-      identifierText(node.expression) === "window"
+      owner.known && typeof owner.value === "string" &&
+      Number.isSafeInteger(repetitions) && repetitions >= 0
+    ) return { known: true, value: owner.value.repeat(repetitions) };
+    return unknownCapture;
+  }
+  if (ast.isArrayLiteralExpression(node)) {
+    const values: PlainCapture[] = [];
+    for (const element of node.elements) {
+      const result = evaluatePlainCapture(element);
+      if (!result.known) return unknownCapture;
+      values.push(result.value);
+    }
+    return { known: true, value: values };
+  }
+  if (ast.isObjectLiteralExpression(node)) {
+    const value: { [key: string]: PlainCapture } = {};
+    for (const property of node.properties) {
+      if (!ast.isPropertyAssignment(property)) return unknownCapture;
+      const key = propertyName(property.name);
+      const result = evaluatePlainCapture(property.initializer);
+      if (key === undefined || !result.known) return unknownCapture;
+      value[key] = result.value;
+    }
+    return { known: true, value };
+  }
+  return unknownCapture;
+}
+
+function captureBytes(value: PlainCapture): number {
+  return Buffer.byteLength(JSON.stringify(value), "utf8");
+}
+
+export function measurePlainCapture(node: Node): number | undefined {
+  const evaluated = evaluatePlainCapture(node);
+  return evaluated.known ? captureBytes(evaluated.value) : undefined;
+}
+
+function classifySyntax(
+  sourceFile: SourceFile,
+  root: Node,
+): ExtractionDiagnostic | undefined {
+  const classNames = new Set(
+    sourceFile.statements.flatMap((statement) =>
+      ast.isClassDeclaration(statement) && statement.name ? [statement.name.text] : []
+    ),
+  );
+  let found: ExtractionDiagnostic | undefined;
+  visit(root, (node) => {
+    if (found) return;
+    if (ast.isTypeOfExpression(node) && identifierText(node.expression) === "window") {
+      found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_AMBIENT_CAPTURE");
+      return;
+    }
+    if (
+      ast.isIdentifier(node) && node.text === "window" &&
+      !(ast.isPropertyAccessExpression(node.parent) && node.parent.name === node)
     ) {
       found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_AMBIENT_CAPTURE");
       return;
@@ -182,12 +261,7 @@ export function classifyModule(sourceFile: SourceFile): ExtractionDiagnostic | u
         found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_OPAQUE_CAPTURE");
         return;
       }
-      if (
-        name &&
-        sourceFile.statements.some((statement) =>
-          ast.isClassDeclaration(statement) && statement.name?.text === name
-        )
-      ) {
+      if (name && classNames.has(name)) {
         found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_CLASS_CAPTURE");
         return;
       }
@@ -216,14 +290,11 @@ export function classifyModule(sourceFile: SourceFile): ExtractionDiagnostic | u
           );
           return;
         }
-        const argument = node.arguments[0];
-        if (
-          member === "repeat" &&
-          argument &&
-          ast.isNumericLiteral(argument) &&
-          Number(argument.text) > 65_536
-        ) {
-          found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_CAPTURE_SIZE");
+        const evaluated = member === "repeat" ? evaluatePlainCapture(node) : unknownCapture;
+        if (evaluated.known) {
+          if (captureBytes(evaluated.value) > MAX_CAPTURE_BYTES) {
+            found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_CAPTURE_SIZE");
+          }
           return;
         }
       }
@@ -243,6 +314,26 @@ export function classifyModule(sourceFile: SourceFile): ExtractionDiagnostic | u
     }
   });
   return found;
+}
+
+export function classifyModule(sourceFile: SourceFile): ExtractionDiagnostic | undefined {
+  for (const statement of sourceFile.statements) {
+    if (
+      (ast.isImportDeclaration(statement) || ast.isExportDeclaration(statement)) &&
+      statement.moduleSpecifier &&
+      ast.isStringLiteral(statement.moduleSpecifier) &&
+      statement.moduleSpecifier.text.startsWith("server-only:")
+    ) {
+      return diagnosticFor(
+        sourceFile,
+        statement.moduleSpecifier,
+        "FADENO_K0_EXTRACT_SERVER_IMPORT",
+        statement.moduleSpecifier.text.includes("database") ? "database" : "secret",
+      );
+    }
+  }
+
+  return classifySyntax(sourceFile, sourceFile);
 }
 
 export function classifyReachableModule(
@@ -276,6 +367,52 @@ export function classifyReachableModule(
     const nested = classifyReachableModule(project, dependency, seen);
     if (nested) return nested;
   }
+}
+
+export function classifySelectedClosure(
+  project: Project,
+  sourceFile: SourceFile,
+  closure: Node,
+): ExtractionDiagnostic | undefined {
+  const direct = classifySyntax(sourceFile, closure);
+  if (direct) return direct;
+  let found: ExtractionDiagnostic | undefined;
+  visit(closure, (node) => {
+    if (found || !ast.isCallExpression(node) || !ast.isIdentifier(node.expression)) return;
+    const symbol = project.checker.getSymbolAtLocation(node.expression);
+    if (!symbol) {
+      found = diagnosticFor(sourceFile, node.expression, "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW");
+      return;
+    }
+    for (const symbolDeclaration of symbol.declarations) {
+      let cursor: Node | undefined = symbolDeclaration.resolve(project);
+      while (cursor && !ast.isImportDeclaration(cursor) && !ast.isSourceFile(cursor)) {
+        cursor = cursor.parent;
+      }
+      if (
+        !cursor || !ast.isImportDeclaration(cursor) ||
+        !ast.isStringLiteral(cursor.moduleSpecifier)
+      ) continue;
+      const moduleSymbol = project.checker.getSymbolAtLocation(cursor.moduleSpecifier);
+      const moduleTarget = moduleSymbol && resolveAlias(project, moduleSymbol);
+      const moduleDeclaration = moduleTarget?.declarations[0]?.resolve(project) ??
+        moduleTarget?.valueDeclaration?.resolve(project);
+      const importedSource = moduleDeclaration?.getSourceFile();
+      if (importedSource) found = classifyReachableModule(project, importedSource);
+      if (found) return;
+    }
+    const target = resolveAlias(project, symbol);
+    const declaration = target.valueDeclaration?.resolve(project) ??
+      target.declarations[0]?.resolve(project);
+    const dependency = declaration?.getSourceFile();
+    if (
+      !dependency || dependency.fileName === sourceFile.fileName ||
+      dependency.fileName.includes(`${sep}node_modules${sep}`) ||
+      /\/lib\.[^/]+\.d\.ts$/u.test(dependency.fileName.split(sep).join("/"))
+    ) return;
+    found = classifyReachableModule(project, dependency);
+  });
+  return found;
 }
 
 function resolveAlias(
@@ -340,47 +477,27 @@ function findRoot(project: Project, fixtureId: ExtractionFixtureId) {
   const captureStatements = declaration.body.statements
     .filter(ast.isVariableStatement)
     .map((statement) => statement.getText(sourceFile));
-  const isPlainCapture = (node: Node): boolean => {
-    if (
-      ast.isStringLiteral(node) ||
-      ast.isNumericLiteral(node) ||
-      node.kind === ast.SyntaxKind.TrueKeyword ||
-      node.kind === ast.SyntaxKind.FalseKeyword ||
-      node.kind === ast.SyntaxKind.NullKeyword
-    ) return true;
-    if (
-      ast.isPrefixUnaryExpression(node) &&
-      node.operator === ast.SyntaxKind.MinusToken &&
-      ast.isNumericLiteral(node.operand)
-    ) return true;
-    if (
-      ast.isCallExpression(node) &&
-      ast.isPropertyAccessExpression(node.expression) &&
-      ast.isIdentifier(node.expression.expression) &&
-      node.expression.expression.text === "Object" &&
-      node.expression.name.text === "freeze" &&
-      node.arguments.length === 1
-    ) return isPlainCapture(node.arguments[0]!);
-    if (ast.isArrayLiteralExpression(node)) {
-      return node.elements.every(isPlainCapture);
-    }
-    if (ast.isObjectLiteralExpression(node)) {
-      return node.properties.every((property) =>
-        ast.isPropertyAssignment(property) && isPlainCapture(property.initializer)
-      );
-    }
-    return false;
-  };
   let captureDiagnostic: ExtractionDiagnostic | undefined;
+  let totalCaptureBytes = 0;
   for (const statement of declaration.body.statements.filter(ast.isVariableStatement)) {
     for (const item of statement.declarationList.declarations) {
       const initializer = item.initializer;
-      const plainFrozenObject = Boolean(initializer && isPlainCapture(initializer));
-      if (!plainFrozenObject && initializer) {
+      if (!initializer) continue;
+      const evaluated = evaluatePlainCapture(initializer);
+      if (!evaluated.known) {
         captureDiagnostic = diagnosticFor(
           sourceFile,
           initializer,
           "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
+        );
+        continue;
+      }
+      totalCaptureBytes += captureBytes(evaluated.value);
+      if (totalCaptureBytes > MAX_CAPTURE_BYTES) {
+        captureDiagnostic = diagnosticFor(
+          sourceFile,
+          initializer,
+          "FADENO_K0_EXTRACT_CAPTURE_SIZE",
         );
       }
     }
@@ -408,6 +525,7 @@ export class ExtractionCandidate implements Disposable {
       fixtureId,
     );
     const behavior = findBehavior(this.#project, closure);
+    const closureDiagnostic = classifySelectedClosure(this.#project, sourceFile, closure);
     return {
       fixtureId,
       rootExport,
@@ -420,7 +538,8 @@ export class ExtractionCandidate implements Disposable {
         : "",
       behaviorSource: behavior.declaration.getText(behavior.sourceFile),
       behaviorPath: sourceName(behavior.sourceFile),
-      diagnostic: captureDiagnostic ?? classifyReachableModule(this.#project, behavior.sourceFile),
+      diagnostic: closureDiagnostic ?? captureDiagnostic ??
+        classifyReachableModule(this.#project, behavior.sourceFile),
     };
   }
 
@@ -432,6 +551,9 @@ export class ExtractionCandidate implements Disposable {
 export function assertContainedOutput(root: string, destination: string): void {
   const resolvedRoot = resolve(root);
   const resolvedDestination = resolve(destination);
+  if (existsSync(resolvedRoot) && lstatSync(resolvedRoot).isSymbolicLink()) {
+    throw new Error("FADENO_EXTRACTION_OUTPUT_SYMLINK");
+  }
   if (
     resolvedDestination === resolvedRoot ||
     !resolvedDestination.startsWith(`${resolvedRoot}${sep}`)

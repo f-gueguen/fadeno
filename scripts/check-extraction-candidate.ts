@@ -12,13 +12,16 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { API } from "typescript/unstable/sync";
+import * as ast from "typescript/unstable/ast";
 
 import {
   assertContainedOutput,
   classifyModule,
   classifyReachableModule,
+  classifySelectedClosure,
   emitAcceptedHandler,
   ExtractionCandidate,
+  measurePlainCapture,
 } from "../experiments/extraction/candidate.ts";
 import type { ExtractionFixtureId } from "../experiments/extraction/candidate.ts";
 import { stableExtractionDiagnosticSnapshots } from "../experiments/extraction/diagnostic-snapshots.ts";
@@ -43,7 +46,8 @@ if (stableExtractionDiagnosticSnapshots() !== golden) {
 
 const temporary = mkdtempSync(join(tmpdir(), "fadeno-extraction-candidate-"));
 try {
-  using candidate = new ExtractionCandidate();
+  const candidate = new ExtractionCandidate();
+  try {
   for (const fixtureId of EXTRACTION_ACCEPTED_CLASSES) {
     const analysis = candidate.analyze(fixtureId);
     if (
@@ -127,6 +131,18 @@ try {
   } catch (error: unknown) {
     if (error instanceof Error && error.message.startsWith("K0-06")) throw error;
   }
+  const linkedRoot = join(temporary, "linked-root");
+  symlinkSync(outside, linkedRoot, "dir");
+  try {
+    assertContainedOutput(linkedRoot, join(linkedRoot, "escape.js"));
+    throw new Error("K0-06 symlink output root was accepted");
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.startsWith("K0-06")) throw error;
+  }
+  }
+  finally {
+    candidate[Symbol.dispose]();
+  }
 } finally {
   rmSync(temporary, { recursive: true, force: true });
 }
@@ -177,6 +193,47 @@ try {
     "export function use(): void { void missing; }",
     "",
   ].join("\n"));
+  writeFileSync(join(metamorphic, "server-call-barrel.ts"), [
+    'export { execute as renamedServerCall } from "server-only:capability";',
+    "",
+  ].join("\n"));
+  writeFileSync(join(metamorphic, "server-call.d.ts"), [
+    'declare module "server-only:capability" { export function execute(): void; }',
+    "",
+  ].join("\n"));
+  writeFileSync(join(metamorphic, "safe.ts"), [
+    "export function safe(): void {}",
+    "",
+  ].join("\n"));
+  writeFileSync(join(metamorphic, "closure-cases.ts"), [
+    'import { renamedServerCall } from "./server-call-barrel.ts";',
+    'import { safe } from "./safe.ts";',
+    'export const server = () => { renamedServerCall(); safe(); };',
+    'export const random = () => { Math.random(); safe(); };',
+    'export const timer = () => { setInterval(() => {}, 1); safe(); };',
+    'export const opaque = () => { new AbortController(); safe(); };',
+    'export const ambient = () => { window.alert("unsafe"); safe(); };',
+    'const moduleName = "./safe.ts";',
+    'export const dynamic = async () => { await import(moduleName); safe(); };',
+    "",
+  ].join("\n"));
+  writeFileSync(join(metamorphic, "capture-at.ts"), [
+    'export const value = "x".repeat(65534);',
+    "",
+  ].join("\n"));
+  writeFileSync(join(metamorphic, "capture-over.ts"), [
+    'export const value = "x".repeat(65535);',
+    "",
+  ].join("\n"));
+  writeFileSync(join(metamorphic, "capture-values.ts"), [
+    'const at = "x".repeat(65534);',
+    'const over = "x".repeat(65535);',
+    'const multibyte = "界".repeat(21845);',
+    'const nested = Object.freeze({ a: Object.freeze(["界", -1, true, null]) });',
+    'const unknown = createValue();',
+    'declare function createValue(): unknown;',
+    "",
+  ].join("\n"));
   const api = new API({ cwd: metamorphic });
   try {
     const projectPath = join(metamorphic, "tsconfig.json");
@@ -209,6 +266,55 @@ try {
     ) {
       throw new Error("K0-06 ambiguous flow was accepted");
     }
+    const closureSource = source("closure-cases.ts");
+    const closure = (name: string) => {
+      const statement = closureSource.statements.find((item) =>
+        ast.isVariableStatement(item) &&
+        ast.isIdentifier(item.declarationList.declarations[0]?.name) &&
+        item.declarationList.declarations[0]?.name.text === name
+      );
+      const initializer = statement && ast.isVariableStatement(statement)
+        ? statement.declarationList.declarations[0]?.initializer
+        : undefined;
+      if (!initializer) throw new Error(`K0-06 closure case is absent: ${name}`);
+      return initializer;
+    };
+    const closureExpectations = {
+      server: "FADENO_K0_EXTRACT_SERVER_IMPORT",
+      random: "FADENO_K0_EXTRACT_NON_DETERMINISTIC_CAPTURE",
+      timer: "FADENO_K0_EXTRACT_ASYNC_LIFETIME",
+      opaque: "FADENO_K0_EXTRACT_OPAQUE_CAPTURE",
+      ambient: "FADENO_K0_EXTRACT_AMBIENT_CAPTURE",
+      dynamic: "FADENO_K0_EXTRACT_DYNAMIC_IMPORT",
+    } as const;
+    for (const [name, expected] of Object.entries(closureExpectations)) {
+      if (classifySelectedClosure(project, closureSource, closure(name))?.id !== expected) {
+        throw new Error(`K0-06 selected closure flow was accepted: ${name}`);
+      }
+    }
+    if (
+      classifyModule(source("capture-at.ts")) !== undefined ||
+      classifyModule(source("capture-over.ts"))?.id !== "FADENO_K0_EXTRACT_CAPTURE_SIZE"
+    ) throw new Error("K0-06 serialized capture boundary differs");
+    const captureSource = source("capture-values.ts");
+    const capture = (name: string) => {
+      const statement = captureSource.statements.find((item) =>
+        ast.isVariableStatement(item) &&
+        ast.isIdentifier(item.declarationList.declarations[0]?.name) &&
+        item.declarationList.declarations[0]?.name.text === name
+      );
+      const initializer = statement && ast.isVariableStatement(statement)
+        ? statement.declarationList.declarations[0]?.initializer
+        : undefined;
+      if (!initializer) throw new Error(`K0-06 capture case is absent: ${name}`);
+      return measurePlainCapture(initializer);
+    };
+    if (
+      capture("at") !== 65_536 || capture("over") !== 65_537 ||
+      (capture("multibyte") ?? 0) <= 65_536 ||
+      capture("nested") !== Buffer.byteLength(JSON.stringify({ a: ["界", -1, true, null] })) ||
+      capture("unknown") !== undefined
+    ) throw new Error("K0-06 serialized capture measurement differs");
   } finally {
     api.close();
   }

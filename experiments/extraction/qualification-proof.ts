@@ -43,6 +43,10 @@ export type ExtractionQualificationObservation = Readonly<{
       operation: string;
       ordinal: number;
       targetSame: boolean;
+      scenarioTargetSame: boolean;
+      reusedScenarioTarget: boolean;
+      beforeOrder: readonly string[];
+      afterOrder: readonly string[];
       handlerReferenceStable: boolean;
       moduleEvaluations: number;
       effectDelta: number;
@@ -172,6 +176,10 @@ export function verifyExtractionQualificationObservation(
         record.operation !== expected.operation ||
         record.ordinal !== ordinal ||
         !record.targetSame ||
+        !record.scenarioTargetSame ||
+        !record.reusedScenarioTarget ||
+        record.beforeOrder.length === 0 ||
+        record.afterOrder.length === 0 ||
         !record.handlerReferenceStable ||
         record.moduleEvaluations !== 1 ||
         record.effectDelta !== 1 ||

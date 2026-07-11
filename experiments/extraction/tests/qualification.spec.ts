@@ -4,6 +4,9 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { applyPrivateMorphCandidate } from "../../morph/candidate.ts";
+import { MORPH_QUALIFICATION_CASES } from "../../morph/fixtures/qualification-corpus.ts";
+import { createMorphQualificationScenario } from "../../morph/qualification-scenarios.ts";
 import { EXTRACTION_PROJECTS } from "../contract.ts";
 import type { ExtractionProject } from "../contract.ts";
 import { EXTRACTION_ACCEPTED_CLASSES } from "../fixtures/catalog.ts";
@@ -129,7 +132,7 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         await route.fulfill({
           status: 200,
           contentType: "text/html",
-          body: `<!doctype html><html><body><main id="identity-root">${adapters[fixtureId].html}</main><script type="module" src="/document.js"></script></body></html>`,
+          body: `<!doctype html><html><body><main id="identity-root"><section id="extraction-ui">${adapters[fixtureId].html}</section></main><script type="module" src="/document.js"></script></body></html>`,
         });
       } else if (path === "/document.js") {
         await route.fulfill({ status: 200, contentType: "text/javascript", body: documentModule(fixtureId) });
@@ -168,25 +171,67 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
     const identity: ExtractionQualificationObservation["fixtures"][number]["identity"][number][] = [];
     for (let index = 0; index < EXTRACTION_IDENTITY_CASES.length; index += 1) {
       const identityCase = EXTRACTION_IDENTITY_CASES[index]!;
+      const morphFixture = MORPH_QUALIFICATION_CASES.find((item) => item.id === identityCase.id);
+      if (!morphFixture) throw new Error(`missing H1 identity fixture: ${identityCase.id}`);
+      const scenario = createMorphQualificationScenario(morphFixture);
       const beforeEffects = 100 + index;
-      const targetSame = await page.evaluate((operation) => {
-        const state = globalThis as typeof globalThis & { __fadenoTriggerNode?: Element };
-        const target = document.querySelector("#trigger");
-        const root = document.querySelector("#identity-root");
-        if (!target || !root) return false;
-        if (operation === "insert-keyed") {
-          const peer = document.createElement("span");
-          peer.textContent = "inserted";
-          root.insertBefore(peer, target);
-        } else if (operation === "remove-keyed") {
-          const peer = document.createElement("span");
-          root.insertBefore(peer, target);
-          peer.remove();
-        } else if (operation === "reorder-keyed") {
-          root.append(target);
-        }
-        return state.__fadenoTriggerNode === target && target.isConnected;
-      }, identityCase.operation);
+      const prepared = await page.evaluate((value) => {
+        const state = globalThis as typeof globalThis & {
+          __fadenoTriggerNode?: Element;
+          __fadenoScenarioTarget?: Element;
+        };
+        const ui = document.querySelector("#extraction-ui");
+        const currentRoot = document.querySelector("#root, #identity-root");
+        if (!ui || !currentRoot) throw new Error("identity UI root is absent");
+        const template = document.createElement("template");
+        template.innerHTML = value.currentHtml;
+        const nextRoot = template.content.querySelector("#root");
+        if (!nextRoot) throw new Error("identity scenario root is absent");
+        nextRoot.append(ui);
+        currentRoot.replaceWith(nextRoot);
+        const scenarioTarget = document.getElementById(value.targetIdentity);
+        const operationParent = document.getElementById(value.operationParentIdentity);
+        if (!scenarioTarget || !operationParent) throw new Error("identity target is absent");
+        state.__fadenoScenarioTarget = scenarioTarget;
+        const replacementHtml = value.replacementHtml.replace(
+          "</main>",
+          `${ui.outerHTML}</main>`,
+        );
+        return {
+          replacementHtml,
+          beforeOrder: Array.from(operationParent.children).map((child) => child.id),
+          triggerSame: state.__fadenoTriggerNode === document.querySelector("#trigger"),
+        };
+      }, {
+        currentHtml: scenario.currentHtml,
+        replacementHtml: scenario.patch.replacementHtml,
+        targetIdentity: scenario.fixture.targetIdentity,
+        operationParentIdentity: scenario.operationParentIdentity,
+      });
+      expect(prepared.beforeOrder).toEqual(scenario.beforeOrder);
+      const morphResult = await page.evaluate(applyPrivateMorphCandidate, {
+        ...scenario.patch,
+        replacementHtml: prepared.replacementHtml,
+      });
+      const afterScenario = await page.evaluate((value) => {
+        const state = globalThis as typeof globalThis & {
+          __fadenoTriggerNode?: Element;
+          __fadenoScenarioTarget?: Element;
+        };
+        const operationParent = document.getElementById(value.operationParentIdentity);
+        const scenarioTarget = document.getElementById(value.targetIdentity);
+        return {
+          targetSame: state.__fadenoTriggerNode === document.querySelector("#trigger"),
+          scenarioTargetSame: state.__fadenoScenarioTarget === scenarioTarget,
+          afterOrder: operationParent
+            ? Array.from(operationParent.children).map((child) => child.id)
+            : [],
+        };
+      }, {
+        targetIdentity: scenario.fixture.targetIdentity,
+        operationParentIdentity: scenario.operationParentIdentity,
+      });
+      expect(afterScenario.afterOrder).toEqual(scenario.afterOrder);
       const beforeRequests = requests.length;
       await page.locator("#trigger").click();
       const ordinal = 101 + index;
@@ -209,7 +254,13 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
         caseId: identityCase.id,
         operation: identityCase.operation,
         ordinal,
-        targetSame,
+        targetSame: prepared.triggerSame && afterScenario.targetSame,
+        scenarioTargetSame: afterScenario.scenarioTargetSame,
+        reusedScenarioTarget: morphResult.reusedIdentities.includes(
+          scenario.fixture.targetIdentity,
+        ),
+        beforeOrder: prepared.beforeOrder,
+        afterOrder: afterScenario.afterOrder,
         handlerReferenceStable: record.handlerReferenceStable,
         moduleEvaluations: record.moduleEvaluations,
         effectDelta: record.effects - beforeEffects,
