@@ -153,11 +153,16 @@ if (
 ) {
   recordFailure("package.json: experiment:morph command differs");
 }
+const morphRegistryEntry = registry.experiments.find((entry: { id?: string }) => entry.id === "morph");
+if (!morphRegistryEntry || !["available", "qualified"].includes(morphRegistryEntry.status)) {
+  recordFailure("experiment registry: morph harness is unavailable");
+}
 if (
-  registry.experiments.find((entry: { id?: string }) => entry.id === "morph")?.status !==
-  "available"
+  morphRegistryEntry?.status === "qualified" &&
+  (morphRegistryEntry.decision !== "narrow" ||
+    morphRegistryEntry.decisionAdr !== "docs/adr/0014-narrow-structural-preservation.md")
 ) {
-  recordFailure("experiment registry: morph harness is not available");
+  recordFailure("experiment registry: morph qualification decision differs");
 }
 if (existsSync(join(root, "experiments/morph/package.json"))) {
   recordFailure("experiments/morph: package boundary is forbidden");

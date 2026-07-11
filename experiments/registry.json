@@ -18,7 +18,9 @@
       "command": "pnpm experiment:morph",
       "harnessSlice": "K0-02",
       "qualificationSlice": "K0-04",
-      "status": "available"
+      "status": "qualified",
+      "decision": "narrow",
+      "decisionAdr": "docs/adr/0014-narrow-structural-preservation.md"
     },
     {
       "id": "revalidation",

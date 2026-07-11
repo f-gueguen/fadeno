@@ -34,7 +34,7 @@ application selector commands. Navigation, action completion, and later live
 data share render, ordering, recovery, and preservation semantics, but their
 transport envelopes may differ.
 
-The experimental patch format stays private through H1 and V1. DG-V2-01 is the
+The experimental patch format stays private through K0 and V1. DG-V2-01 is the
 only path to an external versioned protocol.
 
 ## Preservation contract
@@ -52,6 +52,13 @@ Structural identity must not depend on unstable array position alone. An
 intentional replacement is explicit and independently testable. A preservation
 failure is correctness failure, not cosmetic variance.
 
+ADR 0014 narrows the structural mechanism: node reuse alone does not preserve
+exact numeric scroll when layout changes before the document viewport or before
+content inside a scroller. Until DG-V2-01 qualifies an explicit management
+policy, an enhanced update must refuse or replace any patch boundary that can
+affect that preceding layout. This restriction does not weaken the native
+fallback or imply that K0's private identity format is public.
+
 ## Ordering, errors, and recovery
 
 1. Messages contain sufficient request and structural identity to reject stale,
@@ -65,7 +72,13 @@ failure is correctness failure, not cosmetic variance.
 5. Development diagnostics explain which resource, action, or navigation
    caused an update without exposing protected data.
 
-## H1 and V2 conformance
+## Narrowed H1 result and V2 conformance
+
+K0-04 established cross-engine structural viability for focus/selection/caret,
+dirty controls, disclosure/top-layer state, media, island identity, and declared
+replacement. It did not establish layout-affecting document or element scroll.
+The following V2 obligations therefore remain prospective requirements, not
+claims supported by the K0 candidate.
 
 - Chromium, Firefox, and WebKit run the complete preservation corpus for both
   navigation- and action-driven updates.

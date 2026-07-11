@@ -5,21 +5,6 @@ Results enter ADRs and conformance tests; Git history carries completed trials.
 The [detailed K0 plan](../roadmap/k0.md) owns qualification fixtures, repetitions,
 quantitative thresholds, artifacts, and atomic delivery slices.
 
-## H1 — Browser-state-preserving server updates
-
-- Claim: server-derived HTML can update ordinary application pages without
-  destroying browser, user, or island-owned state.
-- Experiment: run a real-browser corpus in Chromium, Firefox, and WebKit across
-  focus, selection, caret, dirty controls, disclosure, dialog, popover, media,
-  scroll, and mounted-island identity.
-- Pass: every declared preservation case survives both navigation- and
-  action-driven updates; intentional replacement is separately testable.
-- Pivot: if structural HTML updates cannot meet the corpus reliably, narrow the
-  update model before building actions and live data on it.
-- Status: In progress.
-- Current evidence: the private K0-03 candidate is implemented; K0-04
-  qualification has not started.
-
 ## H2 — Bounded interaction extraction
 
 - Claim: common local interactions can compile to lazy browser handlers without
