@@ -31,7 +31,12 @@ import {
   assertBrowserCompatibility,
   classifyReferenceHost,
 } from "../experiments/morph/preflight.ts";
+import { manifestEnvironment } from "../experiments/morph/qualification-result.ts";
 import { readJsonDocument } from "./lib/experiment-contract.ts";
+import {
+  createContractValidators,
+  loadReferenceEnvironment,
+} from "./lib/experiment-validation.ts";
 import {
   createSyntheticPng,
   createSyntheticPngChunk,
@@ -144,6 +149,56 @@ if (!validPng) throw new Error("synthetic Chromium PNG missing");
 
 const packageJson = readJsonDocument(join(root, "package.json"));
 const registry = readJsonDocument(join(root, "experiments/registry.json"));
+const validManifest = readJsonDocument(
+  join(root, "experiments/contract/fixtures/valid/complete/manifest.json"),
+);
+const referenceEnvironment = loadReferenceEnvironment(root);
+const validEnvironment = validManifest.environment;
+const projectedEnvironment = manifestEnvironment(
+  {
+    schemaVersion: 1,
+    observedAt: validEnvironment.backgroundLoad.preflightObservedAt,
+    classification: validEnvironment.referenceClass,
+    reasons: [],
+    host: {
+      provider: validEnvironment.host.provider,
+      repositoryVisibility: validEnvironment.host.repositoryVisibility,
+      runnerLabel: validEnvironment.host.runnerLabel,
+      runnerImageVersion: validEnvironment.host.runnerImageVersion,
+      runnerName: validEnvironment.host.runnerName,
+      operatingSystemVersion: validEnvironment.host.operatingSystemVersion,
+      kernelVersion: validEnvironment.host.kernelVersion,
+      architecture: validEnvironment.host.architecture,
+      cpuModel: validEnvironment.host.cpuModel,
+      observedLogicalCpuCount: validEnvironment.host.logicalCpuCount,
+      advertisedLogicalCpuCount: validEnvironment.host.logicalCpuCount,
+      observedMemoryMiB: validEnvironment.host.memoryMiB,
+      advertisedMemoryMiB: validEnvironment.host.memoryMiB,
+      advertisedStorageMiB: validEnvironment.host.advertisedStorageMiB,
+      freeStorageMiB: validEnvironment.host.freeStorageMiB,
+      loadAverage1m: validEnvironment.backgroundLoad.loadAverage1m,
+      processCount: validEnvironment.backgroundLoad.processCount,
+    },
+    container: {
+      runtimeImage: validEnvironment.container.image,
+      platform: validEnvironment.container.platform,
+      platformDigest: validEnvironment.container.platformDigest,
+      configDigest: validEnvironment.container.configDigest,
+    },
+    toolchain: validEnvironment.toolchain,
+    browsers: {
+      chromium: validEnvironment.browsers.chromeForTesting,
+      firefox: validEnvironment.browsers.firefox,
+      webkit: validEnvironment.browsers.webkit,
+    },
+  },
+  referenceEnvironment,
+);
+const projectedManifest = structuredClone(validManifest);
+projectedManifest.environment = projectedEnvironment;
+if (!createContractValidators(root).manifest(projectedManifest)) {
+  recordFailure("morph qualification: projected manifest environment violates the result schema");
+}
 if (packageJson.devDependencies?.["@playwright/test"] !== "1.61.0") {
   recordFailure("package.json: @playwright/test must be pinned to 1.61.0");
 }

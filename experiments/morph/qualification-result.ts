@@ -65,7 +65,7 @@ function copyArtifact(
   return artifactRecord(runDirectory, destination);
 }
 
-function manifestEnvironment(
+export function manifestEnvironment(
   preflight: MorphPreflight,
   reference: ReferenceEnvironment,
 ) {
@@ -105,7 +105,10 @@ function manifestEnvironment(
       firefox: preflight.browsers.firefox,
       webkit: preflight.browsers.webkit,
     },
-    power: reference.power,
+    power: {
+      policy: reference.power.policy,
+      telemetry: reference.power.telemetry,
+    },
     backgroundLoad: {
       preflightObservedAt: preflight.observedAt,
       loadAverage1m: host.loadAverage1m,
