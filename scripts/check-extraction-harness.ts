@@ -17,7 +17,10 @@ import {
   stableExtractionInventory,
 } from "../experiments/extraction/fixtures/catalog.ts";
 import { verifyAcceptedObservation } from "../experiments/extraction/accepted-proof.ts";
-import { runSeededBoundaryPipeline } from "../experiments/extraction/boundary-pipeline.ts";
+import {
+  runSeededBoundaryPipeline,
+  verifySeededBoundaryRejection,
+} from "../experiments/extraction/boundary-pipeline.ts";
 import { EXTRACTION_PROJECTS } from "../experiments/extraction/contract.ts";
 import type {
   ExtractionObservation,
@@ -164,6 +167,30 @@ for (const [name, mutation] of [
     if (error instanceof Error && error.message.endsWith("report mutation was accepted")) throw error;
   }
 }
+const fabricatedObservation = {
+  ...observationFor("chromium"),
+  observedBrowser: "firefox" as const,
+};
+const fabricatedBody = Buffer.from(`${JSON.stringify(fabricatedObservation, null, 2)}\n`);
+const fabricatedReport: ExtractionRunReport = {
+  ...report,
+  tests: report.tests.map((test) => test.projectName === "chromium" ? {
+    ...test,
+    attachment: {
+      ...test.attachment,
+      sha256: createHash("sha256").update(fabricatedBody).digest("hex"),
+    },
+  } : test),
+};
+try {
+  verifyExtractionRunReport(
+    fabricatedReport,
+    (path) => path === "attachments/chromium.json" ? fabricatedBody : readAttachment(path),
+  );
+  throw new Error("K0-05 fabricated observation mutation was accepted");
+} catch (error: unknown) {
+  if (error instanceof Error && error.message.endsWith("mutation was accepted")) throw error;
+}
 
 const canary = "fadeno-extraction-test-canary";
 let rejectedCallbacks = 0;
@@ -178,14 +205,29 @@ const rejectedDiagnostic = runSeededBoundaryPipeline({
   startBrowser() { rejectedCallbacks += 1; },
 });
 if (
-  !rejectedDiagnostic ||
-  rejectedDiagnostic.source !== "rejected/server-secret.ts" ||
-  rejectedDiagnostic.range.line !== 1 ||
-  rejectedDiagnostic.range.column !== 24 ||
-  JSON.stringify(rejectedDiagnostic).includes(canary) ||
   rejectedCallbacks !== 0
-) {
-  throw new Error("K0-05 rejected pipeline did not stop before browser boundaries");
+) throw new Error("K0-05 rejected pipeline did not stop before browser boundaries");
+verifySeededBoundaryRejection(rejectedDiagnostic, canary, {
+  writerStarted: false,
+  serverStarted: false,
+  browserStarted: false,
+});
+if (!rejectedDiagnostic) throw new Error("K0-05 rejected diagnostic is absent");
+for (const [name, mutation] of [
+  ["diagnostic source", { ...rejectedDiagnostic, source: "server-secret.ts" }],
+  ["diagnostic message", { ...rejectedDiagnostic, message: "boundary rejected" }],
+  ["diagnostic range", { ...rejectedDiagnostic, range: { ...rejectedDiagnostic.range, column: 25 } }],
+] as const) {
+  try {
+    verifySeededBoundaryRejection(mutation as typeof rejectedDiagnostic, canary, {
+      writerStarted: false,
+      serverStarted: false,
+      browserStarted: false,
+    });
+    throw new Error(`K0-05 ${name} mutation was accepted`);
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.endsWith("mutation was accepted")) throw error;
+  }
 }
 let acceptedCallbacks = 0;
 let emitted = "";

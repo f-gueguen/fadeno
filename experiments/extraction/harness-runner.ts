@@ -12,7 +12,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
-import { runSeededBoundaryPipeline } from "./boundary-pipeline.ts";
+import {
+  runSeededBoundaryPipeline,
+  verifySeededBoundaryRejection,
+} from "./boundary-pipeline.ts";
 import type { ExtractionRunReport } from "./contract.ts";
 import { verifyExtractionRunReport } from "./evidence-proof.ts";
 
@@ -43,19 +46,12 @@ export function executeExtractionHarness(): void {
     startServer() { serverStarted = true; },
     startBrowser() { browserStarted = true; },
   });
-  if (!diagnostic) throw new Error("FADENO_EXTRACTION_SEEDED_REJECTION_MISSING");
+  verifySeededBoundaryRejection(diagnostic, canary, {
+    writerStarted,
+    serverStarted,
+    browserStarted,
+  });
   const serialized = JSON.stringify(diagnostic);
-  if (
-    diagnostic.source !== "rejected/server-secret.ts" ||
-    diagnostic.range.line !== 1 ||
-    diagnostic.range.column !== 24 ||
-    serialized.includes(canary) ||
-    writerStarted ||
-    serverStarted ||
-    browserStarted
-  ) {
-    throw new Error("FADENO_EXTRACTION_REJECTED_CONTROL");
-  }
   writeFileSync(
     join(output, "rejected-diagnostic.json"),
     `${JSON.stringify(diagnostic, null, 2)}\n`,
