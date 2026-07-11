@@ -12,17 +12,22 @@ K0-05 — extraction and module-graph harness
 
 - [x] The reviewed accepted/rejected interaction corpus is locked before an
   extraction candidate is implemented.
-- [ ] The three-engine harness proves browser identity, module/network
+- [x] The three-engine harness proves browser identity, module/network
   observation, and stable diagnostics with seeded passing and failing controls.
-- [ ] The slice adds no public extraction API and makes no H2 viability claim.
-- [ ] `pnpm install --frozen-lockfile`, `pnpm check`, and the K0-05 harness
+- [x] The slice adds no public extraction API and makes no H2 viability claim.
+- [x] `pnpm install --frozen-lockfile`, `pnpm check`, and the K0-05 harness
   command pass in the required environments.
 
 ## In progress
 
-- The exact 5 accepted and 10 rejected TypeScript fixture sources, hashes,
-  private module roles/edges, triggers, and classifications are locked.
-- Seeded accepted/rejected executable controls remain to be implemented.
+- The exact 5 accepted and 10 rejected TypeScript qualification sources,
+  support declarations, hashes, private source-grounded module roles/edges,
+  triggers, and classifications are locked separately from the executable seed.
+- The seed runs in Chromium, Firefox, and WebKit and retains actual browser
+  identity, response bodies/content types/hashes, request timing, no-JavaScript
+  baseline, stable refusal diagnostic, and canary boundary evidence.
+- Local frozen install/check and the hosted `check` and `extraction-harness`
+  jobs pass at the current PR head; final review and merge remain in progress.
 
 ## Blockers
 
