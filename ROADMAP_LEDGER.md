@@ -10,9 +10,9 @@ K0-08A — establish H3 qualification capability without collecting a result
 
 ## Exit criteria
 
-- [ ] ADR 0017 and a strict H3-only local Docker contract preserve the frozen
+- [x] ADR 0017 and a strict H3-only local Docker contract preserve the frozen
   H1/H2 browser reference unchanged.
-- [ ] An independently checked private 1,000-route corpus locks topology and
+- [x] An independently checked private 1,000-route corpus locks topology and
   scalar coverage without choosing DG-V1-02 or DG-V1-05 syntax.
 - [ ] Stock `tsc` and `tsserver` controls prove exact valid/invalid diagnostics
   and generated-symbol consumption.
@@ -23,8 +23,8 @@ K0-08A — establish H3 qualification capability without collecting a result
 
 ## In progress
 
-- The plan and H3-only reference boundary are locked before qualification
-  corpus or runner implementation.
+- The plan, H3-only reference boundary, and deterministic A/B corpus are locked
+  before runner implementation or qualification measurement.
 - Current host load is non-reference; K0-08A may implement verification but may
   not publish a result.
 

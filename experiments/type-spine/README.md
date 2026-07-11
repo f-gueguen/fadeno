@@ -2,7 +2,8 @@
 
 - Hypothesis: H3 — stock-TypeScript route, form, and context typing.
 - Harness slice: K0-07.
-- Qualification slice: K0-08.
+- Qualification capability slice: K0-08A.
+- Qualification evidence and decision slice: K0-08B.
 - Commands: `pnpm experiment:type-spine -- --list` prints the locked private
   contract without generating files; `pnpm experiment:type-spine --
   --verify-harness` runs contained deterministic generation and the seeded
@@ -22,5 +23,12 @@ tree or retains its exact backup for explicit recovery. Semantic IDs and keys
 are bounded opaque values that are quoted in output; they do not choose route,
 form, or field naming or cross-category collision policy. The fixed candidate
 names and file layout are experiment ABI, not public route, form, context, or
-package syntax. K0-08 must still qualify H3 on the 1,000-route corpus before any
-GO/NARROW/PIVOT decision.
+package syntax. K0-08B must still qualify H3 on the 1,000-route corpus before
+any GO/NARROW/PIVOT decision.
+
+K0-08A freezes that workload in `qualification-corpus.json`. Its A and B inputs
+contain exactly 1,000 opaque route records and differ in exactly `r0999`; the
+separate topology projection supplies nested-workload coverage without turning
+parent/depth metadata into framework syntax. The checked builder is the corpus
+provenance control, while the qualification runner consumes the committed JSON
+as its authority. No file under `results/` is produced by K0-08A.
