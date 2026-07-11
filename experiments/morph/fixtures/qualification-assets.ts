@@ -9,8 +9,8 @@ export function createQualificationFile(): Buffer {
 }
 
 export function createQualificationTone(): Buffer {
-  const sampleRate = 1_000;
-  const sampleCount = sampleRate * 10;
+  const sampleRate = 4_000;
+  const sampleCount = sampleRate * 4;
   const bytes = Buffer.alloc(44 + sampleCount * 2);
   bytes.write("RIFF", 0);
   bytes.writeUInt32LE(36 + sampleCount * 2, 4);
@@ -25,7 +25,7 @@ export function createQualificationTone(): Buffer {
   bytes.write("data", 36);
   bytes.writeUInt32LE(sampleCount * 2, 40);
   for (let index = 0; index < sampleCount; index += 1) {
-    const sample = Math.round(Math.sin((2 * Math.PI * 100 * index) / sampleRate) * 10_000);
+    const sample = Math.round(Math.sin((2 * Math.PI * 440 * index) / sampleRate) * 10_000);
     bytes.writeInt16LE(sample, 44 + index * 2);
   }
   return bytes;

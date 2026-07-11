@@ -6,7 +6,9 @@ import type { MorphProject } from "./contract.ts";
 import {
   MorphHarnessError,
   verifyPortableHarnessAttachment,
+  verifyTraceAttachmentBindings,
 } from "./harness-report.ts";
+import type { TraceEvidence } from "./harness-report.ts";
 import type {
   QualificationFailureEvidence,
   QualificationRecord,
@@ -136,6 +138,7 @@ export function verifyQualificationReport(
     }
 
     const verified = new Map<MachineAttachment, string>();
+    let traceEvidence: TraceEvidence | undefined;
     for (const attachment of result.attachments) {
       const verifiedAttachment = verifyPortableHarnessAttachment(attachment, options.outputRoot);
       if (seenPaths.has(verifiedAttachment.path)) {
@@ -153,7 +156,11 @@ export function verifyQualificationReport(
         ) {
           fail("FADENO_MORPH_QUALIFICATION_TRACE", `${engine}: trace identity differs`);
         }
+        traceEvidence = trace;
       }
+    }
+    if (!passing && traceEvidence) {
+      verifyTraceAttachmentBindings(result, verified, traceEvidence);
     }
     const recordsPath = attachmentByName(result, verified, "qualification-records");
     const summaryPath = attachmentByName(result, verified, "qualification-summary");

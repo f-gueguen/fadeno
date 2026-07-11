@@ -136,6 +136,9 @@ export async function executeMorphQualification(
     );
   }
   assertCleanMorphSource(root, sourceCommit);
+  if (outcome.status === "failed") {
+    verifyAcceptedQualificationFailure(root, outcome, profile);
+  }
   const completedAt = new Date().toISOString();
   const published = publishQualificationEvidence({
     root,
@@ -157,7 +160,6 @@ export async function executeMorphQualification(
     console.log(`morph qualification manifest published (${published.manifestPath})`);
   }
   if (outcome.status === "failed") {
-    verifyAcceptedQualificationFailure(root, outcome, profile);
     console.log("morph qualification failure matches the accepted narrow decision signature");
   }
 }

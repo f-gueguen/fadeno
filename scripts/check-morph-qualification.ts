@@ -708,6 +708,18 @@ try {
     if (verifiedFailure.status !== "failed" || verifiedFailure.failed.length !== 3) {
       recordFailure("complete failed report: verified outcome differs");
     }
+    const firstResult = failedResults[0];
+    const firstScreenshot = firstResult?.attachments.find(
+      (attachment) => attachment.name === "screenshot",
+    );
+    if (!firstResult || !firstScreenshot) throw new Error("missing synthetic failed screenshot");
+    const swappedScreenshot = join(failedRoot, firstScreenshot.path);
+    writeFileSync(swappedScreenshot, createSyntheticPng(200));
+    firstScreenshot.bytes = statSync(swappedScreenshot).size;
+    writeJson(failedReport, { schemaVersion: 1, status: "failed", results: failedResults });
+    expectHarnessError("unbound qualification screenshot", "FADENO_MORPH_TRACE_ATTACHMENT", () => {
+      verifyQualificationReport(failedReport, { profile: "ci", outputRoot: failedRoot });
+    });
   } finally {
     rmSync(failedRoot, { recursive: true, force: true });
   }

@@ -128,6 +128,29 @@ export type TraceEvidence = {
   attachments: Map<string, { contentType: string; sha1: string }>;
 };
 
+export function verifyTraceAttachmentBindings(
+  result: MachineResult,
+  verifiedPaths: ReadonlyMap<MachineAttachment, string>,
+  traceEvidence: TraceEvidence,
+): void {
+  for (const attachment of result.attachments) {
+    if (attachment.name === "trace") continue;
+    const traced = traceEvidence.attachments.get(attachment.name);
+    const path = verifiedPaths.get(attachment);
+    if (
+      !traced ||
+      !path ||
+      traced.contentType !== attachment.contentType ||
+      traced.sha1 !== sha1File(path)
+    ) {
+      fail(
+        "FADENO_MORPH_TRACE_ATTACHMENT",
+        `${result.project}: ${attachment.name} is not bound to the trace`,
+      );
+    }
+  }
+}
+
 function fail(code: string, message: string): never {
   throw new MorphHarnessError(code, message);
 }
@@ -750,22 +773,7 @@ export function verifyHarnessReport(reportPath: string, options: VerifyOptions):
       }
     }
     if (expected === "failed" && traceEvidence) {
-      for (const attachment of result.attachments) {
-        if (attachment.name === "trace") continue;
-        const traced = traceEvidence.attachments.get(attachment.name);
-        const path = verifiedPaths.get(attachment);
-        if (
-          !traced ||
-          !path ||
-          traced.contentType !== attachment.contentType ||
-          traced.sha1 !== sha1File(path)
-        ) {
-          fail(
-            "FADENO_MORPH_TRACE_ATTACHMENT",
-            `${result.project}: ${attachment.name} is not bound to the trace`,
-          );
-        }
-      }
+      verifyTraceAttachmentBindings(result, verifiedPaths, traceEvidence);
     }
   }
   return report;

@@ -49,6 +49,10 @@ const goldenQualificationCorpus = readFileSync(
   "utf8",
 );
 const runnerSource = readFileSync(join(root, "experiments/morph/harness-runner.ts"), "utf8");
+const qualificationRunnerSource = readFileSync(
+  join(root, "experiments/morph/qualification-runner.ts"),
+  "utf8",
+);
 const harnessSpecSource = readFileSync(
   join(root, "experiments/morph/tests/harness.spec.ts"),
   "utf8",
@@ -70,6 +74,17 @@ const referenceActionSource = readFileSync(
   join(root, ".github/actions/morph-reference/action.yml"),
   "utf8",
 );
+const decisionGateOffset = qualificationRunnerSource.indexOf(
+  "verifyAcceptedQualificationFailure(root, outcome, profile)",
+);
+const publicationOffset = qualificationRunnerSource.indexOf("publishQualificationEvidence({");
+if (
+  decisionGateOffset < 0 ||
+  publicationOffset < 0 ||
+  decisionGateOffset > publicationOffset
+) {
+  recordFailure("qualification runner: failed outcome must be decision-gated before publication");
+}
 
 type ReportAttachment = {
   name: string;

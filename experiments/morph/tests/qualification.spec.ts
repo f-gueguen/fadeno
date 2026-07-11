@@ -5,7 +5,11 @@ import type { Page, TestInfo } from "@playwright/test";
 
 import { applyPrivateMorphCandidate } from "../candidate.ts";
 import type { PrivateMorphResult } from "../candidate.ts";
-import { MORPH_QUALIFICATION_ASSETS, createQualificationFile } from "../fixtures/qualification-assets.ts";
+import {
+  MORPH_QUALIFICATION_ASSETS,
+  createQualificationFile,
+  createQualificationTone,
+} from "../fixtures/qualification-assets.ts";
 import type { QualificationState } from "../fixtures/qualification-corpus.ts";
 import type {
   QualificationFailureEvidence,
@@ -88,6 +92,44 @@ async function verifyUnhandledRejectionSensor(page: Page): Promise<void> {
     return currentWindow.__fadenoUnhandledRejections ?? [];
   });
   expect(observed).toEqual(["Error: FADENO_MORPH_REJECTION_SENSOR"]);
+}
+
+async function verifyMediaAssetSensor(page: Page): Promise<void> {
+  const source = `data:audio/wav;base64,${createQualificationTone().toString("base64")}`;
+  await page.setContent(`<!doctype html><audio preload="auto" src="${source}"></audio>`);
+  const proof = await page.locator("audio").evaluate(async (element) => {
+    const media = element as HTMLAudioElement;
+    if (media.readyState < 2) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("media sensor timeout")), 2_000);
+        media.addEventListener("canplay", () => {
+          clearTimeout(timeout);
+          resolve();
+        }, { once: true });
+        media.addEventListener("error", () => {
+          clearTimeout(timeout);
+          reject(new Error(`media sensor error ${media.error?.code ?? "unknown"}`));
+        }, { once: true });
+      });
+    }
+    await media.play();
+    const deadline = performance.now() + 2_000;
+    while (media.currentTime <= 0.02 && performance.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    const result = {
+      duration: media.duration,
+      currentTime: media.currentTime,
+      paused: media.paused,
+      error: media.error?.code ?? null,
+    };
+    media.pause();
+    return result;
+  });
+  expect(proof.error).toBeNull();
+  expect(proof.duration).toBeGreaterThanOrEqual(3.9);
+  expect(proof.currentTime).toBeGreaterThan(0.02);
+  expect(proof.paused).toBe(false);
 }
 
 async function prepareScenario(page: Page, scenario: MorphQualificationScenario): Promise<void> {
@@ -215,10 +257,13 @@ async function prepareScenario(page: Page, scenario: MorphQualificationScenario)
         media.pause();
         media.currentTime = 0.25;
         const deadline = performance.now() + 2_000;
-        while (Math.abs(media.currentTime - 0.25) > 0.002 && performance.now() < deadline) {
+        while (
+          (Math.abs(media.currentTime - 0.25) > 0.002 || media.seeking) &&
+          performance.now() < deadline
+        ) {
           await new Promise((resolve) => setTimeout(resolve, 10));
         }
-        if (Math.abs(media.currentTime - 0.25) > 0.002) {
+        if (Math.abs(media.currentTime - 0.25) > 0.002 || media.seeking) {
           throw new Error("FADENO_MORPH_MEDIA_SEEK_DID_NOT_SETTLE");
         }
       });
@@ -700,6 +745,7 @@ test(`qualification-${profile}`, async ({ page }, testInfo: TestInfo) => {
   let activeScenario: MorphQualificationScenario | undefined;
   let activeOrdinal = 0;
   await verifyUnhandledRejectionSensor(page);
+  await verifyMediaAssetSensor(page);
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route(/^https?:\/\//u, async (route) => {
     blockedRequests.push(route.request().url());
