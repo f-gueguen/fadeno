@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Route } from "@playwright/test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 import type { ExtractionObservation, ExtractionProject } from "../contract.ts";
 import { verifyAcceptedObservation } from "../accepted-proof.ts";
@@ -89,6 +91,11 @@ test("seeded-accepted-loading-control", async ({ browser, page }, testInfo) => {
     noJavaScriptRequests,
   };
   verifyAcceptedObservation(observation);
+  const outputRoot = process.env.FADENO_EXTRACTION_OUTPUT;
+  if (!outputRoot) throw new Error("FADENO_EXTRACTION_OUTPUT is required");
+  const observationRoot = join(outputRoot, "observations");
+  mkdirSync(observationRoot, { recursive: true });
+  writeFileSync(join(observationRoot, `${engine}.json`), `${JSON.stringify(observation, null, 2)}\n`);
   await testInfo.attach("accepted-observation", {
     body: Buffer.from(`${JSON.stringify(observation, null, 2)}\n`),
     contentType: "application/json",

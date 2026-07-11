@@ -87,7 +87,7 @@ const playwrightConfigSource = readFileSync(
   "utf8",
 );
 const referenceActionSource = readFileSync(
-  join(root, ".github/actions/morph-reference/action.yml"),
+  join(root, ".github/actions/browser-reference/action.yml"),
   "utf8",
 );
 const decisionGateOffset = qualificationRunnerSource.indexOf(
@@ -1159,9 +1159,9 @@ try {
 const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
 for (const required of [
   "runs-on: ubuntu-24.04",
-  "uses: ./.github/actions/morph-reference",
-  "profile: ci",
-  "profile: qualification",
+  "uses: ./.github/actions/browser-reference",
+  "task: morph-ci",
+  "task: morph-qualification",
   "if: always()",
   "output/playwright/morph",
   "output/playwright/morph-harness",
@@ -1171,7 +1171,7 @@ for (const required of [
   if (!workflow.includes(required)) recordFailure(`workflow: missing ${required}`);
 }
 if (
-  (workflow.match(/uses: \.\/\.github\/actions\/morph-reference/gu) ?? []).length !== 2 ||
+  (workflow.match(/uses: \.\/\.github\/actions\/browser-reference/gu) ?? []).length !== 3 ||
   workflow.includes("docker run --rm --ipc=host")
 ) {
   recordFailure("workflow: reference policy must have exactly one composite owner");

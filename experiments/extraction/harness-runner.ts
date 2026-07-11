@@ -4,6 +4,10 @@ import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { senseSeededServerImport } from "./boundary-sensor.ts";
+import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
+import { verifyAcceptedObservation } from "./accepted-proof.ts";
+import { EXTRACTION_PROJECTS } from "./contract.ts";
+import type { ExtractionObservation } from "./contract.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const experimentRoot = join(root, "experiments/extraction");
@@ -43,6 +47,11 @@ export function executeExtractionHarness(): void {
   process.stderr.write(result.stderr ?? "");
   if (result.status !== 0 || result.error || result.signal) {
     throw new Error(`FADENO_EXTRACTION_ACCEPTED_CONTROL: ${result.status ?? result.signal}`);
+  }
+  for (const engine of EXTRACTION_PROJECTS) {
+    verifyAcceptedObservation(
+      readJsonDocument(join(output, "observations", `${engine}.json`)) as ExtractionObservation,
+    );
   }
   console.log(`extraction rejected seed: ${diagnostic.id} at ${diagnostic.source}:${diagnostic.range.line}:${diagnostic.range.column}`);
 }
