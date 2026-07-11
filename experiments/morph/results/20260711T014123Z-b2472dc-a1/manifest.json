@@ -10965,6 +10965,11 @@
       "bytes": 532007
     },
     {
+      "path": "artifacts/diagnostics/chromium/diagnostic-failure.json",
+      "sha256": "0dea40d80baa1c9025c5b233a7b207b6e72b93232af47b6c2dd047745b6929a3",
+      "bytes": 2463
+    },
+    {
       "path": "artifacts/diagnostics/chromium/screenshot.png",
       "sha256": "4243316c482e3c458f459f13f46d9df157d05d0b8dc0b4d60e54ff50c00d76ef",
       "bytes": 4955
@@ -10993,6 +10998,11 @@
       "path": "artifacts/failures/firefox.json",
       "sha256": "bb38a92be52a2be07188274f37b8b8a3955cec3d1b7eeaad9ab940a1316fc17e",
       "bytes": 531546
+    },
+    {
+      "path": "artifacts/diagnostics/firefox/diagnostic-failure.json",
+      "sha256": "a436d840c8c20ea34d2a3b70eb6c627d5c2aece535f53b7388cec47fc81bee3c",
+      "bytes": 2460
     },
     {
       "path": "artifacts/diagnostics/firefox/screenshot.png",
@@ -11025,6 +11035,11 @@
       "bytes": 530887
     },
     {
+      "path": "artifacts/diagnostics/webkit/diagnostic-failure.json",
+      "sha256": "915e7a9559d5e6e831044f3aaf78634d2e5717a7a5b13ae5da79846e497b6a64",
+      "bytes": 2456
+    },
+    {
       "path": "artifacts/diagnostics/webkit/screenshot.png",
       "sha256": "36927fb21cb0f650da174fad4de92cd93c2a14ff2f63dde39ae4fb1bcc6e2a01",
       "bytes": 6453
@@ -11046,8 +11061,8 @@
     },
     {
       "path": "run.json",
-      "sha256": "fa8012876189d810afec8096517c94cdbc6ebb4e0dba4024b78ca56e440a0b7b",
-      "bytes": 4443
+      "sha256": "be3f6d0ce2431b8588ded0a45ee7ca6b09463c6346cf09107a4112f0df13f7b8",
+      "bytes": 5007
     }
   ],
   "validator": {

@@ -29,6 +29,7 @@ import type { MorphQualificationProfile } from "./qualification-scenarios.ts";
 export type QualificationEvidence = Readonly<{
   engine: MorphProject;
   recordsPath: string;
+  failuresPath: string;
   summaryPath: string;
   summary: ReturnType<typeof verifyQualificationOutcome>;
 }>;
@@ -38,6 +39,7 @@ export type QualificationFailedEvidence = Readonly<{
   recordsPath: string;
   failuresPath: string;
   summaryPath: string;
+  diagnosticFailurePath: string;
   screenshotPath: string;
   tracePath: string;
   errorContextPath: string;
@@ -165,7 +167,7 @@ export function verifyQualificationReport(
         attachmentByName(diagnostic, verified, "diagnostic-record"),
       ) as QualificationRecord;
       verifyQualificationDiagnosticRecord(record, options.profile, engine);
-      passedEvidence.push({ engine, recordsPath, summaryPath, summary });
+      passedEvidence.push({ engine, recordsPath, failuresPath, summaryPath, summary });
       continue;
     }
 
@@ -231,6 +233,11 @@ export function verifyQualificationReport(
       recordsPath,
       failuresPath,
       summaryPath,
+      diagnosticFailurePath: attachmentByName(
+        diagnostic,
+        diagnosticVerified,
+        "diagnostic-failure",
+      ),
       screenshotPath: attachmentByName(diagnostic, diagnosticVerified, "screenshot"),
       tracePath: attachmentByName(diagnostic, diagnosticVerified, "trace"),
       errorContextPath: attachmentByName(diagnostic, diagnosticVerified, "error-context"),

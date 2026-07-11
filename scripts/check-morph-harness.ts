@@ -331,7 +331,11 @@ if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].
     ) {
       throw new Error("manifest identity or conclusion differs");
     }
-    const outcome = verifyPublishedQualificationOutcome(runRoot, "qualification");
+    const outcome = verifyPublishedQualificationOutcome(
+      runRoot,
+      "qualification",
+      manifest,
+    );
     verifyAcceptedQualificationFailure(root, outcome, "qualification");
     const run = readJsonDocument(join(runRoot, "run.json"));
     const evidence = [...outcome.passed, ...outcome.failed];
@@ -353,6 +357,35 @@ if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].
     const manifestArtifacts = manifest.artifacts.filter(
       (artifact: { path: string }) => artifact.path !== "run.json",
     );
+    const expectedMeasurements = [
+      {
+        name: "candidate-round-trip",
+        unit: "ms",
+        values: evidence.flatMap((item) => item.summary.candidateRoundTripMilliseconds),
+      },
+      {
+        name: "document-element-count",
+        unit: "count",
+        values: evidence.flatMap((item) => item.summary.documentElementCounts),
+      },
+      {
+        name: "intentional-replacement-count",
+        unit: "count",
+        values: [expectedMatrix.intentionalReplacements],
+      },
+      {
+        name: "qualification-failure-count",
+        unit: "count",
+        values: [expectedMatrix.failedRecords],
+      },
+    ];
+    const expectedFailures = outcome.failed.map((item) => ({
+      code: "FADENO_MORPH_QUALIFICATION_FAILURE",
+      message: `${item.engine}: ${item.summary.failedRecords} cells failed (${[
+        ...new Set(item.summary.failures.flatMap((failure) => failure.categories)),
+      ].join(", ")})`,
+      artifact: `artifacts/failures/${item.engine}.json`,
+    }));
     if (
       run.run.id !== manifest.run.id ||
       run.run.attempt !== manifest.run.attempt ||
@@ -362,6 +395,8 @@ if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].
       !isDeepStrictEqual(run.source, manifest.source) ||
       !isDeepStrictEqual(run.matrix, expectedMatrix) ||
       !isDeepStrictEqual(run.artifacts, manifestArtifacts) ||
+      !isDeepStrictEqual(manifest.measurements, expectedMeasurements) ||
+      !isDeepStrictEqual(manifest.failures, expectedFailures) ||
       run.corpus.path !== manifest.workload.dataset.artifact ||
       run.corpus.sha256 !== manifest.workload.dataset.sha256
     ) {
@@ -389,6 +424,63 @@ if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].
         throw new Error("rewritten canonical failure artifact was accepted");
       } catch (error: unknown) {
         if (error instanceof Error && error.message === "rewritten canonical failure artifact was accepted") {
+          throw error;
+        }
+      }
+
+      cpSync(pinnedRoot, mutationRoot, { recursive: true, force: true });
+      const missingArtifactManifestPath = join(mutationRoot, "manifest.json");
+      const missingArtifactManifest = readJsonDocument(missingArtifactManifestPath);
+      missingArtifactManifest.artifacts = missingArtifactManifest.artifacts.filter(
+        (entry: { path: string }) => entry.path !== "artifacts/records/chromium.json",
+      );
+      writeFileSync(
+        missingArtifactManifestPath,
+        `${JSON.stringify(missingArtifactManifest, null, 2)}\n`,
+      );
+      try {
+        verifyPinnedRun(mutationRoot);
+        throw new Error("unlisted canonical record artifact was accepted");
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "unlisted canonical record artifact was accepted") {
+          throw error;
+        }
+      }
+
+      cpSync(pinnedRoot, mutationRoot, { recursive: true, force: true });
+      const tracePath = join(mutationRoot, "artifacts/diagnostics/chromium/trace.zip");
+      writeFileSync(tracePath, "not a trace\n");
+      const traceManifestPath = join(mutationRoot, "manifest.json");
+      const traceManifest = readJsonDocument(traceManifestPath);
+      const traceArtifact = traceManifest.artifacts.find(
+        (entry: { path: string }) => entry.path === "artifacts/diagnostics/chromium/trace.zip",
+      );
+      if (!traceArtifact) throw new Error("trace mutation artifact is missing");
+      traceArtifact.sha256 = sha256File(tracePath);
+      traceArtifact.bytes = statSync(tracePath).size;
+      writeFileSync(traceManifestPath, `${JSON.stringify(traceManifest, null, 2)}\n`);
+      try {
+        verifyPinnedRun(mutationRoot);
+        throw new Error("rewritten canonical trace was accepted");
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "rewritten canonical trace was accepted") {
+          throw error;
+        }
+      }
+
+      cpSync(pinnedRoot, mutationRoot, { recursive: true, force: true });
+      const measurementManifestPath = join(mutationRoot, "manifest.json");
+      const measurementManifest = readJsonDocument(measurementManifestPath);
+      measurementManifest.measurements[0].values[0] += 1;
+      writeFileSync(
+        measurementManifestPath,
+        `${JSON.stringify(measurementManifest, null, 2)}\n`,
+      );
+      try {
+        verifyPinnedRun(mutationRoot);
+        throw new Error("rewritten manifest measurement was accepted");
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === "rewritten manifest measurement was accepted") {
           throw error;
         }
       }

@@ -316,6 +316,7 @@ function syntheticFailedEvidence(engine: MorphProject): Readonly<{
       recordsPath: `${engine}-records.json`,
       failuresPath: `${engine}-failures.json`,
       summaryPath: `${engine}-summary.json`,
+      diagnosticFailurePath: `${engine}-diagnostic.json`,
       screenshotPath: `${engine}.png`,
       tracePath: `${engine}.zip`,
       errorContextPath: `${engine}.md`,

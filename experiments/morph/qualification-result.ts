@@ -23,14 +23,25 @@ import {
 import type { ReferenceEnvironment } from "../../scripts/lib/experiment-validation.ts";
 import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
 import { MORPH_PROJECTS } from "./contract.ts";
-import { MorphHarnessError } from "./harness-report.ts";
+import {
+  MorphHarnessError,
+  verifyPortableHarnessAttachment,
+  verifyTraceAttachmentBindings,
+} from "./harness-report.ts";
+import type { TraceEvidence } from "./harness-report.ts";
+import type {
+  MorphMachineAttachment,
+  MorphMachineResult,
+} from "./machine-report.ts";
 import type {
   QualificationEvidence,
   QualificationFailedEvidence,
   QualificationReportOutcome,
 } from "./qualification-report.ts";
 import {
+  classifyQualificationFailure,
   qualificationRepetitions,
+  verifyQualificationFailureAlignment,
   verifyQualificationOutcome,
 } from "./qualification-proof.ts";
 import type {
@@ -56,13 +67,30 @@ type ArtifactRecord = Readonly<{
 export function verifyPublishedQualificationOutcome(
   runDirectory: string,
   profile: MorphQualificationProfile,
+  manifest: Readonly<{ artifacts: readonly ArtifactRecord[] }>,
 ): QualificationReportOutcome {
   const passed: QualificationEvidence[] = [];
   const failed: QualificationFailedEvidence[] = [];
+  const manifestArtifacts = new Map(
+    manifest.artifacts.map((artifact) => [artifact.path, artifact]),
+  );
+  const requiredArtifact = (path: string): ArtifactRecord => {
+    const artifact = manifestArtifacts.get(path);
+    if (!artifact) {
+      throw new MorphHarnessError(
+        "FADENO_MORPH_PUBLISHED_ARTIFACT",
+        `${path}: canonical artifact is absent from the manifest`,
+      );
+    }
+    return artifact;
+  };
   for (const engine of MORPH_PROJECTS) {
-    const recordsPath = join(runDirectory, "artifacts/records", `${engine}.json`);
-    const failuresPath = join(runDirectory, "artifacts/failures", `${engine}.json`);
-    const summaryPath = join(runDirectory, "artifacts/summaries", `${engine}.json`);
+    const recordsArtifact = requiredArtifact(`artifacts/records/${engine}.json`);
+    const failuresArtifact = requiredArtifact(`artifacts/failures/${engine}.json`);
+    const summaryArtifact = requiredArtifact(`artifacts/summaries/${engine}.json`);
+    const recordsPath = join(runDirectory, recordsArtifact.path);
+    const failuresPath = join(runDirectory, failuresArtifact.path);
+    const summaryPath = join(runDirectory, summaryArtifact.path);
     const records = readJsonDocument(recordsPath, {
       maxBytes: 20 * 1024 * 1024,
     }) as QualificationRecord[];
@@ -77,16 +105,84 @@ export function verifyPublishedQualificationOutcome(
       );
     }
     if (failures.length === 0) {
-      passed.push({ engine, recordsPath, summaryPath, summary });
+      passed.push({ engine, recordsPath, failuresPath, summaryPath, summary });
     } else {
+      const diagnosticArtifacts = [
+        ["diagnostic-failure", "application/json", `artifacts/diagnostics/${engine}/diagnostic-failure.json`],
+        ["error-context", "text/markdown", `artifacts/diagnostics/${engine}/error-context.md`],
+        ["screenshot", "image/png", `artifacts/diagnostics/${engine}/screenshot.png`],
+        ["trace", "application/zip", `artifacts/diagnostics/${engine}/trace.zip`],
+      ] as const;
+      const attachments: MorphMachineAttachment[] = diagnosticArtifacts.map(
+        ([name, contentType, path]) => {
+          const artifact = requiredArtifact(path);
+          return { name, contentType, path: artifact.path, bytes: artifact.bytes };
+        },
+      );
+      const result: MorphMachineResult = {
+        project: engine,
+        title: `qualification-diagnostic-${profile}`,
+        status: "failed",
+        expectedStatus: "passed",
+        errors: ["Error: FADENO_MORPH_QUALIFICATION_FAILURE: published diagnostic"],
+        attachments,
+      };
+      const verified = new Map<MorphMachineAttachment, string>();
+      let traceEvidence: TraceEvidence | undefined;
+      for (const attachment of attachments) {
+        const evidence = verifyPortableHarnessAttachment(attachment, runDirectory);
+        verified.set(attachment, evidence.path);
+        if (attachment.name === "trace") traceEvidence = evidence.traceEvidence;
+      }
+      if (
+        !traceEvidence ||
+        traceEvidence.browserName !== engine ||
+        !traceEvidence.title.endsWith(`› qualification-diagnostic-${profile}`) ||
+        !traceEvidence.errorFirstLine.startsWith(
+          "Error: FADENO_MORPH_QUALIFICATION_FAILURE:",
+        )
+      ) {
+        throw new MorphHarnessError(
+          "FADENO_MORPH_PUBLISHED_DIAGNOSTIC",
+          `${engine}: published trace identity differs`,
+        );
+      }
+      verifyTraceAttachmentBindings(result, verified, traceEvidence);
+      const diagnosticFailurePath = verified.get(attachments[0] as MorphMachineAttachment);
+      if (!diagnosticFailurePath) {
+        throw new MorphHarnessError(
+          "FADENO_MORPH_PUBLISHED_DIAGNOSTIC",
+          `${engine}: published diagnostic failure is missing`,
+        );
+      }
+      const diagnosticFailure = readJsonDocument(
+        diagnosticFailurePath,
+      ) as QualificationFailureEvidence;
+      verifyQualificationFailureAlignment(
+        diagnosticFailure.operation,
+        diagnosticFailure.observation,
+        profile,
+        engine,
+      );
+      const classification = classifyQualificationFailure(
+        diagnosticFailure.observation,
+        profile,
+      );
+      if (!summary.failures.some((item) => isDeepStrictEqual(item, classification))) {
+        throw new MorphHarnessError(
+          "FADENO_MORPH_PUBLISHED_DIAGNOSTIC",
+          `${engine}: published diagnostic is absent from the matrix`,
+        );
+      }
       failed.push({
         engine,
         recordsPath,
         failuresPath,
         summaryPath,
-        screenshotPath: join(runDirectory, "artifacts/diagnostics", engine, "screenshot.png"),
-        tracePath: join(runDirectory, "artifacts/diagnostics", engine, "trace.zip"),
-        errorContextPath: join(runDirectory, "artifacts/diagnostics", engine, "error-context.md"),
+        diagnosticFailurePath,
+        screenshotPath: verified.get(attachments[2] as MorphMachineAttachment)!,
+        tracePath: verified.get(attachments[3] as MorphMachineAttachment)!,
+        errorContextPath: verified.get(attachments[1] as MorphMachineAttachment)!,
         summary,
       });
     }
@@ -238,12 +334,19 @@ export function publishQualificationEvidence(options: Readonly<{
         join(artifactRoot, "records", `${item.engine}.json`),
       ),
     );
-    if ("failuresPath" in item) {
+    artifacts.push(
+      copyArtifact(
+        runDirectory,
+        item.failuresPath,
+        join(artifactRoot, "failures", `${item.engine}.json`),
+      ),
+    );
+    if ("diagnosticFailurePath" in item) {
       artifacts.push(
         copyArtifact(
           runDirectory,
-          item.failuresPath,
-          join(artifactRoot, "failures", `${item.engine}.json`),
+          item.diagnosticFailurePath,
+          join(artifactRoot, "diagnostics", item.engine, "diagnostic-failure.json"),
         ),
       );
       for (const [name, source] of [
