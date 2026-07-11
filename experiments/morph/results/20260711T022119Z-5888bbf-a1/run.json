@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "run": {
-    "id": "20260711T014123Z-b2472dc-a1",
+    "id": "20260711T022119Z-5888bbf-a1",
     "attempt": 1,
     "profile": "qualification",
-    "startedAt": "2026-07-11T01:41:23.386Z",
-    "completedAt": "2026-07-11T02:02:11.758Z",
+    "startedAt": "2026-07-11T02:21:19.092Z",
+    "completedAt": "2026-07-11T02:46:45.795Z",
     "status": "failed"
   },
   "source": {
     "repository": "https://github.com/f-gueguen/fadeno",
-    "commit": "b2472dc24a780da28f3f3aef8fbd976a6076e5dd",
+    "commit": "5888bbff175bedf61c85bbeaed90dc927a55a593",
     "dirty": false
   },
   "command": [
@@ -46,22 +46,22 @@
     },
     {
       "path": "artifacts/preflight.json",
-      "sha256": "df4b7da3f8da139fe048c186ba9564578a1a118412372fedd28150109ca88d53",
-      "bytes": 1305
+      "sha256": "6e90be8a3f0199e31562c94f61c45e8918bc3396b46025bfd293c7e72f021d77",
+      "bytes": 1302
     },
     {
       "path": "artifacts/records/chromium.json",
-      "sha256": "d23d3761a4f67db270f7d0673799fdb763f0107021148a7711c05fb26cb6e7c0",
-      "bytes": 3086360
+      "sha256": "57fa10abac2db9fcb7539760be06124af36a61918322d6b718a787ab3d1a5f2c",
+      "bytes": 3086144
     },
     {
       "path": "artifacts/failures/chromium.json",
-      "sha256": "514f90c4ec86dc322456aa2045dd14757e47c9970d7f508fc2b8dbe5f1fa27ec",
-      "bytes": 532007
+      "sha256": "84dcc4ced6e66d5d37643cf6207dda3b9f2b56ebaa021c22dd56fb2c27661dc3",
+      "bytes": 532129
     },
     {
       "path": "artifacts/diagnostics/chromium/diagnostic-failure.json",
-      "sha256": "0dea40d80baa1c9025c5b233a7b207b6e72b93232af47b6c2dd047745b6929a3",
+      "sha256": "f8f210604e9c19ca8f10f1a8af027b1351bb8457d666821d340b10f2c818cb6a",
       "bytes": 2463
     },
     {
@@ -71,33 +71,33 @@
     },
     {
       "path": "artifacts/diagnostics/chromium/trace.zip",
-      "sha256": "ce0983f33c28bd3e5e8ef03dd8c540028e4f037f931795b03ed03c7905ef24a7",
-      "bytes": 38178
+      "sha256": "69a9794ef75cd40ea5f3a085c2a827ab780dfc652e57d331634c40b8cc3894cf",
+      "bytes": 39094
     },
     {
       "path": "artifacts/diagnostics/chromium/error-context.md",
-      "sha256": "ab4c24889d0232914b4ebaba2b4417980640818ab8acfae68682584cd60f1749",
-      "bytes": 5101
+      "sha256": "7f7b2806d125e9d125eb6984a82902817fe848f192530a21e7b0f140506c2a9c",
+      "bytes": 5146
     },
     {
       "path": "artifacts/summaries/chromium.json",
-      "sha256": "86690437e9164e380887acae380a763cd510e7037c6d5d825121bbe3c6bc098c",
-      "bytes": 92271
+      "sha256": "c2c7d2284300bebc6882ea83c6b556ec66b5bcbe59cb2b36f1b6de108e8d2a2f",
+      "bytes": 92272
     },
     {
       "path": "artifacts/records/firefox.json",
-      "sha256": "e095aae9d0dc7cb5aa5061b20ad54d2eb990e5611e1cf8a20c266d1f39ef43cb",
-      "bytes": 3082985
+      "sha256": "1c4020ed3da646f1392d25fc97ebaf8bfadb877bba017b1763641f974a00d8ad",
+      "bytes": 3083208
     },
     {
       "path": "artifacts/failures/firefox.json",
-      "sha256": "bb38a92be52a2be07188274f37b8b8a3955cec3d1b7eeaad9ab940a1316fc17e",
-      "bytes": 531546
+      "sha256": "2cdc0b929c8658e411bf22a1399e3d1eb4b2a8ef0be190a2fef8f1a43b0efd2a",
+      "bytes": 531466
     },
     {
       "path": "artifacts/diagnostics/firefox/diagnostic-failure.json",
-      "sha256": "a436d840c8c20ea34d2a3b70eb6c627d5c2aece535f53b7388cec47fc81bee3c",
-      "bytes": 2460
+      "sha256": "a153ec88fb860811df8807f802c9886a3a3028acc7164b174291fbb9c67a32c6",
+      "bytes": 2461
     },
     {
       "path": "artifacts/diagnostics/firefox/screenshot.png",
@@ -106,33 +106,33 @@
     },
     {
       "path": "artifacts/diagnostics/firefox/trace.zip",
-      "sha256": "4fc25f74db86a7593a74f386882f48474cdcc89754ad91930857fd4850339ca9",
-      "bytes": 44417
+      "sha256": "0cb77e7cd5bd6643c368eeaf0f9bb3f317c02b960128f99b939520fda9094d0f",
+      "bytes": 43318
     },
     {
       "path": "artifacts/diagnostics/firefox/error-context.md",
-      "sha256": "ab4c24889d0232914b4ebaba2b4417980640818ab8acfae68682584cd60f1749",
-      "bytes": 5101
+      "sha256": "7f7b2806d125e9d125eb6984a82902817fe848f192530a21e7b0f140506c2a9c",
+      "bytes": 5146
     },
     {
       "path": "artifacts/summaries/firefox.json",
-      "sha256": "b6faaa612a5d120be87370927cce9902e11b5b6663db743c3758aa8729dab28b",
-      "bytes": 91900
+      "sha256": "f73651030291a1bcbfb328b1bc0930853ba3ee91935d7a3b44b73a87fa74310e",
+      "bytes": 92249
     },
     {
       "path": "artifacts/records/webkit.json",
-      "sha256": "a278c99946f9973e560982c7246529524798c9802cba08e5e393e51cc0a9423d",
-      "bytes": 3079821
+      "sha256": "b1807ad2b7731db1f8af5eb02c12462e099fa89d94adb3797d1fb320aeab35f5",
+      "bytes": 3079785
     },
     {
       "path": "artifacts/failures/webkit.json",
-      "sha256": "ba3eed624a74117638f8f42946cf243147e0feec2b236b16792699177e1f65bd",
-      "bytes": 530887
+      "sha256": "407044e78019b906b67d2f7249bb2fb589d3020f527a14890d3f28b9d7e46e4e",
+      "bytes": 530948
     },
     {
       "path": "artifacts/diagnostics/webkit/diagnostic-failure.json",
-      "sha256": "915e7a9559d5e6e831044f3aaf78634d2e5717a7a5b13ae5da79846e497b6a64",
-      "bytes": 2456
+      "sha256": "a2409c28369dabde62b83eb4855b183b205977d793f0184899fc26a88a148abf",
+      "bytes": 2457
     },
     {
       "path": "artifacts/diagnostics/webkit/screenshot.png",
@@ -141,18 +141,18 @@
     },
     {
       "path": "artifacts/diagnostics/webkit/trace.zip",
-      "sha256": "41a562af82d54cd7d368029d55a5ef40845e0ef3650d5453694ccea194f5534e",
-      "bytes": 37387
+      "sha256": "4e55078272d89fd0d66397b6a166a9107b66ab32d2b7d8986723286742d12e8d",
+      "bytes": 37477
     },
     {
       "path": "artifacts/diagnostics/webkit/error-context.md",
-      "sha256": "ab4c24889d0232914b4ebaba2b4417980640818ab8acfae68682584cd60f1749",
-      "bytes": 5101
+      "sha256": "7f7b2806d125e9d125eb6984a82902817fe848f192530a21e7b0f140506c2a9c",
+      "bytes": 5146
     },
     {
       "path": "artifacts/summaries/webkit.json",
-      "sha256": "a32df2009c91e4453843bc5cca31719966eeea96166b6bb96520d8f829819f2b",
-      "bytes": 91378
+      "sha256": "e658c23dce781c1eb1b4db05f3c1e0538867cf876a9ee7fb8a8c806936fc0385",
+      "bytes": 91508
     }
   ]
 }

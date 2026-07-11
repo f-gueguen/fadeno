@@ -18,8 +18,8 @@
     "ordinal": 100,
     "key": "webkit/element-scroll-insert/100",
     "completed": true,
-    "candidateRoundTripMilliseconds": 4.921161000034772,
-    "observationWindowMilliseconds": 41.8832200000179,
+    "candidateRoundTripMilliseconds": 6.801429999992251,
+    "observationWindowMilliseconds": 42.22663799999282,
     "documentElementCount": 9,
     "candidate": {
       "rootIdentity": "root",

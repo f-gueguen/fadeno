@@ -311,7 +311,7 @@ for (const forbiddenStateRestoration of [
     recordFailure(`private candidate restores browser state through ${forbiddenStateRestoration}`);
   }
 }
-const pinnedRunId = "20260711T014123Z-b2472dc-a1";
+const pinnedRunId = "20260711T022119Z-5888bbf-a1";
 const resultEntries = readdirSync(join(root, "experiments/morph/results")).sort();
 if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].sort())) {
   recordFailure("experiments/morph/results: pinned run set differs");
@@ -324,7 +324,7 @@ if (JSON.stringify(resultEntries) !== JSON.stringify(["README.md", pinnedRunId].
     validateManifestSemantics(manifest, referenceEnvironment, registry);
     validateArtifactRecords(manifest, manifestPath, root);
     if (
-      manifest.source.commit !== "b2472dc24a780da28f3f3aef8fbd976a6076e5dd" ||
+      manifest.source.commit !== "5888bbff175bedf61c85bbeaed90dc927a55a593" ||
       manifest.run.id !== pinnedRunId ||
       manifest.run.status !== "failed" ||
       manifest.conclusion.status !== "fail"

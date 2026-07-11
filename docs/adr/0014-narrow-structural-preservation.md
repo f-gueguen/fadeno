@@ -15,9 +15,9 @@ threshold required 20 CI and 100 qualification repetitions in Chromium,
 Firefox, and WebKit with no retries or engine exclusions.
 
 The exact source commit
-[`b2472dc`](https://github.com/f-gueguen/fadeno/commit/b2472dc24a780da28f3f3aef8fbd976a6076e5dd)
+[`5888bbf`](https://github.com/f-gueguen/fadeno/commit/5888bbff175bedf61c85bbeaed90dc927a55a593)
 completed both reference profiles in
-[hosted run 29135015085](https://github.com/f-gueguen/fadeno/actions/runs/29135015085).
+[hosted run 29136167687](https://github.com/f-gueguen/fadeno/actions/runs/29136167687).
 Every engine passed 16 cases in every repetition, including focus, selection,
 caret, dirty controls, disclosure/top-layer state, playing and paused media,
 island lifecycle, and intentional replacement. Every engine failed every
@@ -86,5 +86,5 @@ The 20-repetition reference matrix completed 1,080 cells with 960 passes and
 intentional-replacement controls completed. Portable records, independently
 classified failures, summaries, screenshots, error contexts, and trace-bound
 diagnostics are retained by the hosted run. A final accepted-signature run
-published the [validated immutable manifest](../../experiments/morph/results/20260711T014123Z-b2472dc-a1/manifest.json),
+published the [validated immutable manifest](../../experiments/morph/results/20260711T022119Z-5888bbf-a1/manifest.json),
 which is pinned with its complete portable run directory.
