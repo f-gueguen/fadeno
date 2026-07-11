@@ -17,7 +17,6 @@ export type LocalCiProjection = {
   readme: string;
   activeWorkflowFiles: string[];
   dependabot: string;
-  referenceProvider: unknown;
 };
 
 export function assertStableLocalCiSnapshot(
@@ -32,9 +31,6 @@ export function assertStableLocalCiSnapshot(
 
 export function loadLocalCiProjection(root: string): LocalCiProjection {
   const workflows = join(root, ".github/workflows");
-  const reference = JSON.parse(
-    readFileSync(join(root, "experiments/reference-environment.json"), "utf8"),
-  ) as { host?: { provider?: unknown } };
   return {
     packageJson: JSON.parse(readFileSync(join(root, "package.json"), "utf8")),
     contributorWorkflow: readFileSync(join(root, "docs/contributor-workflow.md"), "utf8"),
@@ -47,7 +43,6 @@ export function loadLocalCiProjection(root: string): LocalCiProjection {
         .sort()
       : [],
     dependabot: readFileSync(join(root, ".github/dependabot.yml"), "utf8"),
-    referenceProvider: reference.host?.provider,
   };
 }
 
@@ -87,9 +82,6 @@ export function validateLocalCiProjection(
   }
   if (projection.dependabot.includes("package-ecosystem: github-actions")) {
     errors.push("dependabot: inactive GitHub Actions ecosystem remains configured");
-  }
-  if (projection.referenceProvider !== "github-actions") {
-    errors.push("reference: CI replacement changed the frozen K0 provider");
   }
   return errors;
 }

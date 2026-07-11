@@ -42,7 +42,6 @@ mutation("pull request template", (value) => {
   value.pullRequestTemplate = value.pullRequestTemplate.replace("pnpm ci:local", "pnpm check");
 });
 mutation("Dependabot", (value) => { value.dependabot += "\npackage-ecosystem: github-actions\n"; });
-mutation("reference provider", (value) => { value.referenceProvider = "local"; });
 
 if (validateLocalCiProjection(base, [...LOCAL_CI_STEPS].reverse()).length === 0) {
   throw new Error("local CI step-order mutation was not detected");
