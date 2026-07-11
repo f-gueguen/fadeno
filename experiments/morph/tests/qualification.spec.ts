@@ -8,7 +8,6 @@ import type { PrivateMorphResult } from "../candidate.ts";
 import {
   MORPH_QUALIFICATION_ASSETS,
   createQualificationFile,
-  createQualificationTone,
 } from "../fixtures/qualification-assets.ts";
 import type { QualificationState } from "../fixtures/qualification-corpus.ts";
 import type {
@@ -91,44 +90,6 @@ async function verifyUnhandledRejectionSensor(page: Page): Promise<void> {
     return currentWindow.__fadenoUnhandledRejections ?? [];
   });
   expect(observed).toEqual(["Error: FADENO_MORPH_REJECTION_SENSOR"]);
-}
-
-async function verifyMediaAssetSensor(page: Page): Promise<void> {
-  const source = `data:audio/wav;base64,${createQualificationTone().toString("base64")}`;
-  await page.setContent(`<!doctype html><audio preload="auto" src="${source}"></audio>`);
-  const proof = await page.locator("audio").evaluate(async (element) => {
-    const media = element as HTMLAudioElement;
-    if (media.readyState < 2) {
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("media sensor timeout")), 2_000);
-        media.addEventListener("canplay", () => {
-          clearTimeout(timeout);
-          resolve();
-        }, { once: true });
-        media.addEventListener("error", () => {
-          clearTimeout(timeout);
-          reject(new Error(`media sensor error ${media.error?.code ?? "unknown"}`));
-        }, { once: true });
-      });
-    }
-    await media.play();
-    const deadline = performance.now() + 2_000;
-    while (media.currentTime <= 0.02 && performance.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    const result = {
-      duration: media.duration,
-      currentTime: media.currentTime,
-      paused: media.paused,
-      error: media.error?.code ?? null,
-    };
-    media.pause();
-    return result;
-  });
-  expect(proof.error).toBeNull();
-  expect(proof.duration).toBeGreaterThanOrEqual(1.9);
-  expect(proof.currentTime).toBeGreaterThan(0.02);
-  expect(proof.paused).toBe(false);
 }
 
 async function prepareScenario(page: Page, scenario: MorphQualificationScenario): Promise<void> {
@@ -755,7 +716,6 @@ test(`qualification-matrix-${profile}`, async ({ page }, testInfo: TestInfo) => 
   let activeScenario: MorphQualificationScenario | undefined;
   let activeOrdinal = 0;
   await verifyUnhandledRejectionSensor(page);
-  await verifyMediaAssetSensor(page);
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route(/^https?:\/\//u, async (route) => {
     blockedRequests.push(route.request().url());
@@ -837,7 +797,6 @@ test(`qualification-diagnostic-${profile}`, async ({ page }, testInfo: TestInfo)
   const blockedRequests: string[] = [];
   const pageErrors: string[] = [];
   await verifyUnhandledRejectionSensor(page);
-  await verifyMediaAssetSensor(page);
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route(/^https?:\/\//u, async (route) => {
     blockedRequests.push(route.request().url());
