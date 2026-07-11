@@ -7,7 +7,7 @@ document owns cross-document coverage.
 
 | Feature | Decision authority | Specification | Evidence or blocker | Delivery | Executable proof |
 | --- | --- | --- | --- | --- | --- |
-| GOV-01 | [ADR 0001](adr/0001-canonical-repository-and-authority.md), [ADR 0009](adr/0009-documentation-and-evidence-authority.md), [ADR 0013](adr/0013-mit-license.md) | [Architecture overview](architecture/overview.md) | Owner-approved initial commit and hosted CI | F0 | `pnpm check`, frozen-install hosted CI |
+| GOV-01 | [ADR 0001](adr/0001-canonical-repository-and-authority.md), [ADR 0009](adr/0009-documentation-and-evidence-authority.md), [ADR 0013](adr/0013-mit-license.md), [ADR 0016](adr/0016-local-repository-merge-validation.md) | [Architecture overview](architecture/overview.md) | Owner-approved initial commit and archived hosted F0 run; current merge validation is maintainer-operated | F0 | Historical frozen-install hosted evidence plus commit-bound `pnpm ci:local` |
 | WEB-01 | [ADR 0002](adr/0002-standard-typescript-and-html-shaped-jsx.md), [ADR 0004](adr/0004-structural-execution-boundaries.md) | [Routing/rendering](spec/routing-rendering-streaming.md) | DG-V1-02 | V1 | Route, layout, not-found, error, raw-handler integration fixtures |
 | WEB-02 | [ADR 0002](adr/0002-standard-typescript-and-html-shaped-jsx.md), [security invariants](../PROJECT_INVARIANTS.md#security-and-protocols) | [Routing/rendering](spec/routing-rendering-streaming.md) | DG-V1-03 | V1 | Contextual escaping, raw HTML, CSP, secret-leak negative fixtures |
 | WEB-03 | [ADR 0008](adr/0008-web-standard-server-boundary.md) | [Routing/rendering](spec/routing-rendering-streaming.md) | DG-V1-08 | V1 | Stream flush, nested boundary, timeout, cancellation, disconnect fixtures |

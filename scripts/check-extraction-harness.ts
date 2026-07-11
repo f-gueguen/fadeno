@@ -38,23 +38,6 @@ import {
 } from "../experiments/extraction/runtime-fixture.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
-for (const required of [
-  "extraction-harness:",
-  "uses: ./.github/actions/browser-reference",
-  "task: extraction-harness",
-  "name: extraction-harness-evidence",
-  "path: output/playwright/extraction",
-  "extraction-qualification:",
-  "task: extraction-qualification",
-  "name: extraction-qualification-evidence",
-  "path: output/playwright/extraction-qualification",
-  "if: always()",
-]) {
-  if (!workflow.includes(required)) {
-    throw new Error(`K0-05 extraction workflow wiring missing: ${required}`);
-  }
-}
 const golden = readFileSync(
   join(root, "experiments/extraction/fixtures/inventory.golden.json"),
   "utf8",

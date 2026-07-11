@@ -102,12 +102,25 @@ Changesets. A release PR is mechanical and cannot introduce unrelated behavior.
 
 ## 6. Validate proportionally
 
-Always run:
+While developing, always run:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm check
 ```
+
+After the final commit and after every review-fix commit, run the canonical
+local merge gate from a clean worktree:
+
+```sh
+pnpm ci:local
+```
+
+The command binds the frozen install and full repository check to one unchanged
+`HEAD`. Record that exact commit in the PR before merge. Local merge validation
+is maintainer-operated and does not classify the workstation as the frozen K0
+reference environment; any roadmap qualification command retains its separate
+environment and evidence requirements.
 
 Also run every affected command named by traceability and the current roadmap
 slice. Browser, security, performance, package, and reproducibility gates are
@@ -139,4 +152,5 @@ completed history.
 A change is done when the feature's traceability row is satisfied, current
 authority surfaces agree, generated artifacts are reproducible, relevant
 examples execute, version/changelog intent is correct, rollback is understood,
-and all required checks pass from the frozen install.
+and the exact final commit passes `pnpm ci:local` plus every separately required
+qualification gate.
