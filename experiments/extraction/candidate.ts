@@ -417,10 +417,23 @@ export function classifySelectedClosure(
   project: Project,
   sourceFile: SourceFile,
   closure: Node,
+  options: Readonly<{
+    allowedDeclarations?: ReadonlySet<Node>;
+    allowedExternalFunctions?: number;
+  }> = {},
 ): ExtractionDiagnostic | undefined {
   const direct = classifySyntax(sourceFile, closure);
   if (direct) return direct;
   let found: ExtractionDiagnostic | undefined;
+  const externalFunctions = new Set<Node>();
+  const isInsideClosure = (declaration: Node): boolean => {
+    let cursor: Node | undefined = declaration;
+    while (cursor && !ast.isSourceFile(cursor)) {
+      if (cursor === closure) return true;
+      cursor = cursor.parent;
+    }
+    return false;
+  };
   visit(closure, (node) => {
     if (found) return;
     if (
@@ -436,6 +449,7 @@ export function classifySelectedClosure(
     ) return;
     const symbol = project.checker.getSymbolAtLocation(node);
     if (!symbol) {
+      found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW");
       return;
     }
     for (const symbolDeclaration of symbol.declarations) {
@@ -459,14 +473,28 @@ export function classifySelectedClosure(
     const declaration = target.valueDeclaration?.resolve(project) ??
       target.declarations[0]?.resolve(project);
     const dependency = declaration?.getSourceFile();
+    if (declaration && dependency?.fileName === sourceFile.fileName) {
+      if (
+        isInsideClosure(declaration) ||
+        options.allowedDeclarations?.has(declaration) === true
+      ) return;
+      found = diagnosticFor(sourceFile, node, "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW");
+      return;
+    }
     if (
-      !dependency || dependency.fileName === sourceFile.fileName ||
+      !dependency ||
       dependency.fileName.includes(`${sep}node_modules${sep}`) ||
       /\/lib\.[^/]+\.d\.ts$/u.test(dependency.fileName.split(sep).join("/"))
     ) return;
+    if (declaration && ast.isFunctionDeclaration(declaration)) {
+      externalFunctions.add(declaration);
+    }
     found = classifyReachableModule(project, dependency);
   });
-  return found;
+  if (found) return found;
+  return externalFunctions.size > (options.allowedExternalFunctions ?? 1)
+    ? diagnosticFor(sourceFile, closure, "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW")
+    : undefined;
 }
 
 function resolveAlias(
@@ -529,11 +557,26 @@ function findRoot(project: Project, fixtureId: ExtractionFixtureId) {
     throw new Error(`FADENO_EXTRACTION_SELECTED_CLOSURE: ${rootExport}`);
   }
   const captureEntries: Array<readonly [string, Node]> = [];
+  const captureDeclarations = new Set<Node>();
+  const referencedDeclarations = new Set<Node>();
+  visit(closure, (node) => {
+    if (!ast.isIdentifier(node)) return;
+    const symbol = project.checker.getSymbolAtLocation(node);
+    if (!symbol) return;
+    const target = resolveAlias(project, symbol);
+    for (const symbolDeclaration of target.declarations) {
+      const resolved = symbolDeclaration.resolve(project);
+      if (resolved) referencedDeclarations.add(resolved);
+    }
+    const valueDeclaration = target.valueDeclaration?.resolve(project);
+    if (valueDeclaration) referencedDeclarations.add(valueDeclaration);
+  });
   let captureDiagnostic: ExtractionDiagnostic | undefined;
   for (const statement of declaration.body.statements.filter(ast.isVariableStatement)) {
     for (const item of statement.declarationList.declarations) {
       const initializer = item.initializer;
       if (!initializer) continue;
+      if (!referencedDeclarations.has(item)) continue;
       if (!ast.isIdentifier(item.name)) {
         captureDiagnostic = diagnosticFor(
           sourceFile,
@@ -543,6 +586,7 @@ function findRoot(project: Project, fixtureId: ExtractionFixtureId) {
         continue;
       }
       captureEntries.push([item.name.text, initializer]);
+      captureDeclarations.add(item);
     }
   }
   const captureEvaluation = evaluateCaptureEnvelope(captureEntries);
@@ -573,7 +617,14 @@ function findRoot(project: Project, fixtureId: ExtractionFixtureId) {
         ([name, value]) => `const ${name} = ${JSON.stringify(value)};`,
       )
     : [];
-  return { sourceFile, rootExport, closure, captureStatements, captureDiagnostic };
+  return {
+    sourceFile,
+    rootExport,
+    closure,
+    captureStatements,
+    captureDeclarations,
+    captureDiagnostic,
+  };
 }
 
 export class ExtractionCandidate implements Disposable {
@@ -591,12 +642,28 @@ export class ExtractionCandidate implements Disposable {
   }
 
   analyze(fixtureId: ExtractionFixtureId): ExtractionAnalysis {
-    const { sourceFile, rootExport, closure, captureStatements, captureDiagnostic } = findRoot(
+    const {
+      sourceFile,
+      rootExport,
+      closure,
+      captureStatements,
+      captureDeclarations,
+      captureDiagnostic,
+    } = findRoot(
       this.#project,
       fixtureId,
     );
     const behavior = findBehavior(this.#project, closure);
-    const closureDiagnostic = classifySelectedClosure(this.#project, sourceFile, closure);
+    const closureDiagnostic = classifySelectedClosure(this.#project, sourceFile, closure, {
+      allowedDeclarations: captureDeclarations,
+      allowedExternalFunctions: 1,
+    });
+    const behaviorDiagnostic = classifySelectedClosure(
+      this.#project,
+      behavior.sourceFile,
+      behavior.declaration,
+      { allowedExternalFunctions: 0 },
+    );
     return {
       fixtureId,
       rootExport,
@@ -609,7 +676,7 @@ export class ExtractionCandidate implements Disposable {
         : "",
       behaviorSource: behavior.declaration.getText(behavior.sourceFile),
       behaviorPath: sourceName(behavior.sourceFile),
-      diagnostic: closureDiagnostic ?? captureDiagnostic ??
+      diagnostic: closureDiagnostic ?? captureDiagnostic ?? behaviorDiagnostic ??
         classifyReachableModule(this.#project, behavior.sourceFile),
     };
   }

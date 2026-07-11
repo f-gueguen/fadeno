@@ -1,4 +1,10 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 import { EXTRACTION_PROJECTS } from "../experiments/extraction/contract.ts";
 import type { ExtractionProject } from "../experiments/extraction/contract.ts";
@@ -19,6 +25,18 @@ import type { ExtractionQualificationReport } from "../experiments/extraction/qu
 import { MORPH_QUALIFICATION_CASES } from "../experiments/morph/fixtures/qualification-corpus.ts";
 import { createMorphQualificationScenario } from "../experiments/morph/qualification-scenarios.ts";
 import { expectedMorphQualificationState } from "../experiments/morph/qualification-state.ts";
+import {
+  readJsonDocument,
+  validateArtifactRecords,
+  validateManifestSemantics,
+} from "./lib/experiment-contract.ts";
+import {
+  createContractValidators,
+  loadExperimentRegistry,
+  loadReferenceEnvironment,
+} from "./lib/experiment-validation.ts";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const moduleBodies = new Map(
   EXTRACTION_ACCEPTED_CLASSES.map((fixtureId) => [
@@ -156,7 +174,8 @@ function observationDecisionWithFailure(fixtureId: string) {
     const value = {
       ...original,
       fixtures: original.fixtures.map((fixture) => fixture.fixtureId === fixtureId
-        ? { status: "failed" as const, fixtureId: fixture.fixtureId, failure: "seeded" }
+        ? { status: "failed" as const, fixtureId: fixture.fixtureId,
+          failureStage: "interaction" as const, failure: "seeded" }
         : fixture),
     };
     return [project, value] as const;
@@ -247,4 +266,90 @@ if (
   observationDecisionWithFailure("toggle") !== "pivot"
 ) throw new Error("K0-06 decision table differs");
 
-console.log("extraction qualification verifier passed (12 observation, 5 report, 6 decision controls)");
+const resultsRoot = join(root, "experiments/extraction/results");
+const resultEntries = readdirSync(resultsRoot).filter((entry) => entry !== "README.md").sort();
+const registryDocument = readJsonDocument(join(root, "experiments/registry.json"));
+const extractionRegistry = registryDocument.experiments.find(
+  (entry: { id: string }) => entry.id === "extraction",
+);
+const expectsPinnedResult = extractionRegistry?.status === "qualified";
+if (
+  (expectsPinnedResult && resultEntries.length !== 1) ||
+  (!expectsPinnedResult && resultEntries.length !== 0)
+) {
+  throw new Error("K0-06 immutable extraction result set differs");
+}
+if (resultEntries.length === 1) {
+  const pinnedRunId = resultEntries[0]!;
+  const pinnedRoot = join(resultsRoot, pinnedRunId);
+  const verifyPinnedResult = (runRoot: string): void => {
+    const manifestPath = join(runRoot, "manifest.json");
+    const manifest = readJsonDocument(manifestPath) as any;
+    const validators = createContractValidators(root);
+    if (!validators.manifest(manifest)) throw new Error("K0-06 result manifest schema differs");
+    const reference = loadReferenceEnvironment(root);
+    const registry = loadExperimentRegistry(root, validators);
+    validateManifestSemantics(manifest, reference, registry);
+    validateArtifactRecords(manifest, manifestPath, root);
+    const decision = readJsonDocument(join(runRoot, "decision.json"));
+    const inventory = readJsonDocument(join(runRoot, "generated/inventory.json")) as
+      GeneratedInventory;
+    const report = readJsonDocument(join(runRoot, "qualification-report.json")) as
+      ExtractionQualificationReport;
+    const observations = verifyExtractionQualificationReport(
+      report,
+      inventory,
+      (path) => readFileSync(join(runRoot, path)),
+    );
+    const derived = decideExtractionObservations(observations, {
+      rejectedBoundariesPass: decision.rejectedBoundariesPass === true,
+      identityPass: decision.identityPass === true,
+      deterministicGenerationPass: decision.deterministicGenerationPass === true,
+      outputSafetyPass: decision.outputSafetyPass === true,
+    });
+    const run = readJsonDocument(join(runRoot, "run.json"));
+    const sourceCheck = spawnSync(
+      "git",
+      ["merge-base", "--is-ancestor", manifest.source.commit, "HEAD"],
+      { cwd: root },
+    );
+    if (
+      manifest.experiment.id !== "extraction" ||
+      manifest.source.dirty !== false ||
+      sourceCheck.status !== 0 ||
+      manifest.run.id !== pinnedRunId ||
+      !pinnedRunId.includes(manifest.source.commit.slice(0, 7)) ||
+      manifest.run.status !== "passed" ||
+      manifest.conclusion.status !== "pass" ||
+      derived.decision !== "go" ||
+      !isDeepStrictEqual(derived.accepted, EXTRACTION_ACCEPTED_CLASSES) ||
+      decision.decision !== derived.decision ||
+      !isDeepStrictEqual(decision.accepted, derived.accepted) ||
+      run.run.id !== manifest.run.id ||
+      !isDeepStrictEqual(run.source, manifest.source)
+    ) throw new Error("K0-06 immutable extraction result provenance differs");
+  };
+  verifyPinnedResult(pinnedRoot);
+  const mutationRoot = mkdtempSync(join(tmpdir(), "fadeno-extraction-result-mutation-"));
+  try {
+    cpSync(pinnedRoot, mutationRoot, { recursive: true });
+    writeFileSync(join(mutationRoot, "decision.json"), "{}\n");
+    try {
+      verifyPinnedResult(mutationRoot);
+      throw new Error("K0-06 mutated extraction result was accepted");
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        error.message === "K0-06 mutated extraction result was accepted"
+      ) {
+        throw error;
+      }
+    }
+  } finally {
+    rmSync(mutationRoot, { recursive: true, force: true });
+  }
+}
+
+console.log(
+  `extraction qualification verifier passed (12 observation, 5 report, 6 decision controls, ${resultEntries.length} immutable result)`,
+);

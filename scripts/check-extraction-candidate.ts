@@ -220,6 +220,8 @@ try {
     'import { renamedServerCall } from "./server-call-barrel.ts";',
     'import * as serverNamespace from "./server-call-barrel.ts";',
     'import { safe } from "./safe.ts";',
+    'import { safe as extraSafe } from "./safe-extra.ts";',
+    'function localHelper(): void {}',
     'export const server = () => { renamedServerCall(); safe(); };',
     'export const serverValueReference = (output: HTMLElement) => { output.textContent = serverValue; safe(); };',
     'export const serverNamespaceCall = () => { serverNamespace.renamedServerCall(); safe(); };',
@@ -229,6 +231,20 @@ try {
     'export const ambient = () => { window.alert("unsafe"); safe(); };',
     'const moduleName = "./safe.ts";',
     'export const dynamic = async () => { await import(moduleName); safe(); };',
+    'export const safeOnly = () => { safe(); };',
+    'export const sameSourceHelper = () => { localHelper(); safe(); };',
+    'export const extraImportedHelper = () => { extraSafe(); safe(); };',
+    'export const unresolvedValue = () => { void missingRuntimeValue; safe(); };',
+    'export function outer(rootParameter: string) { return () => { void rootParameter; safe(); }; }',
+    "",
+  ].join("\n"));
+  writeFileSync(join(metamorphic, "safe-extra.ts"), [
+    "export function safe(): void {}",
+    "",
+  ].join("\n"));
+  writeFileSync(join(metamorphic, "behavior-with-helper.ts"), [
+    'import { safe } from "./safe.ts";',
+    "export function behavior(): void { safe(); }",
     "",
   ].join("\n"));
   writeFileSync(join(metamorphic, "capture-at.ts"), [
@@ -307,12 +323,49 @@ try {
       opaque: "FADENO_K0_EXTRACT_OPAQUE_CAPTURE",
       ambient: "FADENO_K0_EXTRACT_AMBIENT_CAPTURE",
       dynamic: "FADENO_K0_EXTRACT_DYNAMIC_IMPORT",
+      sameSourceHelper: "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
+      extraImportedHelper: "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
+      unresolvedValue: "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW",
     } as const;
     for (const [name, expected] of Object.entries(closureExpectations)) {
       if (classifySelectedClosure(project, closureSource, closure(name))?.id !== expected) {
         throw new Error(`K0-06 selected closure flow was accepted: ${name}`);
       }
     }
+    if (classifySelectedClosure(project, closureSource, closure("safeOnly")) !== undefined) {
+      throw new Error("K0-06 single permitted behavior dependency was refused");
+    }
+    const outer = closureSource.statements.find((item) =>
+      ast.isFunctionDeclaration(item) && item.name?.text === "outer"
+    );
+    const returnedClosure = outer && ast.isFunctionDeclaration(outer)
+      ? outer.body?.statements.find(ast.isReturnStatement)?.expression
+      : undefined;
+    if (
+      !returnedClosure ||
+      classifySelectedClosure(project, closureSource, returnedClosure)?.id !==
+        "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW"
+    ) throw new Error("K0-06 root parameter capture was accepted");
+    const safeSource = source("safe.ts");
+    const safeDeclaration = safeSource.statements.find(ast.isFunctionDeclaration);
+    if (
+      !safeDeclaration ||
+      classifySelectedClosure(project, safeSource, safeDeclaration, {
+        allowedExternalFunctions: 0,
+      }) !== undefined
+    ) throw new Error("K0-06 self-contained behavior was refused");
+    const behaviorWithHelper = source("behavior-with-helper.ts").statements.find(
+      ast.isFunctionDeclaration,
+    );
+    if (
+      !behaviorWithHelper ||
+      classifySelectedClosure(
+        project,
+        source("behavior-with-helper.ts"),
+        behaviorWithHelper,
+        { allowedExternalFunctions: 0 },
+      )?.id !== "FADENO_K0_EXTRACT_AMBIGUOUS_FLOW"
+    ) throw new Error("K0-06 behavior dependency graph was accepted without emission");
     if (
       classifyModule(source("capture-at.ts")) !== undefined ||
       classifyModule(source("capture-over.ts"))?.id !== "FADENO_K0_EXTRACT_CAPTURE_SIZE"

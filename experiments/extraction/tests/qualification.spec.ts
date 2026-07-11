@@ -122,6 +122,7 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
     const requests: string[] = [];
     const responseTasks: Promise<PassedExtractionQualificationFixture["response"]>[] = [];
     const page = await browser.newPage({ serviceWorkers: "block" });
+    let failureStage: "interaction" | "identity" = "interaction";
     page.on("response", (response: Response) => {
       if (pathOf(response.url()) !== `/handlers/${fixtureId}.js`) return;
       responseTasks.push((async () => {
@@ -182,9 +183,14 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
     if (process.env.FADENO_EXTRACTION_SEEDED_FAILURE === fixtureId) {
       throw new Error(`FADENO_EXTRACTION_SEEDED_ACCEPTED_FAILURE: ${fixtureId}`);
     }
+    failureStage = "identity";
     const identity: PassedExtractionQualificationFixture["identity"][number][] = [];
     for (let index = 0; index < EXTRACTION_IDENTITY_CASES.length; index += 1) {
       const identityCase = EXTRACTION_IDENTITY_CASES[index]!;
+      if (
+        process.env.FADENO_EXTRACTION_SEEDED_IDENTITY_FAILURE === fixtureId &&
+        index === 0
+      ) throw new Error(`FADENO_EXTRACTION_SEEDED_IDENTITY_FAILURE: ${fixtureId}`);
       const morphFixture = MORPH_QUALIFICATION_CASES.find((item) => item.id === identityCase.id);
       if (!morphFixture) throw new Error(`missing H1 identity fixture: ${identityCase.id}`);
       const scenario = createMorphQualificationScenario(morphFixture);
@@ -354,6 +360,7 @@ test("locked-extraction-qualification", async ({ browser }, testInfo) => {
       fixtures.push({
         status: "failed",
         fixtureId,
+        failureStage,
         failure: error instanceof Error ? error.message : String(error),
       });
     } finally {

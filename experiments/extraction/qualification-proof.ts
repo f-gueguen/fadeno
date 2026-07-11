@@ -62,6 +62,7 @@ export type PassedExtractionQualificationFixture = Readonly<{
 export type FailedExtractionQualificationFixture = Readonly<{
   status: "failed";
   fixtureId: (typeof EXTRACTION_ACCEPTED_CLASSES)[number];
+  failureStage: "interaction" | "identity";
   failure: string;
 }>;
 
@@ -175,7 +176,10 @@ export function verifyExtractionQualificationObservation(
   const inventoryByFixture = new Map(inventory.files.map((file) => [file.fixtureId, file]));
   for (const fixture of observation.fixtures) {
     if (fixture.status === "failed") {
-      if (fixture.failure.trim() === "") {
+      if (
+        !["interaction", "identity"].includes(fixture.failureStage) ||
+        fixture.failure.trim() === ""
+      ) {
         throw new Error(`FADENO_EXTRACTION_QUALIFICATION_FAILURE: ${fixture.fixtureId}`);
       }
       continue;

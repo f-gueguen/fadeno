@@ -6,6 +6,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
@@ -17,6 +18,7 @@ import type { BrowserPreflightResult } from "../browser-preflight.ts";
 import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import { inspectExperimentSource } from "../../scripts/lib/experiment-source.ts";
 import {
+  assertContainedOutput,
   emitAcceptedHandler,
   ExtractionCandidate,
   runQualificationBoundary,
@@ -77,6 +79,31 @@ function exactFiles(rootDirectory: string): string[] {
     }
   }
   return files.sort();
+}
+
+function observeOutputSafety(controlRoot: string): boolean {
+  if (process.env.FADENO_EXTRACTION_SEEDED_OUTPUT_SAFETY_FAILURE === "1") return false;
+  const outside = join(controlRoot, "outside");
+  const contained = join(controlRoot, "contained");
+  mkdirSync(outside, { recursive: true });
+  mkdirSync(contained, { recursive: true });
+  const rejects = (rootPath: string, destination: string): boolean => {
+    try {
+      assertContainedOutput(rootPath, destination);
+      return false;
+    } catch (error: unknown) {
+      return error instanceof Error && error.message.startsWith("FADENO_EXTRACTION_OUTPUT_");
+    }
+  };
+  const traversal = rejects(contained, join(contained, "../escape.js"));
+  const linkedRoot = join(controlRoot, "linked-root");
+  symlinkSync(outside, linkedRoot, "dir");
+  const rootSymlink = rejects(linkedRoot, join(linkedRoot, "escape.js"));
+  const linkedAncestor = join(controlRoot, "linked-ancestor");
+  symlinkSync(outside, linkedAncestor, "dir");
+  const nestedRoot = join(linkedAncestor, "not-created");
+  const ancestorSymlink = rejects(nestedRoot, join(nestedRoot, "escape.js"));
+  return traversal && rootSymlink && ancestorSymlink;
 }
 
 export function assertNoQualificationCanary(
@@ -179,6 +206,9 @@ export async function executeExtractionQualification(options: Readonly<{
   } finally {
     candidate[Symbol.dispose]();
   }
+  const outputSafetyPass = observeOutputSafety(
+    join(comparisonRoot, "output-safety-control"),
+  );
 
   const preflight = options.requireReference
     ? await runBrowserPreflight(root, {
@@ -222,19 +252,24 @@ export async function executeExtractionQualification(options: Readonly<{
     inventory,
     (path) => readFileSync(join(outputRoot, path)),
   );
+  const identityPass = [...observations.values()].every((observation) =>
+    observation.fixtures.every((fixture) =>
+      fixture.status === "passed" || fixture.failureStage !== "identity"
+    )
+  );
   const outcome = decideExtractionObservations(observations, {
     rejectedBoundariesPass,
-    identityPass: true,
+    identityPass,
     deterministicGenerationPass,
-    outputSafetyPass: true,
+    outputSafetyPass,
   });
   writeFileSync(join(outputRoot, "decision.json"), `${JSON.stringify({
     schemaVersion: 1,
     ...outcome,
     rejectedBoundariesPass,
-    identityPass: true,
+    identityPass,
     deterministicGenerationPass,
-    outputSafetyPass: true,
+    outputSafetyPass,
   }, null, 2)}\n`);
   const expectedFiles = [
     ...EXTRACTION_ACCEPTED_CLASSES.map((fixtureId) => `generated/${fixtureId}.js`),
