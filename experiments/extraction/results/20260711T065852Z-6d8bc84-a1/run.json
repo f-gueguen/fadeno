@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "run": {
+    "id": "20260711T065852Z-6d8bc84-a1",
+    "attempt": 1,
+    "startedAt": "2026-07-11T06:58:52.990Z",
+    "completedAt": "2026-07-11T07:00:49.146Z",
+    "status": "passed"
+  },
+  "source": {
+    "repository": "https://github.com/f-gueguen/fadeno",
+    "commit": "6d8bc84043a92eb38e6b4abf8d2331bd1559a723",
+    "dirty": false
+  },
+  "command": [
+    "pnpm",
+    "experiment:extraction",
+    "--",
+    "--qualify"
+  ],
+  "decision": "go",
+  "accepted": [
+    "toggle",
+    "disclosure",
+    "tabs",
+    "menu",
+    "local-counter"
+  ],
+  "matrix": {
+    "engines": 3,
+    "acceptedClasses": 5,
+    "interactionOrdinals": 100,
+    "identityCases": 17,
+    "rejectedBoundaries": 10,
+    "retries": 0
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/pnpm-lock.yaml",
+      "sha256": "2fd513727b54e906b09a03d5e77104eb2f766703bf4eeb9ec1c670446fee492a",
+      "bytes": 10265
+    },
+    {
+      "path": "artifacts/qualification-contract.json",
+      "sha256": "a42daf521edd0f34245d279fd500bbba0e27670f74754cd05e50e25817a66d59",
+      "bytes": 5777
+    },
+    {
+      "path": "decision.json",
+      "sha256": "a98ecce763afdc0dbee27c1968ee5160d423f75d852d0eeb9eae5aa2e3bfab74",
+      "bytes": 267
+    },
+    {
+      "path": "generated/disclosure.js",
+      "sha256": "25a234491426b70ecf3c8b0783d7c393020b0e5674a582bb406c4b4089997fcc",
+      "bytes": 474
+    },
+    {
+      "path": "generated/inventory.json",
+      "sha256": "9b92c5591249ef8827c20c2dfbbc00d8a399d40057df126575356d8c6c7ce28d",
+      "bytes": 1431
+    },
+    {
+      "path": "generated/local-counter.js",
+      "sha256": "3a706460315d5f504724d955986f32f08110f088c3c62a77e93b526fb0168259",
+      "bytes": 625
+    },
+    {
+      "path": "generated/menu.js",
+      "sha256": "ed8bf4d79ad9268dc6defaf280d7044f1ba47be93a3f80532a6b61a1cbee612f",
+      "bytes": 539
+    },
+    {
+      "path": "generated/tabs.js",
+      "sha256": "078088c6b1d7df3cf3c177666d7fddcaee09fd4e23dfc57c799c7381eafdae85",
+      "bytes": 572
+    },
+    {
+      "path": "generated/toggle.js",
+      "sha256": "0b682dd819eabbbbb8d9037876574dbc8e7b1c6a9840cf3c76ea20114b08a5e4",
+      "bytes": 607
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "17fd1d51e921b1df61f09297095220f3ebf6f6907bf1ac45b642ff3837d4c91a",
+      "bytes": 1302
+    },
+    {
+      "path": "qualification-observations/chromium.json",
+      "sha256": "c05816e3d7d69aa6181fd81d068bd8bd0033b581a6f344ccc7c08d2f7f3d2dd7",
+      "bytes": 316351
+    },
+    {
+      "path": "qualification-observations/firefox.json",
+      "sha256": "bc6fd031325e95dc585b3f76d3611dd9dddc9f431afac8bd59196768ee14528a",
+      "bytes": 316340
+    },
+    {
+      "path": "qualification-observations/webkit.json",
+      "sha256": "5397e5d4759549cefb75b429b0f4a2d409ef3f1e579faf1441a67328970970df",
+      "bytes": 316342
+    },
+    {
+      "path": "qualification-report.json",
+      "sha256": "2fb2bedb1028db90d8e8758bdc390d5555bce1a66ccdc7878b160f65acd7fdfc",
+      "bytes": 1369
+    },
+    {
+      "path": "rejected-diagnostics.json",
+      "sha256": "4b28a22842189cd9827980408cf7e42e5dc3d3a933b537da6bf9110b02d6d900",
+      "bytes": 5329
+    },
+    {
+      "path": "source.json",
+      "sha256": "6720295fc850a8672e13690c9e0cc32ff8ecba131d5fefd4e7840bc2a0903b10",
+      "bytes": 154
+    }
+  ]
+}

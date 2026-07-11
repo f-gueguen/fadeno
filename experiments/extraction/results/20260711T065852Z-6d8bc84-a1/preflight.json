@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-07-11T06:58:52.989Z",
+  "host": {
+    "provider": "github-actions",
+    "repositoryVisibility": "private",
+    "runnerLabel": "ubuntu-24.04",
+    "runnerImageVersion": "20260705.232.1",
+    "runnerName": "GitHub Actions 1000001152",
+    "operatingSystemVersion": "ubuntu24",
+    "kernelVersion": "6.17.0-1018-azure",
+    "architecture": "x64",
+    "cpuModel": "AMD EPYC 7763 64-Core Processor",
+    "observedLogicalCpuCount": 2,
+    "observedMemoryMiB": 7938,
+    "advertisedLogicalCpuCount": 2,
+    "advertisedMemoryMiB": 8192,
+    "advertisedStorageMiB": 14336,
+    "freeStorageMiB": 12962,
+    "loadAverage1m": 1,
+    "processCount": 5
+  },
+  "container": {
+    "runtimeImage": "mcr.microsoft.com/playwright@sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
+    "platform": "linux/amd64",
+    "platformDigest": "sha256:111dde95859f2c659291cb60e698f9048a8fc30b35b4ddb7c90f9cb5b73062d9",
+    "configDigest": "sha256:753f831a898523662c36011748ba0729b59838745d577c61c91287fe1778bfe1"
+  },
+  "toolchain": {
+    "node": "22.14.0",
+    "pnpm": "11.7.0",
+    "playwright": "1.61.0"
+  },
+  "browsers": {
+    "chromium": "149.0.7827.55",
+    "firefox": "151.0",
+    "webkit": "26.5"
+  },
+  "classification": "reference",
+  "reasons": []
+}
