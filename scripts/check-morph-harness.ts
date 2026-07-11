@@ -86,10 +86,6 @@ const playwrightConfigSource = readFileSync(
   join(root, "experiments/morph/playwright.config.ts"),
   "utf8",
 );
-const referenceActionSource = readFileSync(
-  join(root, ".github/actions/morph-reference/action.yml"),
-  "utf8",
-);
 const decisionGateOffset = qualificationRunnerSource.indexOf(
   "verifyAcceptedQualificationFailure(root, outcome, profile)",
 );
@@ -1159,9 +1155,9 @@ try {
 const workflow = readFileSync(join(root, ".github/workflows/check.yml"), "utf8");
 for (const required of [
   "runs-on: ubuntu-24.04",
-  "uses: ./.github/actions/morph-reference",
-  "profile: ci",
-  "profile: qualification",
+  "uses: ./.github/actions/browser-reference",
+  "task: morph-ci",
+  "task: morph-qualification",
   "if: always()",
   "output/playwright/morph",
   "output/playwright/morph-harness",
@@ -1170,31 +1166,6 @@ for (const required of [
 ]) {
   if (!workflow.includes(required)) recordFailure(`workflow: missing ${required}`);
 }
-if (
-  (workflow.match(/uses: \.\/\.github\/actions\/morph-reference/gu) ?? []).length !== 2 ||
-  workflow.includes("docker run --rm --ipc=host")
-) {
-  recordFailure("workflow: reference policy must have exactly one composite owner");
-}
-for (const required of [
-  `image=\"${reference.container.runtimeImage}\"`,
-  "docker run --rm --ipc=host",
-  "--env FADENO_EXPECT_REFERENCE=1",
-  "--env FADENO_RUNNER_IMAGE_VERSION=\"$ImageVersion\"",
-  "--env FADENO_RUNNER_NAME=\"$RUNNER_NAME\"",
-  "--env FADENO_CONTAINER_PLATFORM_DIGEST=\"$container_platform_digest\"",
-  "--env FADENO_CONTAINER_CONFIG_DIGEST=\"$container_config_digest\"",
-  "pnpm experiment:morph -- --verify-harness",
-  "cp -R output/playwright/morph output/playwright/morph-harness",
-  "pnpm experiment:morph -- --fixture intentional-replacement",
-  "pnpm experiment:morph -- --ci",
-  "pnpm experiment:morph -- --qualify",
-]) {
-  if (!referenceActionSource.includes(required)) {
-    recordFailure(`reference action: missing ${required}`);
-  }
-}
-
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);

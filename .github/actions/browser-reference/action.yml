@@ -1,24 +1,24 @@
-name: Run morph reference profile
-description: Run one locked morph profile in the digest-pinned reference container.
+name: Run browser reference task
+description: Run one closed browser task in the digest-pinned reference container.
 
 inputs:
-  profile:
-    description: The locked morph profile to execute.
+  task:
+    description: The closed browser task to execute.
     required: true
 
 runs:
   using: composite
   steps:
-    - name: Run locked morph profile
+    - name: Run locked browser task
       shell: bash
       env:
-        FADENO_REFERENCE_PROFILE: ${{ inputs.profile }}
+        FADENO_REFERENCE_TASK: ${{ inputs.task }}
       run: |
         set -euo pipefail
-        case "$FADENO_REFERENCE_PROFILE" in
-          ci | qualification) ;;
+        case "$FADENO_REFERENCE_TASK" in
+          morph-ci | morph-qualification | extraction-harness) ;;
           *)
-            echo "unsupported morph reference profile: $FADENO_REFERENCE_PROFILE" >&2
+            echo "unsupported browser reference task: $FADENO_REFERENCE_TASK" >&2
             exit 64
             ;;
         esac
@@ -49,7 +49,7 @@ runs:
           --env FADENO_CONTAINER_PLATFORM="$container_platform" \
           --env FADENO_CONTAINER_PLATFORM_DIGEST="$container_platform_digest" \
           --env FADENO_CONTAINER_CONFIG_DIGEST="$container_config_digest" \
-          --env FADENO_REFERENCE_PROFILE="$FADENO_REFERENCE_PROFILE" \
+          --env FADENO_REFERENCE_TASK="$FADENO_REFERENCE_TASK" \
           --env PATH=/opt/fadeno-node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
           --volume "$node_root:/opt/fadeno-node:ro" \
           --volume "$GITHUB_WORKSPACE:/work" \
@@ -62,15 +62,18 @@ runs:
             corepack enable --install-directory /tmp/corepack
             export PATH="/tmp/corepack:$PATH"
             pnpm install --frozen-lockfile --store-dir /tmp/pnpm-store
-            case "$FADENO_REFERENCE_PROFILE" in
-              ci)
+            case "$FADENO_REFERENCE_TASK" in
+              morph-ci)
                 pnpm experiment:morph -- --verify-harness
                 cp -R output/playwright/morph output/playwright/morph-harness
                 pnpm experiment:morph -- --fixture intentional-replacement
                 pnpm experiment:morph -- --ci
                 ;;
-              qualification)
+              morph-qualification)
                 pnpm experiment:morph -- --qualify
+                ;;
+              extraction-harness)
+                pnpm experiment:extraction -- --verify-harness
                 ;;
               *) exit 64 ;;
             esac
