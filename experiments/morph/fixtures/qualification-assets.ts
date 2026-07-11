@@ -9,7 +9,7 @@ export function createQualificationFile(): Buffer {
 }
 
 export function createQualificationTone(): Buffer {
-  const sampleRate = 4_000;
+  const sampleRate = 8_000;
   const sampleCount = sampleRate * 4;
   const bytes = Buffer.alloc(44 + sampleCount * 2);
   bytes.write("RIFF", 0);
