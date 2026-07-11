@@ -10,7 +10,7 @@ K0-05 — extraction and module-graph harness
 
 ## Exit criteria
 
-- [ ] The reviewed accepted/rejected interaction corpus is locked before an
+- [x] The reviewed accepted/rejected interaction corpus is locked before an
   extraction candidate is implemented.
 - [ ] The three-engine harness proves browser identity, module/network
   observation, and stable diagnostics with seeded passing and failing controls.
@@ -20,7 +20,9 @@ K0-05 — extraction and module-graph harness
 
 ## In progress
 
-- K0-05 corpus review and harness planning have not started.
+- The exact 5 accepted and 10 rejected TypeScript fixture sources, hashes,
+  private module roles/edges, triggers, and classifications are locked.
+- Seeded accepted/rejected executable controls remain to be implemented.
 
 ## Blockers
 
