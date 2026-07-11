@@ -30,17 +30,47 @@ export const EXTRACTION_IDENTITY_CASES = MORPH_QUALIFICATION_CASES
     state: fixture.state,
   }));
 
+export const EXTRACTION_ROOT_EXPORTS = Object.freeze({
+  toggle: "toggleRoot",
+  disclosure: "disclosureRoot",
+  tabs: "tabsRoot",
+  menu: "menuRoot",
+  "local-counter": "localCounterRoot",
+  "server-secret": "serverSecretRoot",
+  "server-module": "serverModuleRoot",
+  "opaque-capability": "opaqueCapabilityRoot",
+  "class-instance": "classInstanceRoot",
+  "cyclic-data": "cyclicDataRoot",
+  "dynamic-import": "dynamicImportRoot",
+  "ambient-switch": "ambientSwitchRoot",
+  "async-lifetime": "asyncLifetimeRoot",
+  "oversized-capture": "oversizedCaptureRoot",
+  "non-deterministic-closure": "nonDeterministicClosureRoot",
+});
+
+const diagnostic = (
+  id: string,
+  message: string,
+  correction: string,
+) => Object.freeze({
+  id,
+  severity: "error",
+  message,
+  explanation: `docs/diagnostics/extraction.md#${id.toLowerCase().replaceAll("_", "-")}`,
+  correction,
+});
+
 export const EXTRACTION_DIAGNOSTIC_EXPECTATIONS = Object.freeze({
-  "server-secret": "FADENO_K0_EXTRACT_SERVER_IMPORT",
-  "server-module": "FADENO_K0_EXTRACT_SERVER_IMPORT",
-  "opaque-capability": "FADENO_K0_EXTRACT_OPAQUE_CAPTURE",
-  "class-instance": "FADENO_K0_EXTRACT_CLASS_CAPTURE",
-  "cyclic-data": "FADENO_K0_EXTRACT_CYCLIC_CAPTURE",
-  "dynamic-import": "FADENO_K0_EXTRACT_DYNAMIC_IMPORT",
-  "ambient-switch": "FADENO_K0_EXTRACT_AMBIENT_CAPTURE",
-  "async-lifetime": "FADENO_K0_EXTRACT_ASYNC_LIFETIME",
-  "oversized-capture": "FADENO_K0_EXTRACT_CAPTURE_SIZE",
-  "non-deterministic-closure": "FADENO_K0_EXTRACT_NON_DETERMINISTIC_CAPTURE",
+  "server-secret": diagnostic("FADENO_K0_EXTRACT_SERVER_IMPORT", "A browser handler cannot reach a server-only import.", "Move secret access behind a resource or action."),
+  "server-module": diagnostic("FADENO_K0_EXTRACT_SERVER_IMPORT", "A browser handler cannot reach a server-only import.", "Move database access behind a resource or action."),
+  "opaque-capability": diagnostic("FADENO_K0_EXTRACT_OPAQUE_CAPTURE", "A browser handler cannot capture an opaque capability.", "Create the capability inside an explicit island."),
+  "class-instance": diagnostic("FADENO_K0_EXTRACT_CLASS_CAPTURE", "A browser handler cannot capture a class instance.", "Capture plain serializable data or use an explicit island."),
+  "cyclic-data": diagnostic("FADENO_K0_EXTRACT_CYCLIC_CAPTURE", "A browser handler cannot capture cyclic data.", "Break the cycle and capture bounded plain data."),
+  "dynamic-import": diagnostic("FADENO_K0_EXTRACT_DYNAMIC_IMPORT", "A browser handler cannot use a non-literal dynamic import.", "Use a statically declared browser dependency."),
+  "ambient-switch": diagnostic("FADENO_K0_EXTRACT_AMBIENT_CAPTURE", "A shared dependency cannot switch on an ambient environment global.", "Split server and browser modules at a visible source boundary."),
+  "async-lifetime": diagnostic("FADENO_K0_EXTRACT_ASYNC_LIFETIME", "An extracted handler cannot start an unbounded async lifetime.", "Use an explicit island with teardown ownership."),
+  "oversized-capture": diagnostic("FADENO_K0_EXTRACT_CAPTURE_SIZE", "A browser handler capture exceeds the 65536-byte experiment limit.", "Pass a smaller plain-data value or use an explicit island."),
+  "non-deterministic-closure": diagnostic("FADENO_K0_EXTRACT_NON_DETERMINISTIC_CAPTURE", "A browser handler cannot capture a non-deterministic initializer.", "Compute the value in an explicit state home."),
 });
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -64,6 +94,7 @@ export function stableExtractionQualificationContract(): string {
     rejectedClasses: EXTRACTION_REJECTION_CLASSES,
     decisionPolicy: EXTRACTION_DECISION_POLICY,
     diagnostics: EXTRACTION_DIAGNOSTIC_EXPECTATIONS,
+    rootExports: EXTRACTION_ROOT_EXPORTS,
     identityCases: EXTRACTION_IDENTITY_CASES,
     roots: {
       path: "fixtures/qualification/roots.ts",
