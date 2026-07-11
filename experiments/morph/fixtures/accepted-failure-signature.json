@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "decision": "narrow",
+  "adr": "docs/adr/0014-narrow-structural-preservation.md",
+  "failureCases": [
+    {
+      "caseId": "document-scroll-reorder",
+      "categories": ["scroll-position", "scroll-event"]
+    },
+    {
+      "caseId": "element-scroll-insert",
+      "categories": ["scroll-position", "scroll-event"]
+    }
+  ]
+}

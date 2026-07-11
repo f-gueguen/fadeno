@@ -17,7 +17,8 @@
     from a clean source commit and writes a unique non-overwriting raw run.
   - `pnpm experiment:morph -- --qualify` runs the exact 100-repetition matrix
     in the frozen reference environment and atomically publishes a validated
-    v1 result manifest.
+    v1 result manifest. A failed experiment conclusion exits successfully only
+    when it exactly matches ADR 0014's checked narrow signature.
 
 K0-02 owns the data-oriented fixture API, three-engine runner, seeded harness
 failure, reference preflight, and verified failure artifacts. K0-03 owns one
@@ -36,6 +37,16 @@ island identity, structural insertion/removal/reorder, and declared
 replacement. Each case is paired with one explicit private structural
 operation. The exact matrix is three engines by every case by ordinals 1–20 in
 CI and 1–100 in reference qualification, with no retries.
+
+Target-relative stress inserts or removes a peer before the preserved target,
+changes the target's relative keyed order, inserts before content inside the
+scroll container, or performs the declared replacement. It proves the resulting
+relative order, not that reconciliation must physically move the target node.
+
+ADR 0014 records the narrow result: all non-scroll cases pass, while changes to
+preceding document/scroller layout change exact numeric scroll in every engine.
+CI accepts only that exact checked failure signature; any other failure remains
+an experiment gate failure.
 
 This is structural-preservation evidence only. K0-04 does not label identical
 in-page calls as navigation or action evidence and does not claim native
