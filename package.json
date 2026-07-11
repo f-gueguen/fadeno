@@ -18,7 +18,7 @@
     "check:type-spine-contract": "node --no-warnings --experimental-strip-types scripts/check-type-spine-contract.ts",
     "check:type-spine-harness": "node --no-warnings --experimental-strip-types scripts/check-type-spine-harness.ts",
     "check:type-spine-reference": "node --no-warnings --experimental-strip-types scripts/check-type-spine-reference.ts && node --no-warnings --experimental-strip-types scripts/test-type-spine-reference.ts",
-    "check:type-spine-qualification": "node --no-warnings --experimental-strip-types scripts/build-type-spine-qualification-corpus.ts --check && node --no-warnings --experimental-strip-types scripts/check-type-spine-qualification-corpus.ts",
+    "check:type-spine-qualification": "node --no-warnings --experimental-strip-types scripts/build-type-spine-qualification-corpus.ts --check && node --no-warnings --experimental-strip-types scripts/check-type-spine-qualification-corpus.ts && node --no-warnings --experimental-strip-types scripts/check-type-spine-qualification-contract.ts && node --no-warnings --experimental-strip-types scripts/test-type-spine-qualification-contract.ts",
     "check:local-ci-contract": "node --no-warnings --experimental-strip-types scripts/check-local-ci-contract.ts && node --no-warnings --experimental-strip-types scripts/test-local-ci-contract.ts",
     "check:docs": "node --no-warnings --experimental-strip-types scripts/check-docs.ts",
     "check:decisions": "node --no-warnings --experimental-strip-types scripts/check-decisions.ts",
