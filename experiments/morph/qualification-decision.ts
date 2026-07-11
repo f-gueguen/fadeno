@@ -10,6 +10,7 @@ import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
 import { MorphHarnessError } from "./harness-report.ts";
 import type { QualificationReportOutcome } from "./qualification-report.ts";
 import { qualificationRepetitions } from "./qualification-proof.ts";
+import type { QualificationFailureEvidence } from "./qualification-proof.ts";
 import type { MorphQualificationProfile } from "./qualification-scenarios.ts";
 
 export type QualificationDecisionSignature = Readonly<{
@@ -28,6 +29,22 @@ const signaturePath = join(
 
 export function loadQualificationDecisionSignature(): QualificationDecisionSignature {
   return readJsonDocument(signaturePath) as QualificationDecisionSignature;
+}
+
+export function verifyQualificationDiagnosticSelection(
+  failure: QualificationFailureEvidence,
+  profile: MorphQualificationProfile,
+): void {
+  const signature = loadQualificationDecisionSignature();
+  const repetitions = qualificationRepetitions(profile);
+  if (
+    failure.operation.caseId !== signature.diagnosticCase ||
+    failure.observation.caseId !== signature.diagnosticCase ||
+    failure.operation.ordinal !== repetitions ||
+    failure.observation.ordinal !== repetitions
+  ) {
+    fail("retained diagnostic differs from the accepted selector");
+  }
 }
 
 function fail(message: string): never {

@@ -17,6 +17,7 @@ import type { MorphProject } from "../experiments/morph/contract.ts";
 import { MorphHarnessError } from "../experiments/morph/harness-report.ts";
 import {
   verifyQualificationDecisionSignature,
+  verifyQualificationDiagnosticSelection,
 } from "../experiments/morph/qualification-decision.ts";
 import type {
   QualificationDecisionSignature,
@@ -345,6 +346,22 @@ const decisionOutcome: QualificationReportOutcome = {
   failed: MORPH_PROJECTS.map((engine) => syntheticFailedEvidence(engine).evidence),
 };
 verifyQualificationDecisionSignature(decisionSignature, decisionOutcome, "ci");
+const selectedDiagnostic = syntheticFailedEvidence("chromium").failures.find(
+  (failure) =>
+    failure.observation.caseId === decisionSignature.diagnosticCase &&
+    failure.observation.ordinal === 20,
+);
+if (!selectedDiagnostic) throw new Error("missing synthetic selected diagnostic");
+verifyQualificationDiagnosticSelection(selectedDiagnostic, "ci");
+expectHarnessError("swapped accepted diagnostic", "FADENO_MORPH_DECISION_SIGNATURE", () => {
+  const swapped = syntheticFailedEvidence("chromium").failures.find(
+    (failure) =>
+      failure.observation.caseId === "document-scroll-reorder" &&
+      failure.observation.ordinal === 20,
+  );
+  if (!swapped) throw new Error("missing synthetic swapped diagnostic");
+  verifyQualificationDiagnosticSelection(swapped, "ci");
+});
 expectHarnessError("unexpected accepted failure category", "FADENO_MORPH_DECISION_SIGNATURE", () => {
   verifyQualificationDecisionSignature(
     {

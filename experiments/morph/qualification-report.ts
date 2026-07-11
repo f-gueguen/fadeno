@@ -4,6 +4,9 @@ import { readJsonDocument } from "../../scripts/lib/experiment-contract.ts";
 import { MORPH_PROJECTS } from "./contract.ts";
 import type { MorphProject } from "./contract.ts";
 import {
+  verifyQualificationDiagnosticSelection,
+} from "./qualification-decision.ts";
+import {
   MorphHarnessError,
   verifyPortableHarnessAttachment,
   verifyTraceAttachmentBindings,
@@ -220,6 +223,7 @@ export function verifyQualificationReport(
       options.profile,
       engine,
     );
+    verifyQualificationDiagnosticSelection(diagnosticFailure, options.profile);
     const classification = classifyQualificationFailure(
       diagnosticFailure.observation,
       options.profile,

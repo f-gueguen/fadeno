@@ -23,6 +23,7 @@ import {
 import type { ReferenceEnvironment } from "../../scripts/lib/experiment-validation.ts";
 import { MORPH_QUALIFICATION_CASES } from "./fixtures/qualification-corpus.ts";
 import { MORPH_PROJECTS } from "./contract.ts";
+import { verifyQualificationDiagnosticSelection } from "./qualification-decision.ts";
 import {
   MorphHarnessError,
   verifyPortableHarnessAttachment,
@@ -164,6 +165,7 @@ export function verifyPublishedQualificationOutcome(
         profile,
         engine,
       );
+      verifyQualificationDiagnosticSelection(diagnosticFailure, profile);
       const classification = classifyQualificationFailure(
         diagnosticFailure.observation,
         profile,
