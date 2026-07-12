@@ -10,6 +10,7 @@ import type {
 } from "../index.ts";
 import { createElementNode } from "./render-node.ts";
 import { renderDocument } from "./renderer.ts";
+import { captureRequestFailureObserver, reportFrameworkFailure } from "./failure-observer.ts";
 
 type OutcomePayload = Readonly<{ kind: "not-found" }> | Readonly<{ kind: "redirect"; location: string; status: 303 | 307 | 308 }>;
 const outcomes = new WeakMap<object, OutcomePayload>();
@@ -64,8 +65,8 @@ async function renderFailure(
   page: ErrorPage<Record<string, string | readonly string[]>> | undefined,
   context: PageContext<Record<string, string | readonly string[]>>,
   layouts: readonly Layout<Record<string, string | readonly string[]>>[],
+  incidentId: string,
 ): Promise<Response> {
-  const incidentId = globalThis.crypto.randomUUID();
   try {
     const child = page
       ? await page({ ...context, incidentId })
@@ -80,6 +81,7 @@ async function renderFailure(
 }
 
 export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Response> {
+  const failureObserver = captureRequestFailureObserver(input.request);
   const context: PageContext<Record<string, string | readonly string[]>> = Object.freeze({
     request: input.request,
     parameters: input.parameters,
@@ -97,7 +99,9 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
       return new Response(null, { status: pageOutcome.status, headers: { location: `${target.pathname}${target.search}${target.hash}` } });
     }
     return renderDocument(await composeLayouts(input.layouts, context, pageResult as RenderChild), { request: input.request });
-  } catch {
-    return renderFailure(input.error, context, input.layouts);
+  } catch (cause) {
+    const incidentId = globalThis.crypto.randomUUID();
+    reportFrameworkFailure(failureObserver, input.request, incidentId, "pre-publication", "FADENO_RENDER_UNEXPECTED", cause);
+    return renderFailure(input.error, context, input.layouts, incidentId);
   }
 }

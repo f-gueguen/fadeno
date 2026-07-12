@@ -12,6 +12,7 @@ import {
 import { readRenderNode } from "./render-node.ts";
 import { readUnsafeHtml } from "./unsafe-html.ts";
 import { StreamingLifecycle } from "./streaming-lifecycle.ts";
+import { captureRequestFailureObserver, reportFrameworkFailure } from "./failure-observer.ts";
 
 const encoder = new TextEncoder();
 const voidElements = new Set(["area", "br", "col", "hr", "img", "input", "link", "meta", "source", "wbr"]);
@@ -180,6 +181,9 @@ function contentSecurityPolicy(nonce: string | undefined): string {
 
 export function renderDocument(node: RenderChild, options: RenderDocumentOptions): Response {
   assertDocument(node);
+  const failureObserver = captureRequestFailureObserver(options.request);
+  let terminalCause: unknown;
+  let terminalIncidentId: string | undefined;
   let iterator: AsyncGenerator<string, void, void> | undefined;
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
   let pulling = false;
@@ -191,7 +195,24 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
     close(): void { controller?.close(); },
     abort(reason: string): void { controller?.error(new TypeError(`FADENO_RENDER_STREAM_${reason.toUpperCase().replaceAll("-", "_")}`)); },
   };
-  const lifecycle = new StreamingLifecycle({ sink, signal: options.request.signal });
+  const lifecycle = new StreamingLifecycle({
+    sink,
+    signal: options.request.signal,
+    reporter: {
+      report(code) {
+        if (terminalIncidentId) {
+          reportFrameworkFailure(
+            failureObserver,
+            options.request,
+            terminalIncidentId,
+            "post-publication",
+            `FADENO_RENDER_${code.toUpperCase().replaceAll("-", "_")}`,
+            terminalCause,
+          );
+        }
+      },
+    },
+  });
   const stream = new ReadableStream<Uint8Array>({
     start(value) { controller = value; },
     async pull() {
@@ -202,7 +223,9 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
         const next = await iterator.next();
         if (next.done === true) await lifecycle.complete();
         else await lifecycle.write(encoder.encode(next.value as string));
-      } catch {
+      } catch (cause) {
+        terminalCause = cause;
+        terminalIncidentId ??= globalThis.crypto.randomUUID();
         await iterator?.return(undefined).catch(() => undefined);
         await lifecycle.fail("unexpected");
       } finally {

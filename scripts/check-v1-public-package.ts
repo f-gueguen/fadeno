@@ -108,6 +108,8 @@ try {
     "package/dist/internal/config.js",
     "package/dist/internal/diagnostic.d.ts",
     "package/dist/internal/diagnostic.js",
+    "package/dist/internal/failure-observer.d.ts",
+    "package/dist/internal/failure-observer.js",
     "package/dist/internal/node-http-capabilities.d.ts",
     "package/dist/internal/node-http-capabilities.js",
     "package/dist/internal/node-http.d.ts",

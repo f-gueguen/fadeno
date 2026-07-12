@@ -66,6 +66,12 @@ route registry. Private build output statically binds discovered route modules
 to the matched-route renderer and remains correlated with the generated route
 manifest.
 
+The same decision extends `ListenNodeHttpOptions` with a request-scoped
+`failureObserver` and exports its structured report type. Pre-publication
+failure pages and post-publication termination share incident correlation. The
+safe projection is redacted; the original cause reaches only the server-owned
+callback. A throwing or rejecting callback cannot change transport cleanup.
+
 ## Adapter contract
 
 1. The core accepts standard `Request` and returns standard `Response` values

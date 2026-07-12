@@ -37,10 +37,19 @@ generated application bindings. It does not export a route table, route-source
 loader, renderer internals, sink classifiers, lifecycle controls, nonce
 constructors, stream chunks, or boundary state.
 
+The existing `./node` adapter options add one request-scoped
+`failureObserver`. Its structured report carries incident identity,
+pre/post-publication phase, stable failure code, a redacted projection, and the
+original cause. The cause is delivered only to that server-owned callback and
+never enters the response or projection. Callback failure is observed and
+discarded without changing response or cleanup ownership.
+
 Intrinsic elements and attributes are closed to the HTML sink registry accepted
 by ADR 0028. Children accept only authenticated render nodes, authenticated raw
 HTML, strings, finite numbers, booleans with no visible output, nullish values,
-promises of accepted children, and arrays of accepted children. Arbitrary
+and arrays of accepted children. Async component results and boundary child
+functions may resolve to accepted children and are wrapped in authenticated
+render nodes; direct promise children are not accepted. Arbitrary
 objects, symbols, invalid promises, unknown elements or attributes, event
 attributes, foreign content, inline style, application RAWTEXT, and void-element
 children are refused. Runtime checks mirror the type boundary.

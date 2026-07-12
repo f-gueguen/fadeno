@@ -105,6 +105,11 @@ dynamic slot remains unpublished until complete and sink-valid, and actual
 - **Unexpected failure** receives a stable incident identity and safe public
   response while preserving the original cause for server observability.
 
+V1-09 reports unexpected pre- and post-publication failures through the
+request-scoped Node adapter observer. Reports contain incident identity, phase,
+stable code, redacted projection, and the original cause for the server owner.
+Observer failure never replaces the primary failure or blocks cleanup.
+
 Error handling cannot narrow a value and then expose it as nullable in generated
 types. Type fixtures cover narrowing across route and boundary control flow.
 

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,7 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, firefox, webkit, type BrowserType } from "@playwright/test";
 
-import { unsafeHtml, type Handler, type RenderChild } from "../packages/framework/src/index.ts";
+import { renderRoute, unsafeHtml, type Handler, type RenderChild } from "../packages/framework/src/index.ts";
 import { FadenoDiagnosticError, formatDiagnosticHuman } from "../packages/framework/src/internal/diagnostic.ts";
 import { listenNodeHttp } from "../packages/framework/src/internal/node-http.ts";
 import { createFrameworkExecutableNode } from "../packages/framework/src/internal/render-node.ts";
@@ -69,6 +70,20 @@ function verifyFailureAndRecovery(temporaryRoot: string): void {
   generateRoutes(project, { routes: { root: "src/routes" } });
   const repaired = JSON.parse(readFileSync(join(project, ".fadeno/routes/manifest.json"), "utf8")) as { routes: readonly { id: string }[] };
   assert.deepEqual(repaired.routes.map(({ id }) => id), ["/"]);
+  const applicationBytes = readFileSync(join(project, ".fadeno/routes/app.ts"), "utf8");
+  assert.doesNotMatch(applicationBytes, /\/old|old\/page/u);
+  const manifestDocument = JSON.parse(readFileSync(join(project, ".fadeno/routes/manifest.json"), "utf8")) as {
+    generation: { sourceSha256: string };
+  };
+  const owner = JSON.parse(readFileSync(join(project, ".fadeno/routes/owner.json"), "utf8")) as {
+    sourceSha256: string;
+    files: readonly { path: string; sha256: string }[];
+  };
+  assert.equal(owner.sourceSha256, manifestDocument.generation.sourceSha256);
+  assert.deepEqual(owner.files.map(({ path }) => path).sort(), ["app.ts", "index.d.ts", "index.js", "manifest.json"]);
+  for (const file of owner.files) {
+    assert.equal(createHash("sha256").update(readFileSync(join(project, ".fadeno/routes", file.path))).digest("hex"), file.sha256);
+  }
   assert.equal(expected("flow.json"), `${JSON.stringify({
     schemaVersion: 1,
     scenario: "route-role-collision",
@@ -88,13 +103,13 @@ function verifyFailureAndRecovery(temporaryRoot: string): void {
   }, null, 2)}\n`);
 }
 
-async function startServer(project: string): Promise<{ origin: string; stop(): Promise<void> }> {
+async function startServer(project: string): Promise<{ origin: string; output(): string; stop(): Promise<void> }> {
   const child = spawn(process.execPath, ["dist/src/server.js"], { cwd: project, stdio: ["ignore", "pipe", "pipe"] });
   let stderr = "";
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+  let output = "";
   const origin = await new Promise<string>((resolve, reject) => {
-    let output = "";
     const timeout = setTimeout(() => reject(new Error(`FADENO_V1_EXAMPLE_START_TIMEOUT\n${stderr}`)), 10_000);
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
@@ -108,6 +123,7 @@ async function startServer(project: string): Promise<{ origin: string; stop(): P
   });
   return {
     origin,
+    output: () => output,
     stop: () => new Promise<void>((resolve, reject) => {
       child.once("exit", (code) => code === 0 ? resolve() : reject(new Error(`FADENO_V1_EXAMPLE_STOP:${code}\n${stderr}`)));
       child.kill("SIGTERM");
@@ -158,6 +174,11 @@ async function verifyCspEnforcement(): Promise<void> {
         reason: "Deliberate CSP refusal fixture",
       })), { request });
     }
+    if (pathname === "/wrong") {
+      return renderDocument(cspDocument(unsafeHtml("<script nonce=\"wrong\">globalThis.__fadenoWrongExecuted = true;</script>", {
+        reason: "Deliberate wrong nonce fixture",
+      })), { request });
+    }
     return new Response("missing", { status: 404 });
   };
   const server = await listenNodeHttp({ handler });
@@ -176,10 +197,73 @@ async function verifyCspEnforcement(): Promise<void> {
         const rawResponse = await page.goto(`${server.origin}/raw`);
         assert.equal(rawResponse?.status(), 200, `${name}: raw status`);
         assert.equal(await page.evaluate(() => Reflect.get(globalThis, "__fadenoRawExecuted")), undefined, `${name}: raw script blocked`);
+
+        const wrongResponse = await page.goto(`${server.origin}/wrong`);
+        assert.equal(wrongResponse?.status(), 200, `${name}: wrong nonce status`);
+        assert.equal(await page.evaluate(() => Reflect.get(globalThis, "__fadenoWrongExecuted")), undefined, `${name}: wrong nonce blocked`);
       } finally {
         await browser.close();
       }
     }
+  } finally {
+    await server.close();
+  }
+}
+
+async function verifyFailureObservation(): Promise<void> {
+  const reports: Array<{
+    incidentId: string;
+    phase: string;
+    code: string;
+    projection: Readonly<Record<string, unknown>>;
+    cause: unknown;
+  }> = [];
+  const handler: Handler = (request) => {
+    const pathname = new URL(request.url).pathname;
+    if (pathname === "/pre") {
+      return renderRoute({
+        request,
+        parameters: Object.freeze({}),
+        layouts: [],
+        page: () => { throw new Error("private pre-publication detail"); },
+      });
+    }
+    return renderRoute({
+      request,
+      parameters: Object.freeze({}),
+      layouts: [],
+      page: () => cspDocument(jsx(async () => { throw new Error("private post-publication detail"); }, {})),
+    });
+  };
+  const server = await listenNodeHttp({
+    handler,
+    failureObserver(report) {
+      reports.push(report);
+      throw new Error("deliberate reporter failure");
+    },
+  });
+  try {
+    const pre = await fetch(`${server.origin}/pre?secret=hidden`);
+    assert.equal(pre.status, 500);
+    const preBody = await pre.text();
+    assert.doesNotMatch(preBody, /private pre-publication detail|secret=hidden/u);
+    assert.match(preBody, new RegExp(`Incident ${reports[0]?.incidentId ?? "missing"}`, "u"));
+
+    await assert.rejects(async () => {
+      const post = await fetch(`${server.origin}/post`);
+      assert.equal(post.status, 200);
+      await post.text();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(reports.length, 2);
+    assert.equal(reports[0]?.phase, "pre-publication");
+    assert.equal(reports[0]?.code, "FADENO_RENDER_UNEXPECTED");
+    assert.equal((reports[0]?.cause as Error).message, "private pre-publication detail");
+    assert.deepEqual(reports[0]?.projection["request"], { url: `${server.origin}/pre` });
+    assert.equal(reports[1]?.phase, "post-publication");
+    assert.equal(reports[1]?.code, "FADENO_RENDER_LATE_UNEXPECTED");
+    assert.equal((reports[1]?.cause as Error).message, "private post-publication detail");
+    assert.notEqual(reports[0]?.incidentId, reports[1]?.incidentId);
   } finally {
     await server.close();
   }
@@ -220,6 +304,19 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     assert.equal(missing.status, 404);
     assert.match(await missing.text(), /Page not found/u);
 
+    const adminMissing = await fetch(`${server.origin}/admin/missing`);
+    assert.equal(adminMissing.status, 404);
+    const adminMissingBody = await adminMissing.text();
+    assert.match(adminMissingBody, /Administration/u);
+    assert.match(adminMissingBody, /Administrative page not found/u);
+    assert.doesNotMatch(adminMissingBody, /Shop page not found/u);
+
+    const shopMissing = await fetch(`${server.origin}/shop/missing`);
+    assert.equal(shopMissing.status, 404);
+    const shopMissingBody = await shopMissing.text();
+    assert.match(shopMissingBody, /Shop page not found/u);
+    assert.doesNotMatch(shopMissingBody, /Administrative page not found/u);
+
     const redirect = await fetch(`${server.origin}/moved`, { redirect: "manual" });
     assert.equal(redirect.status, 303);
     assert.equal(redirect.headers.get("location"), "/hello/Redirected");
@@ -229,6 +326,24 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     const failureBody = await failure.text();
     assert.match(failureBody, /The page could not be rendered/u);
     assert.doesNotMatch(failureBody, /private failure details/u);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const failureEvent = server.output().split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
+      .find((event) => event["event"] === "framework-failure");
+    assert.ok(failureEvent);
+    const incidentId = /Incident ([a-f0-9-]+)/u.exec(failureBody)?.[1];
+    assert.equal(failureEvent["incidentId"], incidentId);
+    const normalizedFailure = {
+      ...failureEvent,
+      incidentId: "<incident>",
+      projection: {
+        ...(failureEvent["projection"] as Record<string, unknown>),
+        request: { url: "<origin>/failure" },
+      },
+    };
+    assert.equal(
+      readFileSync(join(exampleRoot, "expected/failure-report.json"), "utf8"),
+      `${JSON.stringify(normalizedFailure, null, 2)}\n`,
+    );
 
     const raw = await fetch(`${server.origin}/raw`);
     assert.equal(raw.status, 200);
@@ -245,6 +360,7 @@ try {
   verifyFailureAndRecovery(temporaryRoot);
   await verifyApplication(temporaryRoot);
   await verifyCspEnforcement();
+  await verifyFailureObservation();
 } finally {
   rmSync(temporaryRoot, { recursive: true, force: true });
 }
