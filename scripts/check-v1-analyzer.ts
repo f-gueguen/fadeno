@@ -411,6 +411,16 @@ try {
   assert.equal(Object.isFrozen(roundTrip), true);
   assert.equal(Object.isFrozen(roundTrip.documents[0]?.effective), true);
   assert.equal(Object.isFrozen(roundTrip.facets[1]?.value), true);
+  assert.equal(readAnalyzerFacet(roundTrip, "fadeno.future", {}).state, "unknown");
+  assert.equal(readAnalyzerFacet(roundTrip, "fadeno.routes", { "fadeno.routes": 2 }).state, "newer");
+
+  const hostileKeys = JSON.parse('{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}}}') as AnalyzerFacetValue;
+  const hostileSnapshot = acceptedFacets(facetSession.snapshotFacets(
+    [{ namespace: "fadeno.keys" }], [{ namespace: "fadeno.keys", version: 1, value: hostileKeys }],
+  ));
+  const hostileRoundTrip = deserializeAnalyzerFacetSnapshot(serializeAnalyzerFacetSnapshot(hostileSnapshot));
+  assert.equal(({} as { polluted?: boolean }).polluted, undefined);
+  assert.deepEqual(hostileRoundTrip.facets[0]?.value, hostileKeys);
 
   const normalizedFixture = {
     analyzerVersion: facetSnapshot.analyzerVersion,
@@ -468,6 +478,19 @@ try {
     [{ namespace: "fadeno.routes" }],
     [{ namespace: "fadeno.routes", version: 1, value: "x".repeat(ANALYZER_FACET_LIMITS.maximumFacetBytes) }],
   ), "FADENO_ANALYZER_FACET_LIMIT");
+  const tooManyNodes = Array.from({ length: ANALYZER_FACET_LIMITS.maximumNodes }, () => null);
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }], [{ namespace: "fadeno.routes", version: 1, value: tooManyNodes }],
+  ), "FADENO_ANALYZER_FACET_LIMIT");
+  const aggregateRequests = Array.from({ length: 5 }, (_, index) => ({ namespace: `fadeno.total-${index}` }));
+  const aggregateContributions = aggregateRequests.map(({ namespace }) => ({
+    namespace,
+    version: 1,
+    value: "x".repeat(60_000),
+  }));
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    aggregateRequests, aggregateContributions,
+  ), "FADENO_ANALYZER_FACET_LIMIT");
   const tooManyRequests: AnalyzerFacetRequest[] = Array.from(
     { length: ANALYZER_FACET_LIMITS.maximumFacets + 1 },
     (_, index) => ({ namespace: `fadeno.module-${index}` }),
@@ -480,6 +503,10 @@ try {
   const malformed = JSON.parse(serialized) as { snapshot: { documentVersions: Array<{ version: number }> } };
   malformed.snapshot.documentVersions[0]!.version += 1;
   assert.throws(() => deserializeAnalyzerFacetSnapshot(JSON.stringify(malformed)), /FADENO_ANALYZER_SERIALIZATION/u);
+  assert.throws(
+    () => serializeAnalyzerFacetSnapshot({ ...facetSnapshot, schemaVersion: 3 as 2 }),
+    /FADENO_ANALYZER_SERIALIZATION/u,
+  );
 
   const finalSnapshot = session.currentSnapshot;
   assert.equal(finalSnapshot.documents.find(({ path }) => path === "src/document.ts")?.effective.text, reference.saved);
