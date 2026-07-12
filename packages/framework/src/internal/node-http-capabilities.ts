@@ -1,18 +1,4 @@
-export interface NodeHttpCapabilities {
-  readonly runtime: "node";
-  readonly minimumVersion: string;
-  readonly webRequestResponse: true;
-  readonly requestBodyStreaming: true;
-  readonly responseBodyStreaming: true;
-  readonly responseBackpressure: true;
-  readonly disconnectCancellation: true;
-  readonly responseTrailers: false;
-  readonly requestSizeEnforcement: "none";
-  readonly trustedProxyHeaders: false;
-  readonly gracefulShutdown: "drain";
-}
-
-export const nodeHttpCapabilities: NodeHttpCapabilities = {
+export const nodeHttpCapabilities = Object.freeze({
   runtime: "node",
   minimumVersion: "22.17.0",
   webRequestResponse: true,
@@ -24,4 +10,4 @@ export const nodeHttpCapabilities: NodeHttpCapabilities = {
   requestSizeEnforcement: "none",
   trustedProxyHeaders: false,
   gracefulShutdown: "drain",
-};
+} as const);

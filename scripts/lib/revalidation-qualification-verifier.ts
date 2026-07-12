@@ -44,6 +44,14 @@ function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+function readSourceBytes(root: string, commit: string, path: string): Buffer {
+  return execFileSync("git", ["show", `${commit}:${path}`], { cwd: root });
+}
+
+function readSourceJson(root: string, commit: string, path: string): unknown {
+  return JSON.parse(readSourceBytes(root, commit, path).toString("utf8"));
+}
+
 function hashMatches(path: string, expected: string): boolean {
   return sha256(readFileSync(path)) === expected;
 }
@@ -94,7 +102,7 @@ export function verifyQualificationAttempt(
   const artifacts = readdirSync(resolvedAttempt).filter((name) => statSync(join(resolvedAttempt, name)).isFile()).sort();
   if (JSON.stringify(artifacts) !== JSON.stringify(expectedArtifacts)) throw new Error("FADENO_REVALIDATION_EVIDENCE_INVENTORY");
 
-  const workload = readJson(join(root, "experiments/revalidation/workload.json")) as { authentication: { secretCanary: string; principalId: string; tenantId: string } };
+  const workload = readSourceJson(root, expectedSourceCommit, "experiments/revalidation/workload.json") as { authentication: { secretCanary: string; principalId: string; tenantId: string } };
   const sensitive = [workload.authentication.secretCanary, workload.authentication.principalId, workload.authentication.tenantId];
   for (const name of artifacts) assertSafeRetainedText(readFileSync(join(resolvedAttempt, name), "utf8"), sensitive);
 
@@ -111,16 +119,16 @@ export function verifyQualificationAttempt(
     throw new Error("FADENO_REVALIDATION_EVIDENCE_SOURCE");
   }
 
-  const contract = readJson(join(root, "experiments/revalidation/qualification-contract.json")) as Contract;
+  const contract = readSourceJson(root, expectedSourceCommit, "experiments/revalidation/qualification-contract.json") as Contract;
   const records = { environment: contract.environment, ...contract.inputs };
   const expectedInputHashes = Object.fromEntries(Object.entries(records).map(([key, record]) => [key, record.sha256]));
   if (JSON.stringify(capture.inputHashes) !== JSON.stringify(expectedInputHashes)) throw new Error("FADENO_REVALIDATION_EVIDENCE_INPUTS");
   for (const record of Object.values(records)) {
-    if (!hashMatches(join(root, record.path), record.sha256)) throw new Error("FADENO_REVALIDATION_EVIDENCE_INPUT_BYTES");
+    if (sha256(readSourceBytes(root, expectedSourceCommit, record.path)) !== record.sha256) throw new Error("FADENO_REVALIDATION_EVIDENCE_INPUT_BYTES");
   }
 
   const identity = readJson(join(resolvedAttempt, "identity.json")) as ReferenceIdentityObservation;
-  const reference = readJson(join(root, contract.environment.path)) as Reference;
+  const reference = readSourceJson(root, expectedSourceCommit, contract.environment.path) as Reference;
   assertReferenceIdentityDocument(root, identity);
   if (!hashMatches(join(resolvedAttempt, "identity.json"), capture.preflight.identitySha256) || !referenceIdentityAccepted(reference, identity)) {
     throw new Error("FADENO_REVALIDATION_EVIDENCE_IDENTITY");

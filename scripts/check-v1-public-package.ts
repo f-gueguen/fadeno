@@ -65,6 +65,8 @@ function assertNeutralClosure(installedPackage: string, entry: string): void {
   while (pending.length > 0) {
     const path = pending.pop();
     if (!path || visited.has(path)) continue;
+    const entryContainment = relative(installedPackage, path);
+    if (entryContainment.startsWith("..") || isAbsolute(entryContainment)) throw new Error(`FADENO_PUBLIC_PACKAGE_ROOT_ESCAPE:${path}`);
     visited.add(path);
     const source = readFileSync(path, "utf8");
     if (/\/\/\/\s*<reference\s+types=["']node["']/.test(source)) throw new Error(`FADENO_PUBLIC_PACKAGE_NODE_REFERENCE:${path}`);
@@ -141,21 +143,42 @@ try {
 
   const installedPackage = join(consumer, "node_modules", packageName);
   const manifest = JSON.parse(readFileSync(join(installedPackage, "package.json"), "utf8")) as {
+    name?: string;
     private?: boolean;
+    publishConfig?: unknown;
+    version?: string;
     exports?: Record<string, { import?: string; types?: string }>;
   };
-  if (manifest.private !== true || JSON.stringify(Object.keys(manifest.exports ?? {}).sort()) !== JSON.stringify([".", "./node"])) {
+  const expectedExports = {
+    ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+    "./node": { types: "./dist/node.d.ts", import: "./dist/node.js" },
+  };
+  if (
+    manifest.name !== packageName || manifest.version !== "0.0.0-private" || manifest.private !== true ||
+    manifest.publishConfig !== undefined || JSON.stringify(manifest.exports) !== JSON.stringify(expectedExports)
+  ) {
     throw new Error("FADENO_PUBLIC_PACKAGE_MANIFEST");
   }
   for (const subpath of [".", "./node"]) {
     const target = manifest.exports?.[subpath];
-    if (!target?.import || !target.types || !existsSync(join(installedPackage, target.import)) || !existsSync(join(installedPackage, target.types))) {
+    const importTarget = resolve(installedPackage, target?.import ?? "../missing");
+    const typesTarget = resolve(installedPackage, target?.types ?? "../missing");
+    const importContainment = relative(installedPackage, importTarget);
+    const typesContainment = relative(installedPackage, typesTarget);
+    if (
+      !target?.import || !target.types || importContainment.startsWith("..") || isAbsolute(importContainment) ||
+      typesContainment.startsWith("..") || isAbsolute(typesContainment) || !existsSync(importTarget) || !existsSync(typesTarget)
+    ) {
       throw new Error(`FADENO_PUBLIC_PACKAGE_EXPORT_TARGET:${subpath}`);
     }
   }
   if (manifest.exports?.["."]?.import === manifest.exports?.["./node"]?.import) throw new Error("FADENO_PUBLIC_PACKAGE_ROOT_IS_NODE");
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["."]?.import ?? ""));
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["."]?.types ?? ""));
+  const nodeDeclaration = readFileSync(join(installedPackage, manifest.exports?.["./node"]?.types ?? ""), "utf8");
+  if (scanModuleReferences(nodeDeclaration).some((reference) => reference.specifier.includes("/internal/"))) {
+    throw new Error("FADENO_PUBLIC_PACKAGE_NODE_DECLARATION_LEAK");
+  }
 
   writeFileSync(join(consumer, "root-only.ts"), `import type { Handler } from "${packageName}";\ndeclare const handler: Handler;\nvoid handler;\n`);
   run(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--lib", "ES2022,DOM", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--types", "", "root-only.ts"], consumer);

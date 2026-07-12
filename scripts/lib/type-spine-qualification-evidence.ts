@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,6 +59,7 @@ export function verifyQualificationResult(directory: string): QualificationConcl
     measurements: QualificationMetrics;
     artifacts: readonly { path: string; sha256: string; bytes: number }[];
     conclusion: { decision: string };
+    source: { commit: string };
     workload: { corpusSha256: string; contractSha256: string; lockSha256: string; referenceSha256: string };
   };
   const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => { compile(schema: unknown): ((document: unknown) => boolean) & { errors?: unknown } };
@@ -79,12 +81,14 @@ export function verifyQualificationResult(directory: string): QualificationConcl
     captureSha256: string; metrics: QualificationMetrics; gates: Record<string, boolean>; decision: string;
   };
   const captureBytes = readFileSync(join(directory, "capture.json"));
-  const fileHash = (path: string) => createHash("sha256").update(readFileSync(join(root, path))).digest("hex");
+  const sourceFileHash = (path: string) => createHash("sha256")
+    .update(execFileSync("git", ["show", `${manifest.source.commit}:${path}`], { cwd: root }))
+    .digest("hex");
   if (
-    manifest.workload.corpusSha256 !== fileHash("experiments/type-spine/qualification-corpus.json") ||
-    manifest.workload.contractSha256 !== fileHash("experiments/type-spine/qualification-contract.json") ||
-    manifest.workload.referenceSha256 !== fileHash("experiments/type-spine/reference-environment.json") ||
-    manifest.workload.lockSha256 !== fileHash("pnpm-lock.yaml") ||
+    manifest.workload.corpusSha256 !== sourceFileHash("experiments/type-spine/qualification-corpus.json") ||
+    manifest.workload.contractSha256 !== sourceFileHash("experiments/type-spine/qualification-contract.json") ||
+    manifest.workload.referenceSha256 !== sourceFileHash("experiments/type-spine/reference-environment.json") ||
+    manifest.workload.lockSha256 !== sourceFileHash("pnpm-lock.yaml") ||
     decision.captureSha256 !== createHash("sha256").update(captureBytes).digest("hex") ||
     JSON.stringify(decision.metrics) !== JSON.stringify(conclusion.metrics) ||
     JSON.stringify(decision.gates) !== JSON.stringify(conclusion.gates) ||
