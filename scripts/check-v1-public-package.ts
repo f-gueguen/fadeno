@@ -102,10 +102,18 @@ try {
     "package/README.md",
     "package/dist/index.d.ts",
     "package/dist/index.js",
+    "package/dist/internal/config.d.ts",
+    "package/dist/internal/config.js",
     "package/dist/internal/node-http-capabilities.d.ts",
     "package/dist/internal/node-http-capabilities.js",
     "package/dist/internal/node-http.d.ts",
     "package/dist/internal/node-http.js",
+    "package/dist/internal/routing/discovery.d.ts",
+    "package/dist/internal/routing/discovery.js",
+    "package/dist/internal/routing/generator.d.ts",
+    "package/dist/internal/routing/generator.js",
+    "package/dist/internal/routing/matcher.d.ts",
+    "package/dist/internal/routing/matcher.js",
     "package/dist/node.d.ts",
     "package/dist/node.js",
     "package/package.json",
@@ -175,6 +183,10 @@ try {
   if (manifest.exports?.["."]?.import === manifest.exports?.["./node"]?.import) throw new Error("FADENO_PUBLIC_PACKAGE_ROOT_IS_NODE");
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["."]?.import ?? ""));
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["."]?.types ?? ""));
+  const rootDeclaration = readFileSync(join(installedPackage, manifest.exports?.["."]?.types ?? ""), "utf8");
+  if (rootDeclaration.includes("/accounts/") || rootDeclaration.includes("fadeno:routes") || scanModuleReferences(rootDeclaration).some((reference) => reference.specifier.includes("/internal/"))) {
+    throw new Error("FADENO_PUBLIC_PACKAGE_ROOT_ROUTE_LEAK");
+  }
   const nodeDeclaration = readFileSync(join(installedPackage, manifest.exports?.["./node"]?.types ?? ""), "utf8");
   if (scanModuleReferences(nodeDeclaration).some((reference) => reference.specifier.includes("/internal/"))) {
     throw new Error("FADENO_PUBLIC_PACKAGE_NODE_DECLARATION_LEAK");
@@ -192,6 +204,12 @@ try {
   writeFileSync(join(consumer, "deep-import.ts"), `import { listenNodeHttp } from "${packageName}/internal/node-http";\nvoid listenNodeHttp;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/node-http")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+  const routingJs = join(installedPackage, "dist/internal/routing/generator.js");
+  const routingTypes = join(installedPackage, "dist/internal/routing/generator.d.ts");
+  if (!existsSync(routingJs) || !existsSync(routingTypes)) throw new Error("FADENO_PUBLIC_PACKAGE_ROUTING_INTERNAL_ABSENT");
+  writeFileSync(join(consumer, "routing-deep-import.ts"), `import { generateRoutes } from "${packageName}/internal/routing/generator";\nvoid generateRoutes;\n`);
+  expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "routing-deep-import.ts"], consumer, "TS2307");
+  expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/routing/generator")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
 } finally {
   rmSync(join(packageRoot, "dist"), { recursive: true, force: true });
   rmSync(temporaryRoot, { recursive: true, force: true });

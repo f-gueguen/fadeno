@@ -9,8 +9,7 @@
     "types": ["node"]
   },
   "include": [
-    "packages/framework/src/internal/routing/discovery.ts",
-    "prototypes/v1/routing-contract/types/**/*.ts",
-    "scripts/check-v1-route-contract.ts"
+    "packages/framework/src/**/*.ts",
+    "scripts/check-v1-routing.ts"
   ]
 }
