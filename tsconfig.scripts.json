@@ -13,5 +13,8 @@
     "skipLibCheck": false
   },
   "include": ["scripts/**/*.ts"],
-  "exclude": ["scripts/check-morph-harness.ts"]
+  "exclude": [
+    "scripts/check-morph-harness.ts",
+    "scripts/check-v1-unsafe-html.ts"
+  ]
 }

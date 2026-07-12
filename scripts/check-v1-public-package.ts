@@ -116,6 +116,8 @@ try {
     "package/dist/internal/routing/generator.js",
     "package/dist/internal/routing/matcher.d.ts",
     "package/dist/internal/routing/matcher.js",
+    "package/dist/internal/unsafe-html.d.ts",
+    "package/dist/internal/unsafe-html.js",
     "package/dist/node.d.ts",
     "package/dist/node.js",
     "package/package.json",
@@ -194,7 +196,7 @@ try {
     throw new Error("FADENO_PUBLIC_PACKAGE_NODE_DECLARATION_LEAK");
   }
 
-  writeFileSync(join(consumer, "root-only.ts"), `import { defineConfig, type Handler } from "${packageName}";\ndeclare const handler: Handler;\ndefineConfig({});\ndefineConfig({ routes: { root: "src/routes" } });\n// @ts-expect-error unknown top-level config field\ndefineConfig({ unknown: true });\nconst invalid = { routes: { root: "src/routes", extra: true } } as const;\n// @ts-expect-error unknown nested route config field\ndefineConfig(invalid);\nvoid handler;\n`);
+  writeFileSync(join(consumer, "root-only.ts"), `import { defineConfig, unsafeHtml, type Handler, type UnsafeHtml } from "${packageName}";\ndeclare const handler: Handler;\nconst raw: UnsafeHtml = unsafeHtml("<strong>reviewed</strong>", { reason: "Reviewed static markup" });\ndefineConfig({});\ndefineConfig({ routes: { root: "src/routes" } });\n// @ts-expect-error ordinary strings are not unsafe capabilities\nconst forged: UnsafeHtml = "<script>bad()</script>";\n// @ts-expect-error unknown top-level config field\ndefineConfig({ unknown: true });\nconst invalid = { routes: { root: "src/routes", extra: true } } as const;\n// @ts-expect-error unknown nested route config field\ndefineConfig(invalid);\nvoid handler;\nvoid raw;\nvoid forged;\n`);
   run(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--lib", "ES2022,DOM", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--types", "", "root-only.ts"], consumer);
   run(process.execPath, [tsc, "-p", "tsconfig.json"], consumer);
   const runtime = run(process.execPath, ["dist/index.js"], consumer);

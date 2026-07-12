@@ -1,4 +1,19 @@
+import { createUnsafeHtml } from "./internal/unsafe-html.js";
+
 export type Handler = (request: Request) => Response | Promise<Response>;
+
+declare const unsafeHtmlBrand: unique symbol;
+
+export interface UnsafeHtml {
+  readonly [unsafeHtmlBrand]: true;
+}
+
+export function unsafeHtml<const Reason extends string>(
+  html: string,
+  options: { readonly reason: Reason extends "" ? never : Reason },
+): UnsafeHtml {
+  return createUnsafeHtml(html, options.reason) as UnsafeHtml;
+}
 
 export interface RouteConfig {
   readonly root: string;
