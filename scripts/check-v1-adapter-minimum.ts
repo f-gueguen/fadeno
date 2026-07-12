@@ -18,7 +18,7 @@ const result = spawnSync("docker", [
   "--experimental-strip-types",
   "scripts/check-v1-adapter-contract.ts",
   "--require-minimum",
-], { encoding: "utf8" });
+], { encoding: "utf8", timeout: 30_000 });
 
 process.stdout.write(result.stdout ?? "");
 process.stderr.write(result.stderr ?? "");

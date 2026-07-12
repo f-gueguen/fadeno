@@ -63,8 +63,9 @@ package, config field, registry, or support-matrix claim.
 
 ## Alternatives considered
 
-- Node 22.14.0: rejected for the adapter because its Node-to-Web stream bridge
-  is still marked experimental, even though repository tooling may run there.
+- Node 22.14.0: rejected because its Node-to-Web stream bridge is still marked
+  experimental. The repository and selected adapter now share Node 22.17.0 as
+  their minimum so the canonical check cannot claim a lower working engine.
 - Buffer request or response bodies: rejected because it would make streaming
   and cancellation claims false.
 - Implement a manual Node-to-Web request stream: rejected because the stable
@@ -78,8 +79,8 @@ package, config field, registry, or support-matrix claim.
 ## Consequences
 
 - V1 package-boundary work can use one concrete adapter consumer.
-- The runtime minimum for the adapter is narrower than the repository tooling
-  minimum and must be checked independently.
+- Repository tooling and the adapter now share Node 22.17.0 as their minimum;
+  the adapter is also checked independently on that exact runtime.
 - Deployments needing adapter-level request limits, trusted proxies, trailers,
   or forced shutdown cannot claim those capabilities.
 - The private prototype can be removed and this decision superseded without a

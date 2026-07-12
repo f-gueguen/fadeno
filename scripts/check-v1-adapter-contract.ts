@@ -107,22 +107,56 @@ async function verifyRequestResponseAndCookies(): Promise<void> {
 }
 
 async function verifyAbsoluteRequestTargetRefusal(): Promise<void> {
-  let handlerCalled = false;
+  let handlerCalls = 0;
   await withAdapter(() => {
-    handlerCalled = true;
+    handlerCalls += 1;
     return new Response("unexpected");
   }, async (origin) => {
     const url = new URL(origin);
-    const closed = deferred<void>();
-    const socket = connect(Number(url.port), url.hostname, () => {
-      socket.write("GET http://attacker.invalid/path HTTP/1.1\r\nHost: attacker.invalid\r\nConnection: close\r\n\r\n");
-    });
-    socket.on("data", () => undefined);
-    socket.once("error", () => closed.resolve());
-    socket.once("close", () => closed.resolve());
-    await within(closed.promise, "absolute-target-refusal");
-    if (handlerCalled) throw new Error("FADENO_ADAPTER_ABSOLUTE_TARGET");
+    const targets = [
+      "http://attacker.invalid/path",
+      "/\\attacker.invalid/path",
+      "/path#fragment",
+    ];
+    for (const target of targets) {
+      const callsBefore = handlerCalls;
+      const closed = deferred<void>();
+      const socket = connect(Number(url.port), url.hostname, () => {
+        socket.write("GET " + target + " HTTP/1.1\r\nHost: attacker.invalid\r\nConnection: close\r\n\r\n");
+      });
+      socket.on("data", () => undefined);
+      socket.once("error", () => closed.resolve());
+      socket.once("close", () => closed.resolve());
+      await within(closed.promise, "request-target-refusal");
+      if (handlerCalls !== callsBefore) throw new Error("FADENO_ADAPTER_REQUEST_TARGET");
+    }
   });
+}
+
+async function verifyIpv6AuthorityWhenAvailable(): Promise<void> {
+  let observedOrigin: string | undefined;
+  let adapter;
+  try {
+    adapter = await listenNodeHttpAdapter({
+      hostname: "::1",
+      handler: (request) => {
+        observedOrigin = new URL(request.url).origin;
+        return new Response("ipv6");
+      },
+    });
+  } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EADDRNOTAVAIL" || code === "EAFNOSUPPORT") return;
+    throw error;
+  }
+  try {
+    if (!adapter.origin.startsWith("http://[::1]:")) throw new Error("FADENO_ADAPTER_IPV6_AUTHORITY");
+    if ((await exchange(adapter.origin, "/ipv6")).body !== "ipv6" || observedOrigin !== adapter.origin) {
+      throw new Error("FADENO_ADAPTER_IPV6_REQUEST");
+    }
+  } finally {
+    await adapter.close();
+  }
 }
 
 async function verifyStreamedUpload(): Promise<void> {
@@ -228,13 +262,16 @@ async function verifyBackpressure(): Promise<void> {
 async function verifyDisconnectCancellation(): Promise<void> {
   const handlerEntered = deferred<void>();
   const pulling = deferred<void>();
+  const pausedClient = deferred<() => void>();
   const aborted = deferred<void>();
   const cancelled = deferred<void>();
+  let pulls = 0;
   await withAdapter((request) => {
     request.signal.addEventListener("abort", () => aborted.resolve(), { once: true });
     handlerEntered.resolve();
     return new Response(new ReadableStream<Uint8Array>({
       pull(controller) {
+        pulls += 1;
         pulling.resolve();
         controller.enqueue(new Uint8Array(64 * 1024));
       },
@@ -242,13 +279,25 @@ async function verifyDisconnectCancellation(): Promise<void> {
     }));
   }, async (origin) => {
     const request = httpRequest(origin, (response) => {
-      response.once("data", () => response.destroy());
-      response.resume();
+      response.pause();
+      response.on("error", () => undefined);
+      pausedClient.resolve(() => response.destroy());
     });
     request.on("error", () => undefined);
     request.end();
     await within(handlerEntered.promise, "disconnect-handler");
     await within(pulling.promise, "disconnect-pull");
+    const destroyClient = await within(pausedClient.promise, "disconnect-client-paused");
+    let stableChecks = 0;
+    let previousPulls = -1;
+    for (let attempt = 0; attempt < 100 && stableChecks < 3; attempt += 1) {
+      await delay(20);
+      if (pulls === previousPulls) stableChecks += 1;
+      else stableChecks = 0;
+      previousPulls = pulls;
+    }
+    if (stableChecks < 3 || pulls < 2) throw new Error("FADENO_ADAPTER_DISCONNECT_NOT_BACKPRESSURED");
+    destroyClient();
     await within(aborted.promise, "disconnect-abort");
     await within(cancelled.promise, "disconnect-cancel");
   });
@@ -330,7 +379,8 @@ async function verifyGracefulShutdown(): Promise<void> {
     if (await within(active.promise, "shutdown-active-complete") !== "active-complete") throw new Error("FADENO_ADAPTER_SHUTDOWN_BODY");
     await within(shutdown, "shutdown-drain");
   } finally {
-    if (phase < 2) release.resolve();
+    release.resolve();
+    await adapter.close();
   }
 }
 
@@ -365,6 +415,7 @@ if (process.argv.includes("--require-minimum") && process.versions.node !== node
 
 await verifyRequestResponseAndCookies();
 await verifyAbsoluteRequestTargetRefusal();
+await verifyIpv6AuthorityWhenAvailable();
 await verifyStreamedUpload();
 await verifyEarlyFlush();
 await verifyBackpressure();

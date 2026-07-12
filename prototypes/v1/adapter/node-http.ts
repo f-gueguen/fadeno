@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { isIP } from "node:net";
 import { Readable } from "node:stream";
 
 import { nodeHttpAdapterCapabilities } from "./capabilities.ts";
@@ -25,11 +26,15 @@ function assertSupportedRuntime(): void {
   }
 }
 
-function requestTarget(rawTarget: string | undefined): string {
+function requestUrl(rawTarget: string | undefined, origin: string): URL {
   if (!rawTarget || !rawTarget.startsWith("/") || rawTarget.startsWith("//")) {
     throw new Error("FADENO_ADAPTER_REQUEST_TARGET");
   }
-  return rawTarget;
+  const url = new URL(rawTarget, origin);
+  if (url.origin !== origin || url.hash || rawTarget.includes("\\")) {
+    throw new Error("FADENO_ADAPTER_REQUEST_TARGET");
+  }
+  return url;
 }
 
 function requestBody(request: IncomingMessage): ReadableStream<Uint8Array> | undefined {
@@ -60,7 +65,7 @@ function toWebRequest(request: IncomingMessage, origin: string, signal: AbortSig
     init.body = body;
     init.duplex = "half";
   }
-  return new Request(new URL(requestTarget(request.url), origin), init);
+  return new Request(requestUrl(request.url, origin), init);
 }
 
 function copyResponseHead(response: Response, target: ServerResponse): void {
@@ -83,9 +88,14 @@ function waitForDrain(target: ServerResponse): Promise<void> {
     const onDrain = (): void => { cleanup(); resolve(); };
     const onClose = (): void => { cleanup(); reject(new DOMException("Client disconnected", "AbortError")); };
     const onError = (error: Error): void => { cleanup(); reject(error); };
+    if (target.destroyed) {
+      reject(new DOMException("Client disconnected", "AbortError"));
+      return;
+    }
     target.once("drain", onDrain);
     target.once("close", onClose);
     target.once("error", onError);
+    if (target.destroyed) onClose();
   });
 }
 
@@ -174,12 +184,15 @@ export async function listenNodeHttpAdapter(options: ListenNodeHttpAdapterOption
   await listen(server, hostname);
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("FADENO_ADAPTER_ADDRESS");
-  origin = `http://${hostname}:${address.port}`;
+  const authorityHost = isIP(hostname) === 6 ? `[${hostname}]` : hostname;
+  origin = `http://${authorityHost}:${address.port}`;
+  let shutdown: Promise<void> | undefined;
   return {
     origin,
     close: () => {
       draining = true;
-      return close(server);
+      shutdown ??= close(server);
+      return shutdown;
     },
   };
 }
