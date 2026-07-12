@@ -10,23 +10,23 @@ V1-08 — freeze streaming lifecycle, boundary ownership, and response commitmen
 
 ## Exit criteria
 
-- [ ] Accept one streaming-lifecycle ADR that fixes response-head publication,
+- [x] Accept one streaming-lifecycle ADR that fixes response-head publication,
   first-byte, completion, failure, cancellation, and cleanup transitions.
-- [ ] Freeze deterministic in-order no-JavaScript boundary ownership, including
+- [x] Freeze deterministic in-order no-JavaScript boundary ownership, including
   nested success, fallback failure, timeout, and parent escalation.
-- [ ] Prove backpressure admits at most one pending chunk and every terminal
+- [x] Prove backpressure admits at most one pending chunk and every terminal
   path cancels owned work and cleans timers/listeners exactly once.
-- [ ] Add one versioned schema and exhaustive corpus for pre/post-commit errors,
+- [x] Add one versioned schema and exhaustive corpus for pre/post-commit errors,
   redirects, not-found, empty/first/last chunk failures, inherited deadlines,
   disconnect, supersession, reporting failure, and nonce/header timing.
-- [ ] Remove the resolved streaming decision gate, align current documentation,
+- [x] Remove the resolved streaming decision gate, align current documentation,
   and pass all local merge gates without adding a public renderer, boundary,
   context, or stream API.
 
 ## In progress
 
-- V1-08 is resolving streaming, failure, timeout, cancellation, and
-  response-commit behavior from merged V1-07 main.
+- V1-08 passed its exhaustive lifecycle corpus, package checks, full repository
+  check, and independent adversarial review; remote review remains.
 - V1-09 remains the first JSX renderer and running routed page example.
 - Registry naming, renderer boundaries, request security policy,
   and adapter timeout/force-close behavior remain unresolved by this slice.
