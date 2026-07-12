@@ -2,27 +2,26 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { isIP } from "node:net";
 import { Readable } from "node:stream";
 
-import { nodeHttpAdapterCapabilities } from "./capabilities.ts";
+import type { Handler } from "./server-contract.ts";
+import { nodeHttpCapabilities } from "./node-http-capabilities.ts";
 
-export type WebHandler = (request: Request) => Response | Promise<Response>;
-
-export interface NodeHttpAdapter {
+export interface NodeHttpServer {
   readonly origin: string;
   close(): Promise<void>;
 }
 
-export interface ListenNodeHttpAdapterOptions {
-  readonly handler: WebHandler;
+export interface ListenNodeHttpOptions {
+  readonly handler: Handler;
   readonly hostname?: string;
 }
 
 function assertSupportedRuntime(): void {
   const [major = 0, minor = 0, patch = 0] = process.versions.node.split(".").map(Number);
-  const [requiredMajor, requiredMinor, requiredPatch] = nodeHttpAdapterCapabilities.minimumVersion.split(".").map(Number) as [number, number, number];
+  const [requiredMajor, requiredMinor, requiredPatch] = nodeHttpCapabilities.minimumVersion.split(".").map(Number) as [number, number, number];
   const current = major * 1_000_000 + minor * 1_000 + patch;
   const required = requiredMajor * 1_000_000 + requiredMinor * 1_000 + requiredPatch;
   if (current < required) {
-    throw new Error(`FADENO_ADAPTER_NODE_VERSION: requires Node ${nodeHttpAdapterCapabilities.minimumVersion} or newer`);
+    throw new Error(`FADENO_ADAPTER_NODE_VERSION: requires Node ${nodeHttpCapabilities.minimumVersion} or newer`);
   }
 }
 
@@ -129,7 +128,7 @@ async function writeWebResponse(response: Response, target: ServerResponse): Pro
   }
 }
 
-function handleRequest(handler: WebHandler, origin: () => string, request: IncomingMessage, response: ServerResponse): void {
+function handleRequest(handler: Handler, origin: () => string, request: IncomingMessage, response: ServerResponse): void {
   const cancellation = new AbortController();
   request.once("close", () => {
     if (!request.complete) cancellation.abort(new DOMException("Request body disconnected", "AbortError"));
@@ -167,7 +166,7 @@ function close(server: Server): Promise<void> {
   });
 }
 
-export async function listenNodeHttpAdapter(options: ListenNodeHttpAdapterOptions): Promise<NodeHttpAdapter> {
+export async function listenNodeHttp(options: ListenNodeHttpOptions): Promise<NodeHttpServer> {
   assertSupportedRuntime();
   const hostname = options.hostname ?? "127.0.0.1";
   let origin: string | undefined;

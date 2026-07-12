@@ -8,7 +8,7 @@
     "types": ["node"]
   },
   "include": [
-    "prototypes/v1/adapter/**/*.ts",
+    "packages/framework/src/**/*.ts",
     "scripts/check-v1-adapter-contract.ts",
     "scripts/check-v1-adapter-minimum.ts"
   ]
