@@ -109,6 +109,10 @@ try {
       value.contribution.value.records[0].parentId = value.contribution.value.records[1].id;
       value.contribution.value.records[1].parentId = value.contribution.value.records[0].id;
     },
+    (value: any) => {
+      value.contribution.value.records[0].causedBy = [value.contribution.value.records[1].id];
+      value.contribution.value.records[1].causedBy = [value.contribution.value.records[0].id];
+    },
     (value: any) => { value.contribution.value.family = "observed-runtime"; },
     (value: any) => { value.contribution.value.records[0].fields.secret = "FADENO_EXPLAIN_SECRET_CANARY"; },
   ]) {
@@ -127,7 +131,18 @@ try {
       collect: ({ publication: active }) => [createRouteExplainContribution(active, null, "semantic")],
     }).result;
     assert.equal(limited.status, "partial");
-    if (limited.status === "partial") assert.equal(limited.truncation, reason);
+    if (limited.status === "partial") {
+      assert.equal(limited.truncation, reason);
+      const contribution = limited.contributions[0]!;
+      const serialized = serializeRouteExplainContribution(contribution);
+      assert.equal(serializeRouteExplainContribution(deserializeRouteExplainContribution(serialized)), serialized);
+      const records = (contribution.value as any).records;
+      const retained = new Set(records.map(({ id }: any) => id));
+      for (const record of records) {
+        if (record.parentId !== null) assert.equal(retained.has(record.parentId), true);
+        assert.equal(record.causedBy.every((id: string) => retained.has(id)), true);
+      }
+    }
   }
   const durationLimited = await session.startExplain({
     detail: "semantic", budgets: { durationMs: 1 },

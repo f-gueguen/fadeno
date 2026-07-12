@@ -126,7 +126,8 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
     if (current.causedBy.some((id) => !ids.has(id) || id === current.id)) refuse();
   }
   const byId = new Map(records.map((current) => [current.id, current]));
-  for (const current of records) depthOf(current, byId);
+  const dependencyDepths = new Map<string, number>();
+  for (const current of records) dependencyDepthOf(current, byId, dependencyDepths);
   const normalized = normalizeAnalyzerFacetValue({ ...value, records });
   return frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE, version: ROUTE_EXPLAIN_VERSION, value: normalized });
 }
@@ -142,6 +143,28 @@ function depthOf(record: RouteExplainRecord, byId: Map<string, RouteExplainRecor
   return depth;
 }
 
+function dependencyDepthOf(
+  record: RouteExplainRecord,
+  byId: Map<string, RouteExplainRecord>,
+  memo: Map<string, number>,
+  visiting = new Set<string>(),
+): number {
+  const cached = memo.get(record.id);
+  if (cached !== undefined) return cached;
+  if (visiting.has(record.id)) refuse();
+  visiting.add(record.id);
+  const dependencies = [record.parentId, ...record.causedBy].filter((id): id is string => id !== null);
+  let depth = 1;
+  for (const dependencyId of dependencies) {
+    const dependency = byId.get(dependencyId);
+    if (!dependency) refuse();
+    depth = Math.max(depth, 1 + dependencyDepthOf(dependency, byId, memo, visiting));
+  }
+  visiting.delete(record.id);
+  memo.set(record.id, depth);
+  return depth;
+}
+
 export function processRouteExplainContribution(
   input: AnalyzerFacetContribution,
   budgets: AnalyzerExplainBudgets,
@@ -151,27 +174,36 @@ export function processRouteExplainContribution(
   const value = validated.value as unknown as RouteExplainValue;
   if (value.detail !== detail) refuse();
   const byId = new Map(value.records.map((current) => [current.id, current]));
+  const dependencyDepths = new Map<string, number>();
+  for (const current of value.records) dependencyDepthOf(current, byId, dependencyDepths);
+  const ordered = [...value.records].sort((left, right) =>
+    dependencyDepths.get(left.id)! - dependencyDepths.get(right.id)! || compareText(left.id, right.id));
   const kept: RouteExplainRecord[] = [];
+  const keptIds = new Set<string>();
   const children = new Map<string, number>();
   let truncation: RouteExplainTruncationReason | null = null;
-  for (const current of value.records) {
-    if (kept.length >= budgets.records) { truncation = "records"; break; }
-    if (depthOf(current, byId) > budgets.depth) { truncation = "depth"; continue; }
+  for (const current of ordered) {
+    const dependencies = [current.parentId, ...current.causedBy].filter((id): id is string => id !== null);
+    if (dependencies.some((id) => !keptIds.has(id))) continue;
+    if (kept.length >= budgets.records) { truncation ??= "records"; continue; }
+    if (depthOf(current, byId) > budgets.depth) { truncation ??= "depth"; continue; }
     if (current.parentId !== null) {
       const count = children.get(current.parentId) ?? 0;
-      if (count >= budgets.children) { truncation = "children"; continue; }
-      children.set(current.parentId, count + 1);
+      if (count >= budgets.children) { truncation ??= "children"; continue; }
     }
-    const candidate = normalizeAnalyzerFacetValue({ ...value, records: [...kept, current] });
-    if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > budgets.bytes) { truncation = "bytes"; break; }
+    const candidateRecords = [...kept, current].sort((left, right) => compareText(left.id, right.id));
+    const candidate = normalizeAnalyzerFacetValue({ ...value, records: candidateRecords });
+    if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > budgets.bytes) { truncation ??= "bytes"; continue; }
     kept.push(current);
+    keptIds.add(current.id);
+    if (current.parentId !== null) children.set(current.parentId, (children.get(current.parentId) ?? 0) + 1);
   }
   const contribution = frozen({
     namespace: ROUTE_EXPLAIN_NAMESPACE,
     version: ROUTE_EXPLAIN_VERSION,
-    value: normalizeAnalyzerFacetValue({ ...value, records: kept }),
+    value: normalizeAnalyzerFacetValue({ ...value, records: kept.sort((left, right) => compareText(left.id, right.id)) }),
   });
-  return frozen({ contribution, truncation });
+  return frozen({ contribution: validateContribution(contribution), truncation });
 }
 
 export function serializeRouteExplainContribution(input: AnalyzerFacetContribution): string {
