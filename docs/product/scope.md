@@ -49,7 +49,7 @@ a signal to choose a client-first framework.
 | PATCH-01 | Server-derived updates that preserve browser, user, and island-owned state | K0/V2 | Narrowed by ADR 0014; scroll boundary requires DG-V2-01 | [Navigation and patching](../spec/navigation-patching-preservation.md) |
 | INT-01 | Lazy bounded event-handler extraction without fragment hydration | K0/V3 | [ADR 0015](../adr/0015-accept-bounded-interaction-extraction.md) | [Compiler and analyzer](../spec/compiler-analyzer.md) |
 | ISLAND-01 | Explicit client-owned islands with serializable inputs, fallback HTML, lifecycle, and update isolation | V3 | Accepted outcome; authoring contract requires DG-V3-02 | [Islands and lifecycle](../spec/islands-lifecycle.md) |
-| DX-01 | Stable diagnostics, human explanations, machine output, generated-reference validation, and framework checks | V1/A0 | Accepted; external schema requires DG-A0-02 | [Compiler and analyzer](../spec/compiler-analyzer.md) |
+| DX-01 | One private incremental analyzer, stable diagnostics and corrections, human explanations, machine output, generated-reference validation, framework checks, and complete development-lifecycle evidence | V1/A0 | Private architecture accepted by [ADR 0030](../adr/0030-private-incremental-analyzer-session.md); implementation and lifecycle evidence are V1-DX-B/C; external schema requires DG-A0-02 | [Compiler and analyzer](../spec/compiler-analyzer.md) |
 | CSS-01 | Native CSS baseline; any scoped-CSS compiler surface must earn a separate decision | A0 | Open decision DG-A0-03 | [Decision gates](../ledgers/decision-gates.md) |
 | CLI-01 | Installation, scaffold, development, build, check, and diagnostic workflows usable without private guidance | A0 | Accepted outcome; core commands fixed by [ADR 0022](../adr/0022-toolchain-and-configuration-contract.md) | [Build and diagnostics](../spec/build-adapters-testing.md) |
 | DOC-01 | Current specifications, executable examples sourced from tested code, generated reference, migrations, and immutable release docs | V1/A0 | Accepted | [Documentation authority ADR](../adr/0009-documentation-and-evidence-authority.md) |
@@ -60,14 +60,14 @@ a signal to choose a client-first framework.
 | LIVE-01 | Authenticated live resources and reconnect convergence | After V3 | Deferred | [Deferral ledger](../ledgers/deferrals.md) |
 | BRIDGE-01 | Component-library bridges | After V3 | Deferred | [Deferral ledger](../ledgers/deferrals.md) |
 | PPR-01 | Partial prerendering | After 1.0 evidence | Deferred | [Deferral ledger](../ledgers/deferrals.md) |
-| TOOL-01 | Language-server, editor, agent-protocol, hosted-playground, and custom CI products | After A0 need | Deferred | [Deferral ledger](../ledgers/deferrals.md) |
+| TOOL-01 | Supported editor, agent-protocol, hosted-playground, and CI-integration products | After A0 need | Deferred; a disposable private analyzer consumer is V1 conformance evidence, not a supported product | [Deferral ledger](../ledgers/deferrals.md) |
 
 ## Release scope
 
 - **K0** proves or rejects PATCH-01, INT-01, TYPE-01, and DATA-03.
 - **V1** delivers a secure no-JavaScript vertical slice with WEB-01 through
   WEB-03, DATA-01 and DATA-02, accepted K0 outcomes, STATE-01, SEC-01,
-  BUILD-01, ADP-01, and TEST-01.
+  BUILD-01, ADP-01, TEST-01, and DX-01's private analyzer lifecycle.
 - **V2** adds ENH-01 using the accepted PATCH-01 result.
 - **V3** adds the accepted INT-01 result and ISLAND-01.
 - **A0** makes the supported slice independently installable, diagnosable,

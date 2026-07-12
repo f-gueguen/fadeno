@@ -134,6 +134,25 @@ qualification result exists.
 - A0 clean-machine tests prove installation, scaffold, development, check,
   build, test, and deployment without private instructions.
 
+ADR 0030 adds one private analyzer authority for framework semantics. Check,
+watch/build integration, tests, and disposable development consumers resolve
+the same workspace root and configuration, normalize URIs and paths through
+the same containment and symlink rules, own generated outputs consistently,
+share redaction and error semantics, and publish only current complete epochs.
+Unsupported multi-root input is refused explicitly.
+
+Analyzer examples begin after V1-09 and extend the canonical application plus
+an isolated failure-scenario harness. They install a current packed framework,
+use public package entrypoints, assert behavior, normalize unstable values, and
+source documentation snippets and expected output from executed files. A
+deliberate failure never prevents the primary application from building.
+
+The V1 lifecycle workload measures edit/save to a fresh framework diagnostic
+and edit/save to a cleared diagnostic across invalidation, generation,
+TypeScript refresh, Fadeno analysis, and final consumer-visible publication.
+Deep phase timing and profiles require an explicit flag. This workload does not
+reuse or revive the narrowed K0 incremental-generation claim.
+
 ## V1 and A0 conformance
 
 - A clean checkout reaches the same build through the documented commands.
@@ -145,3 +164,14 @@ qualification result exists.
 - A stranger following only repository documentation can run the supported
   application and understand a seeded route, form, security, and boundary
   failure.
+- Analyzer package and lifecycle checks rebuild and install the current packed
+  framework before executing consumers; stale distribution output cannot
+  satisfy conformance.
+- The disposable lifecycle client initializes one root, opens valid source,
+  introduces and repairs invalid source, verifies diagnostic identity, range,
+  related locations, version and correction, applies sequential edits, changes
+  direct and transitive dependencies, regenerates artifacts, reloads
+  configuration, cancels or supersedes expensive work, rejects obsolete
+  publication, closes and reopens documents, and verifies cleanup.
+- Independent users repeat the intended workflow and seeded failure recovery
+  before A0 chooses whether any supported editor product is justified.

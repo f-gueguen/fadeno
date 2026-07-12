@@ -101,9 +101,74 @@ expectPolicyFailure("duplicate experiment hypothesis", "check-project-model.ts",
   writeFileSync(path, `${JSON.stringify(registry, null, 2)}\n`);
 });
 
+expectPolicyFailure("deleted V1/DX milestone", "check-project-model.ts", "expected ordered V1/DX milestones", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-B \|.*\n/m, "");
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("duplicated V1/DX milestone", "check-project-model.ts", "expected ordered V1/DX milestones", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(
+    /^(\| V1-DX-B \|.*)$/m,
+    "$1\n$1",
+  );
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("reordered V1/DX milestones", "check-project-model.ts", "expected ordered V1/DX milestones", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8");
+  const rowB = content.match(/^\| V1-DX-B \|.*$/m)?.[0] ?? "";
+  const rowC = content.match(/^\| V1-DX-C \|.*$/m)?.[0] ?? "";
+  writeFileSync(path, content.replace(rowB, "__V1_DX_B__").replace(rowC, rowB).replace("__V1_DX_B__", rowC));
+});
+
+expectPolicyFailure("broken numbered V1/DX dependency", "check-project-model.ts", "V1-10 missing dependency V1-DX-B", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^(\| V1-10 \|.*)V1-DX-B, ?/m, "$1");
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("wrong V1/DX feature ownership", "check-project-model.ts", "V1-DX-B feature ownership differs", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-B \|.*$/m, (line) =>
+    line.replace("TYPE-01, ", ""),
+  );
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("missing V1/DX validation command", "check-project-model.ts", "V1-DX-C missing validation command pnpm check:v1-analyzer-feedback", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-C \|.*$/m, (line) =>
+    line.replace("; `pnpm check:v1-analyzer-feedback`", ""),
+  );
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("empty V1/DX artifacts", "check-project-model.ts", "V1-DX-B has no required artifacts", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-B \|.*$/m, (line) => {
+    const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
+    cells[4] = "";
+    return `| ${cells.join(" | ")} |`;
+  });
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("empty V1/DX delivery boundary", "check-project-model.ts", "V1-DX-C has no delivery boundary", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-C \|.*$/m, (line) => {
+    const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
+    cells[6] = "";
+    return `| ${cells.join(" | ")} |`;
+  });
+  writeFileSync(path, content);
+});
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
 
-console.log("policy mutation tests passed (7 expected failures detected)");
+console.log("policy mutation tests passed (15 expected failures detected)");

@@ -63,6 +63,12 @@ generation, and metadata matching private inside that package while generated
 applications consume the isolated `fadeno:routes` module. Route module
 execution and rendering remain later V1 work.
 
+ADR 0030 adds a private analyzer session inside the selected package. It is the
+single framework-semantic authority for checks, watch/build integration, tests,
+and disposable lifecycle evidence. Stock TypeScript remains the authority for
+ordinary TypeScript and JSX language behavior. The analyzer session, facets,
+and snapshots are not public exports or supported protocols.
+
 ## Dependency direction
 
 The initial package has a runtime-neutral `.` facade and a Node-specific
@@ -71,6 +77,12 @@ the neutral root cannot reach Node, compiler, or browser-only graphs. Private
 zones may be reorganized without becoming independent public packages.
 Adapters depend on the server contract. Examples depend only on public
 entrypoints.
+
+Private analyzer modules depend inward on shared workspace ownership,
+configuration, route generation, diagnostics, and later compiler semantics.
+Consumers request immutable bounded facets; modules do not depend outward on a
+specific CLI, watcher, test runner, or editor product. Static analyzer evidence
+and observed runtime evidence remain separate dependency branches.
 
 No package may import another package through a relative filesystem path or a
 private deep import. The boundary check enforces static imports, re-exports,

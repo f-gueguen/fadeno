@@ -6,30 +6,30 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-08 — freeze streaming lifecycle, boundary ownership, and response commitment
+V1-DX-A — accept and schedule the private incremental analyzer architecture
 
 ## Exit criteria
 
-- [x] Accept one streaming-lifecycle ADR that fixes response-head publication,
-  first-byte, completion, failure, cancellation, and cleanup transitions.
-- [x] Freeze deterministic in-order no-JavaScript boundary ownership, including
-  nested success, fallback failure, timeout, and parent escalation.
-- [x] Prove backpressure admits at most one pending chunk and every terminal
-  path cancels owned work and cleans timers/listeners exactly once.
-- [x] Add one versioned schema and exhaustive corpus for pre/post-commit errors,
-  redirects, not-found, empty/first/last chunk failures, inherited deadlines,
-  disconnect, supersession, reporting failure, and nonce/header timing.
-- [x] Remove the resolved streaming decision gate, align current documentation,
-  and pass all local merge gates without adding a public renderer, boundary,
-  context, or stream API.
+- [x] Accept ADR 0030 for one private analyzer session while preserving stock
+  TypeScript ownership of ordinary language behavior.
+- [x] Add model-checked V1-DX-A/B/C sequencing without renumbering V1 or
+  treating implementation/evidence umbrellas as one PR.
+- [x] Align compiler/analyzer, build, architecture, scope, traceability, risks,
+  deferrals, and conformance requirements.
+- [x] Keep a supported editor product and external analyzer schema deferred;
+  add no analyzer code, export, schema, editor manifest, or example claim.
+- [x] Pass documentation, decision, ledger, project-model, policy-mutation, full
+  repository, and independent adversarial review gates.
 
 ## In progress
 
-- V1-08 passed its exhaustive lifecycle corpus, package checks, full repository
-  check, and independent adversarial review; remote review remains.
+- V1-DX-A owns architecture and enforced sequencing only; all focused and full
+  repository checks plus independent adversarial review pass.
 - V1-09 remains the first JSX renderer and running routed page example.
-- Registry naming, renderer boundaries, request security policy,
-  and adapter timeout/force-close behavior remain unresolved by this slice.
+- V1-DX-B follows V1-09 and precedes V1-10; its analyzer foundation is split
+  into one-outcome implementation sub-slices declared before work begins.
+- V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
+  feedback evidence is split into one-outcome sub-slices.
 
 ## Blockers
 
@@ -38,6 +38,8 @@ V1-08 — freeze streaming lifecycle, boundary ownership, and response commitmen
 ## Open questions
 
 - DG-A0-01: public package names after registry ownership is secured.
+- DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
+  after a demonstrated supported consumer.
 
 ## Completed slices
 
@@ -121,3 +123,7 @@ V1-08 — freeze streaming lifecycle, boundary ownership, and response commitmen
 - V1-07 — Commit `79e9d49` accepts ADR 0028 and proves a closed contextual sink
   policy, exhaustive versioned security corpus, authenticated raw-HTML
   capability, private nonce primitive, and structured diagnostic redaction.
+- V1-08 — Commit `945c48e` accepts ADR 0029 and freezes one private streaming
+  lifecycle with deterministic boundary ownership, bounded backpressure,
+  cancellation, cleanup, nonce timing, and exhaustive versioned conformance
+  without adding a public renderer or stream API.

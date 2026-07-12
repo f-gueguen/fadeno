@@ -12,7 +12,8 @@ requires evidence, an accepted ADR, and a roadmap gate.
 | Component-library bridges | Islands are stable and a demonstrated application needs the bridge |
 | Live resource transport | Ordinary resources, actions, ordering, and browser-state preservation pass conformance |
 | Optimistic mutation authoring API | Action reconciliation and rollback semantics are proven in the vertical slice |
-| Language server and editor extension | Stock TypeScript plus analyzer diagnostics reveal a specific unresolved editor workflow |
+| Supported editor product | Before A0, independent users build the V1 workflow, diagnose seeded configuration/route/generation failures, inspect successful and failed flows, follow corrections, prove stale errors clear, and identify a specific unresolved workflow after the private analyzer lifecycle passes |
+| Public analyzer schema | A demonstrated supported consumer passes DG-A0-02; private V1 snapshots and the disposable lifecycle client do not establish compatibility |
 | CI service integration and machine-readable review output | Stable diagnostics and budget schemas have external consumers |
 | Agent protocol integration and machine-oriented documentation feed | Public APIs and reference generation are stable enough to test accuracy |
 | Hosted playground | The scaffold and examples are stable and can reuse the production compiler and runtime |
