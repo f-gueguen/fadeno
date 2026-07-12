@@ -1,5 +1,6 @@
 import type { AnalyzerFacetContribution } from "./analyzer-facets.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
+import { processRouteExplainContribution, type RouteExplainTruncationReason } from "./analyzer-route-explain.ts";
 
 export const ANALYZER_EXPLAIN_LIMITS = Object.freeze({
   maximumBytes: 262_144,
@@ -45,13 +46,15 @@ export type AnalyzerExplainRequest =
 export type AnalyzerExplainResult =
   | Readonly<{ status: "disabled"; operationId: string }>
   | Readonly<{
-    status: "complete";
+    status: "complete" | "partial";
     operationId: string;
     publicationOperationId: string;
     publicationGeneration: number;
     detail: "semantic" | "deep";
     budgets: AnalyzerExplainBudgets;
     contributions: readonly AnalyzerFacetContribution[];
+    completeness: "complete" | "partial";
+    truncation: RouteExplainTruncationReason | "duration" | null;
   }>
   | Readonly<{
     status: "cancelled" | "superseded" | "stale" | "refused";
@@ -193,20 +196,46 @@ export class AnalyzerExplainCoordinator {
       if (ticket.controller.signal.aborted) resolve({ kind: "aborted" });
       else ticket.controller.signal.addEventListener("abort", () => resolve({ kind: "aborted" }), { once: true });
     });
-    const outcome = await Promise.race([collected, aborted]);
+    let durationTimer: ReturnType<typeof setTimeout> | undefined;
+    const duration = new Promise<Readonly<{ kind: "duration" }>>((resolve) => {
+      durationTimer = setTimeout(() => resolve({ kind: "duration" }), bounded.durationMs);
+    });
+    const outcome = await Promise.race([collected, aborted, duration]);
+    if (durationTimer !== undefined) clearTimeout(durationTimer);
     stopped = terminal();
     if (stopped) return stopped;
     if (outcome.kind !== "collected" || !Array.isArray(outcome.value)) {
+      if (outcome.kind === "duration") {
+        return this.#finish(ticket, frozen({
+          status: "partial" as const, operationId: ticket.operationId,
+          publicationOperationId: publication.operationId, publicationGeneration: publication.publicationGeneration,
+          detail: request.detail, budgets: bounded, contributions: frozen([]), completeness: "partial" as const,
+          truncation: "duration" as const,
+        }));
+      }
       return this.#finish(ticket, frozen({ status: "refused" as const, operationId: ticket.operationId, code: "FADENO_ANALYZER_EXPLAIN_COLLECTION" }));
     }
+    let truncation: RouteExplainTruncationReason | null = null;
+    let contributions: AnalyzerFacetContribution[];
+    try {
+      contributions = outcome.value.map((contribution) => {
+        const processed = processRouteExplainContribution(contribution, bounded, request.detail);
+        truncation ??= processed.truncation;
+        return processed.contribution;
+      });
+    } catch {
+      return this.#finish(ticket, frozen({ status: "refused" as const, operationId: ticket.operationId, code: "FADENO_ANALYZER_EXPLAIN_CONTRIBUTION" }));
+    }
     const result = frozen({
-      status: "complete" as const,
+      status: truncation === null ? "complete" as const : "partial" as const,
       operationId: ticket.operationId,
       publicationOperationId: publication.operationId,
       publicationGeneration: publication.publicationGeneration,
       detail: request.detail,
       budgets: bounded,
-      contributions: frozen([...outcome.value]),
+      contributions: frozen(contributions),
+      completeness: truncation === null ? "complete" as const : "partial" as const,
+      truncation,
     });
     return this.#finish(ticket, result);
   }

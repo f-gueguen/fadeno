@@ -5,7 +5,11 @@ import { join } from "node:path";
 
 import type { AnalyzerFacetContribution } from "../packages/framework/src/internal/analyzer-facets.ts";
 import type { AnalyzerGraphComputeContext, AnalyzerGraphNodeDefinition } from "../packages/framework/src/internal/analyzer-graph.ts";
-import { createRouteExplainContribution } from "../packages/framework/src/internal/analyzer-route-explain.ts";
+import {
+  createRouteExplainContribution,
+  deserializeRouteExplainContribution,
+  serializeRouteExplainContribution,
+} from "../packages/framework/src/internal/analyzer-route-explain.ts";
 import { AnalyzerSession, type AnalyzerOperationResult } from "../packages/framework/src/internal/analyzer-session.ts";
 
 function accepted(result: AnalyzerOperationResult) {
@@ -44,9 +48,7 @@ try {
       module: { namespace: "fadeno.routes", version: 1, transformation: "layout" }, compute: compute("root"),
     },
   ];
-  const routeContribution: readonly AnalyzerFacetContribution[] = [{
-    namespace: "fadeno.routes.explain", version: 1, value: { records: [] },
-  }];
+  let routeContribution: readonly AnalyzerFacetContribution[] = [];
   let collectorCalls = 0;
   const beforePublication = await session.startExplain({
     detail: "semantic", collect: () => { collectorCalls += 1; return routeContribution; },
@@ -62,6 +64,7 @@ try {
   assert.equal(published.status, "published");
   const publication = session.currentPublicationSnapshot;
   assert.ok(publication);
+  routeContribution = [createRouteExplainContribution(publication, null, "semantic")];
   const callsAfterPublication = constructionCalls;
 
   const disabled = await session.startExplain({
@@ -96,6 +99,40 @@ try {
   if (deepFlow.status === "complete") {
     assert.equal((deepFlow.contributions[0]!.value as any).records.some(({ kind }: any) => kind === "forensic"), true);
   }
+  const serializedFlow = serializeRouteExplainContribution(routeContribution[0]!);
+  assert.equal(serializeRouteExplainContribution(deserializeRouteExplainContribution(serializedFlow)), serializedFlow);
+  for (const mutate of [
+    (value: any) => { value.contribution.value.records[0].fields.observedRequestOrder = 1; },
+    (value: any) => { value.contribution.value.records[0].parentId = "missing"; },
+    (value: any) => {
+      value.contribution.value.records[0].parentId = value.contribution.value.records[1].id;
+      value.contribution.value.records[1].parentId = value.contribution.value.records[0].id;
+    },
+    (value: any) => { value.contribution.value.family = "observed-runtime"; },
+  ]) {
+    const invalid = JSON.parse(serializedFlow);
+    mutate(invalid);
+    assert.throws(() => deserializeRouteExplainContribution(JSON.stringify(invalid)), /FADENO_ANALYZER_ROUTE_EXPLAIN_SERIALIZATION/u);
+  }
+  for (const [budget, reason] of [
+    [{ records: 1 }, "records"],
+    [{ depth: 1 }, "depth"],
+    [{ children: 1 }, "children"],
+    [{ bytes: 100 }, "bytes"],
+  ] as const) {
+    const limited = await session.startExplain({
+      detail: "semantic", budgets: budget,
+      collect: ({ publication: active }) => [createRouteExplainContribution(active, null, "semantic")],
+    }).result;
+    assert.equal(limited.status, "partial");
+    if (limited.status === "partial") assert.equal(limited.truncation, reason);
+  }
+  const durationLimited = await session.startExplain({
+    detail: "semantic", budgets: { durationMs: 1 },
+    collect: () => new Promise((resolve) => setTimeout(() => resolve(routeContribution), 20)),
+  }).result;
+  assert.equal(durationLimited.status, "partial");
+  if (durationLimited.status === "partial") assert.equal(durationLimited.truncation, "duration");
   assert.equal(constructionCalls, callsAfterPublication);
   assert.equal(session.currentPublicationSnapshot, publication);
 
@@ -144,7 +181,10 @@ try {
   const obsoleteGate = deferred<readonly AnalyzerFacetContribution[]>();
   const obsolete = session.startExplain({ detail: "semantic", collect: () => obsoleteGate.promise });
   await Promise.resolve();
-  const current = session.startExplain({ detail: "deep", activateDeep: true, collect: () => routeContribution });
+  const current = session.startExplain({
+    detail: "deep", activateDeep: true,
+    collect: ({ publication: active }) => [createRouteExplainContribution(active, null, "deep")],
+  });
   assert.equal((await obsolete.result).status, "superseded");
   assert.equal((await current.result).status, "complete");
   obsoleteGate.resolve(routeContribution);
