@@ -1,0 +1,15 @@
+{
+  "event": "framework-failure",
+  "incidentId": "<incident>",
+  "phase": "pre-publication",
+  "code": "FADENO_RENDER_UNEXPECTED",
+  "projection": {
+    "method": "GET",
+    "request": {
+      "url": "<origin>/failure"
+    },
+    "error": {
+      "type": "Error"
+    }
+  }
+}

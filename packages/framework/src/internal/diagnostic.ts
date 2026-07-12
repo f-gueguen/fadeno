@@ -37,3 +37,13 @@ export function formatDiagnostic(error: FadenoDiagnosticError): string {
     correction: error.correction,
   })}\n`;
 }
+
+export function formatDiagnosticHuman(error: FadenoDiagnosticError): string {
+  return [
+    `${error.id}: ${error.summary}`,
+    ...error.locations.map((path) => `  at ${path}`),
+    `  explanation: ${error.explanation}`,
+    `  correction: ${error.correction}`,
+    "",
+  ].join("\n");
+}

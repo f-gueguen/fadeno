@@ -2,6 +2,16 @@ import type { Handler } from "./index.js";
 import { nodeHttpCapabilities as internalNodeHttpCapabilities } from "./internal/node-http-capabilities.ts";
 import { listenNodeHttp as listenNodeHttpInternal } from "./internal/node-http.ts";
 
+export interface FrameworkFailureReport {
+  readonly incidentId: string;
+  readonly phase: "pre-publication" | "post-publication";
+  readonly code: string;
+  readonly projection: Readonly<Record<string, unknown>>;
+  readonly cause: unknown;
+}
+
+export type FrameworkFailureObserver = (report: FrameworkFailureReport) => void | Promise<void>;
+
 export interface NodeHttpCapabilities {
   readonly runtime: "node";
   readonly minimumVersion: string;
@@ -24,6 +34,7 @@ export interface NodeHttpServer {
 export interface ListenNodeHttpOptions {
   readonly handler: Handler;
   readonly hostname?: string;
+  readonly failureObserver?: FrameworkFailureObserver;
 }
 
 export const nodeHttpCapabilities: NodeHttpCapabilities = internalNodeHttpCapabilities;

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "scenario": "route-role-collision",
+  "correction": "remove-the-conflicting-handler",
+  "staleDiagnosticRemoved": true,
+  "staleArtifactsRemoved": true,
+  "publishedRouteIds": [
+    "/"
+  ]
+}

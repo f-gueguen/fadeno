@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "scenario": "route-role-collision",
+  "decision": "refuse-ambiguous-route-owner",
+  "causes": [
+    "page-and-handler-share-one-route-directory"
+  ],
+  "ownership": {
+    "route": "/",
+    "sources": [
+      "src/routes/handler.ts",
+      "src/routes/page.tsx"
+    ]
+  },
+  "skippedWork": [
+    "manifest-publication",
+    "application-binding-publication"
+  ],
+  "observableOutcome": "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+}

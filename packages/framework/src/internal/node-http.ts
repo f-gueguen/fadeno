@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 import { Readable } from "node:stream";
 
 import type { Handler } from "../index.js";
+import { bindRequestFailureObserver, type FrameworkFailureObserver } from "./failure-observer.ts";
 import { nodeHttpCapabilities } from "./node-http-capabilities.ts";
 
 export interface NodeHttpServer {
@@ -13,6 +14,7 @@ export interface NodeHttpServer {
 export interface ListenNodeHttpOptions {
   readonly handler: Handler;
   readonly hostname?: string;
+  readonly failureObserver?: FrameworkFailureObserver;
 }
 
 function assertSupportedRuntime(): void {
@@ -128,7 +130,13 @@ async function writeWebResponse(response: Response, target: ServerResponse): Pro
   }
 }
 
-function handleRequest(handler: Handler, origin: () => string, request: IncomingMessage, response: ServerResponse): void {
+function handleRequest(
+  handler: Handler,
+  failureObserver: FrameworkFailureObserver | undefined,
+  origin: () => string,
+  request: IncomingMessage,
+  response: ServerResponse,
+): void {
   const cancellation = new AbortController();
   request.once("close", () => {
     if (!request.complete) cancellation.abort(new DOMException("Request body disconnected", "AbortError"));
@@ -140,7 +148,9 @@ function handleRequest(handler: Handler, origin: () => string, request: Incoming
   void (async () => {
     try {
       const webRequest = toWebRequest(request, origin(), cancellation.signal);
-      const webResponse = await handler(webRequest);
+      const releaseObserver = bindRequestFailureObserver(webRequest, failureObserver);
+      let webResponse: Response;
+      try { webResponse = await handler(webRequest); } finally { releaseObserver(); }
       await writeWebResponse(webResponse, response);
     } catch (error: unknown) {
       response.destroy(error instanceof Error ? error : new Error(String(error)));
@@ -175,7 +185,7 @@ export async function listenNodeHttp(options: ListenNodeHttpOptions): Promise<No
     response.once("finish", () => {
       if (draining) server.closeIdleConnections();
     });
-    handleRequest(options.handler, () => {
+    handleRequest(options.handler, options.failureObserver, () => {
       if (!origin) throw new Error("FADENO_ADAPTER_NOT_LISTENING");
       return origin;
     }, request, response);

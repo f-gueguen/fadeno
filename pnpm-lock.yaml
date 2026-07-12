@@ -27,6 +27,19 @@ importers:
         specifier: workspace:*
         version: link:../../packages/framework
 
+  examples/v1-app:
+    dependencies:
+      fadeno-framework-internal:
+        specifier: workspace:*
+        version: link:../../packages/framework
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.1
+        version: 22.20.1
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   packages/framework: {}
 
 packages:
