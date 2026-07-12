@@ -1,4 +1,6 @@
-import { TextEncoder } from "node:util";
+import { isAbsolute, relative, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { TextEncoder, types as utilTypes } from "node:util";
 
 import type { AnalyzerDocumentOnlySnapshot } from "./analyzer-session.ts";
 
@@ -105,11 +107,20 @@ function normalizeValue(value: unknown, depth: number, counter: { nodes: number 
     if (!Number.isFinite(value) || Object.is(value, -0)) refuse("FADENO_ANALYZER_FACET_VALUE");
     return value;
   }
+  if (typeof value === "object" && value !== null && utilTypes.isProxy(value)) refuse("FADENO_ANALYZER_FACET_VALUE");
   if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      if (!(index in value)) refuse("FADENO_ANALYZER_FACET_VALUE");
+    const descriptors = Object.getOwnPropertyDescriptors(value) as Record<string, PropertyDescriptor>;
+    const ownKeys = Reflect.ownKeys(value);
+    if (ownKeys.length !== value.length + 1 || !ownKeys.includes("length") || ownKeys.some((key) => typeof key !== "string")) {
+      refuse("FADENO_ANALYZER_FACET_VALUE");
     }
-    return frozen(value.map((entry) => normalizeValue(entry, depth + 1, counter)));
+    const result: AnalyzerFacetValue[] = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = descriptors[String(index)];
+      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) refuse("FADENO_ANALYZER_FACET_VALUE");
+      result.push(normalizeValue(descriptor.value, depth + 1, counter));
+    }
+    return frozen(result);
   }
   if (typeof value !== "object" || value === undefined) refuse("FADENO_ANALYZER_FACET_VALUE");
   const prototype = Object.getPrototypeOf(value);
@@ -157,12 +168,35 @@ function assertNonNegativeInteger(value: unknown): asserts value is number {
 function validateDocumentEnvelope(source: Record<string, unknown>): void {
   const versions = source["documentVersions"] as unknown[];
   const documents = source["documents"] as unknown[];
+  const sessionId = source["sessionId"] as string;
+  const operationId = source["operationId"] as string;
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(sessionId) ||
+    !operationId.startsWith(`${sessionId}:operation-`) ||
+    !/^[1-9][0-9]*$/u.test(operationId.slice(`${sessionId}:operation-`.length)) ||
+    !Number.isSafeInteger(Number(operationId.slice(`${sessionId}:operation-`.length)))
+  ) refuse("FADENO_ANALYZER_SERIALIZATION");
+  const ownership = source["ownership"] as Record<string, unknown>;
+  const root = ownership["root"] as string;
+  let rootUrl: URL;
+  let rootPath: string;
+  try {
+    rootUrl = new URL(root);
+    if (rootUrl.protocol !== "file:" || rootUrl.host !== "" || rootUrl.search !== "" || rootUrl.hash !== "") {
+      refuse("FADENO_ANALYZER_SERIALIZATION");
+    }
+    rootPath = fileURLToPath(rootUrl);
+  } catch {
+    refuse("FADENO_ANALYZER_SERIALIZATION");
+  }
+  if (!rootPath.endsWith(sep) || pathToFileURL(rootPath).href !== root) refuse("FADENO_ANALYZER_SERIALIZATION");
   const seenVersions = new Set<string>();
   for (const entry of versions) {
     const version = asRecord(entry, ["uri", "version", "lifetime"]);
     if (typeof version["uri"] !== "string") refuse("FADENO_ANALYZER_SERIALIZATION");
     assertNonNegativeInteger(version["version"]);
     assertNonNegativeInteger(version["lifetime"]);
+    if (version["lifetime"] === 0) refuse("FADENO_ANALYZER_SERIALIZATION");
     if (seenVersions.has(version["uri"])) refuse("FADENO_ANALYZER_SERIALIZATION");
     seenVersions.add(version["uri"]);
   }
@@ -173,6 +207,12 @@ function validateDocumentEnvelope(source: Record<string, unknown>): void {
     if (typeof document["path"] !== "string" || document["path"].length === 0 || typeof document["uri"] !== "string") {
       refuse("FADENO_ANALYZER_SERIALIZATION");
     }
+    const candidate = resolve(rootPath, ...document["path"].split("/"));
+    const containment = relative(rootPath, candidate);
+    if (
+      containment === "" || containment.startsWith("..") || isAbsolute(containment) ||
+      containment.split(sep).join("/") !== document["path"] || pathToFileURL(candidate).href !== document["uri"]
+    ) refuse("FADENO_ANALYZER_SERIALIZATION");
     assertNonNegativeInteger(document["savedRevision"]);
     if (previousPath !== undefined && compareText(previousPath, document["path"]) >= 0) refuse("FADENO_ANALYZER_SERIALIZATION");
     previousPath = document["path"];
@@ -189,6 +229,7 @@ function validateDocumentEnvelope(source: Record<string, unknown>): void {
     const open = asRecord(document["open"], ["version", "lifetime"]);
     assertNonNegativeInteger(open["version"]);
     assertNonNegativeInteger(open["lifetime"]);
+    if (open["lifetime"] === 0) refuse("FADENO_ANALYZER_SERIALIZATION");
     if (effective["source"] !== "overlay") refuse("FADENO_ANALYZER_SERIALIZATION");
     const matchingVersion = versions.find((candidate) => {
       const record = candidate as Record<string, unknown>;
@@ -198,6 +239,16 @@ function validateDocumentEnvelope(source: Record<string, unknown>): void {
   }
   if (versions.length !== documents.filter((entry) => (entry as Record<string, unknown>)["open"] !== null).length) {
     refuse("FADENO_ANALYZER_SERIALIZATION");
+  }
+  const openDocuments = documents.filter((entry) => (entry as Record<string, unknown>)["open"] !== null);
+  for (const [index, entry] of openDocuments.entries()) {
+    const document = entry as Record<string, unknown>;
+    const open = document["open"] as Record<string, unknown>;
+    const version = versions[index] as Record<string, unknown> | undefined;
+    if (
+      !version || version["uri"] !== document["uri"] ||
+      version["version"] !== open["version"] || version["lifetime"] !== open["lifetime"]
+    ) refuse("FADENO_ANALYZER_SERIALIZATION");
   }
 }
 

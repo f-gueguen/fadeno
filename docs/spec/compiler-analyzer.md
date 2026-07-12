@@ -127,13 +127,15 @@ contributions and every limit violation refuse the entire derived operation.
 
 The private serialization envelope has version 1 and carries the complete
 schema-v2 snapshot. Deserialization validates exact envelope and snapshot
-fields, B1 document/open-version correspondence, facet bounds and normalized
-ordering, then deeply freezes the result. Serialize/deserialize/serialize is
-byte stable for accepted snapshots. Absent facets, opaque unknown or newer
-facets, workspace and document identity, ownership, completeness,
-interruption, and truncation survive round trips. Alternate serialization or
-snapshot versions and malformed evidence are refused. These numbers and
-interfaces remain private implementation contracts under DG-A0-02.
+fields, the session-scoped operation identity, canonical root URI, contained
+document path/URI ownership, B1 document/open-version correspondence, facet
+bounds, and normalized ordering, then deeply freezes the result.
+Serialize/deserialize/serialize is byte stable for accepted snapshots. Absent
+facets, opaque unknown or newer facets, workspace and document identity,
+ownership, completeness, interruption, and truncation survive round trips.
+Alternate serialization or snapshot versions and malformed evidence are
+refused. These numbers and interfaces remain private implementation contracts
+under DG-A0-02.
 
 ## Invalidation, recomputation, and publication
 

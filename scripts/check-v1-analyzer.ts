@@ -468,6 +468,43 @@ try {
   refusedFacets(facetSession, () => facetSession.snapshotFacets(
     [{ namespace: "fadeno.routes" }], [{ namespace: "fadeno.routes", version: 1, value: accessor as AnalyzerFacetValue }],
   ), "FADENO_ANALYZER_FACET_VALUE");
+  let indexedAccessorExecutions = 0;
+  const indexedAccessor = ["placeholder"];
+  Object.defineProperty(indexedAccessor, "0", {
+    enumerable: true,
+    get: () => {
+      indexedAccessorExecutions += 1;
+      return "executed";
+    },
+  });
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: indexedAccessor as unknown as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  assert.equal(indexedAccessorExecutions, 0, "array accessor executed during refusal");
+  const arrayWithExtra = ["value"] as string[] & { extra?: string };
+  arrayWithExtra.extra = "discarded";
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: arrayWithExtra as unknown as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  const arrayWithHidden = ["value"];
+  Object.defineProperty(arrayWithHidden, "hidden", { value: "discarded", enumerable: false });
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: arrayWithHidden as unknown as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  const arrayWithSymbol = ["value"];
+  Object.defineProperty(arrayWithSymbol, Symbol("hidden"), { value: "discarded", enumerable: true });
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: arrayWithSymbol as unknown as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  const proxiedValue = new Proxy({ safe: true }, {});
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: proxiedValue as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
   let tooDeep: AnalyzerFacetValue = null;
   for (let depth = 0; depth <= ANALYZER_FACET_LIMITS.maximumDepth; depth += 1) tooDeep = [tooDeep];
   const tooDeepValue = tooDeep;
@@ -503,6 +540,20 @@ try {
   const malformed = JSON.parse(serialized) as { snapshot: { documentVersions: Array<{ version: number }> } };
   malformed.snapshot.documentVersions[0]!.version += 1;
   assert.throws(() => deserializeAnalyzerFacetSnapshot(JSON.stringify(malformed)), /FADENO_ANALYZER_SERIALIZATION/u);
+  for (const mutate of [
+    (value: any) => { value.snapshot.ownership.root = "not-a-uri"; },
+    (value: any) => { value.snapshot.documents[0].path = "../escape"; },
+    (value: any) => { value.snapshot.documents[0].uri = pathToFileURL(join(otherRoot, "external.ts")).href; },
+    (value: any) => { value.snapshot.operationId = "unrelated:operation-1"; },
+    (value: any) => { value.snapshot.sessionId = "not-a-session"; },
+  ]) {
+    const invalidOwnership = JSON.parse(serialized);
+    mutate(invalidOwnership);
+    assert.throws(
+      () => deserializeAnalyzerFacetSnapshot(JSON.stringify(invalidOwnership)),
+      /FADENO_ANALYZER_SERIALIZATION/u,
+    );
+  }
   assert.throws(
     () => serializeAnalyzerFacetSnapshot({ ...facetSnapshot, schemaVersion: 3 as 2 }),
     /FADENO_ANALYZER_SERIALIZATION/u,
