@@ -18,7 +18,7 @@ V1-DX-B5 — structured analyzer diagnostics and correction intents
   publication authority; apply safe edits atomically or refuse stale work.
 - [x] Preserve all diagnostic and correction evidence through strict bounded
   serialization and full-batch recovery replacement.
-- [ ] Pass canonical-corpus success/refusal/correction/recovery, private package,
+- [x] Pass canonical-corpus success/refusal/correction/recovery, private package,
   full repository, local CI, and independent review gates.
 
 ## In progress
