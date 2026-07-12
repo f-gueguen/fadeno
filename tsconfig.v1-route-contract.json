@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "rootDir": ".",
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": [
+    "prototypes/v1/routing-contract/contract.ts",
+    "prototypes/v1/routing-contract/types/**/*.ts",
+    "scripts/check-v1-route-contract.ts"
+  ]
+}
