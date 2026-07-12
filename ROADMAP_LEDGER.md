@@ -18,7 +18,7 @@ V1-DX-B4 — atomic analyzer publication and stale-result suppression
   configuration, and ownership identity and suppress every stale completion.
 - [x] Support explicit cancellation and newer-operation supersession without
   allowing obsolete work to block or overwrite the current generation.
-- [ ] Pass atomicity, recovery, cancellation, supersession, serialization,
+- [x] Pass atomicity, recovery, cancellation, supersession, serialization,
   private-package, full repository, local CI, and independent review gates.
 
 ## In progress
