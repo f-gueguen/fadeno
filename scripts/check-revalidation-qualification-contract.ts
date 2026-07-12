@@ -95,6 +95,7 @@ const decision = {
 };
 if (!validateDecision(decision)) throw new Error(`FADENO_REVALIDATION_QUALIFICATION_DECISION_SCHEMA:${JSON.stringify(validateDecision.errors)}`);
 const result = {
+  $schema: "https://fadeno.dev/schemas/experiment/revalidation-qualification-result-v1.json",
   schemaVersion: 1,
   sourceCommit: "0".repeat(40),
   captureSha256: zeroHash,

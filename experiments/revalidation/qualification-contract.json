@@ -69,5 +69,5 @@
     "narrowAllowed": false
   },
   "capabilitySlice": { "slice": "K0-10A", "immutableResultsAllowed": false, "decisionAllowed": false },
-  "executionSlice": { "slice": "K0-10B", "requiredSource": "exact-clean-merged-k0-10a-main-commit" }
+  "executionSlice": { "slice": "K0-10B", "requiredSource": "51594a8b8f460a9b28e1e0ade25816a5a898395b" }
 }
