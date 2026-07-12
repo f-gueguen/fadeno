@@ -15,6 +15,7 @@ import type {
   AnalyzerGraphSnapshot,
 } from "./analyzer-graph.ts";
 import {
+  ANALYZER_GRAPH_LIMITS,
   deserializeAnalyzerGraphSnapshot,
   serializeAnalyzerGraphSnapshot,
 } from "./analyzer-graph.ts";
@@ -304,6 +305,12 @@ export class AnalyzerPublicationCoordinator {
 
 const maximumPublicationBytes = 9_000_000;
 const namespacePattern = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9-]*)+$/u;
+const graphIdPattern = /^[a-z][a-z0-9]*(?::[a-z][a-z0-9-]*)+$/u;
+
+function validArtifactPath(path: string): boolean {
+  if (path.length === 0 || path.startsWith("/") || path.includes("\\") || path.includes("\0")) return false;
+  return path.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
 
 function serializationRefuse(): never {
   throw new TypeError("FADENO_ANALYZER_PUBLICATION_SERIALIZATION");
@@ -413,12 +420,19 @@ export function deserializeAnalyzerPublicationSnapshot(serialized: string): Anal
     }))).sort((left, right) => compareText(left.id, right.id));
     if (JSON.stringify(snapshot["artifacts"]) !== JSON.stringify(expectedArtifacts)) serializationRefuse();
     if (!Array.isArray(snapshot["removedArtifacts"])) serializationRefuse();
+    if (snapshot["removedArtifacts"].length > ANALYZER_GRAPH_LIMITS.maximumArtifacts) serializationRefuse();
     let previousRemoved: string | undefined;
+    const removedIds = new Set<string>();
     for (const value of snapshot["removedArtifacts"] as unknown[]) {
       const removed = exactRecord(value, ["id", "path", "ownerNodeId"]);
-      if (typeof removed["id"] !== "string" || typeof removed["path"] !== "string" || typeof removed["ownerNodeId"] !== "string") {
+      if (
+        typeof removed["id"] !== "string" || !graphIdPattern.test(removed["id"]) || removedIds.has(removed["id"]) ||
+        typeof removed["path"] !== "string" || !validArtifactPath(removed["path"]) ||
+        typeof removed["ownerNodeId"] !== "string" || !graphIdPattern.test(removed["ownerNodeId"])
+      ) {
         serializationRefuse();
       }
+      removedIds.add(removed["id"]);
       const key = `${removed["id"]}:${removed["path"]}`;
       if (previousRemoved !== undefined && compareText(previousRemoved, key) >= 0) serializationRefuse();
       previousRemoved = key;

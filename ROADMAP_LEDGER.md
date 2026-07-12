@@ -10,13 +10,13 @@ V1-DX-B4 — atomic analyzer publication and stale-result suppression
 
 ## Exit criteria
 
-- [ ] Construct one complete private publication generation from a B3 candidate
+- [x] Construct one complete private publication generation from a B3 candidate
   before replacing any consumer-visible analyzer state.
-- [ ] Give diagnostic-like facets and generated artifacts full-replacement
+- [x] Give diagnostic-like facets and generated artifacts full-replacement
   semantics so recovery removes stale records and deleted outputs together.
-- [ ] Capture workspace epoch, document versions, requested facets, operation,
+- [x] Capture workspace epoch, document versions, requested facets, operation,
   configuration, and ownership identity and suppress every stale completion.
-- [ ] Support explicit cancellation and newer-operation supersession without
+- [x] Support explicit cancellation and newer-operation supersession without
   allowing obsolete work to block or overwrite the current generation.
 - [ ] Pass atomicity, recovery, cancellation, supersession, serialization,
   private-package, full repository, local CI, and independent review gates.
@@ -31,6 +31,9 @@ V1-DX-B4 — atomic analyzer publication and stale-result suppression
   check/watch/build integration and filesystem output application.
 - B5 owns stable structured diagnostic and correction semantics; B4 uses
   module-owned replacement facets without inventing that later contract.
+- The B4 checker copies the canonical V1 application, retains normalized
+  failure/recovery replacement evidence, and covers cancellation, supersession,
+  document/configuration staleness, and strict schema-v4 round trips.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 

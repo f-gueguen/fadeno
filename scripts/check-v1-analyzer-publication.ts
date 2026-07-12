@@ -132,6 +132,7 @@ try {
     (value: any) => { value.snapshot.facets[0].namespace = "fadeno.unrequested"; },
     (value: any) => { value.snapshot.artifacts.pop(); },
     (value: any) => { value.snapshot.requestedFacets.reverse(); },
+    (value: any) => { value.snapshot.removedArtifacts[0].path = "../escape"; },
     (value: any) => {
       value.snapshot.requestedFacets = [
         { namespace: "fadeno.graph" },
