@@ -53,7 +53,7 @@ const capture = {
   sourceCommit: "0".repeat(40),
   environmentId: "k0-h4-local-docker-arm64-v1",
   status: "complete",
-  inputHashes: { environment: zeroHash, workload: zeroHash, baselines: zeroHash, schedule: zeroHash, golden: zeroHash, lock: zeroHash },
+  inputHashes: { environment: zeroHash, workload: zeroHash, baselines: zeroHash, schedule: zeroHash, scheduleGolden: zeroHash, dependencyLock: zeroHash },
   preflight: { identitySha256: zeroHash, beforeAccepted: true, afterAccepted: true, beforeHostSha256: zeroHash, afterHostSha256: zeroHash, beforeContainerSha256: zeroHash, afterContainerSha256: zeroHash },
   correctness: { cycles: schedule.cycles.map((cycle) => ({
     id: cycle.id,
@@ -69,12 +69,23 @@ const capture = {
     stateIsolated: true,
     stale: false,
   })) },
-  latency: { defaultNs: Array(1000).fill(1), selectiveNs: Array(1000).fill(1), outputsMatch: true },
+  latency: { defaultNs: Array(1000).fill(1), selectiveNs: Array(1000).fill(1), rounds: Array.from({ length: 1000 }, (_, round) => ({ round, firstPath: round % 2 === 0 ? "default" : "selective", defaultNs: 1, selectiveNs: 1, defaultOutputDigest: schedule.outputDigests.success, selectiveOutputDigest: schedule.outputDigests.success })), outputsMatch: true },
   memory: { gcAvailable: true, gcRounds: 3, baselineRss: 1, afterRss: 1, baselineHeapUsed: 1, afterHeapUsed: 1, baselineCgroupMemory: 1, afterCgroupMemory: 1, checkpoints: Array(10).fill(1) },
   controls: { unsafeKeepsDetected: 4, unsafeKeepsTotal: 4, comparisonPass: true, sensitiveValuesDisclosed: false },
   failures: [],
 };
 if (!validateCapture(capture)) throw new Error(`FADENO_REVALIDATION_QUALIFICATION_CAPTURE_SCHEMA:${JSON.stringify(validateCapture.errors)}`);
+for (const mutate of [
+  (value: typeof capture) => { value.correctness.cycles[0]!.stateIsolated = false; },
+  (value: typeof capture) => { value.correctness.cycles[0]!.defaultExecutions = "111112"; },
+  (value: typeof capture) => { value.latency.outputsMatch = false; },
+  (value: typeof capture) => { value.controls.unsafeKeepsDetected = 3; },
+  (value: typeof capture) => { value.controls.sensitiveValuesDisclosed = true; },
+]) {
+  const productFailure = structuredClone(capture);
+  mutate(productFailure);
+  if (!validateCapture(productFailure)) throw new Error(`FADENO_REVALIDATION_QUALIFICATION_PIVOT_SCHEMA:${JSON.stringify(validateCapture.errors)}`);
+}
 const decision = {
   schemaVersion: 1,
   outcome: "go",

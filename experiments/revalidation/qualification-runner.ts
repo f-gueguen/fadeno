@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   completeTask,
+  compareResourceResults,
   composeSelectivePage,
   createState,
   materializePage,
@@ -21,7 +22,7 @@ import {
   type RevalidationBaselines,
   type RevalidationWorkload,
 } from "./contract.ts";
-import { assertRevalidationHarnessReport, executeRevalidationHarness } from "./harness.ts";
+import { executeRevalidationHarness } from "./harness.ts";
 import type { QualificationCycle, QualificationSchedule } from "./qualification-schedule.ts";
 
 export type QualificationCycleRecord = Readonly<{
@@ -41,7 +42,12 @@ export type QualificationCycleRecord = Readonly<{
 
 export type QualificationMeasurements = Readonly<{
   correctness: Readonly<{ cycles: readonly QualificationCycleRecord[] }>;
-  latency: Readonly<{ defaultNs: readonly number[]; selectiveNs: readonly number[]; outputsMatch: true }>;
+  latency: Readonly<{
+    defaultNs: readonly number[];
+    selectiveNs: readonly number[];
+    rounds: readonly Readonly<{ round: number; firstPath: "default" | "selective"; defaultNs: number; selectiveNs: number; defaultOutputDigest: string; selectiveOutputDigest: string }>[];
+    outputsMatch: boolean;
+  }>;
   memory: Readonly<{
     gcAvailable: true;
     gcRounds: 3;
@@ -51,7 +57,7 @@ export type QualificationMeasurements = Readonly<{
     afterHeapUsed: number;
     checkpoints: readonly number[];
   }>;
-  controls: Readonly<{ unsafeKeepsDetected: 4; unsafeKeepsTotal: 4; comparisonPass: true; sensitiveValuesDisclosed: false }>;
+  controls: Readonly<{ unsafeKeepsDetected: number; unsafeKeepsTotal: number; comparisonPass: boolean; sensitiveValuesDisclosed: boolean }>;
 }>;
 
 export type QualificationRunnerProfile = Readonly<{
@@ -70,6 +76,7 @@ export type QualificationRunnerHooks = Readonly<{
   gc?: () => void;
   stabilize: () => Promise<void>;
   memoryUsage: () => Readonly<{ rss: number; heapUsed: number }>;
+  completeAction?: typeof completeTask;
 }>;
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -126,6 +133,7 @@ function correctnessCycle(
   schedule: QualificationSchedule,
   workload: RevalidationWorkload,
   baselines: RevalidationBaselines,
+  hooks: QualificationRunnerHooks,
 ): QualificationCycleRecord {
   const ordered = orderedWorkload(workload, cycle.readOrder);
   const defaultState = createState(workload.dataset.rowCount);
@@ -136,8 +144,9 @@ function correctnessCycle(
   const actionAuth = cycle.path === "s"
     ? workload.authentication
     : { ...workload.authentication, principalId: "unauthorized" };
-  const defaultAction = completeTask(defaultState, actionAuth, workload.mutation.rowId);
-  const selectiveAction = completeTask(selectiveState, actionAuth, workload.mutation.rowId);
+  const action = hooks.completeAction ?? completeTask;
+  const defaultAction = action(defaultState, actionAuth, workload.mutation.rowId);
+  const selectiveAction = action(selectiveState, actionAuth, workload.mutation.rowId);
   const defaultAfter = cycle.path === "s"
     ? revalidateDefault(defaultState, workload.authentication, ordered, baselines)
     : renderPage(defaultState, workload.authentication, ordered);
@@ -197,7 +206,7 @@ function measureLatencyPath(
 ): Readonly<{ elapsedNs: number; outputDigest: string }> {
   const prepared = prepareLatencyPath(workload);
   const started = hooks.now();
-  const action = completeTask(prepared.state, workload.authentication, workload.mutation.rowId);
+  const action = (hooks.completeAction ?? completeTask)(prepared.state, workload.authentication, workload.mutation.rowId);
   if (action.status !== "success") throw new Error("FADENO_REVALIDATION_QUALIFICATION_LATENCY_ACTION");
   const page = mode === "default"
     ? revalidateDefault(prepared.state, workload.authentication, workload, baselines)
@@ -217,27 +226,39 @@ function runLatency(
 ): QualificationMeasurements["latency"] {
   const defaultNs: number[] = [];
   const selectiveNs: number[] = [];
+  const rounds: Array<QualificationMeasurements["latency"]["rounds"][number]> = [];
   const runRound = (round: number, record: boolean) => {
     const order: readonly ("default" | "selective")[] = round % 2 === 0
       ? ["default", "selective"]
       : ["selective", "default"];
+    const measuredRound: Partial<Record<"default" | "selective", Readonly<{ elapsedNs: number; outputDigest: string }>>> = {};
     for (const mode of order) {
       const measured = measureLatencyPath(mode, workload, baselines, hooks);
       if (measured.outputDigest !== expectedSuccessDigest) {
         throw new Error("FADENO_REVALIDATION_QUALIFICATION_LATENCY_OUTPUT");
       }
+      measuredRound[mode] = measured;
       if (record) (mode === "default" ? defaultNs : selectiveNs).push(measured.elapsedNs);
     }
+    if (record) rounds.push({
+      round,
+      firstPath: order[0],
+      defaultNs: measuredRound.default!.elapsedNs,
+      selectiveNs: measuredRound.selective!.elapsedNs,
+      defaultOutputDigest: measuredRound.default!.outputDigest,
+      selectiveOutputDigest: measuredRound.selective!.outputDigest,
+    });
   };
   for (let round = 0; round < profile.latencyWarmups; round += 1) runRound(round, false);
   for (let round = 0; round < profile.latencySamples; round += 1) runRound(round, true);
-  return { defaultNs, selectiveNs, outputsMatch: true };
+  const outputsMatch = rounds.every((round) => round.defaultOutputDigest === round.selectiveOutputDigest);
+  return { defaultNs, selectiveNs, rounds, outputsMatch };
 }
 
-function executeMemoryCycle(workload: RevalidationWorkload, baselines: RevalidationBaselines): void {
+function executeMemoryCycle(workload: RevalidationWorkload, baselines: RevalidationBaselines, hooks: QualificationRunnerHooks): void {
   const state = createState(workload.dataset.rowCount);
   const before = renderPage(state, workload.authentication, workload);
-  const action = completeTask(state, workload.authentication, workload.mutation.rowId);
+  const action = (hooks.completeAction ?? completeTask)(state, workload.authentication, workload.mutation.rowId);
   if (action.status !== "success") throw new Error("FADENO_REVALIDATION_QUALIFICATION_MEMORY_ACTION");
   materializePage(revalidateDefault(state, workload.authentication, workload, baselines));
   void before;
@@ -257,12 +278,12 @@ async function runMemory(
   profile: QualificationRunnerProfile,
   hooks: QualificationRunnerHooks,
 ): Promise<QualificationMeasurements["memory"]> {
-  for (let cycle = 0; cycle < profile.memoryWarmups; cycle += 1) executeMemoryCycle(workload, baselines);
+  for (let cycle = 0; cycle < profile.memoryWarmups; cycle += 1) executeMemoryCycle(workload, baselines, hooks);
   await forceCleanup(profile, hooks);
   const baseline = hooks.memoryUsage();
   const checkpoints: number[] = [];
   for (let cycle = 1; cycle <= profile.memoryCycles; cycle += 1) {
-    executeMemoryCycle(workload, baselines);
+    executeMemoryCycle(workload, baselines, hooks);
     if (cycle % profile.memoryCheckpointInterval === 0) checkpoints.push(hooks.memoryUsage().rss);
   }
   await forceCleanup(profile, hooks);
@@ -295,20 +316,28 @@ export async function executeQualificationMeasurements(
   // Otherwise those prior allocations can inflate the baseline and mask growth.
   const memory = await runMemory(workload, baselines, profile, hooks);
   const correctness = {
-    cycles: schedule.cycles.slice(0, profile.correctnessCycles).map((cycle) => correctnessCycle(cycle, schedule, workload, baselines)),
+    cycles: schedule.cycles.slice(0, profile.correctnessCycles).map((cycle) => correctnessCycle(cycle, schedule, workload, baselines, hooks)),
   };
   const latency = runLatency(workload, baselines, profile, hooks, schedule.outputDigests.success);
   const harness = executeRevalidationHarness();
-  assertRevalidationHarnessReport(harness);
   return {
     correctness,
     latency,
     memory,
     controls: {
-      unsafeKeepsDetected: 4,
-      unsafeKeepsTotal: 4,
-      comparisonPass: true,
-      sensitiveValuesDisclosed: false,
+      unsafeKeepsDetected: harness.unsafeKeepsDetected,
+      unsafeKeepsTotal: harness.unsafeKeepsTotal,
+      comparisonPass:
+        harness.equivalentInputValuePass && harness.distinctInputValuePass && harness.staleControlRejected &&
+        harness.diagnostics.some((diagnostic) => diagnostic.includes(":value")) &&
+        harness.diagnostics.some((diagnostic) => diagnostic.includes(":expected-error")) &&
+        harness.diagnostics.some((diagnostic) => diagnostic.includes(":ordering")) &&
+        harness.diagnostics.some((diagnostic) => diagnostic.includes(":non-cacheable")) &&
+        compareResourceResults(
+          { status: "value", cacheable: true, value: new Map([["unsupported", true]]) },
+          { status: "value", cacheable: true, value: new Map([["unsupported", true]]) },
+        ) === "refused",
+      sensitiveValuesDisclosed: harness.sensitiveValuesDisclosed,
     },
   };
 }

@@ -1,5 +1,6 @@
 import { executeQualificationMeasurements, type QualificationRunnerHooks, type QualificationRunnerProfile } from "../experiments/revalidation/qualification-runner.ts";
 import { loadQualificationSchedule } from "../experiments/revalidation/qualification-runner.ts";
+import { completeTask } from "../experiments/revalidation/benchmark.ts";
 
 const profile: QualificationRunnerProfile = {
   correctnessCycles: 1,
@@ -32,4 +33,19 @@ try {
   shortScheduleRefused = error instanceof Error && error.message === "FADENO_REVALIDATION_QUALIFICATION_SCHEDULE_SHORT";
 }
 if (!shortScheduleRefused) throw new Error("FADENO_REVALIDATION_QUALIFICATION_SHORT_SCHEDULE_ACCEPTED");
-console.log("revalidation qualification runner negative tests passed (GC + schedule refusal)");
+
+const deniedCycle = loadQualificationSchedule().cycles.find((cycle) => cycle.path === "e")!;
+const mutatingDenied = await executeQualificationMeasurements(profile, {
+  ...baseHooks,
+  gc: () => {},
+  completeAction: (state, auth, rowId) => {
+    const result = completeTask(state, auth, rowId);
+    if (result.status === "expected-error") {
+      state.tasks[rowId]!.completed = true;
+      state.revision += 1;
+    }
+    return result;
+  },
+}, { ...loadQualificationSchedule(), cycles: [deniedCycle] });
+if (!mutatingDenied.correctness.cycles[0]!.stale) throw new Error("FADENO_REVALIDATION_QUALIFICATION_DENIED_MUTATION_ACCEPTED");
+console.log("revalidation qualification runner negative tests passed (GC + schedule + denied mutation refusal)");

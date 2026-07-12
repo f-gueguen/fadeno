@@ -17,7 +17,12 @@ export type QualificationCapture = Readonly<{
     afterContainerSha256: string;
   }>;
   correctness?: Readonly<{ cycles: readonly QualificationCycleRecord[] }>;
-  latency?: Readonly<{ defaultNs: readonly number[]; selectiveNs: readonly number[]; outputsMatch: boolean }>;
+  latency?: Readonly<{
+    defaultNs: readonly number[];
+    selectiveNs: readonly number[];
+    rounds: readonly Readonly<{ round: number; firstPath: "default" | "selective"; defaultNs: number; selectiveNs: number; defaultOutputDigest: string; selectiveOutputDigest: string }>[];
+    outputsMatch: boolean;
+  }>;
   memory?: Readonly<{
     gcAvailable: boolean;
     gcRounds: number;
@@ -123,9 +128,14 @@ export function deriveQualificationResult(
 ): QualificationResult {
   const cycles = capture.correctness?.cycles ?? [];
   const aligned = scheduleAligned(cycles, schedule, policy);
-  const latencyShape = capture.latency?.defaultNs.length === policy.latencySamples && capture.latency.selectiveNs.length === policy.latencySamples;
+  const latencyShape = capture.latency?.defaultNs.length === policy.latencySamples &&
+    capture.latency.selectiveNs.length === policy.latencySamples && capture.latency.rounds.length === policy.latencySamples;
+  const latencyEvidenceAligned = latencyShape && capture.latency!.rounds.every((round, index) =>
+    round.round === index && round.firstPath === (index % 2 === 0 ? "default" : "selective") &&
+    round.defaultNs === capture.latency!.defaultNs[index] && round.selectiveNs === capture.latency!.selectiveNs[index] &&
+    round.defaultOutputDigest === schedule.outputDigests.success && round.selectiveOutputDigest === schedule.outputDigests.success);
   const memoryShape = capture.memory?.checkpoints.length === policy.memoryCheckpoints;
-  const integrity = artifactIntegrityValid && aligned && latencyShape && memoryShape && /^[a-f0-9]{64}$/u.test(captureSha256);
+  const integrity = artifactIntegrityValid && aligned && latencyEvidenceAligned && memoryShape && /^[a-f0-9]{64}$/u.test(captureSha256);
   const environment = environmentEvidenceValid && capture.status === "complete" && capture.preflight.beforeAccepted &&
     capture.preflight.afterAccepted && capture.memory?.gcAvailable === true && capture.memory.gcRounds === policy.gcRounds;
 
