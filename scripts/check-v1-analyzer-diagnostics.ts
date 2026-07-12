@@ -102,7 +102,7 @@ function normalizeBatch(batch: AnalyzerDiagnosticBatch) {
       safety: correction.safety,
       preferred: correction.preferred,
       diagnosticInstanceIds: correction.diagnosticInstanceIds.map(normalizeInstance),
-      edits: correction.edits.map(({ path, version, lifetime, range, text }) => ({ path, version, lifetime, range, text })),
+      edits: correction.edits.map(({ path, version, lifetime, range, expectedText, text }) => ({ path, version, lifetime, range, expectedText, text })),
     })),
     skippedWork: batch.skippedWork.map(({ id, causedBy }) => ({ id, causedBy: causedBy.map(normalizeInstance) })),
     completeness: batch.completeness,
@@ -219,7 +219,8 @@ try {
       fixId: "FADENO_FIX_CONFIG_ROOT", parameters: { replacement: "src/routes" }, safety: "automatic", preferred: true,
       diagnosticKeys: ["missing-root"], edits: [{
         uri: changedConfig.uri, path: changedConfig.path, version: changedConfig.open!.version, lifetime: changedConfig.open!.lifetime,
-        range: { start: wrongRootStart, end: wrongRootStart + JSON.stringify("src/route").length }, text: JSON.stringify("src/routes"),
+        range: { start: wrongRootStart, end: wrongRootStart + JSON.stringify("src/route").length },
+        expectedText: JSON.stringify("src/route"), text: JSON.stringify("src/routes"),
       }],
     }],
     skippedWork: [{ id: "route-analysis", causedByKeys: ["missing-root"] }],
@@ -274,6 +275,7 @@ try {
   for (const mutate of [
     (value: any) => { value.batch.diagnostics[0].primaryLocation.range.end = 1_000_000; },
     (value: any) => { value.batch.corrections[0].edits[0].text = JSON.stringify("unsafe"); },
+    (value: any) => { value.batch.corrections[0].edits[0].expectedText = JSON.stringify("unrelated"); },
     (value: any) => { value.batch.corrections[0].edits[0].range.end = 1_000_000; },
     (value: any) => {
       value.batch.corrections[0].parameters.replacement = "../escape";

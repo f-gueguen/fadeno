@@ -44,6 +44,7 @@ export interface AnalyzerCorrectionEdit {
   readonly version: number;
   readonly lifetime: number;
   readonly range: Readonly<{ start: number; end: number }>;
+  readonly expectedText: string;
   readonly text: string;
 }
 
@@ -412,7 +413,7 @@ function validateBatch(value: unknown): AnalyzerDiagnosticBatch {
     assertSortedUnique(diagnosticInstanceIds);
     if (diagnosticInstanceIds.length === 0 || diagnosticInstanceIds.some((id) => !instanceIds.has(id))) refuse();
     const edits = array(item["edits"], 64).map((entry) => {
-      const edit = record(entry, ["uri", "path", "version", "lifetime", "range", "text"]);
+      const edit = record(entry, ["uri", "path", "version", "lifetime", "range", "expectedText", "text"]);
       const uri = text(edit["uri"]);
       const path = text(edit["path"]);
       ownedUri(batchIdentity.ownership.root, path, uri);
@@ -423,13 +424,22 @@ function validateBatch(value: unknown): AnalyzerDiagnosticBatch {
       if (!document || end < start || end > document.length) refuse();
       const lifetime = integer(edit["lifetime"]);
       if (lifetime === 0) refuse();
+      const documentVersion = batchIdentity.documentVersions.find((entry) => entry.uri === uri);
+      if (!documentVersion || documentVersion.version !== edit["version"] || documentVersion.lifetime !== lifetime) refuse();
       return frozen({
         uri, path, version: integer(edit["version"]), lifetime,
-        range: frozen({ start, end }), text: text(edit["text"]),
+        range: frozen({ start, end }), expectedText: text(edit["expectedText"]), text: text(edit["text"]),
       });
     });
     if (expectedAutomatic) {
-      if (edits.length !== 1 || edits[0]!.text !== JSON.stringify(normalizedParameters["replacement"])) refuse();
+      if (edits.length !== 1 || diagnosticInstanceIds.length !== 1 || edits[0]!.text !== JSON.stringify(normalizedParameters["replacement"])) refuse();
+      const diagnostic = byId.get(diagnosticInstanceIds[0]!);
+      if (
+        !diagnostic || diagnostic.code !== "FADENO_CONFIG_ROOT_MISSING" || diagnostic.primaryLocation.range === null ||
+        edits[0]!.uri !== diagnostic.primaryLocation.uri || edits[0]!.path !== diagnostic.primaryLocation.path ||
+        JSON.stringify(edits[0]!.range) !== JSON.stringify(diagnostic.primaryLocation.range) ||
+        edits[0]!.expectedText !== JSON.stringify(diagnostic.parameters["configuredRoot"])
+      ) refuse();
     } else if (edits.length !== 0) refuse();
     const applicability = identity(item["applicability"]);
     if (!sameIdentity(applicability, batchIdentity)) refuse();
@@ -612,8 +622,11 @@ export function prepareAnalyzerCorrectionApplication(
   }
   let after = target.effective.text;
   const edits = correction.edits.map(({ range, text }) => frozen({ start: range.start, end: range.end, text }));
-  for (const edit of edits) {
+  for (const [index, edit] of edits.entries()) {
     if (edit.start > edit.end || edit.end > after.length) {
+      return frozen({ accepted: false as const, fixId, code: "FADENO_ANALYZER_CORRECTION_STALE" as const });
+    }
+    if (after.slice(edit.start, edit.end) !== correction.edits[index]!.expectedText) {
       return frozen({ accepted: false as const, fixId, code: "FADENO_ANALYZER_CORRECTION_STALE" as const });
     }
     after = `${after.slice(0, edit.start)}${edit.text}${after.slice(edit.end)}`;

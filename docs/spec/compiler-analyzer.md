@@ -431,7 +431,8 @@ operation, workspace and configuration epochs, complete document-version set,
 root, configuration fingerprint, and document text lengths. Both automatic and
 review-only intents are checked for freshness before use. The only initial
 automatic correction is a code-owned single-document configuration edit whose
-replacement bytes derive from its validated parameters; the route-role
+expected old bytes, exact diagnostic range, and replacement bytes derive from
+its validated parameters; the route-role
 collision stays review-only because removing either owner would guess intent.
 The analyzer prepares one already-validated sequential edit batch and the
 document session applies it atomically. Repair makes the prior intent stale.
