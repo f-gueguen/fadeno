@@ -183,6 +183,10 @@ try {
     (value) => { value.snapshot.results[0].provenance.primaryOrigin.uri = "file:///outside.ts"; },
     (value) => { value.snapshot.results.find((result: any) => result.artifacts.length > 0).provenance.sourceToArtifacts.pop(); },
     (value) => {
+      const result = value.snapshot.results.find((candidate: any) => candidate.artifacts.length > 0);
+      result.artifacts[0].provenance.module.transformation = "forged-transform";
+    },
+    (value) => {
       const affectedId = value.snapshot.affected[0];
       value.snapshot.results.find((result: any) => result.id === affectedId).generation -= 1;
     },
@@ -431,6 +435,12 @@ try {
   const renamedRoundTrip = deserializeAnalyzerGraphSnapshot(serializeAnalyzerGraphSnapshot(renamed));
   assert.deepEqual(renamedRoundTrip.removedNodes, renamed.removedNodes);
   assert.deepEqual(renamedRoundTrip.removedArtifacts, renamed.removedArtifacts);
+  const invalidRemovedOwner = JSON.parse(serializeAnalyzerGraphSnapshot(renamed)) as any;
+  invalidRemovedOwner.snapshot.removedArtifacts[0].ownerNodeId = "route:ghost";
+  assert.throws(
+    () => deserializeAnalyzerGraphSnapshot(JSON.stringify(invalidRemovedOwner)),
+    /FADENO_ANALYZER_GRAPH_SERIALIZATION/u,
+  );
 
   const normalizedUris = new Map(Object.entries(uris).map(([key, uri]) => [uri, documentPaths[key as keyof typeof documentPaths]]));
   normalizedUris.set(overviewUri, "routes/admin/overview/page.tsx");

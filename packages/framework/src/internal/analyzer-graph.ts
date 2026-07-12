@@ -609,7 +609,7 @@ function validateSerializedProvenance(
   rootPath: string,
   artifactIds: readonly string[],
   artifact?: Readonly<{ id: string; path: string; ownerNodeId: string }>,
-): void {
+): Readonly<{ primary: string; related: string; module: string }> {
   const provenance = exactRecord(value, [
     "primaryOrigin", "relatedOrigins", "module", "generatedArtifactOwnership", "sourceToArtifacts", "artifactToSources",
   ]);
@@ -634,6 +634,11 @@ function validateSerializedProvenance(
     JSON.stringify(sourceToArtifacts) !== JSON.stringify(expectedSourceToArtifacts) ||
     JSON.stringify(artifactToSources) !== JSON.stringify(expectedArtifactToSources)
   ) serializationRefuse();
+  return {
+    primary: JSON.stringify(provenance["primaryOrigin"]),
+    related: JSON.stringify(provenance["relatedOrigins"]),
+    module: JSON.stringify(provenance["module"]),
+  };
 }
 
 function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot {
@@ -745,6 +750,7 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
     if (JSON.stringify(normalizeAnalyzerFacetValue(result["value"])) !== JSON.stringify(result["value"])) serializationRefuse();
     let previousArtifact: string | undefined;
     const resultArtifactIds: string[] = [];
+    const resultArtifacts: Readonly<{ artifact: Record<string, unknown>; id: string; path: string }>[] = [];
     for (const artifactValue of serializedArray(result["artifacts"])) {
       const artifact = exactRecord(artifactValue, ["id", "path", "value", "provenance"]);
       const artifactId = serializedString(artifact["id"]);
@@ -757,11 +763,20 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
       if (seenArtifacts.size > ANALYZER_GRAPH_LIMITS.maximumArtifacts) serializationRefuse();
       seenArtifactPaths.add(path);
       resultArtifactIds.push(artifactId);
+      resultArtifacts.push({ artifact, id: artifactId, path });
       previousArtifact = artifactId;
       if (JSON.stringify(normalizeAnalyzerFacetValue(artifact["value"])) !== JSON.stringify(artifact["value"])) serializationRefuse();
-      validateSerializedProvenance(artifact["provenance"], rootPath, [artifactId], { id: artifactId, path, ownerNodeId: id });
     }
-    validateSerializedProvenance(result["provenance"], rootPath, resultArtifactIds);
+    const nodeProvenance = validateSerializedProvenance(result["provenance"], rootPath, resultArtifactIds);
+    for (const { artifact, id: artifactId, path } of resultArtifacts) {
+      const artifactProvenance = validateSerializedProvenance(
+        artifact["provenance"], rootPath, [artifactId], { id: artifactId, path, ownerNodeId: id },
+      );
+      if (
+        artifactProvenance.primary !== nodeProvenance.primary || artifactProvenance.related !== nodeProvenance.related ||
+        artifactProvenance.module !== nodeProvenance.module
+      ) serializationRefuse();
+    }
   }
   if (affected.some((id) => !seenResults.has(id))) serializationRefuse();
   for (const value of invalidations) {
@@ -797,6 +812,7 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
     const key = `${id}:${path}`;
     if (
       !nodeIdPattern.test(id) || !validArtifactPath(path) || !nodeIdPattern.test(serializedString(removed["ownerNodeId"])) ||
+      (!seenResults.has(removed["ownerNodeId"] as string) && !removedNodeIds.has(removed["ownerNodeId"] as string)) ||
       removedArtifactIds.has(id) || (previousRemovedArtifact !== undefined && compareText(previousRemovedArtifact, key) >= 0)
     ) serializationRefuse();
     removedArtifactIds.add(id);
