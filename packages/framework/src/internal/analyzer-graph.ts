@@ -206,6 +206,18 @@ const modulePattern = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9-]*)+$/u;
 const transformationPattern = /^[a-z][a-z0-9-]*$/u;
 const artifactPathPattern = /^(?!\/)(?!.*(?:^|\/)\.\.?\/)(?!.*\\)[^\0]+$/u;
 
+export function isAnalyzerGraphNodeId(value: unknown): value is string {
+  return typeof value === "string" && nodeIdPattern.test(value);
+}
+
+export function isAnalyzerGraphModuleNamespace(value: unknown): value is string {
+  return typeof value === "string" && modulePattern.test(value);
+}
+
+export function isAnalyzerGraphTransformation(value: unknown): value is string {
+  return typeof value === "string" && transformationPattern.test(value);
+}
+
 function validArtifactPath(path: string): boolean {
   if (!artifactPathPattern.test(path)) return false;
   const segments = path.split("/");

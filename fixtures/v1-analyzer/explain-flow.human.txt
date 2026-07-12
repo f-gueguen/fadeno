@@ -1,0 +1,22 @@
+SUCCESS
+Static route explanation (semantic)
+decision: publish-static-route-plan
+ownership: route:page <- src/routes/page.tsx
+ownership: route:root <- src/routes/layout.tsx
+outcome: static-ready
+
+COLLISION
+Static route explanation (semantic)
+decision: refuse-static-route-plan
+cause: FADENO_ROUTE_ROUTE_ROLE_COLLISION
+ownership: route:page <- src/routes/page.tsx
+ownership: route:root <- src/routes/layout.tsx
+skipped: manifest-publication
+outcome: static-refused
+
+RECOVERY
+Static route explanation (semantic)
+decision: publish-static-route-plan
+ownership: route:page <- src/routes/page.tsx
+ownership: route:root <- src/routes/layout.tsx
+outcome: static-ready

@@ -461,6 +461,91 @@ redaction, or use unsupported versions are refused without corrupting the
 snapshot. Explanation never re-executes application behavior and is never
 required for correctness.
 
+V1-DX-B6 implements explain as a separate private read-only operation bound to
+the exact current publication and workspace/configuration authority. Disabled
+mode does not invoke a collector. A newer explain supersedes prior work;
+selecting disabled mode also supersedes and aborts prior explain work.
+document, configuration, or publication work invalidates it; cancellation races
+late asynchronous collection without changing graph, diagnostic, artifact, or
+correction state. Deep collection requires an explicit activation flag and
+explicitly bounded budgets. Duration expiry aborts the collection signal and
+returns partial evidence; elapsed synchronous module work is measured before a
+result may be accepted, while cooperative cancellation remains the module
+boundary rather than hostile synchronous preemption. Collector failures,
+including synchronous throws, become atomic refusals.
+
+The first module-owned projector is the independently versioned
+`fadeno.routes.explain` contribution. It derives semantic decisions, contained
+source ownership, generated-artifact identity, skipped diagnostic work, and a
+static outcome from immutable publication evidence. Deep mode additionally
+projects construction transformation provenance. It never reads source text,
+executes construction callbacks, or emits observed runtime facts. The generic
+envelope remains open to later independently versioned module codecs rather
+than enumerating future framework concepts.
+
+The route projector requires a complete current diagnostic batch. A missing
+batch is not treated as an empty batch, and the projector round-trips the B5
+module codec before using it so forged partial or truncated evidence refuses.
+Static route refusal derives from the
+module-owned skipped manifest relationship rather than from the mere presence
+of diagnostics, so later non-blocking diagnostics cannot silently change plan
+policy. Explanation record IDs use deterministic local ordinals while original
+graph and diagnostic identities remain structured fields; distinct valid owner
+IDs therefore cannot collide through lossy display encoding. Complete module
+contributions require one coherent decision and outcome, matching cause codes
+and edges, and a skipped manifest relationship exactly when the static plan is
+refused; transport mutations cannot independently rewrite those claims.
+
+The route module owns exact record keys and the only initial static kinds:
+decision, diagnostic cause, ownership, skipped work, static outcome, and deep forensic
+provenance. Semantic mode refuses forensic records. Parent and causal
+identities are deterministic, same-contribution, acyclic, and bounded. Budget
+selection and depth include both parent and causal edges, so every retained
+record retains its parent and causal evidence. Diagnostic codes come from the
+structured diagnostic module's allowlist rather than arbitrary contribution
+text. The projector receives the operation budgets and bounds record retention,
+per-record artifact children, and encoded record bytes while constructing the
+contribution; it does not first allocate the complete application-sized flow.
+Any construction truncation remains explicit in the module contribution and
+the common operation result. A module-owned witness records the limiting
+dimension, limit, observed value, and retained value; transport reprocessing
+requires that witness to be structurally consistent with the requested budget
+and retained evidence, so empty record, depth, or child claims refuse. This
+private codec is an integrity boundary for analyzer-produced data, not an
+authentication scheme: a party that fabricates an entirely schema-conforming
+witness is outside the trusted private transport contract. No public or
+external compatibility claim follows from the fixture.
+Diagnostic causes are projected in deterministic causal order rather than
+diagnostic-key order, preserving valid forward causal references. Valid budget exhaustion retains only validated records and reports one explicit
+`bytes`, `records`, `depth`, `children`, or `duration` truncation reason;
+malformed or runtime-family evidence refuses atomically. Its private transport
+uses exact envelope keys, an enforced pre-parse byte limit, and byte-stable
+round trips. Allowed identifiers and diagnostic codes are validated through
+their owning module rules rather than accepting arbitrary strings in an
+otherwise allowed field.
+
+The operation transport preserves analyzer and schema versions, operation,
+session, workspace and configuration epochs, requested facet, complete
+document-version set, root and configuration ownership, publication identity,
+budgets, completeness, interruption, and truncation.
+Complete, limit-truncated, duration-truncated, and interrupted results round
+trip byte-stably. Deserialization reprocesses each module contribution under
+the transported budgets and requires its module truncation to agree with the
+common status; complete and partial evidence cannot be relabeled independently.
+A contribution whose publication or detail identity differs
+from the operation refuses atomically. Refusal codes are allowlisted and
+workspace/document file URIs are exact, canonical, query-free, fragment-free,
+and contained. The operation transport limit covers the maximum valid
+publication identity and 4,096-document version set in addition to bounded
+module evidence; a 4,097th document identity refuses. B6 accepts exactly the initial route
+contribution. A small private descriptor registry dispatches requested
+namespaces to their module-owned processor, identity matcher, and codec; unknown
+or duplicate requests refuse before collection. Later modules register their
+own descriptors and explicit requests rather than entering a closed central
+record enumeration. The module-owned human
+renderer and normalized machine fixture are derived from the same validated
+success, refusal, and recovery contributions.
+
 Private analyzer snapshots contain static facets only. Observed runtime
 operation records use a separate record family and schema with independently
 versioned module-owned contributions. The two families may be correlated

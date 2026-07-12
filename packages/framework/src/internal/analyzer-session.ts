@@ -20,6 +20,11 @@ import {
   type AnalyzerPublicationRequest,
   type AnalyzerPublicationSnapshot,
 } from "./analyzer-publication.ts";
+import {
+  AnalyzerExplainCoordinator,
+  type AnalyzerExplainHandle,
+  type AnalyzerExplainRequest,
+} from "./analyzer-explain.ts";
 
 export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_DOCUMENT_SCHEME"
@@ -150,6 +155,7 @@ export class AnalyzerSession {
   #configurationFingerprint = "0".repeat(64);
   readonly #dependencyGraph: AnalyzerDependencyGraph;
   readonly #publication: AnalyzerPublicationCoordinator;
+  readonly #explain: AnalyzerExplainCoordinator;
 
   constructor(projectRoot: string) {
     if (typeof projectRoot !== "string" || !isAbsolute(projectRoot)) throw new TypeError("FADENO_ANALYZER_ROOT");
@@ -177,6 +183,15 @@ export class AnalyzerSession {
       (operationId, definitions, signal) => this.#dependencyGraph.analyze(operationId, definitions, { commit: false, signal }),
       (operationId, expected) => this.#dependencyGraph.commitPrepared(operationId, expected),
     );
+    this.#explain = new AnalyzerExplainCoordinator(() => ({
+      publication: this.#publication.currentSnapshot,
+      sessionId: this.#snapshot.sessionId,
+      workspaceEpoch: this.#snapshot.workspaceEpoch,
+      configurationEpoch: this.#configurationEpoch,
+      configurationFingerprint: this.#configurationFingerprint,
+      root: this.#snapshot.ownership.root,
+      documentVersions: this.#snapshot.documentVersions,
+    }));
   }
 
   get currentSnapshot(): AnalyzerDocumentOnlySnapshot {
@@ -202,11 +217,17 @@ export class AnalyzerSession {
 
   startPublication(request: AnalyzerPublicationRequest): AnalyzerPublicationHandle {
     const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
+    this.#explain.invalidate();
     return this.#publication.start(operationId, request);
   }
 
   get currentPublicationSnapshot(): AnalyzerPublicationSnapshot | null {
     return this.#publication.currentSnapshot;
+  }
+
+  startExplain(request: AnalyzerExplainRequest): AnalyzerExplainHandle {
+    const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
+    return this.#explain.start(operationId, request);
   }
 
   reloadConfiguration(fingerprint: string): AnalyzerOperationResult {
@@ -226,6 +247,7 @@ export class AnalyzerSession {
     this.#epoch += 1;
     this.#snapshot = this.#createSnapshot(operationId, "configuration");
     this.#publication.invalidate();
+    this.#explain.invalidate();
     return frozen({ accepted: true as const, operationId, snapshot: this.#snapshot });
   }
 
@@ -323,6 +345,7 @@ export class AnalyzerSession {
       this.#epoch += 1;
       this.#snapshot = this.#createSnapshot(operationId, operation);
       this.#publication.invalidate();
+      this.#explain.invalidate();
       return frozen({ accepted: true as const, operationId, snapshot: this.#snapshot });
     } catch (error) {
       if (!(error instanceof Refusal)) throw error;

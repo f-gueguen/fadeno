@@ -190,6 +190,19 @@ const definitions: Readonly<Record<AnalyzerDiagnosticCode, Definition>> = Object
   }),
 });
 
+export function isAnalyzerDiagnosticCode(value: unknown): value is AnalyzerDiagnosticCode {
+  return typeof value === "string" && Object.hasOwn(definitions, value);
+}
+
+export function isAnalyzerDiagnosticInstanceId(value: unknown): value is string {
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:operation-[1-9][0-9]*:diagnostic-[1-9][0-9]*$/u.test(value);
+}
+
+export function isAnalyzerSkippedWorkId(value: unknown): value is string {
+  return typeof value === "string" && workPattern.test(value);
+}
+
 function frozen<T extends object>(value: T): Readonly<T> {
   return Object.freeze(value);
 }

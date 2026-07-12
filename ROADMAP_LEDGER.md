@@ -6,39 +6,51 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B5 — structured analyzer diagnostics and correction intents
+V1-DX-B6 — lazy bounded static plan and explanation
 
 ## Exit criteria
 
-- [x] Define one independently versioned private diagnostics facet whose human
-  output is rendered only from allowlisted structured facts.
-- [x] Validate deterministic exact/null locations, causal and skipped-work
-  relations, expected/internal-failure identity, and redaction before output.
-- [x] Bind analyzer-owned correction intents to diagnostic instances and exact
-  publication authority; apply safe edits atomically or refuse stale work.
-- [x] Preserve all diagnostic and correction evidence through strict bounded
-  serialization and full-batch recovery replacement.
-- [x] Pass canonical-corpus success/refusal/correction/recovery, private package,
-  full repository, local CI, and independent review gates.
+- [x] Add one private read-only lazy explain operation bound to an immutable
+  current publication without recomputation or correctness-state mutation.
+- [x] Prove disabled zero-work, bounded semantic detail, and explicitly
+  activated deep detail with independent byte/record/depth/duration/child limits.
+- [x] Return explicit partial/interrupted states for truncation and cancellation;
+  suppress superseded or stale results and atomically refuse malformed evidence.
+- [x] Add one independently versioned route-flow codec with pre-collection
+  allowlists/redaction and explicit static/runtime record separation.
+- [x] Pass analyzer-produced canonical flow, cancellation, serialization,
+  private-package, full repository, local CI, and independent review gates.
 
 ## In progress
 
-- V1-DX-B5 is private foundation only and adds no package export, public schema,
+- V1-DX-B6 is private foundation only and adds no package export, public schema,
   protocol, command, or supported editor product.
-- V1-DX-B6 and B7 remain dependency ordered and independently reversible.
+- V1-DX-B7 remains dependency ordered and independently reversible.
 - The V1 application is the canonical analyzer corpus from B3 onward.
-- The route-role collision correction is review-only because choosing which
-  route owner to remove is ambiguous; private safe-edit evidence separately
-  proves exact application and stale refusal.
-- B5 may use the canonical application as private analyzer corpus and prove the
-  packed implementation remains inaccessible. B7 owns actual packed public
-  check/watch/build execution and filesystem output application.
-- B6 owns flow/explain output; B5 does not relabel manually projected scenario
-  files as analyzer explanation.
-- The B5 checker executes empty success, collision refusal, exact and null
-  locations, causal children, skipped work, review and automatic corrections,
-  redacted internal failure, malformed transport, recovery, and stale removal
-  against a copy of the canonical V1 application.
+- Explain reads only the current B4 publication and B5 diagnostic batch. It is
+  separate from correctness publication and cannot delay or replace it.
+- Disabled mode allocates no projector/timer/deep collector; deep mode requires
+  explicit activation and explicit bounded budgets.
+- Valid budget exhaustion truncates with a limit-specific reason; cancellation
+  interrupts; malformed, sensitive, unsupported, or runtime-truth contributions
+  refuse atomically.
+- B6 replaces hand-projected flow claims with actual private analyzer-produced
+  canonical-app evidence. B7 owns packed public check/watch/build execution.
+- The current B6 lifecycle checker proves disabled zero collection, activation
+  and budget refusal, semantic/deep route projection, no construction
+  re-execution, cancellation, supersession, document/publication staleness,
+  unchanged correctness publication, dependency-closed truncation, and strict
+  operation and contribution transport.
+- The route module now strictly validates its static record family and reports
+  isolated byte, record, dependency-depth, child-count, and duration truncation;
+  malformed fields, runtime-family claims, dangling parents, parent or causal
+  cycles, and mismatched publication identity refuse. Analyzer-produced human
+  and normalized flow fixtures cover success, collision refusal, and recovery.
+- The completed B6 evidence also covers construction-time budgets, causal-order
+  projection, structurally consistent private truncation witnesses, the maximum
+  4,096-document identity, strict diagnostic authority, canonical contained
+  URIs, and exact module/common transport agreement. Independent ready review
+  found no remaining P1 or P2 blocker and confirmed the analyzer remains private.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -162,3 +174,7 @@ V1-DX-B5 — structured analyzer diagnostics and correction intents
   atomically replaces facets, artifacts, and deletions, suppresses cancelled,
   superseded, stale, or refused work, and preserves strict schema-v4 recovery
   evidence without exposing an analyzer product or schema.
+- V1-DX-B5 — Commit `43a9250` adds private code-owned diagnostic semantics,
+  exact/null locations, causal and skipped-work evidence, redacted internal
+  failures, freshness-bound automatic/review corrections, strict round trips,
+  and canonical success/refusal/recovery fixtures without exposing a schema.
