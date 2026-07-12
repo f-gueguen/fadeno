@@ -15,11 +15,11 @@ import Ajv2020Module from "ajv/dist/2020.js";
 import {
   assertRouteManifestSemantics,
   discoverRouteManifest,
-  routeHref,
+  prototypeRouteHref,
   RouteContractError,
   stableRouteManifest,
   type RouteManifest,
-} from "../prototypes/v1/routing-contract/contract.ts";
+} from "../packages/framework/src/internal/routing/discovery.ts";
 import {
   routeTypeModel,
   type RouteHrefInput,
@@ -28,7 +28,7 @@ import {
 
 const root = join(import.meta.dirname, "..");
 const contractRoot = join(root, "prototypes/v1/routing-contract");
-const schema = JSON.parse(readFileSync(join(contractRoot, "route-manifest.schema.json"), "utf8"));
+const schema = JSON.parse(readFileSync(join(root, "packages/framework/contracts/internal-route-manifest-v1.schema.json"), "utf8"));
 const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => {
   compile(schema: unknown): ((value: unknown) => boolean) & { errors?: unknown };
 };
@@ -113,7 +113,7 @@ const manifestTypeModel = Object.fromEntries(manifest.routes.map((route) => [
 ]));
 if (JSON.stringify(manifestTypeModel) !== JSON.stringify(routeTypeModel)) throw new Error("FADENO_V1_ROUTE_TYPE_MODEL_LINK");
 
-const publicRouteHref = ((input: RouteHrefInput): string => routeHref(manifest, input)) as RouteHrefFunction;
+const publicRouteHref = ((input: RouteHrefInput): string => prototypeRouteHref(manifest, input)) as RouteHrefFunction;
 
 const exactLinks = [
   [{ route: "/" }, "/"],
@@ -137,7 +137,7 @@ for (const invalid of [
   Object.assign(Object.create({ inherited: true }) as object, { route: "/" }),
 ]) {
   let refused = false;
-  try { routeHref(manifest, invalid); } catch (error) { refused = error instanceof RouteContractError; }
+  try { prototypeRouteHref(manifest, invalid); } catch (error) { refused = error instanceof RouteContractError; }
   if (!refused) throw new Error("FADENO_V1_ROUTE_LINK_REFUSAL");
 }
 

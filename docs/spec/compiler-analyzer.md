@@ -7,7 +7,7 @@ Fadeno's structural boundaries. They do not create a second source language.
 
 1. Stock TypeScript parses application source.
 2. Route roots, configuration, and package entrypoints are explicit build
-   inputs. ADR 0026's route root is project-relative, POSIX-shaped, real-path
+   inputs. ADR 0027's route root is project-relative, POSIX-shaped, real-path
    confined, and symlink-free. File discovery is deterministically sorted and
    confined to declared roots.
 3. Page and fragment render bodies are server-zone roots. Extractable event
@@ -48,7 +48,8 @@ qualifies without weakening correlation or stale-output removal.
 
 Generated declarations cannot weaken a control-flow guarantee from runtime
 behavior. Positive and negative type fixtures are public conformance artifacts.
-ADR 0026's route-definition map derives a route-discriminated link-input union;
+ADR 0027's application-bound `fadeno:routes` module derives a
+route-discriminated link-input union;
 generation must retain correlation for static, dynamic, rest, and route-union
 inputs rather than combining unrelated route and parameter unions.
 
@@ -83,7 +84,10 @@ are refused at every nesting depth.
 ## Diagnostics
 
 Every diagnostic has a stable internal identifier, severity, concise message,
-source range, explanation link, and actionable correction where one exists.
+explanation link, and actionable correction where one exists. A diagnostic tied
+to source text has an exact source range; filesystem/configuration ownership
+diagnostics carry the project-relative path and an explicit `null` range rather
+than inventing a line number.
 Expected user errors omit internal stack noise. Internal defects retain an
 incident identity and reproduction context without leaking source secrets.
 

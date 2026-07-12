@@ -6,25 +6,27 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-05 — freeze route filesystem and generated-link contracts
+V1-06 — implement deterministic routing and clean declaration generation
 
 ## Exit criteria
 
-- [x] Accept ADR 0026 with one explicit route root, portable filesystem
-  grammar, canonical collision identity, internal manifest, and typed links.
-- [x] Prove deterministic, confined discovery over valid and invalid route
-  trees without implementing the production router.
-- [x] Validate the internal manifest schema and byte identity without absolute
-  host paths or external compatibility claims.
-- [x] Preserve route/parameter union correlation under stock TypeScript and
-  prove exact runtime pathname encoding and refusal behavior.
-- [x] Remove the resolved route gate, align current documentation, and pass all
-  local gates.
+- [x] Promote ADR 0027 discovery, manifest, link, and config behavior from the
+  private contract prototype into the one logical framework package.
+- [x] Generate the internal manifest and stock-TypeScript route declarations
+  transactionally with byte-identical clean output, unchanged-byte avoidance,
+  stale-output deletion, and no incremental-speed claim.
+- [x] Match canonical request pathnames with static, dynamic, then rest
+  precedence and exact decoded parameters without importing renderer behavior.
+- [x] Add nested page, raw-handler, not-found, error, invalid-tree, link, and
+  runtime route fixtures using only the accepted route roles.
+- [x] Keep compiler/Node internals unreachable from the neutral facade, align
+  current documentation, and pass all local merge gates.
 
 ## In progress
 
-- ADR 0026 selects the route filesystem and generated-link contract.
-- V1-06 next implements deterministic routing and clean declaration generation.
+- ADR 0027 corrects the application binding and owns V1-06's implemented route
+  filesystem, metadata matcher, transaction, and generated-link behavior.
+- V1-07 next freezes contextual rendering and unsafe-capability security.
 - Registry naming, renderer boundaries, request security policy,
   and adapter timeout/force-close behavior remain unresolved by this slice.
 
@@ -109,3 +111,6 @@ V1-05 — freeze route filesystem and generated-link contracts
 - V1-04 — Commit `1edea3c` creates the private framework package, moves the
   selected Node adapter behind its exact public subpath, and proves the tracked
   smoke example from an installed tarball on current and minimum runtimes.
+- V1-05 — Commit `92f10d5` accepts ADR 0026 and proves portable route discovery,
+  an ownership-correlated internal manifest, stock-TypeScript link correlation,
+  and exact runtime pathname construction without implementing the router.

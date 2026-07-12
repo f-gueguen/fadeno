@@ -11,10 +11,11 @@ than becoming application vocabulary.
 
 Fadeno is in V1 implementation. Its private workspace package and Node adapter
 smoke example run from an installed tarball, but no package is published or
-production-supported. The route filesystem and generated-link contract is
-accepted and executable as a private prototype; the production router and
-rendering are not implemented yet, so this checkpoint is not the first running
-framework application. That remains V1-09.
+production-supported. Production route discovery, transactional generation,
+application-bound typed links, and metadata-only URL matching are implemented;
+route modules and rendering are deliberately not executed yet. This checkpoint
+is therefore not the first running routed framework application. That remains
+V1-09.
 
 The four K0 kill-risk investigations are complete: structural preservation and
 incremental declaration generation were narrowed, while bounded interaction
@@ -35,6 +36,11 @@ pnpm check:v1-public-package
 ```
 
 It is a package/adapter smoke proof, not the supported `fadeno dev` workflow.
+Production route generation and matching can be replayed with:
+
+```sh
+pnpm check:v1-routing
+```
 
 ## Repository contract
 

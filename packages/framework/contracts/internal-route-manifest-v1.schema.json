@@ -1,13 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fadeno.dev/schemas/internal/route-manifest-v1.json",
+  "title": "Fadeno internal route manifest v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "visibility", "root", "routes"],
+  "required": ["schemaVersion", "visibility", "root", "generation", "routes"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "visibility": { "const": "internal-route-manifest" },
     "root": { "$ref": "#/$defs/source" },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sourceSha256"],
+      "properties": {
+        "version": { "const": 1 },
+        "sourceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
     "routes": {
       "type": "array",
       "items": { "$ref": "#/$defs/route" }

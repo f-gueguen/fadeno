@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import {
   lstatSync,
+  readFileSync,
   readdirSync,
   realpathSync,
 } from "node:fs";
@@ -9,6 +11,8 @@ import {
   relative,
   sep,
 } from "node:path";
+
+import { FadenoDiagnosticError } from "../diagnostic.ts";
 
 export type RouteSegment =
   | Readonly<{ kind: "static"; value: string }>
@@ -35,21 +39,25 @@ export type RouteManifest = Readonly<{
   schemaVersion: 1;
   visibility: "internal-route-manifest";
   root: string;
+  generation: Readonly<{ version: 1; sourceSha256: string }>;
   routes: readonly RouteManifestEntry[];
 }>;
 
 export type RouteConfig = Readonly<{ root: string }>;
 
-export class RouteContractError extends Error {
+export class RouteContractError extends FadenoDiagnosticError {
   readonly code: string;
-  readonly locations: readonly string[];
 
   constructor(code: string, locations: readonly string[] = []) {
-    const ordered = [...locations].sort(compareText);
-    super(`FADENO_ROUTE_${code}${ordered.length === 0 ? "" : `:${ordered.join(":")}`}`);
+    super(
+      `FADENO_ROUTE_${code}`,
+      `Route contract violation: ${code.toLowerCase().replaceAll("_", " ")}`,
+      locations,
+      `https://fadeno.dev/diagnostics/routes/${code.toLowerCase().replaceAll("_", "-")}`,
+      "Correct the reported route configuration or filesystem locations and run fadeno check again.",
+    );
     this.name = "RouteContractError";
     this.code = code;
-    this.locations = ordered;
   }
 }
 
@@ -144,6 +152,7 @@ export function discoverRouteManifest(projectRoot: string, config: RouteConfig):
   const canonicalProject = realpathSync(projectRoot);
   const routes: RouteManifestEntry[] = [];
   const identities = new Map<string, string>();
+  const sourceFiles = new Set<string>();
 
   const walk = (
     directory: string,
@@ -175,6 +184,7 @@ export function discoverRouteManifest(projectRoot: string, config: RouteConfig):
       if (entry.isFile()) {
         if (!roleNames.has(entry.name)) fail("UNSUPPORTED_ENTRY", [source]);
         roles.set(entry.name, source);
+        sourceFiles.add(source);
       } else if (entry.isDirectory()) {
         if (insideRest) fail("REST_NOT_TERMINAL", [posixRelative(canonicalProject, directory), source]);
         children.push({ path: absolute, source, segment: parseSegment(entry.name, source) });
@@ -230,7 +240,18 @@ export function discoverRouteManifest(projectRoot: string, config: RouteConfig):
 
   walk(root, [], new Set(), { layouts: [], notFound: null, error: null }, false);
   routes.sort((left, right) => compareText(left.id, right.id));
-  return Object.freeze({ schemaVersion: 1, visibility: "internal-route-manifest", root: config.root, routes });
+  const sourceIdentity = [...sourceFiles].sort(compareText).map((path) => ({
+    path,
+    sha256: createHash("sha256").update(readFileSync(join(canonicalProject, path))).digest("hex"),
+  }));
+  const sourceSha256 = createHash("sha256").update(JSON.stringify({ root: config.root, files: sourceIdentity })).digest("hex");
+  return Object.freeze({
+    schemaVersion: 1,
+    visibility: "internal-route-manifest",
+    root: config.root,
+    generation: Object.freeze({ version: 1, sourceSha256 }),
+    routes,
+  });
 }
 
 export function stableRouteManifest(manifest: RouteManifest): string {
@@ -246,6 +267,7 @@ function safeManifestPath(path: unknown, suffix = ""): path is string {
 
 export function assertRouteManifestSemantics(manifest: RouteManifest): void {
   if (!safeManifestPath(manifest.root)) fail("MANIFEST_ROOT");
+  if (manifest.generation.version !== 1 || !/^[a-f0-9]{64}$/u.test(manifest.generation.sourceSha256)) fail("MANIFEST_GENERATION");
   const identities = new Set<string>();
   const sources = new Set<string>();
   let previousId: string | undefined;
@@ -312,7 +334,7 @@ function encodePathValue(value: unknown): string {
   }
 }
 
-export function routeHref(manifest: RouteManifest, input: unknown): string {
+export function prototypeRouteHref(manifest: RouteManifest, input: unknown): string {
   if (!isPlainRecord(input)) fail("LINK_INPUT");
   const record = input;
   if (typeof record["route"] !== "string") fail("LINK_INPUT");

@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { join } from "node:path";
+
+import { defineConfig, type FadenoConfig } from "../../../packages/framework/src/index.ts";
+import { loadConfig } from "../../../packages/framework/src/internal/config.ts";
+import { generateRoutes } from "../../../packages/framework/src/internal/routing/generator.ts";
+
+export { defineConfig };
 
 export type PrototypeCommand = "dev" | "build" | "check";
-
-export function defineConfig(config: Readonly<Record<string, never>>): Readonly<Record<string, never>> {
-  return config;
-}
 
 export function parseEnvironmentFile(source: string): Record<string, string> {
   const values: Record<string, string> = {};
@@ -40,16 +41,8 @@ export function loadEnvironment(root: string, processValues: Readonly<Record<str
   return loaded;
 }
 
-export async function loadPrototypeConfig(root: string): Promise<Readonly<Record<string, never>>> {
-  const configPath = resolve(root, "fadeno.config.ts");
-  if (!existsSync(configPath)) throw new Error("FADENO_TOOLCHAIN_CONFIG_MISSING");
-  const module = await import(`${pathToFileURL(configPath).href}?prototype=${randomUUID()}`) as Record<string, unknown>;
-  if (Object.keys(module).some((key) => key !== "default")) throw new Error("FADENO_TOOLCHAIN_CONFIG_EXPORTS");
-  const config = module.default;
-  if (!config || typeof config !== "object" || Array.isArray(config) || Object.getPrototypeOf(config) !== Object.prototype || Object.keys(config).length !== 0) {
-    throw new Error("FADENO_TOOLCHAIN_CONFIG_SHAPE");
-  }
-  return config as Readonly<Record<string, never>>;
+export function loadPrototypeConfig(root: string): Promise<FadenoConfig> {
+  return loadConfig(root);
 }
 
 export async function executePrototype(
@@ -57,7 +50,8 @@ export async function executePrototype(
   command: PrototypeCommand,
   processValues: Readonly<Record<string, string | undefined>> = {},
 ): Promise<string> {
-  await loadPrototypeConfig(root);
+  const config = await loadPrototypeConfig(root);
+  if (config.routes) generateRoutes(root, config);
   const environment = loadEnvironment(root, processValues);
   const manifest = `${JSON.stringify({ schemaVersion: 1, command, environment: Object.keys(environment).sort() })}\n`;
   if (command === "check") return manifest;

@@ -30,13 +30,13 @@ try {
   mkdirSync(invalid);
   writeFileSync(join(invalid, "fadeno.config.ts"), "export const named = true; export default {};\n");
   let invalidRejected = false;
-  try { await executePrototype(invalid, "check"); } catch (error: unknown) { invalidRejected = error instanceof Error && error.message === "FADENO_TOOLCHAIN_CONFIG_EXPORTS"; }
+  try { await executePrototype(invalid, "check"); } catch (error: unknown) { invalidRejected = error instanceof Error && error.message.startsWith("FADENO_CONFIG_EXPORTS"); }
   if (!invalidRejected) throw new Error("FADENO_TOOLCHAIN_CONFIG_MUTATION");
   const unknown = join(root, "unknown");
   mkdirSync(unknown);
   writeFileSync(join(unknown, "fadeno.config.ts"), "export default { routes: './app' };\n");
   let unknownRejected = false;
-  try { await executePrototype(unknown, "check"); } catch (error: unknown) { unknownRejected = error instanceof Error && error.message === "FADENO_TOOLCHAIN_CONFIG_SHAPE"; }
+  try { await executePrototype(unknown, "check"); } catch (error: unknown) { unknownRejected = error instanceof Error && error.message.startsWith("FADENO_CONFIG_ROUTES"); }
   if (!unknownRejected) throw new Error("FADENO_TOOLCHAIN_UNKNOWN_FIELD");
 } finally {
   rmSync(root, { recursive: true, force: true });
