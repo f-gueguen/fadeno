@@ -104,6 +104,8 @@ try {
     "package/dist/index.js",
     "package/dist/jsx-runtime.d.ts",
     "package/dist/jsx-runtime.js",
+    "package/dist/internal/analyzer-facets.d.ts",
+    "package/dist/internal/analyzer-facets.js",
     "package/dist/internal/analyzer-session.d.ts",
     "package/dist/internal/analyzer-session.js",
     "package/dist/internal/config.d.ts",
@@ -239,6 +241,9 @@ try {
   writeFileSync(join(consumer, "analyzer-deep-import.ts"), `import { AnalyzerSession } from "${packageName}/internal/analyzer-session";\nvoid AnalyzerSession;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-session")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+  writeFileSync(join(consumer, "analyzer-facets-deep-import.ts"), `import { serializeAnalyzerFacetSnapshot } from "${packageName}/internal/analyzer-facets";\nvoid serializeAnalyzerFacetSnapshot;\n`);
+  expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-facets-deep-import.ts"], consumer, "TS2307");
+  expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-facets")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
 } finally {
   rmSync(join(packageRoot, "dist"), { recursive: true, force: true });
   rmSync(temporaryRoot, { recursive: true, force: true });

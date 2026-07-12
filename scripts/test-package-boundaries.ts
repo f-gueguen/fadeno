@@ -97,6 +97,19 @@ try {
   rmSync(manifest.temporaryRoot, { recursive: true, force: true });
 }
 
+const acceptedManifest = fixture("export {};\n");
+try {
+  writeFileSync(join(acceptedManifest.root, "packages/first/package.json"), JSON.stringify({ exports: {
+    ".": "./dist/index.js",
+    "./node": "./dist/node.js",
+    "./jsx-runtime": "./dist/jsx-runtime.js",
+  } }));
+  const violations = inspectPackageBoundaries(acceptedManifest.root);
+  if (violations.length !== 0) throw new Error(`accepted manifest failed: ${JSON.stringify(violations)}`);
+} finally {
+  rmSync(acceptedManifest.temporaryRoot, { recursive: true, force: true });
+}
+
 const sourceSymlink = fixture("export {};\n", (root) => {
   symlinkSync(join(root, "packages/second/src/private.ts"), join(root, "packages/first/src/unimported-link.ts"));
 });

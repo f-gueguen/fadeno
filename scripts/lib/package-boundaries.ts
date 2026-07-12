@@ -144,13 +144,14 @@ export function inspectPackageBoundaries(repositoryRoot: string): PackageBoundar
         violations.push({ code: "FADENO_PACKAGE_EXPORTS", file: relative(repositoryRoot, manifestPath), kind: "manifest", specifier: "missing explicit exports object" });
       } else {
         const subpaths = Object.keys(exports);
-        for (const required of [".", "./node"]) {
+        const exactPublicSubpaths = [".", "./node", "./jsx-runtime"];
+        for (const required of exactPublicSubpaths) {
           if (!subpaths.includes(required)) {
             violations.push({ code: "FADENO_PACKAGE_EXPORTS", file: relative(repositoryRoot, manifestPath), kind: "manifest", specifier: `missing ${required}` });
           }
         }
         for (const subpath of subpaths) {
-          if (subpath !== "." && subpath !== "./node") {
+          if (!exactPublicSubpaths.includes(subpath)) {
             violations.push({ code: "FADENO_PACKAGE_EXPORTS", file: relative(repositoryRoot, manifestPath), kind: "manifest", specifier: subpath });
           }
         }

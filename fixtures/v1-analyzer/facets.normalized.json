@@ -1,0 +1,52 @@
+{
+  "analyzerVersion": 1,
+  "schemaVersion": 2,
+  "sessionId": "<session>",
+  "operationId": "<operation>",
+  "operation": "facets",
+  "workspaceEpoch": 1,
+  "requestedFacets": [
+    { "namespace": "fadeno.diagnostics" },
+    { "namespace": "fadeno.explain" },
+    { "namespace": "fadeno.future" },
+    { "namespace": "fadeno.routes" }
+  ],
+  "documentVersions": [
+    { "uri": "<document>", "version": 4, "lifetime": 1 }
+  ],
+  "ownership": { "mode": "single-root", "root": "<root>" },
+  "documents": [
+    {
+      "path": "src/facet.ts",
+      "uri": "<document>",
+      "savedRevision": 0,
+      "open": { "version": 4, "lifetime": 1 },
+      "effective": { "source": "overlay", "text": "overlay facet\r\n" }
+    }
+  ],
+  "facets": [
+    {
+      "namespace": "fadeno.diagnostics",
+      "version": 1,
+      "value": {
+        "records": [{ "code": "FADENO_SAMPLE", "range": null }],
+        "skipped": []
+      }
+    },
+    {
+      "namespace": "fadeno.future",
+      "version": 7,
+      "value": { "opaque": ["preserved", null, true] }
+    },
+    {
+      "namespace": "fadeno.routes",
+      "version": 3,
+      "value": {
+        "decisions": [{ "owner": "src/facet.ts", "selected": true }]
+      }
+    }
+  ],
+  "completeness": "complete",
+  "interruption": null,
+  "truncated": false
+}

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -10,6 +10,15 @@ import {
   type AnalyzerOperationResult,
   type AnalyzerRefusalCode,
 } from "../packages/framework/src/internal/analyzer-session.ts";
+import {
+  ANALYZER_FACET_LIMITS,
+  deserializeAnalyzerFacetSnapshot,
+  readAnalyzerFacet,
+  serializeAnalyzerFacetSnapshot,
+  type AnalyzerFacetOperationResult,
+  type AnalyzerFacetRequest,
+  type AnalyzerFacetValue,
+} from "../packages/framework/src/internal/analyzer-facets.ts";
 
 interface ReferenceDocument {
   epoch: number;
@@ -97,6 +106,26 @@ function accepted(result: AnalyzerOperationResult): AnalyzerDocumentOnlySnapshot
   record(result);
   assert.equal(result.accepted, true);
   return result.snapshot;
+}
+
+function acceptedFacets(result: AnalyzerFacetOperationResult) {
+  assert.ok(!operationIds.has(result.operationId), `duplicate operation ID ${result.operationId}`);
+  operationIds.add(result.operationId);
+  assert.ok(Object.isFrozen(result));
+  assert.equal(result.accepted, true);
+  return result.snapshot;
+}
+
+function refusedFacets(session: AnalyzerSession, action: () => AnalyzerFacetOperationResult, code: string): void {
+  const before = session.currentSnapshot;
+  const result = action();
+  assert.ok(!operationIds.has(result.operationId), `duplicate operation ID ${result.operationId}`);
+  operationIds.add(result.operationId);
+  assert.ok(Object.isFrozen(result));
+  assert.equal(result.accepted, false);
+  assert.equal(result.code, code);
+  assert.equal(result.currentEpoch, before.workspaceEpoch);
+  assert.equal(session.currentSnapshot, before);
 }
 
 function refused(
@@ -322,11 +351,219 @@ try {
     assert.equal(actualDocument.effective.text, model.overlay ?? model.saved);
   }
 
+  const facetPath = join(sourceDirectory, "facet.ts");
+  writeFileSync(facetPath, "saved facet\n");
+  const facetSession = new AnalyzerSession(root);
+  const facetBase = accepted(facetSession.open(facetPath, 4, "overlay facet\r\n"));
+  const facetSnapshot = acceptedFacets(facetSession.snapshotFacets(
+    [
+      { namespace: "fadeno.routes" },
+      { namespace: "fadeno.explain" },
+      { namespace: "fadeno.diagnostics" },
+      { namespace: "fadeno.future" },
+    ],
+    [
+      {
+        namespace: "fadeno.future",
+        version: 7,
+        value: { opaque: ["preserved", null, true] },
+      },
+      {
+        namespace: "fadeno.routes",
+        version: 3,
+        value: { decisions: [{ owner: "src/facet.ts", selected: true }] },
+      },
+      {
+        namespace: "fadeno.diagnostics",
+        version: 1,
+        value: { records: [{ code: "FADENO_SAMPLE", range: null }], skipped: [] },
+      },
+    ],
+  ));
+  assert.equal(facetSession.currentSnapshot, facetBase, "derived facets replaced document authority");
+  assert.equal(facetSnapshot.workspaceEpoch, facetBase.workspaceEpoch);
+  assert.equal(facetSnapshot.schemaVersion, 2);
+  assert.deepEqual(facetSnapshot.requestedFacets.map(({ namespace }) => namespace), [
+    "fadeno.diagnostics", "fadeno.explain", "fadeno.future", "fadeno.routes",
+  ]);
+  assert.deepEqual(facetSnapshot.facets.map(({ namespace, version }) => [namespace, version]), [
+    ["fadeno.diagnostics", 1], ["fadeno.future", 7], ["fadeno.routes", 3],
+  ]);
+  assert.equal(Object.isFrozen(facetSnapshot), true);
+  assert.equal(Object.isFrozen(facetSnapshot.facets), true);
+  assert.equal(Object.isFrozen(facetSnapshot.facets[0]?.value), true);
+  assert.equal(Reflect.set(facetSnapshot.facets[0]!, "version", 9), false);
+
+  assert.deepEqual(readAnalyzerFacet(facetSnapshot, "fadeno.explain", { "fadeno.explain": 1 }), { state: "absent" });
+  assert.deepEqual(readAnalyzerFacet(facetSnapshot, "fadeno.future", {}), {
+    state: "unknown", namespace: "fadeno.future", version: 7, opaque: { opaque: ["preserved", null, true] },
+  });
+  assert.deepEqual(readAnalyzerFacet(facetSnapshot, "fadeno.routes", { "fadeno.routes": 2 }), {
+    state: "newer", namespace: "fadeno.routes", version: 3, supportedVersion: 2,
+    opaque: { decisions: [{ owner: "src/facet.ts", selected: true }] },
+  });
+  assert.equal(readAnalyzerFacet(facetSnapshot, "fadeno.diagnostics", { "fadeno.diagnostics": 1 }).state, "supported");
+
+  const serialized = serializeAnalyzerFacetSnapshot(facetSnapshot);
+  const roundTrip = deserializeAnalyzerFacetSnapshot(serialized);
+  assert.deepEqual(roundTrip, facetSnapshot);
+  assert.equal(serializeAnalyzerFacetSnapshot(roundTrip), serialized);
+  assert.equal(Object.isFrozen(roundTrip), true);
+  assert.equal(Object.isFrozen(roundTrip.documents[0]?.effective), true);
+  assert.equal(Object.isFrozen(roundTrip.facets[1]?.value), true);
+  assert.equal(readAnalyzerFacet(roundTrip, "fadeno.future", {}).state, "unknown");
+  assert.equal(readAnalyzerFacet(roundTrip, "fadeno.routes", { "fadeno.routes": 2 }).state, "newer");
+
+  const hostileKeys = JSON.parse('{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}}}') as AnalyzerFacetValue;
+  const hostileSnapshot = acceptedFacets(facetSession.snapshotFacets(
+    [{ namespace: "fadeno.keys" }], [{ namespace: "fadeno.keys", version: 1, value: hostileKeys }],
+  ));
+  const hostileRoundTrip = deserializeAnalyzerFacetSnapshot(serializeAnalyzerFacetSnapshot(hostileSnapshot));
+  assert.equal(({} as { polluted?: boolean }).polluted, undefined);
+  assert.deepEqual(hostileRoundTrip.facets[0]?.value, hostileKeys);
+
+  const normalizedFixture = {
+    analyzerVersion: facetSnapshot.analyzerVersion,
+    schemaVersion: facetSnapshot.schemaVersion,
+    sessionId: "<session>",
+    operationId: "<operation>",
+    operation: facetSnapshot.operation,
+    workspaceEpoch: facetSnapshot.workspaceEpoch,
+    requestedFacets: facetSnapshot.requestedFacets,
+    documentVersions: facetSnapshot.documentVersions.map((entry) => ({ ...entry, uri: "<document>" })),
+    ownership: { ...facetSnapshot.ownership, root: "<root>" },
+    documents: facetSnapshot.documents.map((entry) => ({ ...entry, uri: "<document>" })),
+    facets: facetSnapshot.facets,
+    completeness: facetSnapshot.completeness,
+    interruption: facetSnapshot.interruption,
+    truncated: facetSnapshot.truncated,
+  };
+  const expectedFixture = JSON.parse(readFileSync(new URL("../fixtures/v1-analyzer/facets.normalized.json", import.meta.url), "utf8"));
+  assert.deepEqual(normalizedFixture, expectedFixture);
+
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }, { namespace: "fadeno.routes" }], [],
+  ), "FADENO_ANALYZER_FACET_DUPLICATE");
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }], [{ namespace: "fadeno.explain", version: 1, value: null }],
+  ), "FADENO_ANALYZER_FACET_UNREQUESTED");
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "routes" }], [],
+  ), "FADENO_ANALYZER_FACET_NAMESPACE");
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }], [{ namespace: "fadeno.routes", version: 0, value: null }],
+  ), "FADENO_ANALYZER_FACET_VERSION");
+  for (const invalidValue of [Number.NaN, Number.POSITIVE_INFINITY, -0, undefined, new Date()] as unknown[]) {
+    refusedFacets(facetSession, () => facetSession.snapshotFacets(
+      [{ namespace: "fadeno.routes" }],
+      [{ namespace: "fadeno.routes", version: 1, value: invalidValue as AnalyzerFacetValue }],
+    ), "FADENO_ANALYZER_FACET_VALUE");
+  }
+  const sparse: AnalyzerFacetValue[] = [];
+  sparse.length = 1;
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }], [{ namespace: "fadeno.routes", version: 1, value: sparse }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  const accessor = Object.defineProperty({}, "secret", { enumerable: true, get: () => "value" });
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }], [{ namespace: "fadeno.routes", version: 1, value: accessor as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  let indexedAccessorExecutions = 0;
+  const indexedAccessor = ["placeholder"];
+  Object.defineProperty(indexedAccessor, "0", {
+    enumerable: true,
+    get: () => {
+      indexedAccessorExecutions += 1;
+      return "executed";
+    },
+  });
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: indexedAccessor as unknown as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  assert.equal(indexedAccessorExecutions, 0, "array accessor executed during refusal");
+  const arrayWithExtra = ["value"] as string[] & { extra?: string };
+  arrayWithExtra.extra = "discarded";
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: arrayWithExtra as unknown as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  const arrayWithHidden = ["value"];
+  Object.defineProperty(arrayWithHidden, "hidden", { value: "discarded", enumerable: false });
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: arrayWithHidden as unknown as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  const arrayWithSymbol = ["value"];
+  Object.defineProperty(arrayWithSymbol, Symbol("hidden"), { value: "discarded", enumerable: true });
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: arrayWithSymbol as unknown as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  const proxiedValue = new Proxy({ safe: true }, {});
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: proxiedValue as AnalyzerFacetValue }],
+  ), "FADENO_ANALYZER_FACET_VALUE");
+  let tooDeep: AnalyzerFacetValue = null;
+  for (let depth = 0; depth <= ANALYZER_FACET_LIMITS.maximumDepth; depth += 1) tooDeep = [tooDeep];
+  const tooDeepValue = tooDeep;
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }], [{ namespace: "fadeno.routes", version: 1, value: tooDeepValue }],
+  ), "FADENO_ANALYZER_FACET_LIMIT");
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }],
+    [{ namespace: "fadeno.routes", version: 1, value: "x".repeat(ANALYZER_FACET_LIMITS.maximumFacetBytes) }],
+  ), "FADENO_ANALYZER_FACET_LIMIT");
+  const tooManyNodes = Array.from({ length: ANALYZER_FACET_LIMITS.maximumNodes }, () => null);
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    [{ namespace: "fadeno.routes" }], [{ namespace: "fadeno.routes", version: 1, value: tooManyNodes }],
+  ), "FADENO_ANALYZER_FACET_LIMIT");
+  const aggregateRequests = Array.from({ length: 5 }, (_, index) => ({ namespace: `fadeno.total-${index}` }));
+  const aggregateContributions = aggregateRequests.map(({ namespace }) => ({
+    namespace,
+    version: 1,
+    value: "x".repeat(60_000),
+  }));
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(
+    aggregateRequests, aggregateContributions,
+  ), "FADENO_ANALYZER_FACET_LIMIT");
+  const tooManyRequests: AnalyzerFacetRequest[] = Array.from(
+    { length: ANALYZER_FACET_LIMITS.maximumFacets + 1 },
+    (_, index) => ({ namespace: `fadeno.module-${index}` }),
+  );
+  refusedFacets(facetSession, () => facetSession.snapshotFacets(tooManyRequests, []), "FADENO_ANALYZER_FACET_LIMIT");
+
+  const parsed = JSON.parse(serialized) as Record<string, unknown>;
+  parsed["serializationVersion"] = 2;
+  assert.throws(() => deserializeAnalyzerFacetSnapshot(JSON.stringify(parsed)), /FADENO_ANALYZER_SERIALIZATION/u);
+  const malformed = JSON.parse(serialized) as { snapshot: { documentVersions: Array<{ version: number }> } };
+  malformed.snapshot.documentVersions[0]!.version += 1;
+  assert.throws(() => deserializeAnalyzerFacetSnapshot(JSON.stringify(malformed)), /FADENO_ANALYZER_SERIALIZATION/u);
+  for (const mutate of [
+    (value: any) => { value.snapshot.ownership.root = "not-a-uri"; },
+    (value: any) => { value.snapshot.documents[0].path = "../escape"; },
+    (value: any) => { value.snapshot.documents[0].uri = pathToFileURL(join(otherRoot, "external.ts")).href; },
+    (value: any) => { value.snapshot.operationId = "unrelated:operation-1"; },
+    (value: any) => { value.snapshot.sessionId = "not-a-session"; },
+  ]) {
+    const invalidOwnership = JSON.parse(serialized);
+    mutate(invalidOwnership);
+    assert.throws(
+      () => deserializeAnalyzerFacetSnapshot(JSON.stringify(invalidOwnership)),
+      /FADENO_ANALYZER_SERIALIZATION/u,
+    );
+  }
+  assert.throws(
+    () => serializeAnalyzerFacetSnapshot({ ...facetSnapshot, schemaVersion: 3 as 2 }),
+    /FADENO_ANALYZER_SERIALIZATION/u,
+  );
+
   const finalSnapshot = session.currentSnapshot;
   assert.equal(finalSnapshot.documents.find(({ path }) => path === "src/document.ts")?.effective.text, reference.saved);
   assert.equal(new Set(operationIds).size, operationIds.size);
   assert.ok(operationIds.size >= 20);
-  console.log("V1 analyzer B1 passed (ownership, saved/overlay sync, transactions, refusals, immutable snapshots)");
+  console.log("V1 analyzer B1/B2 passed (document sync, bounded facets, explicit compatibility, lossless round trips)");
 } finally {
   rmSync(root, { recursive: true, force: true });
   rmSync(otherRoot, { recursive: true, force: true });

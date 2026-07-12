@@ -89,6 +89,8 @@ try {
   cpSync(join(prototypeRoot, "prototype-root.ts"), join(sourceRoot, "index.ts"));
   cpSync(join(prototypeRoot, "internal-canary.ts"), join(internalRoot, "canary.ts"));
   cpSync(join(adapterRoot, "node-http-capabilities.ts"), join(internalRoot, "node-http-capabilities.ts"));
+  cpSync(join(adapterRoot, "rendering-security.ts"), join(internalRoot, "rendering-security.ts"));
+  cpSync(join(adapterRoot, "failure-observer.ts"), join(internalRoot, "failure-observer.ts"));
   cpSync(join(adapterRoot, "node-http.ts"), join(internalRoot, "node-http.ts"));
   writeFileSync(join(sourceRoot, "node.ts"), 'export { listenNodeHttp as prototypeListen } from "./internal/node-http.ts";\n');
   writeJson(join(packageRoot, "package.json"), {

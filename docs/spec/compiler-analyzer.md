@@ -101,6 +101,42 @@ and effective document states. They have no facets. Every nested object and
 array is frozen and prior snapshots remain unchanged. B2 adds namespaced facets
 and serialization without redefining this document authority.
 
+V1-DX-B2 derives a schema-v2 facet snapshot from one current B1 document
+snapshot. The derived operation receives a fresh session-scoped operation ID
+but retains the source workspace epoch, ownership, document versions, and
+deeply immutable document objects. It does not replace the session's current
+document snapshot or publish analyzer results; atomic publication remains B4.
+
+A request names each desired facet namespace once. A module may contribute at
+most one independently positive-integer-versioned value for a requested
+namespace. Requests and contributions are sorted by code-unit order. A
+consumer explicitly observes `absent` when no contribution exists, `unknown`
+when it has no namespace reader, `newer` when the contribution exceeds its
+supported version, or `supported`. Unknown and newer values remain opaque and
+are preserved; consumers do not infer a fallback representation.
+
+Facet values use normalized JSON-compatible plain data. Null, booleans,
+strings, finite numbers other than negative zero, dense arrays, and plain
+records are accepted. Sparse arrays, accessors, symbols, exotic prototypes,
+undefined, non-finite or negative-zero numbers, and other lossy values are
+refused before a snapshot exists. Record keys are normalized by code-unit
+order. One operation permits at most 32 requests and 32 contributions, 65,536
+UTF-8 bytes per contribution, 262,144 aggregate contribution bytes, depth 16,
+and 4,096 value nodes per contribution. Duplicate or unrequested
+contributions and every limit violation refuse the entire derived operation.
+
+The private serialization envelope has version 1 and carries the complete
+schema-v2 snapshot. Deserialization validates exact envelope and snapshot
+fields, the session-scoped operation identity, canonical root URI, contained
+document path/URI ownership, B1 document/open-version correspondence, facet
+bounds, and normalized ordering, then deeply freezes the result.
+Serialize/deserialize/serialize is byte stable for accepted snapshots. Absent
+facets, opaque unknown or newer facets, workspace and document identity,
+ownership, completeness, interruption, and truncation survive round trips.
+Alternate serialization or snapshot versions and malformed evidence are
+refused. These numbers and interfaces remain private implementation contracts
+under DG-A0-02.
+
 ## Invalidation, recomputation, and publication
 
 Invalidation discovers the complete affected dependency closure before
