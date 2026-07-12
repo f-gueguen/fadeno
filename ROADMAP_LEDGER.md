@@ -17,7 +17,7 @@ K0-08A — establish H3 qualification capability without collecting a result
 - [x] Stock `tsc` and the TypeScript 7 LSP language server (the stock successor
   to `tsserver`) prove exact valid/invalid diagnostics and generated-symbol
   consumption.
-- [ ] The runner locks clean and real A/B incremental generation, interleaved
+- [x] The runner locks clean and real A/B incremental generation, interleaved
   no-retry timings, pre/postflight, p95 derivation, and decision projection.
 - [ ] `pnpm ci:local` and `pnpm experiment:type-spine --
   --verify-qualification` pass with no immutable H3 result or decision.

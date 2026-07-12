@@ -20,6 +20,18 @@ const expected = {
 type Variant = keyof typeof expected;
 type GeneratorObservation = { schemaVersion: 1; variant: Variant; replacements: number; sha256: string };
 export type TimingSample = Readonly<{ round: number; cleanGeneratorNs: number; stockTscNs: number; incrementalGeneratorNs: number; incrementalVariant: "A-to-B" | "B-to-A" }>;
+export type QualificationMetrics = Readonly<{
+  cleanGeneratorP95Ns: number;
+  stockTscP95Ns: number;
+  incrementalGeneratorP95Ns: number;
+  cleanGeneratorToTscRatio: number;
+  incrementalToCleanRatio: number;
+}>;
+export type EnvironmentPhase = Readonly<{
+  phase: "before-warmup" | "after-samples";
+  host: readonly Readonly<{ cpuIdlePercent: number; loadAveragePerLogicalCpu: number; powerSource: string; thermalState: string }>[];
+  container: Readonly<{ cpuThrottledRatio: number; oom: number; oomKill: number; pidsCurrent: number; networkDisabled: boolean }>;
+}>;
 
 function timedChild(args: readonly string[], cwd: string): { elapsedNs: number; stdout: string } {
   const started = process.hrtime.bigint();
@@ -56,6 +68,35 @@ export function projectQualificationDecision(gates: Readonly<Record<string, bool
   if (correctness.some((gate) => gates[gate] !== true)) return "pivot";
   if (gates["clean-latency"] !== true || gates["incremental-latency"] !== true) return "narrow";
   return "go";
+}
+
+export function deriveQualificationMetrics(samples: readonly TimingSample[]): QualificationMetrics {
+  if (samples.length !== 20 || samples.some((sample, index) => sample.round !== index || sample.incrementalVariant !== (index % 2 === 0 ? "A-to-B" : "B-to-A"))) {
+    throw new Error("FADENO_TYPE_SPINE_RESULT_SAMPLE_SET");
+  }
+  const cleanGeneratorP95Ns = nearestRank95(samples.map(({ cleanGeneratorNs }) => cleanGeneratorNs));
+  const stockTscP95Ns = nearestRank95(samples.map(({ stockTscNs }) => stockTscNs));
+  const incrementalGeneratorP95Ns = nearestRank95(samples.map(({ incrementalGeneratorNs }) => incrementalGeneratorNs));
+  return {
+    cleanGeneratorP95Ns,
+    stockTscP95Ns,
+    incrementalGeneratorP95Ns,
+    cleanGeneratorToTscRatio: cleanGeneratorP95Ns / stockTscP95Ns,
+    incrementalToCleanRatio: incrementalGeneratorP95Ns / cleanGeneratorP95Ns,
+  };
+}
+
+export function validateQualificationEnvironment(before: EnvironmentPhase, after: EnvironmentPhase): boolean {
+  if (before.phase !== "before-warmup" || after.phase !== "after-samples") return false;
+  for (const observation of [before, after]) {
+    if (observation.host.length !== 3 || observation.host.some((sample) =>
+      sample.cpuIdlePercent < 75 || sample.loadAveragePerLogicalCpu > 0.5 ||
+      sample.powerSource !== "ac" || sample.thermalState !== "no-warning"
+    )) return false;
+    const container = observation.container;
+    if (container.cpuThrottledRatio > 0.1 || container.oom !== 0 || container.oomKill !== 0 || container.pidsCurrent > 64 || !container.networkDisabled) return false;
+  }
+  return true;
 }
 
 function prepareProject(workspace: string, inputA: TypeSpineInput): string {

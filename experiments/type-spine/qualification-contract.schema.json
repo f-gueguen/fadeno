@@ -3,7 +3,7 @@
   "$id": "https://fadeno.dev/schemas/experiment/type-spine-qualification-contract-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["$schema", "schemaVersion", "visibility", "environmentId", "corpus", "measurement", "stockTypeScript", "requiredGates", "decision", "capabilitySlice", "executionSlice"],
+  "required": ["$schema", "schemaVersion", "visibility", "environmentId", "corpus", "measurement", "stockTypeScript", "requiredGates", "preflight", "resultProjection", "decision", "capabilitySlice", "executionSlice"],
   "properties": {
     "$schema": { "const": "https://fadeno.dev/schemas/experiment/type-spine-qualification-contract-v1.json" },
     "schemaVersion": { "const": 1 },
@@ -43,6 +43,8 @@
       }
     },
     "requiredGates": { "const": ["valid-consumers", "invalid-source-diagnostics", "byte-determinism", "stale-output", "stock-tsc", "stock-language-server", "clean-latency", "incremental-latency"] },
+    "preflight": { "const": { "phases": ["before-warmup", "after-samples"], "hostSamplesPerPhase": 3, "requiredHostFields": ["cpuIdlePercent", "loadAveragePerLogicalCpu", "powerSource", "thermalState"], "requiredContainerFields": ["cpuThrottledRatio", "oom", "oomKill", "pidsCurrent", "networkDisabled"], "failurePolicy": "inconclusive-no-decision" } },
+    "resultProjection": { "const": { "rawSamples": 20, "derivedFields": ["cleanGeneratorP95Ns", "stockTscP95Ns", "incrementalGeneratorP95Ns", "cleanGeneratorToTscRatio", "incrementalToCleanRatio"], "immutableOnlyInSlice": "K0-08B" } },
     "decision": { "const": { "go": "all-gates-pass", "narrow": "all-non-performance-gates-pass-and-any-latency-gate-fails", "pivot": "any-correctness-determinism-stale-or-stock-tool-gate-fails", "inconclusive": "environment-preflight-postflight-or-evidence-integrity-fails" } },
     "capabilitySlice": { "const": { "slice": "K0-08A", "immutableResultsAllowed": false, "decisionAllowed": false } },
     "executionSlice": { "const": { "slice": "K0-08B", "requiredSource": "exact-clean-merged-k0-08a-main-commit", "publishEveryReferenceValidAttempt": true } }

@@ -31,6 +31,18 @@
     "languageServiceCommands": ["initialize", "textDocument/didOpen", "textDocument/hover", "textDocument/definition"]
   },
   "requiredGates": ["valid-consumers", "invalid-source-diagnostics", "byte-determinism", "stale-output", "stock-tsc", "stock-language-server", "clean-latency", "incremental-latency"],
+  "preflight": {
+    "phases": ["before-warmup", "after-samples"],
+    "hostSamplesPerPhase": 3,
+    "requiredHostFields": ["cpuIdlePercent", "loadAveragePerLogicalCpu", "powerSource", "thermalState"],
+    "requiredContainerFields": ["cpuThrottledRatio", "oom", "oomKill", "pidsCurrent", "networkDisabled"],
+    "failurePolicy": "inconclusive-no-decision"
+  },
+  "resultProjection": {
+    "rawSamples": 20,
+    "derivedFields": ["cleanGeneratorP95Ns", "stockTscP95Ns", "incrementalGeneratorP95Ns", "cleanGeneratorToTscRatio", "incrementalToCleanRatio"],
+    "immutableOnlyInSlice": "K0-08B"
+  },
   "decision": {
     "go": "all-gates-pass",
     "narrow": "all-non-performance-gates-pass-and-any-latency-gate-fails",

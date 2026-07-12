@@ -34,3 +34,11 @@ separate topology projection supplies nested-workload coverage without turning
 parent/depth metadata into framework syntax. The checked builder is the corpus
 provenance control, while the qualification runner consumes the committed JSON
 as its authority. No file under `results/` is produced by K0-08A.
+
+The timing runner measures fresh child processes in the locked
+clean-generator/stock-compiler/incremental-generator order. Five warmups are
+discarded, 20 A/B samples are retained without retry, and p95 uses nearest
+rank. Its pure projection treats invalid pre/postflight as inconclusive,
+correctness or stock-tool failures as PIVOT, latency-only failures as NARROW,
+and an all-pass observation as GO. K0-08A executes only a two-sample smoke
+schedule and therefore cannot create qualification evidence.
