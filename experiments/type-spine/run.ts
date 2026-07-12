@@ -19,6 +19,7 @@ if (args.length === 1 && args[0] === "--list") {
     await import("../../scripts/check-type-spine-qualification-corpus.ts");
     await import("../../scripts/check-type-spine-qualification-contract.ts");
     await import("../../scripts/check-type-spine-qualification-controls.ts");
+    await import("../../scripts/check-type-spine-qualification-runner.ts");
     console.log("type-spine qualification capability passed (no result or decision)");
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : String(error));
