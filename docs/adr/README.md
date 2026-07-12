@@ -37,6 +37,7 @@ effective decision.
 25. [ADR 0025 — Public Node adapter smoke contract](0025-public-node-adapter-smoke-contract.md)
 26. [ADR 0027 — Generated route module and production routing](0027-generated-route-module-and-production-routing.md)
 27. [ADR 0028 — Contextual rendering security](0028-contextual-rendering-security.md)
+28. [ADR 0029 — Streaming lifecycle and boundary ownership](0029-streaming-lifecycle-and-boundary-ownership.md)
 
 ## Superseded decisions
 

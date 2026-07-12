@@ -6,28 +6,28 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-07 — freeze contextual rendering and unsafe-capability security contracts
+V1-08 — freeze streaming lifecycle, boundary ownership, and response commitment
 
 ## Exit criteria
 
-- [x] Accept one rendering-security ADR that fixes contextual escaping, unsafe
-  HTML authority, CSP nonce flow, and the audit/redaction surface.
-- [x] Freeze explicit text, ordinary attribute, URL, style, boolean,
-  enumerated, and raw-text element context behavior without implementing the
-  renderer or streaming state machine.
-- [x] Prove the unsafe capability cannot be forged from an ordinary string and
-  that every accepted unsafe use remains statically auditable.
-- [x] Add a threat model plus positive/negative XSS, nonce, URL/style,
-  delimiter, and secret-redaction fixtures that a later renderer must satisfy.
-- [x] Remove the resolved rendering-security gate, align current documentation,
-  and pass all local merge gates.
+- [x] Accept one streaming-lifecycle ADR that fixes response-head publication,
+  first-byte, completion, failure, cancellation, and cleanup transitions.
+- [x] Freeze deterministic in-order no-JavaScript boundary ownership, including
+  nested success, fallback failure, timeout, and parent escalation.
+- [x] Prove backpressure admits at most one pending chunk and every terminal
+  path cancels owned work and cleans timers/listeners exactly once.
+- [x] Add one versioned schema and exhaustive corpus for pre/post-commit errors,
+  redirects, not-found, empty/first/last chunk failures, inherited deadlines,
+  disconnect, supersession, reporting failure, and nonce/header timing.
+- [x] Remove the resolved streaming decision gate, align current documentation,
+  and pass all local merge gates without adding a public renderer, boundary,
+  context, or stream API.
 
 ## In progress
 
-- V1-07 passed the exhaustive rendering-security corpus, package checks, full
-  repository check, and independent adversarial review; remote review remains.
-- V1-08 next freezes streaming, failure, timeout, cancellation, and
-  response-commit behavior.
+- V1-08 passed its exhaustive lifecycle corpus, package checks, full repository
+  check, and independent adversarial review; remote review remains.
+- V1-09 remains the first JSX renderer and running routed page example.
 - Registry naming, renderer boundaries, request security policy,
   and adapter timeout/force-close behavior remain unresolved by this slice.
 
@@ -118,3 +118,6 @@ V1-07 — freeze contextual rendering and unsafe-capability security contracts
 - V1-06 — Commit `e9f249a` supersedes the impossible global link binding with
   ADR 0027 and implements exact config loading, transactional app-bound route
   generation, metadata-only matching, structured diagnostics, and recovery.
+- V1-07 — Commit `79e9d49` accepts ADR 0028 and proves a closed contextual sink
+  policy, exhaustive versioned security corpus, authenticated raw-HTML
+  capability, private nonce primitive, and structured diagnostic redaction.

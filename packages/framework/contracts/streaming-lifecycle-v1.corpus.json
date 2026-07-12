@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "futureConsumer": "V1-09 renderer and adapter integration",
+  "phaseOrder": ["uncommitted", "head-published", "body-started", "completed|terminated|cancelled"],
+  "precommitOutcomes": {
+    "not-found": 404,
+    "redirect": 303,
+    "unexpected": 500,
+    "timeout": 504
+  },
+  "lifecycleCases": [
+    { "id": "empty-body-success", "operations": [{ "op": "publish", "status": 204 }, { "op": "empty" }, { "op": "complete" }], "expected": { "phase": "completed", "status": 204, "writes": [], "closeCalls": 1, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "two-chunk-success", "operations": [{ "op": "publish", "status": 200 }, { "op": "write", "chunk": "first-" }, { "op": "write", "chunk": "second" }, { "op": "complete" }], "expected": { "phase": "completed", "status": 200, "writes": ["first-", "second"], "closeCalls": 1, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "precommit-not-found", "operations": [{ "op": "fail", "kind": "not-found" }, { "op": "publish", "status": 404 }, { "op": "complete" }], "expected": { "phase": "completed", "status": 404, "writes": [], "closeCalls": 1, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "precommit-redirect", "operations": [{ "op": "fail", "kind": "redirect" }, { "op": "publish", "status": 303 }, { "op": "complete" }], "expected": { "phase": "completed", "status": 303, "writes": [], "closeCalls": 1, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "precommit-unexpected", "operations": [{ "op": "fail", "kind": "unexpected" }, { "op": "publish", "status": 500 }, { "op": "complete" }], "expected": { "phase": "completed", "status": 500, "writes": [], "closeCalls": 1, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "precommit-timeout", "operations": [{ "op": "fail", "kind": "timeout" }, { "op": "publish", "status": 504 }, { "op": "complete" }], "expected": { "phase": "completed", "status": 504, "writes": [], "closeCalls": 1, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "precommit-disconnect", "operations": [{ "op": "cancel", "reason": "disconnect" }], "expected": { "phase": "cancelled", "status": null, "writes": [], "closeCalls": 0, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "precommit-explicit", "operations": [{ "op": "cancel", "reason": "explicit" }], "expected": { "phase": "cancelled", "status": null, "writes": [], "closeCalls": 0, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "precommit-superseded", "operations": [{ "op": "cancel", "reason": "superseded" }], "expected": { "phase": "cancelled", "status": null, "writes": [], "closeCalls": 0, "abortCalls": [], "reports": [], "cleanupCalls": 1 } },
+    { "id": "post-head-unexpected", "operations": [{ "op": "publish", "status": 200 }, { "op": "fail", "kind": "unexpected" }], "expected": { "phase": "terminated", "status": 200, "writes": [], "closeCalls": 0, "abortCalls": ["late-unexpected"], "reports": ["late-unexpected"], "cleanupCalls": 1 } },
+    { "id": "post-body-not-found", "operations": [{ "op": "publish", "status": 200 }, { "op": "write", "chunk": "prefix" }, { "op": "fail", "kind": "not-found" }], "expected": { "phase": "terminated", "status": 200, "writes": ["prefix"], "closeCalls": 0, "abortCalls": ["late-not-found"], "reports": ["late-not-found"], "cleanupCalls": 1 } },
+    { "id": "post-body-redirect", "operations": [{ "op": "publish", "status": 200 }, { "op": "write", "chunk": "prefix" }, { "op": "fail", "kind": "redirect" }], "expected": { "phase": "terminated", "status": 200, "writes": ["prefix"], "closeCalls": 0, "abortCalls": ["late-redirect"], "reports": ["late-redirect"], "cleanupCalls": 1 } },
+    { "id": "post-body-timeout", "operations": [{ "op": "publish", "status": 200 }, { "op": "write", "chunk": "prefix" }, { "op": "fail", "kind": "timeout" }], "expected": { "phase": "terminated", "status": 200, "writes": ["prefix"], "closeCalls": 0, "abortCalls": ["late-timeout"], "reports": ["late-timeout"], "cleanupCalls": 1 } },
+    { "id": "post-head-disconnect", "operations": [{ "op": "publish", "status": 200 }, { "op": "cancel", "reason": "disconnect" }], "expected": { "phase": "cancelled", "status": 200, "writes": [], "closeCalls": 0, "abortCalls": ["disconnect"], "reports": [], "cleanupCalls": 1 } },
+    { "id": "post-body-explicit", "operations": [{ "op": "publish", "status": 200 }, { "op": "write", "chunk": "prefix" }, { "op": "cancel", "reason": "explicit" }], "expected": { "phase": "cancelled", "status": 200, "writes": ["prefix"], "closeCalls": 0, "abortCalls": ["explicit"], "reports": [], "cleanupCalls": 1 } },
+    { "id": "post-body-superseded", "operations": [{ "op": "publish", "status": 200 }, { "op": "write", "chunk": "prefix" }, { "op": "cancel", "reason": "superseded" }], "expected": { "phase": "cancelled", "status": 200, "writes": ["prefix"], "closeCalls": 0, "abortCalls": ["superseded"], "reports": [], "cleanupCalls": 1 } }
+  ],
+  "refusalCases": [
+    { "id": "write-before-head", "action": "write-before-head", "error": "FADENO_STREAM_WRITE_PHASE" },
+    { "id": "double-head", "action": "double-head", "error": "FADENO_STREAM_HEAD_ALREADY_PUBLISHED" },
+    { "id": "wrong-precommit-status", "action": "wrong-precommit-status", "error": "FADENO_STREAM_PRECOMMIT_OUTCOME" },
+    { "id": "complete-before-head", "action": "complete-before-head", "error": "FADENO_STREAM_COMPLETE_PHASE" },
+    { "id": "concurrent-write", "action": "concurrent-write", "error": "FADENO_STREAM_BACKPRESSURE" },
+    { "id": "invalid-status", "action": "invalid-status", "error": "FADENO_STREAM_STATUS" },
+    { "id": "invalid-header", "action": "invalid-header", "error": "FADENO_STREAM_HEADER" },
+    { "id": "null-body-write", "action": "null-body-write", "error": "FADENO_STREAM_NULL_BODY" },
+    { "id": "bodyless-nonce", "action": "bodyless-nonce", "error": "FADENO_STREAM_NONCE_BODY" },
+    { "id": "redirect-nonce", "action": "redirect-nonce", "error": "FADENO_STREAM_NONCE_REDIRECT" },
+    { "id": "forged-nonce", "action": "forged-nonce", "error": "FADENO_STREAM_NONCE_AUTHORITY" },
+    { "id": "reused-nonce", "action": "reused-nonce", "error": "FADENO_STREAM_NONCE_REUSE" }
+  ],
+  "boundaryCases": [
+    { "id": "nearest-child-fallback", "failed": "child", "fallbackFailures": [], "boundaries": [{ "id": "root", "active": true, "emitted": false }, { "id": "child", "parentId": "root", "active": true, "emitted": false }], "expected": { "kind": "fallback", "ownerId": "child" } },
+    { "id": "child-fallback-escalates", "failed": "child", "fallbackFailures": ["child"], "boundaries": [{ "id": "root", "active": true, "emitted": false }, { "id": "child", "parentId": "root", "active": true, "emitted": false }], "expected": { "kind": "fallback", "ownerId": "root" } },
+    { "id": "parent-fallback-also-fails", "failed": "child", "fallbackFailures": ["child", "root"], "boundaries": [{ "id": "root", "active": true, "emitted": false }, { "id": "child", "parentId": "root", "active": true, "emitted": false }], "expected": { "kind": "terminate" } },
+    { "id": "partial-child-terminates", "failed": "child", "fallbackFailures": [], "boundaries": [{ "id": "root", "active": true, "emitted": false }, { "id": "child", "parentId": "root", "active": true, "emitted": true }], "expected": { "kind": "terminate" } },
+    { "id": "inactive-child-uses-parent", "failed": "child", "fallbackFailures": [], "boundaries": [{ "id": "root", "active": true, "emitted": false }, { "id": "child", "parentId": "root", "active": false, "emitted": false }], "expected": { "kind": "fallback", "ownerId": "root" } }
+  ],
+  "boundaryRefusalCases": [
+    { "id": "duplicate-boundary", "failed": "root", "boundaries": [{ "id": "root", "active": true, "emitted": false }, { "id": "root", "active": true, "emitted": false }], "error": "FADENO_STREAM_BOUNDARY_DUPLICATE" },
+    { "id": "unknown-boundary", "failed": "missing", "boundaries": [{ "id": "root", "active": true, "emitted": false }], "error": "FADENO_STREAM_BOUNDARY_UNKNOWN" },
+    { "id": "missing-parent", "failed": "child", "boundaries": [{ "id": "child", "parentId": "missing", "active": true, "emitted": false }], "error": "FADENO_STREAM_BOUNDARY_PARENT" },
+    { "id": "boundary-cycle", "failed": "first", "boundaries": [{ "id": "first", "parentId": "second", "active": true, "emitted": false }, { "id": "second", "parentId": "first", "active": true, "emitted": false }], "error": "FADENO_STREAM_BOUNDARY_CYCLE" }
+  ],
+  "deadlineCases": [
+    { "id": "root-deadline", "parent": null, "startedAt": 1000, "budget": 500, "expected": 1500 },
+    { "id": "child-narrows", "parent": 2000, "startedAt": 1000, "budget": 500, "expected": 1500 },
+    { "id": "child-cannot-extend", "parent": 1200, "startedAt": 1000, "budget": 500, "expected": 1200 }
+  ],
+  "orderingCases": [
+    { "id": "current-slot-starts", "position": 2, "nextPosition": 2, "expected": true },
+    { "id": "later-slot-waits", "position": 3, "nextPosition": 2, "expected": false }
+  ],
+  "orderingRefusalCases": [
+    { "id": "second-active-slot-refused", "action": "active", "error": "FADENO_STREAM_BOUNDARY_ACTIVE" },
+    { "id": "out-of-order-slot-refused", "action": "order", "error": "FADENO_STREAM_BOUNDARY_ORDER" },
+    { "id": "wrong-slot-completion-refused", "action": "completion", "error": "FADENO_STREAM_BOUNDARY_COMPLETION" }
+  ],
+  "cancellationCases": [
+    { "id": "parent-cascades", "cancels": [{ "id": "root", "reason": "disconnect" }], "expected": { "root": "disconnect", "child": "disconnect", "grandchild": "disconnect", "sibling": "disconnect" } },
+    { "id": "child-timeout-isolated", "cancels": [{ "id": "child", "reason": "timeout" }], "expected": { "root": null, "child": "timeout", "grandchild": "timeout", "sibling": null } },
+    { "id": "first-reason-wins", "cancels": [{ "id": "child", "reason": "timeout" }, { "id": "root", "reason": "superseded" }], "expected": { "root": "superseded", "child": "timeout", "grandchild": "timeout", "sibling": "superseded" } }
+  ],
+  "asyncCases": [
+    "slow-sink-one-pending-chunk",
+    "write-rejection-terminates",
+    "middle-chunk-rejection-terminates",
+    "last-chunk-rejection-terminates",
+    "close-rejection-terminates",
+    "cancel-while-write-pending-ignores-late-acceptance",
+    "cancel-while-close-pending-ignores-late-close",
+    "throwing-reporter-still-cleans",
+    "throwing-cleanup-contained",
+    "never-settling-terminal-effects-do-not-block-cleanup",
+    "child-deadline-fires-and-clears",
+    "parent-cancel-clears-child-deadline",
+    "boundary-completion-clears-deadline",
+    "deadline-timer-cleared-once",
+    "abort-listener-removed-once",
+    "nonce-head-markup-correlation"
+  ]
+}
