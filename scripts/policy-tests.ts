@@ -130,9 +130,45 @@ expectPolicyFailure("broken numbered V1/DX dependency", "check-project-model.ts"
   writeFileSync(path, content);
 });
 
+expectPolicyFailure("wrong V1/DX feature ownership", "check-project-model.ts", "V1-DX-B feature ownership differs", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-B \|.*$/m, (line) =>
+    line.replace("TYPE-01, ", ""),
+  );
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("missing V1/DX validation command", "check-project-model.ts", "V1-DX-C missing validation command pnpm check:v1-analyzer-feedback", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-C \|.*$/m, (line) =>
+    line.replace("; `pnpm check:v1-analyzer-feedback`", ""),
+  );
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("empty V1/DX artifacts", "check-project-model.ts", "V1-DX-B has no required artifacts", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-B \|.*$/m, (line) => {
+    const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
+    cells[4] = "";
+    return `| ${cells.join(" | ")} |`;
+  });
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("empty V1/DX delivery boundary", "check-project-model.ts", "V1-DX-C has no delivery boundary", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-C \|.*$/m, (line) => {
+    const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
+    cells[6] = "";
+    return `| ${cells.join(" | ")} |`;
+  });
+  writeFileSync(path, content);
+});
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
 
-console.log("policy mutation tests passed (11 expected failures detected)");
+console.log("policy mutation tests passed (15 expected failures detected)");

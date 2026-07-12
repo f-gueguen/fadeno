@@ -10,13 +10,13 @@ V1-DX-A — accept and schedule the private incremental analyzer architecture
 
 ## Exit criteria
 
-- [ ] Accept ADR 0030 for one private analyzer session while preserving stock
+- [x] Accept ADR 0030 for one private analyzer session while preserving stock
   TypeScript ownership of ordinary language behavior.
-- [ ] Add model-checked V1-DX-A/B/C sequencing without renumbering V1 or
+- [x] Add model-checked V1-DX-A/B/C sequencing without renumbering V1 or
   treating implementation/evidence umbrellas as one PR.
-- [ ] Align compiler/analyzer, build, architecture, scope, traceability, risks,
+- [x] Align compiler/analyzer, build, architecture, scope, traceability, risks,
   deferrals, and conformance requirements.
-- [ ] Keep a supported editor product and external analyzer schema deferred;
+- [x] Keep a supported editor product and external analyzer schema deferred;
   add no analyzer code, export, schema, editor manifest, or example claim.
 - [ ] Pass documentation, decision, ledger, project-model, policy-mutation, full
   repository, and independent adversarial review gates.

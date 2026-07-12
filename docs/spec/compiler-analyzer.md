@@ -215,11 +215,12 @@ redaction, or use unsupported versions are refused without corrupting the
 snapshot. Explanation never re-executes application behavior and is never
 required for correctness.
 
-Static analyzer explanations and observed runtime records are separate facets.
-They may be correlated through stable operation or artifact identity only when
-the observed evidence exists. Static analysis never reports an observed
-authorization result, request order, stream timing, cancellation result, or
-browser outcome.
+Private analyzer snapshots contain static facets only. Observed runtime
+operation records use a separate record family and schema with independently
+versioned module-owned contributions. The two families may be correlated
+through stable operation or artifact identity only when the observed evidence
+exists. Static analysis never reports an observed authorization result, request
+order, stream timing, cancellation result, or browser outcome.
 
 ## Conformance
 

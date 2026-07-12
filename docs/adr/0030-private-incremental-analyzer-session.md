@@ -106,9 +106,11 @@ Plan and explain are lazy facets. Semantic detail is bounded by default; deep
 forensic detail requires explicit activation and byte, record, depth, duration,
 and child-event limits. Redaction occurs before collection. Cancellation and
 explicit truncation are mandatory. Explanation never executes application
-behavior again and is never required for correctness. Static analyzer evidence
-and observed runtime records remain separate facets and may be linked only by
-stable operation or artifact identity when evidence exists.
+behavior again and is never required for correctness. Private analyzer
+snapshots contain static facets only. Observed runtime operation records form a
+separate record family with their own module-owned contributions. The two
+families may be linked only by stable operation or artifact identity when
+evidence exists.
 
 The analyzer core is established before later compiler-managed action and
 context declarations become fixed. The first running V1 application then

@@ -316,7 +316,7 @@ const expectedV1Dx = [
   {
     id: "V1-DX-A",
     features: ["GOV-01", "TYPE-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01", "PERF-01"],
-    dependencies: ["V1-08", "ADR 0030"],
+    dependencies: ["V1-08"],
     commands: ["pnpm check:docs", "pnpm check:decisions", "pnpm check:ledgers", "pnpm check:model", "pnpm check:policies", "pnpm check"],
   },
   {
