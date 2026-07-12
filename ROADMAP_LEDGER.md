@@ -19,8 +19,9 @@ V1-08 — freeze streaming lifecycle, boundary ownership, and response commitmen
 - [ ] Add one versioned schema and exhaustive corpus for pre/post-commit errors,
   redirects, not-found, empty/first/last chunk failures, inherited deadlines,
   disconnect, supersession, reporting failure, and nonce/header timing.
-- [ ] Remove DG-V1-08, align current documentation, and pass all local merge
-  gates without adding a public renderer, boundary, context, or stream API.
+- [ ] Remove the resolved streaming decision gate, align current documentation,
+  and pass all local merge gates without adding a public renderer, boundary,
+  context, or stream API.
 
 ## In progress
 

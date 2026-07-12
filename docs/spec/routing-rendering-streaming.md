@@ -2,8 +2,7 @@
 
 This specification defines required V1 behavior. ADR 0027 fixes filesystem and
 link construction syntax; ADR 0028 fixes rendering sink security. Renderer
-shape and streaming signatures remain later work, with streaming blocked by
-DG-V1-08.
+shape remains later work; ADR 0029 fixes streaming lifecycle behavior.
 
 ## Route model
 
@@ -72,8 +71,9 @@ V1-09 owns the JSX renderer and real parser/CSP integration.
 
 1. The renderer uses Web Streams and can flush document output without waiting
    for every independent resource.
-2. A local boundary can render pending output and later complete its owned
-   region without changing route ownership.
+2. A local boundary owns one in-order document slot. V1 may flush preceding
+   content but does not emit a client-visible pending placeholder; its completed
+   output or still-unemitted fallback occupies the slot without JavaScript.
 3. Failures before response commitment can select an HTTP error or redirect
    response. Failures after commitment are represented by the accepted
    streaming protocol and cannot pretend to change the committed status code.
@@ -84,8 +84,9 @@ V1-09 owns the JSX renderer and real parser/CSP integration.
 6. Boundary nesting has deterministic ownership for pending, error, and
    cancellation outcomes.
 
-DG-V1-08 defines response-commit and boundary details before WEB-03 code becomes
-public.
+ADR 0029 defines head publication, first-byte, boundary, deadline,
+backpressure, cancellation, and cleanup behavior. V1-09 consumes its unchanged
+private corpus when implementing the renderer and adapter integration.
 
 ## Failure outcomes
 
