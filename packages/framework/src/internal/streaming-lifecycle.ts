@@ -6,7 +6,7 @@ export type CancellationReason = "disconnect" | "explicit" | "superseded";
 
 export interface StreamHeadPlan {
   readonly status: number;
-  readonly headers?: Readonly<Record<string, string>>;
+  readonly headers?: Readonly<Record<string, string>> | ((nonce: string | undefined) => Readonly<Record<string, string>>);
   readonly executableMarkup?: boolean;
 }
 
@@ -127,7 +127,6 @@ export class StreamingLifecycle {
     if (this.#precommitDecision?.status !== undefined && this.#precommitDecision.status !== plan.status) {
       throw new TypeError("FADENO_STREAM_PRECOMMIT_OUTCOME");
     }
-    const headers = frozenHeaders(plan.headers);
     const bodyAllowed = plan.status !== 204 && plan.status !== 205 && plan.status !== 304;
     let nonce: string | undefined;
     if (plan.executableMarkup === true) {
@@ -139,6 +138,7 @@ export class StreamingLifecycle {
       if (nonce === undefined) throw new TypeError("FADENO_STREAM_NONCE_AUTHORITY");
       claimedNonces.add(nonceToken);
     }
+    const headers = frozenHeaders(typeof plan.headers === "function" ? plan.headers(nonce) : plan.headers);
     const head: PublishedHead = Object.freeze({
       status: plan.status,
       headers,

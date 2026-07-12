@@ -102,6 +102,8 @@ try {
     "package/README.md",
     "package/dist/index.d.ts",
     "package/dist/index.js",
+    "package/dist/jsx-runtime.d.ts",
+    "package/dist/jsx-runtime.js",
     "package/dist/internal/config.d.ts",
     "package/dist/internal/config.js",
     "package/dist/internal/diagnostic.d.ts",
@@ -118,6 +120,12 @@ try {
     "package/dist/internal/routing/matcher.js",
     "package/dist/internal/rendering-security.d.ts",
     "package/dist/internal/rendering-security.js",
+    "package/dist/internal/render-node.d.ts",
+    "package/dist/internal/render-node.js",
+    "package/dist/internal/render-route.d.ts",
+    "package/dist/internal/render-route.js",
+    "package/dist/internal/renderer.d.ts",
+    "package/dist/internal/renderer.js",
     "package/dist/internal/streaming-lifecycle.d.ts",
     "package/dist/internal/streaming-lifecycle.js",
     "package/dist/internal/unsafe-html.d.ts",
@@ -168,6 +176,7 @@ try {
   const expectedExports = {
     ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
     "./node": { types: "./dist/node.d.ts", import: "./dist/node.js" },
+    "./jsx-runtime": { types: "./dist/jsx-runtime.d.ts", import: "./dist/jsx-runtime.js" },
   };
   if (
     manifest.name !== packageName || manifest.version !== "0.0.0-private" || manifest.private !== true ||
@@ -175,7 +184,7 @@ try {
   ) {
     throw new Error("FADENO_PUBLIC_PACKAGE_MANIFEST");
   }
-  for (const subpath of [".", "./node"]) {
+  for (const subpath of [".", "./node", "./jsx-runtime"]) {
     const target = manifest.exports?.[subpath];
     const importTarget = resolve(installedPackage, target?.import ?? "../missing");
     const typesTarget = resolve(installedPackage, target?.types ?? "../missing");
@@ -191,6 +200,8 @@ try {
   if (manifest.exports?.["."]?.import === manifest.exports?.["./node"]?.import) throw new Error("FADENO_PUBLIC_PACKAGE_ROOT_IS_NODE");
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["."]?.import ?? ""));
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["."]?.types ?? ""));
+  assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["./jsx-runtime"]?.import ?? ""));
+  assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["./jsx-runtime"]?.types ?? ""));
   const rootDeclaration = readFileSync(join(installedPackage, manifest.exports?.["."]?.types ?? ""), "utf8");
   if (rootDeclaration.includes("/accounts/") || rootDeclaration.includes("fadeno:routes") || scanModuleReferences(rootDeclaration).some((reference) => reference.specifier.includes("/internal/"))) {
     throw new Error("FADENO_PUBLIC_PACKAGE_ROOT_ROUTE_LEAK");
@@ -200,7 +211,7 @@ try {
     throw new Error("FADENO_PUBLIC_PACKAGE_NODE_DECLARATION_LEAK");
   }
 
-  writeFileSync(join(consumer, "root-only.ts"), `import { defineConfig, unsafeHtml, type Handler, type UnsafeHtml } from "${packageName}";\ndeclare const handler: Handler;\nconst raw: UnsafeHtml = unsafeHtml("<strong>reviewed</strong>", { reason: "Reviewed static markup" });\ndefineConfig({});\ndefineConfig({ routes: { root: "src/routes" } });\n// @ts-expect-error ordinary strings are not unsafe capabilities\nconst forged: UnsafeHtml = "<script>bad()</script>";\n// @ts-expect-error unknown top-level config field\ndefineConfig({ unknown: true });\nconst invalid = { routes: { root: "src/routes", extra: true } } as const;\n// @ts-expect-error unknown nested route config field\ndefineConfig(invalid);\nvoid handler;\nvoid raw;\nvoid forged;\n`);
+  writeFileSync(join(consumer, "root-only.ts"), `import { Boundary, defineConfig, notFound, redirect, renderRoute, unsafeHtml, type Handler, type RenderNode, type UnsafeHtml } from "${packageName}";\ndeclare const handler: Handler;\ndeclare const node: RenderNode;\nconst raw: UnsafeHtml = unsafeHtml("<strong>reviewed</strong>", { reason: "Reviewed static markup" });\nBoundary({ children: node, fallback: "fallback" });\nvoid notFound();\nvoid redirect("/next");\nvoid renderRoute;\ndefineConfig({});\ndefineConfig({ routes: { root: "src/routes" } });\n// @ts-expect-error ordinary strings are not unsafe capabilities\nconst forged: UnsafeHtml = "<script>bad()</script>";\n// @ts-expect-error unknown top-level config field\ndefineConfig({ unknown: true });\nconst invalid = { routes: { root: "src/routes", extra: true } } as const;\n// @ts-expect-error unknown nested route config field\ndefineConfig(invalid);\nvoid handler;\nvoid raw;\nvoid forged;\n`);
   run(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--lib", "ES2022,DOM", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--types", "", "root-only.ts"], consumer);
   run(process.execPath, [tsc, "-p", "tsconfig.json"], consumer);
   const runtime = run(process.execPath, ["dist/index.js"], consumer);
