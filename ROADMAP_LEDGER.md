@@ -10,28 +10,25 @@ K0-08B — qualify H3 from exact merged K0-08A source `122ba57`
 
 ## Exit criteria
 
-- [ ] Execute correctness and the locked 5/20 interleaved timing schedule from
+- [x] Execute correctness and the locked 5/20 interleaved timing schedule from
   exact clean merged K0-08A commit `122ba57` in the digest-pinned container.
-- [ ] Capture passing host/container preflight and postflight observations with
+- [x] Capture passing host/container preflight and postflight observations with
   no retries or relaxed limits.
-- [ ] Publish raw samples, stock-tool evidence, exact source/corpus/toolchain
+- [x] Publish raw samples, stock-tool evidence, exact source/corpus/toolchain
   identities, derived p95 ratios, and the projected H3 decision.
-- [ ] Add and accept the GO/NARROW/PIVOT ADR, update the hypothesis/experiment
+- [x] Add and accept the GO/NARROW/PIVOT ADR, update the hypothesis/experiment
   ledgers, and verify all immutable evidence mutations.
 - [ ] `pnpm ci:local` passes on the final evidence commit.
 
 ## In progress
 
-- K0-08A merged to canonical `main` as `122ba57`; measurement source is frozen
-  to that commit before this evidence branch changes any files.
-- The first 2026-07-12 K0-08B preflight was inconclusive: CPU idle, AC power,
-  thermal state, Docker identity, CPU count, and memory passed, but one-minute
-  load was 7.34–8.06 against the locked maximum of 5.0.
+- Exact merged source `122ba57` completed a reference-valid 20-sample run. ADR
+  0018 records NARROW: all correctness/stock-tool/clean-latency gates passed;
+  incremental/clean p95 was 0.863475 against the 0.25 maximum.
 
 ## Blockers
 
-- Reference measurement waits for a fully passing host-load preflight. This
-  does not block evidence/verifier implementation and must not relax ADR 0017.
+- None.
 
 ## Open questions
 

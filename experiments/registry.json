@@ -40,7 +40,9 @@
       "command": "pnpm experiment:type-spine",
       "harnessSlice": "K0-07",
       "qualificationSlice": "K0-08B",
-      "status": "available"
+      "status": "qualified",
+      "decision": "narrow",
+      "decisionAdr": "docs/adr/0018-narrow-type-spine-incremental-generation.md"
     }
   ]
 }

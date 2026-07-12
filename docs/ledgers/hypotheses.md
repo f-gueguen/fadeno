@@ -5,20 +5,6 @@ Results enter ADRs and conformance tests; Git history carries completed trials.
 The [detailed K0 plan](../roadmap/k0.md) owns qualification fixtures, repetitions,
 quantitative thresholds, artifacts, and atomic delivery slices.
 
-## H3 — Stock-TypeScript type spine
-
-- Claim: generated declarations plus stock `tsc` can validate route parameters,
-  links, action fields, and context without a custom language service.
-- Experiment: generate deterministic declarations from a filesystem fixture and
-  compile positive and negative consumers with stock TypeScript.
-- Pass: invalid parameters, links, form fields, and context access fail at the
-  intended source location; valid consumers compile; two clean generations are
-  byte-identical.
-- Pivot: if source locations or inference are inadequate, narrow the generated
-  contract before adding editor-specific tooling.
-- Status: In progress.
-- Progress: K0-07 harness available; K0-08 qualification pending.
-
 ## H4 — Correctness-first revalidation viability
 
 - Claim: revalidating page resources after a successful action is practical for

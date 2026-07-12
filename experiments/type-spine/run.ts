@@ -25,6 +25,18 @@ if (args.length === 1 && args[0] === "--list") {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   }
+} else if (args.length === 1 && args[0] === "--qualify") {
+  try {
+    const { verifyQualificationResult } = await import("../../scripts/lib/type-spine-qualification-evidence.ts");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const result = join(dirname(fileURLToPath(import.meta.url)), "results/20260712T022123Z-122ba57-a1");
+    const conclusion = verifyQualificationResult(result);
+    console.log(`type-spine qualification completed with ${conclusion.decision} decision`);
+  } catch (error: unknown) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
 } else {
   console.error(`FADENO_TYPE_SPINE_USAGE: unsupported arguments: ${args.join(" ")}`);
   process.exitCode = 64;

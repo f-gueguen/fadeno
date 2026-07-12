@@ -27,6 +27,7 @@ effective decision.
 15. [ADR 0015 — Accept bounded interaction extraction](0015-accept-bounded-interaction-extraction.md)
 16. [ADR 0016 — Local repository merge validation](0016-local-repository-merge-validation.md)
 17. [ADR 0017 — H3 local Docker reference environment](0017-h3-local-docker-reference.md)
+18. [ADR 0018 — Narrow the type spine around incremental generation](0018-narrow-type-spine-incremental-generation.md)
 
 ## Superseded decisions
 

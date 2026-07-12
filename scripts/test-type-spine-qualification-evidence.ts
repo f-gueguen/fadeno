@@ -1,4 +1,11 @@
-import { verifyQualificationCapture } from "./lib/type-spine-qualification-evidence.ts";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { verifyQualificationCapture, verifyQualificationResult } from "./lib/type-spine-qualification-evidence.ts";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const host = () => ({ cpuIdlePercent: 80, loadAveragePerLogicalCpu: 0.4, powerSource: "ac", thermalState: "no-warning" });
 const capture = {
@@ -36,4 +43,32 @@ for (const mutate of [
     if (error instanceof Error && error.message === "qualification evidence mutation accepted") throw error;
   }
 }
-console.log("type-spine qualification evidence negative tests passed (6 mutations)");
+const result = join(root, "experiments/type-spine/results/20260712T022123Z-122ba57-a1");
+if (verifyQualificationResult(result).decision !== "narrow") throw new Error("immutable result rejected");
+function rejectResultMutation<T>(file: string, mutate: (value: T) => void): void {
+  const temporary = mkdtempSync(join(tmpdir(), "fadeno-type-spine-result-"));
+  try {
+    cpSync(result, temporary, { recursive: true });
+    const path = join(temporary, file);
+    const document = JSON.parse(readFileSync(path, "utf8")) as T;
+    mutate(document);
+    writeFileSync(path, `${JSON.stringify(document, null, 2)}\n`);
+    try {
+      verifyQualificationResult(temporary);
+      throw new Error("qualification result mutation accepted");
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === "qualification result mutation accepted") throw error;
+    }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+}
+rejectResultMutation<{ measurements: { incrementalToCleanRatio: number } }>(
+  "manifest.json",
+  (value) => { value.measurements.incrementalToCleanRatio = 0.2; },
+);
+rejectResultMutation<{ gates: Record<string, boolean> }>(
+  "decision.json",
+  (value) => { value.gates["incremental-latency"] = true; },
+);
+console.log("type-spine qualification evidence negative tests passed (6 capture + 2 result mutations)");

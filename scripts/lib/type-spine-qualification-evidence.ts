@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,4 +43,36 @@ export function verifyQualificationCapture(value: unknown): QualificationConclus
     "incremental-latency": metrics.incrementalToCleanRatio <= 0.25,
   };
   return { metrics, gates, decision: projectQualificationDecision(gates, true) };
+}
+
+export function verifyQualificationResult(directory: string): QualificationConclusion {
+  const manifestSchema = JSON.parse(readFileSync(join(root, "experiments/type-spine/qualification-result.schema.json"), "utf8"));
+  const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8")) as {
+    measurements: QualificationMetrics;
+    artifacts: readonly { path: string; sha256: string; bytes: number }[];
+    conclusion: { decision: string };
+  };
+  const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => { compile(schema: unknown): ((document: unknown) => boolean) & { errors?: unknown } };
+  const validate = new Ajv2020({ allErrors: true, strict: true }).compile(manifestSchema);
+  if (!validate(manifest)) throw new Error(`FADENO_TYPE_SPINE_RESULT_SCHEMA:${JSON.stringify(validate.errors)}`);
+  for (const artifact of manifest.artifacts) {
+    const bytes = readFileSync(join(directory, artifact.path));
+    if (bytes.byteLength !== artifact.bytes || createHash("sha256").update(bytes).digest("hex") !== artifact.sha256) {
+      throw new Error("FADENO_TYPE_SPINE_RESULT_ARTIFACT");
+    }
+  }
+  const capture = JSON.parse(readFileSync(join(directory, "capture.json"), "utf8"));
+  const conclusion = verifyQualificationCapture(capture);
+  const decision = JSON.parse(readFileSync(join(directory, "decision.json"), "utf8")) as {
+    captureSha256: string; metrics: QualificationMetrics; gates: Record<string, boolean>; decision: string;
+  };
+  const captureBytes = readFileSync(join(directory, "capture.json"));
+  if (
+    decision.captureSha256 !== createHash("sha256").update(captureBytes).digest("hex") ||
+    JSON.stringify(decision.metrics) !== JSON.stringify(conclusion.metrics) ||
+    JSON.stringify(decision.gates) !== JSON.stringify(conclusion.gates) ||
+    decision.decision !== conclusion.decision || manifest.conclusion.decision !== conclusion.decision ||
+    JSON.stringify(manifest.measurements) !== JSON.stringify(conclusion.metrics)
+  ) throw new Error("FADENO_TYPE_SPINE_RESULT_PROJECTION");
+  return conclusion;
 }

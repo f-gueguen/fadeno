@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "captureSha256": "ffe075f85159e9a805dd05cb32416a20d9ca6c91ec62237ac1e80b3a644a4a97",
+  "metrics": {
+    "cleanGeneratorP95Ns": 92524125,
+    "stockTscP95Ns": 223740376,
+    "incrementalGeneratorP95Ns": 79892292,
+    "cleanGeneratorToTscRatio": 0.4135334294781019,
+    "incrementalToCleanRatio": 0.863475250373889
+  },
+  "gates": {
+    "valid-consumers": true,
+    "invalid-source-diagnostics": true,
+    "byte-determinism": true,
+    "stale-output": true,
+    "stock-tsc": true,
+    "stock-language-server": true,
+    "clean-latency": true,
+    "incremental-latency": false
+  },
+  "decision": "narrow",
+  "reason": "All correctness and stock-tool gates passed, but single-route incremental generation exceeded 25% of clean-generation p95."
+}

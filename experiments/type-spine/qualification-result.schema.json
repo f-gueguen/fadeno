@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/type-spine-qualification-result-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "experiment", "run", "source", "environment", "workload", "measurements", "artifacts", "conclusion"],
+  "properties": {
+    "$schema": { "const": "https://fadeno.dev/schemas/experiment/type-spine-qualification-result-v1.json" },
+    "schemaVersion": { "const": 1 },
+    "experiment": { "const": { "id": "type-spine", "hypothesis": "H3", "contractVersion": 1 } },
+    "run": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "attempt", "completedAt", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{7}-a[1-9][0-9]*$" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "completedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+        "status": { "const": "passed" }
+      }
+    },
+    "source": { "const": { "repository": "https://github.com/f-gueguen/fadeno", "commit": "122ba574a5de78394ca375277c867378af0bd658", "dirty": false } },
+    "environment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["referenceId", "image", "networkPolicy", "toolchain"],
+      "properties": {
+        "referenceId": { "const": "k0-h3-local-docker-arm64-v1" },
+        "image": { "const": "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94" },
+        "networkPolicy": { "const": "network-disabled-during-proof-and-measurement" },
+        "toolchain": { "const": { "node": "22.14.0", "pnpm": "11.7.0", "typescript": "7.0.2" } }
+      }
+    },
+    "workload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["routes", "warmups", "samples", "retries", "corpusSha256", "contractSha256", "lockSha256", "referenceSha256"],
+      "properties": {
+        "routes": { "const": 1000 }, "warmups": { "const": 5 }, "samples": { "const": 20 }, "retries": { "const": 0 },
+        "corpusSha256": { "$ref": "#/$defs/hash" }, "contractSha256": { "$ref": "#/$defs/hash" },
+        "lockSha256": { "$ref": "#/$defs/hash" }, "referenceSha256": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "measurements": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cleanGeneratorP95Ns", "stockTscP95Ns", "incrementalGeneratorP95Ns", "cleanGeneratorToTscRatio", "incrementalToCleanRatio"],
+      "properties": {
+        "cleanGeneratorP95Ns": { "type": "integer", "minimum": 1 }, "stockTscP95Ns": { "type": "integer", "minimum": 1 },
+        "incrementalGeneratorP95Ns": { "type": "integer", "minimum": 1 },
+        "cleanGeneratorToTscRatio": { "type": "number", "minimum": 0 }, "incrementalToCleanRatio": { "type": "number", "minimum": 0 }
+      }
+    },
+    "artifacts": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["path", "sha256", "bytes"],
+        "properties": { "path": { "enum": ["capture.json", "decision.json"] }, "sha256": { "$ref": "#/$defs/hash" }, "bytes": { "type": "integer", "minimum": 1 } }
+      }
+    },
+    "conclusion": { "const": { "decision": "narrow", "summary": "H3 narrows: correctness and clean latency pass; single-route incremental generation exceeds the locked 25% ratio." } }
+  },
+  "$defs": { "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}
