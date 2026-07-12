@@ -19,4 +19,6 @@ quantitative thresholds, artifacts, and atomic delivery slices.
   declarations without exposing authorization-sensitive values.
 - Pivot: if the default cost is not viable, revise the dependency and
   invalidation model before exposing actions publicly.
-- Status: Not started.
+- Current evidence: Harness and exact-source qualification capability ready; no
+  H4 result or decision has been collected.
+- Status: In progress.

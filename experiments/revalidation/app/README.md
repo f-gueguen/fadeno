@@ -14,3 +14,7 @@ The K0-09 application boundary is a private deterministic in-memory benchmark:
 
 The resource IDs, auth record, page model, mutation, and baseline are evidence
 ABI only. They are not an application template or public Fadeno API.
+
+K0-10A materializes the same complete output for default and selective paths,
+prepares equivalent fresh states before each timer, and includes the action,
+revalidation/composition, and serialization inside the measured boundary.

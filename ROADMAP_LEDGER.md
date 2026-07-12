@@ -11,13 +11,13 @@ environment without collecting a result
 
 ## Exit criteria
 
-- [ ] Accept an H4-only local Docker reference contract and split qualification
+- [x] Accept an H4-only local Docker reference contract and split qualification
   capability from exact-merged-source execution as K0-10A/K0-10B.
-- [ ] Freeze a deterministic 10,000-cycle schedule with fresh mutation state,
+- [x] Freeze a deterministic 10,000-cycle schedule with fresh mutation state,
   mixed success/error paths, read-order permutations, and independent goldens.
-- [ ] Lock complete-output paired/interleaved latency, RSS-after-forced-GC
+- [x] Lock complete-output paired/interleaved latency, RSS-after-forced-GC
   memory, unsafe-`keeps`, comparison, and GO/PIVOT/INCONCLUSIVE policies.
-- [ ] Publish strict H4 environment, contract, capture, result, and decision
+- [x] Publish strict H4 environment, contract, capture, result, and decision
   schemas plus independent negative controls and all-artifact secret scanning.
 - [ ] Prove source/environment/artifact integrity and the absence of any H4
   result or decision; `--verify-qualification` and `pnpm ci:local` pass.

@@ -75,7 +75,6 @@ NARROW outcome under the accepted K0 plan.
 ## Validation
 
 Repository checks strictly validate the H4 environment, lock hash, result
-inventory, source split, and negative mutations. K0-10A later adds checks for
-the schedule, full-output timing boundary, forced-GC RSS metric, capture/result
-schemas, independent derivations, artifact secret scans, and absence of any H4
-result or decision.
+inventory, source split, deterministic schedule, full-output timing boundary,
+forced-GC RSS metric, capture/result schemas, independent derivations, artifact
+secret scans, negative mutations, and absence of any H4 result or decision.
