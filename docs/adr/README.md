@@ -28,6 +28,7 @@ effective decision.
 16. [ADR 0016 — Local repository merge validation](0016-local-repository-merge-validation.md)
 17. [ADR 0017 — H3 local Docker reference environment](0017-h3-local-docker-reference.md)
 18. [ADR 0018 — Narrow the type spine around incremental generation](0018-narrow-type-spine-incremental-generation.md)
+19. [ADR 0019 — H4 local Docker reference environment](0019-h4-local-docker-reference.md)
 
 ## Superseded decisions
 

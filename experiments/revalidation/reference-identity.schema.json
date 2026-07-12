@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-reference-identity-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environmentId", "host", "docker"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "environmentId": { "const": "k0-h4-local-docker-arm64-v1" },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operatingSystemVersion", "buildVersion", "kernelVersion", "architecture", "cpuModel", "logicalCpuCount", "memoryMiB", "freeStorageMiB"],
+      "properties": {
+        "operatingSystemVersion": { "type": "string", "minLength": 1 },
+        "buildVersion": { "type": "string", "minLength": 1 },
+        "kernelVersion": { "type": "string", "minLength": 1 },
+        "architecture": { "type": "string", "minLength": 1 },
+        "cpuModel": { "type": "string", "minLength": 1 },
+        "logicalCpuCount": { "type": "integer", "minimum": 1 },
+        "memoryMiB": { "type": "integer", "minimum": 1 },
+        "freeStorageMiB": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "docker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["desktopVersion", "engineVersion", "apiVersion", "operatingSystem", "architecture", "kernelVersion", "cpuCount", "memoryMiB"],
+      "properties": {
+        "desktopVersion": { "type": "string", "minLength": 1 },
+        "engineVersion": { "type": "string", "minLength": 1 },
+        "apiVersion": { "type": "string", "minLength": 1 },
+        "operatingSystem": { "type": "string", "minLength": 1 },
+        "architecture": { "type": "string", "minLength": 1 },
+        "kernelVersion": { "type": "string", "minLength": 1 },
+        "cpuCount": { "type": "integer", "minimum": 1 },
+        "memoryMiB": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

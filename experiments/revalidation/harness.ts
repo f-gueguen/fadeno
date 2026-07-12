@@ -1,10 +1,12 @@
 import { loadRevalidationBaselines, loadRevalidationWorkload, REVALIDATION_RESOURCE_IDS } from "./contract.ts";
 import {
   buildUnsafeKeepsControls,
+  composeSelectivePage,
   compareResourceResults,
   completeTask,
   createState,
   observableTaskTarget,
+  materializePage,
   renderPage,
   RequestScope,
   resourceIdentityKey,
@@ -26,6 +28,7 @@ export type RevalidationHarnessReport = Readonly<{
   successPathPass: boolean;
   observableMutationPass: boolean;
   staleControlRejected: boolean;
+  completeOutputPass: boolean;
   failurePathPass: boolean;
   defaultRevalidationPass: boolean;
   selectiveBaselinePass: boolean;
@@ -51,7 +54,7 @@ export function assertRevalidationHarnessReport(report: RevalidationHarnessRepor
     report.rows !== 10_000 || report.uniqueResources !== 6 || report.pageReads !== 9 || report.duplicateReads !== 3 ||
     !report.deduplicationPass || !report.equivalentInputDeduplicationPass || !report.equivalentInputValuePass ||
     !report.distinctInputIsolationPass || !report.distinctInputValuePass ||
-    !report.successPathPass || !report.observableMutationPass || !report.staleControlRejected || !report.failurePathPass ||
+    !report.successPathPass || !report.observableMutationPass || !report.staleControlRejected || !report.completeOutputPass || !report.failurePathPass ||
     !report.defaultRevalidationPass || !report.selectiveBaselinePass ||
     report.unsafeKeepsDetected !== 4 || report.unsafeKeepsTotal !== 4 || report.sensitiveValuesDisclosed || diagnosticDisclosure
   ) throw new Error("FADENO_REVALIDATION_HARNESS_FAILED");
@@ -67,6 +70,7 @@ export function executeRevalidationHarness(): RevalidationHarnessReport {
   const success = completeTask(state, auth, workload.mutation.rowId);
   const afterDefault = revalidateDefault(state, auth, workload, baselines);
   const afterSelective = revalidateSelective(state, auth, workload, baselines);
+  const selectivePage = composeSelectivePage(before, afterSelective);
   const targetAfter = observableTaskTarget(afterDefault.results.tasks);
 
   const staleCandidate: ResourceResult = {
@@ -117,6 +121,9 @@ export function executeRevalidationHarness(): RevalidationHarnessReport {
       observableTaskTransition(before.results.tasks, afterDefault.results.tasks) &&
       observableTaskTransition(before.results.tasks, afterSelective.results.tasks),
     staleControlRejected: !observableTaskTransition(before.results.tasks, staleCandidate),
+    completeOutputPass:
+      materializePage(before) !== materializePage(afterDefault) &&
+      materializePage(afterDefault) === materializePage(selectivePage),
     failurePathPass: denied.status === "expected-error" && denied.code === "not-authorized" && failureState.revision === revisionBeforeFailure && observableTaskTarget(renderPage(failureState, auth, workload).results.tasks) === false,
     defaultRevalidationPass:
       compareResourceResults(before.results.tasks, afterDefault.results.tasks) === "changed" &&

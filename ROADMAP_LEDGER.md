@@ -6,31 +6,34 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-09 — establish the private authenticated CRUD/revalidation benchmark
+K0-10A — establish H4 qualification capability and its scoped reference
+environment without collecting a result
 
 ## Exit criteria
 
-- [x] Lock one private authenticated page with six unique resources, three
-  duplicate reads, one single-resource mutation, and at least 10,000 rows.
-- [x] Model success, expected failure, ordering, non-cacheable results, request
-  deduplication, default revalidation, and a selective comparison baseline.
-- [x] Seed unsafe `keeps` declarations and prove development verification finds
-  every one without exposing authorization-sensitive values.
-- [x] Publish deterministic workload/baseline manifests and a strict executable
-  contract without collecting an H4 qualification result.
-- [x] `pnpm experiment:revalidation -- --list` and `pnpm ci:local` pass.
+- [x] Accept an H4-only local Docker reference contract and split qualification
+  capability from exact-merged-source execution as K0-10A/K0-10B.
+- [x] Freeze a deterministic 10,000-cycle schedule with fresh mutation state,
+  mixed success/error paths, read-order permutations, and independent goldens.
+- [x] Lock complete-output paired/interleaved latency, RSS-after-forced-GC
+  memory, unsafe-`keeps`, comparison, and GO/PIVOT/INCONCLUSIVE policies.
+- [x] Publish strict H4 environment, contract, capture, result, and decision
+  schemas plus independent negative controls and all-artifact secret scanning.
+- [x] Prove source/environment/artifact integrity and the absence of any H4
+  result or decision; `--verify-qualification` and `pnpm ci:local` pass.
 
 ## In progress
 
-- K0-08B merged to canonical `main` as `1398b78`; H3 is resolved NARROW and no
-  longer blocks the independent H4 harness slice.
-- K0-09 begins from the accepted correctness-first direction in ADR 0006 and
-  keeps the benchmark API private rather than defining V1 resource syntax.
-- The locked harness executes 10,000 rows, six unique/nine total input-bearing
-  page reads, equivalent/distinct identity controls, manifest-driven default
-  and selective revalidation, rendered freshness and stale-output controls,
-  success/error paths, and 4/4 declared-resource unsafe `keeps` detections;
-  K0-10 counts and thresholds are frozen before measurement.
+- K0-09 merged to canonical `main` as `86daceb`; its locked private harness is
+  the only workload K0-10A may qualify.
+- ADR 0017 requires H4 to accept its own honest reference environment and
+  forbids combining capability and result in one squash PR; K0-10A collects no
+  immutable result and K0-10B binds the concrete merged K0-10A source.
+- K0-10A gathers DATA-01, DATA-03, SEC-01, TEST-01, and PERF-01 evidence without
+  resolving DG-V1-04 or defining public resource, action, cache, or `keeps`
+  syntax.
+- Clean local CI passed the complete capability and negative-control suite at
+  `a456099`; the final ledger-only projection is revalidated before review.
 
 ## Blockers
 
@@ -88,3 +91,7 @@ K0-09 — establish the private authenticated CRUD/revalidation benchmark
   exact source `122ba57`. ADR 0018 accepts stock-TypeScript declaration
   correctness and clean latency while narrowing incremental generation after
   its 0.863475 incremental/clean ratio exceeded the locked 0.25 maximum.
+- K0-09 — Commit `86daceb` locks the private authenticated 10,000-row H4
+  harness, input-aware request deduplication, manifest-driven baselines,
+  complete rendered freshness controls, exact JSON comparison refusal, and
+  4/4 resource-bound unsafe-`keeps` detection without collecting a result.

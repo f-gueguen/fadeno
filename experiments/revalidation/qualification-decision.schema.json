@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-qualification-decision-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "outcome", "productDecision", "gates", "reasons"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "outcome": { "enum": ["go", "pivot", "inconclusive"] },
+    "productDecision": { "type": "boolean" },
+    "gates": {
+      "type": "object", "additionalProperties": false,
+      "required": ["correctness", "deduplication", "latencyRatio", "latencyAbsolute", "memory", "unsafeKeeps", "comparison", "environment", "integrity"],
+      "properties": {
+        "correctness": { "type": "boolean" }, "deduplication": { "type": "boolean" },
+        "latencyRatio": { "type": "boolean" }, "latencyAbsolute": { "type": "boolean" },
+        "memory": { "type": "boolean" }, "unsafeKeeps": { "type": "boolean" },
+        "comparison": { "type": "boolean" }, "environment": { "type": "boolean" },
+        "integrity": { "type": "boolean" }
+      }
+    },
+    "reasons": { "type": "array", "maxItems": 16, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,79}$" } }
+  },
+  "allOf": [
+    { "if": { "properties": { "outcome": { "const": "inconclusive" } } }, "then": { "properties": { "productDecision": { "const": false } } }, "else": { "properties": { "productDecision": { "const": true } } } }
+  ]
+}

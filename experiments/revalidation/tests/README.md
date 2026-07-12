@@ -9,5 +9,15 @@ controls require stale rendered output, unsupported, cyclic, sparse, symbol,
 and non-enumerable values, malformed
 reports, and unsafe resource/class bindings to fail. All four unsafe-`keeps`
 sensors use their declared resources and produce sensitive-value-safe
-diagnostics. K0-10 owns randomized qualification cycles and performance/memory
-evidence.
+diagnostics. K0-10B owns the full qualification run and immutable
+correctness/performance/memory evidence.
+
+K0-10A additionally locks and checks the H4-only environment, all qualification
+schemas, schedule reconstruction, paired runner, independent raw-evidence
+derivation, monotonic attempt retention, canonical remote and exact source/input
+hashes, complete host/Docker identity, complete-output paired timing evidence,
+and a GC/RSS memory phase that runs before retained correctness/latency arrays.
+The independent verifier rescans and relinks every retained artifact; negative
+controls cover coordinated identity/hash tampering, JSON-formatted secrets,
+denied-action state mutation, and schema-valid product failures that must remain
+PIVOT evidence. Full qualification and immutable attempts remain K0-10B work.

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   REVALIDATION_RESOURCE_IDS,
   type RevalidationBaselines,
@@ -22,6 +24,22 @@ export type SelectiveObservation = Readonly<{
   results: Readonly<Partial<Record<RevalidationResourceId, ResourceResult>>>;
   executions: Readonly<Record<RevalidationResourceId, number>>;
 }>;
+
+export function materializePage(observation: PageObservation): string {
+  return `${JSON.stringify(REVALIDATION_RESOURCE_IDS.map((resource) => [resource, observation.results[resource]]))}\n`;
+}
+
+export function pageOutputDigest(output: string): string {
+  return createHash("sha256").update(output).digest("hex");
+}
+
+export function composeSelectivePage(before: PageObservation, selective: SelectiveObservation): PageObservation {
+  const results = { ...before.results, ...selective.results };
+  if (REVALIDATION_RESOURCE_IDS.some((resource) => results[resource] === undefined)) {
+    throw new Error("FADENO_REVALIDATION_INCOMPLETE_SELECTIVE_PAGE");
+  }
+  return { results, executions: selective.executions } as PageObservation;
+}
 
 function canonicalJson(value: unknown, ancestors = new Set<object>()): string | undefined {
   if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);

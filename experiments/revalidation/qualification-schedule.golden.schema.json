@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-qualification-schedule-golden-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "scheduleSha256", "orderSha256", "cycles", "successCycles", "expectedErrorCycles", "first", "last"],
+  "properties": {
+    "$schema": { "const": "https://fadeno.dev/schemas/experiment/revalidation-qualification-schedule-golden-v1.json" },
+    "schemaVersion": { "const": 1 },
+    "scheduleSha256": { "const": "6a3bb897a8ba375dfe13e1e809a57e4975e17fbcd9b8b08e6326e19fca715c2c" },
+    "orderSha256": { "const": "a4f8e6a35d0090b2ecce578e6250da2ee3849d9d9a176faf42211b98069bec76" },
+    "cycles": { "const": 10000 },
+    "successCycles": { "const": 8056 },
+    "expectedErrorCycles": { "const": 1944 },
+    "first": { "const": { "id": "c00000", "path": "s", "readOrder": "251804673", "expectedDigest": "s" } },
+    "last": { "const": { "id": "c09999", "path": "e", "readOrder": "065432871", "expectedDigest": "b" } }
+  }
+}

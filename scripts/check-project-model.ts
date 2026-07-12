@@ -191,7 +191,8 @@ const expectedK0Ids = [
   "K0-08A",
   "K0-08B",
   "K0-09",
-  "K0-10",
+  "K0-10A",
+  "K0-10B",
   "K0-11",
 ];
 const k0Rows = tableRows(k0, /^\| K0-\d{2}[A-Z]? \|/);
