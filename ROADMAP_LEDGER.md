@@ -10,16 +10,16 @@ V1-DX-B1 — private versioned analyzer session and document synchronization
 
 ## Exit criteria
 
-- [ ] Enforce the seven atomic V1-DX-B sub-slices without weakening the fixed
+- [x] Enforce the seven atomic V1-DX-B sub-slices without weakening the fixed
   V1-01 through V1-14 or V1-DX-A/B/C model.
-- [ ] Implement one internal session with analyzer/schema version, operation ID,
+- [x] Implement one internal session with analyzer/schema version, operation ID,
   workspace epoch, requested facets, document versions, ownership identity,
   and completeness/interruption/truncation state.
-- [ ] Support saved files and unsaved single-root buffers with monotonic
+- [x] Support saved files and unsaved single-root buffers with monotonic
   versions, sequential position edits, full replacement, close, and reopen.
-- [ ] Refuse invalid/out-of-order versions, unsupported roots, ambiguous paths,
+- [x] Refuse invalid/out-of-order versions, unsupported roots, ambiguous paths,
   invalid ranges, and text divergence without mutating current state.
-- [ ] Pass reference-model, normalization, line-ending, immutable-snapshot,
+- [x] Pass reference-model, normalization, line-ending, immutable-snapshot,
   project-model, full repository, local CI, and independent review gates.
 
 ## In progress
@@ -28,6 +28,8 @@ V1-DX-B1 — private versioned analyzer session and document synchronization
   protocol, command, or supported editor product.
 - V1-DX-B2 through B7 remain dependency ordered and independently reversible.
 - The V1 application is the canonical analyzer corpus from B3 onward.
+- B1 focused checks, full repository validation, and independent adversarial
+  review pass; commit-bound local CI is the final merge gate.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
