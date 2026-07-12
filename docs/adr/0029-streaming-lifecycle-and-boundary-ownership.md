@@ -45,7 +45,9 @@ One request has one root response owner. Its monotonic phases are:
 Head publication is the single response commit point. It occurs at most once.
 The first body byte is recorded separately and cannot reopen status or headers.
 Header mutation, replacement responses, redirects, and not-found selection are
-refused after head publication.
+refused after head publication. Publication normalizes headers through the
+platform `Headers` implementation and accepts only `Response` statuses 200–599.
+Statuses 204, 205, and 304 are bodyless and refuse non-empty chunks.
 
 Before commitment, route-level not-found selects 404, a separately validated
 redirect selects its 3xx response, an unexpected failure selects a safe 500,

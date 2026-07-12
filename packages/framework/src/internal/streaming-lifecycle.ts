@@ -1,4 +1,4 @@
-import { readCspNonce } from "./rendering-security.ts";
+import { createCspNonce, readCspNonce } from "./rendering-security.ts";
 
 export type StreamPhase = "uncommitted" | "head-published" | "body-started" | "completed" | "terminated" | "cancelled";
 export type RootFailureKind = "not-found" | "redirect" | "unexpected" | "timeout";
@@ -8,13 +8,12 @@ export interface StreamHeadPlan {
   readonly status: number;
   readonly headers?: Readonly<Record<string, string>>;
   readonly executableMarkup?: boolean;
-  readonly headerNonce?: object;
-  readonly markupNonce?: object;
 }
 
 export interface PublishedHead {
   readonly status: number;
   readonly headers: Readonly<Record<string, string>>;
+  readonly bodyAllowed: boolean;
   readonly nonce?: string;
 }
 
@@ -40,6 +39,7 @@ export interface StreamingLifecycleOptions {
   readonly deadlineAt?: number;
   readonly now?: () => number;
   readonly timer?: TimerScheduler;
+  readonly nonceFactory?: () => object;
 }
 
 export interface FailureDecision {
@@ -57,19 +57,20 @@ function defaultTimer(): TimerScheduler {
 }
 
 function frozenHeaders(headers: Readonly<Record<string, string>> | undefined): Readonly<Record<string, string>> {
+  let platformHeaders: Headers;
+  try { platformHeaders = new Headers(headers); } catch { throw new TypeError("FADENO_STREAM_HEADER"); }
   const result = Object.create(null) as Record<string, string>;
-  for (const [name, value] of Object.entries(headers ?? {})) {
-    if (name !== name.toLowerCase() || !/^[a-z0-9-]+$/u.test(name) || typeof value !== "string") {
-      throw new TypeError("FADENO_STREAM_HEADER");
-    }
+  for (const [name, value] of platformHeaders) {
     result[name] = value;
   }
   return Object.freeze(result);
 }
 
-async function ignoreFailure(callback: () => void | Promise<void>): Promise<void> {
-  try { await callback(); } catch { /* terminal cleanup must continue */ }
+function observeFailure(callback: () => void | Promise<void>): void {
+  try { void Promise.resolve(callback()).catch(() => undefined); } catch { /* terminal cleanup must continue */ }
 }
+
+const claimedNonces = new WeakSet<object>();
 
 export function deriveDeadline(parentDeadlineAt: number | undefined, startedAt: number, budgetMilliseconds: number): number {
   if (!Number.isFinite(startedAt) || !Number.isFinite(budgetMilliseconds) || budgetMilliseconds <= 0) {
@@ -83,6 +84,7 @@ export class StreamingLifecycle {
   #phase: StreamPhase = "uncommitted";
   #head: PublishedHead | undefined;
   #precommitDecision: FailureDecision | undefined;
+  #bodyStarted = false;
   #writePending = false;
   #cleanupCalls = 0;
   #cancelTimer: (() => void) | undefined;
@@ -91,11 +93,14 @@ export class StreamingLifecycle {
   readonly #sink: StreamSink;
   readonly #reporter: StreamReporter | undefined;
   readonly #cleanup: (() => void) | undefined;
+  readonly #nonceFactory: () => object;
+  readonly #workCancellation = new AbortController();
 
   constructor(options: StreamingLifecycleOptions) {
     this.#sink = options.sink;
     this.#reporter = options.reporter;
     this.#cleanup = options.cleanup;
+    this.#nonceFactory = options.nonceFactory ?? createCspNonce;
     if (options.deadlineAt !== undefined) {
       const delay = Math.max(0, options.deadlineAt - (options.now?.() ?? Date.now()));
       this.#cancelTimer = (options.timer ?? defaultTimer()).schedule(delay, () => { void this.fail("timeout"); });
@@ -112,25 +117,31 @@ export class StreamingLifecycle {
   get head(): PublishedHead | undefined { return this.#head; }
   get writePending(): boolean { return this.#writePending; }
   get cleanupCalls(): number { return this.#cleanupCalls; }
+  get bodyStarted(): boolean { return this.#bodyStarted; }
+  get signal(): AbortSignal { return this.#workCancellation.signal; }
   get precommitDecision(): FailureDecision | undefined { return this.#precommitDecision; }
 
   publishHead(plan: StreamHeadPlan): PublishedHead {
     if (this.#phase !== "uncommitted") throw new TypeError("FADENO_STREAM_HEAD_ALREADY_PUBLISHED");
-    if (!Number.isInteger(plan.status) || plan.status < 100 || plan.status > 599) throw new TypeError("FADENO_STREAM_STATUS");
+    if (!Number.isInteger(plan.status) || plan.status < 200 || plan.status > 599) throw new TypeError("FADENO_STREAM_STATUS");
     if (this.#precommitDecision?.status !== undefined && this.#precommitDecision.status !== plan.status) {
       throw new TypeError("FADENO_STREAM_PRECOMMIT_OUTCOME");
     }
+    const headers = frozenHeaders(plan.headers);
+    const bodyAllowed = plan.status !== 204 && plan.status !== 205 && plan.status !== 304;
     let nonce: string | undefined;
     if (plan.executableMarkup === true) {
-      if (plan.headerNonce !== plan.markupNonce) throw new TypeError("FADENO_STREAM_NONCE_CORRELATION");
-      nonce = readCspNonce(plan.headerNonce);
+      if (!bodyAllowed) throw new TypeError("FADENO_STREAM_NONCE_BODY");
+      const nonceToken = this.#nonceFactory();
+      if (claimedNonces.has(nonceToken)) throw new TypeError("FADENO_STREAM_NONCE_REUSE");
+      nonce = readCspNonce(nonceToken);
       if (nonce === undefined) throw new TypeError("FADENO_STREAM_NONCE_AUTHORITY");
-    } else if (plan.headerNonce !== undefined || plan.markupNonce !== undefined) {
-      throw new TypeError("FADENO_STREAM_NONCE_UNUSED");
+      claimedNonces.add(nonceToken);
     }
     const head: PublishedHead = Object.freeze({
       status: plan.status,
-      headers: frozenHeaders(plan.headers),
+      headers,
+      bodyAllowed,
       ...(nonce === undefined ? {} : { nonce }),
     });
     this.#head = head;
@@ -143,10 +154,14 @@ export class StreamingLifecycle {
     if (chunk.byteLength === 0) return;
     if (this.#phase !== "head-published" && this.#phase !== "body-started") throw new TypeError("FADENO_STREAM_WRITE_PHASE");
     if (this.#writePending) throw new TypeError("FADENO_STREAM_BACKPRESSURE");
+    if (this.#head?.bodyAllowed !== true) throw new TypeError("FADENO_STREAM_NULL_BODY");
     this.#writePending = true;
     try {
       await this.#sink.write(chunk);
-      if (this.#phase === "head-published") this.#phase = "body-started";
+      if (this.#phase === "head-published") {
+        this.#bodyStarted = true;
+        this.#phase = "body-started";
+      }
     } catch {
       await this.#terminate("write-failure");
       throw new TypeError("FADENO_STREAM_WRITE_FAILURE");
@@ -175,6 +190,7 @@ export class StreamingLifecycle {
       if (this.#precommitDecision) return this.#precommitDecision;
       const status = kind === "not-found" ? 404 : kind === "redirect" ? 303 : kind === "unexpected" ? 500 : 504;
       this.#precommitDecision = Object.freeze({ kind: "replace", status });
+      this.#workCancellation.abort(kind);
       return this.#precommitDecision;
     }
     if (this.#phase === "head-published" || this.#phase === "body-started") {
@@ -190,17 +206,19 @@ export class StreamingLifecycle {
     }
     const committed = this.#phase !== "uncommitted";
     this.#phase = "cancelled";
-    if (committed) await ignoreFailure(() => this.#sink.abort(reason));
+    this.#workCancellation.abort(reason);
     this.#finishCleanup();
+    if (committed) observeFailure(() => this.#sink.abort(reason));
     return Object.freeze({ kind: "abandon" });
   }
 
   async #terminate(code: string): Promise<void> {
     if (this.#phase === "terminated" || this.#phase === "cancelled" || this.#phase === "completed") return;
     this.#phase = "terminated";
-    await ignoreFailure(() => this.#sink.abort(code));
-    if (this.#reporter) await ignoreFailure(() => this.#reporter?.report(code));
+    this.#workCancellation.abort(code);
     this.#finishCleanup();
+    observeFailure(() => this.#sink.abort(code));
+    if (this.#reporter) observeFailure(() => this.#reporter?.report(code));
   }
 
   #finishCleanup(): void {
@@ -258,4 +276,111 @@ export function resolveBoundaryFailure(
 
 export function canStartBoundary(position: number, nextPosition: number): boolean {
   return Number.isInteger(position) && Number.isInteger(nextPosition) && position === nextPosition;
+}
+
+export class InOrderBoundaryCursor {
+  #nextPosition = 0;
+  #activePosition: number | undefined;
+
+  get nextPosition(): number { return this.#nextPosition; }
+
+  start(position: number): void {
+    if (this.#activePosition !== undefined) throw new TypeError("FADENO_STREAM_BOUNDARY_ACTIVE");
+    if (!canStartBoundary(position, this.#nextPosition)) throw new TypeError("FADENO_STREAM_BOUNDARY_ORDER");
+    this.#activePosition = position;
+  }
+
+  complete(position: number): void {
+    if (this.#activePosition !== position) throw new TypeError("FADENO_STREAM_BOUNDARY_COMPLETION");
+    this.#activePosition = undefined;
+    this.#nextPosition += 1;
+  }
+}
+
+export type BoundaryCancellationReason = CancellationReason | "timeout";
+
+interface BoundaryCancellationState {
+  readonly controller: AbortController;
+  readonly children: Set<string>;
+  readonly parentId?: string;
+  active: boolean;
+  emitted: boolean;
+  reason?: BoundaryCancellationReason;
+}
+
+export class BoundaryCancellationTree {
+  readonly #states = new Map<string, BoundaryCancellationState>();
+  #cleanupCalls = 0;
+
+  constructor(boundaries: readonly BoundaryState[]) {
+    if (boundaries.length === 0) throw new TypeError("FADENO_STREAM_BOUNDARY_EMPTY");
+    resolveBoundaryFailure(boundaries, boundaries[0]!.id);
+    for (const boundary of boundaries) {
+      this.#states.set(boundary.id, {
+        controller: new AbortController(), children: new Set(), active: boundary.active,
+        emitted: boundary.emitted, ...(boundary.parentId === undefined ? {} : { parentId: boundary.parentId }),
+      });
+    }
+    for (const boundary of boundaries) {
+      if (boundary.parentId !== undefined) this.#states.get(boundary.parentId)?.children.add(boundary.id);
+    }
+  }
+
+  get cleanupCalls(): number { return this.#cleanupCalls; }
+
+  signal(id: string): AbortSignal {
+    const state = this.#states.get(id);
+    if (!state) throw new TypeError("FADENO_STREAM_BOUNDARY_UNKNOWN");
+    return state.controller.signal;
+  }
+
+  reason(id: string): BoundaryCancellationReason | undefined {
+    const state = this.#states.get(id);
+    if (!state) throw new TypeError("FADENO_STREAM_BOUNDARY_UNKNOWN");
+    return state.reason;
+  }
+
+  markEmitted(id: string): void {
+    const state = this.#states.get(id);
+    if (!state) throw new TypeError("FADENO_STREAM_BOUNDARY_UNKNOWN");
+    state.emitted = true;
+  }
+
+  deactivate(id: string): void {
+    const state = this.#states.get(id);
+    if (!state) throw new TypeError("FADENO_STREAM_BOUNDARY_UNKNOWN");
+    state.active = false;
+  }
+
+  resolveFailure(id: string, failedFallbackIds: readonly string[] = []): BoundaryResolution {
+    const boundaries = [...this.#states].map(([boundaryId, state]) => ({
+      id: boundaryId, active: state.active, emitted: state.emitted,
+      ...(state.parentId === undefined ? {} : { parentId: state.parentId }),
+    }));
+    return resolveBoundaryFailure(boundaries, id, failedFallbackIds);
+  }
+
+  cancel(id: string, reason: BoundaryCancellationReason): readonly string[] {
+    if (!this.#states.has(id)) throw new TypeError("FADENO_STREAM_BOUNDARY_UNKNOWN");
+    const cancelled: string[] = [];
+    const pending = [id];
+    while (pending.length > 0) {
+      const currentId = pending.pop();
+      if (!currentId) continue;
+      const state = this.#states.get(currentId);
+      if (!state) continue;
+      pending.push(...[...state.children].reverse());
+      if (state.reason !== undefined) continue;
+      state.reason = reason;
+      state.controller.abort(reason);
+      cancelled.push(currentId);
+    }
+    return Object.freeze(cancelled);
+  }
+
+  releaseAll(): void {
+    if (this.#cleanupCalls !== 0) return;
+    this.#cleanupCalls = 1;
+    this.#states.clear();
+  }
 }

@@ -32,9 +32,12 @@
     { "id": "wrong-precommit-status", "action": "wrong-precommit-status", "error": "FADENO_STREAM_PRECOMMIT_OUTCOME" },
     { "id": "complete-before-head", "action": "complete-before-head", "error": "FADENO_STREAM_COMPLETE_PHASE" },
     { "id": "concurrent-write", "action": "concurrent-write", "error": "FADENO_STREAM_BACKPRESSURE" },
-    { "id": "uncorrelated-nonce", "action": "uncorrelated-nonce", "error": "FADENO_STREAM_NONCE_CORRELATION" },
+    { "id": "invalid-status", "action": "invalid-status", "error": "FADENO_STREAM_STATUS" },
+    { "id": "invalid-header", "action": "invalid-header", "error": "FADENO_STREAM_HEADER" },
+    { "id": "null-body-write", "action": "null-body-write", "error": "FADENO_STREAM_NULL_BODY" },
+    { "id": "bodyless-nonce", "action": "bodyless-nonce", "error": "FADENO_STREAM_NONCE_BODY" },
     { "id": "forged-nonce", "action": "forged-nonce", "error": "FADENO_STREAM_NONCE_AUTHORITY" },
-    { "id": "unused-nonce", "action": "unused-nonce", "error": "FADENO_STREAM_NONCE_UNUSED" }
+    { "id": "reused-nonce", "action": "reused-nonce", "error": "FADENO_STREAM_NONCE_REUSE" }
   ],
   "boundaryCases": [
     { "id": "nearest-child-fallback", "failed": "child", "fallbackFailures": [], "boundaries": [{ "id": "root", "active": true, "emitted": false }, { "id": "child", "parentId": "root", "active": true, "emitted": false }], "expected": { "kind": "fallback", "ownerId": "child" } },
@@ -58,14 +61,27 @@
     { "id": "current-slot-starts", "position": 2, "nextPosition": 2, "expected": true },
     { "id": "later-slot-waits", "position": 3, "nextPosition": 2, "expected": false }
   ],
+  "orderingRefusalCases": [
+    { "id": "second-active-slot-refused", "action": "active", "error": "FADENO_STREAM_BOUNDARY_ACTIVE" },
+    { "id": "out-of-order-slot-refused", "action": "order", "error": "FADENO_STREAM_BOUNDARY_ORDER" },
+    { "id": "wrong-slot-completion-refused", "action": "completion", "error": "FADENO_STREAM_BOUNDARY_COMPLETION" }
+  ],
+  "cancellationCases": [
+    { "id": "parent-cascades", "cancels": [{ "id": "root", "reason": "disconnect" }], "expected": { "root": "disconnect", "child": "disconnect", "grandchild": "disconnect", "sibling": "disconnect" } },
+    { "id": "child-timeout-isolated", "cancels": [{ "id": "child", "reason": "timeout" }], "expected": { "root": null, "child": "timeout", "grandchild": "timeout", "sibling": null } },
+    { "id": "first-reason-wins", "cancels": [{ "id": "child", "reason": "timeout" }, { "id": "root", "reason": "superseded" }], "expected": { "root": "superseded", "child": "timeout", "grandchild": "timeout", "sibling": "superseded" } }
+  ],
   "asyncCases": [
     "slow-sink-one-pending-chunk",
     "write-rejection-terminates",
+    "middle-chunk-rejection-terminates",
+    "last-chunk-rejection-terminates",
     "close-rejection-terminates",
     "cancel-while-write-pending-ignores-late-acceptance",
     "cancel-while-close-pending-ignores-late-close",
     "throwing-reporter-still-cleans",
     "throwing-cleanup-contained",
+    "never-settling-terminal-effects-do-not-block-cleanup",
     "deadline-timer-cleared-once",
     "abort-listener-removed-once",
     "nonce-head-markup-correlation"

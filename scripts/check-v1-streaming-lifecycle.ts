@@ -5,11 +5,14 @@ import Ajv2020Module from "ajv/dist/2020.js";
 
 import { createCspNonce } from "../packages/framework/dist/internal/rendering-security.js";
 import {
+  BoundaryCancellationTree,
   canStartBoundary,
   deriveDeadline,
+  InOrderBoundaryCursor,
   resolveBoundaryFailure,
   StreamingLifecycle,
   type BoundaryState,
+  type BoundaryCancellationReason,
   type CancellationReason,
   type RootFailureKind,
   type StreamPhase,
@@ -21,6 +24,7 @@ interface LifecycleCase { readonly id: string; readonly operations: readonly Ope
 interface RefusalCase { readonly id: string; readonly action: string; readonly error: string }
 interface BoundaryCase { readonly id: string; readonly failed: string; readonly fallbackFailures: readonly string[]; readonly boundaries: readonly BoundaryState[]; readonly expected: unknown }
 interface BoundaryRefusalCase { readonly id: string; readonly failed: string; readonly boundaries: readonly BoundaryState[]; readonly error: string }
+interface CancellationCase { readonly id: string; readonly cancels: readonly { readonly id: string; readonly reason: BoundaryCancellationReason }[]; readonly expected: Readonly<Record<string, BoundaryCancellationReason | null>> }
 interface Corpus {
   readonly schemaVersion: number;
   readonly futureConsumer: string;
@@ -32,6 +36,8 @@ interface Corpus {
   readonly boundaryRefusalCases: readonly BoundaryRefusalCase[];
   readonly deadlineCases: readonly { readonly id: string; readonly parent: number | null; readonly startedAt: number; readonly budget: number; readonly expected: number }[];
   readonly orderingCases: readonly { readonly id: string; readonly position: number; readonly nextPosition: number; readonly expected: boolean }[];
+  readonly orderingRefusalCases: readonly { readonly id: string; readonly action: string; readonly error: string }[];
+  readonly cancellationCases: readonly CancellationCase[];
   readonly asyncCases: readonly string[];
 }
 
@@ -56,8 +62,17 @@ assert.equal(corpus.schemaVersion, 1);
 assert.equal(corpus.futureConsumer, "V1-09 renderer and adapter integration");
 assert.deepEqual(corpus.phaseOrder, ["uncommitted", "head-published", "body-started", "completed|terminated|cancelled"]);
 
-const allIds = [...corpus.lifecycleCases, ...corpus.refusalCases, ...corpus.boundaryCases, ...corpus.boundaryRefusalCases, ...corpus.deadlineCases, ...corpus.orderingCases].map((fixture) => fixture.id);
+const allIds = [...corpus.lifecycleCases, ...corpus.refusalCases, ...corpus.boundaryCases, ...corpus.boundaryRefusalCases, ...corpus.deadlineCases, ...corpus.orderingCases, ...corpus.orderingRefusalCases, ...corpus.cancellationCases].map((fixture) => fixture.id);
 assert.equal(new Set([...allIds, ...corpus.asyncCases]).size, allIds.length + corpus.asyncCases.length, "fixture IDs must be globally unique");
+assert.deepEqual(corpus.lifecycleCases.map((fixture) => fixture.id), ["empty-body-success", "two-chunk-success", "precommit-not-found", "precommit-redirect", "precommit-unexpected", "precommit-timeout", "precommit-disconnect", "precommit-explicit", "precommit-superseded", "post-head-unexpected", "post-body-not-found", "post-body-redirect", "post-body-timeout", "post-head-disconnect", "post-body-explicit", "post-body-superseded"]);
+assert.deepEqual(corpus.refusalCases.map((fixture) => fixture.id), ["write-before-head", "double-head", "wrong-precommit-status", "complete-before-head", "concurrent-write", "invalid-status", "invalid-header", "null-body-write", "bodyless-nonce", "forged-nonce", "reused-nonce"]);
+assert.deepEqual(corpus.boundaryCases.map((fixture) => fixture.id), ["nearest-child-fallback", "child-fallback-escalates", "parent-fallback-also-fails", "partial-child-terminates", "inactive-child-uses-parent"]);
+assert.deepEqual(corpus.boundaryRefusalCases.map((fixture) => fixture.id), ["duplicate-boundary", "unknown-boundary", "missing-parent", "boundary-cycle"]);
+assert.deepEqual(corpus.deadlineCases.map((fixture) => fixture.id), ["root-deadline", "child-narrows", "child-cannot-extend"]);
+assert.deepEqual(corpus.orderingCases.map((fixture) => fixture.id), ["current-slot-starts", "later-slot-waits"]);
+assert.deepEqual(corpus.orderingRefusalCases.map((fixture) => fixture.id), ["second-active-slot-refused", "out-of-order-slot-refused", "wrong-slot-completion-refused"]);
+assert.deepEqual(corpus.cancellationCases.map((fixture) => fixture.id), ["parent-cascades", "child-timeout-isolated", "first-reason-wins"]);
+assert.deepEqual(corpus.asyncCases, ["slow-sink-one-pending-chunk", "write-rejection-terminates", "middle-chunk-rejection-terminates", "last-chunk-rejection-terminates", "close-rejection-terminates", "cancel-while-write-pending-ignores-late-acceptance", "cancel-while-close-pending-ignores-late-close", "throwing-reporter-still-cleans", "throwing-cleanup-contained", "never-settling-terminal-effects-do-not-block-cleanup", "deadline-timer-cleared-once", "abort-listener-removed-once", "nonce-head-markup-correlation"]);
 
 for (const fixture of corpus.lifecycleCases) {
   const writes: string[] = [];
@@ -84,7 +99,10 @@ for (const fixture of corpus.lifecycleCases) {
     } else if (operation.op === "complete") await lifecycle.complete();
     else if (operation.op === "fail") {
       const decision = await lifecycle.fail(operation.kind ?? "unexpected");
-      if (lifecycle.phase === "uncommitted") assert.equal(decision.status, corpus.precommitOutcomes[operation.kind ?? "unexpected"], fixture.id);
+      if (lifecycle.phase === "uncommitted") {
+        assert.equal(decision.status, corpus.precommitOutcomes[operation.kind ?? "unexpected"], fixture.id);
+        assert.equal(lifecycle.signal.aborted, true, `${fixture.id}:work-aborted`);
+      }
     } else if (operation.op === "cancel") await lifecycle.cancel(operation.reason ?? "explicit");
   }
   assert.deepEqual({
@@ -97,6 +115,9 @@ for (const fixture of corpus.lifecycleCases) {
     cleanupCalls,
   }, fixture.expected, fixture.id);
   assert.equal(lifecycle.cleanupCalls, fixture.expected.cleanupCalls, `${fixture.id}:internal-cleanup`);
+  assert.equal(lifecycle.bodyStarted, fixture.expected.writes.length > 0, `${fixture.id}:body-started-history`);
+  const shouldAbortWork = fixture.expected.phase !== "completed" || fixture.operations.some((operation) => operation.op === "fail" || operation.op === "cancel");
+  assert.equal(lifecycle.signal.aborted, shouldAbortWork, `${fixture.id}:terminal-signal`);
 }
 
 async function refusal(action: string): Promise<void> {
@@ -112,14 +133,27 @@ async function refusal(action: string): Promise<void> {
     blocked.publishHead({ status: 200 });
     const first = blocked.write(encoder.encode("first"));
     try { await blocked.write(encoder.encode("second")); } finally { gate.resolve(); await first; }
-  } else if (action === "uncorrelated-nonce") {
-    lifecycle.publishHead({ status: 200, executableMarkup: true, headerNonce: createCspNonce(), markupNonce: createCspNonce() });
+  } else if (action === "invalid-status") {
+    lifecycle.publishHead({ status: 101 });
+  } else if (action === "invalid-header") {
+    lifecycle.publishHead({ status: 200, headers: { "x-invalid": "line\r\nbreak" } });
+  } else if (action === "null-body-write") {
+    lifecycle.publishHead({ status: 204 });
+    await lifecycle.write(encoder.encode("forbidden"));
+  } else if (action === "bodyless-nonce") {
+    let allocations = 0;
+    const bodyless = new StreamingLifecycle({ sink, nonceFactory() { allocations += 1; return createCspNonce(); } });
+    try { bodyless.publishHead({ status: 204, executableMarkup: true }); } finally { assert.equal(allocations, 0); }
   } else if (action === "forged-nonce") {
     const forged = Object.freeze(Object.create(null) as object);
-    lifecycle.publishHead({ status: 200, executableMarkup: true, headerNonce: forged, markupNonce: forged });
-  } else if (action === "unused-nonce") {
+    const forgedLifecycle = new StreamingLifecycle({ sink, nonceFactory: () => forged });
+    forgedLifecycle.publishHead({ status: 200, executableMarkup: true });
+  } else if (action === "reused-nonce") {
     const nonce = createCspNonce();
-    lifecycle.publishHead({ status: 200, headerNonce: nonce, markupNonce: nonce });
+    const first = new StreamingLifecycle({ sink, nonceFactory: () => nonce });
+    first.publishHead({ status: 200, executableMarkup: true });
+    const second = new StreamingLifecycle({ sink, nonceFactory: () => nonce });
+    second.publishHead({ status: 200, executableMarkup: true });
   } else throw new Error(`unknown refusal ${action}`);
 }
 
@@ -138,6 +172,53 @@ for (const fixture of corpus.deadlineCases) {
 }
 for (const fixture of corpus.orderingCases) {
   assert.equal(canStartBoundary(fixture.position, fixture.nextPosition), fixture.expected, fixture.id);
+}
+for (const fixture of corpus.orderingRefusalCases) {
+  const cursor = new InOrderBoundaryCursor();
+  assert.throws(() => {
+    if (fixture.action === "active") { cursor.start(0); cursor.start(1); }
+    else if (fixture.action === "order") cursor.start(1);
+    else cursor.complete(0);
+  }, { message: fixture.error }, fixture.id);
+}
+{
+  const cursor = new InOrderBoundaryCursor();
+  cursor.start(0);
+  cursor.complete(0);
+  cursor.start(1);
+  assert.throws(() => cursor.start(2), { message: "FADENO_STREAM_BOUNDARY_ACTIVE" });
+  cursor.complete(1);
+  assert.equal(cursor.nextPosition, 2);
+}
+
+const cancellationBoundaries: readonly BoundaryState[] = [
+  { id: "root", active: true, emitted: false },
+  { id: "child", parentId: "root", active: true, emitted: false },
+  { id: "grandchild", parentId: "child", active: true, emitted: false },
+  { id: "sibling", parentId: "root", active: true, emitted: false },
+];
+for (const fixture of corpus.cancellationCases) {
+  const tree = new BoundaryCancellationTree(cancellationBoundaries);
+  for (const cancellation of fixture.cancels) tree.cancel(cancellation.id, cancellation.reason);
+  for (const [id, expected] of Object.entries(fixture.expected)) {
+    assert.equal(tree.reason(id) ?? null, expected, `${fixture.id}:${id}:reason`);
+    assert.equal(tree.signal(id).aborted, expected !== null, `${fixture.id}:${id}:signal`);
+  }
+  if (fixture.id === "child-timeout-isolated") assert.deepEqual(tree.resolveFailure("child"), { kind: "fallback", ownerId: "child" });
+  if (fixture.id === "first-reason-wins") {
+    tree.markEmitted("root");
+    assert.deepEqual(tree.resolveFailure("child", ["child"]), { kind: "terminate" });
+  }
+  tree.releaseAll();
+  tree.releaseAll();
+  assert.equal(tree.cleanupCalls, 1);
+  assert.throws(() => tree.signal("root"), { message: "FADENO_STREAM_BOUNDARY_UNKNOWN" });
+}
+{
+  const tree = new BoundaryCancellationTree(cancellationBoundaries);
+  tree.markEmitted("child");
+  assert.deepEqual(tree.resolveFailure("child"), { kind: "terminate" });
+  tree.releaseAll();
 }
 
 const executedAsyncCases = new Set<string>();
@@ -170,6 +251,23 @@ const executedAsyncCases = new Set<string>();
   assert.equal(cleanup, 1);
   executedAsyncCases.add("write-rejection-terminates");
 }
+
+async function verifyLaterChunkRejection(id: string, rejectAt: number): Promise<void> {
+  let calls = 0;
+  const lifecycle = new StreamingLifecycle({
+    sink: { write() { calls += 1; if (calls === rejectAt) throw new Error("sink"); }, close() {}, abort() {} },
+  });
+  lifecycle.publishHead({ status: 200 });
+  for (let position = 1; position < rejectAt; position += 1) await lifecycle.write(encoder.encode(`chunk-${position}`));
+  await assert.rejects(() => lifecycle.write(encoder.encode(`chunk-${rejectAt}`)), { message: "FADENO_STREAM_WRITE_FAILURE" });
+  assert.equal(lifecycle.phase, "terminated");
+  assert.equal(lifecycle.bodyStarted, true);
+  assert.equal(lifecycle.cleanupCalls, 1);
+  executedAsyncCases.add(id);
+}
+
+await verifyLaterChunkRejection("middle-chunk-rejection-terminates", 2);
+await verifyLaterChunkRejection("last-chunk-rejection-terminates", 3);
 
 {
   const aborts: string[] = [];
@@ -228,14 +326,34 @@ const executedAsyncCases = new Set<string>();
 }
 
 {
+  const never = new Promise<void>(() => undefined);
+  let cleanup = 0;
+  const lifecycle = new StreamingLifecycle({
+    sink: { write() {}, close() {}, abort: () => never },
+    reporter: { report: () => never },
+    cleanup() { cleanup += 1; },
+  });
+  lifecycle.publishHead({ status: 200 });
+  await lifecycle.fail("unexpected");
+  assert.equal(lifecycle.phase, "terminated");
+  assert.equal(cleanup, 1);
+  executedAsyncCases.add("never-settling-terminal-effects-do-not-block-cleanup");
+}
+
+{
   let timerCallback: (() => void) | undefined;
   let clearCalls = 0;
+  let applicationAbortCalls = 0;
   const lifecycle = new StreamingLifecycle({
     sink: { write() {}, close() {}, abort() {} }, deadlineAt: 1500, now: () => 1000,
     timer: { schedule(delay, callback) { assert.equal(delay, 500); timerCallback = callback; return () => { clearCalls += 1; }; } },
   });
+  lifecycle.signal.addEventListener("abort", () => { applicationAbortCalls += 1; }, { once: true });
   timerCallback?.();
   assert.deepEqual(lifecycle.precommitDecision, { kind: "replace", status: 504 });
+  assert.equal(lifecycle.signal.aborted, true);
+  assert.equal(applicationAbortCalls, 1);
+  assert.throws(() => lifecycle.publishHead({ status: 200 }), { message: "FADENO_STREAM_PRECOMMIT_OUTCOME" });
   lifecycle.publishHead({ status: 504 });
   await lifecycle.complete();
   assert.equal(clearCalls, 1);
@@ -264,16 +382,29 @@ const executedAsyncCases = new Set<string>();
 }
 
 {
-  const nonce = createCspNonce();
-  const lifecycle = new StreamingLifecycle({ sink: { write() {}, close() {}, abort() {} } });
+  let allocations = 0;
+  const lifecycle = new StreamingLifecycle({
+    sink: { write() {}, close() {}, abort() {} },
+    nonceFactory() { allocations += 1; return createCspNonce(); },
+  });
   const mutableHeaders = { "content-type": "text/html" };
-  const head = lifecycle.publishHead({ status: 200, headers: mutableHeaders, executableMarkup: true, headerNonce: nonce, markupNonce: nonce });
+  assert.equal(allocations, 0);
+  const head = lifecycle.publishHead({ status: 200, headers: mutableHeaders, executableMarkup: true });
+  assert.equal(allocations, 1);
   mutableHeaders["content-type"] = "text/plain";
   assert.equal(head.headers["content-type"], "text/html");
   assert.match(head.nonce ?? "", /^[A-Za-z0-9_-]{22}$/u);
   assert.equal(Object.isFrozen(head), true);
   assert.equal(Object.isFrozen(head.headers), true);
+  assert.equal(head.bodyAllowed, true);
   await lifecycle.complete();
+  let abandonedAllocations = 0;
+  const abandoned = new StreamingLifecycle({
+    sink: { write() {}, close() {}, abort() {} },
+    nonceFactory() { abandonedAllocations += 1; return createCspNonce(); },
+  });
+  await abandoned.cancel("superseded");
+  assert.equal(abandonedAllocations, 0);
   executedAsyncCases.add("nonce-head-markup-correlation");
 }
 
