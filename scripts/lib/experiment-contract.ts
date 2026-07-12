@@ -700,6 +700,9 @@ export function evaluateExperimentCommand(registry: any, args: string[]) {
       stderr: `FADENO_K0_002: unsupported argument: ${args.join(" ")}\n`,
     };
   }
+  if (registry.experiments.every((experiment: { status?: string }) => experiment.status === "qualified")) {
+    return { exitCode: 0, stdout: "", stderr: "", executeQualified: true };
+  }
   return {
     exitCode: 2,
     stdout: "",
