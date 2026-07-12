@@ -10,21 +10,22 @@ V1-07 — freeze contextual rendering and unsafe-capability security contracts
 
 ## Exit criteria
 
-- [ ] Accept one rendering-security ADR that fixes contextual escaping, unsafe
+- [x] Accept one rendering-security ADR that fixes contextual escaping, unsafe
   HTML authority, CSP nonce flow, and the audit/redaction surface.
-- [ ] Freeze explicit text, ordinary attribute, URL, style, boolean,
+- [x] Freeze explicit text, ordinary attribute, URL, style, boolean,
   enumerated, and raw-text element context behavior without implementing the
   renderer or streaming state machine.
-- [ ] Prove the unsafe capability cannot be forged from an ordinary string and
+- [x] Prove the unsafe capability cannot be forged from an ordinary string and
   that every accepted unsafe use remains statically auditable.
-- [ ] Add a threat model plus positive/negative XSS, nonce, URL/style,
+- [x] Add a threat model plus positive/negative XSS, nonce, URL/style,
   delimiter, and secret-redaction fixtures that a later renderer must satisfy.
-- [ ] Remove the resolved rendering-security gate, align current documentation,
+- [x] Remove the resolved rendering-security gate, align current documentation,
   and pass all local merge gates.
 
 ## In progress
 
-- V1-07 is selecting the contextual rendering and unsafe-capability contract.
+- V1-07 passed the exhaustive rendering-security corpus, package checks, full
+  repository check, and independent adversarial review; remote review remains.
 - V1-08 next freezes streaming, failure, timeout, cancellation, and
   response-commit behavior.
 - Registry naming, renderer boundaries, request security policy,
