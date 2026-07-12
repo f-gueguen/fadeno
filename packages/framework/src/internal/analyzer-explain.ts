@@ -39,6 +39,11 @@ export interface AnalyzerExplainCollectionContext {
   readonly detail: "semantic" | "deep";
   readonly budgets: AnalyzerExplainBudgets;
   readonly signal: AbortSignal;
+  readonly requestedFacets: readonly AnalyzerExplainFacetRequest[];
+}
+
+export interface AnalyzerExplainFacetRequest {
+  readonly namespace: string;
 }
 
 export interface AnalyzerExplainIdentity {
@@ -51,7 +56,7 @@ export interface AnalyzerExplainIdentity {
   readonly configurationEpoch: number;
   readonly publicationOperationId: string | null;
   readonly publicationGeneration: number | null;
-  readonly requestedFacets: readonly Readonly<{ namespace: typeof ROUTE_EXPLAIN_NAMESPACE }>[];
+  readonly requestedFacets: readonly AnalyzerExplainFacetRequest[];
   readonly documentVersions: AnalyzerPublicationSnapshot["documentVersions"];
   readonly ownership: Readonly<{
     mode: "single-root";
@@ -66,6 +71,7 @@ export type AnalyzerExplainRequest =
     detail: "semantic" | "deep";
     activateDeep?: boolean;
     budgets?: Partial<AnalyzerExplainBudgets>;
+    requestedFacets?: readonly AnalyzerExplainFacetRequest[];
     collect(context: AnalyzerExplainCollectionContext):
       | readonly AnalyzerFacetContribution[]
       | Promise<readonly AnalyzerFacetContribution[]>;
@@ -118,6 +124,55 @@ const defaultBudgets: AnalyzerExplainBudgets = Object.freeze({
   children: 64,
 });
 
+interface AnalyzerExplainModuleDescriptor {
+  readonly namespace: string;
+  process(
+    contribution: AnalyzerFacetContribution,
+    budgets: AnalyzerExplainBudgets,
+    detail: "semantic" | "deep",
+    publication: AnalyzerPublicationSnapshot,
+  ): Readonly<{ contribution: AnalyzerFacetContribution; truncation: RouteExplainTruncationReason | null }>;
+  serialize(contribution: AnalyzerFacetContribution): string;
+  deserialize(serialized: string): AnalyzerFacetContribution;
+  matches(
+    contribution: AnalyzerFacetContribution,
+    identity: AnalyzerExplainIdentity,
+    detail: "semantic" | "deep",
+  ): boolean;
+}
+
+const explainModuleDescriptors: readonly AnalyzerExplainModuleDescriptor[] = Object.freeze([
+  Object.freeze({
+    namespace: ROUTE_EXPLAIN_NAMESPACE,
+    process: processRouteExplainContribution,
+    serialize: serializeRouteExplainContribution,
+    deserialize: deserializeRouteExplainContribution,
+    matches: (contribution: AnalyzerFacetContribution, identity: AnalyzerExplainIdentity, detail: "semantic" | "deep") => {
+      const value = contribution.value as unknown as Readonly<{
+        publicationOperationId: string;
+        publicationGeneration: number;
+        detail: "semantic" | "deep";
+      }>;
+      return value.publicationOperationId === identity.publicationOperationId &&
+        value.publicationGeneration === identity.publicationGeneration && value.detail === detail;
+    },
+  }),
+]);
+
+function explainModule(namespace: string): AnalyzerExplainModuleDescriptor | undefined {
+  return explainModuleDescriptors.find((descriptor) => descriptor.namespace === namespace);
+}
+
+function requestedFacets(input: readonly AnalyzerExplainFacetRequest[] | undefined): readonly AnalyzerExplainFacetRequest[] | null {
+  const source = input ?? [{ namespace: ROUTE_EXPLAIN_NAMESPACE }];
+  if (!Array.isArray(source) || source.length === 0 || source.length > explainModuleDescriptors.length) return null;
+  const normalized = source.map(({ namespace }) => frozen({ namespace })).sort((left, right) =>
+    left.namespace < right.namespace ? -1 : left.namespace > right.namespace ? 1 : 0);
+  if (normalized.some(({ namespace }, index) =>
+    !explainModule(namespace) || index > 0 && namespace === normalized[index - 1]!.namespace)) return null;
+  return frozen(normalized);
+}
+
 function frozen<T extends object>(value: T): Readonly<T> {
   return Object.freeze(value);
 }
@@ -135,7 +190,7 @@ function authorityIdentity(authority: AnalyzerExplainAuthority): string {
 function explainIdentity(
   operationId: string,
   authority: AnalyzerExplainAuthority,
-  requested: boolean,
+  requests: readonly AnalyzerExplainFacetRequest[],
 ): AnalyzerExplainIdentity {
   return frozen({
     analyzerVersion: 1 as const,
@@ -147,7 +202,7 @@ function explainIdentity(
     configurationEpoch: authority.configurationEpoch,
     publicationOperationId: authority.publication?.operationId ?? null,
     publicationGeneration: authority.publication?.publicationGeneration ?? null,
-    requestedFacets: requested ? frozen([frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE })]) : frozen([]),
+    requestedFacets: frozen([...requests]),
     documentVersions: frozen([...authority.documentVersions]),
     ownership: frozen({
       mode: "single-root" as const,
@@ -194,7 +249,7 @@ export class AnalyzerExplainCoordinator {
     }
     if (request.detail === "disabled") {
       const controller = new AbortController();
-      const identity = explainIdentity(operationId, this.#authority(), false);
+      const identity = explainIdentity(operationId, this.#authority(), frozen([]));
       return frozen({
         operationId,
         signal: controller.signal,
@@ -223,7 +278,12 @@ export class AnalyzerExplainCoordinator {
   }
 
   async #execute(ticket: Ticket, request: Exclude<AnalyzerExplainRequest, { detail: "disabled" }>): Promise<AnalyzerExplainResult> {
-    const identity = explainIdentity(ticket.operationId, ticket.authority, true);
+    const requested = requestedFacets(request.requestedFacets);
+    const identity = explainIdentity(
+      ticket.operationId,
+      ticket.authority,
+      requested ?? frozen([frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE })]),
+    );
     const interrupted = (status: "cancelled" | "superseded" | "stale", code: string): AnalyzerExplainResult => frozen({
       status, identity, code,
       contributions: frozen([]), completeness: "interrupted" as const, interruption: status,
@@ -243,6 +303,7 @@ export class AnalyzerExplainCoordinator {
     if (stopped) return this.#finish(ticket, stopped);
     const publication = ticket.authority.publication;
     if (!publication) return this.#finish(ticket, frozen({ status: "refused" as const, identity, code: "FADENO_ANALYZER_EXPLAIN_PUBLICATION" }));
+    if (!requested) return this.#finish(ticket, frozen({ status: "refused" as const, identity, code: "FADENO_ANALYZER_EXPLAIN_REQUEST" }));
     if (request.detail === "deep" && request.activateDeep !== true || request.detail === "semantic" && request.activateDeep === true) {
       return this.#finish(ticket, frozen({ status: "refused" as const, identity, code: "FADENO_ANALYZER_EXPLAIN_ACTIVATION" }));
     }
@@ -253,6 +314,7 @@ export class AnalyzerExplainCoordinator {
       detail: request.detail,
       budgets: bounded,
       signal: ticket.controller.signal,
+      requestedFacets: requested,
     });
     const startedAt = performance.now();
     const collected = Promise.resolve().then(() => request.collect(collectionContext)).then(
@@ -286,9 +348,15 @@ export class AnalyzerExplainCoordinator {
     let truncation: RouteExplainTruncationReason | null = null;
     let contributions: AnalyzerFacetContribution[];
     try {
-      if (outcome.value.length !== 1) throw new TypeError("FADENO_ANALYZER_EXPLAIN_CONTRIBUTION_COUNT");
-      contributions = outcome.value.map((contribution) => {
-        const processed = processRouteExplainContribution(contribution, bounded, request.detail, publication);
+      if (outcome.value.length !== requested.length) throw new TypeError("FADENO_ANALYZER_EXPLAIN_CONTRIBUTION_COUNT");
+      const ordered = [...outcome.value].sort((left, right) =>
+        left.namespace < right.namespace ? -1 : left.namespace > right.namespace ? 1 : 0);
+      contributions = ordered.map((contribution, index) => {
+        const descriptor = explainModule(requested[index]!.namespace);
+        if (!descriptor || contribution.namespace !== descriptor.namespace) {
+          throw new TypeError("FADENO_ANALYZER_EXPLAIN_CONTRIBUTION_NAMESPACE");
+        }
+        const processed = descriptor.process(contribution, bounded, request.detail, publication);
         truncation ??= processed.truncation;
         return processed.contribution;
       });
@@ -371,10 +439,18 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
     (publicationOperationId === null) !== (publicationGeneration === null)
   ) serializationRefuse();
   const requestedFacets = identity["requestedFacets"] as unknown[];
-  if (requestedFacets.length !== (requested ? 1 : 0)) serializationRefuse();
-  if (requested) {
-    const facet = exactRecord(requestedFacets[0], ["namespace"]);
-    if (facet["namespace"] !== ROUTE_EXPLAIN_NAMESPACE) serializationRefuse();
+  if (requested ? requestedFacets.length === 0 || requestedFacets.length > explainModuleDescriptors.length : requestedFacets.length !== 0) {
+    serializationRefuse();
+  }
+  let priorRequested: string | undefined;
+  for (const value of requestedFacets) {
+    const facet = exactRecord(value, ["namespace"]);
+    const namespace = facet["namespace"];
+    if (
+      typeof namespace !== "string" || !explainModule(namespace) ||
+      priorRequested !== undefined && priorRequested >= namespace
+    ) serializationRefuse();
+    priorRequested = namespace;
   }
   const ownership = exactRecord(identity["ownership"], ["mode", "root", "configurationFingerprint"]);
   if (
@@ -439,21 +515,17 @@ function validateSerializedResult(value: unknown): AnalyzerExplainResult {
       (statusValue === "complete" ? source["truncation"] !== null : !allowedTruncations.includes(source["truncation"] as string)) ||
       !Array.isArray(source["contributions"])
     ) serializationRefuse();
-    const expectedContributionCount = source["truncation"] === "duration" ? 0 : 1;
+    const expectedContributionCount = source["truncation"] === "duration" ? 0 : identity.requestedFacets.length;
     if (source["contributions"].length !== expectedContributionCount) serializationRefuse();
-    const contributions = (source["contributions"] as unknown[]).map((contribution) =>
-      deserializeRouteExplainContribution(serializeRouteExplainContribution(contribution as AnalyzerFacetContribution)));
-    if (contributions.length === 1) {
-      const route = contributions[0]!.value as unknown as Readonly<{
-        publicationOperationId: string;
-        publicationGeneration: number;
-        detail: "semantic" | "deep";
-      }>;
-      if (
-        route.publicationOperationId !== identity.publicationOperationId ||
-        route.publicationGeneration !== identity.publicationGeneration || route.detail !== source["detail"]
-      ) serializationRefuse();
-    }
+    const contributions = (source["contributions"] as unknown[]).map((contribution, index) => {
+      const descriptor = explainModule(identity.requestedFacets[index]!.namespace);
+      if (!descriptor) serializationRefuse();
+      const validated = descriptor.deserialize(descriptor.serialize(contribution as AnalyzerFacetContribution));
+      if (validated.namespace !== descriptor.namespace || !descriptor.matches(validated, identity, source["detail"] as "semantic" | "deep")) {
+        serializationRefuse();
+      }
+      return validated;
+    });
     return deepFreeze({
       ...source,
       identity,

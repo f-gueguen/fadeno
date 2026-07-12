@@ -104,12 +104,26 @@ try {
     const refusedContributionCount = await session.startExplain({ detail: "semantic", collect }).result;
     assert.equal(refusedContributionCount.status, "refused");
   }
+  for (const requestedFacets of [
+    [{ namespace: "fadeno.unknown" }],
+    [{ namespace: "fadeno.routes.explain" }, { namespace: "fadeno.routes.explain" }],
+  ]) {
+    const refusedRequest = await session.startExplain({
+      detail: "semantic", requestedFacets, collect: () => { collectorCalls += 1; return routeContribution; },
+    }).result;
+    assert.equal(refusedRequest.status, "refused");
+  }
+  assert.equal(collectorCalls, 0);
   assert.equal(session.currentPublicationSnapshot, publication);
   assert.equal(constructionCalls, callsAfterPublication);
 
   const semanticFlow = await session.startExplain({
     detail: "semantic",
-    collect: ({ publication: current, detail }) => [createRouteExplainContribution(current, null, detail)],
+    requestedFacets: [{ namespace: "fadeno.routes.explain" }],
+    collect: ({ publication: current, detail, requestedFacets }) => {
+      assert.deepEqual(requestedFacets, [{ namespace: "fadeno.routes.explain" }]);
+      return [createRouteExplainContribution(current, null, detail)];
+    },
   }).result;
   assert.equal(semanticFlow.status, "complete");
   const serializedSemanticFlow = serializeAnalyzerExplainResult(semanticFlow);

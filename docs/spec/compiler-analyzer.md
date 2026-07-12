@@ -502,8 +502,11 @@ budgets, completeness, interruption, and truncation.
 Complete, limit-truncated, duration-truncated, and interrupted results round
 trip byte-stably. A contribution whose publication or detail identity differs
 from the operation refuses atomically. B6 accepts exactly the initial route
-contribution; later modules add their own codecs and explicit requests rather
-than entering a closed central record enumeration. The module-owned human
+contribution. A small private descriptor registry dispatches requested
+namespaces to their module-owned processor, identity matcher, and codec; unknown
+or duplicate requests refuse before collection. Later modules register their
+own descriptors and explicit requests rather than entering a closed central
+record enumeration. The module-owned human
 renderer and normalized machine fixture are derived from the same validated
 success, refusal, and recovery contributions.
 
