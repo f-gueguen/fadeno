@@ -18,13 +18,15 @@ K0-11 — reconcile K0 decisions into implementable V1 scope
   DG-V1-01 through DG-V1-08.
 - [x] Define V1-04 as an integration smoke checkpoint, V1-09 as the first
   running framework, and V1-13/V1-14 as the usable/complete checkpoints.
-- [ ] Prove reconciliation/model controls and `pnpm ci:local` pass.
+- [x] Prove reconciliation/model controls and `pnpm ci:local` pass.
 
 ## In progress
 
 - ADR 0021 makes the V1 plan the implementation continuation after K0.
 - Open V1 gates remain open; K0-11 orders them and does not invent their public
   contracts.
+- Clean local CI and the aggregate immutable K0 verifier pass at `6dc8b52`;
+  the final ledger-only projection is revalidated before review.
 
 ## Blockers
 
