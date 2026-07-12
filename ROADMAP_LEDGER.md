@@ -10,14 +10,14 @@ V1-09 — implement the server renderer and first running routed application
 
 ## Exit criteria
 
-- [ ] Accept one narrow public JSX transform and matched-route rendering
+- [x] Accept one narrow public JSX transform and matched-route rendering
   contract without adding a manual route registry or general component runtime.
-- [ ] Generate deterministic application bindings from discovered route modules
+- [x] Generate deterministic application bindings from discovered route modules
   and keep them transactionally correlated with the route manifest.
-- [ ] Reuse the accepted rendering-security and streaming-lifecycle
+- [x] Reuse the accepted rendering-security and streaming-lifecycle
   implementations through real parser, adapter, boundary, CSP, and cleanup
   evidence.
-- [ ] Add a permanent packed canonical application plus isolated failure,
+- [x] Add a permanent packed canonical application plus isolated failure,
   normalized diagnostic, flow-inspection, correction, and recovery scenarios.
 - [ ] Pass renderer, package, full repository, local CI, and independent
   adversarial review gates.
@@ -30,6 +30,9 @@ V1-09 — implement the server renderer and first running routed application
   matched-route rendering used by generated bindings.
 - Ordinary pages emit no unnecessary executable markup; a separate integrated
   fixture owns nonce/CSP enforcement evidence.
+- The packed canonical application passes route outcomes, generated links,
+  nested not-found ownership, three-engine parsing/CSP, failure observation,
+  normalized diagnostics, flow inspection, correction, and recovery.
 - V1-DX-B follows V1-09 and precedes V1-10; its analyzer foundation is split
   into one-outcome implementation sub-slices declared before work begins.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and

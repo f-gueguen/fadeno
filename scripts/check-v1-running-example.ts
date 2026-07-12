@@ -80,7 +80,7 @@ function verifyFailureAndRecovery(temporaryRoot: string): void {
     files: readonly { path: string; sha256: string }[];
   };
   assert.equal(owner.sourceSha256, manifestDocument.generation.sourceSha256);
-  assert.deepEqual(owner.files.map(({ path }) => path).sort(), ["app.ts", "index.d.ts", "index.js", "manifest.json"]);
+  assert.deepEqual(owner.files.map(({ path }) => path).sort(), ["app.ts", "index.d.ts", "index.js", "loader.ts", "manifest.json", "virtual.ts"]);
   for (const file of owner.files) {
     assert.equal(createHash("sha256").update(readFileSync(join(project, ".fadeno/routes", file.path))).digest("hex"), file.sha256);
   }
@@ -104,7 +104,10 @@ function verifyFailureAndRecovery(temporaryRoot: string): void {
 }
 
 async function startServer(project: string): Promise<{ origin: string; output(): string; stop(): Promise<void> }> {
-  const child = spawn(process.execPath, ["dist/src/server.js"], { cwd: project, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "dist/src/server.js"], {
+    cwd: project,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   let stderr = "";
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk: string) => { stderr += chunk; });

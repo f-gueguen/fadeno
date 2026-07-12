@@ -61,7 +61,8 @@ private consumer. ADR 0025 creates that private package and its executable Node
 adapter smoke example at the V1-04 checkpoint. ADR 0027 keeps route discovery,
 generation, and metadata matching private inside that package while generated
 applications consume the isolated `fadeno:routes` module. Route module
-execution and rendering remain later V1 work.
+execution and rendering are implemented by V1-09 through ADR 0031's generated
+binding, narrow JSX runtime, matched-route renderer, and packed application.
 
 ADR 0030 adds a private analyzer session inside the selected package. It is the
 single framework-semantic authority for checks, watch/build integration, tests,

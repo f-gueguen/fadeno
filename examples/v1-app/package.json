@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/src/server.js"
+    "start": "node --import ./dist/.fadeno/routes/loader.js dist/src/server.js"
   },
   "dependencies": {
     "fadeno-framework-internal": "workspace:*"

@@ -123,8 +123,9 @@ files.
 ## Validation
 
 `pnpm check:v1-renderer` replays the unchanged V1-07 and V1-08 policies through
-real JSX output and proves route outcomes, parser structure, CSP enforcement,
-ordered streaming, fallback, termination, cancellation, cleanup, and the packed
-canonical application plus isolated success/failure/flow/recovery evidence.
-`pnpm check:v1-public-package`, `pnpm check`, and `pnpm ci:local` continue to
-verify package boundaries and the complete repository.
+real JSX output and proves ordered streaming, fallback, termination, and CSP
+correlation. `pnpm check:v1-running-example` proves current-package route
+generation, generated links, parser/CSP enforcement, route outcomes, nested
+ownership, failure observation, and permanent success/failure/flow/recovery
+evidence. `pnpm check:v1-public-package`, `pnpm check`, and `pnpm ci:local`
+continue to verify package boundaries and the complete repository.
