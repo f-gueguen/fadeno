@@ -117,7 +117,11 @@ function authorityIdentity(authority: AnalyzerPublicationAuthority): string {
 
 export class AnalyzerPublicationCoordinator {
   readonly #authority: () => AnalyzerPublicationAuthority;
-  readonly #preview: (operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]) => AnalyzerGraphOperationResult;
+  readonly #preview: (
+    operationId: string,
+    definitions: readonly AnalyzerGraphNodeDefinition[],
+    signal: AbortSignal,
+  ) => AnalyzerGraphOperationResult;
   readonly #commit: (
     operationId: string,
     definitions: readonly AnalyzerGraphNodeDefinition[],
@@ -129,7 +133,11 @@ export class AnalyzerPublicationCoordinator {
 
   constructor(
     authority: () => AnalyzerPublicationAuthority,
-    preview: (operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]) => AnalyzerGraphOperationResult,
+    preview: (
+      operationId: string,
+      definitions: readonly AnalyzerGraphNodeDefinition[],
+      signal: AbortSignal,
+    ) => AnalyzerGraphOperationResult,
     commit: (
       operationId: string,
       definitions: readonly AnalyzerGraphNodeDefinition[],
@@ -198,7 +206,9 @@ export class AnalyzerPublicationCoordinator {
     };
     let stopped = terminal();
     if (stopped) return stopped;
-    const graphResult = this.#preview(ticket.operationId, request.definitions);
+    const graphResult = this.#preview(ticket.operationId, request.definitions, ticket.controller.signal);
+    stopped = terminal();
+    if (stopped) return stopped;
     if ("code" in graphResult) return this.#discard(ticket, "refused", graphResult.code);
     stopped = terminal();
     if (stopped) return stopped;
@@ -253,7 +263,8 @@ export class AnalyzerPublicationCoordinator {
     const removedArtifacts = (this.#published?.artifacts ?? []).filter((previous) => {
       const next = nextArtifacts.get(previous.id);
       return !next || next.path !== previous.path || next.ownerNodeId !== previous.ownerNodeId;
-    }).map(({ id, path, ownerNodeId }) => frozen({ id, path, ownerNodeId }));
+    }).map(({ id, path, ownerNodeId }) => frozen({ id, path, ownerNodeId }))
+      .sort((left, right) => compareText(`${left.id}:${left.path}`, `${right.id}:${right.path}`));
     const snapshot = frozen({
       analyzerVersion: 1 as const,
       schemaVersion: 4 as const,

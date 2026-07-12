@@ -255,12 +255,15 @@ operation, and active-ticket ownership. Obsolete completion cannot overwrite a
 newer publication.
 
 Graph preview is queued after the handle is returned, so immediate cancellation
-or same-turn supersession prevents graph construction from starting. B3 module
-construction callbacks are bounded synchronous analyzer functions and are not
-the long-running extension point; they cannot perform application work or
-unbounded asynchronous work. Long-running publication materialization is
-asynchronous, receives the abort signal, and is raced against cancellation so
-an uncooperative promise cannot delay terminal cancellation or supersession.
+or same-turn supersession prevents graph construction from starting. The graph
+passes the abort signal into each bounded synchronous module-construction
+callback and checks it before and after every affected node, so cancellation
+stops deterministic recomputation before a downstream node begins. A callback
+that subdivides its bounded work must inspect that signal between units; it
+cannot perform application work or unbounded asynchronous work. Long-running
+publication materialization is asynchronous, receives the abort signal, and is
+raced against cancellation so an uncooperative promise cannot delay terminal
+cancellation or supersession.
 Complete lifecycle latency and cancellation timing are qualified in V1-DX-C.
 
 Schema-v4 serialization embeds the strictly validated schema-v3 graph and

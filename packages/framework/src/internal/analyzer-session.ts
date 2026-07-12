@@ -174,7 +174,7 @@ export class AnalyzerSession {
         configurationEpoch: this.#configurationEpoch,
         configurationFingerprint: this.#configurationFingerprint,
       }),
-      (operationId, definitions) => this.#dependencyGraph.analyze(operationId, definitions, { commit: false }),
+      (operationId, definitions, signal) => this.#dependencyGraph.analyze(operationId, definitions, { commit: false, signal }),
       (operationId, definitions, expected) => this.#dependencyGraph.analyze(operationId, definitions, { expected }),
     );
   }

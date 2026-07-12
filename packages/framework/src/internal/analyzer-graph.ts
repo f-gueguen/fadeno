@@ -20,6 +20,7 @@ export type AnalyzerGraphRefusalCode =
   | "FADENO_ANALYZER_GRAPH_VALUE"
   | "FADENO_ANALYZER_GRAPH_LIMIT"
   | "FADENO_ANALYZER_GRAPH_STALE"
+  | "FADENO_ANALYZER_GRAPH_CANCELLED"
   | "FADENO_ANALYZER_GRAPH_COMPUTE";
 
 export const ANALYZER_GRAPH_LIMITS = Object.freeze({
@@ -44,6 +45,7 @@ export interface AnalyzerGraphArtifactInput {
 export interface AnalyzerGraphComputeContext {
   readonly owner: Readonly<{ uri: string; path: string; text: string }>;
   readonly dependencies: readonly Readonly<{ id: string; value: AnalyzerFacetValue }>[];
+  readonly signal: AbortSignal | null;
   emitArtifact(input: AnalyzerGraphArtifactInput): void;
 }
 
@@ -327,7 +329,7 @@ export class AnalyzerDependencyGraph {
   analyze(
     operationId: string,
     definitions: readonly AnalyzerGraphNodeDefinition[],
-    options: Readonly<{ commit?: boolean; expected?: AnalyzerGraphSnapshot }> = {},
+    options: Readonly<{ commit?: boolean; expected?: AnalyzerGraphSnapshot; signal?: AbortSignal }> = {},
   ): AnalyzerGraphOperationResult {
     const authority = this.#authority();
     try {
@@ -407,6 +409,7 @@ export class AnalyzerDependencyGraph {
       }
 
       for (const nodeId of affected) {
+        if (options.signal?.aborted) refuse("FADENO_ANALYZER_GRAPH_CANCELLED");
         const definition = nextDefinitions.get(nodeId)!;
         const owner = documents.get(definition.ownerUri)!;
         const dependencyResults = definition.dependencies.map((dependency) => {
@@ -443,12 +446,14 @@ export class AnalyzerDependencyGraph {
           computed = definition.compute(frozen({
             owner: frozen({ uri: owner.uri, path: owner.path, text: owner.effective.text }),
             dependencies: frozen(dependencyResults.map((result) => frozen({ id: result.id, value: result.value }))),
+            signal: options.signal ?? null,
             emitArtifact,
           }));
         } catch (error) {
           if (error instanceof GraphRefusal) throw error;
           refuse("FADENO_ANALYZER_GRAPH_COMPUTE");
         }
+        if (options.signal?.aborted) refuse("FADENO_ANALYZER_GRAPH_CANCELLED");
         artifacts.sort((left, right) => compareText(left.id, right.id));
         const sourceOrigins = [primaryOrigin, ...related];
         const provenance = frozen({

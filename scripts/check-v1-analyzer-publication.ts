@@ -181,6 +181,37 @@ try {
   assert.equal(cancelledHandle.signal.aborted, true);
   assert.equal(session.currentPublicationSnapshot, recovery.snapshot);
 
+  let runningHandle!: ReturnType<AnalyzerSession["startPublication"]>;
+  let runningRootCalls = 0;
+  let runningPageCalls = 0;
+  const cancelledDuringGraphDefinitions = definitions.map((definition) => definition.id === "route:root"
+    ? {
+      ...definition,
+      definitionVersion: 4,
+      compute: (context: AnalyzerGraphComputeContext) => {
+        runningRootCalls += 1;
+        runningHandle.cancel();
+        return rootCompute(context);
+      },
+    }
+    : {
+      ...definition,
+      definitionVersion: 4,
+      compute: (context: AnalyzerGraphComputeContext) => {
+        runningPageCalls += 1;
+        return pageCompute(context);
+      },
+    });
+  runningHandle = session.startPublication({
+    definitions: cancelledDuringGraphDefinitions,
+    requestedFacets,
+    materialize: () => successContributions,
+  });
+  assert.equal((await runningHandle.result).status, "cancelled");
+  assert.equal(runningRootCalls, 1, "running graph cancellation did not reach the active node");
+  assert.equal(runningPageCalls, 0, "running graph cancellation executed a downstream node");
+  assert.equal(session.currentPublicationSnapshot, recovery.snapshot);
+
   const obsoleteGate = deferred<readonly AnalyzerFacetContribution[]>();
   const obsoleteHandle = session.startPublication({ definitions, requestedFacets, materialize: () => obsoleteGate.promise });
   const currentHandle = session.startPublication({ definitions, requestedFacets, materialize: () => successContributions });
@@ -246,6 +277,30 @@ try {
   const fixture = normalize(errored.snapshot);
   const expected = JSON.parse(readFileSync(new URL("../fixtures/v1-analyzer/publication-recovery.normalized.json", import.meta.url), "utf8"));
   assert.deepEqual(fixture, expected);
+
+  const prefixArtifactDefinitions = definitions.map((definition) => definition.id === "route:page"
+    ? { ...definition, definitionVersion: 5, compute: compute("page-prefix", ["artifact:a", "artifact:a-b"]) }
+    : definition);
+  assert.equal((await session.startPublication({
+    definitions: prefixArtifactDefinitions,
+    requestedFacets,
+    materialize: () => successContributions,
+  }).result).status, "published");
+  const prefixRecovery = await session.startPublication({
+    definitions,
+    requestedFacets,
+    materialize: () => successContributions,
+  }).result;
+  assert.equal(prefixRecovery.status, "published");
+  assert.deepEqual(prefixRecovery.snapshot.removedArtifacts.filter(({ id }) => id.startsWith("artifact:a")), [
+    { id: "artifact:a-b", path: ".fadeno/a-b.json", ownerNodeId: "route:page" },
+    { id: "artifact:a", path: ".fadeno/a.json", ownerNodeId: "route:page" },
+  ]);
+  const serializedPrefixRecovery = serializeAnalyzerPublicationSnapshot(prefixRecovery.snapshot);
+  assert.equal(
+    serializeAnalyzerPublicationSnapshot(deserializeAnalyzerPublicationSnapshot(serializedPrefixRecovery)),
+    serializedPrefixRecovery,
+  );
   console.log("V1 analyzer B4 passed (atomic replacement, recovery, cancellation, supersession, stale suppression)");
 } finally {
   rmSync(root, { recursive: true, force: true });
