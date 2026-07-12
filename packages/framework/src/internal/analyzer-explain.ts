@@ -225,7 +225,7 @@ export class AnalyzerExplainCoordinator {
       return null;
     };
     let stopped = terminal();
-    if (stopped) return stopped;
+    if (stopped) return this.#finish(ticket, stopped);
     const publication = ticket.authority.publication;
     if (!publication) return this.#finish(ticket, frozen({ status: "refused" as const, identity, code: "FADENO_ANALYZER_EXPLAIN_PUBLICATION" }));
     if (request.detail === "deep" && request.activateDeep !== true || request.detail === "semantic" && request.activateDeep === true) {
@@ -233,12 +233,14 @@ export class AnalyzerExplainCoordinator {
     }
     const bounded = budgets(request.budgets);
     if (!bounded) return this.#finish(ticket, frozen({ status: "refused" as const, identity, code: "FADENO_ANALYZER_EXPLAIN_BUDGET" }));
-    const collected = Promise.resolve(request.collect(frozen({
+    const collectionContext = frozen({
       publication,
       detail: request.detail,
       budgets: bounded,
       signal: ticket.controller.signal,
-    }))).then(
+    });
+    const startedAt = performance.now();
+    const collected = Promise.resolve().then(() => request.collect(collectionContext)).then(
       (value) => ({ kind: "collected" as const, value }),
       () => ({ kind: "failed" as const }),
     );
@@ -253,9 +255,11 @@ export class AnalyzerExplainCoordinator {
     const outcome = await Promise.race([collected, aborted, duration]);
     if (durationTimer !== undefined) clearTimeout(durationTimer);
     stopped = terminal();
-    if (stopped) return stopped;
-    if (outcome.kind !== "collected" || !Array.isArray(outcome.value)) {
-      if (outcome.kind === "duration") {
+    if (stopped) return this.#finish(ticket, stopped);
+    const durationExpired = outcome.kind === "duration" || performance.now() - startedAt >= bounded.durationMs;
+    if (durationExpired || outcome.kind !== "collected" || !Array.isArray(outcome.value)) {
+      if (durationExpired) {
+        ticket.controller.abort(new DOMException("Duration limit", "TimeoutError"));
         return this.#finish(ticket, frozen({
           status: "partial" as const, identity,
           detail: request.detail, budgets: bounded, contributions: frozen([]), completeness: "partial" as const,

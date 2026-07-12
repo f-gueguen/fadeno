@@ -178,6 +178,26 @@ try {
     const serialized = serializeAnalyzerExplainResult(durationLimited);
     assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serialized)), serialized);
   }
+  let durationSignal: AbortSignal | undefined;
+  const cooperativeDuration = await session.startExplain({
+    detail: "semantic", budgets: { durationMs: 1 },
+    collect: ({ signal }) => {
+      durationSignal = signal;
+      return new Promise((resolve) => setTimeout(() => resolve(routeContribution), 20));
+    },
+  }).result;
+  assert.equal(cooperativeDuration.status, "partial");
+  assert.equal(durationSignal?.aborted, true);
+  const synchronousDuration = await session.startExplain({
+    detail: "semantic", budgets: { durationMs: 1 },
+    collect: () => {
+      const start = performance.now();
+      while (performance.now() - start < 5) { /* trusted module work is measured even when synchronous */ }
+      return routeContribution;
+    },
+  }).result;
+  assert.equal(synchronousDuration.status, "partial");
+  if (synchronousDuration.status === "partial") assert.equal(synchronousDuration.truncation, "duration");
   assert.equal(constructionCalls, callsAfterPublication);
   assert.equal(session.currentPublicationSnapshot, publication);
 
@@ -339,6 +359,10 @@ try {
   assert.equal(failed.status, "refused");
   const serializedFailed = serializeAnalyzerExplainResult(failed);
   assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedFailed)), serializedFailed);
+  const synchronousFailure = await session.startExplain({
+    detail: "semantic", collect: () => { throw new Error("private synchronous failure"); },
+  }).result;
+  assert.equal(synchronousFailure.status, "refused");
   for (const mutate of [
     (value: any) => { value.result.identity.requestedFacets = []; },
     (value: any) => { value.result.identity.documentVersions[0].version = -1; },

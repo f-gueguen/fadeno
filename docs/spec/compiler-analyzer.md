@@ -467,7 +467,11 @@ mode does not invoke a collector. A newer explain supersedes prior work;
 document, configuration, or publication work invalidates it; cancellation races
 late asynchronous collection without changing graph, diagnostic, artifact, or
 correction state. Deep collection requires an explicit activation flag and
-explicitly bounded budgets.
+explicitly bounded budgets. Duration expiry aborts the collection signal and
+returns partial evidence; elapsed synchronous module work is measured before a
+result may be accepted, while cooperative cancellation remains the module
+boundary rather than hostile synchronous preemption. Collector failures,
+including synchronous throws, become atomic refusals.
 
 The first module-owned projector is the independently versioned
 `fadeno.routes.explain` contribution. It derives semantic decisions, contained
