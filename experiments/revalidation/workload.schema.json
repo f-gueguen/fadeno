@@ -3,7 +3,7 @@
   "$id": "https://fadeno.dev/schemas/experiment/revalidation-workload-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["$schema", "schemaVersion", "visibility", "seed", "authentication", "dataset", "resources", "pageReads", "mutation", "paths", "comparison", "unsafeKeeps", "qualificationProfile"],
+  "required": ["$schema", "schemaVersion", "visibility", "seed", "authentication", "dataset", "resources", "pageReads", "identityControls", "mutation", "paths", "comparison", "unsafeKeeps", "qualificationProfile"],
   "properties": {
     "$schema": { "const": "https://fadeno.dev/schemas/experiment/revalidation-workload-v1.json" },
     "schemaVersion": { "const": 1 },
@@ -15,25 +15,34 @@
       "type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true,
       "items": { "enum": ["activity", "notifications", "permissions", "profile", "projects", "tasks"] }
     },
-    "pageReads": {
-      "type": "array", "minItems": 9, "maxItems": 9,
-      "items": { "enum": ["activity", "notifications", "permissions", "profile", "projects", "tasks"] }
-    },
+    "pageReads": { "const": [
+      { "resource": "profile", "input": { "view": "self" } },
+      { "resource": "projects", "input": { "limit": 32, "order": "rank" } },
+      { "resource": "tasks", "input": { "view": "all" } },
+      { "resource": "activity", "input": { "limit": 8 } },
+      { "resource": "notifications", "input": { "status": "unread" } },
+      { "resource": "permissions", "input": { "action": "complete-task" } },
+      { "resource": "profile", "input": { "view": "self" } },
+      { "resource": "projects", "input": { "order": "rank", "limit": 32 } },
+      { "resource": "tasks", "input": { "view": "all" } }
+    ] },
+    "identityControls": { "const": {
+      "resource": "tasks",
+      "equivalentInputs": [
+        { "view": "all", "filters": { "completed": false, "owner": "self" } },
+        { "filters": { "owner": "self", "completed": false }, "view": "all" }
+      ],
+      "distinctInput": { "view": "archived", "filters": { "completed": true, "owner": "self" } }
+    } },
     "mutation": { "const": { "id": "complete-task", "affectedResource": "tasks", "rowId": 4242 } },
     "paths": { "const": ["success", "expected-error"] },
     "comparison": { "const": { "strategy": "canonical-tagged-json-v1", "handles": ["value", "expected-error", "ordering"], "refuses": ["non-cacheable"] } },
-    "unsafeKeeps": {
-      "type": "array", "minItems": 4, "maxItems": 4,
-      "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["id", "class", "declaredResource"],
-        "properties": {
-          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
-          "class": { "enum": ["value", "expected-error", "ordering", "non-cacheable"] },
-          "declaredResource": { "enum": ["activity", "notifications", "permissions", "profile", "projects", "tasks"] }
-        }
-      }
-    },
+    "unsafeKeeps": { "const": [
+      { "id": "keeps-mutated-task-value", "class": "value", "declaredResource": "tasks" },
+      { "id": "keeps-error-transition", "class": "expected-error", "declaredResource": "permissions" },
+      { "id": "keeps-reordered-projects", "class": "ordering", "declaredResource": "projects" },
+      { "id": "keeps-non-cacheable-activity", "class": "non-cacheable", "declaredResource": "activity" }
+    ] },
     "qualificationProfile": { "const": { "correctnessCycles": 10000, "warmupActions": 100, "measuredActions": 1000, "memoryCycles": 10000, "randomSeed": "fadeno-k0-h4-cycles-v1", "defaultToSelectiveP95MaximumRatio": 2, "defaultP95MaximumMilliseconds": 300, "memoryGrowthMaximumRatio": 0.1 } }
   }
 }

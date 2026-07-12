@@ -26,9 +26,11 @@ K0-09 — establish the private authenticated CRUD/revalidation benchmark
   longer blocks the independent H4 harness slice.
 - K0-09 begins from the accepted correctness-first direction in ADR 0006 and
   keeps the benchmark API private rather than defining V1 resource syntax.
-- The locked harness executes 10,000 rows, six unique/nine total page reads,
-  default and selective revalidation, success/error paths, and 4/4 unsafe
-  `keeps` detections; K0-10 counts and thresholds are frozen before measurement.
+- The locked harness executes 10,000 rows, six unique/nine total input-bearing
+  page reads, equivalent/distinct identity controls, manifest-driven default
+  and selective revalidation, rendered freshness and stale-output controls,
+  success/error paths, and 4/4 declared-resource unsafe `keeps` detections;
+  K0-10 counts and thresholds are frozen before measurement.
 
 ## Blockers
 

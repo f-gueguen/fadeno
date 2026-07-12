@@ -13,5 +13,7 @@ qualification and immutable results. All runs use the central
 and thresholds in the [K0 plan](../../docs/roadmap/k0.md).
 
 K0-09's deterministic workload is a private evidence ABI. Resource IDs,
-comparison tags, authentication records, and the selective baseline are not
-public V1 syntax or exports.
+typed resource inputs, comparison tags, authentication records, and the
+selective baseline are not public V1 syntax or exports. Equivalent inputs are
+canonicalized for request-local identity; unsupported input/result values are
+conservatively refused rather than compared through lossy serialization.

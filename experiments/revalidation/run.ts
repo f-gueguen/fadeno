@@ -7,8 +7,9 @@ if (args.length === 1 && args[0] === "--list") {
   process.stdout.write(stableRevalidationContract());
 } else if (args.length === 1 && args[0] === "--verify-harness") {
   try {
-    const { executeRevalidationHarness } = await import("./harness.ts");
+    const { assertRevalidationHarnessReport, executeRevalidationHarness } = await import("./harness.ts");
     const report = executeRevalidationHarness();
+    assertRevalidationHarnessReport(report);
     console.log(`revalidation harness passed (${report.rows} rows, ${report.unsafeKeepsDetected}/${report.unsafeKeepsTotal} unsafe keeps)`);
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : String(error));

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import Ajv2020Module from "ajv/dist/2020.js";
 
+import { resourceIdentityKey } from "../experiments/revalidation/benchmark.ts";
 import { REVALIDATION_RESOURCE_IDS, loadRevalidationWorkload, stableRevalidationContract } from "../experiments/revalidation/contract.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -19,13 +20,15 @@ const validateBaselines = new Ajv2020({ allErrors: true, strict: true }).compile
 if (!validateBaselines(baselines)) throw new Error(`FADENO_REVALIDATION_BASELINE_SCHEMA:${JSON.stringify(validateBaselines.errors)}`);
 const workload = loadRevalidationWorkload();
 if (JSON.stringify([...workload.resources].sort()) !== JSON.stringify(REVALIDATION_RESOURCE_IDS)) throw new Error("FADENO_REVALIDATION_RESOURCES");
-const counts = new Map(REVALIDATION_RESOURCE_IDS.map((id) => [id, workload.pageReads.filter((value) => value === id).length]));
+const counts = new Map(REVALIDATION_RESOURCE_IDS.map((id) => [id, workload.pageReads.filter(({ resource }) => resource === id).length]));
 if (workload.pageReads.length !== 9 || [...counts.values()].filter((count) => count === 2).length !== 3 || [...counts.values()].some((count) => count < 1 || count > 2)) {
   throw new Error("FADENO_REVALIDATION_READS");
 }
+const uniqueIdentities = new Set(workload.pageReads.map(({ resource, input }) => resourceIdentityKey(resource, input)));
+if (uniqueIdentities.size !== 6) throw new Error("FADENO_REVALIDATION_IDENTITIES");
 if (workload.dataset.rowCount < 10_000 || workload.mutation.affectedResource !== "tasks") throw new Error("FADENO_REVALIDATION_DATASET");
-const classes = workload.unsafeKeeps.map((item) => item.class).sort();
-if (JSON.stringify(classes) !== JSON.stringify(["expected-error", "non-cacheable", "ordering", "value"])) throw new Error("FADENO_REVALIDATION_KEEPS_CLASSES");
+const unsafeKeeps = workload.unsafeKeeps.map(({ class: comparisonClass, declaredResource }) => `${comparisonClass}:${declaredResource}`).sort();
+if (JSON.stringify(unsafeKeeps) !== JSON.stringify(["expected-error:permissions", "non-cacheable:activity", "ordering:projects", "value:tasks"])) throw new Error("FADENO_REVALIDATION_KEEPS_BINDINGS");
 const listing = stableRevalidationContract();
 if (listing.includes(workload.authentication.secretCanary) || !listing.includes('"secretCanary":"[redacted]"')) throw new Error("FADENO_REVALIDATION_SECRET_DISCLOSURE");
 if (listing !== readFileSync(join(experiment, "contract.golden.json"), "utf8")) throw new Error("FADENO_REVALIDATION_CONTRACT_DRIFT");

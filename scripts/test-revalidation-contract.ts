@@ -9,11 +9,12 @@ const schema = JSON.parse(readFileSync(join(root, "experiments/revalidation/work
 type MutableWorkload = {
   dataset: { rowCount: number };
   resources: string[];
-  pageReads: string[];
+  pageReads: unknown[];
+  identityControls: { resource: string; distinctInput: Record<string, unknown> };
   mutation: { affectedResource: string };
   paths: string[];
   comparison: { refuses: string[] };
-  unsafeKeeps: unknown[];
+  unsafeKeeps: { declaredResource: string }[];
   authentication: { extra?: boolean };
   qualificationProfile: { measuredActions: number };
 };
@@ -26,10 +27,12 @@ const mutations: readonly ((value: MutableWorkload) => void)[] = [
   (value) => { value.dataset.rowCount = 9999; },
   (value) => { value.resources.pop(); },
   (value) => { value.pageReads.pop(); },
+  (value) => { value.identityControls.resource = "projects"; },
   (value) => { value.mutation.affectedResource = "profile"; },
   (value) => { value.paths = ["success"]; },
   (value) => { value.comparison.refuses = []; },
   (value) => { value.unsafeKeeps.pop(); },
+  (value) => { value.unsafeKeeps[0]!.declaredResource = "profile"; },
   (value) => { value.authentication.extra = true; },
   (value) => { value.qualificationProfile.measuredActions = 100; },
 ];

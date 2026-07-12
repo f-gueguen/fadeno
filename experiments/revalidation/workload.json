@@ -10,7 +10,25 @@
   },
   "dataset": { "rowCount": 10000, "generator": "deterministic-row-v1" },
   "resources": ["activity", "notifications", "permissions", "profile", "projects", "tasks"],
-  "pageReads": ["profile", "projects", "tasks", "activity", "notifications", "permissions", "profile", "projects", "tasks"],
+  "pageReads": [
+    { "resource": "profile", "input": { "view": "self" } },
+    { "resource": "projects", "input": { "limit": 32, "order": "rank" } },
+    { "resource": "tasks", "input": { "view": "all" } },
+    { "resource": "activity", "input": { "limit": 8 } },
+    { "resource": "notifications", "input": { "status": "unread" } },
+    { "resource": "permissions", "input": { "action": "complete-task" } },
+    { "resource": "profile", "input": { "view": "self" } },
+    { "resource": "projects", "input": { "order": "rank", "limit": 32 } },
+    { "resource": "tasks", "input": { "view": "all" } }
+  ],
+  "identityControls": {
+    "resource": "tasks",
+    "equivalentInputs": [
+      { "view": "all", "filters": { "completed": false, "owner": "self" } },
+      { "filters": { "owner": "self", "completed": false }, "view": "all" }
+    ],
+    "distinctInput": { "view": "archived", "filters": { "completed": true, "owner": "self" } }
+  },
   "mutation": { "id": "complete-task", "affectedResource": "tasks", "rowId": 4242 },
   "paths": ["success", "expected-error"],
   "comparison": {

@@ -1,5 +1,17 @@
-import { loadRevalidationWorkload, REVALIDATION_RESOURCE_IDS } from "./contract.ts";
-import { compareResourceResults, completeTask, createState, renderPage, revalidateDefault, revalidateSelective, type ResourceResult } from "./benchmark.ts";
+import { loadRevalidationBaselines, loadRevalidationWorkload, REVALIDATION_RESOURCE_IDS } from "./contract.ts";
+import {
+  buildUnsafeKeepsControls,
+  compareResourceResults,
+  completeTask,
+  createState,
+  observableTaskTarget,
+  renderPage,
+  RequestScope,
+  resourceIdentityKey,
+  revalidateDefault,
+  revalidateSelective,
+  type ResourceResult,
+} from "./benchmark.ts";
 
 export type RevalidationHarnessReport = Readonly<{
   rows: number;
@@ -7,73 +19,109 @@ export type RevalidationHarnessReport = Readonly<{
   pageReads: number;
   duplicateReads: number;
   deduplicationPass: boolean;
+  equivalentInputDeduplicationPass: boolean;
+  distinctInputIsolationPass: boolean;
   successPathPass: boolean;
+  observableMutationPass: boolean;
+  staleControlRejected: boolean;
   failurePathPass: boolean;
   defaultRevalidationPass: boolean;
   selectiveBaselinePass: boolean;
   unsafeKeepsDetected: number;
   unsafeKeepsTotal: number;
   diagnostics: readonly string[];
-  secretDisclosed: boolean;
+  sensitiveValuesDisclosed: boolean;
 }>;
 
 function allOnce(executions: Readonly<Record<string, number>>): boolean {
   return REVALIDATION_RESOURCE_IDS.every((id) => executions[id] === 1);
 }
 
+function observableTaskTransition(before: ResourceResult | undefined, after: ResourceResult | undefined): boolean {
+  return observableTaskTarget(before) === false && observableTaskTarget(after) === true;
+}
+
+export function assertRevalidationHarnessReport(report: RevalidationHarnessReport): void {
+  if (
+    report.rows !== 10_000 || report.uniqueResources !== 6 || report.pageReads !== 9 || report.duplicateReads !== 3 ||
+    !report.deduplicationPass || !report.equivalentInputDeduplicationPass || !report.distinctInputIsolationPass ||
+    !report.successPathPass || !report.observableMutationPass || !report.staleControlRejected || !report.failurePathPass ||
+    !report.defaultRevalidationPass || !report.selectiveBaselinePass ||
+    report.unsafeKeepsDetected !== 4 || report.unsafeKeepsTotal !== 4 || report.sensitiveValuesDisclosed
+  ) throw new Error(`FADENO_REVALIDATION_HARNESS:${JSON.stringify(report)}`);
+}
+
 export function executeRevalidationHarness(): RevalidationHarnessReport {
   const workload = loadRevalidationWorkload();
+  const baselines = loadRevalidationBaselines();
   const state = createState(workload.dataset.rowCount);
   const auth = workload.authentication;
   const before = renderPage(state, auth, workload);
-  const targetBefore = state.tasks[workload.mutation.rowId]?.completed;
+  const targetBefore = observableTaskTarget(before.results.tasks);
   const success = completeTask(state, auth, workload.mutation.rowId);
-  const afterDefault = revalidateDefault(state, auth, workload);
-  const afterSelective = revalidateSelective(state, auth);
-  const targetAfter = state.tasks[workload.mutation.rowId]?.completed;
+  const afterDefault = revalidateDefault(state, auth, workload, baselines);
+  const afterSelective = revalidateSelective(state, auth, workload, baselines);
+  const targetAfter = observableTaskTarget(afterDefault.results.tasks);
+
+  const staleCandidate: ResourceResult = {
+    status: "value",
+    cacheable: true,
+    value: { completed: workload.dataset.rowCount, target: false },
+  };
+
+  const identityState = createState(workload.dataset.rowCount);
+  const identityScope = new RequestScope(identityState, auth);
+  const [equivalentLeft, equivalentRight] = workload.identityControls.equivalentInputs;
+  identityScope.read(workload.identityControls.resource, equivalentLeft);
+  identityScope.read(workload.identityControls.resource, equivalentRight);
+  const equivalentExecutions = identityScope.executions()[workload.identityControls.resource];
+  identityScope.read(workload.identityControls.resource, workload.identityControls.distinctInput);
+  const distinctExecutions = identityScope.executions()[workload.identityControls.resource];
 
   const failureState = createState(workload.dataset.rowCount);
   const revisionBeforeFailure = failureState.revision;
   const denied = completeTask(failureState, { ...auth, principalId: "unauthorized" }, workload.mutation.rowId);
 
   const diagnostics: string[] = [];
-  const comparisons = new Map<string, readonly [ResourceResult, ResourceResult]>([
-    ["value", [before.results.tasks, afterDefault.results.tasks]],
-    ["expected-error", [before.results.permissions, { status: "expected-error", cacheable: true, code: "not-authorized" }]],
-    ["ordering", [
-      { status: "value", cacheable: true, value: [1, 2, 3] },
-      { status: "value", cacheable: true, value: [3, 2, 1] },
-    ]],
-    ["non-cacheable", [before.results.activity, afterDefault.results.activity]],
-  ]);
+  const comparisons = buildUnsafeKeepsControls(workload);
   for (const unsafe of workload.unsafeKeeps) {
-    const pair = comparisons.get(unsafe.class);
-    if (!pair) throw new Error(`FADENO_REVALIDATION_UNKNOWN_KEEP_CLASS:${unsafe.class}`);
+    const pair = comparisons.get(unsafe.declaredResource);
+    if (!pair) throw new Error(`FADENO_REVALIDATION_UNKNOWN_KEEP_RESOURCE:${unsafe.declaredResource}`);
     const comparison = compareResourceResults(pair[0], pair[1]);
     if (comparison === "changed" || comparison === "refused") diagnostics.push(`FADENO_REVALIDATION_UNSAFE_KEEP:${unsafe.id}:${unsafe.class}`);
   }
 
-  const duplicateReads = workload.pageReads.length - new Set(workload.pageReads).size;
+  const duplicateReads = workload.pageReads.length - new Set(
+    workload.pageReads.map(({ resource, input }) => resourceIdentityKey(resource, input)),
+  ).size;
   const unchangedResources = ["notifications", "permissions", "profile", "projects"] as const;
+  const sensitiveValues = [auth.secretCanary, auth.principalId, auth.tenantId];
   return {
     rows: state.tasks.length,
     uniqueResources: workload.resources.length,
     pageReads: workload.pageReads.length,
     duplicateReads,
     deduplicationPass: allOnce(before.executions) && allOnce(afterDefault.executions),
+    equivalentInputDeduplicationPass: equivalentExecutions === 1,
+    distinctInputIsolationPass: distinctExecutions === 2,
     successPathPass: success.status === "success" && targetBefore === false && targetAfter === true && state.revision === 1,
-    failurePathPass: denied.status === "expected-error" && denied.code === "not-authorized" && failureState.revision === revisionBeforeFailure && failureState.tasks[workload.mutation.rowId]?.completed === false,
+    observableMutationPass:
+      observableTaskTransition(before.results.tasks, afterDefault.results.tasks) &&
+      observableTaskTransition(before.results.tasks, afterSelective.results.tasks),
+    staleControlRejected: !observableTaskTransition(before.results.tasks, staleCandidate),
+    failurePathPass: denied.status === "expected-error" && denied.code === "not-authorized" && failureState.revision === revisionBeforeFailure && observableTaskTarget(renderPage(failureState, auth, workload).results.tasks) === false,
     defaultRevalidationPass:
       compareResourceResults(before.results.tasks, afterDefault.results.tasks) === "changed" &&
       unchangedResources.every((id) => compareResourceResults(before.results[id], afterDefault.results[id]) === "equal") &&
       REVALIDATION_RESOURCE_IDS.every((id) => afterDefault.results[id] !== undefined),
     selectiveBaselinePass:
       afterSelective.executions.tasks === 1 &&
+      afterSelective.results.tasks !== undefined &&
       compareResourceResults(afterSelective.results.tasks, afterDefault.results.tasks) === "equal" &&
       REVALIDATION_RESOURCE_IDS.filter((id) => id !== "tasks").every((id) => afterSelective.executions[id] === 0),
     unsafeKeepsDetected: diagnostics.length,
     unsafeKeepsTotal: workload.unsafeKeeps.length,
     diagnostics,
-    secretDisclosed: diagnostics.some((diagnostic) => diagnostic.includes(auth.secretCanary)),
+    sensitiveValuesDisclosed: diagnostics.some((diagnostic) => sensitiveValues.some((value) => diagnostic.includes(value))),
   };
 }

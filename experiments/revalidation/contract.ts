@@ -5,6 +5,14 @@ import { fileURLToPath } from "node:url";
 
 export const REVALIDATION_RESOURCE_IDS = ["activity", "notifications", "permissions", "profile", "projects", "tasks"] as const;
 export type RevalidationResourceId = typeof REVALIDATION_RESOURCE_IDS[number];
+export type RevalidationInput = Readonly<Record<string, unknown>>;
+export type RevalidationRead = Readonly<{ resource: RevalidationResourceId; input: RevalidationInput }>;
+export type RevalidationBaselines = Readonly<{
+  schemaVersion: 1;
+  visibility: "private-harness-control";
+  default: Readonly<{ mode: "correctness-first"; revalidates: typeof REVALIDATION_RESOURCE_IDS }>;
+  selective: Readonly<{ mode: "comparison-only"; revalidates: readonly ["tasks"]; publicApi: false }>;
+}>;
 export type RevalidationWorkload = Readonly<{
   schemaVersion: 1;
   visibility: "private-harness-control";
@@ -12,7 +20,12 @@ export type RevalidationWorkload = Readonly<{
   authentication: Readonly<{ principalId: string; tenantId: string; secretCanary: string }>;
   dataset: Readonly<{ rowCount: 10000; generator: "deterministic-row-v1" }>;
   resources: readonly RevalidationResourceId[];
-  pageReads: readonly RevalidationResourceId[];
+  pageReads: readonly RevalidationRead[];
+  identityControls: Readonly<{
+    resource: "tasks";
+    equivalentInputs: readonly [RevalidationInput, RevalidationInput];
+    distinctInput: RevalidationInput;
+  }>;
   mutation: Readonly<{ id: "complete-task"; affectedResource: "tasks"; rowId: 4242 }>;
   paths: readonly ["success", "expected-error"];
   comparison: Readonly<{ strategy: "canonical-tagged-json-v1"; handles: readonly string[]; refuses: readonly ["non-cacheable"] }>;
@@ -29,6 +42,10 @@ export function loadRevalidationWorkload(): RevalidationWorkload {
   return JSON.parse(readFileSync(join(root, "workload.json"), "utf8")) as RevalidationWorkload;
 }
 
+export function loadRevalidationBaselines(): RevalidationBaselines {
+  return JSON.parse(readFileSync(join(root, "baseline-manifests.json"), "utf8")) as RevalidationBaselines;
+}
+
 export function stableRevalidationContract(): string {
   const files = ["baseline-manifests.json", "baseline-manifests.schema.json", "workload.json", "workload.schema.json"];
   const workload = loadRevalidationWorkload();
@@ -40,7 +57,7 @@ export function stableRevalidationContract(): string {
       ...workload,
       authentication: { ...workload.authentication, secretCanary: "[redacted]" },
     },
-    baselines: JSON.parse(readFileSync(join(root, "baseline-manifests.json"), "utf8")),
+    baselines: loadRevalidationBaselines(),
     sources: files.map((path) => ({
       path,
       sha256: createHash("sha256").update(readFileSync(join(root, path))).digest("hex"),

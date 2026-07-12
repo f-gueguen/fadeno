@@ -1,20 +1,17 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { compareResourceResults, resourceIdentityKey } from "../experiments/revalidation/benchmark.ts";
+import {
+  assertRevalidationHarnessReport,
+  executeRevalidationHarness,
+  type RevalidationHarnessReport,
+} from "../experiments/revalidation/harness.ts";
 
-import { compareResourceResults } from "../experiments/revalidation/benchmark.ts";
-import { executeRevalidationHarness } from "../experiments/revalidation/harness.ts";
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const report = executeRevalidationHarness();
 const repeated = executeRevalidationHarness();
-if (
-  report.rows !== 10_000 || report.uniqueResources !== 6 || report.pageReads !== 9 || report.duplicateReads !== 3 ||
-  !report.deduplicationPass || !report.successPathPass || !report.failurePathPass ||
-  !report.defaultRevalidationPass || !report.selectiveBaselinePass ||
-  report.unsafeKeepsDetected !== 4 || report.unsafeKeepsTotal !== 4 || report.secretDisclosed
-) throw new Error(`FADENO_REVALIDATION_HARNESS:${JSON.stringify(report)}`);
+assertRevalidationHarnessReport(report);
 if (JSON.stringify(repeated) !== JSON.stringify(report)) throw new Error("FADENO_REVALIDATION_HARNESS_NONDETERMINISTIC");
+
+const cyclic: Record<string, unknown> = {};
+cyclic.self = cyclic;
 if (
   compareResourceResults(
     { status: "value", cacheable: true, value: { a: 1, b: 2 } },
@@ -31,10 +28,42 @@ if (
   compareResourceResults(
     { status: "value", cacheable: false, value: "one" },
     { status: "value", cacheable: false, value: "one" },
+  ) !== "refused" ||
+  compareResourceResults(
+    { status: "value", cacheable: true, value: new Map([["key", "value"]]) },
+    { status: "value", cacheable: true, value: new Map([["key", "value"]]) },
+  ) !== "refused" ||
+  compareResourceResults(
+    { status: "value", cacheable: true, value: cyclic },
+    { status: "value", cacheable: true, value: cyclic },
   ) !== "refused"
 ) throw new Error("FADENO_REVALIDATION_COMPARISON_CONTROLS");
-const manifests = JSON.parse(readFileSync(join(root, "experiments/revalidation/baseline-manifests.json"), "utf8"));
-if (manifests.default.revalidates.length !== 6 || JSON.stringify(manifests.selective.revalidates) !== '["tasks"]' || manifests.selective.publicApi !== false) {
-  throw new Error("FADENO_REVALIDATION_BASELINE_MANIFESTS");
+
+let unsupportedInputRefused = false;
+try {
+  resourceIdentityKey("tasks", { unsupported: new Map() });
+} catch (error: unknown) {
+  unsupportedInputRefused = error instanceof Error && error.message === "FADENO_REVALIDATION_UNSUPPORTED_INPUT:tasks";
 }
-console.log("revalidation harness passed (10000 rows, 6/9 deduplicated reads, 4/4 unsafe keeps)");
+if (!unsupportedInputRefused) throw new Error("FADENO_REVALIDATION_INPUT_REFUSAL");
+
+const failingReports: readonly RevalidationHarnessReport[] = [
+  { ...report, deduplicationPass: false },
+  { ...report, equivalentInputDeduplicationPass: false },
+  { ...report, distinctInputIsolationPass: false },
+  { ...report, observableMutationPass: false },
+  { ...report, staleControlRejected: false },
+  { ...report, unsafeKeepsDetected: 3 },
+  { ...report, sensitiveValuesDisclosed: true },
+];
+for (const candidate of failingReports) {
+  let rejected = false;
+  try {
+    assertRevalidationHarnessReport(candidate);
+  } catch (error: unknown) {
+    rejected = error instanceof Error && error.message.startsWith("FADENO_REVALIDATION_HARNESS:");
+  }
+  if (!rejected) throw new Error("FADENO_REVALIDATION_REPORT_MUTATION_ACCEPTED");
+}
+
+console.log("revalidation harness passed (10000 rows, input-aware 6/9 deduplicated reads, 4/4 resource-bound unsafe keeps)");
