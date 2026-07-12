@@ -59,7 +59,9 @@ While open, the overlay is authoritative. A saved-file notification updates the
 backing text without replacing the overlay; close reveals the latest backing
 text. Reopen creates a new lifetime identity and may restart its document
 version, so earlier-lifetime work cannot match it. Close carries the expected
-current open version.
+current open version and lifetime. Change and replacement operations also carry
+the lifetime; work queued for a closed lifetime is refused even when its
+version would otherwise be newer than the reopened document.
 
 Edit coordinates are zero-based JavaScript string code-unit offsets with half-open
 `[start, end)` ranges. A batch is applied in declared order to a temporary text,

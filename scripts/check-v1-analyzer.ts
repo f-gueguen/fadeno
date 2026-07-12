@@ -111,13 +111,13 @@ try {
   reference.epoch += 1;
   reference.overlay = "A--β";
   reference.version = 1;
-  const changed = accepted(session.change(documentPath, 1, [
+  const changed = accepted(session.change(documentPath, 1, 1, [
     { start: 0, end: 5, text: "A" },
     { start: 1, end: 3, text: "--" },
   ]));
   assertDocument(changed, "src/document.ts", reference);
 
-  refused(session, () => session.change(documentPath, 2, [
+  refused(session, () => session.change(documentPath, 1, 2, [
     { start: 0, end: 1, text: "valid-prefix" },
     { start: 999, end: 1000, text: "invalid-later-edit" },
   ]), "FADENO_ANALYZER_EDIT_RANGE");
@@ -126,28 +126,28 @@ try {
     [{ start: 2, end: 1, text: "reversed" }],
     [{ start: 0.5, end: 1, text: "fractional" }],
     [{ start: -1, end: 0, text: "negative" }],
-  ]) refused(session, () => session.change(documentPath, 2, edits), "FADENO_ANALYZER_EDIT_RANGE");
-  refused(session, () => session.change(documentPath, 1, []), "FADENO_ANALYZER_VERSION");
-  refused(session, () => session.change(documentPath, 0, []), "FADENO_ANALYZER_VERSION");
+  ]) refused(session, () => session.change(documentPath, 1, 2, edits), "FADENO_ANALYZER_EDIT_RANGE");
+  refused(session, () => session.change(documentPath, 1, 1, []), "FADENO_ANALYZER_VERSION");
+  refused(session, () => session.change(documentPath, 1, 0, []), "FADENO_ANALYZER_VERSION");
 
   reference.epoch += 1;
   reference.overlay = "\uFEFFline\r\n😀";
   reference.version = 2;
-  assertDocument(accepted(session.replace(documentPath, 2, reference.overlay)), "src/document.ts", reference);
-  refused(session, () => session.replace(documentPath, 2, "equal-version"), "FADENO_ANALYZER_VERSION");
+  assertDocument(accepted(session.replace(documentPath, 1, 2, reference.overlay)), "src/document.ts", reference);
+  refused(session, () => session.replace(documentPath, 1, 2, "equal-version"), "FADENO_ANALYZER_VERSION");
 
   reference.epoch += 1;
   reference.savedRevision += 1;
   const identicalSave = accepted(session.save(documentPath, reference.saved));
   assertDocument(identicalSave, "src/document.ts", reference);
 
-  refused(session, () => session.close(documentPath, 1), "FADENO_ANALYZER_CLOSE_VERSION");
+  refused(session, () => session.close(documentPath, 1, 1), "FADENO_ANALYZER_CLOSE_VERSION");
   reference.epoch += 1;
   delete reference.overlay;
   delete reference.version;
-  const closed = accepted(session.close(documentPath, 2));
+  const closed = accepted(session.close(documentPath, 1, 2));
   assertDocument(closed, "src/document.ts", reference);
-  refused(session, () => session.close(documentPath, 2), "FADENO_ANALYZER_DOCUMENT_CLOSED");
+  refused(session, () => session.close(documentPath, 1, 2), "FADENO_ANALYZER_DOCUMENT_CLOSED");
 
   reference.epoch += 1;
   reference.overlay = "restart\r\n寿";
@@ -158,21 +158,22 @@ try {
   assert.equal(closed.documents[0]?.open, null);
   assert.equal(reopened.documentVersions[0]?.lifetime, 2);
   refused(session, () => session.open(documentPath, 1, "duplicate"), "FADENO_ANALYZER_DOCUMENT_OPEN");
+  refused(session, () => session.change(documentPath, 1, 3, []), "FADENO_ANALYZER_LIFETIME");
 
   reference.epoch += 1;
   delete reference.overlay;
   delete reference.version;
-  assertDocument(accepted(session.close(documentPath, 0)), "src/document.ts", reference);
+  assertDocument(accepted(session.close(documentPath, 2, 0)), "src/document.ts", reference);
 
   const spacedOpen = accepted(session.open(spacedPath, 0, "overlay space"));
   assert.equal(spacedOpen.documents.find(({ path }) => path === "src/space name.ts")?.effective.text, "overlay space");
   refused(session, () => session.open(pathToFileURL(spacedPath).href.replace("space%20name", "space%20name"), 1, "alias"), "FADENO_ANALYZER_DOCUMENT_OPEN");
-  accepted(session.close(spacedPath, 0));
+  accepted(session.close(spacedPath, 1, 0));
 
   const newPath = join(root, "new", "nested.ts");
   const newOpen = accepted(session.open(newPath, 0, "new\r\nfile"));
   assert.equal(newOpen.documents.find(({ path }) => path === "new/nested.ts")?.effective.text, "new\r\nfile");
-  const newClosed = accepted(session.close(newPath, 0));
+  const newClosed = accepted(session.close(newPath, 1, 0));
   assert.equal(newClosed.documents.some(({ path }) => path === "new/nested.ts"), false);
 
   refused(session, () => session.open(join(otherRoot, "outside.ts"), 0, "outside"), "FADENO_ANALYZER_DOCUMENT_ESCAPE");

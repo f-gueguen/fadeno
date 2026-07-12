@@ -16,6 +16,7 @@ export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_DOCUMENT_ENCODING"
   | "FADENO_ANALYZER_DOCUMENT_OPEN"
   | "FADENO_ANALYZER_DOCUMENT_CLOSED"
+  | "FADENO_ANALYZER_LIFETIME"
   | "FADENO_ANALYZER_VERSION"
   | "FADENO_ANALYZER_CLOSE_VERSION"
   | "FADENO_ANALYZER_EDIT_RANGE"
@@ -163,10 +164,10 @@ export class AnalyzerSession {
     });
   }
 
-  change(document: string, version: number, edits: readonly AnalyzerTextEdit[]): AnalyzerOperationResult {
+  change(document: string, lifetime: number, version: number, edits: readonly AnalyzerTextEdit[]): AnalyzerOperationResult {
     return this.#operate("change", document, (owner) => {
       assertVersion(version);
-      const state = this.#requireOpen(owner);
+      const state = this.#requireOpen(owner, lifetime);
       if (version <= state.overlayVersion!) refuse("FADENO_ANALYZER_VERSION");
       if (!Array.isArray(edits)) refuse("FADENO_ANALYZER_EDIT_RANGE");
       let next = state.overlayText!;
@@ -182,21 +183,21 @@ export class AnalyzerSession {
     });
   }
 
-  replace(document: string, version: number, text: string): AnalyzerOperationResult {
+  replace(document: string, lifetime: number, version: number, text: string): AnalyzerOperationResult {
     return this.#operate("replace", document, (owner) => {
       assertVersion(version);
       assertText(text);
-      const state = this.#requireOpen(owner);
+      const state = this.#requireOpen(owner, lifetime);
       if (version <= state.overlayVersion!) refuse("FADENO_ANALYZER_VERSION");
       state.overlayText = text;
       state.overlayVersion = version;
     });
   }
 
-  close(document: string, version: number): AnalyzerOperationResult {
+  close(document: string, lifetime: number, version: number): AnalyzerOperationResult {
     return this.#operate("close", document, (owner) => {
       assertVersion(version);
-      const state = this.#requireOpen(owner);
+      const state = this.#requireOpen(owner, lifetime);
       if (version !== state.overlayVersion) refuse("FADENO_ANALYZER_CLOSE_VERSION");
       delete state.overlayText;
       delete state.overlayVersion;
@@ -231,11 +232,13 @@ export class AnalyzerSession {
     }
   }
 
-  #requireOpen(owner: string): DocumentState {
+  #requireOpen(owner: string, lifetime: number): DocumentState {
+    assertVersion(lifetime);
     const state = this.#documents.get(owner);
     if (!state || state.overlayVersion === undefined || state.overlayText === undefined || state.overlayLifetime === undefined) {
       refuse("FADENO_ANALYZER_DOCUMENT_CLOSED");
     }
+    if (lifetime !== state.overlayLifetime) refuse("FADENO_ANALYZER_LIFETIME");
     return state;
   }
 
