@@ -185,9 +185,12 @@ export class AnalyzerSession {
     );
     this.#explain = new AnalyzerExplainCoordinator(() => ({
       publication: this.#publication.currentSnapshot,
+      sessionId: this.#snapshot.sessionId,
       workspaceEpoch: this.#snapshot.workspaceEpoch,
       configurationEpoch: this.#configurationEpoch,
       configurationFingerprint: this.#configurationFingerprint,
+      root: this.#snapshot.ownership.root,
+      documentVersions: this.#snapshot.documentVersions,
     }));
   }
 

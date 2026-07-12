@@ -258,9 +258,14 @@ export function createRouteExplainContribution(
 ): AnalyzerFacetContribution {
   if (
     diagnostics && (
+      diagnostics.identity.sessionId !== publication.sessionId ||
       diagnostics.identity.operationId !== publication.operationId ||
       diagnostics.identity.workspaceEpoch !== publication.workspaceEpoch ||
-      diagnostics.identity.configurationEpoch !== publication.configurationEpoch
+      diagnostics.identity.configurationEpoch !== publication.configurationEpoch ||
+      diagnostics.identity.ownership.mode !== publication.ownership.mode ||
+      diagnostics.identity.ownership.root !== publication.ownership.root ||
+      diagnostics.identity.ownership.configurationFingerprint !== publication.ownership.configurationFingerprint ||
+      JSON.stringify(diagnostics.identity.documentVersions) !== JSON.stringify(publication.documentVersions)
     )
   ) throw new TypeError("FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS");
   const records: RouteExplainRecord[] = [];

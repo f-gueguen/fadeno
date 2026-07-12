@@ -464,6 +464,7 @@ required for correctness.
 V1-DX-B6 implements explain as a separate private read-only operation bound to
 the exact current publication and workspace/configuration authority. Disabled
 mode does not invoke a collector. A newer explain supersedes prior work;
+selecting disabled mode also supersedes and aborts prior explain work.
 document, configuration, or publication work invalidates it; cancellation races
 late asynchronous collection without changing graph, diagnostic, artifact, or
 correction state. Deep collection requires an explicit activation flag and
@@ -483,7 +484,7 @@ envelope remains open to later independently versioned module codecs rather
 than enumerating future framework concepts.
 
 The route module owns exact record keys and the only initial static kinds:
-decision, ownership, skipped work, static outcome, and deep forensic
+decision, diagnostic cause, ownership, skipped work, static outcome, and deep forensic
 provenance. Semantic mode refuses forensic records. Parent and causal
 identities are deterministic, same-contribution, acyclic, and bounded. Budget
 selection and depth include both parent and causal edges, so every retained
@@ -495,8 +496,9 @@ malformed or runtime-family evidence refuses atomically. Its private transport
 uses exact envelope keys and byte-stable round trips.
 
 The operation transport preserves analyzer and schema versions, operation,
-workspace and configuration epochs, requested facet, complete document-version
-set, publication identity, budgets, completeness, interruption, and truncation.
+session, workspace and configuration epochs, requested facet, complete
+document-version set, root and configuration ownership, publication identity,
+budgets, completeness, interruption, and truncation.
 Complete, limit-truncated, duration-truncated, and interrupted results round
 trip byte-stably. A contribution whose publication or detail identity differs
 from the operation refuses atomically. B6 accepts exactly the initial route

@@ -26,9 +26,12 @@ export interface AnalyzerExplainBudgets {
 
 export interface AnalyzerExplainAuthority {
   readonly publication: AnalyzerPublicationSnapshot | null;
+  readonly sessionId: string;
   readonly workspaceEpoch: number;
   readonly configurationEpoch: number;
   readonly configurationFingerprint: string;
+  readonly root: string;
+  readonly documentVersions: AnalyzerPublicationSnapshot["documentVersions"];
 }
 
 export interface AnalyzerExplainCollectionContext {
@@ -43,12 +46,18 @@ export interface AnalyzerExplainIdentity {
   readonly schemaVersion: 1;
   readonly operation: "explain";
   readonly operationId: string;
+  readonly sessionId: string;
   readonly workspaceEpoch: number;
   readonly configurationEpoch: number;
   readonly publicationOperationId: string | null;
   readonly publicationGeneration: number | null;
   readonly requestedFacets: readonly Readonly<{ namespace: typeof ROUTE_EXPLAIN_NAMESPACE }>[];
   readonly documentVersions: AnalyzerPublicationSnapshot["documentVersions"];
+  readonly ownership: Readonly<{
+    mode: "single-root";
+    root: string;
+    configurationFingerprint: string;
+  }>;
 }
 
 export type AnalyzerExplainRequest =
@@ -133,12 +142,18 @@ function explainIdentity(
     schemaVersion: 1 as const,
     operation: "explain" as const,
     operationId,
+    sessionId: authority.sessionId,
     workspaceEpoch: authority.workspaceEpoch,
     configurationEpoch: authority.configurationEpoch,
     publicationOperationId: authority.publication?.operationId ?? null,
     publicationGeneration: authority.publication?.publicationGeneration ?? null,
     requestedFacets: requested ? frozen([frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE })]) : frozen([]),
-    documentVersions: frozen([...(authority.publication?.documentVersions ?? [])]),
+    documentVersions: frozen([...authority.documentVersions]),
+    ownership: frozen({
+      mode: "single-root" as const,
+      root: authority.root,
+      configurationFingerprint: authority.configurationFingerprint,
+    }),
   });
 }
 
@@ -173,6 +188,10 @@ export class AnalyzerExplainCoordinator {
   }
 
   start(operationId: string, request: AnalyzerExplainRequest): AnalyzerExplainHandle {
+    if (this.#active?.state === "active") {
+      this.#active.state = "superseded";
+      this.#active.controller.abort(new DOMException("Superseded", "AbortError"));
+    }
     if (request.detail === "disabled") {
       const controller = new AbortController();
       const identity = explainIdentity(operationId, this.#authority(), false);
@@ -182,10 +201,6 @@ export class AnalyzerExplainCoordinator {
         result: Promise.resolve(frozen({ status: "disabled" as const, identity })),
         cancel: () => undefined,
       });
-    }
-    if (this.#active?.state === "active") {
-      this.#active.state = "superseded";
-      this.#active.controller.abort(new DOMException("Superseded", "AbortError"));
     }
     const ticket: Ticket = {
       operationId,
@@ -280,6 +295,13 @@ export class AnalyzerExplainCoordinator {
     } catch {
       return this.#finish(ticket, frozen({ status: "refused" as const, identity, code: "FADENO_ANALYZER_EXPLAIN_CONTRIBUTION" }));
     }
+    if (performance.now() - startedAt >= bounded.durationMs) {
+      ticket.controller.abort(new DOMException("Duration limit", "TimeoutError"));
+      return this.#finish(ticket, frozen({
+        status: "partial" as const, identity, detail: request.detail, budgets: bounded,
+        contributions: frozen([]), completeness: "partial" as const, truncation: "duration" as const,
+      }));
+    }
     const result = frozen({
       status: truncation === null ? "complete" as const : "partial" as const,
       identity,
@@ -331,12 +353,13 @@ function deepFreeze<T>(value: T): T {
 
 function validateSerializedIdentity(value: unknown, requested: boolean): AnalyzerExplainIdentity {
   const identity = exactRecord(value, [
-    "analyzerVersion", "schemaVersion", "operation", "operationId", "workspaceEpoch", "configurationEpoch",
-    "publicationOperationId", "publicationGeneration", "requestedFacets", "documentVersions",
+    "analyzerVersion", "schemaVersion", "operation", "operationId", "sessionId", "workspaceEpoch", "configurationEpoch",
+    "publicationOperationId", "publicationGeneration", "requestedFacets", "documentVersions", "ownership",
   ]);
   if (
     identity["analyzerVersion"] !== 1 || identity["schemaVersion"] !== 1 || identity["operation"] !== "explain" ||
     typeof identity["operationId"] !== "string" || identity["operationId"].length === 0 ||
+    typeof identity["sessionId"] !== "string" || identity["sessionId"].length === 0 ||
     !nonNegativeInteger(identity["workspaceEpoch"]) || !nonNegativeInteger(identity["configurationEpoch"]) ||
     !Array.isArray(identity["requestedFacets"]) || !Array.isArray(identity["documentVersions"])
   ) serializationRefuse();
@@ -353,13 +376,19 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
     const facet = exactRecord(requestedFacets[0], ["namespace"]);
     if (facet["namespace"] !== ROUTE_EXPLAIN_NAMESPACE) serializationRefuse();
   }
+  const ownership = exactRecord(identity["ownership"], ["mode", "root", "configurationFingerprint"]);
+  if (
+    ownership["mode"] !== "single-root" || typeof ownership["root"] !== "string" ||
+    !ownership["root"].startsWith("file:") || typeof ownership["configurationFingerprint"] !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(ownership["configurationFingerprint"])
+  ) serializationRefuse();
   let priorUri: string | undefined;
   for (const entry of identity["documentVersions"] as unknown[]) {
     const document = exactRecord(entry, ["uri", "version", "lifetime"]);
     if (
       typeof document["uri"] !== "string" || document["uri"].length === 0 ||
       !nonNegativeInteger(document["version"]) || !Number.isSafeInteger(document["lifetime"]) ||
-      (document["lifetime"] as number) < 0 || (priorUri !== undefined && priorUri >= document["uri"])
+      (document["lifetime"] as number) < 1 || (priorUri !== undefined && priorUri >= document["uri"])
     ) serializationRefuse();
     priorUri = document["uri"];
   }

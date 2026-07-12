@@ -86,6 +86,17 @@ try {
   assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedDisabled)), serializedDisabled);
   assert.equal(collectorCalls, 0);
 
+  const disabledSupersessionGate = deferred<readonly AnalyzerFacetContribution[]>();
+  const disabledSuperseded = session.startExplain({
+    detail: "deep", activateDeep: true, collect: () => disabledSupersessionGate.promise,
+  });
+  await Promise.resolve();
+  const disablesActive = await session.startExplain({ detail: "disabled" }).result;
+  assert.equal(disablesActive.status, "disabled");
+  assert.equal((await disabledSuperseded.result).status, "superseded");
+  assert.equal(disabledSuperseded.signal.aborted, true);
+  disabledSupersessionGate.resolve(routeContribution);
+
   for (const collect of [
     () => [],
     () => [routeContribution[0]!, routeContribution[0]!],
@@ -253,6 +264,8 @@ try {
   assert.equal(complete.identity.publicationGeneration, publication.publicationGeneration);
   assert.deepEqual(complete.identity.requestedFacets, [{ namespace: "fadeno.routes.explain" }]);
   assert.deepEqual(complete.identity.documentVersions, publication.documentVersions);
+  assert.equal(complete.identity.sessionId, publication.sessionId);
+  assert.deepEqual(complete.identity.ownership, publication.ownership);
   assert.deepEqual(complete.contributions, routeContribution);
   assert.equal(session.currentPublicationSnapshot, publication);
   assert.equal(constructionCalls, callsAfterPublication);
@@ -335,6 +348,19 @@ try {
     }],
     corrections: [], skippedWork: [{ id: "manifest-publication", causedByKeys: ["route-collision"] }],
   });
+  for (const mutate of [
+    (value: any) => { value.identity.sessionId = "different-session"; },
+    (value: any) => { value.identity.documentVersions[0].version += 1; },
+    (value: any) => { value.identity.ownership.root = "file:///different-root/"; },
+    (value: any) => { value.identity.ownership.configurationFingerprint = "f".repeat(64); },
+  ]) {
+    const mismatchedDiagnostics = JSON.parse(JSON.stringify(collisionDiagnostics));
+    mutate(mismatchedDiagnostics);
+    assert.throws(
+      () => createRouteExplainContribution(collisionPublication, mismatchedDiagnostics, "semantic"),
+      /FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS/u,
+    );
+  }
   const collisionFlow = await session.startExplain({
     detail: "semantic",
     collect: ({ publication: active }) => [createRouteExplainContribution(active, collisionDiagnostics, "semantic")],
@@ -393,6 +419,9 @@ try {
   for (const mutate of [
     (value: any) => { value.result.identity.requestedFacets = []; },
     (value: any) => { value.result.identity.documentVersions[0].version = -1; },
+    (value: any) => { value.result.identity.documentVersions[0].lifetime = 0; },
+    (value: any) => { value.result.identity.sessionId = ""; },
+    (value: any) => { value.result.identity.ownership.configurationFingerprint = "secret"; },
     (value: any) => { value.result.completeness = "partial"; },
     (value: any) => { value.result.contributions[0].value.publicationGeneration += 1; },
     (value: any) => { value.result.observedRuntime = true; },
