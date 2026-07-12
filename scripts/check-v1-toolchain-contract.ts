@@ -32,6 +32,12 @@ try {
   let invalidRejected = false;
   try { await executePrototype(invalid, "check"); } catch (error: unknown) { invalidRejected = error instanceof Error && error.message === "FADENO_TOOLCHAIN_CONFIG_EXPORTS"; }
   if (!invalidRejected) throw new Error("FADENO_TOOLCHAIN_CONFIG_MUTATION");
+  const unknown = join(root, "unknown");
+  mkdirSync(unknown);
+  writeFileSync(join(unknown, "fadeno.config.ts"), "export default { routes: './app' };\n");
+  let unknownRejected = false;
+  try { await executePrototype(unknown, "check"); } catch (error: unknown) { unknownRejected = error instanceof Error && error.message === "FADENO_TOOLCHAIN_CONFIG_SHAPE"; }
+  if (!unknownRejected) throw new Error("FADENO_TOOLCHAIN_UNKNOWN_FIELD");
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

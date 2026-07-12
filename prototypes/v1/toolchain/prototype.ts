@@ -75,11 +75,11 @@ export async function executePrototype(
   if (existsSync(output)) renameSync(output, previous);
   try {
     renameSync(pending, output);
-    rmSync(previous, { recursive: true, force: true });
   } catch (error: unknown) {
     if (existsSync(previous)) renameSync(previous, output);
     rmSync(pending, { recursive: true, force: true });
     throw error;
   }
+  rmSync(previous, { recursive: true, force: true });
   return manifest;
 }
