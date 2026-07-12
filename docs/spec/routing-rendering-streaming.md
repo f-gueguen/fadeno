@@ -1,8 +1,9 @@
 # Routing, rendering, streaming, and failures
 
 This specification defines required V1 behavior. ADR 0027 fixes filesystem and
-link construction syntax; ADR 0028 fixes rendering sink security. Renderer
-shape remains later work; ADR 0029 fixes streaming lifecycle behavior.
+link construction syntax; ADR 0028 fixes rendering sink security; ADR 0029
+fixes streaming lifecycle behavior; ADR 0031 fixes the narrow JSX renderer and
+generated route-binding boundary implemented by V1-09.
 
 ## Route model
 
@@ -65,7 +66,11 @@ application; no package-global route registration exists.
 
 ADR 0028 fixes the exact sink taxonomy, unsafe capability, URL XSS floor,
 prohibited CSS/RAWTEXT/foreign contexts, nonce ownership, and redaction limits.
-V1-09 owns the JSX renderer and real parser/CSP integration.
+ADR 0031 requires the JSX renderer to consume that implementation directly and
+adds real parser/CSP integration. Ordinary pages emit no executable framework
+markup and allocate no nonce; an integrated fixture separately proves the
+framework-owned executable-markup path without adding a no-op script to the
+canonical application.
 
 ## Streaming and boundaries
 
@@ -86,7 +91,9 @@ V1-09 owns the JSX renderer and real parser/CSP integration.
 
 ADR 0029 defines head publication, first-byte, boundary, deadline,
 backpressure, cancellation, and cleanup behavior. V1-09 consumes its unchanged
-private corpus when implementing the renderer and adapter integration.
+private corpus when implementing the renderer and adapter integration. A local
+dynamic slot remains unpublished until complete and sink-valid, and actual
+`Response` return is the head-publication boundary.
 
 ## Failure outcomes
 

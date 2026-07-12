@@ -60,6 +60,12 @@ workspace identifier is internal and non-publishable; it is not a registry
 decision. Later accepted contracts may extend the root without adding another
 way to perform the same job.
 
+ADR 0031 adds exactly `./jsx-runtime` for the standard automatic JSX transform
+and the minimum root rendering symbols demonstrated by V1-09. It adds no manual
+route registry. Private build output statically binds discovered route modules
+to the matched-route renderer and remains correlated with the generated route
+manifest.
+
 ## Adapter contract
 
 1. The core accepts standard `Request` and returns standard `Response` values

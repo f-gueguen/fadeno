@@ -58,6 +58,14 @@ mutation. Error and pending boundaries define local rendering outcomes. Raw
 request handlers are the explicit escape hatch for endpoints that do not fit
 the page and action model.
 
-Construction signatures and module paths remain unset until a vertical slice
-proves the semantic model. Names fixed by effective ADRs remain current
-decisions.
+ADR 0031 fixes the first construction boundary. Standard TypeScript's automatic
+JSX transform imports the package's `./jsx-runtime` subpath. Page and layout
+modules return opaque render nodes, promises of render nodes, or the narrow
+typed route outcomes accepted by that ADR. Pages receive the standard request,
+decoded route parameters, and cancellation signal; layouts additionally receive
+their child node. Generated application bindings, not authored route tables,
+connect those modules to the matched-route renderer.
+
+Resource, action, request-context extension, island, and client-interaction
+signatures remain unset until their vertical slices prove them. Names fixed by
+effective ADRs remain current decisions.
