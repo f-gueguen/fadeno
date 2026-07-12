@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "122ba574a5de78394ca375277c867378af0bd658",
+  "image": "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94",
+  "beforeHost": [
+    {
+      "cpuIdlePercent": 88.14,
+      "loadAveragePerLogicalCpu": 0.238,
+      "powerSource": "ac",
+      "thermalState": "no-warning"
+    },
+    {
+      "cpuIdlePercent": 88,
+      "loadAveragePerLogicalCpu": 0.238,
+      "powerSource": "ac",
+      "thermalState": "no-warning"
+    },
+    {
+      "cpuIdlePercent": 79.6,
+      "loadAveragePerLogicalCpu": 0.315,
+      "powerSource": "ac",
+      "thermalState": "no-warning"
+    }
+  ],
+  "afterHost": [
+    {
+      "cpuIdlePercent": 85.82,
+      "loadAveragePerLogicalCpu": 0.319,
+      "powerSource": "ac",
+      "thermalState": "no-warning"
+    },
+    {
+      "cpuIdlePercent": 85.29,
+      "loadAveragePerLogicalCpu": 0.318,
+      "powerSource": "ac",
+      "thermalState": "no-warning"
+    },
+    {
+      "cpuIdlePercent": 83.61,
+      "loadAveragePerLogicalCpu": 0.318,
+      "powerSource": "ac",
+      "thermalState": "no-warning"
+    }
+  ],
+  "beforeContainer": {
+    "nrPeriods": 168,
+    "nrThrottled": 0,
+    "oom": 0,
+    "oomKill": 0,
+    "pidsCurrent": 2,
+    "networkDisabled": true
+  },
+  "afterContainer": {
+    "nrPeriods": 284,
+    "nrThrottled": 6,
+    "oom": 0,
+    "oomKill": 0,
+    "pidsCurrent": 14,
+    "networkDisabled": true
+  },
+  "cpuThrottledRatio": 0.05172413793103448,
+  "proof": "type-spine qualification corpus passed (1000 routes, 800 parameterized, A:eb98472c8a9bfa5c1902fa2c127d0343be9e9dba27377453909441d26fbff421, B:3033291eb9cb6875ceca30b17e1fcc4829f9d86658af41ba5ceb3cde71da2037)\ntype-spine qualification contract passed (5 warmups, 20 samples, no result)\ntype-spine stock-tool controls passed (tsc + TypeScript 7 LSP, eb98472c8a9bfa5c1902fa2c127d0343be9e9dba27377453909441d26fbff421)\ntype-spine timing runner passed (fresh children, interleaved A/B smoke schedule)\ntype-spine qualification capability passed (no result or decision)",
+  "samples": [
+    {
+      "round": 0,
+      "cleanGeneratorNs": 63883667,
+      "stockTscNs": 192938667,
+      "incrementalGeneratorNs": 67252792,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 1,
+      "cleanGeneratorNs": 64555084,
+      "stockTscNs": 176793084,
+      "incrementalGeneratorNs": 62857333,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 2,
+      "cleanGeneratorNs": 63224875,
+      "stockTscNs": 175177916,
+      "incrementalGeneratorNs": 79841042,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 3,
+      "cleanGeneratorNs": 89684125,
+      "stockTscNs": 213741459,
+      "incrementalGeneratorNs": 65226667,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 4,
+      "cleanGeneratorNs": 63505666,
+      "stockTscNs": 174888583,
+      "incrementalGeneratorNs": 64495875,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 5,
+      "cleanGeneratorNs": 64687625,
+      "stockTscNs": 180302375,
+      "incrementalGeneratorNs": 65765917,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 6,
+      "cleanGeneratorNs": 64626250,
+      "stockTscNs": 178307916,
+      "incrementalGeneratorNs": 64042292,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 7,
+      "cleanGeneratorNs": 64213542,
+      "stockTscNs": 176088625,
+      "incrementalGeneratorNs": 70730833,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 8,
+      "cleanGeneratorNs": 73259084,
+      "stockTscNs": 174130876,
+      "incrementalGeneratorNs": 64745792,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 9,
+      "cleanGeneratorNs": 63334875,
+      "stockTscNs": 174893667,
+      "incrementalGeneratorNs": 63614917,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 10,
+      "cleanGeneratorNs": 62635250,
+      "stockTscNs": 173073458,
+      "incrementalGeneratorNs": 66516792,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 11,
+      "cleanGeneratorNs": 63179750,
+      "stockTscNs": 193227084,
+      "incrementalGeneratorNs": 79077833,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 12,
+      "cleanGeneratorNs": 68079875,
+      "stockTscNs": 174455291,
+      "incrementalGeneratorNs": 65120542,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 13,
+      "cleanGeneratorNs": 64413750,
+      "stockTscNs": 281178666,
+      "incrementalGeneratorNs": 78299000,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 14,
+      "cleanGeneratorNs": 71716166,
+      "stockTscNs": 192184792,
+      "incrementalGeneratorNs": 74614750,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 15,
+      "cleanGeneratorNs": 92524125,
+      "stockTscNs": 198845250,
+      "incrementalGeneratorNs": 69616667,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 16,
+      "cleanGeneratorNs": 100778334,
+      "stockTscNs": 223740376,
+      "incrementalGeneratorNs": 80886917,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 17,
+      "cleanGeneratorNs": 74886542,
+      "stockTscNs": 194808041,
+      "incrementalGeneratorNs": 79892292,
+      "incrementalVariant": "B-to-A"
+    },
+    {
+      "round": 18,
+      "cleanGeneratorNs": 67670583,
+      "stockTscNs": 195666459,
+      "incrementalGeneratorNs": 74856791,
+      "incrementalVariant": "A-to-B"
+    },
+    {
+      "round": 19,
+      "cleanGeneratorNs": 68874500,
+      "stockTscNs": 185500833,
+      "incrementalGeneratorNs": 67867875,
+      "incrementalVariant": "B-to-A"
+    }
+  ],
+  "toolchain": {
+    "node": "v22.14.0",
+    "pnpm": "11.7.0",
+    "typescript": "Version 7.0.2"
+  }
+}

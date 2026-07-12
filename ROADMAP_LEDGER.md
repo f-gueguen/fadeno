@@ -6,31 +6,27 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-08A — establish H3 qualification capability without collecting a result
+K0-08B — qualify H3 from exact merged K0-08A source `122ba57`
 
 ## Exit criteria
 
-- [x] ADR 0017 and a strict H3-only local Docker contract preserve the frozen
-  H1/H2 browser reference unchanged.
-- [x] An independently checked private 1,000-route corpus locks topology and
-  scalar coverage without choosing DG-V1-02 or DG-V1-05 syntax.
-- [x] Stock `tsc` and the TypeScript 7 LSP language server (the stock successor
-  to `tsserver`) prove exact valid/invalid diagnostics and generated-symbol
-  consumption.
-- [x] The runner locks clean and real A/B incremental generation, interleaved
-  no-retry timings, pre/postflight, p95 derivation, and decision projection.
-- [x] `pnpm ci:local` and `pnpm experiment:type-spine --
-  --verify-qualification` pass with no immutable H3 result or decision.
+- [x] Execute correctness and the locked 5/20 interleaved timing schedule from
+  exact clean merged K0-08A commit `122ba57` in the digest-pinned container.
+- [x] Capture passing host/container preflight and postflight observations with
+  no retries or relaxed limits.
+- [x] Publish raw samples, stock-tool evidence, exact source/corpus/toolchain
+  identities, derived p95 ratios, and the projected H3 decision.
+- [x] Add and accept the GO/NARROW/PIVOT ADR, update the hypothesis/experiment
+  ledgers, and verify all immutable evidence mutations.
+- [x] `pnpm ci:local` passes on the final evidence commit.
 
 ## In progress
 
-- The plan, H3-only reference boundary, and deterministic A/B corpus are locked
-  before runner implementation or qualification measurement.
-- Current host load is non-reference; K0-08A may implement verification but may
-  not publish a result.
-- The complete capability passes local CI and is awaiting independent PR
-  review; K0-08B remains prohibited until this slice is merged to canonical
-  `main`.
+- Exact merged source `122ba57` completed a reference-valid 20-sample run. ADR
+  0018 records NARROW: all correctness/stock-tool/clean-latency gates passed;
+  incremental/clean p95 was 0.863475 against the 0.25 maximum.
+- The immutable result, ADR, lifecycle transitions, and historical K0-07/K0-08A
+  guards pass local CI and await independent PR review.
 
 ## Blockers
 
@@ -80,3 +76,7 @@ K0-08A — establish H3 qualification capability without collecting a result
   stock-TypeScript type-generation harness with correlated route/link types,
   five valid and five invalid consumers, anti-fake controls, rollback recovery,
   and no public authoring syntax or H3 qualification claim.
+- K0-08A — Commit `122ba57` freezes the H3-only local Docker reference, exact
+  1,000-route A/B corpus, stock TypeScript 7 compiler/LSP controls, fresh-child
+  5/20 timing runner, pre/postflight and decision projections, and negative
+  mutations without publishing an H3 result or decision.

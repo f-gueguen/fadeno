@@ -1,0 +1,47 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/type-spine-qualification-result-v1.json",
+  "schemaVersion": 1,
+  "experiment": { "id": "type-spine", "hypothesis": "H3", "contractVersion": 1 },
+  "run": {
+    "id": "20260712T022123Z-122ba57-a1",
+    "attempt": 1,
+    "completedAt": "2026-07-12T02:21:23Z",
+    "status": "passed"
+  },
+  "source": {
+    "repository": "https://github.com/f-gueguen/fadeno",
+    "commit": "122ba574a5de78394ca375277c867378af0bd658",
+    "dirty": false
+  },
+  "environment": {
+    "referenceId": "k0-h3-local-docker-arm64-v1",
+    "image": "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94",
+    "networkPolicy": "network-disabled-during-proof-and-measurement",
+    "toolchain": { "node": "22.14.0", "pnpm": "11.7.0", "typescript": "7.0.2" }
+  },
+  "workload": {
+    "routes": 1000,
+    "warmups": 5,
+    "samples": 20,
+    "retries": 0,
+    "corpusSha256": "5e02dab58aec54fab912876aff32c91fa4bcdd5a4be5f4723c1b2c725e6a84c4",
+    "contractSha256": "1fef669f0806b37a1e7f42b64d36233135e66cfff33d4387b73b1288a2db7e68",
+    "lockSha256": "2fd513727b54e906b09a03d5e77104eb2f766703bf4eeb9ec1c670446fee492a",
+    "referenceSha256": "b008172f9b2762fc0c86e993ff340fd7d7cfdf46fadb85273a5cb303e06de4f8"
+  },
+  "measurements": {
+    "cleanGeneratorP95Ns": 92524125,
+    "stockTscP95Ns": 223740376,
+    "incrementalGeneratorP95Ns": 79892292,
+    "cleanGeneratorToTscRatio": 0.4135334294781019,
+    "incrementalToCleanRatio": 0.863475250373889
+  },
+  "artifacts": [
+    { "path": "capture.json", "sha256": "ffe075f85159e9a805dd05cb32416a20d9ca6c91ec62237ac1e80b3a644a4a97", "bytes": 5702 },
+    { "path": "decision.json", "sha256": "2e42e58b9f52b607a20aac0fc3ca5ff1a783763e70fdd0a9f316d8cd931a219b", "bytes": 768 }
+  ],
+  "conclusion": {
+    "decision": "narrow",
+    "summary": "H3 narrows: correctness and clean latency pass; single-route incremental generation exceeds the locked 25% ratio."
+  }
+}

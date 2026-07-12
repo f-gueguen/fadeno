@@ -42,3 +42,9 @@ rank. Its pure projection treats invalid pre/postflight as inconclusive,
 correctness or stock-tool failures as PIVOT, latency-only failures as NARROW,
 and an all-pass observation as GO. K0-08A executes only a two-sample smoke
 schedule and therefore cannot create qualification evidence.
+
+K0-08B completed from exact merged source `122ba57`. The immutable result under
+`results/20260712T022123Z-122ba57-a1` records NARROW: stock-tool correctness and
+clean latency pass, while single-route incremental generation remains too close
+to clean-generation cost. ADR 0018 accepts the generated-declaration direction
+and requires an incremental invalidation redesign before production claims.

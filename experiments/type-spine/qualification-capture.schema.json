@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/type-spine-qualification-capture-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sourceCommit", "image", "beforeHost", "afterHost", "beforeContainer", "afterContainer", "cpuThrottledRatio", "proof", "samples", "toolchain"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sourceCommit": { "const": "122ba574a5de78394ca375277c867378af0bd658" },
+    "image": { "const": "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94" },
+    "beforeHost": { "$ref": "#/$defs/hostSamples" },
+    "afterHost": { "$ref": "#/$defs/hostSamples" },
+    "beforeContainer": { "$ref": "#/$defs/container" },
+    "afterContainer": { "$ref": "#/$defs/container" },
+    "cpuThrottledRatio": { "type": "number", "minimum": 0, "maximum": 0.1 },
+    "proof": { "type": "string", "minLength": 100, "maxLength": 8192 },
+    "samples": {
+      "type": "array", "minItems": 20, "maxItems": 20,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["round", "cleanGeneratorNs", "stockTscNs", "incrementalGeneratorNs", "incrementalVariant"],
+        "properties": {
+          "round": { "type": "integer", "minimum": 0, "maximum": 19 },
+          "cleanGeneratorNs": { "type": "integer", "minimum": 1 },
+          "stockTscNs": { "type": "integer", "minimum": 1 },
+          "incrementalGeneratorNs": { "type": "integer", "minimum": 1 },
+          "incrementalVariant": { "enum": ["A-to-B", "B-to-A"] }
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object", "additionalProperties": false,
+      "required": ["node", "pnpm", "typescript"],
+      "properties": { "node": { "const": "v22.14.0" }, "pnpm": { "const": "11.7.0" }, "typescript": { "const": "Version 7.0.2" } }
+    }
+  },
+  "$defs": {
+    "host": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cpuIdlePercent", "loadAveragePerLogicalCpu", "powerSource", "thermalState"],
+      "properties": {
+        "cpuIdlePercent": { "type": "number", "minimum": 75, "maximum": 100 },
+        "loadAveragePerLogicalCpu": { "type": "number", "minimum": 0, "maximum": 0.5 },
+        "powerSource": { "const": "ac" }, "thermalState": { "const": "no-warning" }
+      }
+    },
+    "hostSamples": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/host" } },
+    "container": {
+      "type": "object", "additionalProperties": false,
+      "required": ["nrPeriods", "nrThrottled", "oom", "oomKill", "pidsCurrent", "networkDisabled"],
+      "properties": {
+        "nrPeriods": { "type": "integer", "minimum": 0 }, "nrThrottled": { "type": "integer", "minimum": 0 },
+        "oom": { "type": "integer", "minimum": 0 }, "oomKill": { "type": "integer", "minimum": 0 },
+        "pidsCurrent": { "type": "integer", "minimum": 0, "maximum": 64 }, "networkDisabled": { "const": true }
+      }
+    }
+  }
+}
