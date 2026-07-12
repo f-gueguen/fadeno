@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-qualification-schedule-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "randomSeed", "algorithm", "outputDigests", "cycles"],
+  "properties": {
+    "$schema": { "const": "https://fadeno.dev/schemas/experiment/revalidation-qualification-schedule-v1.json" },
+    "schemaVersion": { "const": 1 },
+    "randomSeed": { "const": "fadeno-k0-h4-cycles-v1" },
+    "algorithm": { "const": "xorshift32-fisher-yates-v1" },
+    "outputDigests": { "const": { "before": "739f2c0134ad398a5de59c886b0586c05abfb22999ae88a486a67eeab37bb75c", "success": "578277e2d736653c4a9201588b47b19f00b9f77c74cadbb4b9b31d185e6ec2b8" } },
+    "cycles": {
+      "type": "array", "minItems": 10000, "maxItems": 10000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "path", "readOrder", "expectedDigest"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^c[0-9]{5}$" },
+          "path": { "enum": ["s", "e"] },
+          "readOrder": { "type": "string", "pattern": "^[0-8]{9}$" },
+          "expectedDigest": { "enum": ["s", "b"] }
+        }
+      }
+    }
+  }
+}

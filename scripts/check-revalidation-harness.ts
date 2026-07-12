@@ -101,6 +101,7 @@ const failingReports: readonly RevalidationHarnessReport[] = [
   { ...report, distinctInputValuePass: false },
   { ...report, observableMutationPass: false },
   { ...report, staleControlRejected: false },
+  { ...report, completeOutputPass: false },
   { ...report, unsafeKeepsDetected: 3 },
   { ...report, sensitiveValuesDisclosed: true },
   { ...report, diagnostics: [...report.diagnostics, "injected:fadeno-auth-secret-must-not-escape"], sensitiveValuesDisclosed: false },
