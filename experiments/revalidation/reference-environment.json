@@ -1,0 +1,79 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/revalidation-reference-environment-v1.json",
+  "schemaVersion": 1,
+  "id": "k0-h4-local-docker-arm64-v1",
+  "scope": "revalidation-qualification-only",
+  "host": {
+    "provider": "local-docker-desktop",
+    "operatingSystem": "macos",
+    "operatingSystemVersion": "26.5.1",
+    "buildVersion": "25F80",
+    "kernelVersion": "25.5.0",
+    "architecture": "arm64",
+    "cpuModel": "Apple M2 Pro",
+    "logicalCpuCount": 10,
+    "memoryMiB": 32768,
+    "minimumFreeStorageMiB": 32768,
+    "powerSource": "ac",
+    "thermalPolicy": "no-warning"
+  },
+  "docker": {
+    "desktopVersion": "4.55.0",
+    "engineVersion": "29.1.3",
+    "apiVersion": "1.52",
+    "operatingSystem": "linux",
+    "architecture": "arm64",
+    "kernelVersion": "6.12.54-linuxkit",
+    "minimumCpuCount": 10,
+    "minimumMemoryMiB": 15972
+  },
+  "container": {
+    "indexDigest": "sha256:1c18d9ab3af4585870b92e4dbc5cac5a0dc77dd13df1a5905cea89fc720eb05b",
+    "platformDigest": "sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94",
+    "configDigest": "sha256:cb36a58af87cd9b6203aa5fdc9493fe5d14500c7d52391e7e87d459e739dd770",
+    "runtimeImage": "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94",
+    "platform": "linux/arm64",
+    "cpuLimit": 2,
+    "memoryMiB": 8192,
+    "memorySwapMiB": 8192,
+    "pidsLimit": 256,
+    "networkPolicy": "disabled-during-proof-and-measurement",
+    "storagePolicy": "container-local-source-copy",
+    "workingDirectory": "/work",
+    "executionUser": "root"
+  },
+  "toolchain": {
+    "node": "22.14.0",
+    "pnpm": "11.7.0",
+    "typescript": "7.0.2",
+    "lockfile": "pnpm-lock.yaml",
+    "lockSha256": "2fd513727b54e906b09a03d5e77104eb2f766703bf4eeb9ec1c670446fee492a"
+  },
+  "preflight": {
+    "hostSamples": 3,
+    "hostSampleIntervalMs": 1000,
+    "minimumCpuIdlePercent": 75,
+    "maximumLoadAveragePerLogicalCpu": 0.5,
+    "requiredPowerSource": "ac",
+    "requiredThermalState": "no-warning",
+    "exclusiveQualificationContainers": 1,
+    "containerProcessLimit": 64,
+    "maximumCpuThrottledRatio": 0.1,
+    "requiredOomDelta": 0,
+    "requiredOomKillDelta": 0,
+    "postflightRequired": true,
+    "failurePolicy": "inconclusive-no-decision"
+  },
+  "sources": [
+    {
+      "claim": "Docker CPU and memory flags constrain container resource access.",
+      "url": "https://docs.docker.com/engine/containers/resource_constraints/",
+      "observedAt": "2026-07-12T00:00:00Z"
+    },
+    {
+      "claim": "Node 22.14.0 bookworm-slim is published as a Docker Official Image for linux/arm64.",
+      "url": "https://hub.docker.com/_/node",
+      "observedAt": "2026-07-12T00:00:00Z"
+    }
+  ]
+}
