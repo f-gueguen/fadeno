@@ -10,13 +10,13 @@ V1-DX-B5 — structured analyzer diagnostics and correction intents
 
 ## Exit criteria
 
-- [ ] Define one independently versioned private diagnostics facet whose human
+- [x] Define one independently versioned private diagnostics facet whose human
   output is rendered only from allowlisted structured facts.
-- [ ] Validate deterministic exact/null locations, causal and skipped-work
+- [x] Validate deterministic exact/null locations, causal and skipped-work
   relations, expected/internal-failure identity, and redaction before output.
-- [ ] Bind analyzer-owned correction intents to diagnostic instances and exact
+- [x] Bind analyzer-owned correction intents to diagnostic instances and exact
   publication authority; apply safe edits atomically or refuse stale work.
-- [ ] Preserve all diagnostic and correction evidence through strict bounded
+- [x] Preserve all diagnostic and correction evidence through strict bounded
   serialization and full-batch recovery replacement.
 - [ ] Pass canonical-corpus success/refusal/correction/recovery, private package,
   full repository, local CI, and independent review gates.
@@ -35,6 +35,10 @@ V1-DX-B5 — structured analyzer diagnostics and correction intents
   check/watch/build execution and filesystem output application.
 - B6 owns flow/explain output; B5 does not relabel manually projected scenario
   files as analyzer explanation.
+- The B5 checker executes empty success, collision refusal, exact and null
+  locations, causal children, skipped work, review and automatic corrections,
+  redacted internal failure, malformed transport, recovery, and stale removal
+  against a copy of the canonical V1 application.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
