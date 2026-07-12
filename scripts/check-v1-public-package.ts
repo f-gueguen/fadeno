@@ -118,6 +118,8 @@ try {
     "package/dist/internal/routing/matcher.js",
     "package/dist/internal/rendering-security.d.ts",
     "package/dist/internal/rendering-security.js",
+    "package/dist/internal/streaming-lifecycle.d.ts",
+    "package/dist/internal/streaming-lifecycle.js",
     "package/dist/internal/unsafe-html.d.ts",
     "package/dist/internal/unsafe-html.js",
     "package/dist/node.d.ts",

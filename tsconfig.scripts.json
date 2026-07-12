@@ -16,6 +16,7 @@
   "exclude": [
     "scripts/check-morph-harness.ts",
     "scripts/check-v1-rendering-security.ts",
+    "scripts/check-v1-streaming-lifecycle.ts",
     "scripts/check-v1-unsafe-html.ts"
   ]
 }

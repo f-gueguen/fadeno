@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/contracts/streaming-lifecycle-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "futureConsumer", "phaseOrder", "precommitOutcomes", "lifecycleCases", "refusalCases", "boundaryCases", "boundaryRefusalCases", "deadlineCases", "orderingCases", "asyncCases"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "futureConsumer": { "const": "V1-09 renderer and adapter integration" },
+    "phaseOrder": { "const": ["uncommitted", "head-published", "body-started", "completed|terminated|cancelled"] },
+    "precommitOutcomes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["not-found", "redirect", "unexpected", "timeout"],
+      "properties": { "not-found": { "const": 404 }, "redirect": { "const": 303 }, "unexpected": { "const": 500 }, "timeout": { "const": 504 } }
+    },
+    "lifecycleCases": { "type": "array", "minItems": 16, "items": { "$ref": "#/$defs/lifecycleCase" } },
+    "refusalCases": { "type": "array", "minItems": 8, "items": { "$ref": "#/$defs/refusalCase" } },
+    "boundaryCases": { "type": "array", "minItems": 5, "items": { "$ref": "#/$defs/boundaryCase" } },
+    "boundaryRefusalCases": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/boundaryRefusalCase" } },
+    "deadlineCases": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/deadlineCase" } },
+    "orderingCases": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/orderingCase" } },
+    "asyncCases": {
+      "type": "array", "minItems": 10, "maxItems": 10, "uniqueItems": true,
+      "items": { "enum": ["slow-sink-one-pending-chunk", "write-rejection-terminates", "close-rejection-terminates", "cancel-while-write-pending-ignores-late-acceptance", "cancel-while-close-pending-ignores-late-close", "throwing-reporter-still-cleans", "throwing-cleanup-contained", "deadline-timer-cleared-once", "abort-listener-removed-once", "nonce-head-markup-correlation"] }
+    }
+  },
+  "$defs": {
+    "operation": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["op", "status"], "properties": { "op": { "const": "publish" }, "status": { "type": "integer", "minimum": 100, "maximum": 599 } } },
+        { "type": "object", "additionalProperties": false, "required": ["op", "chunk"], "properties": { "op": { "const": "write" }, "chunk": { "type": "string", "minLength": 1 } } },
+        { "type": "object", "additionalProperties": false, "required": ["op"], "properties": { "op": { "enum": ["empty", "complete"] } } },
+        { "type": "object", "additionalProperties": false, "required": ["op", "kind"], "properties": { "op": { "const": "fail" }, "kind": { "enum": ["not-found", "redirect", "unexpected", "timeout"] } } },
+        { "type": "object", "additionalProperties": false, "required": ["op", "reason"], "properties": { "op": { "const": "cancel" }, "reason": { "enum": ["disconnect", "explicit", "superseded"] } } }
+      ]
+    },
+    "expectedLifecycle": {
+      "type": "object", "additionalProperties": false,
+      "required": ["phase", "status", "writes", "closeCalls", "abortCalls", "reports", "cleanupCalls"],
+      "properties": {
+        "phase": { "enum": ["completed", "terminated", "cancelled"] }, "status": { "type": ["integer", "null"] },
+        "writes": { "type": "array", "items": { "type": "string" } }, "closeCalls": { "type": "integer", "minimum": 0 },
+        "abortCalls": { "type": "array", "items": { "type": "string" } }, "reports": { "type": "array", "items": { "type": "string" } },
+        "cleanupCalls": { "const": 1 }
+      }
+    },
+    "lifecycleCase": { "type": "object", "additionalProperties": false, "required": ["id", "operations", "expected"], "properties": { "id": { "type": "string" }, "operations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/operation" } }, "expected": { "$ref": "#/$defs/expectedLifecycle" } } },
+    "refusalCase": { "type": "object", "additionalProperties": false, "required": ["id", "action", "error"], "properties": { "id": { "type": "string" }, "action": { "enum": ["write-before-head", "double-head", "wrong-precommit-status", "complete-before-head", "concurrent-write", "uncorrelated-nonce", "forged-nonce", "unused-nonce"] }, "error": { "type": "string", "pattern": "^FADENO_STREAM_" } } },
+    "boundary": { "type": "object", "additionalProperties": false, "required": ["id", "active", "emitted"], "properties": { "id": { "type": "string" }, "parentId": { "type": "string" }, "active": { "type": "boolean" }, "emitted": { "type": "boolean" } } },
+    "boundaryCase": { "type": "object", "additionalProperties": false, "required": ["id", "failed", "fallbackFailures", "boundaries", "expected"], "properties": { "id": { "type": "string" }, "failed": { "type": "string" }, "fallbackFailures": { "type": "array", "items": { "type": "string" } }, "boundaries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/boundary" } }, "expected": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["kind", "ownerId"], "properties": { "kind": { "const": "fallback" }, "ownerId": { "type": "string" } } }, { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "terminate" } } }] } } },
+    "boundaryRefusalCase": { "type": "object", "additionalProperties": false, "required": ["id", "failed", "boundaries", "error"], "properties": { "id": { "type": "string" }, "failed": { "type": "string" }, "boundaries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/boundary" } }, "error": { "type": "string", "pattern": "^FADENO_STREAM_BOUNDARY_" } } },
+    "deadlineCase": { "type": "object", "additionalProperties": false, "required": ["id", "parent", "startedAt", "budget", "expected"], "properties": { "id": { "type": "string" }, "parent": { "type": ["number", "null"] }, "startedAt": { "type": "number" }, "budget": { "type": "number", "exclusiveMinimum": 0 }, "expected": { "type": "number" } } },
+    "orderingCase": { "type": "object", "additionalProperties": false, "required": ["id", "position", "nextPosition", "expected"], "properties": { "id": { "type": "string" }, "position": { "type": "integer", "minimum": 0 }, "nextPosition": { "type": "integer", "minimum": 0 }, "expected": { "type": "boolean" } } }
+  }
+}
