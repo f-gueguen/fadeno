@@ -1,0 +1,227 @@
+{
+  "success": {
+    "version": 1,
+    "identity": {
+      "workspaceEpoch": 3,
+      "configurationEpoch": 0,
+      "documentVersions": [
+        { "path": "fadeno.config.ts", "version": 0, "lifetime": 1 },
+        { "path": "src/routes/layout.tsx", "version": 0, "lifetime": 1 },
+        { "path": "src/routes/page.tsx", "version": 0, "lifetime": 1 }
+      ],
+      "documents": [
+        { "path": "fadeno.config.ts", "length": 124 },
+        { "path": "src/routes/layout.tsx", "length": 487 },
+        { "path": "src/routes/page.tsx", "length": 518 }
+      ]
+    },
+    "diagnostics": [],
+    "corrections": [],
+    "skippedWork": [],
+    "completeness": "complete",
+    "redaction": { "state": "none" },
+    "truncated": false
+  },
+  "collision": {
+    "version": 1,
+    "identity": {
+      "workspaceEpoch": 4,
+      "configurationEpoch": 0,
+      "documentVersions": [
+        { "path": "fadeno.config.ts", "version": 0, "lifetime": 1 },
+        { "path": "src/routes/handler.ts", "version": 0, "lifetime": 1 },
+        { "path": "src/routes/layout.tsx", "version": 0, "lifetime": 1 },
+        { "path": "src/routes/page.tsx", "version": 0, "lifetime": 1 }
+      ],
+      "documents": [
+        { "path": "fadeno.config.ts", "length": 124 },
+        { "path": "src/routes/handler.ts", "length": 69 },
+        { "path": "src/routes/layout.tsx", "length": 487 },
+        { "path": "src/routes/page.tsx", "length": 518 }
+      ]
+    },
+    "diagnostics": [
+      {
+        "instanceId": "diagnostic-1",
+        "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "severity": "error",
+        "module": { "namespace": "fadeno.routes", "version": 1 },
+        "phase": "discovery",
+        "parameters": { "role": "handler", "route": "/" },
+        "primaryLocation": { "path": "src/routes/handler.ts", "range": null, "rangeReason": "filesystem-entry" },
+        "relatedLocations": [
+          { "path": "src/routes/page.tsx", "range": null, "rangeReason": "filesystem-entry" }
+        ],
+        "causedBy": [],
+        "correctionFixIds": ["FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"],
+        "internalFailure": null,
+        "redaction": { "state": "none", "fields": [] },
+        "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+      },
+      {
+        "instanceId": "diagnostic-2",
+        "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "severity": "error",
+        "module": { "namespace": "fadeno.routes", "version": 1 },
+        "phase": "discovery",
+        "parameters": { "role": "page", "route": "/" },
+        "primaryLocation": { "path": "src/routes/page.tsx", "range": null, "rangeReason": "filesystem-entry" },
+        "relatedLocations": [
+          { "path": "src/routes/handler.ts", "range": null, "rangeReason": "filesystem-entry" }
+        ],
+        "causedBy": [],
+        "correctionFixIds": ["FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"],
+        "internalFailure": null,
+        "redaction": { "state": "none", "fields": [] },
+        "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+      },
+      {
+        "instanceId": "diagnostic-3",
+        "code": "FADENO_ROUTE_ROUTE_ROLE_COLLISION",
+        "severity": "error",
+        "module": { "namespace": "fadeno.routes", "version": 1 },
+        "phase": "discovery",
+        "parameters": { "route": "/" },
+        "primaryLocation": { "path": "src/routes/handler.ts", "range": null, "rangeReason": "filesystem-entry" },
+        "relatedLocations": [
+          { "path": "src/routes/page.tsx", "range": null, "rangeReason": "filesystem-entry" }
+        ],
+        "causedBy": ["diagnostic-1", "diagnostic-2"],
+        "correctionFixIds": ["FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"],
+        "internalFailure": null,
+        "redaction": { "state": "none", "fields": [] },
+        "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+      }
+    ],
+    "corrections": [
+      {
+        "fixId": "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION",
+        "parameters": { "route": "/" },
+        "safety": "review",
+        "preferred": false,
+        "diagnosticInstanceIds": ["diagnostic-1", "diagnostic-2", "diagnostic-3"],
+        "edits": []
+      }
+    ],
+    "skippedWork": [
+      { "id": "manifest-publication", "causedBy": ["diagnostic-3"] }
+    ],
+    "completeness": "complete",
+    "redaction": { "state": "none" },
+    "truncated": false
+  },
+  "recovery": {
+    "diagnostics": [],
+    "corrections": [],
+    "staleDiagnosticRemoved": true,
+    "staleArtifactRemoved": true
+  },
+  "correction": {
+    "diagnostic": {
+      "version": 1,
+      "identity": {
+        "workspaceEpoch": 5,
+        "configurationEpoch": 0,
+        "documentVersions": [
+          { "path": "fadeno.config.ts", "version": 1, "lifetime": 1 },
+          { "path": "src/routes/handler.ts", "version": 0, "lifetime": 1 },
+          { "path": "src/routes/layout.tsx", "version": 0, "lifetime": 1 },
+          { "path": "src/routes/page.tsx", "version": 0, "lifetime": 1 }
+        ],
+        "documents": [
+          { "path": "fadeno.config.ts", "length": 123 },
+          { "path": "src/routes/handler.ts", "length": 69 },
+          { "path": "src/routes/layout.tsx", "length": 487 },
+          { "path": "src/routes/page.tsx", "length": 518 }
+        ]
+      },
+      "diagnostics": [
+        {
+          "instanceId": "diagnostic-1",
+          "code": "FADENO_CONFIG_ROOT_MISSING",
+          "severity": "error",
+          "module": { "namespace": "fadeno.configuration", "version": 1 },
+          "phase": "ownership",
+          "parameters": { "configuredRoot": "src/route" },
+          "primaryLocation": { "path": "fadeno.config.ts", "range": { "start": 105, "end": 116 }, "rangeReason": null },
+          "relatedLocations": [],
+          "causedBy": [],
+          "correctionFixIds": ["FADENO_FIX_CONFIG_ROOT"],
+          "internalFailure": null,
+          "redaction": { "state": "none", "fields": [] },
+          "explanationRef": "https://fadeno.dev/diagnostics/config/root-missing"
+        }
+      ],
+      "corrections": [
+        {
+          "fixId": "FADENO_FIX_CONFIG_ROOT",
+          "parameters": { "replacement": "src/routes" },
+          "safety": "automatic",
+          "preferred": true,
+          "diagnosticInstanceIds": ["diagnostic-1"],
+          "edits": [
+            {
+              "path": "fadeno.config.ts",
+              "version": 1,
+              "lifetime": 1,
+              "range": { "start": 105, "end": 116 },
+              "text": "\"src/routes\""
+            }
+          ]
+        }
+      ],
+      "skippedWork": [
+        { "id": "route-analysis", "causedBy": ["diagnostic-1"] }
+      ],
+      "completeness": "complete",
+      "redaction": { "state": "none" },
+      "truncated": false
+    },
+    "before": "import { defineConfig } from \"fadeno-framework-internal\";\n\nexport default defineConfig({ routes: { root: \"src/route\" } });\n",
+    "after": "import { defineConfig } from \"fadeno-framework-internal\";\n\nexport default defineConfig({ routes: { root: \"src/routes\" } });\n",
+    "staleRefusal": "FADENO_ANALYZER_CORRECTION_STALE"
+  },
+  "internalFailure": {
+    "version": 1,
+    "identity": {
+      "workspaceEpoch": 5,
+      "configurationEpoch": 0,
+      "documentVersions": [
+        { "path": "fadeno.config.ts", "version": 1, "lifetime": 1 },
+        { "path": "src/routes/handler.ts", "version": 0, "lifetime": 1 },
+        { "path": "src/routes/layout.tsx", "version": 0, "lifetime": 1 },
+        { "path": "src/routes/page.tsx", "version": 0, "lifetime": 1 }
+      ],
+      "documents": [
+        { "path": "fadeno.config.ts", "length": 123 },
+        { "path": "src/routes/handler.ts", "length": 69 },
+        { "path": "src/routes/layout.tsx", "length": 487 },
+        { "path": "src/routes/page.tsx", "length": 518 }
+      ]
+    },
+    "diagnostics": [
+      {
+        "instanceId": "diagnostic-1",
+        "code": "FADENO_ANALYZER_INTERNAL_FAILURE",
+        "severity": "error",
+        "module": { "namespace": "fadeno.analyzer", "version": 1 },
+        "phase": "internal",
+        "parameters": { "operation": "route-analysis" },
+        "primaryLocation": { "path": "fadeno.config.ts", "range": { "start": 105, "end": 116 }, "rangeReason": null },
+        "relatedLocations": [],
+        "causedBy": [],
+        "correctionFixIds": [],
+        "internalFailure": { "incidentId": "<incident>" },
+        "redaction": { "state": "redacted", "fields": ["details"] },
+        "explanationRef": "https://fadeno.dev/diagnostics/analyzer/internal-failure"
+      }
+    ],
+    "corrections": [],
+    "skippedWork": [
+      { "id": "route-analysis", "causedBy": ["diagnostic-1"] }
+    ],
+    "completeness": "complete",
+    "redaction": { "state": "redacted" },
+    "truncated": false
+  }
+}
