@@ -19,7 +19,7 @@ V1-09 — implement the server renderer and first running routed application
   evidence.
 - [x] Add a permanent packed canonical application plus isolated failure,
   normalized diagnostic, flow-inspection, correction, and recovery scenarios.
-- [ ] Pass renderer, package, full repository, local CI, and independent
+- [x] Pass renderer, package, full repository, local CI, and independent
   adversarial review gates.
 
 ## In progress
@@ -33,6 +33,8 @@ V1-09 — implement the server renderer and first running routed application
 - The packed canonical application passes route outcomes, generated links,
   nested not-found ownership, three-engine parsing/CSP, failure observation,
   normalized diagnostics, flow inspection, correction, and recovery.
+- Full repository validation and independent adversarial review pass at the
+  completed branch head; commit-bound local CI is the final merge gate.
 - V1-DX-B follows V1-09 and precedes V1-10; its analyzer foundation is split
   into one-outcome implementation sub-slices declared before work begins.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
