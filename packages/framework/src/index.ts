@@ -1,1 +1,1 @@
-export type { Handler } from "./internal/server-contract.ts";
+export type Handler = (request: Request) => Response | Promise<Response>;

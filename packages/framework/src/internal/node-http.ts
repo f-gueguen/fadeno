@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { isIP } from "node:net";
 import { Readable } from "node:stream";
 
-import type { Handler } from "./server-contract.ts";
+import type { Handler } from "../index.js";
 import { nodeHttpCapabilities } from "./node-http-capabilities.ts";
 
 export interface NodeHttpServer {

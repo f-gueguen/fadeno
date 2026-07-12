@@ -6,8 +6,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": [
-    "src/index.ts",
-    "src/internal/server-contract.ts"
-  ]
+  "include": ["src/index.ts"]
 }
