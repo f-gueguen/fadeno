@@ -46,11 +46,12 @@ order after K0. V1 remains a secure no-JavaScript vertical slice. It accepts:
 K0's browser patching and bounded extraction results remain V2 and V3 inputs.
 Their private candidates, markers, filenames, and wire shapes do not enter V1.
 
-The first running checkpoint is V1-04: a clean consumer starts one selected
-adapter and serves a server-rendered HTML response through the first public
-package boundary. It is intentionally smaller than the usable V1 exit. The
-usable V1 exit is V1-14: the authenticated CRUD example and documentation pass
-the full native, security, type, adapter, and clean-machine suites.
+V1-04 is only a package/adapter integration smoke checkpoint; it must not freeze
+route or rendering APIs before their gates. The first running framework
+checkpoint is V1-09, after routing, contextual rendering security, streaming,
+and adapter integration exist. The usable V1 checkpoint is V1-13, and the V1
+exit is V1-14 after the authenticated CRUD example and documentation pass the
+full native, security, type, adapter, and clean-machine suites.
 
 ## Alternatives considered
 
@@ -68,8 +69,9 @@ the full native, security, type, adapter, and clean-machine suites.
 - K0 is complete and no hypothesis remains active.
 - DATA-03 becomes accepted V1 scope under ADR 0020.
 - V1 implementation can begin with the gate-first sequence in `roadmap/v1.md`.
-- The first running version is near, but not yet a usable framework: K0-11 is
-  followed by three decision/prototype slices and V1-04.
+- The first running version is not immediate: K0-11 is followed by the gate and
+  implementation work through V1-09. Earlier checkpoints prove workflow,
+  adapter, package, routing, and renderer parts without calling them a framework.
 - Complete examples and user documentation remain a V1 exit requirement, not a
   post-release cleanup.
 
