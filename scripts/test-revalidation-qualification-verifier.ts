@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -9,11 +8,12 @@ import { verifyAndDeriveQualificationResult, verifyQualificationAttempt } from "
 
 const root = join(import.meta.dirname, "..");
 const resultsRoot = join(root, "experiments/revalidation/results");
-const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
 const contract = JSON.parse(readFileSync(join(root, "experiments/revalidation/qualification-contract.json"), "utf8")) as {
   environment: { path: string; sha256: string };
   inputs: Record<string, { path: string; sha256: string }>;
+  executionSlice: { requiredSource: string };
 };
+const sourceCommit = contract.executionSlice.requiredSource;
 const reference = JSON.parse(readFileSync(join(root, contract.environment.path), "utf8")) as {
   id: string;
   host: Record<string, string | number> & { minimumFreeStorageMiB: number };
