@@ -15,6 +15,13 @@ type Capture = {
   proof: string;
   samples: TimingSample[];
 };
+const EXPECTED_PROOF = [
+  "type-spine qualification corpus passed (1000 routes, 800 parameterized, A:eb98472c8a9bfa5c1902fa2c127d0343be9e9dba27377453909441d26fbff421, B:3033291eb9cb6875ceca30b17e1fcc4829f9d86658af41ba5ceb3cde71da2037)",
+  "type-spine qualification contract passed (5 warmups, 20 samples, no result)",
+  "type-spine stock-tool controls passed (tsc + TypeScript 7 LSP, eb98472c8a9bfa5c1902fa2c127d0343be9e9dba27377453909441d26fbff421)",
+  "type-spine timing runner passed (fresh children, interleaved A/B smoke schedule)",
+  "type-spine qualification capability passed (no result or decision)",
+].join("\n");
 
 export type QualificationConclusion = Readonly<{ metrics: QualificationMetrics; decision: "go" | "narrow" | "pivot" | "inconclusive"; gates: Readonly<Record<string, boolean>> }>;
 
@@ -31,7 +38,7 @@ export function verifyQualificationCapture(value: unknown): QualificationConclus
     throw new Error("FADENO_TYPE_SPINE_CAPTURE_CGROUP");
   }
   const metrics = deriveQualificationMetrics(capture.samples);
-  const proofPass = capture.proof.includes("type-spine qualification capability passed (no result or decision)");
+  const proofPass = capture.proof === EXPECTED_PROOF;
   const gates = {
     "valid-consumers": proofPass,
     "invalid-source-diagnostics": proofPass,
@@ -51,10 +58,15 @@ export function verifyQualificationResult(directory: string): QualificationConcl
     measurements: QualificationMetrics;
     artifacts: readonly { path: string; sha256: string; bytes: number }[];
     conclusion: { decision: string };
+    workload: { corpusSha256: string; contractSha256: string; lockSha256: string; referenceSha256: string };
   };
   const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => { compile(schema: unknown): ((document: unknown) => boolean) & { errors?: unknown } };
   const validate = new Ajv2020({ allErrors: true, strict: true }).compile(manifestSchema);
   if (!validate(manifest)) throw new Error(`FADENO_TYPE_SPINE_RESULT_SCHEMA:${JSON.stringify(validate.errors)}`);
+  const artifactPaths = manifest.artifacts.map(({ path }) => path).sort();
+  if (JSON.stringify(artifactPaths) !== JSON.stringify(["capture.json", "decision.json"])) {
+    throw new Error("FADENO_TYPE_SPINE_RESULT_INVENTORY");
+  }
   for (const artifact of manifest.artifacts) {
     const bytes = readFileSync(join(directory, artifact.path));
     if (bytes.byteLength !== artifact.bytes || createHash("sha256").update(bytes).digest("hex") !== artifact.sha256) {
@@ -67,7 +79,12 @@ export function verifyQualificationResult(directory: string): QualificationConcl
     captureSha256: string; metrics: QualificationMetrics; gates: Record<string, boolean>; decision: string;
   };
   const captureBytes = readFileSync(join(directory, "capture.json"));
+  const fileHash = (path: string) => createHash("sha256").update(readFileSync(join(root, path))).digest("hex");
   if (
+    manifest.workload.corpusSha256 !== fileHash("experiments/type-spine/qualification-corpus.json") ||
+    manifest.workload.contractSha256 !== fileHash("experiments/type-spine/qualification-contract.json") ||
+    manifest.workload.referenceSha256 !== fileHash("experiments/type-spine/reference-environment.json") ||
+    manifest.workload.lockSha256 !== fileHash("pnpm-lock.yaml") ||
     decision.captureSha256 !== createHash("sha256").update(captureBytes).digest("hex") ||
     JSON.stringify(decision.metrics) !== JSON.stringify(conclusion.metrics) ||
     JSON.stringify(decision.gates) !== JSON.stringify(conclusion.gates) ||

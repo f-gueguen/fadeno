@@ -16,7 +16,13 @@ const capture = {
   beforeContainer: { nrPeriods: 100, nrThrottled: 2, oom: 0, oomKill: 0, pidsCurrent: 10, networkDisabled: true },
   afterContainer: { nrPeriods: 200, nrThrottled: 7, oom: 0, oomKill: 0, pidsCurrent: 10, networkDisabled: true },
   cpuThrottledRatio: 0.05,
-  proof: `${"proof ".repeat(20)}type-spine qualification capability passed (no result or decision)`,
+  proof: [
+    "type-spine qualification corpus passed (1000 routes, 800 parameterized, A:eb98472c8a9bfa5c1902fa2c127d0343be9e9dba27377453909441d26fbff421, B:3033291eb9cb6875ceca30b17e1fcc4829f9d86658af41ba5ceb3cde71da2037)",
+    "type-spine qualification contract passed (5 warmups, 20 samples, no result)",
+    "type-spine stock-tool controls passed (tsc + TypeScript 7 LSP, eb98472c8a9bfa5c1902fa2c127d0343be9e9dba27377453909441d26fbff421)",
+    "type-spine timing runner passed (fresh children, interleaved A/B smoke schedule)",
+    "type-spine qualification capability passed (no result or decision)",
+  ].join("\n"),
   samples: Array.from({ length: 20 }, (_, round) => ({
     round, cleanGeneratorNs: 2000 + round, stockTscNs: 4000 + round,
     incrementalGeneratorNs: 1000 + round,
@@ -33,6 +39,7 @@ for (const mutate of [
   (value: typeof capture) => { value.samples[1]!.incrementalVariant = "A-to-B"; },
   (value: typeof capture) => { value.cpuThrottledRatio = 0.04; },
   (value: typeof capture) => { value.afterContainer.oomKill = 1; },
+  (value: typeof capture) => { value.proof = "type-spine qualification capability passed (no result or decision)"; },
 ] as const) {
   const invalid = structuredClone(capture);
   mutate(invalid);
@@ -71,4 +78,4 @@ rejectResultMutation<{ gates: Record<string, boolean> }>(
   "decision.json",
   (value) => { value.gates["incremental-latency"] = true; },
 );
-console.log("type-spine qualification evidence negative tests passed (6 capture + 2 result mutations)");
+console.log("type-spine qualification evidence negative tests passed (7 capture + 2 result mutations)");
