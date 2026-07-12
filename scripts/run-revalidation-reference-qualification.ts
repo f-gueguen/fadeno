@@ -14,6 +14,9 @@ import {
   type ReferenceEnvironmentIdentity,
   type ReferenceIdentityObservation,
 } from "../experiments/revalidation/reference-identity.ts";
+import { assertSafeRetainedText } from "./lib/revalidation-retained-text.ts";
+
+export { assertSafeRetainedText } from "./lib/revalidation-retained-text.ts";
 
 const IMAGE = "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94";
 const INPUT_KEYS = ["workload", "baselines", "schedule", "scheduleGolden", "dependencyLock"] as const;
@@ -35,19 +38,6 @@ function command(file: string, args: readonly string[], cwd?: string): string {
 
 function sha256(text: string | Buffer): string {
   return createHash("sha256").update(text).digest("hex");
-}
-
-export function assertSafeRetainedText(text: string, sensitiveValues: readonly string[]): void {
-  const secretPatterns = [
-    /\bBearer\s+[A-Za-z0-9._~+/-]+=*/u,
-    /\bgh[pousr]_[A-Za-z0-9]{20,}\b/u,
-    /-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
-    /\b(?:api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|client[-_ ]?secret|password|passwd|session(?:id|_id|[-_ ]?token)?)\s*[:=]\s*\S+/iu,
-    /["'](?:api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|client[-_ ]?secret|password|passwd|session(?:id|_id|[-_ ]?token)?)["']\s*:\s*["'][^"']+["']/iu,
-  ];
-  if (sensitiveValues.some((value) => value.length > 0 && text.includes(value)) || secretPatterns.some((pattern) => pattern.test(text))) {
-    throw new Error("FADENO_REVALIDATION_RETAINED_SECRET");
-  }
 }
 
 function safeWriteJson(path: string, value: unknown, sensitiveValues: readonly string[]): string {
@@ -210,10 +200,12 @@ export function runRevalidationReferenceQualification(
     assertQualificationAttemptDocument(repository, document);
     safeWriteJson(join(attemptRoot, "attempt.json"), document, sensitiveValues);
   };
-  const temporary = mkdtempSync(join(tmpdir(), "fadeno-k010b-"));
-  const container = `fadeno-k010b-${randomUUID()}`;
+  let temporary: string | undefined;
+  let container: string | undefined;
   let phase: "allocated" | "preflight" | "measurement" | "postflight" = "allocated";
   try {
+    temporary = mkdtempSync(join(tmpdir(), "fadeno-k010b-"));
+    container = `fadeno-k010b-${randomUUID()}`;
     const workload = JSON.parse(readFileSync(join(repository, "experiments/revalidation/workload.json"), "utf8")) as { authentication: { secretCanary: string; principalId: string; tenantId: string } };
     sensitiveValues = [workload.authentication.secretCanary, workload.authentication.principalId, workload.authentication.tenantId];
     writeAttempt("launched", "allocated");
@@ -298,8 +290,8 @@ export function runRevalidationReferenceQualification(
     writeAttempt("inconclusive", phase, failureCode);
     throw new Error(failureCode);
   } finally {
-    try { command("docker", ["rm", "-f", container]); } catch { /* best-effort cleanup */ }
-    rmSync(temporary, { recursive: true, force: true });
+    if (container) try { command("docker", ["rm", "-f", container]); } catch { /* best-effort cleanup */ }
+    if (temporary) rmSync(temporary, { recursive: true, force: true });
   }
 }
 

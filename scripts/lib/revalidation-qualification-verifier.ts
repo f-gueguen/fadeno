@@ -7,7 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 import { referenceIdentityAccepted, type ReferenceEnvironmentIdentity, type ReferenceIdentityObservation } from "../../experiments/revalidation/reference-identity.ts";
 import { deriveQualificationResult, type QualificationCapture, type QualificationResult } from "../../experiments/revalidation/qualification-proof.ts";
 import { loadQualificationSchedule } from "../../experiments/revalidation/qualification-runner.ts";
-import { assertSafeRetainedText } from "../run-revalidation-reference-qualification.ts";
+import { assertSafeRetainedText } from "./revalidation-retained-text.ts";
 import { assertQualificationAttemptDocument, assertQualificationCaptureDocument, assertReferenceIdentityDocument } from "./revalidation-qualification-validation.ts";
 
 type Attempt = Readonly<{ attempt: number; sourceCommit: string; status: string; phase: string }>;
@@ -106,6 +106,7 @@ export function verifyQualificationAttempt(
   if (attempt.status !== "complete" || attempt.phase !== "complete" || capture.status !== "complete" ||
       attempt.sourceCommit !== expectedSourceCommit || capture.sourceCommit !== expectedSourceCommit ||
       basename(resolvedAttempt) === "" ||
+      execFileSync("git", ["remote", "get-url", "origin"], { cwd: root, encoding: "utf8" }).trim() !== "https://github.com/f-gueguen/fadeno.git" ||
       execFileSync("git", ["merge-base", "--is-ancestor", expectedSourceCommit, capture.sourceCommit], { cwd: root }).length !== 0) {
     throw new Error("FADENO_REVALIDATION_EVIDENCE_SOURCE");
   }

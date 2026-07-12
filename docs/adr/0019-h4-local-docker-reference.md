@@ -39,6 +39,14 @@ Node 22.14.0 linux/arm64 image; a container-local clean source copy; 2 CPUs,
 measurement; the exact lock and toolchain; one qualification container; and
 host/cgroup observations before warmup and after all phases.
 
+The launcher records and compares the complete frozen host and Docker identity
+before dynamic load sampling. Memory is measured before correctness and latency
+arrays are retained so those allocations cannot inflate the RSS baseline.
+Latency evidence retains each alternating pair and both complete-output digests.
+An independent verifier rereads the attempt directory, rescans every artifact,
+recomputes all links and hashes, rechecks environment observations and source
+identity, and only then derives a result.
+
 K0-10 is split for provenance. K0-10A lands this environment, the complete
 qualification contract, deterministic schedule, runner, independent verifier,
 and negative controls without an immutable result or H4 decision. K0-10B runs
@@ -77,4 +85,5 @@ NARROW outcome under the accepted K0 plan.
 Repository checks strictly validate the H4 environment, lock hash, result
 inventory, source split, deterministic schedule, full-output timing boundary,
 forced-GC RSS metric, capture/result schemas, independent derivations, artifact
-secret scans, negative mutations, and absence of any H4 result or decision.
+secret scans, paired timing order, denied-action mutation detection, coordinated
+artifact mutations, and absence of any H4 result or decision.
