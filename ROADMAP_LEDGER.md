@@ -19,7 +19,7 @@ environment without collecting a result
   memory, unsafe-`keeps`, comparison, and GO/PIVOT/INCONCLUSIVE policies.
 - [x] Publish strict H4 environment, contract, capture, result, and decision
   schemas plus independent negative controls and all-artifact secret scanning.
-- [ ] Prove source/environment/artifact integrity and the absence of any H4
+- [x] Prove source/environment/artifact integrity and the absence of any H4
   result or decision; `--verify-qualification` and `pnpm ci:local` pass.
 
 ## In progress
@@ -32,6 +32,8 @@ environment without collecting a result
 - K0-10A gathers DATA-01, DATA-03, SEC-01, TEST-01, and PERF-01 evidence without
   resolving DG-V1-04 or defining public resource, action, cache, or `keeps`
   syntax.
+- Clean local CI passed the complete capability and negative-control suite at
+  `a456099`; the final ledger-only projection is revalidated before review.
 
 ## Blockers
 
