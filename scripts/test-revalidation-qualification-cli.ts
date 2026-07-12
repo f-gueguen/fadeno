@@ -11,11 +11,11 @@ function run(argument: string) {
   });
 }
 const verify = run("--verify-qualification");
-if (verify.status !== 0 || verify.stderr !== "" || !verify.stdout.endsWith("revalidation qualification capability passed (K0-10A, no result or decision)\n")) {
+if (verify.status !== 0 || verify.stderr !== "" || !verify.stdout.endsWith("revalidation qualification capability passed (K0-10A frozen contract)\n")) {
   throw new Error(`FADENO_REVALIDATION_QUALIFICATION_CLI_VERIFY:${verify.status}:${verify.stderr}`);
 }
 const qualify = run("--qualify");
-if (qualify.status !== 2 || qualify.stdout !== "" || qualify.stderr !== "FADENO_REVALIDATION_QUALIFICATION_SOURCE_REQUIRED: K0-10B must bind the exact merged K0-10A source\n") {
-  throw new Error(`FADENO_REVALIDATION_QUALIFICATION_CLI_SOURCE:${qualify.status}:${qualify.stdout}:${qualify.stderr}`);
+if (qualify.status !== 0 || qualify.stderr !== "" || !qualify.stdout.endsWith("revalidation qualification passed (H4 GO from exact merged K0-10A source)\n")) {
+  throw new Error(`FADENO_REVALIDATION_QUALIFICATION_CLI_RESULT:${qualify.status}:${qualify.stdout}:${qualify.stderr}`);
 }
-console.log("revalidation qualification CLI passed (verify capability, refuse unbound source)");
+console.log("revalidation qualification CLI passed (verify capability and immutable GO result)");

@@ -491,10 +491,9 @@ shortRegistry.experiments.pop();
 if (registrySchema(shortRegistry)) recordFailure("short registry: schema unexpectedly passed");
 
 const undecidedQualifiedRegistry = structuredClone(registry);
-const plannedExperiment = undecidedQualifiedRegistry.experiments.find(
-  (experiment) => experiment.status !== "qualified",
-);
-plannedExperiment.status = "qualified";
+const plannedExperiment = undecidedQualifiedRegistry.experiments[0];
+delete plannedExperiment.decision;
+delete plannedExperiment.decisionAdr;
 if (registrySchema(undecidedQualifiedRegistry)) {
   recordFailure("qualified registry without decision: schema unexpectedly passed");
 }

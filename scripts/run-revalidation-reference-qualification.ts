@@ -63,6 +63,10 @@ export function nextQualificationAttempt(resultsRoot: string): number {
   return attempts.length === 0 ? 1 : Math.max(...attempts) + 1;
 }
 
+export function qualificationSourceStatusAccepted(paths: readonly string[]): boolean {
+  return paths.every((path) => path.startsWith("experiments/revalidation/results/"));
+}
+
 function hostSample(logicalCpuCount: number): HostSample {
   const top = command("top", ["-l", "2", "-n", "0", "-s", "1"]);
   const cpuLine = top.split("\n").filter((line) => line.includes("CPU usage:")).at(-1) ?? "";
@@ -175,7 +179,16 @@ export function runRevalidationReferenceQualification(
     throw new Error("FADENO_REVALIDATION_SOURCE_REMOTE");
   }
   const remoteMain = command("git", ["ls-remote", "--exit-code", "origin", "refs/heads/main"], repository).split(/\s+/u)[0];
-  if (remoteMain !== sourceCommit || command("git", ["status", "--porcelain"], repository) !== "" || command("git", ["rev-parse", "--abbrev-ref", "HEAD"], repository) !== "main" || command("git", ["rev-parse", "HEAD"], repository) !== sourceCommit) {
+  const initialStatusPaths = command("git", ["status", "--porcelain"], repository)
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.slice(3));
+  if (
+    remoteMain !== sourceCommit ||
+    !qualificationSourceStatusAccepted(initialStatusPaths) ||
+    command("git", ["rev-parse", "--abbrev-ref", "HEAD"], repository) !== "main" ||
+    command("git", ["rev-parse", "HEAD"], repository) !== sourceCommit
+  ) {
     throw new Error("FADENO_REVALIDATION_SOURCE_IDENTITY");
   }
   const resultsRoot = resolve(repository, "experiments/revalidation/results");
@@ -277,7 +290,7 @@ export function runRevalidationReferenceQualification(
       .map((line) => line.slice(3));
     if (
       command("git", ["rev-parse", "HEAD"], repository) !== sourceCommit ||
-      statusPaths.some((path) => !path.startsWith(`experiments/revalidation/results/${runId}/`))
+      statusPaths.some((path) => !initialStatusPaths.includes(path) && !path.startsWith(`experiments/revalidation/results/${runId}/`))
     ) {
       throw new Error("FADENO_REVALIDATION_SOURCE_CHANGED");
     }

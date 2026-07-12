@@ -17,9 +17,10 @@ The next server-derived output is computed from those results.
 
 An action may declare `keeps` for resources that it cannot affect. Development
 verification must detect unsafe declarations before the optimization becomes
-public. The revalidation experiment evaluates whether that check compares
-resource values, serialized output, dependency hashes, or another conservative
-observable. Its accepted semantics will be added to this specification.
+public. H4 accepted conservative resource-result comparison as the private V1
+direction: value, expected-error, and ordering changes are detected, while
+non-cacheable and unsupported values are refused. DG-V1-04 still owns the exact
+public declaration and comparison API.
 
 The baseline remains correct when all `keeps` declarations are removed.
 

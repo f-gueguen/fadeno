@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "51594a8b8f460a9b28e1e0ade25816a5a898395b",
+  "captureSha256": "b41d22769fa1abf8cab2898027a60cb6e73d4f4be159fcea308d3a23b99781ac",
+  "metrics": {
+    "correctnessCycles": 10000,
+    "staleCycles": 0,
+    "deduplicationFailures": 0,
+    "defaultP95Ns": 25209,
+    "selectiveP95Ns": 19375,
+    "defaultToSelectiveP95Ratio": 1.301109677419355,
+    "defaultP95Milliseconds": 0.025209,
+    "memoryGrowthRatio": 0.048960856814994264,
+    "unsafeKeepDetectionRatio": 1
+  },
+  "decision": {
+    "schemaVersion": 1,
+    "outcome": "go",
+    "productDecision": true,
+    "gates": {
+      "correctness": true,
+      "deduplication": true,
+      "latencyRatio": true,
+      "latencyAbsolute": true,
+      "memory": true,
+      "unsafeKeeps": true,
+      "comparison": true,
+      "environment": true,
+      "integrity": true
+    },
+    "reasons": []
+  }
+}

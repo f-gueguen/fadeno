@@ -31,7 +31,9 @@
       "command": "pnpm experiment:revalidation",
       "harnessSlice": "K0-09",
       "qualificationSlice": "K0-10B",
-      "status": "available"
+      "status": "qualified",
+      "decision": "go",
+      "decisionAdr": "docs/adr/0020-accept-correctness-first-revalidation.md"
     },
     {
       "id": "type-spine",

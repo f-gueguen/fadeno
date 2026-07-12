@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "environmentId": "k0-h4-local-docker-arm64-v1",
+  "host": {
+    "operatingSystemVersion": "26.5.1",
+    "buildVersion": "25F80",
+    "kernelVersion": "25.5.0",
+    "architecture": "arm64",
+    "cpuModel": "Apple M2 Pro",
+    "logicalCpuCount": 10,
+    "memoryMiB": 32768,
+    "freeStorageMiB": 56059
+  },
+  "docker": {
+    "desktopVersion": "4.55.0",
+    "engineVersion": "29.1.3",
+    "apiVersion": "1.52",
+    "operatingSystem": "linux",
+    "architecture": "arm64",
+    "kernelVersion": "6.12.54-linuxkit",
+    "cpuCount": 10,
+    "memoryMiB": 15972
+  }
+}

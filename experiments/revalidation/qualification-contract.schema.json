@@ -24,6 +24,6 @@
     "attemptPolicy": { "const": { "allocateBeforePreflight": true, "retainEveryLaunchedAttempt": true, "validAttemptRetries": 0, "environmentalRetryOnly": true, "decisionAttempt": "first-complete-reference-valid-attempt" } },
     "decision": { "const": { "go": "all-h4-product-gates-pass", "pivot": "any-correctness-deduplication-latency-memory-keeps-or-comparison-gate-fails", "inconclusive": "environment-or-evidence-integrity-fails", "narrowAllowed": false } },
     "capabilitySlice": { "const": { "slice": "K0-10A", "immutableResultsAllowed": false, "decisionAllowed": false } },
-    "executionSlice": { "const": { "slice": "K0-10B", "requiredSource": "exact-clean-merged-k0-10a-main-commit" } }
+    "executionSlice": { "const": { "slice": "K0-10B", "requiredSource": "51594a8b8f460a9b28e1e0ade25816a5a898395b" } }
   }
 }
