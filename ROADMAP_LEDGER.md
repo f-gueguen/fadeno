@@ -6,28 +6,28 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-01 — freeze the supported config and command workflow
+V1-02 — select the initial Web-standard runtime adapter
 
 ## Exit criteria
 
-- [x] Accept one root `fadeno.config.ts` default-export contract without route
-  or adapter fields.
-- [x] Freeze `fadeno dev`, `fadeno build`, and `fadeno check` plus `.fadeno/`
-  ephemeral and `dist/` deployable output ownership.
-- [x] Freeze `.env` < `.env.local` < process precedence and refuse ambiguous
-  syntax without automatically exposing values to browser output.
-- [x] Prove the private TypeScript prototype runs check/dev/build, produces
-  byte-identical repeated build output, and rejects config/env mutations.
-- [x] Prove all projections and `pnpm ci:local` pass.
+- [x] Select built-in Node HTTP with a declared Node 22.17.0 adapter minimum.
+- [x] Declare streaming, backpressure, cancellation, proxy, trailer,
+  request-limit, and graceful-drain capabilities explicitly.
+- [x] Prove request/response translation, URL authority, delayed uploads,
+  response flush, slow-reader backpressure, cookies, cancellation, and
+  successful keep-alive behavior in strict TypeScript.
+- [x] Prove active-response drain, new-connection refusal, and idle shutdown
+  without defining timeout or force-close semantics.
+- [x] Repeat the suite on the digest-pinned exact minimum runtime and prove all
+  repository projections and local CI pass.
 
 ## In progress
 
-- ADR 0022 resolves the former V1 toolchain gate without resolving package,
-  adapter, or route contracts.
-- V1-02 next selects the first Web-standard runtime adapter from a private
-  conformance feasibility harness.
-- Clean local CI passes the toolchain contract at `9fb0464`; the final ledger
-  projection is revalidated before review.
+- ADR 0023 selects Node HTTP without creating a public adapter or support claim.
+- V1-03 next freezes the smallest package boundary using the demonstrated
+  workflow, adapter, K0 imports, and one private consumer.
+- Package names, route syntax, renderer boundaries, request security policy,
+  and adapter timeout/force-close behavior remain unresolved by this slice.
 
 ## Blockers
 
@@ -99,3 +99,6 @@ V1-01 — freeze the supported config and command workflow
 - K0-11 — Commit `143cbb4` reconciles all four K0 outcomes through ADR 0021,
   publishes the model-checked 14-slice V1 plan, and makes `experiment:all`
   verify every immutable K0 outcome.
+- V1-01 — Commit `6d03a92` freezes the root TypeScript config, command and
+  output ownership, strict environment precedence, and deterministic private
+  workflow prototype through ADR 0022.

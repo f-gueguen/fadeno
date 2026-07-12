@@ -1,8 +1,8 @@
 # Configuration, build, adapters, testing, and diagnostics
 
 The repository exposes one coherent workflow from source to a tested deployment
-artifact. ADR 0022 fixes the toolchain/configuration names; DG-V1-06 still owns
-the initial adapter rather than letting packages invent it independently.
+artifact. ADR 0022 fixes the toolchain/configuration names, and ADR 0023 selects
+Node HTTP as the initial adapter target without creating a public package.
 
 ## Configuration
 
@@ -53,9 +53,16 @@ A production build:
    buffer, drop cancellation, trust proxy headers, or change cookie semantics.
 5. Only adapters that pass the shared suite appear in the support matrix.
 
-DG-V1-06 selects exactly one initial runtime based on conformance feasibility
-and maintainer ownership. Additional adapters remain deferred until the shared
-suite exists.
+ADR 0023 selects Node 22.17.0 or newer with built-in `node:http` as the initial
+adapter target. Its declared capability set includes streamed requests and
+responses with backpressure, disconnect cancellation, and graceful active-work
+drain. It explicitly excludes response trailers, adapter-enforced request-size
+limits, and trusted proxy headers. The adapter derives request URL authority
+from its listener rather than untrusted host or forwarded metadata.
+
+The selected adapter does not enter the support matrix until its public package
+surface passes the shared conformance suite. Additional adapters remain
+deferred until that suite exists.
 
 ## Test layers
 
