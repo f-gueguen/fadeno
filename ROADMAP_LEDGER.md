@@ -6,34 +6,35 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B4 — atomic analyzer publication and stale-result suppression
+V1-DX-B5 — structured analyzer diagnostics and correction intents
 
 ## Exit criteria
 
-- [x] Construct one complete private publication generation from a B3 candidate
-  before replacing any consumer-visible analyzer state.
-- [x] Give diagnostic-like facets and generated artifacts full-replacement
-  semantics so recovery removes stale records and deleted outputs together.
-- [x] Capture workspace epoch, document versions, requested facets, operation,
-  configuration, and ownership identity and suppress every stale completion.
-- [x] Support explicit cancellation and newer-operation supersession without
-  allowing obsolete work to block or overwrite the current generation.
-- [x] Pass atomicity, recovery, cancellation, supersession, serialization,
-  private-package, full repository, local CI, and independent review gates.
+- [ ] Define one independently versioned private diagnostics facet whose human
+  output is rendered only from allowlisted structured facts.
+- [ ] Validate deterministic exact/null locations, causal and skipped-work
+  relations, expected/internal-failure identity, and redaction before output.
+- [ ] Bind analyzer-owned correction intents to diagnostic instances and exact
+  publication authority; apply safe edits atomically or refuse stale work.
+- [ ] Preserve all diagnostic and correction evidence through strict bounded
+  serialization and full-batch recovery replacement.
+- [ ] Pass canonical-corpus success/refusal/correction/recovery, private package,
+  full repository, local CI, and independent review gates.
 
 ## In progress
 
-- V1-DX-B4 is private foundation only and adds no package export, public schema,
+- V1-DX-B5 is private foundation only and adds no package export, public schema,
   protocol, command, or supported editor product.
-- V1-DX-B5 through B7 remain dependency ordered and independently reversible.
+- V1-DX-B6 and B7 remain dependency ordered and independently reversible.
 - The V1 application is the canonical analyzer corpus from B3 onward.
-- B4 publishes only private in-memory analyzer generations. B7 owns production
-  check/watch/build integration and filesystem output application.
-- B5 owns stable structured diagnostic and correction semantics; B4 uses
-  module-owned replacement facets without inventing that later contract.
-- The B4 checker copies the canonical V1 application, retains normalized
-  failure/recovery replacement evidence, and covers cancellation, supersession,
-  document/configuration staleness, and strict schema-v4 round trips.
+- The route-role collision correction is review-only because choosing which
+  route owner to remove is ambiguous; private safe-edit evidence separately
+  proves exact application and stale refusal.
+- B5 may use the canonical application as private analyzer corpus and prove the
+  packed implementation remains inaccessible. B7 owns actual packed public
+  check/watch/build execution and filesystem output application.
+- B6 owns flow/explain output; B5 does not relabel manually projected scenario
+  files as analyzer explanation.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -153,3 +154,7 @@ V1-DX-B4 — atomic analyzer publication and stale-result suppression
   deterministic causal closure and recomputation, configuration epochs,
   deletion/rename cleanup, construction-time provenance, and strict schema-v3
   round trips against the canonical V1 application corpus.
+- V1-DX-B4 — Commit `266f036` publishes one complete private analyzer epoch,
+  atomically replaces facets, artifacts, and deletions, suppresses cancelled,
+  superseded, stale, or refused work, and preserves strict schema-v4 recovery
+  evidence without exposing an analyzer product or schema.
