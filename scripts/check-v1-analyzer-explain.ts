@@ -5,6 +5,10 @@ import { join } from "node:path";
 
 import type { AnalyzerFacetContribution } from "../packages/framework/src/internal/analyzer-facets.ts";
 import { createAnalyzerDiagnosticBatch } from "../packages/framework/src/internal/analyzer-diagnostics.ts";
+import {
+  deserializeAnalyzerExplainResult,
+  serializeAnalyzerExplainResult,
+} from "../packages/framework/src/internal/analyzer-explain.ts";
 import type { AnalyzerGraphComputeContext, AnalyzerGraphNodeDefinition } from "../packages/framework/src/internal/analyzer-graph.ts";
 import {
   createRouteExplainContribution,
@@ -81,6 +85,8 @@ try {
     collect: ({ publication: current, detail }) => [createRouteExplainContribution(current, null, detail)],
   }).result;
   assert.equal(semanticFlow.status, "complete");
+  const serializedSemanticFlow = serializeAnalyzerExplainResult(semanticFlow);
+  assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedSemanticFlow)), serializedSemanticFlow);
   if (semanticFlow.status === "complete") {
     const value = semanticFlow.contributions[0]!.value as any;
     assert.equal(value.family, "static-analysis");
@@ -136,6 +142,8 @@ try {
       const contribution = limited.contributions[0]!;
       const serialized = serializeRouteExplainContribution(contribution);
       assert.equal(serializeRouteExplainContribution(deserializeRouteExplainContribution(serialized)), serialized);
+      const serializedResult = serializeAnalyzerExplainResult(limited);
+      assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedResult)), serializedResult);
       const records = (contribution.value as any).records;
       const retained = new Set(records.map(({ id }: any) => id));
       for (const record of records) {
@@ -149,7 +157,11 @@ try {
     collect: () => new Promise((resolve) => setTimeout(() => resolve(routeContribution), 20)),
   }).result;
   assert.equal(durationLimited.status, "partial");
-  if (durationLimited.status === "partial") assert.equal(durationLimited.truncation, "duration");
+  if (durationLimited.status === "partial") {
+    assert.equal(durationLimited.truncation, "duration");
+    const serialized = serializeAnalyzerExplainResult(durationLimited);
+    assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serialized)), serialized);
+  }
   assert.equal(constructionCalls, callsAfterPublication);
   assert.equal(session.currentPublicationSnapshot, publication);
 
@@ -174,8 +186,10 @@ try {
     },
   }).result;
   assert.equal(complete.status, "complete");
-  assert.equal(complete.publicationOperationId, publication.operationId);
-  assert.equal(complete.publicationGeneration, publication.publicationGeneration);
+  assert.equal(complete.identity.publicationOperationId, publication.operationId);
+  assert.equal(complete.identity.publicationGeneration, publication.publicationGeneration);
+  assert.deepEqual(complete.identity.requestedFacets, [{ namespace: "fadeno.routes.explain" }]);
+  assert.deepEqual(complete.identity.documentVersions, publication.documentVersions);
   assert.deepEqual(complete.contributions, routeContribution);
   assert.equal(session.currentPublicationSnapshot, publication);
   assert.equal(constructionCalls, callsAfterPublication);
@@ -191,6 +205,8 @@ try {
     assert.equal(cancelledResult.completeness, "interrupted");
     assert.equal(cancelledResult.interruption, "cancelled");
     assert.deepEqual(cancelledResult.contributions, []);
+    const serialized = serializeAnalyzerExplainResult(cancelledResult);
+    assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serialized)), serialized);
   }
   assert.equal(cancelledCollectorCalls, 0);
 
@@ -294,6 +310,17 @@ try {
 
   const failed = await session.startExplain({ detail: "semantic", collect: () => Promise.reject(new Error("private")) }).result;
   assert.equal(failed.status, "refused");
+  for (const mutate of [
+    (value: any) => { value.result.identity.requestedFacets = []; },
+    (value: any) => { value.result.identity.documentVersions[0].version = -1; },
+    (value: any) => { value.result.completeness = "partial"; },
+    (value: any) => { value.result.contributions[0].value.publicationGeneration += 1; },
+    (value: any) => { value.result.observedRuntime = true; },
+  ]) {
+    const invalid = JSON.parse(serializedSemanticFlow);
+    mutate(invalid);
+    assert.throws(() => deserializeAnalyzerExplainResult(JSON.stringify(invalid)), /FADENO_ANALYZER_EXPLAIN_SERIALIZATION/u);
+  }
   assert.equal(session.currentPublicationSnapshot?.facets[0]?.value && true, true);
   console.log("V1 analyzer B6 lifecycle passed (disabled, activation, cancellation, supersession, freshness)");
 } finally {
