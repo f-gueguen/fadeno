@@ -34,10 +34,15 @@ identify their generator version and are never hand-edited.
 
 ## Type spine
 
-H3 must demonstrate that stock `tsc` catches invalid route parameters, link
-destinations, action fields, and context access at the application source
-location. Framework-specific editor services may improve presentation only
-after the stock-TypeScript contract works.
+ADR 0018 establishes that stock `tsc` and the stock TypeScript language server
+consume correlated generated declarations and report invalid route parameters,
+link destinations, action fields, and context access at the application source
+location. Framework-specific editor services are not required for V1.
+
+The K0 whole-file incremental strategy did not meet its locked cost ratio. V1
+therefore permits deterministic clean generation and unchanged-byte avoidance,
+but makes no bounded single-route incremental claim until a redesigned strategy
+qualifies without weakening correlation or stale-output removal.
 
 Generated declarations cannot weaken a control-flow guarantee from runtime
 behavior. Positive and negative type fixtures are public conformance artifacts.

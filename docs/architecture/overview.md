@@ -57,7 +57,8 @@ violate an architectural constraint.
 - `scripts/` contains repository-wide policy checks.
 
 The initial repository deliberately has no fictional framework package or
-example application.
+example application. The first real package and example arrive together at the
+V1-04 checkpoint after DG-V1-01 selects the boundary.
 
 DG-V1-01 blocks the first package boundary until K0 imports and a demonstrated
 consumer show the smallest useful split.
@@ -75,13 +76,13 @@ package is added.
 
 ## Evidence gates
 
-The first implementation phase tests four claims before committing to public
-runtime architecture:
+K0 tested four claims before committing to public runtime architecture:
 
 1. browser-state-preserving HTML updates;
 2. bounded interaction extraction;
 3. stock-TypeScript route, form, and context typing;
 4. correctness-first revalidation at representative cost.
 
-The [hypothesis ledger](../ledgers/hypotheses.md) defines the evidence and pivot
-outcome for each claim.
+ADRs 0014, 0015, 0018, and 0020 preserve their NARROW/GO outcomes. ADR 0021 and
+the [V1 plan](../roadmap/v1.md) define how those results constrain delivery; the
+hypothesis ledger is now empty.

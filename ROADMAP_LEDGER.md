@@ -6,28 +6,25 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-10B — qualify H4 correctness and cost from exact merged K0-10A source
+K0-11 — reconcile K0 decisions into implementable V1 scope
 
 ## Exit criteria
 
-- [x] Execute only exact clean merged K0-10A source `51594a8` in the frozen H4
-  reference environment without moving thresholds.
-- [x] Retain every launched attempt and select attempt 12 as the first complete
-  reference-valid attempt after 11 environmental INCONCLUSIVE attempts.
-- [x] Independently derive zero stale/deduplication failures, 1.301110 p95
-  default/selective ratio, 0.025209 ms default p95, and 4.8961% RSS growth.
-- [x] Publish the immutable GO result and ADR 0020 without resolving public
-  resource, action, cache, or `keeps` syntax.
-- [x] Prove all evidence projections and `pnpm ci:local` pass on the final tip.
+- [x] Reconcile H1 NARROW, H2 GO, H3 NARROW, and H4 GO into one effective
+  delivery decision without publishing experiment syntax.
+- [x] Update product scope, specifications, risks, architecture, and traceability
+  so no K0 mechanism remains described as an unresolved hypothesis.
+- [x] Publish a dependency-ordered V1 plan covering every V1 feature and
+  DG-V1-01 through DG-V1-08.
+- [x] Define V1-04 as the first running checkpoint and V1-13/V1-14 as the
+  usable/complete V1 checkpoints with executable examples and documentation.
+- [ ] Prove reconciliation/model controls and `pnpm ci:local` pass.
 
 ## In progress
 
-- Exact source `51594a8` passed all H4 gates in attempt 12; the independently
-  derived decision is GO.
-- Clean local CI passed the complete immutable-evidence suite at `5e956e9`;
-  the final ledger projection is revalidated before review.
-- K0-10B gathers DATA-01, DATA-03, SEC-01, and PERF-01 evidence while DG-V1-04
-  continues to gate public resource, action, cache, and `keeps` syntax.
+- ADR 0021 makes the V1 plan the implementation continuation after K0.
+- Open V1 gates remain open; K0-11 orders them and does not invent their public
+  contracts.
 
 ## Blockers
 
@@ -93,3 +90,6 @@ K0-10B — qualify H4 correctness and cost from exact merged K0-10A source
   10,000-cycle correctness schedule, complete-output paired timing, forced-GC
   RSS method, retained-attempt launcher, independent verifier, and strict
   GO/PIVOT/INCONCLUSIVE contracts without collecting a result.
+- K0-10B — Commit `67f51ca` retains all 12 exact-source H4 attempts, independently
+  verifies attempt 12 as the first complete reference-valid run, and accepts
+  correctness-first revalidation through ADR 0020 with every locked gate green.

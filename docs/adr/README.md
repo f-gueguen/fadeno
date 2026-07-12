@@ -30,6 +30,7 @@ effective decision.
 18. [ADR 0018 — Narrow the type spine around incremental generation](0018-narrow-type-spine-incremental-generation.md)
 19. [ADR 0019 — H4 local Docker reference environment](0019-h4-local-docker-reference.md)
 20. [ADR 0020 — Accept correctness-first revalidation](0020-accept-correctness-first-revalidation.md)
+21. [ADR 0021 — Reconcile K0 evidence into V1 delivery](0021-reconcile-k0-into-v1-delivery.md)
 
 ## Superseded decisions
 
