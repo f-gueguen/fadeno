@@ -509,8 +509,12 @@ contribution; it does not first allocate the complete application-sized flow.
 Any construction truncation remains explicit in the module contribution and
 the common operation result. A module-owned witness records the limiting
 dimension, limit, observed value, and retained value; transport reprocessing
-requires that witness to match the requested budget and retained evidence, so
-an empty contribution cannot merely claim record, depth, or child exhaustion.
+requires that witness to be structurally consistent with the requested budget
+and retained evidence, so empty record, depth, or child claims refuse. This
+private codec is an integrity boundary for analyzer-produced data, not an
+authentication scheme: a party that fabricates an entirely schema-conforming
+witness is outside the trusted private transport contract. No public or
+external compatibility claim follows from the fixture.
 Diagnostic causes are projected in deterministic causal order rather than
 diagnostic-key order, preserving valid forward causal references. Valid budget exhaustion retains only validated records and reports one explicit
 `bytes`, `records`, `depth`, `children`, or `duration` truncation reason;
@@ -533,7 +537,7 @@ from the operation refuses atomically. Refusal codes are allowlisted and
 workspace/document file URIs are exact, canonical, query-free, fragment-free,
 and contained. The operation transport limit covers the maximum valid
 publication identity and 4,096-document version set in addition to bounded
-module evidence. B6 accepts exactly the initial route
+module evidence; a 4,097th document identity refuses. B6 accepts exactly the initial route
 contribution. A small private descriptor registry dispatches requested
 namespaces to their module-owned processor, identity matcher, and codec; unknown
 or duplicate requests refuse before collection. Later modules register their

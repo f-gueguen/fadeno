@@ -625,6 +625,16 @@ try {
     serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedMaximumIdentity)),
     serializedMaximumIdentity,
   );
+  const excessiveIdentity = JSON.parse(JSON.stringify(maximumIdentity));
+  excessiveIdentity.result.identity.documentVersions.push({
+    uri: new URL("document-4096.tsx", maximumIdentityRoot).href,
+    version: 0,
+    lifetime: 1,
+  });
+  assert.throws(
+    () => serializeAnalyzerExplainResult(excessiveIdentity.result),
+    /FADENO_ANALYZER_EXPLAIN_SERIALIZATION/u,
+  );
   assert.equal(session.currentPublicationSnapshot?.facets[0]?.value && true, true);
   console.log("V1 analyzer B6 lifecycle passed (disabled, activation, cancellation, supersession, freshness)");
 } finally {

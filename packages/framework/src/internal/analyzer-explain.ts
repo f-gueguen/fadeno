@@ -485,6 +485,7 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
     rootPath = fileURLToPath(rootUrl);
     if (pathToFileURL(rootPath).href !== rootUrl.href) serializationRefuse();
   } catch { serializationRefuse(); }
+  if ((identity["documentVersions"] as unknown[]).length > 4_096) serializationRefuse();
   let priorUri: string | undefined;
   for (const entry of identity["documentVersions"] as unknown[]) {
     const document = exactRecord(entry, ["uri", "version", "lifetime"]);
