@@ -19,6 +19,7 @@ export type AnalyzerGraphRefusalCode =
   | "FADENO_ANALYZER_GRAPH_ARTIFACT"
   | "FADENO_ANALYZER_GRAPH_VALUE"
   | "FADENO_ANALYZER_GRAPH_LIMIT"
+  | "FADENO_ANALYZER_GRAPH_STALE"
   | "FADENO_ANALYZER_GRAPH_COMPUTE";
 
 export const ANALYZER_GRAPH_LIMITS = Object.freeze({
@@ -323,7 +324,11 @@ export class AnalyzerDependencyGraph {
     return this.#snapshot;
   }
 
-  analyze(operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]): AnalyzerGraphOperationResult {
+  analyze(
+    operationId: string,
+    definitions: readonly AnalyzerGraphNodeDefinition[],
+    options: Readonly<{ commit?: boolean; expected?: AnalyzerGraphSnapshot }> = {},
+  ): AnalyzerGraphOperationResult {
     const authority = this.#authority();
     try {
       const documents = new Map(authority.snapshot.documents.map((document) => [document.uri, document]));
@@ -515,12 +520,18 @@ export class AnalyzerDependencyGraph {
         refuse("FADENO_ANALYZER_GRAPH_LIMIT");
       }
 
-      this.#definitions = new Map(nextDefinitions);
-      this.#results = candidateResults;
-      this.#documentFingerprints = nextFingerprints;
-      this.#configurationEpoch = authority.configurationEpoch;
-      this.#generation = nextGeneration;
-      this.#snapshot = snapshot;
+      if (options.expected && JSON.stringify(snapshot) !== JSON.stringify(options.expected)) {
+        refuse("FADENO_ANALYZER_GRAPH_STALE");
+      }
+
+      if (options.commit !== false) {
+        this.#definitions = new Map(nextDefinitions);
+        this.#results = candidateResults;
+        this.#documentFingerprints = nextFingerprints;
+        this.#configurationEpoch = authority.configurationEpoch;
+        this.#generation = nextGeneration;
+        this.#snapshot = snapshot;
+      }
       return frozen({ accepted: true as const, operationId, snapshot });
     } catch (error) {
       if (!(error instanceof GraphRefusal)) throw error;

@@ -5,6 +5,10 @@ import { join } from "node:path";
 
 import type { AnalyzerFacetContribution } from "../packages/framework/src/internal/analyzer-facets.ts";
 import type { AnalyzerGraphComputeContext, AnalyzerGraphNodeDefinition } from "../packages/framework/src/internal/analyzer-graph.ts";
+import {
+  deserializeAnalyzerPublicationSnapshot,
+  serializeAnalyzerPublicationSnapshot,
+} from "../packages/framework/src/internal/analyzer-publication.ts";
 import { AnalyzerSession, type AnalyzerOperationResult } from "../packages/framework/src/internal/analyzer-session.ts";
 
 function accepted(result: AnalyzerOperationResult) {
@@ -94,6 +98,19 @@ try {
   assert.equal(errored.snapshot.publicationGeneration, 2);
   assert.equal(errored.snapshot.artifacts.some(({ id }) => id === "artifact:stale-diagnostic-output"), true);
 
+  const cancelledRecoveryGate = deferred<readonly AnalyzerFacetContribution[]>();
+  const graphBeforeCancelledRecovery = session.currentGraphSnapshot;
+  const cancelledRecovery = session.startPublication({
+    definitions,
+    requestedFacets,
+    materialize: () => cancelledRecoveryGate.promise,
+  });
+  await Promise.resolve();
+  assert.equal(session.currentGraphSnapshot, graphBeforeCancelledRecovery, "unpublished preview changed graph state");
+  cancelledRecovery.cancel();
+  assert.equal((await cancelledRecovery.result).status, "cancelled");
+  assert.equal(session.currentGraphSnapshot, graphBeforeCancelledRecovery);
+
   const recoveryHandle = session.startPublication({ definitions, requestedFacets, materialize: () => successContributions });
   const recovery = await recoveryHandle.result;
   assert.equal(recovery.status, "published");
@@ -105,16 +122,61 @@ try {
     path: ".fadeno/stale-diagnostic-output.json",
     ownerNodeId: "route:page",
   }]);
+  const serializedRecovery = serializeAnalyzerPublicationSnapshot(recovery.snapshot);
+  const recoveryRoundTrip = deserializeAnalyzerPublicationSnapshot(serializedRecovery);
+  assert.deepEqual(recoveryRoundTrip, recovery.snapshot);
+  assert.equal(serializeAnalyzerPublicationSnapshot(recoveryRoundTrip), serializedRecovery);
+  assert.equal(Object.isFrozen(recoveryRoundTrip.graph.results[0]?.provenance), true);
+  for (const mutate of [
+    (value: any) => { value.snapshot.workspaceEpoch += 1; },
+    (value: any) => { value.snapshot.facets[0].namespace = "fadeno.unrequested"; },
+    (value: any) => { value.snapshot.artifacts.pop(); },
+    (value: any) => { value.snapshot.requestedFacets.reverse(); },
+    (value: any) => {
+      value.snapshot.requestedFacets = [
+        { namespace: "fadeno.graph" },
+        ...Array.from({ length: 33 }, (_, index) => ({ namespace: `fadeno.module-${String(index).padStart(2, "0")}` })),
+      ];
+      value.snapshot.facets = value.snapshot.requestedFacets.slice(1).map(({ namespace }: { namespace: string }) => ({
+        namespace, version: 1, value: null,
+      }));
+    },
+    (value: any) => {
+      value.snapshot.requestedFacets = [
+        { namespace: "fadeno.graph" },
+        ...Array.from({ length: 5 }, (_, index) => ({ namespace: `fadeno.total-${index}` })),
+      ];
+      value.snapshot.facets = value.snapshot.requestedFacets.slice(1).map(({ namespace }: { namespace: string }) => ({
+        namespace, version: 1, value: "x".repeat(60_000),
+      }));
+    },
+  ]) {
+    const invalid = JSON.parse(serializedRecovery);
+    mutate(invalid);
+    assert.throws(
+      () => deserializeAnalyzerPublicationSnapshot(JSON.stringify(invalid)),
+      /FADENO_ANALYZER_PUBLICATION_SERIALIZATION/u,
+    );
+  }
 
+  let cancelledComputeCalls = 0;
+  const cancelledBeforeGraphDefinitions = definitions.map((definition) => definition.id === "route:root"
+    ? {
+      ...definition,
+      definitionVersion: 3,
+      compute: (context: AnalyzerGraphComputeContext) => { cancelledComputeCalls += 1; return rootCompute(context); },
+    }
+    : definition);
   const cancelledGate = deferred<readonly AnalyzerFacetContribution[]>();
   const cancelledHandle = session.startPublication({
-    definitions,
+    definitions: cancelledBeforeGraphDefinitions,
     requestedFacets,
     materialize: () => cancelledGate.promise,
   });
   cancelledHandle.cancel();
   const cancelled = await cancelledHandle.result;
   assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelledComputeCalls, 0, "cancelled ticket executed queued graph work");
   assert.equal(cancelledHandle.signal.aborted, true);
   assert.equal(session.currentPublicationSnapshot, recovery.snapshot);
 
@@ -127,6 +189,15 @@ try {
   assert.equal(current.status, "published");
   assert.equal(session.currentPublicationSnapshot, current.snapshot);
   assert.equal(current.snapshot.publicationGeneration, 4);
+
+  const concurrentGate = deferred<readonly AnalyzerFacetContribution[]>();
+  const concurrentHandle = session.startPublication({ definitions, requestedFacets, materialize: () => concurrentGate.promise });
+  await Promise.resolve();
+  const direct = session.analyzeGraph(errorDefinitions);
+  assert.equal(direct.accepted, true);
+  concurrentGate.resolve(successContributions);
+  assert.equal((await concurrentHandle.result).status, "stale");
+  assert.equal(session.currentPublicationSnapshot, current.snapshot);
 
   const staleGate = deferred<readonly AnalyzerFacetContribution[]>();
   const staleHandle = session.startPublication({ definitions, requestedFacets, materialize: () => staleGate.promise });

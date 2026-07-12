@@ -1,5 +1,7 @@
 import {
+  ANALYZER_FACET_LIMITS,
   createAnalyzerFacetSnapshot,
+  normalizeAnalyzerFacetValue,
   type AnalyzerFacetContribution,
   type AnalyzerFacetRequest,
 } from "./analyzer-facets.ts";
@@ -12,6 +14,11 @@ import type {
   AnalyzerGraphOperationResult,
   AnalyzerGraphSnapshot,
 } from "./analyzer-graph.ts";
+import {
+  deserializeAnalyzerGraphSnapshot,
+  serializeAnalyzerGraphSnapshot,
+} from "./analyzer-graph.ts";
+import { TextEncoder } from "node:util";
 
 export interface AnalyzerPublicationAuthority {
   readonly snapshot: AnalyzerDocumentOnlySnapshot;
@@ -109,17 +116,28 @@ function authorityIdentity(authority: AnalyzerPublicationAuthority): string {
 
 export class AnalyzerPublicationCoordinator {
   readonly #authority: () => AnalyzerPublicationAuthority;
-  readonly #analyze: (operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]) => AnalyzerGraphOperationResult;
+  readonly #preview: (operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]) => AnalyzerGraphOperationResult;
+  readonly #commit: (
+    operationId: string,
+    definitions: readonly AnalyzerGraphNodeDefinition[],
+    expected: AnalyzerGraphSnapshot,
+  ) => AnalyzerGraphOperationResult;
   #active: Ticket | null = null;
   #published: AnalyzerPublicationSnapshot | null = null;
   #publicationGeneration = 0;
 
   constructor(
     authority: () => AnalyzerPublicationAuthority,
-    analyze: (operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]) => AnalyzerGraphOperationResult,
+    preview: (operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]) => AnalyzerGraphOperationResult,
+    commit: (
+      operationId: string,
+      definitions: readonly AnalyzerGraphNodeDefinition[],
+      expected: AnalyzerGraphSnapshot,
+    ) => AnalyzerGraphOperationResult,
   ) {
     this.#authority = authority;
-    this.#analyze = analyze;
+    this.#preview = preview;
+    this.#commit = commit;
   }
 
   get currentSnapshot(): AnalyzerPublicationSnapshot | null {
@@ -144,13 +162,12 @@ export class AnalyzerPublicationCoordinator {
       state: "active",
     };
     this.#active = ticket;
-    const graphResult = this.#analyze(ticket.operationId, request.definitions);
     const capturedRequest = frozen({
       definitions: frozen([...request.definitions]),
       requestedFacets: frozen(request.requestedFacets.map(({ namespace }) => frozen({ namespace }))),
       materialize: request.materialize,
     });
-    const result = Promise.resolve().then(() => this.#execute(ticket, capturedRequest, graphResult));
+    const result = Promise.resolve().then(() => this.#execute(ticket, capturedRequest));
     return frozen({
       operationId,
       signal: ticket.controller.signal,
@@ -166,7 +183,6 @@ export class AnalyzerPublicationCoordinator {
   async #execute(
     ticket: Ticket,
     request: AnalyzerPublicationRequest,
-    graphResult: AnalyzerGraphOperationResult,
   ): Promise<AnalyzerPublicationResult> {
     const terminal = (): AnalyzerPublicationResult | null => {
       if (ticket.state === "cancelled") return this.#discard(ticket, "cancelled", "FADENO_ANALYZER_CANCELLED");
@@ -181,6 +197,7 @@ export class AnalyzerPublicationCoordinator {
     };
     let stopped = terminal();
     if (stopped) return stopped;
+    const graphResult = this.#preview(ticket.operationId, request.definitions);
     if ("code" in graphResult) return this.#discard(ticket, "refused", graphResult.code);
     stopped = terminal();
     if (stopped) return stopped;
@@ -231,6 +248,11 @@ export class AnalyzerPublicationCoordinator {
       value: artifact.value,
       provenance: artifact.provenance,
     }))).sort((left, right) => compareText(left.id, right.id));
+    const nextArtifacts = new Map(artifacts.map((artifact) => [artifact.id, artifact]));
+    const removedArtifacts = (this.#published?.artifacts ?? []).filter((previous) => {
+      const next = nextArtifacts.get(previous.id);
+      return !next || next.path !== previous.path || next.ownerNodeId !== previous.ownerNodeId;
+    }).map(({ id, path, ownerNodeId }) => frozen({ id, path, ownerNodeId }));
     const snapshot = frozen({
       analyzerVersion: 1 as const,
       schemaVersion: 4 as const,
@@ -250,13 +272,15 @@ export class AnalyzerPublicationCoordinator {
       graph: graphResult.snapshot,
       facets: facetResult.snapshot.facets,
       artifacts: frozen(artifacts),
-      removedArtifacts: graphResult.snapshot.removedArtifacts,
+      removedArtifacts: frozen(removedArtifacts),
       completeness: "complete" as const,
       interruption: null,
       truncated: false as const,
     });
     stopped = terminal();
     if (stopped) return stopped;
+    const committedGraph = this.#commit(ticket.operationId, request.definitions, graphResult.snapshot);
+    if ("code" in committedGraph) return this.#discard(ticket, "stale", "FADENO_ANALYZER_STALE");
     this.#publicationGeneration += 1;
     this.#published = snapshot;
     if (this.#active === ticket) this.#active = null;
@@ -276,4 +300,129 @@ export class AnalyzerPublicationCoordinator {
       currentPublicationGeneration: this.#publicationGeneration,
     });
   }
+}
+
+const maximumPublicationBytes = 9_000_000;
+const namespacePattern = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9-]*)+$/u;
+
+function serializationRefuse(): never {
+  throw new TypeError("FADENO_ANALYZER_PUBLICATION_SERIALIZATION");
+}
+
+function exactRecord(value: unknown, keys: readonly string[]): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) serializationRefuse();
+  const record = value as Record<string, unknown>;
+  const actual = Object.keys(record).sort(compareText);
+  const expected = [...keys].sort(compareText);
+  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) serializationRefuse();
+  return record;
+}
+
+function deepFreeze(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    for (const entry of value) deepFreeze(entry);
+    return Object.freeze(value);
+  }
+  if (typeof value === "object" && value !== null) {
+    for (const entry of Object.values(value)) deepFreeze(entry);
+    return Object.freeze(value);
+  }
+  return value;
+}
+
+export function serializeAnalyzerPublicationSnapshot(snapshot: AnalyzerPublicationSnapshot): string {
+  try {
+    const serialized = JSON.stringify({
+      format: "fadeno-private-analyzer-snapshot",
+      serializationVersion: 1,
+      snapshot,
+    });
+    if (new TextEncoder().encode(serialized).byteLength > maximumPublicationBytes) serializationRefuse();
+    deserializeAnalyzerPublicationSnapshot(serialized);
+    return serialized;
+  } catch { serializationRefuse(); }
+}
+
+export function deserializeAnalyzerPublicationSnapshot(serialized: string): AnalyzerPublicationSnapshot {
+  try {
+    if (typeof serialized !== "string" || new TextEncoder().encode(serialized).byteLength > maximumPublicationBytes) serializationRefuse();
+    const envelope = exactRecord(JSON.parse(serialized) as unknown, ["format", "serializationVersion", "snapshot"]);
+    if (envelope["format"] !== "fadeno-private-analyzer-snapshot" || envelope["serializationVersion"] !== 1) serializationRefuse();
+    const snapshot = exactRecord(envelope["snapshot"], [
+      "analyzerVersion", "schemaVersion", "sessionId", "operationId", "operation", "workspaceEpoch",
+      "configurationEpoch", "publicationGeneration", "requestedFacets", "documentVersions", "ownership",
+      "graph", "facets", "artifacts", "removedArtifacts", "completeness", "interruption", "truncated",
+    ]);
+    if (
+      snapshot["analyzerVersion"] !== 1 || snapshot["schemaVersion"] !== 4 || snapshot["operation"] !== "publish" ||
+      !Number.isSafeInteger(snapshot["publicationGeneration"]) || (snapshot["publicationGeneration"] as number) < 1 ||
+      snapshot["completeness"] !== "complete" || snapshot["interruption"] !== null || snapshot["truncated"] !== false
+    ) serializationRefuse();
+    const graphSerialized = serializeAnalyzerGraphSnapshot(snapshot["graph"] as AnalyzerGraphSnapshot);
+    const graph = deserializeAnalyzerGraphSnapshot(graphSerialized);
+    const identityPairs: readonly [unknown, unknown][] = [
+      [snapshot["sessionId"], graph.sessionId],
+      [snapshot["operationId"], graph.operationId],
+      [snapshot["workspaceEpoch"], graph.workspaceEpoch],
+      [snapshot["configurationEpoch"], graph.configurationEpoch],
+      [JSON.stringify(snapshot["documentVersions"]), JSON.stringify(graph.documentVersions)],
+    ];
+    if (identityPairs.some(([left, right]) => left !== right)) serializationRefuse();
+    const ownership = exactRecord(snapshot["ownership"], ["mode", "root", "configurationFingerprint"]);
+    if (
+      ownership["mode"] !== "single-root" || ownership["root"] !== graph.ownership.root ||
+      ownership["configurationFingerprint"] !== graph.ownership.configurationFingerprint
+    ) serializationRefuse();
+    if (!Array.isArray(snapshot["requestedFacets"]) || !Array.isArray(snapshot["facets"]) || !Array.isArray(snapshot["artifacts"])) {
+      serializationRefuse();
+    }
+    if (
+      snapshot["requestedFacets"].length > ANALYZER_FACET_LIMITS.maximumFacets + 1 ||
+      snapshot["facets"].length > ANALYZER_FACET_LIMITS.maximumFacets
+    ) serializationRefuse();
+    const requested = new Set<string>();
+    let previousNamespace: string | undefined;
+    for (const value of snapshot["requestedFacets"] as unknown[]) {
+      const request = exactRecord(value, ["namespace"]);
+      const namespace = request["namespace"];
+      if (
+        typeof namespace !== "string" || !namespacePattern.test(namespace) || requested.has(namespace) ||
+        (previousNamespace !== undefined && compareText(previousNamespace, namespace) >= 0)
+      ) serializationRefuse();
+      requested.add(namespace);
+      previousNamespace = namespace;
+    }
+    if (!requested.has("fadeno.graph")) serializationRefuse();
+    let previousFacet: string | undefined;
+    let aggregateFacetBytes = 0;
+    for (const value of snapshot["facets"] as unknown[]) {
+      const facet = exactRecord(value, ["namespace", "version", "value"]);
+      const namespace = facet["namespace"];
+      if (
+        typeof namespace !== "string" || namespace === "fadeno.graph" || !requested.has(namespace) ||
+        !Number.isSafeInteger(facet["version"]) || (facet["version"] as number) < 1 ||
+        (previousFacet !== undefined && compareText(previousFacet, namespace) >= 0) ||
+        JSON.stringify(normalizeAnalyzerFacetValue(facet["value"])) !== JSON.stringify(facet["value"])
+      ) serializationRefuse();
+      aggregateFacetBytes += new TextEncoder().encode(JSON.stringify(value)).byteLength;
+      if (aggregateFacetBytes > ANALYZER_FACET_LIMITS.maximumTotalBytes) serializationRefuse();
+      previousFacet = namespace;
+    }
+    const expectedArtifacts = graph.results.flatMap((node) => node.artifacts.map((artifact) => ({
+      id: artifact.id, path: artifact.path, ownerNodeId: node.id, value: artifact.value, provenance: artifact.provenance,
+    }))).sort((left, right) => compareText(left.id, right.id));
+    if (JSON.stringify(snapshot["artifacts"]) !== JSON.stringify(expectedArtifacts)) serializationRefuse();
+    if (!Array.isArray(snapshot["removedArtifacts"])) serializationRefuse();
+    let previousRemoved: string | undefined;
+    for (const value of snapshot["removedArtifacts"] as unknown[]) {
+      const removed = exactRecord(value, ["id", "path", "ownerNodeId"]);
+      if (typeof removed["id"] !== "string" || typeof removed["path"] !== "string" || typeof removed["ownerNodeId"] !== "string") {
+        serializationRefuse();
+      }
+      const key = `${removed["id"]}:${removed["path"]}`;
+      if (previousRemoved !== undefined && compareText(previousRemoved, key) >= 0) serializationRefuse();
+      previousRemoved = key;
+    }
+    return deepFreeze(envelope["snapshot"]) as AnalyzerPublicationSnapshot;
+  } catch { serializationRefuse(); }
 }
