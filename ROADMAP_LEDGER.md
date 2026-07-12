@@ -18,12 +18,13 @@ V1-DX-A — accept and schedule the private incremental analyzer architecture
   deferrals, and conformance requirements.
 - [x] Keep a supported editor product and external analyzer schema deferred;
   add no analyzer code, export, schema, editor manifest, or example claim.
-- [ ] Pass documentation, decision, ledger, project-model, policy-mutation, full
+- [x] Pass documentation, decision, ledger, project-model, policy-mutation, full
   repository, and independent adversarial review gates.
 
 ## In progress
 
-- V1-DX-A owns architecture and enforced sequencing only.
+- V1-DX-A owns architecture and enforced sequencing only; all focused and full
+  repository checks plus independent adversarial review pass.
 - V1-09 remains the first JSX renderer and running routed page example.
 - V1-DX-B follows V1-09 and precedes V1-10; its analyzer foundation is split
   into one-outcome implementation sub-slices declared before work begins.
