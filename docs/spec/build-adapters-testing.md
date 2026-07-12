@@ -165,7 +165,9 @@ Those fixtures are conformance evidence, not public analyzer examples. The
 `check:v1-analyzer-package` gate rebuilds and packs the current framework,
 proves the private implementation is present, and proves package exports still
 refuse analyzer deep imports. B7 owns executing analyzer examples through the
-packed public workflow.
+packed public workflow. B6's private canonical-app flow fixtures contain both
+module-rendered human output and normalized machine output from executed
+success, deliberate route refusal, and recovery operations.
 
 The V1 lifecycle workload measures edit/save to a fresh framework diagnostic
 and edit/save to a cleared diagnostic across invalidation, generation,

@@ -481,11 +481,23 @@ than enumerating future framework concepts.
 The route module owns exact record keys and the only initial static kinds:
 decision, ownership, skipped work, static outcome, and deep forensic
 provenance. Semantic mode refuses forensic records. Parent and causal
-identities are deterministic, same-contribution, acyclic, and bounded. Valid
-budget exhaustion retains only validated records and reports one explicit
+identities are deterministic, same-contribution, acyclic, and bounded. Budget
+selection follows dependency order, so every retained record retains its parent
+and causal evidence. Valid budget exhaustion retains only validated records and reports one explicit
 `bytes`, `records`, `depth`, `children`, or `duration` truncation reason;
 malformed or runtime-family evidence refuses atomically. Its private transport
 uses exact envelope keys and byte-stable round trips.
+
+The operation transport preserves analyzer and schema versions, operation,
+workspace and configuration epochs, requested facet, complete document-version
+set, publication identity, budgets, completeness, interruption, and truncation.
+Complete, limit-truncated, duration-truncated, and interrupted results round
+trip byte-stably. A contribution whose publication or detail identity differs
+from the operation refuses atomically. B6 accepts exactly the initial route
+contribution; later modules add their own codecs and explicit requests rather
+than entering a closed central record enumeration. The module-owned human
+renderer and normalized machine fixture are derived from the same validated
+success, refusal, and recovery contributions.
 
 Private analyzer snapshots contain static facets only. Observed runtime
 operation records use a separate record family and schema with independently

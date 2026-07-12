@@ -14,9 +14,9 @@ V1-DX-B6 — lazy bounded static plan and explanation
   current publication without recomputation or correctness-state mutation.
 - [x] Prove disabled zero-work, bounded semantic detail, and explicitly
   activated deep detail with independent byte/record/depth/duration/child limits.
-- [ ] Return explicit partial/interrupted states for truncation and cancellation;
+- [x] Return explicit partial/interrupted states for truncation and cancellation;
   suppress superseded or stale results and atomically refuse malformed evidence.
-- [ ] Add one independently versioned route-flow codec with pre-collection
+- [x] Add one independently versioned route-flow codec with pre-collection
   allowlists/redaction and explicit static/runtime record separation.
 - [ ] Pass analyzer-produced canonical flow, cancellation, serialization,
   private-package, full repository, local CI, and independent review gates.
@@ -38,12 +38,14 @@ V1-DX-B6 — lazy bounded static plan and explanation
   canonical-app evidence. B7 owns packed public check/watch/build execution.
 - The current B6 lifecycle checker proves disabled zero collection, activation
   and budget refusal, semantic/deep route projection, no construction
-  re-execution, cancellation, supersession, document/publication staleness, and
-  unchanged correctness publication. Truncation and strict transport remain
-  open in this slice.
+  re-execution, cancellation, supersession, document/publication staleness,
+  unchanged correctness publication, dependency-closed truncation, and strict
+  operation and contribution transport.
 - The route module now strictly validates its static record family and reports
   isolated byte, record, parent-depth, child-count, and duration truncation;
-  malformed fields, runtime-family claims, dangling parents, and cycles refuse.
+  malformed fields, runtime-family claims, dangling parents, parent or causal
+  cycles, and mismatched publication identity refuse. Analyzer-produced human
+  and normalized flow fixtures cover success, collision refusal, and recovery.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 

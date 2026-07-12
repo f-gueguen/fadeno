@@ -13,6 +13,7 @@ import type { AnalyzerGraphComputeContext, AnalyzerGraphNodeDefinition } from ".
 import {
   createRouteExplainContribution,
   deserializeRouteExplainContribution,
+  formatRouteExplainHuman,
   serializeRouteExplainContribution,
 } from "../packages/framework/src/internal/analyzer-route-explain.ts";
 import { AnalyzerSession, type AnalyzerOperationResult } from "../packages/framework/src/internal/analyzer-session.ts";
@@ -59,6 +60,11 @@ try {
     detail: "semantic", collect: () => { collectorCalls += 1; return routeContribution; },
   }).result;
   assert.equal(beforePublication.status, "refused");
+  const serializedBeforePublication = serializeAnalyzerExplainResult(beforePublication);
+  assert.equal(
+    serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedBeforePublication)),
+    serializedBeforePublication,
+  );
   assert.equal(collectorCalls, 0);
 
   const published = await session.startPublication({
@@ -76,7 +82,17 @@ try {
     detail: "disabled", collect: () => { collectorCalls += 1; return routeContribution; },
   } as any).result;
   assert.equal(disabled.status, "disabled");
+  const serializedDisabled = serializeAnalyzerExplainResult(disabled);
+  assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedDisabled)), serializedDisabled);
   assert.equal(collectorCalls, 0);
+
+  for (const collect of [
+    () => [],
+    () => [routeContribution[0]!, routeContribution[0]!],
+  ]) {
+    const refusedContributionCount = await session.startExplain({ detail: "semantic", collect }).result;
+    assert.equal(refusedContributionCount.status, "refused");
+  }
   assert.equal(session.currentPublicationSnapshot, publication);
   assert.equal(constructionCalls, callsAfterPublication);
 
@@ -307,9 +323,22 @@ try {
     collision: summarize(collisionFlow),
     recovery: summarize(recoveryFlow),
   }, JSON.parse(flowFixture));
+  assert.equal([
+    "SUCCESS",
+    formatRouteExplainHuman(semanticFlow.status === "complete" ? semanticFlow.contributions[0]! : routeContribution[0]!).trimEnd(),
+    "",
+    "COLLISION",
+    formatRouteExplainHuman(collisionFlow.status === "complete" ? collisionFlow.contributions[0]! : routeContribution[0]!).trimEnd(),
+    "",
+    "RECOVERY",
+    formatRouteExplainHuman(recoveryFlow.status === "complete" ? recoveryFlow.contributions[0]! : routeContribution[0]!).trimEnd(),
+    "",
+  ].join("\n"), readFileSync(new URL("../fixtures/v1-analyzer/explain-flow.human.txt", import.meta.url), "utf8"));
 
   const failed = await session.startExplain({ detail: "semantic", collect: () => Promise.reject(new Error("private")) }).result;
   assert.equal(failed.status, "refused");
+  const serializedFailed = serializeAnalyzerExplainResult(failed);
+  assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedFailed)), serializedFailed);
   for (const mutate of [
     (value: any) => { value.result.identity.requestedFacets = []; },
     (value: any) => { value.result.identity.documentVersions[0].version = -1; },

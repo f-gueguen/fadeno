@@ -222,6 +222,24 @@ export function deserializeRouteExplainContribution(serialized: string): Analyze
   } catch { throw new TypeError("FADENO_ANALYZER_ROUTE_EXPLAIN_SERIALIZATION"); }
 }
 
+export function formatRouteExplainHuman(input: AnalyzerFacetContribution): string {
+  const value = validateContribution(input).value as unknown as RouteExplainValue;
+  const lines = [`Static route explanation (${value.detail})`];
+  const kindOrder: readonly RouteExplainRecord["kind"][] = ["decision", "cause", "ownership", "skipped", "outcome", "forensic"];
+  for (const kind of kindOrder) {
+    for (const current of value.records.filter((record) => record.kind === kind)) {
+      const fields = current.fields as Readonly<Record<string, AnalyzerFacetValue>>;
+      if (kind === "decision") lines.push(`decision: ${String(fields["decision"])}`);
+      else if (kind === "cause") lines.push(`cause: ${String(fields["code"])}`);
+      else if (kind === "ownership") lines.push(`ownership: ${String(fields["nodeId"])} <- ${String(fields["ownerPath"])}`);
+      else if (kind === "skipped") lines.push(`skipped: ${String(fields["workId"])}`);
+      else if (kind === "outcome") lines.push(`outcome: ${String(fields["status"])}`);
+      else lines.push(`forensic: ${String(fields["namespace"])}:${String(fields["transformation"])}`);
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
 function projectPath(root: string, uri: string): string {
   const rootPath = fileURLToPath(root);
   const candidate = fileURLToPath(uri);
