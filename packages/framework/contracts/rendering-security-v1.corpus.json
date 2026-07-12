@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": 1,
+  "futureConsumer": "V1-09 renderer and browser conformance",
+  "textCases": [
+    { "id": "text-delimiters", "context": "html-text", "input": "&<>\"'", "output": "&amp;&lt;&gt;\"'" },
+    { "id": "attribute-delimiters", "context": "attribute-double-quoted", "input": "&<>\"'", "output": "&amp;&lt;&gt;&quot;&#39;" },
+    { "id": "title-end-tag", "context": "rcdata-title", "input": "</TiTlE><script>x</script>", "output": "&lt;/TiTlE&gt;&lt;script&gt;x&lt;/script&gt;" },
+    { "id": "textarea-comment", "context": "rcdata-textarea", "input": "<!--x--></TEXTAREA>", "output": "&lt;!--x--&gt;&lt;/TEXTAREA&gt;" },
+    { "id": "line-and-unicode-normalization", "context": "html-text", "input": "a\r\nb\rc\u0000d\ud800e\udc00f", "output": "a\nb\nc\ufffdd\ufffde\ufffdf" }
+  ],
+  "urlCases": [
+    { "id": "relative", "sink": "a.href", "input": "/people?q=a&x=b#top", "output": "/people?q=a&amp;x=b#top" },
+    { "id": "network-path", "sink": "img.src", "input": "//cdn.example/image.png", "output": "//cdn.example/image.png" },
+    { "id": "http", "sink": "form.action", "input": "http://example.test/submit", "output": "http://example.test/submit" },
+    { "id": "https", "sink": "link.href", "input": "https://example.test/site.css", "output": "https://example.test/site.css" },
+    { "id": "mailto-navigation", "sink": "a.href", "input": "mailto:person@example.test", "output": "mailto:person@example.test" },
+    { "id": "tel-navigation", "sink": "area.href", "input": "tel:+81300000000", "output": "tel:+81300000000" },
+    { "id": "entity-looking-relative", "sink": "a.href", "input": "javascript&colon;alert(1)", "output": "javascript&amp;colon;alert(1)" },
+    { "id": "percent-looking-relative", "sink": "a.href", "input": "javascript%3Aalert(1)", "output": "javascript%3Aalert(1)" }
+  ],
+  "urlRefusals": [
+    { "id": "javascript", "sink": "a.href", "input": "JaVaScRiPt:alert(1)", "error": "FADENO_RENDER_URL_SCHEME" },
+    { "id": "vbscript", "sink": "a.href", "input": "vbscript:msgbox(1)", "error": "FADENO_RENDER_URL_SCHEME" },
+    { "id": "data", "sink": "img.src", "input": "data:image/svg+xml,<svg/>", "error": "FADENO_RENDER_URL_SCHEME" },
+    { "id": "blob", "sink": "video.src", "input": "blob:https://example.test/id", "error": "FADENO_RENDER_URL_SCHEME" },
+    { "id": "file", "sink": "a.href", "input": "file:///etc/passwd", "error": "FADENO_RENDER_URL_SCHEME" },
+    { "id": "unknown-scheme", "sink": "a.href", "input": "custom:payload", "error": "FADENO_RENDER_URL_SCHEME" },
+    { "id": "mailto-form", "sink": "form.action", "input": "mailto:person@example.test", "error": "FADENO_RENDER_URL_SCHEME" },
+    { "id": "tel-resource", "sink": "img.src", "input": "tel:+81300000000", "error": "FADENO_RENDER_URL_SCHEME" },
+    { "id": "leading-space", "sink": "a.href", "input": " javascript:alert(1)", "error": "FADENO_RENDER_URL_CHARACTERS" },
+    { "id": "newline", "sink": "a.href", "input": "java\nscript:alert(1)", "error": "FADENO_RENDER_URL_CHARACTERS" },
+    { "id": "nul", "sink": "a.href", "input": "java\u0000script:alert(1)", "error": "FADENO_RENDER_URL_CHARACTERS" },
+    { "id": "backslash", "sink": "a.href", "input": "https:\\example.test/path", "error": "FADENO_RENDER_URL_CHARACTERS" },
+    { "id": "absolute-credentials", "sink": "a.href", "input": "https://user:pass@example.test/", "error": "FADENO_RENDER_URL_CREDENTIALS" },
+    { "id": "network-credentials", "sink": "img.src", "input": "//user@example.test/image.png", "error": "FADENO_RENDER_URL_CREDENTIALS" }
+  ],
+  "refusedContexts": [
+    "dynamic-tag-name", "dynamic-attribute-name", "comment", "event-attribute", "srcdoc", "meta-refresh",
+    "srcset", "ping", "xlink-href", "style-attribute", "script-children", "style-children", "svg", "mathml", "obsolete-element"
+  ],
+  "browserOutcomes": [
+    { "id": "text-no-created-element", "phase": "V1-09", "assertion": "parser creates only a text node" },
+    { "id": "url-no-script-navigation", "phase": "V1-09", "assertion": "browser URL is not an executable scheme" },
+    { "id": "csp-correlated-execution", "phase": "V1-09", "assertion": "only framework nonce-correlated executable markup runs" }
+  ]
+}

@@ -10,8 +10,10 @@
   "include": [
     "packages/framework/src/index.ts",
     "packages/framework/src/internal/unsafe-html.ts",
+    "packages/framework/src/internal/rendering-security.ts",
     "packages/framework/dist/**/*.d.ts",
     "scripts/check-v1-unsafe-html.ts",
+    "scripts/check-v1-rendering-security.ts",
     "scripts/fixtures/v1-rendering-security-types.ts"
   ]
 }

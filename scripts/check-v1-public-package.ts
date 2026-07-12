@@ -116,6 +116,8 @@ try {
     "package/dist/internal/routing/generator.js",
     "package/dist/internal/routing/matcher.d.ts",
     "package/dist/internal/routing/matcher.js",
+    "package/dist/internal/rendering-security.d.ts",
+    "package/dist/internal/rendering-security.js",
     "package/dist/internal/unsafe-html.d.ts",
     "package/dist/internal/unsafe-html.js",
     "package/dist/node.d.ts",
