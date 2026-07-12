@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/type-spine-reference-environment-v1.json",
+  "title": "Fadeno H3 local Docker reference environment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "id", "scope", "host", "docker", "container", "toolchain", "preflight", "sources"],
+  "properties": {
+    "$schema": { "const": "https://fadeno.dev/schemas/experiment/type-spine-reference-environment-v1.json" },
+    "schemaVersion": { "const": 1 },
+    "id": { "const": "k0-h3-local-docker-arm64-v1" },
+    "scope": { "const": "type-spine-qualification-only" },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "operatingSystem", "operatingSystemVersion", "buildVersion", "kernelVersion", "architecture", "cpuModel", "logicalCpuCount", "memoryMiB", "minimumFreeStorageMiB", "powerSource", "thermalPolicy"],
+      "properties": {
+        "provider": { "const": "local-docker-desktop" },
+        "operatingSystem": { "const": "macos" },
+        "operatingSystemVersion": { "const": "26.5.1" },
+        "buildVersion": { "const": "25F80" },
+        "kernelVersion": { "const": "25.5.0" },
+        "architecture": { "const": "arm64" },
+        "cpuModel": { "const": "Apple M2 Pro" },
+        "logicalCpuCount": { "const": 10 },
+        "memoryMiB": { "const": 32768 },
+        "minimumFreeStorageMiB": { "const": 32768 },
+        "powerSource": { "const": "ac" },
+        "thermalPolicy": { "const": "no-warning" }
+      }
+    },
+    "docker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["desktopVersion", "engineVersion", "apiVersion", "operatingSystem", "architecture", "kernelVersion", "minimumCpuCount", "minimumMemoryMiB"],
+      "properties": {
+        "desktopVersion": { "const": "4.55.0" },
+        "engineVersion": { "const": "29.1.3" },
+        "apiVersion": { "const": "1.52" },
+        "operatingSystem": { "const": "linux" },
+        "architecture": { "const": "arm64" },
+        "kernelVersion": { "const": "6.12.54-linuxkit" },
+        "minimumCpuCount": { "const": 10 },
+        "minimumMemoryMiB": { "const": 15972 }
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indexDigest", "platformDigest", "configDigest", "runtimeImage", "platform", "cpuLimit", "memoryMiB", "memorySwapMiB", "pidsLimit", "networkPolicy", "storagePolicy", "workingDirectory", "executionUser"],
+      "properties": {
+        "indexDigest": { "const": "sha256:1c18d9ab3af4585870b92e4dbc5cac5a0dc77dd13df1a5905cea89fc720eb05b" },
+        "platformDigest": { "const": "sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94" },
+        "configDigest": { "const": "sha256:cb36a58af87cd9b6203aa5fdc9493fe5d14500c7d52391e7e87d459e739dd770" },
+        "runtimeImage": { "const": "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94" },
+        "platform": { "const": "linux/arm64" },
+        "cpuLimit": { "const": 2 },
+        "memoryMiB": { "const": 8192 },
+        "memorySwapMiB": { "const": 8192 },
+        "pidsLimit": { "const": 256 },
+        "networkPolicy": { "const": "disabled-during-proof-and-measurement" },
+        "storagePolicy": { "const": "container-local-source-copy" },
+        "workingDirectory": { "const": "/work" },
+        "executionUser": { "const": "root" }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "pnpm", "typescript", "lockfile", "lockSha256"],
+      "properties": {
+        "node": { "const": "22.14.0" },
+        "pnpm": { "const": "11.7.0" },
+        "typescript": { "const": "7.0.2" },
+        "lockfile": { "const": "pnpm-lock.yaml" },
+        "lockSha256": { "const": "2fd513727b54e906b09a03d5e77104eb2f766703bf4eeb9ec1c670446fee492a" }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hostSamples", "hostSampleIntervalMs", "minimumCpuIdlePercent", "maximumLoadAveragePerLogicalCpu", "requiredPowerSource", "requiredThermalState", "containerProcessLimit", "maximumCpuThrottledRatio", "requiredOomDelta", "requiredOomKillDelta", "postflightRequired", "failurePolicy"],
+      "properties": {
+        "hostSamples": { "const": 3 },
+        "hostSampleIntervalMs": { "const": 1000 },
+        "minimumCpuIdlePercent": { "const": 75 },
+        "maximumLoadAveragePerLogicalCpu": { "const": 0.5 },
+        "requiredPowerSource": { "const": "ac" },
+        "requiredThermalState": { "const": "no-warning" },
+        "containerProcessLimit": { "const": 64 },
+        "maximumCpuThrottledRatio": { "const": 0.1 },
+        "requiredOomDelta": { "const": 0 },
+        "requiredOomKillDelta": { "const": 0 },
+        "postflightRequired": { "const": true },
+        "failurePolicy": { "const": "inconclusive-no-decision" }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "url", "observedAt"],
+        "properties": {
+          "claim": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "url": { "type": "string", "pattern": "^https://", "maxLength": 500 },
+          "observedAt": { "type": "string", "pattern": "^2026-07-12T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" }
+        }
+      }
+    }
+  }
+}

@@ -26,6 +26,7 @@ effective decision.
 14. [ADR 0014 — Narrow structural preservation around scroll-affecting layout](0014-narrow-structural-preservation.md)
 15. [ADR 0015 — Accept bounded interaction extraction](0015-accept-bounded-interaction-extraction.md)
 16. [ADR 0016 — Local repository merge validation](0016-local-repository-merge-validation.md)
+17. [ADR 0017 — H3 local Docker reference environment](0017-h3-local-docker-reference.md)
 
 ## Superseded decisions
 
