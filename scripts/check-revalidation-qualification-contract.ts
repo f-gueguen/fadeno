@@ -60,10 +60,11 @@ const capture = {
     defaultExecutions: "111111",
     selectiveExecutions: "000001",
     actionStatus: cycle.path === "s" ? "success" : "expected-error",
+    stateIsolated: true,
     stale: false,
   })) },
   latency: { defaultNs: Array(1000).fill(1), selectiveNs: Array(1000).fill(1), outputsMatch: true },
-  memory: { gcAvailable: true, gcRounds: 3, baselineRss: 1, afterRss: 1, baselineHeapUsed: 1, afterHeapUsed: 1, checkpoints: Array(10).fill(1) },
+  memory: { gcAvailable: true, gcRounds: 3, baselineRss: 1, afterRss: 1, baselineHeapUsed: 1, afterHeapUsed: 1, baselineCgroupMemory: 1, afterCgroupMemory: 1, checkpoints: Array(10).fill(1) },
   controls: { unsafeKeepsDetected: 4, unsafeKeepsTotal: 4, comparisonPass: true, sensitiveValuesDisclosed: false },
   failures: [],
 };
