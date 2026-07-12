@@ -27,7 +27,7 @@ for (const text of [...sensitive, "Authorization: Bearer abcdefghijklmnopqrstuvw
   if (!rejected) throw new Error("FADENO_REVALIDATION_LAUNCHER_SECRET_MUTATION");
 }
 assertSafeRetainedText("allowlisted metrics and digests only", sensitive);
-if (nextQualificationAttempt(join(root, "experiments/revalidation/results")) !== 1) throw new Error("FADENO_REVALIDATION_LAUNCHER_ATTEMPT_SEQUENCE");
+if (nextQualificationAttempt(join(root, "experiments/revalidation/results")) !== 13) throw new Error("FADENO_REVALIDATION_LAUNCHER_ATTEMPT_SEQUENCE");
 
 const launcher = readFileSync(join(root, "scripts/run-revalidation-reference-qualification.ts"), "utf8");
 for (const required of [

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -103,8 +103,7 @@ const result = {
   decision,
 };
 if (!validateResult(result)) throw new Error(`FADENO_REVALIDATION_QUALIFICATION_RESULT_SCHEMA:${JSON.stringify(validateResult.errors)}`);
-const results = readdirSync(join(experiment, "results")).sort();
-if (JSON.stringify(results) !== JSON.stringify(["README.md"])) throw new Error("FADENO_REVALIDATION_QUALIFICATION_PREMATURE_RESULT");
-const registry = JSON.parse(readFileSync(join(root, "experiments/registry.json"), "utf8")) as { experiments: readonly { id: string; status: string }[] };
-if (registry.experiments.find(({ id }) => id === "revalidation")?.status !== "available") throw new Error("FADENO_REVALIDATION_QUALIFICATION_PREMATURE_DECISION");
-console.log("revalidation qualification contract passed (GO/PIVOT/INCONCLUSIVE, no result or decision)");
+const registry = JSON.parse(readFileSync(join(root, "experiments/registry.json"), "utf8")) as { experiments: readonly { id: string; status: string; decision?: string }[] };
+const revalidation = registry.experiments.find(({ id }) => id === "revalidation");
+if (revalidation?.status !== "qualified" || revalidation.decision !== "go") throw new Error("FADENO_REVALIDATION_QUALIFICATION_DECISION_REGISTRY");
+console.log("revalidation qualification contract passed (GO/PIVOT/INCONCLUSIVE, immutable GO result)");

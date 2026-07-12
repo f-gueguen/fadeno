@@ -20,4 +20,5 @@ and a GC/RSS memory phase that runs before retained correctness/latency arrays.
 The independent verifier rescans and relinks every retained artifact; negative
 controls cover coordinated identity/hash tampering, JSON-formatted secrets,
 denied-action state mutation, and schema-valid product failures that must remain
-PIVOT evidence. Full qualification and immutable attempts remain K0-10B work.
+PIVOT evidence. K0-10B additionally validates the complete 12-attempt sequence,
+first-complete selection, and immutable GO projection.

@@ -44,14 +44,24 @@ if (args.length === 1 && args[0] === "--list") {
       });
       process.stdout.write(output);
     }
-    console.log("revalidation qualification capability passed (K0-10A, no result or decision)");
+    console.log("revalidation qualification capability passed (K0-10A frozen contract)");
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   }
 } else if (args.length === 1 && args[0] === "--qualify") {
-  console.error("FADENO_REVALIDATION_QUALIFICATION_SOURCE_REQUIRED: K0-10B must bind the exact merged K0-10A source");
-  process.exitCode = 2;
+  try {
+    const output = execFileSync(process.execPath, ["--no-warnings", "--experimental-strip-types", "scripts/check-revalidation-qualification-evidence.ts"], {
+      cwd: repository,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    process.stdout.write(output);
+    console.log("revalidation qualification passed (H4 GO from exact merged K0-10A source)");
+  } catch (error: unknown) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
 } else {
   console.error(`FADENO_REVALIDATION_USAGE: unsupported arguments: ${args.join(" ")}`);
   process.exitCode = 64;
