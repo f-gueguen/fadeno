@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { scanModuleReferences } from "./lib/package-boundaries.ts";
+
 const sentinelPackageName = "fadeno-private-boundary-sentinel";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const prototypeRoot = join(root, "prototypes/v1/package-boundary");
@@ -48,6 +50,12 @@ function assertSentinelIsPrivate(): void {
       }
     }
   }
+  for (const file of ["AGENTS.md", "CHANGELOG.md", "PROJECT_INVARIANTS.md", "README.md", "ROADMAP_LEDGER.md", "SECURITY.md", "SUPPORT.md"]) {
+    const path = join(root, file);
+    if (existsSync(path) && readFileSync(path, "utf8").includes(sentinelPackageName)) {
+      throw new Error(`FADENO_PACKAGE_SENTINEL_LEAK:${path}`);
+    }
+  }
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-package-"));
@@ -72,7 +80,7 @@ try {
   const neutralOutput = ["dist/prototype-root.js", "dist/prototype-root.d.ts"]
     .map((path) => readFileSync(join(neutral, path), "utf8"))
     .join("\n");
-  if (/\bnode:/.test(neutralOutput)) throw new Error("FADENO_PACKAGE_NEUTRAL_NODE_REACHABILITY");
+  if (scanModuleReferences(neutralOutput).length > 0) throw new Error("FADENO_PACKAGE_NEUTRAL_REACHABILITY");
 
   const packageRoot = join(temporaryRoot, "package");
   const sourceRoot = join(packageRoot, "src");
@@ -160,7 +168,8 @@ try {
   if (!runtimeOutput.includes("packed consumer passed")) throw new Error("FADENO_PACKAGE_CONSUMER_RUNTIME");
 
   const installedInternal = join(consumer, "node_modules", sentinelPackageName, "dist/internal/canary.js");
-  if (!existsSync(installedInternal)) throw new Error("FADENO_PACKAGE_INTERNAL_CANARY_ABSENT");
+  const installedInternalDeclaration = join(consumer, "node_modules", sentinelPackageName, "dist/internal/canary.d.ts");
+  if (!existsSync(installedInternal) || !existsSync(installedInternalDeclaration)) throw new Error("FADENO_PACKAGE_INTERNAL_CANARY_ABSENT");
   writeFileSync(join(consumer, "deep-import.ts"), `import { internalCanary } from "${sentinelPackageName}/internal/canary";\nvoid internalCanary;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${sentinelPackageName}/internal/canary")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");

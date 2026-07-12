@@ -100,7 +100,9 @@ symbols using this topology.
 - structurally rejects static imports, re-exports, dynamic imports, traversal,
   and canonical symlink escapes across synthetic package roots with existing
   target files;
-- compiles the neutral facade without Node types and checks its emitted graph;
+- compiles the current type-only neutral prototype without Node types and
+  asserts its emitted JavaScript and declaration have no module references;
+  V1-04 must enforce reachability over the real package graph before creation;
 - emits JS and declarations, packs a temporary tarball, installs it offline in
   a clean directory outside the workspace, compiles a NodeNext consumer using
   only `.` and `./node`, and runs a real adapter request;
