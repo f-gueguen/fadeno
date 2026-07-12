@@ -6,7 +6,6 @@ ledger when an effective ADR and current specification resolve it.
 
 | ID | Needed before | Decision required | Required evidence | Resolution artifact | Status |
 | --- | --- | --- | --- | --- | --- |
-| DG-V1-03 | WEB-02 implementation | Define raw-HTML capability, CSP nonce propagation, URL/attribute escaping contexts, and audit surface | Renderer threat model and negative XSS fixtures | Rendering-security ADR and fixtures | Open |
 | DG-V1-04 | DATA-01 implementation | Define resource identity, equivalent inputs, request cache keys, cross-request cache opt-in, and error caching | CRUD data graph and cache-isolation tests | Resource identity/cache ADR | Open |
 | DG-V1-05 | DATA-02 and STATE-01 implementation | Define field-descriptor and decoder semantics, action method/identity, origin and CSRF proof, replay policy, field/file limits, redirect validation, cookie protection, session rotation, and key lifecycle | Threat model plus native-form vertical slice | Form/action/session ADR | Open |
 | DG-V1-08 | WEB-03 implementation | Define boundary nesting, streamed error behavior, timeout ownership, cancellation propagation, and response-commit rules | Streaming renderer fixtures | Streaming/boundary ADR | Open |

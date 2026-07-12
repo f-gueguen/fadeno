@@ -36,6 +36,7 @@ effective decision.
 24. [ADR 0024 — Initial package boundary](0024-initial-package-boundary.md)
 25. [ADR 0025 — Public Node adapter smoke contract](0025-public-node-adapter-smoke-contract.md)
 26. [ADR 0027 — Generated route module and production routing](0027-generated-route-module-and-production-routing.md)
+27. [ADR 0028 — Contextual rendering security](0028-contextual-rendering-security.md)
 
 ## Superseded decisions
 
