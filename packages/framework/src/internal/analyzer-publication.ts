@@ -1,0 +1,279 @@
+import {
+  createAnalyzerFacetSnapshot,
+  type AnalyzerFacetContribution,
+  type AnalyzerFacetRequest,
+} from "./analyzer-facets.ts";
+import type {
+  AnalyzerDocumentOnlySnapshot,
+} from "./analyzer-session.ts";
+import type {
+  AnalyzerConstructionProvenance,
+  AnalyzerGraphNodeDefinition,
+  AnalyzerGraphOperationResult,
+  AnalyzerGraphSnapshot,
+} from "./analyzer-graph.ts";
+
+export interface AnalyzerPublicationAuthority {
+  readonly snapshot: AnalyzerDocumentOnlySnapshot;
+  readonly configurationEpoch: number;
+  readonly configurationFingerprint: string;
+}
+
+export interface AnalyzerPublicationContext {
+  readonly graph: AnalyzerGraphSnapshot;
+  readonly signal: AbortSignal;
+}
+
+export interface AnalyzerPublicationRequest {
+  readonly definitions: readonly AnalyzerGraphNodeDefinition[];
+  readonly requestedFacets: readonly AnalyzerFacetRequest[];
+  readonly materialize: (
+    context: AnalyzerPublicationContext,
+  ) => readonly AnalyzerFacetContribution[] | Promise<readonly AnalyzerFacetContribution[]>;
+}
+
+export interface AnalyzerPublishedArtifact {
+  readonly id: string;
+  readonly path: string;
+  readonly ownerNodeId: string;
+  readonly value: AnalyzerFacetContribution["value"];
+  readonly provenance: AnalyzerConstructionProvenance;
+}
+
+export interface AnalyzerPublicationSnapshot {
+  readonly analyzerVersion: 1;
+  readonly schemaVersion: 4;
+  readonly sessionId: string;
+  readonly operationId: string;
+  readonly operation: "publish";
+  readonly workspaceEpoch: number;
+  readonly configurationEpoch: number;
+  readonly publicationGeneration: number;
+  readonly requestedFacets: readonly AnalyzerFacetRequest[];
+  readonly documentVersions: AnalyzerDocumentOnlySnapshot["documentVersions"];
+  readonly ownership: Readonly<{
+    mode: "single-root";
+    root: string;
+    configurationFingerprint: string;
+  }>;
+  readonly graph: AnalyzerGraphSnapshot;
+  readonly facets: readonly AnalyzerFacetContribution[];
+  readonly artifacts: readonly AnalyzerPublishedArtifact[];
+  readonly removedArtifacts: AnalyzerGraphSnapshot["removedArtifacts"];
+  readonly completeness: "complete";
+  readonly interruption: null;
+  readonly truncated: false;
+}
+
+export type AnalyzerPublicationResult =
+  | Readonly<{ status: "published"; operationId: string; snapshot: AnalyzerPublicationSnapshot }>
+  | Readonly<{
+    status: "cancelled" | "superseded" | "stale" | "refused";
+    operationId: string;
+    code: string;
+    currentPublicationGeneration: number;
+  }>;
+
+export interface AnalyzerPublicationHandle {
+  readonly operationId: string;
+  readonly signal: AbortSignal;
+  readonly result: Promise<AnalyzerPublicationResult>;
+  cancel(): void;
+}
+
+interface Ticket {
+  readonly operationId: string;
+  readonly authority: AnalyzerPublicationAuthority;
+  readonly controller: AbortController;
+  state: "active" | "cancelled" | "superseded" | "stale";
+}
+
+function frozen<T extends object>(value: T): Readonly<T> {
+  return Object.freeze(value);
+}
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function authorityIdentity(authority: AnalyzerPublicationAuthority): string {
+  return JSON.stringify({
+    sessionId: authority.snapshot.sessionId,
+    workspaceEpoch: authority.snapshot.workspaceEpoch,
+    documentVersions: authority.snapshot.documentVersions,
+    root: authority.snapshot.ownership.root,
+    configurationEpoch: authority.configurationEpoch,
+    configurationFingerprint: authority.configurationFingerprint,
+  });
+}
+
+export class AnalyzerPublicationCoordinator {
+  readonly #authority: () => AnalyzerPublicationAuthority;
+  readonly #analyze: (operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]) => AnalyzerGraphOperationResult;
+  #active: Ticket | null = null;
+  #published: AnalyzerPublicationSnapshot | null = null;
+  #publicationGeneration = 0;
+
+  constructor(
+    authority: () => AnalyzerPublicationAuthority,
+    analyze: (operationId: string, definitions: readonly AnalyzerGraphNodeDefinition[]) => AnalyzerGraphOperationResult,
+  ) {
+    this.#authority = authority;
+    this.#analyze = analyze;
+  }
+
+  get currentSnapshot(): AnalyzerPublicationSnapshot | null {
+    return this.#published;
+  }
+
+  invalidate(): void {
+    if (this.#active?.state !== "active") return;
+    this.#active.state = "stale";
+    this.#active.controller.abort(new DOMException("Stale", "AbortError"));
+  }
+
+  start(operationId: string, request: AnalyzerPublicationRequest): AnalyzerPublicationHandle {
+    if (this.#active?.state === "active") {
+      this.#active.state = "superseded";
+      this.#active.controller.abort(new DOMException("Superseded", "AbortError"));
+    }
+    const ticket: Ticket = {
+      operationId,
+      authority: this.#authority(),
+      controller: new AbortController(),
+      state: "active",
+    };
+    this.#active = ticket;
+    const graphResult = this.#analyze(ticket.operationId, request.definitions);
+    const capturedRequest = frozen({
+      definitions: frozen([...request.definitions]),
+      requestedFacets: frozen(request.requestedFacets.map(({ namespace }) => frozen({ namespace }))),
+      materialize: request.materialize,
+    });
+    const result = Promise.resolve().then(() => this.#execute(ticket, capturedRequest, graphResult));
+    return frozen({
+      operationId,
+      signal: ticket.controller.signal,
+      result,
+      cancel: () => {
+        if (ticket.state !== "active") return;
+        ticket.state = "cancelled";
+        ticket.controller.abort(new DOMException("Cancelled", "AbortError"));
+      },
+    });
+  }
+
+  async #execute(
+    ticket: Ticket,
+    request: AnalyzerPublicationRequest,
+    graphResult: AnalyzerGraphOperationResult,
+  ): Promise<AnalyzerPublicationResult> {
+    const terminal = (): AnalyzerPublicationResult | null => {
+      if (ticket.state === "cancelled") return this.#discard(ticket, "cancelled", "FADENO_ANALYZER_CANCELLED");
+      if (ticket.state === "stale") return this.#discard(ticket, "stale", "FADENO_ANALYZER_STALE");
+      if (ticket.state === "superseded" || this.#active !== ticket) {
+        return this.#discard(ticket, "superseded", "FADENO_ANALYZER_SUPERSEDED");
+      }
+      if (authorityIdentity(this.#authority()) !== authorityIdentity(ticket.authority)) {
+        return this.#discard(ticket, "stale", "FADENO_ANALYZER_STALE");
+      }
+      return null;
+    };
+    let stopped = terminal();
+    if (stopped) return stopped;
+    if ("code" in graphResult) return this.#discard(ticket, "refused", graphResult.code);
+    stopped = terminal();
+    if (stopped) return stopped;
+    if (request.requestedFacets.some(({ namespace }) => namespace === "fadeno.graph")) {
+      return this.#discard(ticket, "refused", "FADENO_ANALYZER_PUBLICATION_FACET");
+    }
+    let contributions: readonly AnalyzerFacetContribution[];
+    try {
+      const materialized = Promise.resolve(request.materialize(frozen({
+        graph: graphResult.snapshot,
+        signal: ticket.controller.signal,
+      }))).then(
+        (value) => ({ kind: "materialized" as const, value }),
+        () => ({ kind: "failed" as const }),
+      );
+      const aborted = new Promise<Readonly<{ kind: "aborted" }>>((resolve) => {
+        if (ticket.controller.signal.aborted) resolve({ kind: "aborted" });
+        else ticket.controller.signal.addEventListener("abort", () => resolve({ kind: "aborted" }), { once: true });
+      });
+      const outcome = await Promise.race([materialized, aborted]);
+      if (outcome.kind === "aborted") {
+        stopped = terminal();
+        if (stopped) return stopped;
+        return this.#discard(ticket, "cancelled", "FADENO_ANALYZER_CANCELLED");
+      }
+      if (outcome.kind === "failed") throw new Error("FADENO_ANALYZER_MATERIALIZE");
+      contributions = outcome.value;
+    } catch {
+      stopped = terminal();
+      if (stopped) return stopped;
+      return this.#discard(ticket, "refused", "FADENO_ANALYZER_MATERIALIZE");
+    }
+    stopped = terminal();
+    if (stopped) return stopped;
+    const facetResult = createAnalyzerFacetSnapshot(
+      ticket.authority.snapshot,
+      ticket.operationId,
+      request.requestedFacets,
+      contributions,
+    );
+    if ("code" in facetResult) return this.#discard(ticket, "refused", facetResult.code);
+    const requestedFacets = [frozen({ namespace: "fadeno.graph" }), ...facetResult.snapshot.requestedFacets]
+      .sort((left, right) => compareText(left.namespace, right.namespace));
+    const artifacts = graphResult.snapshot.results.flatMap((node) => node.artifacts.map((artifact) => frozen({
+      id: artifact.id,
+      path: artifact.path,
+      ownerNodeId: node.id,
+      value: artifact.value,
+      provenance: artifact.provenance,
+    }))).sort((left, right) => compareText(left.id, right.id));
+    const snapshot = frozen({
+      analyzerVersion: 1 as const,
+      schemaVersion: 4 as const,
+      sessionId: ticket.authority.snapshot.sessionId,
+      operationId: ticket.operationId,
+      operation: "publish" as const,
+      workspaceEpoch: ticket.authority.snapshot.workspaceEpoch,
+      configurationEpoch: ticket.authority.configurationEpoch,
+      publicationGeneration: this.#publicationGeneration + 1,
+      requestedFacets: frozen(requestedFacets),
+      documentVersions: ticket.authority.snapshot.documentVersions,
+      ownership: frozen({
+        mode: "single-root" as const,
+        root: ticket.authority.snapshot.ownership.root,
+        configurationFingerprint: ticket.authority.configurationFingerprint,
+      }),
+      graph: graphResult.snapshot,
+      facets: facetResult.snapshot.facets,
+      artifacts: frozen(artifacts),
+      removedArtifacts: graphResult.snapshot.removedArtifacts,
+      completeness: "complete" as const,
+      interruption: null,
+      truncated: false as const,
+    });
+    stopped = terminal();
+    if (stopped) return stopped;
+    this.#publicationGeneration += 1;
+    this.#published = snapshot;
+    if (this.#active === ticket) this.#active = null;
+    return frozen({ status: "published" as const, operationId: ticket.operationId, snapshot });
+  }
+
+  #discard(
+    ticket: Ticket,
+    status: "cancelled" | "superseded" | "stale" | "refused",
+    code: string,
+  ): AnalyzerPublicationResult {
+    if (this.#active === ticket) this.#active = null;
+    return frozen({
+      status,
+      operationId: ticket.operationId,
+      code,
+      currentPublicationGeneration: this.#publicationGeneration,
+    });
+  }
+}
