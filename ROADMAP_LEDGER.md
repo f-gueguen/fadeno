@@ -10,7 +10,7 @@ V1-06 — implement deterministic routing and clean declaration generation
 
 ## Exit criteria
 
-- [ ] Promote ADR 0026 discovery, manifest, link, and config behavior from the
+- [ ] Promote ADR 0027 discovery, manifest, link, and config behavior from the
   private contract prototype into the one logical framework package.
 - [ ] Generate the internal manifest and stock-TypeScript route declarations
   transactionally with byte-identical clean output, unchanged-byte avoidance,
@@ -24,7 +24,8 @@ V1-06 — implement deterministic routing and clean declaration generation
 
 ## In progress
 
-- ADR 0026 selects the route filesystem and generated-link contract now being
+- ADR 0027 corrects the application binding and selects the route filesystem,
+  metadata matcher, transaction, and generated-link contract now being
   implemented by V1-06.
 - V1-07 next freezes contextual rendering and unsafe-capability security.
 - Registry naming, renderer boundaries, request security policy,

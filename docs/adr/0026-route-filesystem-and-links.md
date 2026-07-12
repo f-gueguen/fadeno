@@ -1,10 +1,10 @@
 # ADR 0026: Route filesystem and generated links
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-07-12
 - Owners: Fadeno maintainers
 - Related specifications: [Routing, rendering, streaming, and failures](../spec/routing-rendering-streaming.md), [Compiler and analyzer](../spec/compiler-analyzer.md)
-- Supersedes: None
+- Superseded by: ADR 0027
 
 ## Context
 

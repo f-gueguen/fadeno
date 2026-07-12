@@ -1,6 +1,6 @@
 # Routing, rendering, streaming, and failures
 
-This specification defines required V1 behavior. ADR 0026 fixes filesystem and
+This specification defines required V1 behavior. ADR 0027 fixes filesystem and
 link construction syntax. Rendering and streaming signatures remain blocked by
 DG-V1-03 and DG-V1-08.
 
@@ -38,13 +38,15 @@ takes precedence over a single rest sibling. Same-kind dynamic siblings
 collide regardless of parameter spelling. Discovery and diagnostics use
 project-relative POSIX paths and deterministic code-unit ordering.
 
-The clean generator exposes a route-definition map plus derived `RouteId`,
-`RouteParameters`, `RouteHrefInput`, and `routeHref`. Link inputs remain a
+The clean generator exposes the application-bound virtual module
+`fadeno:routes` with `RouteId`, `RouteParameters`, `RouteHrefInput`, and
+`routeHref`. Link inputs remain a
 route-discriminated union. `routeHref` constructs only canonical pathnames,
 requires non-empty non-dot parameter strings, and RFC 3986-encodes each path
 segment independently. Query and fragment state use standard URL APIs. The
 manifest is versioned internal build data, not a package export or external
-analyzer schema.
+analyzer schema. Each generated module owns immutable definitions for one
+application; no package-global route registration exists.
 
 ## Server rendering
 
