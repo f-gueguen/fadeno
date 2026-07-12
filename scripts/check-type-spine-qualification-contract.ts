@@ -31,7 +31,15 @@ if (hash(renderTypeSpineCandidate(corpus.inputA)) !== contract.corpus.outputA ||
 const expectedArguments = ["--noEmit", "--strict", "--target", "ES2022", "--module", "ESNext", "--moduleResolution", "Bundler", "--allowImportingTsExtensions", "--skipLibCheck", "false", "--incremental", "false", "--pretty", "false"];
 if (JSON.stringify(contract.stockTypeScript.compilerArguments) !== JSON.stringify(expectedArguments)) throw new Error("FADENO_TYPE_SPINE_QUALIFICATION_TSC_ARGUMENTS");
 const resultEntries = readdirSync(join(experiment, "results")).filter((name) => name !== "README.md");
-if (resultEntries.length !== 0 || contract.capabilitySlice.immutableResultsAllowed || contract.capabilitySlice.decisionAllowed) {
+const registry = readJson<{ experiments: readonly { id: string; status: string }[] }>(
+  join(root, "experiments/registry.json"),
+);
+const status = registry.experiments.find(({ id }) => id === "type-spine")?.status;
+const expectedResults = status === "qualified" ? ["20260712T022123Z-122ba57-a1"] : [];
+if (
+  JSON.stringify(resultEntries.sort()) !== JSON.stringify(expectedResults) ||
+  contract.capabilitySlice.immutableResultsAllowed || contract.capabilitySlice.decisionAllowed
+) {
   throw new Error("FADENO_TYPE_SPINE_QUALIFICATION_PREMATURE_RESULT");
 }
-console.log("type-spine qualification contract passed (5 warmups, 20 samples, no result)");
+console.log(`type-spine qualification contract passed (5 warmups, 20 samples, ${status})`);
