@@ -30,7 +30,7 @@
       "hypothesis": "H4",
       "command": "pnpm experiment:revalidation",
       "harnessSlice": "K0-09",
-      "qualificationSlice": "K0-10",
+      "qualificationSlice": "K0-10B",
       "status": "available"
     },
     {
