@@ -111,7 +111,7 @@ const registry = readJsonDocument(join(root, "experiments/registry.json"));
 const entry = registry.experiments.find((item: { id: string }) => item.id === "type-spine");
 const packageJson = readJsonDocument(join(root, "package.json"));
 if (
-  entry?.status !== "available" ||
+  !["available", "qualified"].includes(entry?.status) ||
   packageJson.scripts["experiment:type-spine"] !==
     "node --no-warnings --experimental-strip-types experiments/type-spine/run.ts"
 ) {
