@@ -104,6 +104,8 @@ try {
     "package/dist/index.js",
     "package/dist/internal/config.d.ts",
     "package/dist/internal/config.js",
+    "package/dist/internal/diagnostic.d.ts",
+    "package/dist/internal/diagnostic.js",
     "package/dist/internal/node-http-capabilities.d.ts",
     "package/dist/internal/node-http-capabilities.js",
     "package/dist/internal/node-http.d.ts",
@@ -192,7 +194,7 @@ try {
     throw new Error("FADENO_PUBLIC_PACKAGE_NODE_DECLARATION_LEAK");
   }
 
-  writeFileSync(join(consumer, "root-only.ts"), `import type { Handler } from "${packageName}";\ndeclare const handler: Handler;\nvoid handler;\n`);
+  writeFileSync(join(consumer, "root-only.ts"), `import { defineConfig, type Handler } from "${packageName}";\ndeclare const handler: Handler;\ndefineConfig({});\ndefineConfig({ routes: { root: "src/routes" } });\n// @ts-expect-error unknown top-level config field\ndefineConfig({ unknown: true });\nconst invalid = { routes: { root: "src/routes", extra: true } } as const;\n// @ts-expect-error unknown nested route config field\ndefineConfig(invalid);\nvoid handler;\n`);
   run(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--lib", "ES2022,DOM", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--types", "", "root-only.ts"], consumer);
   run(process.execPath, [tsc, "-p", "tsconfig.json"], consumer);
   const runtime = run(process.execPath, ["dist/index.js"], consumer);

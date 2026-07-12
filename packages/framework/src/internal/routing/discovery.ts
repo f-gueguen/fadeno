@@ -12,6 +12,8 @@ import {
   sep,
 } from "node:path";
 
+import { FadenoDiagnosticError } from "../diagnostic.ts";
+
 export type RouteSegment =
   | Readonly<{ kind: "static"; value: string }>
   | Readonly<{ kind: "parameter"; name: string }>
@@ -43,23 +45,19 @@ export type RouteManifest = Readonly<{
 
 export type RouteConfig = Readonly<{ root: string }>;
 
-export class RouteContractError extends Error {
+export class RouteContractError extends FadenoDiagnosticError {
   readonly code: string;
-  readonly locations: readonly string[];
-  readonly severity = "error" as const;
-  readonly summary: string;
-  readonly explanation: string;
-  readonly correction: string;
 
   constructor(code: string, locations: readonly string[] = []) {
-    const ordered = [...locations].sort(compareText);
-    super(`FADENO_ROUTE_${code}${ordered.length === 0 ? "" : `:${ordered.join(":")}`}`);
+    super(
+      `FADENO_ROUTE_${code}`,
+      `Route contract violation: ${code.toLowerCase().replaceAll("_", " ")}`,
+      locations,
+      `https://fadeno.dev/diagnostics/routes/${code.toLowerCase().replaceAll("_", "-")}`,
+      "Correct the reported route configuration or filesystem locations and run fadeno check again.",
+    );
     this.name = "RouteContractError";
     this.code = code;
-    this.locations = ordered;
-    this.summary = `Route contract violation: ${code.toLowerCase().replaceAll("_", " ")}`;
-    this.explanation = `https://fadeno.dev/diagnostics/routes/${code.toLowerCase().replaceAll("_", "-")}`;
-    this.correction = "Correct the reported route configuration or filesystem locations and run fadeno check again.";
   }
 }
 

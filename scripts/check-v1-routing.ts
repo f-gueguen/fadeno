@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { loadConfig, normalizeConfig } from "../packages/framework/src/internal/config.ts";
+import { FadenoDiagnosticError } from "../packages/framework/src/internal/diagnostic.ts";
 import { RouteContractError, type RouteManifest } from "../packages/framework/src/internal/routing/discovery.ts";
 import { generateRoutes, type GenerationFailurePoint } from "../packages/framework/src/internal/routing/generator.ts";
 import { matchRoutePathname } from "../packages/framework/src/internal/routing/matcher.ts";
@@ -93,7 +94,12 @@ const main = createProject([
 ]);
 
 try {
+  const originalConfig = readFileSync(join(main, "fadeno.config.ts"), "utf8");
   const config = await loadConfig(main);
+  writeFileSync(join(main, "fadeno.config.ts"), "export default {};\n");
+  if ((await loadConfig(main)).routes !== undefined) throw new Error("FADENO_ROUTING_CONFIG_CACHE");
+  writeFileSync(join(main, "fadeno.config.ts"), originalConfig);
+  if ((await loadConfig(main)).routes?.root !== "src/routes") throw new Error("FADENO_ROUTING_CONFIG_RELOAD");
   const first = generateRoutes(main, config);
   if (!first.changed) throw new Error("FADENO_ROUTING_FIRST_UNCHANGED");
   const accepted = snapshot(first.output);
@@ -138,6 +144,7 @@ try {
     throw new Error("FADENO_ROUTING_RUNTIME_LINK");
   }
   expectError(() => runtime.routeHref({ route: "/unknown" }), "FADENO_ROUTE_LINK_ROUTE");
+  expectError(() => runtime.routeHref({ route: "constructor" }), "FADENO_ROUTE_LINK_ROUTE");
 
   writeRoute(main, "new/page.tsx");
   for (const point of ["manifest", "runtime", "declaration", "owner", "beforeReplace"] satisfies readonly GenerationFailurePoint[]) {
@@ -157,6 +164,14 @@ try {
   rmSync(join(main, "src/routes/new"), { recursive: true });
   generateRoutes(main, config);
   if (readFileSync(join(changed.output, "index.d.ts"), "utf8").includes('readonly "/new"')) throw new Error("FADENO_ROUTING_STALE_REMOVE");
+
+  const ownerPath = join(changed.output, "owner.json");
+  const ownerBytes = readFileSync(ownerPath);
+  const owner = JSON.parse(ownerBytes.toString("utf8")) as { sourceSha256: string };
+  owner.sourceSha256 = "0".repeat(64);
+  writeFileSync(ownerPath, `${JSON.stringify(owner, null, 2)}\n`);
+  expectError(() => generateRoutes(main, config), "FADENO_GENERATION_OUTPUT_IDENTITY");
+  writeFileSync(ownerPath, ownerBytes);
 
   const diagnosticProject = createProject(["page.tsx", "handler.ts"]);
   try {
@@ -185,8 +200,13 @@ try {
   rmSync(appB, { recursive: true, force: true });
 }
 
-for (const invalid of [null, [], new (class Config {})(), { unknown: true }, { routes: null }, { routes: "src/routes" }, { routes: {} }, { routes: { root: 1 } }, { routes: { root: "src/routes", extra: true } }]) {
+for (const invalid of [null, [], new (class Config {})(), new Proxy({}, { ownKeys: () => { throw new Error("trap"); } }), { unknown: true }, { routes: null }, { routes: "src/routes" }, { routes: {} }, { routes: { root: 1 } }, { routes: { root: "src/routes", extra: true } }]) {
   expectError(() => normalizeConfig(invalid), "FADENO_CONFIG");
+}
+try { normalizeConfig({ unknown: true }); } catch (error) {
+  if (!(error instanceof FadenoDiagnosticError) || error.severity !== "error" || error.locations[0] !== "fadeno.config.ts" || error.correction.length === 0) {
+    throw new Error("FADENO_ROUTING_CONFIG_DIAGNOSTIC");
+  }
 }
 
 const noRoutes = mkdtempSync(join(tmpdir(), "fadeno-v1-routing-empty-"));
@@ -195,6 +215,18 @@ try {
   const config = await loadConfig(noRoutes);
   expectError(() => generateRoutes(noRoutes, config), "FADENO_GENERATION_ROUTES_REQUIRED");
 } finally { rmSync(noRoutes, { recursive: true, force: true }); }
+
+const configSymlinkProject = createProject(["page.tsx"]);
+const configTarget = join(configSymlinkProject, "actual-config.ts");
+try {
+  rmSync(join(configSymlinkProject, "fadeno.config.ts"));
+  writeFileSync(configTarget, "export default { routes: { root: 'src/routes' } };\n");
+  symlinkSync(configTarget, join(configSymlinkProject, "fadeno.config.ts"));
+  await loadConfig(configSymlinkProject).then(
+    () => { throw new Error("FADENO_ROUTING_EXPECTED:CONFIG_FILE"); },
+    (error: unknown) => { if (!(error instanceof Error) || !error.message.includes("FADENO_CONFIG_FILE")) throw error; },
+  );
+} finally { rmSync(configSymlinkProject, { recursive: true, force: true }); }
 
 for (const kind of ["parent", "output"] as const) {
   const project = createProject(["page.tsx"]);
