@@ -153,6 +153,18 @@ interface NormalizedDefinition extends AnalyzerGraphNodeDefinition {
   readonly module: Readonly<AnalyzerGraphModuleIdentity>;
 }
 
+interface PreparedGraphState {
+  readonly operationId: string;
+  readonly authorityIdentity: string;
+  readonly baselineGeneration: number;
+  readonly baselineSnapshot: AnalyzerGraphSnapshot | null;
+  readonly definitions: Map<string, NormalizedDefinition>;
+  readonly results: Map<string, AnalyzerGraphNodeResult>;
+  readonly documentFingerprints: Map<string, string>;
+  readonly configurationEpoch: number;
+  readonly generation: number;
+}
+
 class GraphRefusal extends Error {
   readonly code: AnalyzerGraphRefusalCode;
 
@@ -172,6 +184,17 @@ function frozen<T extends object>(value: T): Readonly<T> {
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function graphAuthorityIdentity(authority: GraphAuthority): string {
+  return JSON.stringify({
+    sessionId: authority.snapshot.sessionId,
+    workspaceEpoch: authority.snapshot.workspaceEpoch,
+    documentVersions: authority.snapshot.documentVersions,
+    root: authority.snapshot.ownership.root,
+    configurationEpoch: authority.configurationEpoch,
+    configurationFingerprint: authority.configurationFingerprint,
+  });
 }
 
 function assertPositiveInteger(value: unknown): asserts value is number {
@@ -317,6 +340,7 @@ export class AnalyzerDependencyGraph {
   #configurationEpoch = -1;
   #generation = 0;
   #snapshot: AnalyzerGraphSnapshot | null = null;
+  readonly #prepared = new WeakMap<AnalyzerGraphSnapshot, PreparedGraphState>();
 
   constructor(authority: () => GraphAuthority) {
     this.#authority = authority;
@@ -329,9 +353,11 @@ export class AnalyzerDependencyGraph {
   analyze(
     operationId: string,
     definitions: readonly AnalyzerGraphNodeDefinition[],
-    options: Readonly<{ commit?: boolean; expected?: AnalyzerGraphSnapshot; signal?: AbortSignal }> = {},
+    options: Readonly<{ commit?: boolean; signal?: AbortSignal }> = {},
   ): AnalyzerGraphOperationResult {
     const authority = this.#authority();
+    const baselineGeneration = this.#generation;
+    const baselineSnapshot = this.#snapshot;
     try {
       const documents = new Map(authority.snapshot.documents.map((document) => [document.uri, document]));
       const nextDefinitions = normalizeDefinitions(definitions, documents);
@@ -525,10 +551,6 @@ export class AnalyzerDependencyGraph {
         refuse("FADENO_ANALYZER_GRAPH_LIMIT");
       }
 
-      if (options.expected && JSON.stringify(snapshot) !== JSON.stringify(options.expected)) {
-        refuse("FADENO_ANALYZER_GRAPH_STALE");
-      }
-
       if (options.commit !== false) {
         this.#definitions = new Map(nextDefinitions);
         this.#results = candidateResults;
@@ -536,6 +558,18 @@ export class AnalyzerDependencyGraph {
         this.#configurationEpoch = authority.configurationEpoch;
         this.#generation = nextGeneration;
         this.#snapshot = snapshot;
+      } else {
+        this.#prepared.set(snapshot, {
+          operationId,
+          authorityIdentity: graphAuthorityIdentity(authority),
+          baselineGeneration,
+          baselineSnapshot,
+          definitions: new Map(nextDefinitions),
+          results: candidateResults,
+          documentFingerprints: nextFingerprints,
+          configurationEpoch: authority.configurationEpoch,
+          generation: nextGeneration,
+        });
       }
       return frozen({ accepted: true as const, operationId, snapshot });
     } catch (error) {
@@ -548,6 +582,32 @@ export class AnalyzerDependencyGraph {
         currentGeneration: this.#generation,
       });
     }
+  }
+
+  commitPrepared(operationId: string, snapshot: AnalyzerGraphSnapshot): AnalyzerGraphOperationResult {
+    const authority = this.#authority();
+    const prepared = this.#prepared.get(snapshot);
+    if (
+      !prepared || prepared.operationId !== operationId ||
+      prepared.baselineGeneration !== this.#generation || prepared.baselineSnapshot !== this.#snapshot ||
+      prepared.authorityIdentity !== graphAuthorityIdentity(authority)
+    ) {
+      return frozen({
+        accepted: false as const,
+        operationId,
+        code: "FADENO_ANALYZER_GRAPH_STALE" as const,
+        currentEpoch: authority.snapshot.workspaceEpoch,
+        currentGeneration: this.#generation,
+      });
+    }
+    this.#definitions = prepared.definitions;
+    this.#results = prepared.results;
+    this.#documentFingerprints = prepared.documentFingerprints;
+    this.#configurationEpoch = prepared.configurationEpoch;
+    this.#generation = prepared.generation;
+    this.#snapshot = snapshot;
+    this.#prepared.delete(snapshot);
+    return frozen({ accepted: true as const, operationId, snapshot });
   }
 }
 

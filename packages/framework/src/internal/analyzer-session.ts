@@ -175,7 +175,7 @@ export class AnalyzerSession {
         configurationFingerprint: this.#configurationFingerprint,
       }),
       (operationId, definitions, signal) => this.#dependencyGraph.analyze(operationId, definitions, { commit: false, signal }),
-      (operationId, definitions, expected) => this.#dependencyGraph.analyze(operationId, definitions, { expected }),
+      (operationId, expected) => this.#dependencyGraph.commitPrepared(operationId, expected),
     );
   }
 

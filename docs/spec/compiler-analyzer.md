@@ -254,6 +254,11 @@ workspace epoch, document versions, root, configuration identity, requested
 operation, and active-ticket ownership. Obsolete completion cannot overwrite a
 newer publication.
 
+The graph preview retains a private prepared candidate bound to its exact graph
+baseline and authority identity. Final commit installs that already-constructed
+candidate without invoking module construction a second time; a changed
+baseline or authority refuses the commit as stale.
+
 Graph preview is queued after the handle is returned, so immediate cancellation
 or same-turn supersession prevents graph construction from starting. The graph
 passes the abort signal into each bounded synchronous module-construction

@@ -124,7 +124,6 @@ export class AnalyzerPublicationCoordinator {
   ) => AnalyzerGraphOperationResult;
   readonly #commit: (
     operationId: string,
-    definitions: readonly AnalyzerGraphNodeDefinition[],
     expected: AnalyzerGraphSnapshot,
   ) => AnalyzerGraphOperationResult;
   #active: Ticket | null = null;
@@ -140,7 +139,6 @@ export class AnalyzerPublicationCoordinator {
     ) => AnalyzerGraphOperationResult,
     commit: (
       operationId: string,
-      definitions: readonly AnalyzerGraphNodeDefinition[],
       expected: AnalyzerGraphSnapshot,
     ) => AnalyzerGraphOperationResult,
   ) {
@@ -291,8 +289,10 @@ export class AnalyzerPublicationCoordinator {
     });
     stopped = terminal();
     if (stopped) return stopped;
-    const committedGraph = this.#commit(ticket.operationId, request.definitions, graphResult.snapshot);
+    const committedGraph = this.#commit(ticket.operationId, graphResult.snapshot);
     if ("code" in committedGraph) return this.#discard(ticket, "stale", "FADENO_ANALYZER_STALE");
+    stopped = terminal();
+    if (stopped) return stopped;
     this.#publicationGeneration += 1;
     this.#published = snapshot;
     if (this.#active === ticket) this.#active = null;

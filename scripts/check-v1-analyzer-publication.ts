@@ -45,8 +45,12 @@ try {
   accepted(session.open(pagePath, 0, readFileSync(pagePath, "utf8")));
   const rootUri = session.currentSnapshot.documents.find(({ path }) => path === "routes/layout.tsx")!.uri;
   const pageUri = session.currentSnapshot.documents.find(({ path }) => path === "routes/admin/dashboard/page.tsx")!.uri;
-  const rootCompute = compute("root", ["artifact:root"]);
-  const pageCompute = compute("page", ["artifact:page"]);
+  let rootComputeCalls = 0;
+  let pageComputeCalls = 0;
+  const computeRoot = compute("root", ["artifact:root"]);
+  const computePage = compute("page", ["artifact:page"]);
+  const rootCompute = (context: AnalyzerGraphComputeContext) => { rootComputeCalls += 1; return computeRoot(context); };
+  const pageCompute = (context: AnalyzerGraphComputeContext) => { pageComputeCalls += 1; return computePage(context); };
   const definitions: readonly AnalyzerGraphNodeDefinition[] = [
     {
       id: "route:page", ownerUri: pageUri, definitionVersion: 1, dependencies: ["route:root"],
@@ -72,6 +76,8 @@ try {
   const initialSnapshot = initial.snapshot;
   assert.equal(session.currentPublicationSnapshot, initialSnapshot);
   assert.equal(initialSnapshot.publicationGeneration, 1);
+  assert.equal(rootComputeCalls, 1, "publication recomputed the prepared root candidate during commit");
+  assert.equal(pageComputeCalls, 1, "publication recomputed the prepared page candidate during commit");
   assert.deepEqual(initialSnapshot.requestedFacets.map(({ namespace }) => namespace), [
     "fadeno.diagnostics", "fadeno.graph", "fadeno.routes",
   ]);
