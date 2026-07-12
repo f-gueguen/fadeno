@@ -40,6 +40,19 @@ A production build:
   precision the build cannot attribute;
 - fails on stale generated artifacts or public-contract drift.
 
+## Package boundary
+
+ADR 0024 selects one logical framework package with a runtime-neutral `.`
+facade and a Node-only `./node` adapter facade. The root is compiled without
+Node types and cannot reach Node, compiler, or browser-only modules. Its API may
+grow only as later V1 decisions accept those public contracts.
+
+Package exports are an explicit allowlist. Examples and consumers use package
+specifiers and declared subpaths; internal files remain private even when they
+are present in package contents. Cross-package relative imports, re-exports,
+dynamic imports, traversal, symlink escapes, and private deep imports are
+errors. Registry naming remains separate from this relative topology.
+
 ## Adapter contract
 
 1. The core accepts standard `Request` and returns standard `Response` values
