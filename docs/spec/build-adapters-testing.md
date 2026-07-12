@@ -1,15 +1,15 @@
 # Configuration, build, adapters, testing, and diagnostics
 
 The repository exposes one coherent workflow from source to a tested deployment
-artifact. Exact names are resolved by DG-V1-06 and DG-V1-07 rather than being
-invented independently by packages.
+artifact. ADR 0022 fixes the toolchain/configuration names; DG-V1-06 still owns
+the initial adapter rather than letting packages invent it independently.
 
 ## Configuration
 
 1. Configuration is a typed standard module loaded from one documented project
    root.
-2. Defaults, file configuration, environment input, and command-line overrides
-   have one explicit precedence order.
+2. The only discovered file is root `fadeno.config.ts`, with a default plain
+   object export and a closed typed shape.
 3. Unknown keys, invalid combinations, missing paths, and unsupported adapter
    capabilities fail before serving or building.
 4. Configuration used by a production build is serializable into a redacted
@@ -19,9 +19,15 @@ invented independently by packages.
 
 ## Development and build
 
-The initial command surface must cover development, production build, project
-checking, and test execution. Scaffold and diagnostic convenience commands are
-required by A0, but exact spelling waits for DG-V1-07.
+The core commands are `fadeno dev`, `fadeno build`, and `fadeno check`.
+`.fadeno/` contains disposable internal state; transactional, reproducible
+deployable output belongs to `dist/`. Scaffold and additional diagnostic
+convenience commands remain A0 work.
+
+Optional `.env` and `.env.local` files load in that order before the existing
+process environment, which has final precedence. The strict line grammar and
+refusals are defined by ADR 0022. Loaded values remain server-only unless a
+future explicit public-input schema validates their release.
 
 A production build:
 
