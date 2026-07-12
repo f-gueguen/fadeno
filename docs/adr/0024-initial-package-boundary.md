@@ -64,8 +64,8 @@ contract deliberately connects them.
 The clean-consumer harness uses a generated sentinel package name only inside a
 temporary directory. That name is not authority, documentation, an example, or
 a registry claim. The actual local and publication identifiers remain an owner
-decision. V1-04 creates the real workspace package and fixes the initial public
-symbols using this topology.
+decision. ADR 0025 creates the real workspace package and fixes the initial
+public symbols using this topology.
 
 ## Alternatives considered
 
@@ -82,7 +82,7 @@ symbols using this topology.
 
 ## Consequences
 
-- V1-04 can create one package rather than inventing a package family.
+- V1-04 creates one package rather than inventing a package family.
 - A Node application imports adapter behavior from `./node` while framework
   behavior remains rooted at the neutral facade.
 - Private internal organization can change without public deep-import
@@ -102,7 +102,7 @@ symbols using this topology.
   target files;
 - compiles the current type-only neutral prototype without Node types and
   asserts its emitted JavaScript and declaration have no module references;
-  V1-04 must enforce reachability over the real package graph before creation;
+  ADR 0025 enforces reachability over the real package graph before acceptance;
 - emits JS and declarations, packs a temporary tarball, installs it offline in
   a clean directory outside the workspace, compiles a NodeNext consumer using
   only `.` and `./node`, and runs a real adapter request;

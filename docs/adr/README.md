@@ -34,6 +34,7 @@ effective decision.
 22. [ADR 0022 — Toolchain and configuration contract](0022-toolchain-and-configuration-contract.md)
 23. [ADR 0023 — Node HTTP as the initial adapter](0023-node-http-initial-adapter.md)
 24. [ADR 0024 — Initial package boundary](0024-initial-package-boundary.md)
+25. [ADR 0025 — Public Node adapter smoke contract](0025-public-node-adapter-smoke-contract.md)
 
 ## Superseded decisions
 

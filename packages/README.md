@@ -1,8 +1,9 @@
 # Packages
 
-This directory is intentionally empty of framework packages. Add a package
-only when it contains working code, has a demonstrated consumer, and its public
-boundary is accepted in an ADR.
+`framework/` is the private V1 package selected by ADRs 0024 and 0025. Its
+runtime-neutral root and Node adapter subpath are built, packed, installed, and
+executed by the repository check.
 
-Private implementation packages remain private until an external supported
-consumer justifies a public contract.
+The workspace identifier is internal and not a registry choice. No package is
+published or production-supported yet. Additional packages remain forbidden
+until an independent consumer and accepted ADR justify them.

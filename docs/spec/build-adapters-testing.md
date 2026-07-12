@@ -53,6 +53,13 @@ are present in package contents. Cross-package relative imports, re-exports,
 dynamic imports, traversal, symlink escapes, and private deep imports are
 errors. Registry naming remains separate from this relative topology.
 
+ADR 0025 fixes the first private package surface. `.` exports the standard Web
+`Handler` type. `./node` exports `listenNodeHttp`, `ListenNodeHttpOptions`,
+`NodeHttpServer`, `nodeHttpCapabilities`, and `NodeHttpCapabilities`. The
+workspace identifier is internal and non-publishable; it is not a registry
+decision. Later accepted contracts may extend the root without adding another
+way to perform the same job.
+
 ## Adapter contract
 
 1. The core accepts standard `Request` and returns standard `Response` values
@@ -76,6 +83,11 @@ from its listener rather than untrusted host or forwarded metadata.
 The selected adapter does not enter the support matrix until its public package
 surface passes the shared conformance suite. Additional adapters remain
 deferred until that suite exists.
+
+The V1-04 packed smoke proves the successful raw `Handler` path. Handler
+failure, response-commit, renderer timeout, and forced shutdown semantics remain
+owned by the later streaming-boundary decision and are not frozen by this
+surface.
 
 ## Test layers
 
