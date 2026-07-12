@@ -317,6 +317,18 @@ function nonNegativeInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) >= 0;
 }
 
+function deepFreeze<T>(value: T): T {
+  if (Array.isArray(value)) {
+    for (const entry of value) deepFreeze(entry);
+    return Object.freeze(value) as T;
+  }
+  if (typeof value === "object" && value !== null) {
+    for (const entry of Object.values(value)) deepFreeze(entry);
+    return Object.freeze(value);
+  }
+  return value;
+}
+
 function validateSerializedIdentity(value: unknown, requested: boolean): AnalyzerExplainIdentity {
   const identity = exactRecord(value, [
     "analyzerVersion", "schemaVersion", "operation", "operationId", "workspaceEpoch", "configurationEpoch",
@@ -351,7 +363,7 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
     ) serializationRefuse();
     priorUri = document["uri"];
   }
-  return Object.freeze(identity) as unknown as AnalyzerExplainIdentity;
+  return deepFreeze(identity) as unknown as AnalyzerExplainIdentity;
 }
 
 function validateSerializedBudgets(value: unknown): AnalyzerExplainBudgets {
@@ -367,13 +379,13 @@ function validateSerializedResult(value: unknown): AnalyzerExplainResult {
     : undefined;
   if (statusValue === "disabled") {
     const source = exactRecord(value, ["status", "identity"]);
-    return Object.freeze({ ...source, identity: validateSerializedIdentity(source["identity"], false) }) as unknown as AnalyzerExplainResult;
+    return deepFreeze({ ...source, identity: validateSerializedIdentity(source["identity"], false) }) as unknown as AnalyzerExplainResult;
   }
   if (statusValue === "refused") {
     const source = exactRecord(value, ["status", "identity", "code"]);
     const identity = validateSerializedIdentity(source["identity"], true);
     if (typeof source["code"] !== "string" || !/^FADENO_ANALYZER_EXPLAIN_[A-Z_]+$/u.test(source["code"])) serializationRefuse();
-    return Object.freeze({ ...source, identity }) as unknown as AnalyzerExplainResult;
+    return deepFreeze({ ...source, identity }) as unknown as AnalyzerExplainResult;
   }
   if (statusValue === "cancelled" || statusValue === "superseded" || statusValue === "stale") {
     const source = exactRecord(value, ["status", "identity", "code", "contributions", "completeness", "interruption"]);
@@ -383,7 +395,7 @@ function validateSerializedResult(value: unknown): AnalyzerExplainResult {
       source["code"] !== expectedCode || source["completeness"] !== "interrupted" || source["interruption"] !== statusValue ||
       !Array.isArray(source["contributions"]) || source["contributions"].length !== 0
     ) serializationRefuse();
-    return Object.freeze({ ...source, identity, contributions: Object.freeze([]) }) as unknown as AnalyzerExplainResult;
+    return deepFreeze({ ...source, identity, contributions: [] }) as unknown as AnalyzerExplainResult;
   }
   if (statusValue === "complete" || statusValue === "partial") {
     const source = exactRecord(value, [
@@ -413,11 +425,11 @@ function validateSerializedResult(value: unknown): AnalyzerExplainResult {
         route.publicationGeneration !== identity.publicationGeneration || route.detail !== source["detail"]
       ) serializationRefuse();
     }
-    return Object.freeze({
+    return deepFreeze({
       ...source,
       identity,
       budgets: validatedBudgets,
-      contributions: Object.freeze(contributions),
+      contributions,
     }) as unknown as AnalyzerExplainResult;
   }
   serializationRefuse();

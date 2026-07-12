@@ -102,7 +102,9 @@ try {
   }).result;
   assert.equal(semanticFlow.status, "complete");
   const serializedSemanticFlow = serializeAnalyzerExplainResult(semanticFlow);
-  assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedSemanticFlow)), serializedSemanticFlow);
+  const deserializedSemanticFlow = deserializeAnalyzerExplainResult(serializedSemanticFlow);
+  assert.equal(serializeAnalyzerExplainResult(deserializedSemanticFlow), serializedSemanticFlow);
+  assert.throws(() => { (deserializedSemanticFlow.identity.documentVersions as any[]).push({}); }, TypeError);
   if (semanticFlow.status === "complete") {
     const value = semanticFlow.contributions[0]!.value as any;
     assert.equal(value.family, "static-analysis");
