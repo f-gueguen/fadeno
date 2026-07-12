@@ -483,6 +483,14 @@ executes construction callbacks, or emits observed runtime facts. The generic
 envelope remains open to later independently versioned module codecs rather
 than enumerating future framework concepts.
 
+The route projector requires a complete current diagnostic batch. A missing
+batch is not treated as an empty batch. Static route refusal derives from the
+module-owned skipped manifest relationship rather than from the mere presence
+of diagnostics, so later non-blocking diagnostics cannot silently change plan
+policy. Explanation record IDs use deterministic local ordinals while original
+graph and diagnostic identities remain structured fields; distinct valid owner
+IDs therefore cannot collide through lossy display encoding.
+
 The route module owns exact record keys and the only initial static kinds:
 decision, diagnostic cause, ownership, skipped work, static outcome, and deep forensic
 provenance. Semantic mode refuses forensic records. Parent and causal
@@ -493,7 +501,10 @@ structured diagnostic module's allowlist rather than arbitrary contribution
 text. Valid budget exhaustion retains only validated records and reports one explicit
 `bytes`, `records`, `depth`, `children`, or `duration` truncation reason;
 malformed or runtime-family evidence refuses atomically. Its private transport
-uses exact envelope keys and byte-stable round trips.
+uses exact envelope keys, an enforced pre-parse byte limit, and byte-stable
+round trips. Allowed identifiers and diagnostic codes are validated through
+their owning module rules rather than accepting arbitrary strings in an
+otherwise allowed field.
 
 The operation transport preserves analyzer and schema versions, operation,
 session, workspace and configuration epochs, requested facet, complete

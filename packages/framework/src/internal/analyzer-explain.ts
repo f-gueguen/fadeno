@@ -389,6 +389,7 @@ export class AnalyzerExplainCoordinator {
 }
 
 const explainSerializationMaximumBytes = 300_000;
+const analyzerSessionIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 function serializationRefuse(): never {
   throw new TypeError("FADENO_ANALYZER_EXPLAIN_SERIALIZATION");
@@ -426,15 +427,19 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
   ]);
   if (
     identity["analyzerVersion"] !== 1 || identity["schemaVersion"] !== 1 || identity["operation"] !== "explain" ||
-    typeof identity["operationId"] !== "string" || identity["operationId"].length === 0 ||
-    typeof identity["sessionId"] !== "string" || identity["sessionId"].length === 0 ||
+    typeof identity["sessionId"] !== "string" || !analyzerSessionIdPattern.test(identity["sessionId"]) ||
+    typeof identity["operationId"] !== "string" ||
+    !new RegExp(`^${identity["sessionId"]}:operation-[1-9][0-9]*$`, "u").test(identity["operationId"]) ||
     !nonNegativeInteger(identity["workspaceEpoch"]) || !nonNegativeInteger(identity["configurationEpoch"]) ||
     !Array.isArray(identity["requestedFacets"]) || !Array.isArray(identity["documentVersions"])
   ) serializationRefuse();
   const publicationOperationId = identity["publicationOperationId"];
   const publicationGeneration = identity["publicationGeneration"];
   if (
-    publicationOperationId !== null && typeof publicationOperationId !== "string" ||
+    publicationOperationId !== null && (
+      typeof publicationOperationId !== "string" ||
+      !new RegExp(`^${identity["sessionId"]}:operation-[1-9][0-9]*$`, "u").test(publicationOperationId)
+    ) ||
     publicationGeneration !== null && (!Number.isSafeInteger(publicationGeneration) || (publicationGeneration as number) < 1) ||
     (publicationOperationId === null) !== (publicationGeneration === null)
   ) serializationRefuse();
@@ -458,6 +463,8 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
     !ownership["root"].startsWith("file:") || typeof ownership["configurationFingerprint"] !== "string" ||
     !/^[0-9a-f]{64}$/u.test(ownership["configurationFingerprint"])
   ) serializationRefuse();
+  let rootPath: string;
+  try { rootPath = fileURLToPath(ownership["root"] as string); } catch { serializationRefuse(); }
   let priorUri: string | undefined;
   for (const entry of identity["documentVersions"] as unknown[]) {
     const document = exactRecord(entry, ["uri", "version", "lifetime"]);
@@ -466,6 +473,10 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
       !nonNegativeInteger(document["version"]) || !Number.isSafeInteger(document["lifetime"]) ||
       (document["lifetime"] as number) < 1 || (priorUri !== undefined && priorUri >= document["uri"])
     ) serializationRefuse();
+    let documentPath: string;
+    try { documentPath = fileURLToPath(document["uri"]); } catch { serializationRefuse(); }
+    const contained = relative(rootPath, documentPath);
+    if (contained === "" || contained.startsWith("..") || isAbsolute(contained)) serializationRefuse();
     priorUri = document["uri"];
   }
   return deepFreeze(identity) as unknown as AnalyzerExplainIdentity;
@@ -553,7 +564,10 @@ export function serializeAnalyzerExplainResult(result: AnalyzerExplainResult): s
 
 export function deserializeAnalyzerExplainResult(serialized: string): AnalyzerExplainResult {
   try {
-    if (typeof serialized !== "string" || new TextEncoder().encode(serialized).byteLength > explainSerializationMaximumBytes) {
+    if (
+      typeof serialized !== "string" || serialized.length > explainSerializationMaximumBytes ||
+      new TextEncoder().encode(serialized).byteLength > explainSerializationMaximumBytes
+    ) {
       serializationRefuse();
     }
     const envelope = exactRecord(JSON.parse(serialized) as unknown, ["format", "serializationVersion", "result"]);
@@ -565,3 +579,5 @@ export function deserializeAnalyzerExplainResult(serialized: string): AnalyzerEx
     serializationRefuse();
   }
 }
+import { isAbsolute, relative } from "node:path";
+import { fileURLToPath } from "node:url";

@@ -2,12 +2,24 @@ import { isAbsolute, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { normalizeAnalyzerFacetValue, type AnalyzerFacetContribution, type AnalyzerFacetValue } from "./analyzer-facets.ts";
-import { isAnalyzerDiagnosticCode, type AnalyzerDiagnosticBatch } from "./analyzer-diagnostics.ts";
+import {
+  isAnalyzerDiagnosticCode,
+  isAnalyzerDiagnosticInstanceId,
+  isAnalyzerSkippedWorkId,
+  type AnalyzerDiagnosticBatch,
+} from "./analyzer-diagnostics.ts";
+import {
+  isAnalyzerGraphModuleNamespace,
+  isAnalyzerGraphNodeId,
+  isAnalyzerGraphTransformation,
+} from "./analyzer-graph.ts";
 import type { AnalyzerExplainBudgets } from "./analyzer-explain.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
 
 export const ROUTE_EXPLAIN_NAMESPACE = "fadeno.routes.explain" as const;
 export const ROUTE_EXPLAIN_VERSION = 1 as const;
+const maximumRouteExplainTransportBytes = 262_144;
+const analyzerOperationIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:operation-[1-9][0-9]*$/u;
 
 type RouteExplainRecord = Readonly<{
   id: string;
@@ -74,22 +86,22 @@ function validateFields(kind: RouteExplainRecord["kind"], value: unknown): Analy
     if (fields["decision"] !== "publish-static-route-plan" && fields["decision"] !== "refuse-static-route-plan") refuse();
     if (!Number.isSafeInteger(fields["graphGeneration"]) || (fields["graphGeneration"] as number) < 1) refuse();
   } else if (kind === "cause") {
-    if (!isAnalyzerDiagnosticCode(fields["code"]) || typeof fields["diagnosticInstanceId"] !== "string") refuse();
+    if (!isAnalyzerDiagnosticCode(fields["code"]) || !isAnalyzerDiagnosticInstanceId(fields["diagnosticInstanceId"])) refuse();
   } else if (kind === "ownership") {
-    if (typeof fields["nodeId"] !== "string" || typeof fields["ownerPath"] !== "string") refuse();
+    if (!isAnalyzerGraphNodeId(fields["nodeId"]) || typeof fields["ownerPath"] !== "string") refuse();
     const path = fields["ownerPath"];
     if ((path as string).startsWith("/") || (path as string).includes("\\") || (path as string).split("/").some((part) => part === "" || part === "." || part === "..")) refuse();
-    strings(fields["artifactIds"]);
+    if (strings(fields["artifactIds"]).some((id) => !isAnalyzerGraphNodeId(id))) refuse();
   } else if (kind === "skipped") {
-    if (typeof fields["workId"] !== "string") refuse();
-    strings(fields["diagnosticInstanceIds"]);
+    if (!isAnalyzerSkippedWorkId(fields["workId"])) refuse();
+    if (strings(fields["diagnosticInstanceIds"]).some((id) => !isAnalyzerDiagnosticInstanceId(id))) refuse();
   } else if (kind === "outcome") {
     if (fields["status"] !== "static-ready" && fields["status"] !== "static-refused") refuse();
-    strings(fields["artifactIds"]);
-    strings(fields["diagnosticCodes"]);
+    if (strings(fields["artifactIds"]).some((id) => !isAnalyzerGraphNodeId(id))) refuse();
+    if (strings(fields["diagnosticCodes"]).some((code) => !isAnalyzerDiagnosticCode(code))) refuse();
   } else {
     if (
-      typeof fields["namespace"] !== "string" || typeof fields["transformation"] !== "string" ||
+      !isAnalyzerGraphModuleNamespace(fields["namespace"]) || !isAnalyzerGraphTransformation(fields["transformation"]) ||
       !Number.isSafeInteger(fields["version"]) || (fields["version"] as number) < 1 ||
       !Number.isSafeInteger(fields["relatedSourceCount"]) || (fields["relatedSourceCount"] as number) < 0
     ) refuse();
@@ -102,7 +114,8 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
   const value = object(input.value, ["family", "module", "version", "publicationOperationId", "publicationGeneration", "detail", "records"]);
   if (
     value["family"] !== "static-analysis" || value["module"] !== ROUTE_EXPLAIN_NAMESPACE || value["version"] !== ROUTE_EXPLAIN_VERSION ||
-    typeof value["publicationOperationId"] !== "string" || !Number.isSafeInteger(value["publicationGeneration"]) ||
+    typeof value["publicationOperationId"] !== "string" || !analyzerOperationIdPattern.test(value["publicationOperationId"]) ||
+    !Number.isSafeInteger(value["publicationGeneration"]) ||
     (value["publicationGeneration"] as number) < 1 || (value["detail"] !== "semantic" && value["detail"] !== "deep") ||
     !Array.isArray(value["records"])
   ) refuse();
@@ -202,6 +215,7 @@ export function processRouteExplainContribution(
 export function serializeRouteExplainContribution(input: AnalyzerFacetContribution): string {
   try {
     const value = JSON.stringify({ format: "fadeno-private-route-explain", serializationVersion: 1, contribution: validateContribution(input) });
+    if (value.length > maximumRouteExplainTransportBytes || new TextEncoder().encode(value).byteLength > maximumRouteExplainTransportBytes) refuse();
     deserializeRouteExplainContribution(value);
     return value;
   } catch { throw new TypeError("FADENO_ANALYZER_ROUTE_EXPLAIN_SERIALIZATION"); }
@@ -209,6 +223,10 @@ export function serializeRouteExplainContribution(input: AnalyzerFacetContributi
 
 export function deserializeRouteExplainContribution(serialized: string): AnalyzerFacetContribution {
   try {
+    if (
+      typeof serialized !== "string" || serialized.length > maximumRouteExplainTransportBytes ||
+      new TextEncoder().encode(serialized).byteLength > maximumRouteExplainTransportBytes
+    ) refuse();
     const envelope = object(JSON.parse(serialized), ["format", "serializationVersion", "contribution"]);
     if (envelope["format"] !== "fadeno-private-route-explain" || envelope["serializationVersion"] !== 1) refuse();
     return validateContribution(envelope["contribution"] as AnalyzerFacetContribution);
@@ -253,11 +271,11 @@ function record(
 
 export function createRouteExplainContribution(
   publication: AnalyzerPublicationSnapshot,
-  diagnostics: AnalyzerDiagnosticBatch | null,
+  diagnostics: AnalyzerDiagnosticBatch,
   detail: "semantic" | "deep",
 ): AnalyzerFacetContribution {
   if (
-    diagnostics && (
+    (
       diagnostics.identity.sessionId !== publication.sessionId ||
       diagnostics.identity.operationId !== publication.operationId ||
       diagnostics.identity.workspaceEpoch !== publication.workspaceEpoch ||
@@ -269,13 +287,13 @@ export function createRouteExplainContribution(
     )
   ) throw new TypeError("FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS");
   const records: RouteExplainRecord[] = [];
-  const refused = (diagnostics?.diagnostics.length ?? 0) > 0;
+  const refused = diagnostics.skippedWork.some(({ id }) => id === "manifest-publication");
   records.push(record("route-decision", "decision", {
     decision: refused ? "refuse-static-route-plan" : "publish-static-route-plan",
     graphGeneration: publication.graph.generation,
   }));
-  for (const result of publication.graph.results) {
-    const ownershipId = `ownership-${result.id.replaceAll(":", "-")}`;
+  for (const [index, result] of publication.graph.results.entries()) {
+    const ownershipId = `ownership-${index + 1}`;
     records.push(record(ownershipId, "ownership", {
       nodeId: result.id,
       ownerPath: projectPath(publication.ownership.root, result.provenance.primaryOrigin.uri),
@@ -290,14 +308,15 @@ export function createRouteExplainContribution(
       }, ownershipId));
     }
   }
-  const causeId = (instanceId: string) => `cause-${instanceId.replaceAll(":", "-")}`;
-  for (const diagnostic of diagnostics?.diagnostics ?? []) {
+  const causeIds = new Map(diagnostics.diagnostics.map(({ instanceId }, index) => [instanceId, `cause-${index + 1}`]));
+  const causeId = (instanceId: string): string => causeIds.get(instanceId) ?? refuse();
+  for (const diagnostic of diagnostics.diagnostics) {
     records.push(record(causeId(diagnostic.instanceId), "cause", {
       code: diagnostic.code,
       diagnosticInstanceId: diagnostic.instanceId,
     }, "route-decision", diagnostic.causedBy.map(causeId)));
   }
-  for (const skipped of diagnostics?.skippedWork ?? []) {
+  for (const skipped of diagnostics.skippedWork) {
     records.push(record(`skipped-${skipped.id}`, "skipped", {
       workId: skipped.id,
       diagnosticInstanceIds: skipped.causedBy,
@@ -305,9 +324,9 @@ export function createRouteExplainContribution(
   }
   records.push(record("route-outcome", "outcome", {
     status: refused ? "static-refused" : "static-ready",
-    diagnosticCodes: diagnostics?.diagnostics.map(({ code }) => code).sort(compareText) ?? [],
+    diagnosticCodes: diagnostics.diagnostics.map(({ code }) => code).sort(compareText),
     artifactIds: publication.artifacts.map(({ id }) => id).sort(compareText),
-  }, "route-decision", diagnostics?.diagnostics.map(({ instanceId }) => causeId(instanceId)) ?? []));
+  }, "route-decision", diagnostics.diagnostics.map(({ instanceId }) => causeId(instanceId))));
   records.sort((left, right) => compareText(left.id, right.id));
   const value = normalizeAnalyzerFacetValue({
     family: "static-analysis",

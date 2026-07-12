@@ -75,7 +75,24 @@ try {
   assert.equal(published.status, "published");
   const publication = session.currentPublicationSnapshot;
   assert.ok(publication);
-  routeContribution = [createRouteExplainContribution(publication, null, "semantic")];
+  const emptyDiagnosticsFor = (active: NonNullable<typeof publication>) => createAnalyzerDiagnosticBatch({
+    graph: active.graph,
+    documents: session.currentSnapshot.documents,
+    diagnostics: [],
+    corrections: [],
+    skippedWork: [],
+  });
+  routeContribution = [createRouteExplainContribution(publication, emptyDiagnosticsFor(publication), "semantic")];
+  const collidingGraphIdsPublication = JSON.parse(JSON.stringify(publication));
+  collidingGraphIdsPublication.graph.results[0].id = "route:a-b:c";
+  collidingGraphIdsPublication.graph.results[1].id = "route:a:b-c";
+  const collisionFreeIds = createRouteExplainContribution(
+    collidingGraphIdsPublication,
+    emptyDiagnosticsFor(publication),
+    "semantic",
+  );
+  const collisionFreeOwnership = (collisionFreeIds.value as any).records.filter(({ kind }: any) => kind === "ownership");
+  assert.equal(new Set(collisionFreeOwnership.map(({ id }: any) => id)).size, 2);
   const callsAfterPublication = constructionCalls;
 
   const disabled = await session.startExplain({
@@ -122,7 +139,7 @@ try {
     requestedFacets: [{ namespace: "fadeno.routes.explain" }],
     collect: ({ publication: current, detail, requestedFacets }) => {
       assert.deepEqual(requestedFacets, [{ namespace: "fadeno.routes.explain" }]);
-      return [createRouteExplainContribution(current, null, detail)];
+      return [createRouteExplainContribution(current, emptyDiagnosticsFor(current), detail)];
     },
   }).result;
   assert.equal(semanticFlow.status, "complete");
@@ -143,7 +160,7 @@ try {
   const deepFlow = await session.startExplain({
     detail: "deep",
     activateDeep: true,
-    collect: ({ publication: current, detail }) => [createRouteExplainContribution(current, null, detail)],
+    collect: ({ publication: current, detail }) => [createRouteExplainContribution(current, emptyDiagnosticsFor(current), detail)],
   }).result;
   assert.equal(deepFlow.status, "complete");
   if (deepFlow.status === "complete") {
@@ -160,6 +177,16 @@ try {
         diagnosticInstanceId: "canary",
       };
     },
+    (value: any) => { value.contribution.value.records[0].fields.nodeId = "FADENO_EXPLAIN_SECRET_CANARY"; },
+    (value: any) => { value.contribution.value.records[0].fields.artifactIds = ["FADENO_EXPLAIN_SECRET_CANARY"]; },
+    (value: any) => {
+      value.contribution.value.records[0].kind = "skipped";
+      value.contribution.value.records[0].fields = {
+        workId: "FADENO_EXPLAIN_SECRET_CANARY",
+        diagnosticInstanceIds: [],
+      };
+    },
+    (value: any) => { value.contribution.value.publicationOperationId = "FADENO_EXPLAIN_SECRET_CANARY"; },
     (value: any) => { value.contribution.value.records[0].parentId = "missing"; },
     (value: any) => {
       value.contribution.value.records[0].parentId = value.contribution.value.records[1].id;
@@ -176,6 +203,22 @@ try {
     mutate(invalid);
     assert.throws(() => deserializeRouteExplainContribution(JSON.stringify(invalid)), /FADENO_ANALYZER_ROUTE_EXPLAIN_SERIALIZATION/u);
   }
+  assert.throws(
+    () => deserializeRouteExplainContribution(" ".repeat(262_145)),
+    /FADENO_ANALYZER_ROUTE_EXPLAIN_SERIALIZATION/u,
+  );
+  if (deepFlow.status === "complete") {
+    const serializedDeep = serializeRouteExplainContribution(deepFlow.contributions[0]!);
+    for (const field of ["namespace", "transformation"] as const) {
+      const invalid = JSON.parse(serializedDeep);
+      const forensic = invalid.contribution.value.records.find(({ kind }: any) => kind === "forensic");
+      forensic.fields[field] = "FADENO_EXPLAIN_SECRET_CANARY";
+      assert.throws(
+        () => deserializeRouteExplainContribution(JSON.stringify(invalid)),
+        /FADENO_ANALYZER_ROUTE_EXPLAIN_SERIALIZATION/u,
+      );
+    }
+  }
   for (const [budget, reason] of [
     [{ records: 1 }, "records"],
     [{ depth: 1 }, "depth"],
@@ -184,7 +227,7 @@ try {
   ] as const) {
     const limited = await session.startExplain({
       detail: "semantic", budgets: budget,
-      collect: ({ publication: active }) => [createRouteExplainContribution(active, null, "semantic")],
+      collect: ({ publication: active }) => [createRouteExplainContribution(active, emptyDiagnosticsFor(active), "semantic")],
     }).result;
     assert.equal(limited.status, "partial");
     if (limited.status === "partial") {
@@ -204,8 +247,8 @@ try {
   }
   const causalDepthContribution = JSON.parse(JSON.stringify(routeContribution[0])) as AnalyzerFacetContribution;
   const causalRecords = (causalDepthContribution.value as any).records;
-  const ownershipPage = causalRecords.find(({ id }: any) => id === "ownership-route-page");
-  const ownershipRoot = causalRecords.find(({ id }: any) => id === "ownership-route-root");
+  const ownershipPage = causalRecords.find(({ kind, fields }: any) => kind === "ownership" && fields.nodeId === "route:page");
+  const ownershipRoot = causalRecords.find(({ kind, fields }: any) => kind === "ownership" && fields.nodeId === "route:root");
   const outcome = causalRecords.find(({ id }: any) => id === "route-outcome");
   ownershipRoot.causedBy = [ownershipPage.id];
   outcome.causedBy = [ownershipRoot.id];
@@ -312,7 +355,7 @@ try {
   await Promise.resolve();
   const current = session.startExplain({
     detail: "deep", activateDeep: true,
-    collect: ({ publication: active }) => [createRouteExplainContribution(active, null, "deep")],
+    collect: ({ publication: active }) => [createRouteExplainContribution(active, emptyDiagnosticsFor(active), "deep")],
   });
   const obsoleteResult = await obsolete.result;
   assert.equal(obsoleteResult.status, "superseded");
@@ -388,7 +431,7 @@ try {
   }
   const recoveryFlow = await session.startExplain({
     detail: "semantic",
-    collect: ({ publication: active }) => [createRouteExplainContribution(active, null, "semantic")],
+    collect: ({ publication: active }) => [createRouteExplainContribution(active, emptyDiagnosticsFor(active), "semantic")],
   }).result;
   assert.equal(recoveryFlow.status, "complete");
   const summarize = (result: typeof collisionFlow) => {
@@ -435,6 +478,8 @@ try {
     (value: any) => { value.result.identity.documentVersions[0].version = -1; },
     (value: any) => { value.result.identity.documentVersions[0].lifetime = 0; },
     (value: any) => { value.result.identity.sessionId = ""; },
+    (value: any) => { value.result.identity.operationId = "different:operation-1"; },
+    (value: any) => { value.result.identity.documentVersions[0].uri = "file:///outside.tsx"; },
     (value: any) => { value.result.identity.ownership.configurationFingerprint = "secret"; },
     (value: any) => { value.result.completeness = "partial"; },
     (value: any) => { value.result.contributions[0].value.publicationGeneration += 1; },
