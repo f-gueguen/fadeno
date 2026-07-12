@@ -18,12 +18,14 @@ K0-10B — qualify H4 correctness and cost from exact merged K0-10A source
   default/selective ratio, 0.025209 ms default p95, and 4.8961% RSS growth.
 - [x] Publish the immutable GO result and ADR 0020 without resolving public
   resource, action, cache, or `keeps` syntax.
-- [ ] Prove all evidence projections and `pnpm ci:local` pass on the final tip.
+- [x] Prove all evidence projections and `pnpm ci:local` pass on the final tip.
 
 ## In progress
 
 - Exact source `51594a8` passed all H4 gates in attempt 12; the independently
   derived decision is GO.
+- Clean local CI passed the complete immutable-evidence suite at `5e956e9`;
+  the final ledger projection is revalidated before review.
 - K0-10B gathers DATA-01, DATA-03, SEC-01, and PERF-01 evidence while DG-V1-04
   continues to gate public resource, action, cache, and `keeps` syntax.
 
