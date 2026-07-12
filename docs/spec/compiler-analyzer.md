@@ -489,7 +489,10 @@ module-owned skipped manifest relationship rather than from the mere presence
 of diagnostics, so later non-blocking diagnostics cannot silently change plan
 policy. Explanation record IDs use deterministic local ordinals while original
 graph and diagnostic identities remain structured fields; distinct valid owner
-IDs therefore cannot collide through lossy display encoding.
+IDs therefore cannot collide through lossy display encoding. Complete module
+contributions require one coherent decision and outcome, matching cause codes
+and edges, and a skipped manifest relationship exactly when the static plan is
+refused; transport mutations cannot independently rewrite those claims.
 
 The route module owns exact record keys and the only initial static kinds:
 decision, diagnostic cause, ownership, skipped work, static outcome, and deep forensic

@@ -199,6 +199,15 @@ try {
   for (const mutate of [
     (value: any) => { value.contribution.value.records[0].fields.observedRequestOrder = 1; },
     (value: any) => {
+      value.contribution.value.records.find(({ kind }: any) => kind === "decision").fields.decision = "refuse-static-route-plan";
+    },
+    (value: any) => {
+      value.contribution.value.records.find(({ kind }: any) => kind === "outcome").fields.diagnosticCodes = ["FADENO_CONFIG_ROOT_MISSING"];
+    },
+    (value: any) => {
+      value.contribution.value.records = value.contribution.value.records.filter(({ kind }: any) => kind !== "outcome");
+    },
+    (value: any) => {
       value.contribution.value.records[0].kind = "cause";
       value.contribution.value.records[0].fields = {
         code: "FADENO_EXPLAIN_SECRET_CANARY",
@@ -284,8 +293,19 @@ try {
   const ownershipPage = causalRecords.find(({ kind, fields }: any) => kind === "ownership" && fields.nodeId === "route:page");
   const ownershipRoot = causalRecords.find(({ kind, fields }: any) => kind === "ownership" && fields.nodeId === "route:root");
   const outcome = causalRecords.find(({ id }: any) => id === "route-outcome");
+  ownershipPage.kind = "cause";
+  ownershipPage.fields = {
+    code: "FADENO_CONFIG_ROOT_MISSING",
+    diagnosticInstanceId: `${publication.operationId}:diagnostic-1`,
+  };
+  ownershipRoot.kind = "cause";
+  ownershipRoot.fields = {
+    code: "FADENO_ROUTE_ROUTE_ROLE_COLLISION",
+    diagnosticInstanceId: `${publication.operationId}:diagnostic-2`,
+  };
   ownershipRoot.causedBy = [ownershipPage.id];
-  outcome.causedBy = [ownershipRoot.id];
+  outcome.causedBy = [ownershipPage.id, ownershipRoot.id].sort();
+  outcome.fields.diagnosticCodes = ["FADENO_CONFIG_ROOT_MISSING", "FADENO_ROUTE_ROUTE_ROLE_COLLISION"];
   const causalDepthLimited = await session.startExplain({
     detail: "semantic", budgets: { depth: 2 }, collect: () => [causalDepthContribution],
   }).result;

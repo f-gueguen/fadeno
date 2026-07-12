@@ -143,6 +143,48 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
   const byId = new Map(records.map((current) => [current.id, current]));
   const dependencyDepths = new Map<string, number>();
   for (const current of records) dependencyDepthOf(current, byId, dependencyDepths);
+  const decisions = records.filter(({ kind }) => kind === "decision");
+  const outcomes = records.filter(({ kind }) => kind === "outcome");
+  const causes = records.filter(({ kind }) => kind === "cause");
+  const causeIds = new Set(causes.map(({ id }) => id));
+  if (decisions.length > 1 || outcomes.length > 1) refuse();
+  for (const current of records) {
+    if (current.kind === "decision") {
+      if (current.id !== "route-decision" || current.parentId !== null || current.causedBy.length !== 0) refuse();
+    } else if (current.kind === "forensic") {
+      if (current.parentId === null || byId.get(current.parentId)?.kind !== "ownership" || current.causedBy.length !== 0) refuse();
+    } else {
+      if (current.parentId !== "route-decision") refuse();
+      if (current.kind === "ownership" && current.causedBy.length !== 0) refuse();
+      if (["cause", "skipped", "outcome"].includes(current.kind) && current.causedBy.some((id) => !causeIds.has(id))) refuse();
+    }
+  }
+  const decision = decisions[0];
+  const outcome = outcomes[0];
+  if (decision && outcome) {
+    const decisionFields = decision.fields as Readonly<Record<string, AnalyzerFacetValue>>;
+    const outcomeFields = outcome.fields as Readonly<Record<string, AnalyzerFacetValue>>;
+    const refused = decisionFields["decision"] === "refuse-static-route-plan";
+    if ((outcomeFields["status"] === "static-refused") !== refused) refuse();
+    const codes = causes.map(({ fields }) => String((fields as Readonly<Record<string, AnalyzerFacetValue>>)["code"])).sort(compareText);
+    if (JSON.stringify(outcomeFields["diagnosticCodes"]) !== JSON.stringify(codes)) refuse();
+    if (JSON.stringify(outcome.causedBy) !== JSON.stringify([...causeIds].sort(compareText))) refuse();
+  }
+  for (const skipped of records.filter(({ kind }) => kind === "skipped")) {
+    const fields = skipped.fields as Readonly<Record<string, AnalyzerFacetValue>>;
+    const diagnosticIds = skipped.causedBy.map((id) => {
+      const cause = byId.get(id)!;
+      return String((cause.fields as Readonly<Record<string, AnalyzerFacetValue>>)["diagnosticInstanceId"]);
+    }).sort(compareText);
+    if (JSON.stringify(fields["diagnosticInstanceIds"]) !== JSON.stringify(diagnosticIds)) refuse();
+  }
+  if (value["collectionTruncation"] === null) {
+    if (!decision || !outcome) refuse();
+    const refused = (decision.fields as Readonly<Record<string, AnalyzerFacetValue>>)["decision"] === "refuse-static-route-plan";
+    const skippedManifest = records.some(({ kind, fields }) =>
+      kind === "skipped" && (fields as Readonly<Record<string, AnalyzerFacetValue>>)["workId"] === "manifest-publication");
+    if (refused !== skippedManifest) refuse();
+  }
   const normalized = normalizeAnalyzerFacetValue({ ...value, records });
   return frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE, version: ROUTE_EXPLAIN_VERSION, value: normalized });
 }
@@ -218,7 +260,11 @@ export function processRouteExplainContribution(
   const contribution = frozen({
     namespace: ROUTE_EXPLAIN_NAMESPACE,
     version: ROUTE_EXPLAIN_VERSION,
-    value: normalizeAnalyzerFacetValue({ ...value, records: kept.sort((left, right) => compareText(left.id, right.id)) }),
+    value: normalizeAnalyzerFacetValue({
+      ...value,
+      collectionTruncation: truncation,
+      records: kept.sort((left, right) => compareText(left.id, right.id)),
+    }),
   });
   return frozen({ contribution: validateContribution(contribution), truncation });
 }
