@@ -4,11 +4,57 @@
   "futureConsumer": "V1-09 renderer and browser conformance",
   "textCases": [
     { "id": "text-delimiters", "context": "html-text", "input": "&<>\"'", "output": "&amp;&lt;&gt;\"'" },
-    { "id": "attribute-delimiters", "context": "attribute-double-quoted", "input": "&<>\"'", "output": "&amp;&lt;&gt;&quot;&#39;" },
     { "id": "title-end-tag", "context": "rcdata-title", "input": "</TiTlE><script>x</script>", "output": "&lt;/TiTlE&gt;&lt;script&gt;x&lt;/script&gt;" },
     { "id": "textarea-comment", "context": "rcdata-textarea", "input": "<!--x--></TEXTAREA>", "output": "&lt;!--x--&gt;&lt;/TEXTAREA&gt;" },
     { "id": "line-and-unicode-normalization", "context": "html-text", "input": "a\r\nb\rc\u0000d\ud800e\udc00f", "output": "a\nb\nc\ufffdd\ufffde\ufffdf" }
   ],
+  "attributeCases": [
+    { "id": "attribute-delimiters", "element": "div", "attribute": "title", "input": "&<>\"'", "output": "&amp;&lt;&gt;&quot;&#39;" }
+  ],
+  "sinkCases": [
+    { "id": "html-text", "element": "div", "attribute": null, "kind": "html-text" },
+    { "id": "title-rcdata", "element": "title", "attribute": null, "kind": "rcdata-title" },
+    { "id": "textarea-rcdata", "element": "textarea", "attribute": null, "kind": "rcdata-textarea" },
+    { "id": "ordinary-attribute", "element": "div", "attribute": "class", "kind": "attribute-double-quoted" },
+    { "id": "aria-attribute", "element": "button", "attribute": "aria-label", "kind": "attribute-double-quoted" },
+    { "id": "url-attribute", "element": "a", "attribute": "href", "kind": "url-attribute" },
+    { "id": "boolean-attribute", "element": "input", "attribute": "disabled", "kind": "boolean-attribute" },
+    { "id": "enumerated-attribute", "element": "img", "attribute": "loading", "kind": "enumerated-attribute" }
+  ],
+  "sinkRefusals": [
+    { "id": "dynamic-tag-name", "element": "Dynamic", "attribute": null, "error": "FADENO_RENDER_ELEMENT" },
+    { "id": "dynamic-attribute-name", "element": "div", "attribute": "unknown", "error": "FADENO_RENDER_ATTRIBUTE" },
+    { "id": "comment", "element": "#comment", "attribute": null, "error": "FADENO_RENDER_ELEMENT" },
+    { "id": "event-attribute", "element": "div", "attribute": "onclick", "error": "FADENO_RENDER_EVENT_ATTRIBUTE" },
+    { "id": "srcdoc", "element": "div", "attribute": "srcdoc", "error": "FADENO_RENDER_SRCDOC" },
+    { "id": "meta-refresh", "element": "meta", "attribute": "http-equiv", "error": "FADENO_RENDER_META_REFRESH" },
+    { "id": "srcset", "element": "img", "attribute": "srcset", "error": "FADENO_RENDER_SRCSET" },
+    { "id": "ping", "element": "a", "attribute": "ping", "error": "FADENO_RENDER_PING" },
+    { "id": "xlink-href", "element": "svg", "attribute": "xlink:href", "error": "FADENO_RENDER_XLINK" },
+    { "id": "style-attribute", "element": "div", "attribute": "style", "error": "FADENO_RENDER_STYLE_ATTRIBUTE" },
+    { "id": "script-children", "element": "script", "attribute": null, "error": "FADENO_RENDER_SCRIPT_CHILDREN" },
+    { "id": "style-children", "element": "style", "attribute": null, "error": "FADENO_RENDER_STYLE_CHILDREN" },
+    { "id": "svg", "element": "svg", "attribute": null, "error": "FADENO_RENDER_FOREIGN_CONTENT" },
+    { "id": "mathml", "element": "math", "attribute": null, "error": "FADENO_RENDER_FOREIGN_CONTENT" },
+    { "id": "obsolete-element", "element": "marquee", "attribute": null, "error": "FADENO_RENDER_OBSOLETE_ELEMENT" }
+  ],
+  "urlKindSamples": {
+    "relative": "/path?q=a&b=c", "network-path": "//example.test/path", "http": "http://example.test/path",
+    "https": "https://example.test/path", "mailto": "mailto:person@example.test", "tel": "tel:+81300000000"
+  },
+  "urlMatrix": {
+    "a.href": ["relative", "network-path", "http", "https", "mailto", "tel"],
+    "area.href": ["relative", "network-path", "http", "https", "mailto", "tel"],
+    "form.action": ["relative", "network-path", "http", "https"],
+    "button.formaction": ["relative", "network-path", "http", "https"],
+    "input.formaction": ["relative", "network-path", "http", "https"],
+    "img.src": ["relative", "network-path", "http", "https"],
+    "source.src": ["relative", "network-path", "http", "https"],
+    "audio.src": ["relative", "network-path", "http", "https"],
+    "video.src": ["relative", "network-path", "http", "https"],
+    "video.poster": ["relative", "network-path", "http", "https"],
+    "link.href": ["relative", "network-path", "http", "https"]
+  },
   "urlCases": [
     { "id": "relative", "sink": "a.href", "input": "/people?q=a&x=b#top", "output": "/people?q=a&amp;x=b#top" },
     { "id": "network-path", "sink": "img.src", "input": "//cdn.example/image.png", "output": "//cdn.example/image.png" },
@@ -33,15 +79,60 @@
     { "id": "nul", "sink": "a.href", "input": "java\u0000script:alert(1)", "error": "FADENO_RENDER_URL_CHARACTERS" },
     { "id": "backslash", "sink": "a.href", "input": "https:\\example.test/path", "error": "FADENO_RENDER_URL_CHARACTERS" },
     { "id": "absolute-credentials", "sink": "a.href", "input": "https://user:pass@example.test/", "error": "FADENO_RENDER_URL_CREDENTIALS" },
-    { "id": "network-credentials", "sink": "img.src", "input": "//user@example.test/image.png", "error": "FADENO_RENDER_URL_CREDENTIALS" }
+    { "id": "network-credentials", "sink": "img.src", "input": "//user@example.test/image.png", "error": "FADENO_RENDER_URL_CREDENTIALS" },
+    { "id": "malformed-unicode", "sink": "a.href", "input": "/bad\ud800path", "error": "FADENO_RENDER_URL_UNICODE" }
   ],
   "refusedContexts": [
     "dynamic-tag-name", "dynamic-attribute-name", "comment", "event-attribute", "srcdoc", "meta-refresh",
     "srcset", "ping", "xlink-href", "style-attribute", "script-children", "style-children", "svg", "mathml", "obsolete-element"
   ],
+  "unsafeCapabilityOutcomes": [
+    "ordinary-string-refused-by-type",
+    "same-package-token-accepted",
+    "copy-clone-proxy-json-and-other-package-refused",
+    "raw-html-never-receives-csp-nonce"
+  ],
+  "nonceCases": [
+    { "id": "default-primitive", "minimumEntropyBits": 128, "encoding": "base64url-unpadded", "outputLength": 22, "distinctSamples": 64 },
+    { "id": "raw-non-blessing", "rawInput": "<script>application()</script>", "receivesNonce": false }
+  ],
+  "redactionCases": [
+    {
+      "id": "structured-sensitive-sources",
+      "source": {
+        "method": "POST",
+        "request": {
+          "url": "https://example.test/path?credential=query#fragment",
+          "headers": { "authorization": "Bearer credential", "cookie": "session=credential" },
+          "body": "sensitive request body"
+        },
+        "details": {
+          "safe": "visible",
+          "requestUrl": "https://example.test/other?credential=query",
+          "configuredPrivate": "field-secret",
+          "safeLookingField": "exact-configured-secret"
+        },
+        "error": { "message": "credential", "stack": "credential" }
+      },
+      "sensitiveFields": ["configuredPrivate"],
+      "sensitiveValues": ["exact-configured-secret"],
+      "output": {
+        "method": "POST",
+        "request": { "url": "https://example.test/path" },
+        "error": { "type": "Error" },
+        "details": {
+          "safe": "visible",
+          "requestUrl": "https://example.test/other",
+          "configuredPrivate": "[REDACTED]",
+          "safeLookingField": "[REDACTED]"
+        }
+      }
+    }
+  ],
   "browserOutcomes": [
-    { "id": "text-no-created-element", "phase": "V1-09", "assertion": "parser creates only a text node" },
-    { "id": "url-no-script-navigation", "phase": "V1-09", "assertion": "browser URL is not an executable scheme" },
-    { "id": "csp-correlated-execution", "phase": "V1-09", "assertion": "only framework nonce-correlated executable markup runs" }
+    { "id": "text-no-created-element", "phase": "V1-09", "inputCase": "text-delimiters", "expected": { "elementChildren": 0, "text": "&<>\"'" } },
+    { "id": "rcdata-no-end-tag-breakout", "phase": "V1-09", "inputCase": "title-end-tag", "expected": { "titleElements": 1, "scriptElements": 0, "text": "</TiTlE><script>x</script>" } },
+    { "id": "url-no-script-navigation", "phase": "V1-09", "inputCase": "javascript", "expected": { "renderRefused": true, "scriptNavigation": false } },
+    { "id": "csp-correlated-execution", "phase": "V1-09", "input": { "frameworkScriptId": "framework", "rawScriptId": "raw" }, "expected": { "executedIds": ["framework"], "violations": ["raw"] } }
   ]
 }

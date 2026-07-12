@@ -79,8 +79,9 @@ The neutral package root exports exactly one raw constructor, `unsafeHtml`, and
 one opaque type, `UnsafeHtml`. `unsafeHtml(html, { reason })` is an explicit
 trust assertion, not a sanitizer. An ordinary string is not assignable to
 `UnsafeHtml`; the reason must be a non-empty bounded review explanation. The
-runtime token is frozen, null-prototype, non-serializable, authenticated by a
-same-package private WeakMap, and accepted only by that package instance.
+runtime token is frozen, null-prototype, authenticated by a same-package private
+WeakMap, and accepted only by that package instance. Serialization may produce
+an inert ordinary object, but serialization never preserves authority.
 Strings, object copies, spreads, reflected-symbol attempts, proxies, clones,
 JSON round trips, and tokens from another installed package instance fail
 runtime authentication. The brand, stored HTML, and unwrapper are not exported.
@@ -93,9 +94,11 @@ explicitly places inside it and never adds a CSP nonce to raw markup.
 
 A CSP nonce is per-response, immutable, generated from at least 128 CSPRNG bits,
 never sourced from request URL/header/body data, and never reused with cached
-HTML. Only framework-emitted executable markup receives it. V1-07 freezes the
-nonce input/output and correlation fixtures; V1-08/V1-09 own header creation,
-commit timing, request context, and real browser enforcement. Until a matching
+HTML. Only framework-emitted executable markup receives it. V1-07 proves only
+the private default 128-bit generation primitive, fresh token identity, output
+shape, and raw non-blessing. V1-08/V1-09 own response identity, cache reuse,
+header correlation, commit timing, request context, and real browser
+enforcement. Until a matching
 `Content-Security-Policy` header ships, the framework makes no CSP-protection
 claim.
 
@@ -140,7 +143,8 @@ with V1-08.
 canonical bytes and refusals for dangerous delimiters and invalid Unicode;
 URL element/attribute/scheme matrices and obfuscations; style/RAWTEXT/dynamic-
 name/foreign-content refusals; raw-token type and runtime authenticity across
-copy/clone/proxy/package-instance boundaries; nonce entropy/immutability and
-raw non-blessing; and secret-safe structured projection with nested, circular,
+copy/clone/proxy/physical-package-instance boundaries; the default nonce
+primitive's entropy floor, immutability, output shape, and raw non-blessing;
+and secret-safe structured projection with nested, circular,
 and getter-throwing errors. Browser parser/CSP outcomes remain recorded for
 unchanged V1-09 tri-engine consumption rather than being claimed here.
