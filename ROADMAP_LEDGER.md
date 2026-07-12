@@ -6,27 +6,26 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-08B — qualify H3 from exact merged K0-08A source `122ba57`
+K0-09 — establish the private authenticated CRUD/revalidation benchmark
 
 ## Exit criteria
 
-- [x] Execute correctness and the locked 5/20 interleaved timing schedule from
-  exact clean merged K0-08A commit `122ba57` in the digest-pinned container.
-- [x] Capture passing host/container preflight and postflight observations with
-  no retries or relaxed limits.
-- [x] Publish raw samples, stock-tool evidence, exact source/corpus/toolchain
-  identities, derived p95 ratios, and the projected H3 decision.
-- [x] Add and accept the GO/NARROW/PIVOT ADR, update the hypothesis/experiment
-  ledgers, and verify all immutable evidence mutations.
-- [x] `pnpm ci:local` passes on the final evidence commit.
+- [ ] Lock one private authenticated page with six unique resources, three
+  duplicate reads, one single-resource mutation, and at least 10,000 rows.
+- [ ] Model success, expected failure, ordering, non-cacheable results, request
+  deduplication, default revalidation, and a selective comparison baseline.
+- [ ] Seed unsafe `keeps` declarations and prove development verification finds
+  every one without exposing authorization-sensitive values.
+- [ ] Publish deterministic workload/baseline manifests and a strict executable
+  contract without collecting an H4 qualification result.
+- [ ] `pnpm experiment:revalidation -- --list` and `pnpm ci:local` pass.
 
 ## In progress
 
-- Exact merged source `122ba57` completed a reference-valid 20-sample run. ADR
-  0018 records NARROW: all correctness/stock-tool/clean-latency gates passed;
-  incremental/clean p95 was 0.863475 against the 0.25 maximum.
-- The immutable result, ADR, lifecycle transitions, and historical K0-07/K0-08A
-  guards pass local CI and await independent PR review.
+- K0-08B merged to canonical `main` as `1398b78`; H3 is resolved NARROW and no
+  longer blocks the independent H4 harness slice.
+- K0-09 begins from the accepted correctness-first direction in ADR 0006 and
+  keeps the benchmark API private rather than defining V1 resource syntax.
 
 ## Blockers
 
@@ -80,3 +79,7 @@ K0-08B — qualify H3 from exact merged K0-08A source `122ba57`
   1,000-route A/B corpus, stock TypeScript 7 compiler/LSP controls, fresh-child
   5/20 timing runner, pre/postflight and decision projections, and negative
   mutations without publishing an H3 result or decision.
+- K0-08B — Commit `1398b78` retains a reference-valid 20-sample H3 result from
+  exact source `122ba57`. ADR 0018 accepts stock-TypeScript declaration
+  correctness and clean latency while narrowing incremental generation after
+  its 0.863475 incremental/clean ratio exceeded the locked 0.25 maximum.
