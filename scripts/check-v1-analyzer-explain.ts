@@ -82,7 +82,8 @@ try {
     corrections: [],
     skippedWork: [],
   });
-  routeContribution = [createRouteExplainContribution(publication, emptyDiagnosticsFor(publication), "semantic")];
+  const defaultExplainBudgets = { bytes: 65_536, records: 512, depth: 8, durationMs: 1_000, children: 64 } as const;
+  routeContribution = [createRouteExplainContribution(publication, emptyDiagnosticsFor(publication), "semantic", defaultExplainBudgets)];
   const collidingGraphIdsPublication = JSON.parse(JSON.stringify(publication));
   collidingGraphIdsPublication.graph.results[0].id = "route:a-b:c";
   collidingGraphIdsPublication.graph.results[1].id = "route:a:b-c";
@@ -90,9 +91,34 @@ try {
     collidingGraphIdsPublication,
     emptyDiagnosticsFor(publication),
     "semantic",
+    defaultExplainBudgets,
   );
   const collisionFreeOwnership = (collisionFreeIds.value as any).records.filter(({ kind }: any) => kind === "ownership");
   assert.equal(new Set(collisionFreeOwnership.map(({ id }: any) => id)).size, 2);
+  const largePublication = JSON.parse(JSON.stringify(publication));
+  largePublication.graph.results = Array.from({ length: 1_000 }, (_, index) => ({
+    ...largePublication.graph.results[0],
+    id: `route:item-${index}`,
+    artifacts: Array.from({ length: 100 }, (_unused, artifactIndex) => ({
+      ...largePublication.graph.results[0].artifacts[0],
+      id: `generated:item-${index}-${artifactIndex}`,
+    })),
+  }));
+  const constructionBounded = createRouteExplainContribution(
+    largePublication,
+    emptyDiagnosticsFor(publication),
+    "semantic",
+    { ...defaultExplainBudgets, records: 3, children: 1 },
+  );
+  const constructionBoundedValue = constructionBounded.value as any;
+  assert.equal(constructionBoundedValue.records.length <= 3, true);
+  assert.equal(constructionBoundedValue.collectionTruncation !== null, true);
+  assert.equal(
+    constructionBoundedValue.records
+      .filter(({ kind }: any) => kind === "ownership")
+      .every(({ fields }: any) => fields.artifactIds.length <= 1),
+    true,
+  );
   const callsAfterPublication = constructionCalls;
 
   const disabled = await session.startExplain({
@@ -137,9 +163,9 @@ try {
   const semanticFlow = await session.startExplain({
     detail: "semantic",
     requestedFacets: [{ namespace: "fadeno.routes.explain" }],
-    collect: ({ publication: current, detail, requestedFacets }) => {
+    collect: ({ publication: current, detail, requestedFacets, budgets }) => {
       assert.deepEqual(requestedFacets, [{ namespace: "fadeno.routes.explain" }]);
-      return [createRouteExplainContribution(current, emptyDiagnosticsFor(current), detail)];
+      return [createRouteExplainContribution(current, emptyDiagnosticsFor(current), detail, budgets)];
     },
   }).result;
   assert.equal(semanticFlow.status, "complete");
@@ -160,7 +186,9 @@ try {
   const deepFlow = await session.startExplain({
     detail: "deep",
     activateDeep: true,
-    collect: ({ publication: current, detail }) => [createRouteExplainContribution(current, emptyDiagnosticsFor(current), detail)],
+    collect: ({ publication: current, detail, budgets }) => [
+      createRouteExplainContribution(current, emptyDiagnosticsFor(current), detail, budgets),
+    ],
   }).result;
   assert.equal(deepFlow.status, "complete");
   if (deepFlow.status === "complete") {
@@ -227,16 +255,22 @@ try {
   ] as const) {
     const limited = await session.startExplain({
       detail: "semantic", budgets: budget,
-      collect: ({ publication: active }) => [createRouteExplainContribution(active, emptyDiagnosticsFor(active), "semantic")],
+      collect: ({ publication: active, budgets }) => [
+        createRouteExplainContribution(active, emptyDiagnosticsFor(active), "semantic", budgets),
+      ],
     }).result;
     assert.equal(limited.status, "partial");
     if (limited.status === "partial") {
       assert.equal(limited.truncation, reason);
+      const serializedResult = serializeAnalyzerExplainResult(limited);
+      assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedResult)), serializedResult);
+      if (limited.contributions.length === 0) {
+        assert.equal(reason, "bytes");
+        continue;
+      }
       const contribution = limited.contributions[0]!;
       const serialized = serializeRouteExplainContribution(contribution);
       assert.equal(serializeRouteExplainContribution(deserializeRouteExplainContribution(serialized)), serialized);
-      const serializedResult = serializeAnalyzerExplainResult(limited);
-      assert.equal(serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedResult)), serializedResult);
       const records = (contribution.value as any).records;
       const retained = new Set(records.map(({ id }: any) => id));
       for (const record of records) {
@@ -355,7 +389,9 @@ try {
   await Promise.resolve();
   const current = session.startExplain({
     detail: "deep", activateDeep: true,
-    collect: ({ publication: active }) => [createRouteExplainContribution(active, emptyDiagnosticsFor(active), "deep")],
+    collect: ({ publication: active, budgets }) => [
+      createRouteExplainContribution(active, emptyDiagnosticsFor(active), "deep", budgets),
+    ],
   });
   const obsoleteResult = await obsolete.result;
   assert.equal(obsoleteResult.status, "superseded");
@@ -414,13 +450,15 @@ try {
     const mismatchedDiagnostics = JSON.parse(JSON.stringify(collisionDiagnostics));
     mutate(mismatchedDiagnostics);
     assert.throws(
-      () => createRouteExplainContribution(collisionPublication, mismatchedDiagnostics, "semantic"),
+      () => createRouteExplainContribution(collisionPublication, mismatchedDiagnostics, "semantic", defaultExplainBudgets),
       /FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS/u,
     );
   }
   const collisionFlow = await session.startExplain({
     detail: "semantic",
-    collect: ({ publication: active }) => [createRouteExplainContribution(active, collisionDiagnostics, "semantic")],
+    collect: ({ publication: active, budgets }) => [
+      createRouteExplainContribution(active, collisionDiagnostics, "semantic", budgets),
+    ],
   }).result;
   assert.equal(collisionFlow.status, "complete");
   if (collisionFlow.status === "complete") {
@@ -431,7 +469,9 @@ try {
   }
   const recoveryFlow = await session.startExplain({
     detail: "semantic",
-    collect: ({ publication: active }) => [createRouteExplainContribution(active, emptyDiagnosticsFor(active), "semantic")],
+    collect: ({ publication: active, budgets }) => [
+      createRouteExplainContribution(active, emptyDiagnosticsFor(active), "semantic", budgets),
+    ],
   }).result;
   assert.equal(recoveryFlow.status, "complete");
   const summarize = (result: typeof collisionFlow) => {

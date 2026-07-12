@@ -13,7 +13,7 @@ import {
   isAnalyzerGraphNodeId,
   isAnalyzerGraphTransformation,
 } from "./analyzer-graph.ts";
-import type { AnalyzerExplainBudgets } from "./analyzer-explain.ts";
+import type { AnalyzerExplainBudgets, AnalyzerExplainTruncationReason } from "./analyzer-explain.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
 
 export const ROUTE_EXPLAIN_NAMESPACE = "fadeno.routes.explain" as const;
@@ -36,14 +36,13 @@ export interface RouteExplainValue {
   readonly publicationOperationId: string;
   readonly publicationGeneration: number;
   readonly detail: "semantic" | "deep";
+  readonly collectionTruncation: AnalyzerExplainTruncationReason | null;
   readonly records: readonly RouteExplainRecord[];
 }
 
-export type RouteExplainTruncationReason = "bytes" | "records" | "depth" | "children";
-
 export interface RouteExplainProcessedContribution {
-  readonly contribution: AnalyzerFacetContribution;
-  readonly truncation: RouteExplainTruncationReason | null;
+  readonly contribution: AnalyzerFacetContribution | null;
+  readonly truncation: AnalyzerExplainTruncationReason | null;
 }
 
 function frozen<T extends object>(value: T): Readonly<T> {
@@ -111,12 +110,15 @@ function validateFields(kind: RouteExplainRecord["kind"], value: unknown): Analy
 
 function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetContribution {
   if (input.namespace !== ROUTE_EXPLAIN_NAMESPACE || input.version !== ROUTE_EXPLAIN_VERSION) refuse();
-  const value = object(input.value, ["family", "module", "version", "publicationOperationId", "publicationGeneration", "detail", "records"]);
+  const value = object(input.value, [
+    "family", "module", "version", "publicationOperationId", "publicationGeneration", "detail", "collectionTruncation", "records",
+  ]);
   if (
     value["family"] !== "static-analysis" || value["module"] !== ROUTE_EXPLAIN_NAMESPACE || value["version"] !== ROUTE_EXPLAIN_VERSION ||
     typeof value["publicationOperationId"] !== "string" || !analyzerOperationIdPattern.test(value["publicationOperationId"]) ||
     !Number.isSafeInteger(value["publicationGeneration"]) ||
     (value["publicationGeneration"] as number) < 1 || (value["detail"] !== "semantic" && value["detail"] !== "deep") ||
+    value["collectionTruncation"] !== null && !["bytes", "records", "depth", "children"].includes(value["collectionTruncation"] as string) ||
     !Array.isArray(value["records"])
   ) refuse();
   const ids = new Set<string>();
@@ -187,7 +189,15 @@ export function processRouteExplainContribution(
   const kept: RouteExplainRecord[] = [];
   const keptIds = new Set<string>();
   const children = new Map<string, number>();
-  let truncation: RouteExplainTruncationReason | null = null;
+  let truncation: AnalyzerExplainTruncationReason | null = value.collectionTruncation;
+  const emptyContribution = frozen({
+    namespace: ROUTE_EXPLAIN_NAMESPACE,
+    version: ROUTE_EXPLAIN_VERSION,
+    value: normalizeAnalyzerFacetValue({ ...value, records: [] }),
+  });
+  const emptyBytes = new TextEncoder().encode(JSON.stringify(emptyContribution)).byteLength;
+  if (emptyBytes > budgets.bytes) return frozen({ contribution: null, truncation: "bytes" as const });
+  let retainedRecordBytes = 0;
   for (const current of ordered) {
     const dependencies = [current.parentId, ...current.causedBy].filter((id): id is string => id !== null);
     if (dependencies.some((id) => !keptIds.has(id))) continue;
@@ -197,10 +207,11 @@ export function processRouteExplainContribution(
       const count = children.get(current.parentId) ?? 0;
       if (count >= budgets.children) { truncation ??= "children"; continue; }
     }
-    const candidateRecords = [...kept, current].sort((left, right) => compareText(left.id, right.id));
-    const candidate = normalizeAnalyzerFacetValue({ ...value, records: candidateRecords });
-    if (new TextEncoder().encode(JSON.stringify(candidate)).byteLength > budgets.bytes) { truncation ??= "bytes"; continue; }
+    const recordBytes = new TextEncoder().encode(JSON.stringify(current)).byteLength;
+    const candidateBytes = emptyBytes - 2 + retainedRecordBytes + recordBytes + kept.length;
+    if (candidateBytes > budgets.bytes) { truncation ??= "bytes"; continue; }
     kept.push(current);
+    retainedRecordBytes += recordBytes;
     keptIds.add(current.id);
     if (current.parentId !== null) children.set(current.parentId, (children.get(current.parentId) ?? 0) + 1);
   }
@@ -273,6 +284,7 @@ export function createRouteExplainContribution(
   publication: AnalyzerPublicationSnapshot,
   diagnostics: AnalyzerDiagnosticBatch,
   detail: "semantic" | "deep",
+  budgets: AnalyzerExplainBudgets,
 ): AnalyzerFacetContribution {
   if (
     (
@@ -287,46 +299,79 @@ export function createRouteExplainContribution(
     )
   ) throw new TypeError("FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS");
   const records: RouteExplainRecord[] = [];
+  let collectionTruncation: AnalyzerExplainTruncationReason | null = null;
+  let projectedRecordBytes = 0;
+  const add = (candidate: RouteExplainRecord): boolean => {
+    if (records.length >= budgets.records) {
+      collectionTruncation ??= "records";
+      return false;
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify(candidate)).byteLength;
+    if (projectedRecordBytes + bytes > budgets.bytes) {
+      collectionTruncation ??= "bytes";
+      return false;
+    }
+    projectedRecordBytes += bytes;
+    records.push(candidate);
+    return true;
+  };
   const refused = diagnostics.skippedWork.some(({ id }) => id === "manifest-publication");
-  records.push(record("route-decision", "decision", {
+  const decisionAdded = add(record("route-decision", "decision", {
     decision: refused ? "refuse-static-route-plan" : "publish-static-route-plan",
     graphGeneration: publication.graph.generation,
   }));
-  for (const [index, result] of publication.graph.results.entries()) {
+  for (const [index, result] of decisionAdded ? publication.graph.results.entries() : []) {
     const ownershipId = `ownership-${index + 1}`;
-    records.push(record(ownershipId, "ownership", {
+    const artifactIds = result.artifacts.slice(0, budgets.children).map(({ id }) => id);
+    if (artifactIds.length < result.artifacts.length) collectionTruncation ??= "children";
+    if (!add(record(ownershipId, "ownership", {
       nodeId: result.id,
       ownerPath: projectPath(publication.ownership.root, result.provenance.primaryOrigin.uri),
-      artifactIds: result.artifacts.map(({ id }) => id).sort(compareText),
-    }, "route-decision"));
+      artifactIds,
+    }, "route-decision"))) break;
     if (detail === "deep") {
-      records.push(record(`${ownershipId}-forensic`, "forensic", {
+      if (!add(record(`${ownershipId}-forensic`, "forensic", {
         namespace: result.provenance.module.namespace,
         version: result.provenance.module.version,
         transformation: result.provenance.module.transformation,
         relatedSourceCount: result.provenance.relatedOrigins.length,
-      }, ownershipId));
+      }, ownershipId))) break;
     }
   }
-  const causeIds = new Map(diagnostics.diagnostics.map(({ instanceId }, index) => [instanceId, `cause-${index + 1}`]));
-  const causeId = (instanceId: string): string => causeIds.get(instanceId) ?? refuse();
-  for (const diagnostic of diagnostics.diagnostics) {
-    records.push(record(causeId(diagnostic.instanceId), "cause", {
+  const causeIds = new Map<string, string>();
+  for (const [index, diagnostic] of decisionAdded ? diagnostics.diagnostics.entries() : []) {
+    if (diagnostic.causedBy.some((instanceId) => !causeIds.has(instanceId))) {
+      collectionTruncation ??= "records";
+      continue;
+    }
+    const id = `cause-${index + 1}`;
+    if (!add(record(id, "cause", {
       code: diagnostic.code,
       diagnosticInstanceId: diagnostic.instanceId,
-    }, "route-decision", diagnostic.causedBy.map(causeId)));
+    }, "route-decision", diagnostic.causedBy.map((instanceId) => causeIds.get(instanceId)!)))) break;
+    causeIds.set(diagnostic.instanceId, id);
   }
-  for (const skipped of diagnostics.skippedWork) {
-    records.push(record(`skipped-${skipped.id}`, "skipped", {
+  const causeId = (instanceId: string): string => causeIds.get(instanceId) ?? refuse();
+  for (const skipped of decisionAdded ? diagnostics.skippedWork : []) {
+    if (skipped.causedBy.some((instanceId) => !causeIds.has(instanceId))) {
+      collectionTruncation ??= "records";
+      continue;
+    }
+    if (!add(record(`skipped-${skipped.id}`, "skipped", {
       workId: skipped.id,
       diagnosticInstanceIds: skipped.causedBy,
-    }, "route-decision", skipped.causedBy.map(causeId)));
+    }, "route-decision", skipped.causedBy.map(causeId)))) break;
   }
-  records.push(record("route-outcome", "outcome", {
-    status: refused ? "static-refused" : "static-ready",
-    diagnosticCodes: diagnostics.diagnostics.map(({ code }) => code).sort(compareText),
-    artifactIds: publication.artifacts.map(({ id }) => id).sort(compareText),
-  }, "route-decision", diagnostics.diagnostics.map(({ instanceId }) => causeId(instanceId))));
+  const retainedDiagnostics = diagnostics.diagnostics.filter(({ instanceId }) => causeIds.has(instanceId));
+  const artifactIds = publication.artifacts.slice(0, budgets.children).map(({ id }) => id);
+  if (artifactIds.length < publication.artifacts.length) collectionTruncation ??= "children";
+  if (decisionAdded) {
+    add(record("route-outcome", "outcome", {
+      status: refused ? "static-refused" : "static-ready",
+      diagnosticCodes: retainedDiagnostics.map(({ code }) => code).sort(compareText),
+      artifactIds,
+    }, "route-decision", retainedDiagnostics.map(({ instanceId }) => causeId(instanceId))));
+  }
   records.sort((left, right) => compareText(left.id, right.id));
   const value = normalizeAnalyzerFacetValue({
     family: "static-analysis",
@@ -335,6 +380,7 @@ export function createRouteExplainContribution(
     publicationOperationId: publication.operationId,
     publicationGeneration: publication.publicationGeneration,
     detail,
+    collectionTruncation,
     records,
   });
   return frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE, version: ROUTE_EXPLAIN_VERSION, value });

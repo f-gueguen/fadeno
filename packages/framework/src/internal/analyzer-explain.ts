@@ -5,7 +5,6 @@ import {
   processRouteExplainContribution,
   ROUTE_EXPLAIN_NAMESPACE,
   serializeRouteExplainContribution,
-  type RouteExplainTruncationReason,
 } from "./analyzer-route-explain.ts";
 
 export const ANALYZER_EXPLAIN_LIMITS = Object.freeze({
@@ -23,6 +22,8 @@ export interface AnalyzerExplainBudgets {
   readonly durationMs: number;
   readonly children: number;
 }
+
+export type AnalyzerExplainTruncationReason = "bytes" | "records" | "depth" | "children";
 
 export interface AnalyzerExplainAuthority {
   readonly publication: AnalyzerPublicationSnapshot | null;
@@ -86,7 +87,7 @@ export type AnalyzerExplainResult =
     budgets: AnalyzerExplainBudgets;
     contributions: readonly AnalyzerFacetContribution[];
     completeness: "complete" | "partial";
-    truncation: RouteExplainTruncationReason | "duration" | null;
+    truncation: AnalyzerExplainTruncationReason | "duration" | null;
   }>
   | Readonly<{
     status: "cancelled" | "superseded" | "stale";
@@ -131,7 +132,7 @@ interface AnalyzerExplainModuleDescriptor {
     budgets: AnalyzerExplainBudgets,
     detail: "semantic" | "deep",
     publication: AnalyzerPublicationSnapshot,
-  ): Readonly<{ contribution: AnalyzerFacetContribution; truncation: RouteExplainTruncationReason | null }>;
+  ): Readonly<{ contribution: AnalyzerFacetContribution | null; truncation: AnalyzerExplainTruncationReason | null }>;
   serialize(contribution: AnalyzerFacetContribution): string;
   deserialize(serialized: string): AnalyzerFacetContribution;
   matches(
@@ -345,20 +346,20 @@ export class AnalyzerExplainCoordinator {
       }
       return this.#finish(ticket, frozen({ status: "refused" as const, identity, code: "FADENO_ANALYZER_EXPLAIN_COLLECTION" }));
     }
-    let truncation: RouteExplainTruncationReason | null = null;
+    let truncation: AnalyzerExplainTruncationReason | null = null;
     let contributions: AnalyzerFacetContribution[];
     try {
       if (outcome.value.length !== requested.length) throw new TypeError("FADENO_ANALYZER_EXPLAIN_CONTRIBUTION_COUNT");
       const ordered = [...outcome.value].sort((left, right) =>
         left.namespace < right.namespace ? -1 : left.namespace > right.namespace ? 1 : 0);
-      contributions = ordered.map((contribution, index) => {
+      contributions = ordered.flatMap((contribution, index) => {
         const descriptor = explainModule(requested[index]!.namespace);
         if (!descriptor || contribution.namespace !== descriptor.namespace) {
           throw new TypeError("FADENO_ANALYZER_EXPLAIN_CONTRIBUTION_NAMESPACE");
         }
         const processed = descriptor.process(contribution, bounded, request.detail, publication);
         truncation ??= processed.truncation;
-        return processed.contribution;
+        return processed.contribution === null ? [] : [processed.contribution];
       });
     } catch {
       return this.#finish(ticket, frozen({ status: "refused" as const, identity, code: "FADENO_ANALYZER_EXPLAIN_CONTRIBUTION" }));
@@ -526,8 +527,12 @@ function validateSerializedResult(value: unknown): AnalyzerExplainResult {
       (statusValue === "complete" ? source["truncation"] !== null : !allowedTruncations.includes(source["truncation"] as string)) ||
       !Array.isArray(source["contributions"])
     ) serializationRefuse();
-    const expectedContributionCount = source["truncation"] === "duration" ? 0 : identity.requestedFacets.length;
-    if (source["contributions"].length !== expectedContributionCount) serializationRefuse();
+    const contributionCount = source["contributions"].length;
+    if (
+      source["truncation"] === "duration" ? contributionCount !== 0 :
+        source["truncation"] === "bytes" ? contributionCount !== 0 && contributionCount !== identity.requestedFacets.length :
+          contributionCount !== identity.requestedFacets.length
+    ) serializationRefuse();
     const contributions = (source["contributions"] as unknown[]).map((contribution, index) => {
       const descriptor = explainModule(identity.requestedFacets[index]!.namespace);
       if (!descriptor) serializationRefuse();

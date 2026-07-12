@@ -498,7 +498,11 @@ identities are deterministic, same-contribution, acyclic, and bounded. Budget
 selection and depth include both parent and causal edges, so every retained
 record retains its parent and causal evidence. Diagnostic codes come from the
 structured diagnostic module's allowlist rather than arbitrary contribution
-text. Valid budget exhaustion retains only validated records and reports one explicit
+text. The projector receives the operation budgets and bounds record retention,
+per-record artifact children, and encoded record bytes while constructing the
+contribution; it does not first allocate the complete application-sized flow.
+Any construction truncation remains explicit in the module contribution and
+the common operation result. Valid budget exhaustion retains only validated records and reports one explicit
 `bytes`, `records`, `depth`, `children`, or `duration` truncation reason;
 malformed or runtime-family evidence refuses atomically. Its private transport
 uses exact envelope keys, an enforced pre-parse byte limit, and byte-stable
