@@ -58,8 +58,10 @@ violate an architectural constraint.
 
 ADR 0024 selects one logical framework package from K0 imports and a packed
 private consumer. ADR 0025 creates that private package and its executable Node
-adapter smoke example at the V1-04 checkpoint. Routing and rendering remain
-unimplemented until their later V1 slices.
+adapter smoke example at the V1-04 checkpoint. ADR 0027 keeps route discovery,
+generation, and metadata matching private inside that package while generated
+applications consume the isolated `fadeno:routes` module. Route module
+execution and rendering remain later V1 work.
 
 ## Dependency direction
 

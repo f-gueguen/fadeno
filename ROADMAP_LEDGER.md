@@ -10,23 +10,22 @@ V1-06 — implement deterministic routing and clean declaration generation
 
 ## Exit criteria
 
-- [ ] Promote ADR 0027 discovery, manifest, link, and config behavior from the
+- [x] Promote ADR 0027 discovery, manifest, link, and config behavior from the
   private contract prototype into the one logical framework package.
-- [ ] Generate the internal manifest and stock-TypeScript route declarations
+- [x] Generate the internal manifest and stock-TypeScript route declarations
   transactionally with byte-identical clean output, unchanged-byte avoidance,
   stale-output deletion, and no incremental-speed claim.
-- [ ] Match canonical request pathnames with static, dynamic, then rest
+- [x] Match canonical request pathnames with static, dynamic, then rest
   precedence and exact decoded parameters without importing renderer behavior.
-- [ ] Add nested page, raw-handler, not-found, error, invalid-tree, link, and
+- [x] Add nested page, raw-handler, not-found, error, invalid-tree, link, and
   runtime route fixtures using only the accepted route roles.
-- [ ] Keep compiler/Node internals unreachable from the neutral facade, align
+- [x] Keep compiler/Node internals unreachable from the neutral facade, align
   current documentation, and pass all local merge gates.
 
 ## In progress
 
-- ADR 0027 corrects the application binding and selects the route filesystem,
-  metadata matcher, transaction, and generated-link contract now being
-  implemented by V1-06.
+- ADR 0027 corrects the application binding and owns V1-06's implemented route
+  filesystem, metadata matcher, transaction, and generated-link behavior.
 - V1-07 next freezes contextual rendering and unsafe-capability security.
 - Registry naming, renderer boundaries, request security policy,
   and adapter timeout/force-close behavior remain unresolved by this slice.

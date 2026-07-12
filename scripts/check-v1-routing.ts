@@ -220,6 +220,17 @@ try {
   );
   assertSnapshot(first.output, accepted);
   writeFileSync(accountSource, moduleSource);
+  expectError(
+    () => generateRoutes(main, config, undefined, undefined, undefined, () => { throw new Error("post-validation failed"); }),
+    "post-validation failed",
+  );
+  assertSnapshot(first.output, accepted);
+  expectError(
+    () => generateRoutes(main, config, undefined, undefined, undefined, () => writeFileSync(join(main, "src/routes/unsupported.txt"), "invalid\n")),
+    "FADENO_ROUTE_UNSUPPORTED_ENTRY",
+  );
+  assertSnapshot(first.output, accepted);
+  rmSync(join(main, "src/routes/unsupported.txt"));
 
   const changed = generateRoutes(main, config);
   if (!changed.changed || !readFileSync(join(changed.output, "index.d.ts"), "utf8").includes('Id extends "/new"')) throw new Error("FADENO_ROUTING_STALE_ADD");
@@ -293,11 +304,20 @@ try {
   }
 } finally { rmSync(fallbackProject, { recursive: true, force: true }); }
 
-for (const invalid of [null, [], new (class Config {})(), new Proxy({}, { ownKeys: () => { throw new Error("trap"); } }), { unknown: true }, { routes: null }, { routes: "src/routes" }, { routes: {} }, { routes: { root: 1 } }, { routes: { root: "src/routes", extra: true } }]) {
+for (const invalid of [null, [], new (class Config {})(), new Proxy({}, { ownKeys: () => { throw new Error("trap"); } }), { unknown: true }, { get routes() { return { root: "src/routes" }; } }, { routes: { get root() { return "src/routes"; } } }, { routes: null }, { routes: "src/routes" }, { routes: {} }, { routes: { root: 1 } }, { routes: { root: "src/routes", extra: true } }]) {
   expectError(() => normalizeConfig(invalid), "FADENO_CONFIG");
 }
 try { normalizeConfig({ unknown: true }); } catch (error) {
-  if (!(error instanceof FadenoDiagnosticError) || error.severity !== "error" || error.locations[0] !== "fadeno.config.ts" || error.correction.length === 0) {
+  const expected = `${JSON.stringify({
+    id: "FADENO_CONFIG_SHAPE",
+    severity: "error",
+    summary: "Configuration violation: shape",
+    locations: ["fadeno.config.ts"],
+    sourceRanges: [{ path: "fadeno.config.ts", range: null }],
+    explanation: "https://fadeno.dev/diagnostics/config/shape",
+    correction: "Export one plain configuration object with only accepted fields.",
+  })}\n`;
+  if (!(error instanceof FadenoDiagnosticError) || formatDiagnostic(error) !== expected) {
     throw new Error("FADENO_ROUTING_CONFIG_DIAGNOSTIC");
   }
 }
@@ -306,8 +326,34 @@ const noRoutes = mkdtempSync(join(tmpdir(), "fadeno-v1-routing-empty-"));
 try {
   writeFileSync(join(noRoutes, "fadeno.config.ts"), "export default {};\n");
   const config = await loadConfig(noRoutes);
-  expectError(() => generateRoutes(noRoutes, config), "FADENO_GENERATION_ROUTES_REQUIRED");
+  let routesRequired = false;
+  try { generateRoutes(noRoutes, config); } catch (error) {
+    const expected = `${JSON.stringify({
+      id: "FADENO_GENERATION_ROUTES_REQUIRED",
+      severity: "error",
+      summary: "Route generation violation: routes required",
+      locations: [".fadeno/routes"],
+      sourceRanges: [{ path: ".fadeno/routes", range: null }],
+      explanation: "https://fadeno.dev/diagnostics/generation/routes-required",
+      correction: "Correct the route source or generated-output ownership issue and run fadeno check again.",
+    })}\n`;
+    if (!(error instanceof FadenoDiagnosticError) || formatDiagnostic(error) !== expected) throw error;
+    routesRequired = true;
+  }
+  if (!routesRequired) throw new Error("FADENO_ROUTING_EXPECTED:ROUTES_REQUIRED");
 } finally { rmSync(noRoutes, { recursive: true, force: true }); }
+
+const firstPublicationFailure = createProject(["page.tsx"]);
+try {
+  const config = await loadConfig(firstPublicationFailure);
+  expectError(
+    () => generateRoutes(firstPublicationFailure, config, undefined, undefined, undefined, () => { throw new Error("first publication validation failed"); }),
+    "first publication validation failed",
+  );
+  if (readdirSync(join(firstPublicationFailure, ".fadeno")).some((name) => name === "routes" || name.startsWith("routes.previous-"))) {
+    throw new Error("FADENO_ROUTING_FIRST_PUBLICATION_ROLLBACK");
+  }
+} finally { rmSync(firstPublicationFailure, { recursive: true, force: true }); }
 
 const configSymlinkProject = createProject(["page.tsx"]);
 const configTarget = join(configSymlinkProject, "actual-config.ts");
@@ -361,5 +407,37 @@ try {
   writeFileSync(ownerPath, `${JSON.stringify(owner, null, 2)}\n`);
   expectError(() => generateRoutes(malformed, config), "FADENO_GENERATION_OUTPUT_MANIFEST");
 } finally { rmSync(malformed, { recursive: true, force: true }); }
+
+const malformedOwner = createProject(["page.tsx"]);
+try {
+  const config = await loadConfig(malformedOwner);
+  const output = generateRoutes(malformedOwner, config).output;
+  const ownerPath = join(output, "owner.json");
+  const original = JSON.parse(readFileSync(ownerPath, "utf8")) as { files: unknown[] } & Record<string, unknown>;
+  const mutations: unknown[][] = [
+    [null, null, null],
+    [1, "two", []],
+    [original.files[0], original.files[0], original.files[2]],
+    [{ ...(original.files[0] as object), extra: true }, original.files[1], original.files[2]],
+  ];
+  for (const files of mutations) {
+    writeFileSync(ownerPath, `${JSON.stringify({ ...original, files }, null, 2)}\n`);
+    let rejected = false;
+    try { generateRoutes(malformedOwner, config); } catch (error) {
+      const expected = `${JSON.stringify({
+        id: "FADENO_GENERATION_OUTPUT_OWNER",
+        severity: "error",
+        summary: "Route generation violation: output owner",
+        locations: [".fadeno/routes"],
+        sourceRanges: [{ path: ".fadeno/routes", range: null }],
+        explanation: "https://fadeno.dev/diagnostics/generation/output-owner",
+        correction: "Correct the route source or generated-output ownership issue and run fadeno check again.",
+      })}\n`;
+      if (!(error instanceof FadenoDiagnosticError) || formatDiagnostic(error) !== expected) throw error;
+      rejected = true;
+    }
+    if (!rejected) throw new Error("FADENO_ROUTING_EXPECTED:OUTPUT_OWNER");
+  }
+} finally { rmSync(malformedOwner, { recursive: true, force: true }); }
 
 console.log("V1 production routing passed (config, discovery, transaction, stock types, app-bound links, metadata matcher)");

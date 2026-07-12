@@ -30,9 +30,13 @@ export function normalizeConfig(value: unknown): FadenoConfig {
   try {
     if (!isPlainRecord(value) || Object.keys(value).some((key) => key !== "routes")) fail("SHAPE");
     if (!("routes" in value)) return Object.freeze({});
-    const routes = value["routes"];
-    if (!isPlainRecord(routes) || Object.keys(routes).length !== 1 || typeof routes["root"] !== "string") fail("ROUTES");
-    return Object.freeze({ routes: Object.freeze({ root: routes["root"] }) });
+    const routesDescriptor = Object.getOwnPropertyDescriptor(value, "routes");
+    if (!routesDescriptor || !("value" in routesDescriptor)) fail("ROUTES");
+    const routes = routesDescriptor.value;
+    if (!isPlainRecord(routes) || Object.keys(routes).length !== 1) fail("ROUTES");
+    const rootDescriptor = Object.getOwnPropertyDescriptor(routes, "root");
+    if (!rootDescriptor || !("value" in rootDescriptor) || typeof rootDescriptor.value !== "string") fail("ROUTES");
+    return Object.freeze({ routes: Object.freeze({ root: rootDescriptor.value }) });
   } catch (error) {
     if (error instanceof FadenoDiagnosticError) throw error;
     fail("SHAPE");

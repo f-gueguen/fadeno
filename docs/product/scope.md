@@ -33,7 +33,7 @@ a signal to choose a client-first framework.
 | ID | Capability | First gate | State | Canonical owner |
 | --- | --- | --- | --- | --- |
 | GOV-01 | Tracked project law, ADR lifecycle, current ledgers, and one repository check | F0 | Accepted | [Architecture overview](../architecture/overview.md) |
-| WEB-01 | Pages, deterministic route manifest, typed parameters and links, nested layouts, not-found and error outcomes, raw handlers | V1 | Filesystem, matching, generation, and app-bound links accepted by [ADR 0027](../adr/0027-generated-route-module-and-production-routing.md); implementation is V1-06 | [Routing and rendering](../spec/routing-rendering-streaming.md) |
+| WEB-01 | Pages, deterministic route manifest, typed parameters and links, nested layouts, not-found and error outcomes, raw handlers | V1 | Filesystem, metadata matching, generation, and app-bound links implemented by V1-06 under [ADR 0027](../adr/0027-generated-route-module-and-production-routing.md); rendering remains later | [Routing and rendering](../spec/routing-rendering-streaming.md) |
 | WEB-02 | Server JSX rendering, contextual escaping, explicit raw HTML, document metadata, and CSP nonce propagation | V1 | Accepted; unsafe API requires DG-V1-03 | [Routing and rendering](../spec/routing-rendering-streaming.md) |
 | WEB-03 | Web Streams rendering, local boundaries, cancellation, disconnect, and timeout behavior | V1 | Accepted; boundary details require DG-V1-08 | [Routing and rendering](../spec/routing-rendering-streaming.md) |
 | DATA-01 | Request-scoped resources with dependency recording, deduplication, caching rules, and bounded failures | V1 | Accepted; identity/cache details require DG-V1-04 | [Data consistency](../spec/data-consistency.md) |
