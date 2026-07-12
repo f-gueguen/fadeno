@@ -18,13 +18,15 @@ K0-08B — qualify H3 from exact merged K0-08A source `122ba57`
   identities, derived p95 ratios, and the projected H3 decision.
 - [x] Add and accept the GO/NARROW/PIVOT ADR, update the hypothesis/experiment
   ledgers, and verify all immutable evidence mutations.
-- [ ] `pnpm ci:local` passes on the final evidence commit.
+- [x] `pnpm ci:local` passes on the final evidence commit.
 
 ## In progress
 
 - Exact merged source `122ba57` completed a reference-valid 20-sample run. ADR
   0018 records NARROW: all correctness/stock-tool/clean-latency gates passed;
   incremental/clean p95 was 0.863475 against the 0.25 maximum.
+- The immutable result, ADR, lifecycle transitions, and historical K0-07/K0-08A
+  guards pass local CI and await independent PR review.
 
 ## Blockers
 
