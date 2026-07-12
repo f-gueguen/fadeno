@@ -36,6 +36,7 @@
     { "id": "invalid-header", "action": "invalid-header", "error": "FADENO_STREAM_HEADER" },
     { "id": "null-body-write", "action": "null-body-write", "error": "FADENO_STREAM_NULL_BODY" },
     { "id": "bodyless-nonce", "action": "bodyless-nonce", "error": "FADENO_STREAM_NONCE_BODY" },
+    { "id": "redirect-nonce", "action": "redirect-nonce", "error": "FADENO_STREAM_NONCE_REDIRECT" },
     { "id": "forged-nonce", "action": "forged-nonce", "error": "FADENO_STREAM_NONCE_AUTHORITY" },
     { "id": "reused-nonce", "action": "reused-nonce", "error": "FADENO_STREAM_NONCE_REUSE" }
   ],
@@ -82,6 +83,9 @@
     "throwing-reporter-still-cleans",
     "throwing-cleanup-contained",
     "never-settling-terminal-effects-do-not-block-cleanup",
+    "child-deadline-fires-and-clears",
+    "parent-cancel-clears-child-deadline",
+    "boundary-completion-clears-deadline",
     "deadline-timer-cleared-once",
     "abort-listener-removed-once",
     "nonce-head-markup-correlation"

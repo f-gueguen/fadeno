@@ -131,6 +131,7 @@ export class StreamingLifecycle {
     const bodyAllowed = plan.status !== 204 && plan.status !== 205 && plan.status !== 304;
     let nonce: string | undefined;
     if (plan.executableMarkup === true) {
+      if (plan.status >= 300 && plan.status <= 399) throw new TypeError("FADENO_STREAM_NONCE_REDIRECT");
       if (!bodyAllowed) throw new TypeError("FADENO_STREAM_NONCE_BODY");
       const nonceToken = this.#nonceFactory();
       if (claimedNonces.has(nonceToken)) throw new TypeError("FADENO_STREAM_NONCE_REUSE");
@@ -305,6 +306,8 @@ interface BoundaryCancellationState {
   readonly parentId?: string;
   active: boolean;
   emitted: boolean;
+  deadlineAt?: number;
+  cancelDeadline?: () => void;
   reason?: BoundaryCancellationReason;
 }
 
@@ -352,6 +355,33 @@ export class BoundaryCancellationTree {
     state.active = false;
   }
 
+  scheduleDeadline(
+    id: string,
+    startedAt: number,
+    budgetMilliseconds: number,
+    now: () => number,
+    timer: TimerScheduler = defaultTimer(),
+  ): number {
+    const state = this.#states.get(id);
+    if (!state) throw new TypeError("FADENO_STREAM_BOUNDARY_UNKNOWN");
+    if (state.cancelDeadline) throw new TypeError("FADENO_STREAM_BOUNDARY_DEADLINE_ACTIVE");
+    const parentDeadlineAt = state.parentId === undefined ? undefined : this.#states.get(state.parentId)?.deadlineAt;
+    const deadlineAt = deriveDeadline(parentDeadlineAt, startedAt, budgetMilliseconds);
+    state.deadlineAt = deadlineAt;
+    state.cancelDeadline = timer.schedule(Math.max(0, deadlineAt - now()), () => {
+      this.#clearDeadline(id);
+      this.cancel(id, "timeout");
+    });
+    return deadlineAt;
+  }
+
+  complete(id: string): void {
+    const state = this.#states.get(id);
+    if (!state) throw new TypeError("FADENO_STREAM_BOUNDARY_UNKNOWN");
+    this.#clearDeadline(id);
+    state.active = false;
+  }
+
   resolveFailure(id: string, failedFallbackIds: readonly string[] = []): BoundaryResolution {
     const boundaries = [...this.#states].map(([boundaryId, state]) => ({
       id: boundaryId, active: state.active, emitted: state.emitted,
@@ -371,6 +401,7 @@ export class BoundaryCancellationTree {
       if (!state) continue;
       pending.push(...[...state.children].reverse());
       if (state.reason !== undefined) continue;
+      this.#clearDeadline(currentId);
       state.reason = reason;
       state.controller.abort(reason);
       cancelled.push(currentId);
@@ -381,6 +412,16 @@ export class BoundaryCancellationTree {
   releaseAll(): void {
     if (this.#cleanupCalls !== 0) return;
     this.#cleanupCalls = 1;
+    for (const id of this.#states.keys()) this.#clearDeadline(id);
     this.#states.clear();
+  }
+
+  #clearDeadline(id: string): void {
+    const state = this.#states.get(id);
+    if (!state?.cancelDeadline) return;
+    const cancel = state.cancelDeadline;
+    delete state.cancelDeadline;
+    delete state.deadlineAt;
+    cancel();
   }
 }

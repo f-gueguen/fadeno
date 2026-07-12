@@ -65,14 +65,14 @@ assert.deepEqual(corpus.phaseOrder, ["uncommitted", "head-published", "body-star
 const allIds = [...corpus.lifecycleCases, ...corpus.refusalCases, ...corpus.boundaryCases, ...corpus.boundaryRefusalCases, ...corpus.deadlineCases, ...corpus.orderingCases, ...corpus.orderingRefusalCases, ...corpus.cancellationCases].map((fixture) => fixture.id);
 assert.equal(new Set([...allIds, ...corpus.asyncCases]).size, allIds.length + corpus.asyncCases.length, "fixture IDs must be globally unique");
 assert.deepEqual(corpus.lifecycleCases.map((fixture) => fixture.id), ["empty-body-success", "two-chunk-success", "precommit-not-found", "precommit-redirect", "precommit-unexpected", "precommit-timeout", "precommit-disconnect", "precommit-explicit", "precommit-superseded", "post-head-unexpected", "post-body-not-found", "post-body-redirect", "post-body-timeout", "post-head-disconnect", "post-body-explicit", "post-body-superseded"]);
-assert.deepEqual(corpus.refusalCases.map((fixture) => fixture.id), ["write-before-head", "double-head", "wrong-precommit-status", "complete-before-head", "concurrent-write", "invalid-status", "invalid-header", "null-body-write", "bodyless-nonce", "forged-nonce", "reused-nonce"]);
+assert.deepEqual(corpus.refusalCases.map((fixture) => fixture.id), ["write-before-head", "double-head", "wrong-precommit-status", "complete-before-head", "concurrent-write", "invalid-status", "invalid-header", "null-body-write", "bodyless-nonce", "redirect-nonce", "forged-nonce", "reused-nonce"]);
 assert.deepEqual(corpus.boundaryCases.map((fixture) => fixture.id), ["nearest-child-fallback", "child-fallback-escalates", "parent-fallback-also-fails", "partial-child-terminates", "inactive-child-uses-parent"]);
 assert.deepEqual(corpus.boundaryRefusalCases.map((fixture) => fixture.id), ["duplicate-boundary", "unknown-boundary", "missing-parent", "boundary-cycle"]);
 assert.deepEqual(corpus.deadlineCases.map((fixture) => fixture.id), ["root-deadline", "child-narrows", "child-cannot-extend"]);
 assert.deepEqual(corpus.orderingCases.map((fixture) => fixture.id), ["current-slot-starts", "later-slot-waits"]);
 assert.deepEqual(corpus.orderingRefusalCases.map((fixture) => fixture.id), ["second-active-slot-refused", "out-of-order-slot-refused", "wrong-slot-completion-refused"]);
 assert.deepEqual(corpus.cancellationCases.map((fixture) => fixture.id), ["parent-cascades", "child-timeout-isolated", "first-reason-wins"]);
-assert.deepEqual(corpus.asyncCases, ["slow-sink-one-pending-chunk", "write-rejection-terminates", "middle-chunk-rejection-terminates", "last-chunk-rejection-terminates", "close-rejection-terminates", "cancel-while-write-pending-ignores-late-acceptance", "cancel-while-close-pending-ignores-late-close", "throwing-reporter-still-cleans", "throwing-cleanup-contained", "never-settling-terminal-effects-do-not-block-cleanup", "deadline-timer-cleared-once", "abort-listener-removed-once", "nonce-head-markup-correlation"]);
+assert.deepEqual(corpus.asyncCases, ["slow-sink-one-pending-chunk", "write-rejection-terminates", "middle-chunk-rejection-terminates", "last-chunk-rejection-terminates", "close-rejection-terminates", "cancel-while-write-pending-ignores-late-acceptance", "cancel-while-close-pending-ignores-late-close", "throwing-reporter-still-cleans", "throwing-cleanup-contained", "never-settling-terminal-effects-do-not-block-cleanup", "child-deadline-fires-and-clears", "parent-cancel-clears-child-deadline", "boundary-completion-clears-deadline", "deadline-timer-cleared-once", "abort-listener-removed-once", "nonce-head-markup-correlation"]);
 
 for (const fixture of corpus.lifecycleCases) {
   const writes: string[] = [];
@@ -144,6 +144,10 @@ async function refusal(action: string): Promise<void> {
     let allocations = 0;
     const bodyless = new StreamingLifecycle({ sink, nonceFactory() { allocations += 1; return createCspNonce(); } });
     try { bodyless.publishHead({ status: 204, executableMarkup: true }); } finally { assert.equal(allocations, 0); }
+  } else if (action === "redirect-nonce") {
+    let allocations = 0;
+    const redirect = new StreamingLifecycle({ sink, nonceFactory() { allocations += 1; return createCspNonce(); } });
+    try { redirect.publishHead({ status: 303, executableMarkup: true }); } finally { assert.equal(allocations, 0); }
   } else if (action === "forged-nonce") {
     const forged = Object.freeze(Object.create(null) as object);
     const forgedLifecycle = new StreamingLifecycle({ sink, nonceFactory: () => forged });
@@ -338,6 +342,59 @@ await verifyLaterChunkRejection("last-chunk-rejection-terminates", 3);
   assert.equal(lifecycle.phase, "terminated");
   assert.equal(cleanup, 1);
   executedAsyncCases.add("never-settling-terminal-effects-do-not-block-cleanup");
+}
+
+interface TimerRecord { readonly delay: number; readonly callback: () => void; cancelCalls: number }
+function recordedTimer(records: TimerRecord[]) {
+  return {
+    schedule(delay: number, callback: () => void) {
+      const record: TimerRecord = { delay, callback, cancelCalls: 0 };
+      records.push(record);
+      return () => { record.cancelCalls += 1; };
+    },
+  };
+}
+
+{
+  const records: TimerRecord[] = [];
+  const tree = new BoundaryCancellationTree(cancellationBoundaries);
+  assert.equal(tree.scheduleDeadline("root", 0, 1000, () => 0, recordedTimer(records)), 1000);
+  assert.equal(tree.scheduleDeadline("child", 0, 500, () => 0, recordedTimer(records)), 500);
+  assert.deepEqual(records.map((record) => record.delay), [1000, 500]);
+  records[1]?.callback();
+  assert.equal(tree.reason("child"), "timeout");
+  assert.equal(tree.reason("grandchild"), "timeout");
+  assert.equal(tree.reason("root"), undefined);
+  assert.equal(records[1]?.cancelCalls, 1);
+  tree.releaseAll();
+  assert.deepEqual(records.map((record) => record.cancelCalls), [1, 1]);
+  executedAsyncCases.add("child-deadline-fires-and-clears");
+}
+
+{
+  const records: TimerRecord[] = [];
+  const tree = new BoundaryCancellationTree(cancellationBoundaries);
+  tree.scheduleDeadline("root", 0, 1000, () => 0, recordedTimer(records));
+  tree.scheduleDeadline("child", 0, 500, () => 0, recordedTimer(records));
+  tree.cancel("root", "disconnect");
+  assert.deepEqual(records.map((record) => record.cancelCalls), [1, 1]);
+  assert.equal(tree.reason("child"), "disconnect");
+  tree.releaseAll();
+  assert.deepEqual(records.map((record) => record.cancelCalls), [1, 1]);
+  executedAsyncCases.add("parent-cancel-clears-child-deadline");
+}
+
+{
+  const records: TimerRecord[] = [];
+  const tree = new BoundaryCancellationTree(cancellationBoundaries);
+  tree.scheduleDeadline("child", 0, 500, () => 0, recordedTimer(records));
+  tree.complete("child");
+  assert.equal(records[0]?.cancelCalls, 1);
+  assert.equal(tree.signal("child").aborted, false);
+  assert.deepEqual(tree.resolveFailure("child"), { kind: "fallback", ownerId: "root" });
+  tree.releaseAll();
+  assert.equal(records[0]?.cancelCalls, 1);
+  executedAsyncCases.add("boundary-completion-clears-deadline");
 }
 
 {
