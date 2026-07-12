@@ -64,7 +64,7 @@ fallback.
   qualification before promising fast single-route updates.
 - The private corpus, file layout, ownership marker, and candidate names remain
   evidence code rather than public authoring or package syntax.
-- K0 can continue to H4 without resolving DG-V1-02 or DG-V1-05 syntax.
+- K0 can continue to H4 without resolving route syntax or DG-V1-05 form syntax.
 
 ## Validation
 

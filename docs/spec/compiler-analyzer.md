@@ -7,7 +7,9 @@ Fadeno's structural boundaries. They do not create a second source language.
 
 1. Stock TypeScript parses application source.
 2. Route roots, configuration, and package entrypoints are explicit build
-   inputs. File discovery is deterministic and confined to declared roots.
+   inputs. ADR 0026's route root is project-relative, POSIX-shaped, real-path
+   confined, and symlink-free. File discovery is deterministically sorted and
+   confined to declared roots.
 3. Page and fragment render bodies are server-zone roots. Extractable event
    closures and islands are browser-zone roots. Shared modules remain
    environment independent.
@@ -46,6 +48,9 @@ qualifies without weakening correlation or stale-output removal.
 
 Generated declarations cannot weaken a control-flow guarantee from runtime
 behavior. Positive and negative type fixtures are public conformance artifacts.
+ADR 0026's route-definition map derives a route-discriminated link-input union;
+generation must retain correlation for static, dynamic, rest, and route-union
+inputs rather than combining unrelated route and parameter unions.
 
 ## Interaction extraction
 

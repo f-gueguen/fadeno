@@ -35,6 +35,7 @@ effective decision.
 23. [ADR 0023 — Node HTTP as the initial adapter](0023-node-http-initial-adapter.md)
 24. [ADR 0024 — Initial package boundary](0024-initial-package-boundary.md)
 25. [ADR 0025 — Public Node adapter smoke contract](0025-public-node-adapter-smoke-contract.md)
+26. [ADR 0026 — Route filesystem and generated links](0026-route-filesystem-and-links.md)
 
 ## Superseded decisions
 
