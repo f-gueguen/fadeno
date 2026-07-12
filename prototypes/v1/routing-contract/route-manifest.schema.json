@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/internal/route-manifest-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "visibility", "root", "routes"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "visibility": { "const": "internal-route-manifest" },
+    "root": { "$ref": "#/$defs/source" },
+    "routes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/route" }
+    }
+  },
+  "$defs": {
+    "source": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$" },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "not": { "enum": ["__proto__", "constructor", "prototype"] }
+    },
+    "segment": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": { "kind": { "const": "static" }, "value": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "name"],
+          "properties": { "kind": { "const": "parameter" }, "name": { "$ref": "#/$defs/name" } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "name"],
+          "properties": { "kind": { "const": "rest" }, "name": { "$ref": "#/$defs/name" } }
+        }
+      ]
+    },
+    "parameter": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "kind"],
+      "properties": { "name": { "$ref": "#/$defs/name" }, "kind": { "enum": ["single", "rest"] } }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "source", "segments", "parameters", "layouts", "notFound", "error"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^/(?:$|[^/]+(?:/[^/]+)*)$" },
+        "kind": { "enum": ["page", "handler"] },
+        "source": { "$ref": "#/$defs/source" },
+        "segments": { "type": "array", "items": { "$ref": "#/$defs/segment" } },
+        "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } },
+        "layouts": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+        "notFound": { "oneOf": [{ "$ref": "#/$defs/source" }, { "type": "null" }] },
+        "error": { "oneOf": [{ "$ref": "#/$defs/source" }, { "type": "null" }] }
+      }
+    }
+  }
+}

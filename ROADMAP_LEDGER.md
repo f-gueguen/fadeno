@@ -6,27 +6,26 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-04 — create the public adapter smoke package
+V1-05 — freeze route filesystem and generated-link contracts
 
 ## Exit criteria
 
-- [x] Create one private workspace package with exact `.` and `./node` exports
-  and no registry or publication claim.
-- [x] Freeze the minimal `Handler` and raw Node HTTP adapter symbols through
-  ADR 0025 without crossing route, renderer, or streaming-failure gates.
-- [x] Keep one adapter implementation and run the host and exact-minimum V1-02
-  suites against it.
-- [x] Pack an exact content allowlist, install outside the workspace, copy the
-  tracked example byte-for-byte, compile it with NodeNext, and run its HTTP
-  assertion using only package exports.
-- [x] Prove neutral-root reachability, export target presence, private deep
-  import refusal, documentation alignment, and all local merge gates.
+- [x] Accept ADR 0026 with one explicit route root, portable filesystem
+  grammar, canonical collision identity, internal manifest, and typed links.
+- [x] Prove deterministic, confined discovery over valid and invalid route
+  trees without implementing the production router.
+- [x] Validate the internal manifest schema and byte identity without absolute
+  host paths or external compatibility claims.
+- [x] Preserve route/parameter union correlation under stock TypeScript and
+  prove exact runtime pathname encoding and refusal behavior.
+- [x] Remove the resolved route gate, align current documentation, and pass all
+  local gates.
 
 ## In progress
 
-- ADR 0025 fixes the private package's first raw Handler/Node adapter surface.
-- V1-05 next freezes route filesystem and generated-link contracts.
-- Registry naming, route syntax, renderer boundaries, request security policy,
+- ADR 0026 selects the route filesystem and generated-link contract.
+- V1-06 next implements deterministic routing and clean declaration generation.
+- Registry naming, renderer boundaries, request security policy,
   and adapter timeout/force-close behavior remain unresolved by this slice.
 
 ## Blockers
@@ -107,3 +106,6 @@ V1-04 — create the public adapter smoke package
   authority handling, cookies, and graceful drain in a private adapter suite.
 - V1-03 — Commit `7c4fb9d` selects one logical package through ADR 0024 and
   proves its exports and dependency direction with a packed private consumer.
+- V1-04 — Commit `1edea3c` creates the private framework package, moves the
+  selected Node adapter behind its exact public subpath, and proves the tracked
+  smoke example from an installed tarball on current and minimum runtimes.

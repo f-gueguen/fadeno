@@ -1,7 +1,8 @@
 # Routing, rendering, streaming, and failures
 
-This specification defines required V1 behavior. Filesystem names and public
-construction signatures remain blocked by DG-V1-02, DG-V1-03, and DG-V1-08.
+This specification defines required V1 behavior. ADR 0026 fixes filesystem and
+link construction syntax. Rendering and streaming signatures remain blocked by
+DG-V1-03 and DG-V1-08.
 
 ## Route model
 
@@ -19,8 +20,31 @@ construction signatures remain blocked by DG-V1-02, DG-V1-03, and DG-V1-08.
 6. Raw handlers are visible escape hatches. They do not inherit page resource,
    action, rendering, or patch behavior implicitly.
 
-The route-root location, filenames, rest segments, and link-construction API
-are resolved by DG-V1-02 using the H3 fixture corpus.
+`fadeno.config.ts` selects at most one route root with
+`routes: { root: "project/relative/posix/path" }`. It is resolved from the
+explicit project root and must remain inside its real path without symlinks.
+No route configuration means no routed application.
+
+The exact role files are `page.tsx`, `handler.ts`, `layout.tsx`,
+`not-found.tsx`, and `error.tsx`. A directory cannot own both a page and a raw
+handler, and no other entry is silently ignored. Static directory names are
+lowercase ASCII kebab segments. `[name]` is one dynamic segment and
+`[...name]` is a terminal, non-empty rest segment. Parameter names are unique
+ASCII identifiers excluding prototype-sensitive keys.
+
+Authored slash paths are canonical route identifiers. Only `/` has a trailing
+slash. Static siblings take precedence over a single dynamic sibling, which
+takes precedence over a single rest sibling. Same-kind dynamic siblings
+collide regardless of parameter spelling. Discovery and diagnostics use
+project-relative POSIX paths and deterministic code-unit ordering.
+
+The clean generator exposes a route-definition map plus derived `RouteId`,
+`RouteParameters`, `RouteHrefInput`, and `routeHref`. Link inputs remain a
+route-discriminated union. `routeHref` constructs only canonical pathnames,
+requires non-empty non-dot parameter strings, and RFC 3986-encodes each path
+segment independently. Query and fragment state use standard URL APIs. The
+manifest is versioned internal build data, not a package export or external
+analyzer schema.
 
 ## Server rendering
 
