@@ -12,7 +12,7 @@ V1-DX-B6 — lazy bounded static plan and explanation
 
 - [x] Add one private read-only lazy explain operation bound to an immutable
   current publication without recomputation or correctness-state mutation.
-- [ ] Prove disabled zero-work, bounded semantic detail, and explicitly
+- [x] Prove disabled zero-work, bounded semantic detail, and explicitly
   activated deep detail with independent byte/record/depth/duration/child limits.
 - [ ] Return explicit partial/interrupted states for truncation and cancellation;
   suppress superseded or stale results and atomically refuse malformed evidence.
@@ -41,6 +41,9 @@ V1-DX-B6 — lazy bounded static plan and explanation
   re-execution, cancellation, supersession, document/publication staleness, and
   unchanged correctness publication. Truncation and strict transport remain
   open in this slice.
+- The route module now strictly validates its static record family and reports
+  isolated byte, record, parent-depth, child-count, and duration truncation;
+  malformed fields, runtime-family claims, dangling parents, and cycles refuse.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 

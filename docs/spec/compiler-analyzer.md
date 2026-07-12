@@ -478,6 +478,15 @@ executes construction callbacks, or emits observed runtime facts. The generic
 envelope remains open to later independently versioned module codecs rather
 than enumerating future framework concepts.
 
+The route module owns exact record keys and the only initial static kinds:
+decision, ownership, skipped work, static outcome, and deep forensic
+provenance. Semantic mode refuses forensic records. Parent and causal
+identities are deterministic, same-contribution, acyclic, and bounded. Valid
+budget exhaustion retains only validated records and reports one explicit
+`bytes`, `records`, `depth`, `children`, or `duration` truncation reason;
+malformed or runtime-family evidence refuses atomically. Its private transport
+uses exact envelope keys and byte-stable round trips.
+
 Private analyzer snapshots contain static facets only. Observed runtime
 operation records use a separate record family and schema with independently
 versioned module-owned contributions. The two families may be correlated
