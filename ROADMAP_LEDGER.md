@@ -42,7 +42,7 @@ V1-DX-B6 — lazy bounded static plan and explanation
   unchanged correctness publication, dependency-closed truncation, and strict
   operation and contribution transport.
 - The route module now strictly validates its static record family and reports
-  isolated byte, record, parent-depth, child-count, and duration truncation;
+  isolated byte, record, dependency-depth, child-count, and duration truncation;
   malformed fields, runtime-family claims, dangling parents, parent or causal
   cycles, and mismatched publication identity refuse. Analyzer-produced human
   and normalized flow fixtures cover success, collision refusal, and recovery.

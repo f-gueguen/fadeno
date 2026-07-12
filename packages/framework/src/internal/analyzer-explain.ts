@@ -273,7 +273,7 @@ export class AnalyzerExplainCoordinator {
     try {
       if (outcome.value.length !== 1) throw new TypeError("FADENO_ANALYZER_EXPLAIN_CONTRIBUTION_COUNT");
       contributions = outcome.value.map((contribution) => {
-        const processed = processRouteExplainContribution(contribution, bounded, request.detail);
+        const processed = processRouteExplainContribution(contribution, bounded, request.detail, publication);
         truncation ??= processed.truncation;
         return processed.contribution;
       });

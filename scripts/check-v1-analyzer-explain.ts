@@ -128,6 +128,13 @@ try {
   assert.equal(serializeRouteExplainContribution(deserializeRouteExplainContribution(serializedFlow)), serializedFlow);
   for (const mutate of [
     (value: any) => { value.contribution.value.records[0].fields.observedRequestOrder = 1; },
+    (value: any) => {
+      value.contribution.value.records[0].kind = "cause";
+      value.contribution.value.records[0].fields = {
+        code: "FADENO_EXPLAIN_SECRET_CANARY",
+        diagnosticInstanceId: "canary",
+      };
+    },
     (value: any) => { value.contribution.value.records[0].parentId = "missing"; },
     (value: any) => {
       value.contribution.value.records[0].parentId = value.contribution.value.records[1].id;
@@ -170,6 +177,24 @@ try {
       }
     }
   }
+  const causalDepthContribution = JSON.parse(JSON.stringify(routeContribution[0])) as AnalyzerFacetContribution;
+  const causalRecords = (causalDepthContribution.value as any).records;
+  const ownershipPage = causalRecords.find(({ id }: any) => id === "ownership-route-page");
+  const ownershipRoot = causalRecords.find(({ id }: any) => id === "ownership-route-root");
+  const outcome = causalRecords.find(({ id }: any) => id === "route-outcome");
+  ownershipRoot.causedBy = [ownershipPage.id];
+  outcome.causedBy = [ownershipRoot.id];
+  const causalDepthLimited = await session.startExplain({
+    detail: "semantic", budgets: { depth: 2 }, collect: () => [causalDepthContribution],
+  }).result;
+  assert.equal(causalDepthLimited.status, "partial");
+  if (causalDepthLimited.status === "partial") assert.equal(causalDepthLimited.truncation, "depth");
+
+  const mismatchedPublication = JSON.parse(JSON.stringify(routeContribution[0])) as AnalyzerFacetContribution;
+  (mismatchedPublication.value as any).publicationGeneration += 1;
+  assert.equal((await session.startExplain({
+    detail: "semantic", collect: () => [mismatchedPublication],
+  }).result).status, "refused");
   const durationLimited = await session.startExplain({
     detail: "semantic", budgets: { durationMs: 1 },
     collect: () => new Promise((resolve) => setTimeout(() => resolve(routeContribution), 20)),

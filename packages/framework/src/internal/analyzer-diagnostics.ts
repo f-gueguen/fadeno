@@ -190,6 +190,10 @@ const definitions: Readonly<Record<AnalyzerDiagnosticCode, Definition>> = Object
   }),
 });
 
+export function isAnalyzerDiagnosticCode(value: unknown): value is AnalyzerDiagnosticCode {
+  return typeof value === "string" && Object.hasOwn(definitions, value);
+}
+
 function frozen<T extends object>(value: T): Readonly<T> {
   return Object.freeze(value);
 }

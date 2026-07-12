@@ -2,7 +2,7 @@ import { isAbsolute, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { normalizeAnalyzerFacetValue, type AnalyzerFacetContribution, type AnalyzerFacetValue } from "./analyzer-facets.ts";
-import type { AnalyzerDiagnosticBatch } from "./analyzer-diagnostics.ts";
+import { isAnalyzerDiagnosticCode, type AnalyzerDiagnosticBatch } from "./analyzer-diagnostics.ts";
 import type { AnalyzerExplainBudgets } from "./analyzer-explain.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
 
@@ -74,7 +74,7 @@ function validateFields(kind: RouteExplainRecord["kind"], value: unknown): Analy
     if (fields["decision"] !== "publish-static-route-plan" && fields["decision"] !== "refuse-static-route-plan") refuse();
     if (!Number.isSafeInteger(fields["graphGeneration"]) || (fields["graphGeneration"] as number) < 1) refuse();
   } else if (kind === "cause") {
-    if (typeof fields["code"] !== "string" || typeof fields["diagnosticInstanceId"] !== "string") refuse();
+    if (!isAnalyzerDiagnosticCode(fields["code"]) || typeof fields["diagnosticInstanceId"] !== "string") refuse();
   } else if (kind === "ownership") {
     if (typeof fields["nodeId"] !== "string" || typeof fields["ownerPath"] !== "string") refuse();
     const path = fields["ownerPath"];
@@ -132,17 +132,6 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
   return frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE, version: ROUTE_EXPLAIN_VERSION, value: normalized });
 }
 
-function depthOf(record: RouteExplainRecord, byId: Map<string, RouteExplainRecord>, visiting = new Set<string>()): number {
-  if (visiting.has(record.id)) refuse();
-  if (record.parentId === null) return 1;
-  visiting.add(record.id);
-  const parent = byId.get(record.parentId);
-  if (!parent) refuse();
-  const depth = 1 + depthOf(parent, byId, visiting);
-  visiting.delete(record.id);
-  return depth;
-}
-
 function dependencyDepthOf(
   record: RouteExplainRecord,
   byId: Map<string, RouteExplainRecord>,
@@ -169,10 +158,14 @@ export function processRouteExplainContribution(
   input: AnalyzerFacetContribution,
   budgets: AnalyzerExplainBudgets,
   detail: "semantic" | "deep",
+  publication: Pick<AnalyzerPublicationSnapshot, "operationId" | "publicationGeneration">,
 ): RouteExplainProcessedContribution {
   const validated = validateContribution(input);
   const value = validated.value as unknown as RouteExplainValue;
-  if (value.detail !== detail) refuse();
+  if (
+    value.detail !== detail || value.publicationOperationId !== publication.operationId ||
+    value.publicationGeneration !== publication.publicationGeneration
+  ) refuse();
   const byId = new Map(value.records.map((current) => [current.id, current]));
   const dependencyDepths = new Map<string, number>();
   for (const current of value.records) dependencyDepthOf(current, byId, dependencyDepths);
@@ -186,7 +179,7 @@ export function processRouteExplainContribution(
     const dependencies = [current.parentId, ...current.causedBy].filter((id): id is string => id !== null);
     if (dependencies.some((id) => !keptIds.has(id))) continue;
     if (kept.length >= budgets.records) { truncation ??= "records"; continue; }
-    if (depthOf(current, byId) > budgets.depth) { truncation ??= "depth"; continue; }
+    if (dependencyDepths.get(current.id)! > budgets.depth) { truncation ??= "depth"; continue; }
     if (current.parentId !== null) {
       const count = children.get(current.parentId) ?? 0;
       if (count >= budgets.children) { truncation ??= "children"; continue; }

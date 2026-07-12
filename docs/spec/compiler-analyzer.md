@@ -486,8 +486,10 @@ The route module owns exact record keys and the only initial static kinds:
 decision, ownership, skipped work, static outcome, and deep forensic
 provenance. Semantic mode refuses forensic records. Parent and causal
 identities are deterministic, same-contribution, acyclic, and bounded. Budget
-selection follows dependency order, so every retained record retains its parent
-and causal evidence. Valid budget exhaustion retains only validated records and reports one explicit
+selection and depth include both parent and causal edges, so every retained
+record retains its parent and causal evidence. Diagnostic codes come from the
+structured diagnostic module's allowlist rather than arbitrary contribution
+text. Valid budget exhaustion retains only validated records and reports one explicit
 `bytes`, `records`, `depth`, `children`, or `duration` truncation reason;
 malformed or runtime-family evidence refuses atomically. Its private transport
 uses exact envelope keys and byte-stable round trips.
