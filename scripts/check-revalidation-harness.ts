@@ -4,6 +4,7 @@ import {
   executeRevalidationHarness,
   type RevalidationHarnessReport,
 } from "../experiments/revalidation/harness.ts";
+import { loadRevalidationWorkload } from "../experiments/revalidation/contract.ts";
 
 const report = executeRevalidationHarness();
 const repeated = executeRevalidationHarness();
@@ -19,6 +20,10 @@ Object.defineProperty(nonEnumerable, "hidden", { value: true, enumerable: false 
 const accessor: Record<string, unknown> = {};
 Object.defineProperty(accessor, "value", { get: () => true, enumerable: true });
 const sparse = Array(1);
+const nonEnumerableArray = [true];
+Object.defineProperty(nonEnumerableArray, 0, { value: true, enumerable: false });
+const accessorArray = [true];
+Object.defineProperty(accessorArray, 0, { get: () => true, enumerable: true });
 if (
   compareResourceResults(
     { status: "value", cacheable: true, value: { a: 1, b: 2 } },
@@ -59,6 +64,14 @@ if (
   compareResourceResults(
     { status: "value", cacheable: true, value: { value: true } },
     { status: "value", cacheable: true, value: accessor },
+  ) !== "refused" ||
+  compareResourceResults(
+    { status: "value", cacheable: true, value: [true] },
+    { status: "value", cacheable: true, value: nonEnumerableArray },
+  ) !== "refused" ||
+  compareResourceResults(
+    { status: "value", cacheable: true, value: [true] },
+    { status: "value", cacheable: true, value: accessorArray },
   ) !== "refused"
 ) throw new Error("FADENO_REVALIDATION_COMPARISON_CONTROLS");
 
@@ -68,6 +81,8 @@ for (const input of [
   nonEnumerable,
   accessor,
   { unsupported: sparse },
+  { unsupported: nonEnumerableArray },
+  { unsupported: accessorArray },
 ]) {
   let unsupportedInputRefused = false;
   try {
@@ -90,12 +105,17 @@ const failingReports: readonly RevalidationHarnessReport[] = [
   { ...report, sensitiveValuesDisclosed: true },
   { ...report, diagnostics: [...report.diagnostics, "injected:fadeno-auth-secret-must-not-escape"], sensitiveValuesDisclosed: false },
 ];
+const authentication = loadRevalidationWorkload().authentication;
+const sensitiveValues = [authentication.secretCanary, authentication.principalId, authentication.tenantId];
 for (const candidate of failingReports) {
   let rejected = false;
   try {
     assertRevalidationHarnessReport(candidate);
   } catch (error: unknown) {
-    rejected = error instanceof Error && error.message.startsWith("FADENO_REVALIDATION_HARNESS:");
+    if (error instanceof Error && sensitiveValues.some((value) => error.message.includes(value))) {
+      throw new Error("FADENO_REVALIDATION_REJECTION_DISCLOSED_SENSITIVE_VALUE");
+    }
+    rejected = error instanceof Error && error.message === "FADENO_REVALIDATION_HARNESS_FAILED";
   }
   if (!rejected) throw new Error("FADENO_REVALIDATION_REPORT_MUTATION_ACCEPTED");
 }

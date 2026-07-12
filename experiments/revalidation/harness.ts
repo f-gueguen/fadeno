@@ -54,7 +54,7 @@ export function assertRevalidationHarnessReport(report: RevalidationHarnessRepor
     !report.successPathPass || !report.observableMutationPass || !report.staleControlRejected || !report.failurePathPass ||
     !report.defaultRevalidationPass || !report.selectiveBaselinePass ||
     report.unsafeKeepsDetected !== 4 || report.unsafeKeepsTotal !== 4 || report.sensitiveValuesDisclosed || diagnosticDisclosure
-  ) throw new Error(`FADENO_REVALIDATION_HARNESS:${JSON.stringify(report)}`);
+  ) throw new Error("FADENO_REVALIDATION_HARNESS_FAILED");
 }
 
 export function executeRevalidationHarness(): RevalidationHarnessReport {

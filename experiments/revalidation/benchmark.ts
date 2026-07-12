@@ -33,10 +33,15 @@ function canonicalJson(value: unknown, ancestors = new Set<object>()): string | 
   const ownKeys = Reflect.ownKeys(value);
   if (ownKeys.some((key) => typeof key === "symbol")) return undefined;
   if (Array.isArray(value)) {
+    const indices = Array.from({ length: value.length }, (_, index) => index);
     if (
       ownKeys.length !== value.length + 1 ||
       !ownKeys.includes("length") ||
-      !Array.from({ length: value.length }, (_, index) => Object.hasOwn(value, index)).every(Boolean)
+      !indices.every((index) => Object.hasOwn(value, index)) ||
+      indices.some((index) => {
+        const descriptor = Object.getOwnPropertyDescriptor(value, index);
+        return !descriptor?.enumerable || !("value" in descriptor);
+      })
     ) return undefined;
   } else if (ownKeys.some((key) => {
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
