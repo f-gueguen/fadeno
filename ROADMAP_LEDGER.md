@@ -19,7 +19,7 @@ K0-08A — establish H3 qualification capability without collecting a result
   consumption.
 - [x] The runner locks clean and real A/B incremental generation, interleaved
   no-retry timings, pre/postflight, p95 derivation, and decision projection.
-- [ ] `pnpm ci:local` and `pnpm experiment:type-spine --
+- [x] `pnpm ci:local` and `pnpm experiment:type-spine --
   --verify-qualification` pass with no immutable H3 result or decision.
 
 ## In progress
@@ -28,6 +28,9 @@ K0-08A — establish H3 qualification capability without collecting a result
   before runner implementation or qualification measurement.
 - Current host load is non-reference; K0-08A may implement verification but may
   not publish a result.
+- The complete capability passes local CI and is awaiting independent PR
+  review; K0-08B remains prohibited until this slice is merged to canonical
+  `main`.
 
 ## Blockers
 
