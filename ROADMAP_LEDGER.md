@@ -18,7 +18,7 @@ K0-09 — establish the private authenticated CRUD/revalidation benchmark
   every one without exposing authorization-sensitive values.
 - [x] Publish deterministic workload/baseline manifests and a strict executable
   contract without collecting an H4 qualification result.
-- [ ] `pnpm experiment:revalidation -- --list` and `pnpm ci:local` pass.
+- [x] `pnpm experiment:revalidation -- --list` and `pnpm ci:local` pass.
 
 ## In progress
 
