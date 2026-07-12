@@ -21,7 +21,7 @@ V1-DX-B2 — private namespaced analyzer facets and versioned serialization
 - [x] Serialize the complete schema-v2 private snapshot through a versioned
   envelope and prove byte-stable round trips preserve B1 identity, documents,
   opaque unsupported facets, completeness, and truncation state.
-- [ ] Pass normalized-fixture, malformed-serialization, private-package,
+- [x] Pass normalized-fixture, malformed-serialization, private-package,
   project-model, full repository, local CI, and independent review gates.
 
 ## In progress
@@ -30,8 +30,9 @@ V1-DX-B2 — private namespaced analyzer facets and versioned serialization
   protocol, command, or supported editor product.
 - V1-DX-B3 through B7 remain dependency ordered and independently reversible.
 - The V1 application is the canonical analyzer corpus from B3 onward.
-- B2 focused checks and its permanent normalized private snapshot fixture pass;
-  full repository, review, and commit-bound local CI remain.
+- B2 focused checks, its permanent normalized private snapshot fixture, full
+  repository validation, and independent adversarial review pass;
+  commit-bound local CI is the final merge gate.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
