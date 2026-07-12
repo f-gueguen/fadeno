@@ -34,6 +34,7 @@ export type RouteManifestEntry = Readonly<{
 export type RouteManifest = Readonly<{
   schemaVersion: 1;
   visibility: "internal-route-manifest";
+  root: string;
   routes: readonly RouteManifestEntry[];
 }>;
 
@@ -229,14 +230,14 @@ export function discoverRouteManifest(projectRoot: string, config: RouteConfig):
 
   walk(root, [], new Set(), { layouts: [], notFound: null, error: null }, false);
   routes.sort((left, right) => compareText(left.id, right.id));
-  return Object.freeze({ schemaVersion: 1, visibility: "internal-route-manifest", routes });
+  return Object.freeze({ schemaVersion: 1, visibility: "internal-route-manifest", root: config.root, routes });
 }
 
 export function stableRouteManifest(manifest: RouteManifest): string {
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
-function safeManifestSource(path: unknown, suffix: string): path is string {
+function safeManifestPath(path: unknown, suffix = ""): path is string {
   if (typeof path !== "string" || path.length === 0 || path.includes("\0") || path.includes("\\") ||
       path.startsWith("/") || /^[A-Za-z]:/u.test(path) || !path.endsWith(suffix)) return false;
   const parts = path.split("/");
@@ -244,6 +245,7 @@ function safeManifestSource(path: unknown, suffix: string): path is string {
 }
 
 export function assertRouteManifestSemantics(manifest: RouteManifest): void {
+  if (!safeManifestPath(manifest.root)) fail("MANIFEST_ROOT");
   const identities = new Set<string>();
   const sources = new Set<string>();
   let previousId: string | undefined;
@@ -251,11 +253,22 @@ export function assertRouteManifestSemantics(manifest: RouteManifest): void {
     if (identities.has(route.id) || (previousId !== undefined && compareText(previousId, route.id) >= 0)) fail("MANIFEST_ORDER");
     identities.add(route.id);
     previousId = route.id;
-    if (!safeManifestSource(route.source, route.kind === "page" ? "/page.tsx" : "/handler.ts") || sources.has(route.source)) {
+    if (!safeManifestPath(route.source, route.kind === "page" ? "/page.tsx" : "/handler.ts") || sources.has(route.source)) {
       fail("MANIFEST_SOURCE");
     }
     sources.add(route.source);
     if (route.id !== routeId(route.segments)) fail("MANIFEST_ID");
+
+    const segmentDirectories = route.segments.map((segment) => {
+      if (segment.kind === "static") return segment.value;
+      if (segment.kind === "parameter") return `[${segment.name}]`;
+      return `[...${segment.name}]`;
+    });
+    const routeDirectory = [manifest.root, ...segmentDirectories].join("/");
+    const expectedSource = `${routeDirectory}/${route.kind === "page" ? "page.tsx" : "handler.ts"}`;
+    if (route.source !== expectedSource) fail("MANIFEST_SOURCE_OWNERSHIP");
+    const ancestors = Array.from({ length: segmentDirectories.length + 1 }, (_, index) =>
+      [manifest.root, ...segmentDirectories.slice(0, index)].join("/"));
 
     const names = new Set<string>();
     const expectedParameters: RouteParameter[] = [];
@@ -272,10 +285,19 @@ export function assertRouteManifestSemantics(manifest: RouteManifest): void {
       expectedParameters.push({ name: segment.name, kind: segment.kind === "rest" ? "rest" : "single" });
     }
     if (JSON.stringify(route.parameters) !== JSON.stringify(expectedParameters)) fail("MANIFEST_PARAMETERS");
-    if (route.layouts.some((path) => !safeManifestSource(path, "/layout.tsx")) || new Set(route.layouts).size !== route.layouts.length ||
-        (route.notFound !== null && !safeManifestSource(route.notFound, "/not-found.tsx")) ||
-        (route.error !== null && !safeManifestSource(route.error, "/error.tsx"))) {
+    if (route.layouts.some((path) => !safeManifestPath(path, "/layout.tsx")) || new Set(route.layouts).size !== route.layouts.length ||
+        (route.notFound !== null && !safeManifestPath(route.notFound, "/not-found.tsx")) ||
+        (route.error !== null && !safeManifestPath(route.error, "/error.tsx"))) {
       fail("MANIFEST_ROLE_SOURCE");
+    }
+    let previousLayoutIndex = -1;
+    for (const layout of route.layouts) {
+      const index = ancestors.indexOf(layout.slice(0, -"/layout.tsx".length));
+      if (index <= previousLayoutIndex) fail("MANIFEST_LAYOUT_OWNERSHIP");
+      previousLayoutIndex = index;
+    }
+    for (const [role, suffix] of [[route.notFound, "/not-found.tsx"], [route.error, "/error.tsx"]] as const) {
+      if (role !== null && !ancestors.includes(role.slice(0, -suffix.length))) fail("MANIFEST_ROLE_OWNERSHIP");
     }
   }
 }

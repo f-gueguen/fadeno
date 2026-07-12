@@ -3,10 +3,11 @@
   "$id": "https://fadeno.dev/schemas/internal/route-manifest-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "visibility", "routes"],
+  "required": ["schemaVersion", "visibility", "root", "routes"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "visibility": { "const": "internal-route-manifest" },
+    "root": { "$ref": "#/$defs/source" },
     "routes": {
       "type": "array",
       "items": { "$ref": "#/$defs/route" }

@@ -257,6 +257,27 @@ for (const mutate of [
     const route = value.routes.find(({ id }: { id: string }) => id === "/accounts/[accountId]");
     route.segments[1].name = "constructor";
   },
+  (value: any) => { value.root = "src/../routes"; },
+  (value: any) => {
+    const route = value.routes.find(({ id }: { id: string }) => id === "/accounts/[accountId]");
+    route.source = "src/routes/wrong/page.tsx";
+  },
+  (value: any) => {
+    const route = value.routes.find(({ id }: { id: string }) => id === "/teams/[teamId]/members/[memberId]");
+    route.layouts = ["src/routes/layout.tsx", "src/routes/unrelated/layout.tsx"];
+  },
+  (value: any) => {
+    const route = value.routes.find(({ id }: { id: string }) => id === "/teams/[teamId]/members/[memberId]");
+    route.layouts.reverse();
+  },
+  (value: any) => {
+    const route = value.routes.find(({ id }: { id: string }) => id === "/accounts/[accountId]");
+    route.notFound = "src/routes/other/not-found.tsx";
+  },
+  (value: any) => {
+    const route = value.routes.find(({ id }: { id: string }) => id === "/accounts/[accountId]");
+    route.error = "src/routes/other/error.tsx";
+  },
 ]) {
   const candidate = structuredClone(manifest);
   mutate(candidate);
