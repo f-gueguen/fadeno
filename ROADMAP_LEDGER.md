@@ -6,33 +6,31 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B3 — deterministic analyzer recomputation and construction-time provenance
+V1-DX-B4 — atomic analyzer publication and stale-result suppression
 
 ## Exit criteria
 
-- [x] Establish one transactional dependency ownership graph over B1 document
-  state with deterministic node, dependency, and artifact identities.
-- [x] Separate complete affected-closure discovery from deterministic
-  dependency-first recomputation and retain explicit invalidation causes.
-- [x] Prove direct and three-level transitive refresh, configuration epochs,
-  cycle refusal, and deletion/rename cleanup without retaining stale results.
-- [x] Attach source, transformation, ownership, and bidirectional artifact
-  provenance while semantic results and artifacts are constructed.
-- [x] Pass normalized provenance/recomputation fixtures, private-package,
-  project-model, full repository, local CI, and independent review gates.
+- [ ] Construct one complete private publication generation from a B3 candidate
+  before replacing any consumer-visible analyzer state.
+- [ ] Give diagnostic-like facets and generated artifacts full-replacement
+  semantics so recovery removes stale records and deleted outputs together.
+- [ ] Capture workspace epoch, document versions, requested facets, operation,
+  configuration, and ownership identity and suppress every stale completion.
+- [ ] Support explicit cancellation and newer-operation supersession without
+  allowing obsolete work to block or overwrite the current generation.
+- [ ] Pass atomicity, recovery, cancellation, supersession, serialization,
+  private-package, full repository, local CI, and independent review gates.
 
 ## In progress
 
-- V1-DX-B3 is private foundation only and adds no package export, public schema,
+- V1-DX-B4 is private foundation only and adds no package export, public schema,
   protocol, command, or supported editor product.
-- V1-DX-B4 through B7 remain dependency ordered and independently reversible.
+- V1-DX-B5 through B7 remain dependency ordered and independently reversible.
 - The V1 application is the canonical analyzer corpus from B3 onward.
-- B3 is limited to private candidate recomputation evidence; B4 owns atomic
-  publication, cancellation, supersession, and stale-result suppression.
-- The B3 focused checker copies the canonical V1 application sources into an
-  isolated workspace and retains one normalized recomputation/provenance
-  fixture. Focused, private-package, full repository, and independent review
-  gates pass; commit-bound local CI is the final merge gate.
+- B4 publishes only private in-memory analyzer generations. B7 owns production
+  check/watch/build integration and filesystem output application.
+- B5 owns stable structured diagnostic and correction semantics; B4 uses
+  module-owned replacement facets without inventing that later contract.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -148,3 +146,7 @@ V1-DX-B3 — deterministic analyzer recomputation and construction-time provenan
   facets; bounded normalized plain-data contributions; explicit
   absent/unknown/newer handling; strict lossless snapshot serialization; and a
   permanent normalized fixture without exposing an analyzer schema or product.
+- V1-DX-B3 — Commit `cb83bf8` adds the private dependency ownership graph,
+  deterministic causal closure and recomputation, configuration epochs,
+  deletion/rename cleanup, construction-time provenance, and strict schema-v3
+  round trips against the canonical V1 application corpus.
