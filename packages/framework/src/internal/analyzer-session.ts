@@ -3,6 +3,13 @@ import { randomUUID } from "node:crypto";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import {
+  createAnalyzerFacetSnapshot,
+  type AnalyzerFacetContribution,
+  type AnalyzerFacetOperationResult,
+  type AnalyzerFacetRequest,
+} from "./analyzer-facets.ts";
+
 export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_DOCUMENT_SCHEME"
   | "FADENO_ANALYZER_URI_AUTHORITY"
@@ -142,6 +149,14 @@ export class AnalyzerSession {
 
   get currentSnapshot(): AnalyzerDocumentOnlySnapshot {
     return this.#snapshot;
+  }
+
+  snapshotFacets(
+    requests: readonly AnalyzerFacetRequest[],
+    contributions: readonly AnalyzerFacetContribution[],
+  ): AnalyzerFacetOperationResult {
+    const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
+    return createAnalyzerFacetSnapshot(this.#snapshot, operationId, requests, contributions);
   }
 
   save(document: string, text: string): AnalyzerOperationResult {
