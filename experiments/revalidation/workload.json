@@ -1,0 +1,27 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/revalidation-workload-v1.json",
+  "schemaVersion": 1,
+  "visibility": "private-harness-control",
+  "seed": "fadeno-k0-h4-workload-v1",
+  "authentication": {
+    "principalId": "principal-001",
+    "tenantId": "tenant-001",
+    "secretCanary": "fadeno-auth-secret-must-not-escape"
+  },
+  "dataset": { "rowCount": 10000, "generator": "deterministic-row-v1" },
+  "resources": ["activity", "notifications", "permissions", "profile", "projects", "tasks"],
+  "pageReads": ["profile", "projects", "tasks", "activity", "notifications", "permissions", "profile", "projects", "tasks"],
+  "mutation": { "id": "complete-task", "affectedResource": "tasks", "rowId": 4242 },
+  "paths": ["success", "expected-error"],
+  "comparison": {
+    "strategy": "canonical-tagged-json-v1",
+    "handles": ["value", "expected-error", "ordering"],
+    "refuses": ["non-cacheable"]
+  },
+  "unsafeKeeps": [
+    { "id": "keeps-mutated-task-value", "class": "value", "declaredResource": "tasks" },
+    { "id": "keeps-error-transition", "class": "expected-error", "declaredResource": "permissions" },
+    { "id": "keeps-reordered-activity", "class": "ordering", "declaredResource": "activity" },
+    { "id": "keeps-non-cacheable-activity", "class": "non-cacheable", "declaredResource": "activity" }
+  ]
+}

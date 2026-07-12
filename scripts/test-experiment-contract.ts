@@ -492,7 +492,7 @@ if (registrySchema(shortRegistry)) recordFailure("short registry: schema unexpec
 
 const undecidedQualifiedRegistry = structuredClone(registry);
 const plannedExperiment = undecidedQualifiedRegistry.experiments.find(
-  (experiment) => experiment.status === "planned",
+  (experiment) => experiment.status !== "qualified",
 );
 plannedExperiment.status = "qualified";
 if (registrySchema(undecidedQualifiedRegistry)) {

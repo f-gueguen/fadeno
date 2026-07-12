@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-workload-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "visibility", "seed", "authentication", "dataset", "resources", "pageReads", "mutation", "paths", "comparison", "unsafeKeeps"],
+  "properties": {
+    "$schema": { "const": "https://fadeno.dev/schemas/experiment/revalidation-workload-v1.json" },
+    "schemaVersion": { "const": 1 },
+    "visibility": { "const": "private-harness-control" },
+    "seed": { "const": "fadeno-k0-h4-workload-v1" },
+    "authentication": { "const": { "principalId": "principal-001", "tenantId": "tenant-001", "secretCanary": "fadeno-auth-secret-must-not-escape" } },
+    "dataset": { "const": { "rowCount": 10000, "generator": "deterministic-row-v1" } },
+    "resources": {
+      "type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true,
+      "items": { "enum": ["activity", "notifications", "permissions", "profile", "projects", "tasks"] }
+    },
+    "pageReads": {
+      "type": "array", "minItems": 9, "maxItems": 9,
+      "items": { "enum": ["activity", "notifications", "permissions", "profile", "projects", "tasks"] }
+    },
+    "mutation": { "const": { "id": "complete-task", "affectedResource": "tasks", "rowId": 4242 } },
+    "paths": { "const": ["success", "expected-error"] },
+    "comparison": { "const": { "strategy": "canonical-tagged-json-v1", "handles": ["value", "expected-error", "ordering"], "refuses": ["non-cacheable"] } },
+    "unsafeKeeps": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "class", "declaredResource"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+          "class": { "enum": ["value", "expected-error", "ordering", "non-cacheable"] },
+          "declaredResource": { "enum": ["activity", "notifications", "permissions", "profile", "projects", "tasks"] }
+        }
+      }
+    }
+  }
+}

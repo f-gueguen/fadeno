@@ -31,7 +31,7 @@
       "command": "pnpm experiment:revalidation",
       "harnessSlice": "K0-09",
       "qualificationSlice": "K0-10",
-      "status": "planned"
+      "status": "available"
     },
     {
       "id": "type-spine",
