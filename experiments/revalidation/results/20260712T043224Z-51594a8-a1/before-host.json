@@ -1,0 +1,20 @@
+[
+  {
+    "cpuIdlePercent": 81.61,
+    "loadAveragePerLogicalCpu": 0.225,
+    "powerSource": "ac",
+    "thermalState": "no-warning"
+  },
+  {
+    "cpuIdlePercent": 72.17,
+    "loadAveragePerLogicalCpu": 0.23900000000000002,
+    "powerSource": "ac",
+    "thermalState": "no-warning"
+  },
+  {
+    "cpuIdlePercent": 57.65,
+    "loadAveragePerLogicalCpu": 0.22799999999999998,
+    "powerSource": "ac",
+    "thermalState": "no-warning"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "20260712T043336Z-51594a8-a2",
+  "attempt": 2,
+  "sourceCommit": "51594a8b8f460a9b28e1e0ade25816a5a898395b",
+  "startedAt": "2026-07-12T04:33:36Z",
+  "completedAt": "2026-07-12T04:33:49.505Z",
+  "status": "inconclusive",
+  "phase": "preflight",
+  "failureCode": "FADENO_REVALIDATION_PREFLIGHT_INCONCLUSIVE"
+}
