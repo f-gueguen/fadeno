@@ -61,7 +61,7 @@ const ajv = new Ajv2020({ allErrors: true, strict: true });
 ajv.addSchema(decisionSchema);
 const validateResult = ajv.compile(resultSchema);
 if (!validateResult(retained)) throw new Error(`FADENO_REVALIDATION_EVIDENCE_RESULT_SCHEMA:${JSON.stringify(validateResult.errors)}`);
-if (!isDeepStrictEqual(retained, { $schema: "https://fadeno.dev/schemas/experiment/revalidation-qualification-result-v1.json", ...derived })) {
+if (!isDeepStrictEqual(retained, derived)) {
   throw new Error("FADENO_REVALIDATION_EVIDENCE_RESULT_PROJECTION");
 }
 if (derived.decision.outcome !== "go" || Object.values(derived.decision.gates).some((gate) => !gate)) {

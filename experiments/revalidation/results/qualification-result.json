@@ -1,5 +1,4 @@
 {
-  "$schema": "https://fadeno.dev/schemas/experiment/revalidation-qualification-result-v1.json",
   "schemaVersion": 1,
   "sourceCommit": "51594a8b8f460a9b28e1e0ade25816a5a898395b",
   "captureSha256": "b41d22769fa1abf8cab2898027a60cb6e73d4f4be159fcea308d3a23b99781ac",

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertSafeRetainedText, nextQualificationAttempt, qualificationAttemptId } from "./run-revalidation-reference-qualification.ts";
+import { assertSafeRetainedText, nextQualificationAttempt, qualificationAttemptId, qualificationSourceStatusAccepted } from "./run-revalidation-reference-qualification.ts";
 import { referenceIdentityAccepted, type ReferenceEnvironmentIdentity, type ReferenceIdentityObservation } from "../experiments/revalidation/reference-identity.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -28,6 +28,11 @@ for (const text of [...sensitive, "Authorization: Bearer abcdefghijklmnopqrstuvw
 }
 assertSafeRetainedText("allowlisted metrics and digests only", sensitive);
 if (nextQualificationAttempt(join(root, "experiments/revalidation/results")) !== 13) throw new Error("FADENO_REVALIDATION_LAUNCHER_ATTEMPT_SEQUENCE");
+if (
+  !qualificationSourceStatusAccepted([]) ||
+  !qualificationSourceStatusAccepted(["experiments/revalidation/results/attempt-1/attempt.json"]) ||
+  qualificationSourceStatusAccepted(["experiments/revalidation/results/attempt-1/attempt.json", "experiments/revalidation/benchmark.ts"])
+) throw new Error("FADENO_REVALIDATION_LAUNCHER_RETRY_STATUS");
 
 const launcher = readFileSync(join(root, "scripts/run-revalidation-reference-qualification.ts"), "utf8");
 for (const required of [
