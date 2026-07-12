@@ -39,6 +39,12 @@ export interface RouteExplainValue {
   readonly publicationGeneration: number;
   readonly detail: "semantic" | "deep";
   readonly collectionTruncation: AnalyzerExplainTruncationReason | null;
+  readonly truncationWitness: Readonly<{
+    reason: AnalyzerExplainTruncationReason;
+    limit: number;
+    observed: number;
+    retained: number;
+  }> | null;
   readonly records: readonly RouteExplainRecord[];
 }
 
@@ -113,7 +119,8 @@ function validateFields(kind: RouteExplainRecord["kind"], value: unknown): Analy
 function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetContribution {
   if (input.namespace !== ROUTE_EXPLAIN_NAMESPACE || input.version !== ROUTE_EXPLAIN_VERSION) refuse();
   const value = object(input.value, [
-    "family", "module", "version", "publicationOperationId", "publicationGeneration", "detail", "collectionTruncation", "records",
+    "family", "module", "version", "publicationOperationId", "publicationGeneration", "detail", "collectionTruncation",
+    "truncationWitness", "records",
   ]);
   if (
     value["family"] !== "static-analysis" || value["module"] !== ROUTE_EXPLAIN_NAMESPACE || value["version"] !== ROUTE_EXPLAIN_VERSION ||
@@ -123,6 +130,23 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
     value["collectionTruncation"] !== null && !["bytes", "records", "depth", "children"].includes(value["collectionTruncation"] as string) ||
     !Array.isArray(value["records"])
   ) refuse();
+  let truncationWitness: RouteExplainValue["truncationWitness"] = null;
+  if (value["truncationWitness"] !== null) {
+    const witness = object(value["truncationWitness"], ["reason", "limit", "observed", "retained"]);
+    if (
+      !["bytes", "records", "depth", "children"].includes(witness["reason"] as string) ||
+      witness["reason"] !== value["collectionTruncation"] || !Number.isSafeInteger(witness["limit"]) ||
+      (witness["limit"] as number) < 1 || !Number.isSafeInteger(witness["observed"]) ||
+      (witness["observed"] as number) <= (witness["limit"] as number) || !Number.isSafeInteger(witness["retained"]) ||
+      (witness["retained"] as number) < 0 || (witness["retained"] as number) > (witness["limit"] as number)
+    ) refuse();
+    truncationWitness = frozen({
+      reason: witness["reason"] as AnalyzerExplainTruncationReason,
+      limit: witness["limit"] as number,
+      observed: witness["observed"] as number,
+      retained: witness["retained"] as number,
+    });
+  } else if (value["collectionTruncation"] !== null) refuse();
   const ids = new Set<string>();
   const records = (value["records"] as unknown[]).map((entry, index) => {
     const source = object(entry, ["id", "parentId", "causedBy", "kind", "fields"]);
@@ -145,6 +169,26 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
   const byId = new Map(records.map((current) => [current.id, current]));
   const dependencyDepths = new Map<string, number>();
   for (const current of records) dependencyDepthOf(current, byId, dependencyDepths);
+  if (truncationWitness?.reason === "depth") {
+    if (
+      truncationWitness.retained !== truncationWitness.limit ||
+      !records.some((current) => dependencyDepths.get(current.id) === truncationWitness.retained)
+    ) refuse();
+  } else if (truncationWitness?.reason === "children") {
+    const childCounts = new Map<string, number>();
+    for (const current of records) {
+      if (current.parentId !== null) childCounts.set(current.parentId, (childCounts.get(current.parentId) ?? 0) + 1);
+    }
+    const boundedField = records.some(({ kind, fields }) => {
+      if (kind !== "ownership" && kind !== "outcome") return false;
+      const artifactIds = (fields as Readonly<Record<string, AnalyzerFacetValue>>)["artifactIds"];
+      return Array.isArray(artifactIds) && artifactIds.length === truncationWitness!.retained;
+    });
+    if (
+      truncationWitness.retained !== truncationWitness.limit ||
+      !boundedField && ![...childCounts.values()].some((count) => count === truncationWitness.retained)
+    ) refuse();
+  }
   const decisions = records.filter(({ kind }) => kind === "decision");
   const outcomes = records.filter(({ kind }) => kind === "outcome");
   const causes = records.filter(({ kind }) => kind === "cause");
@@ -181,13 +225,17 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
     if (JSON.stringify(fields["diagnosticInstanceIds"]) !== JSON.stringify(diagnosticIds)) refuse();
   }
   if (value["collectionTruncation"] === null) {
+    if (truncationWitness !== null) refuse();
     if (!decision || !outcome) refuse();
     const refused = (decision.fields as Readonly<Record<string, AnalyzerFacetValue>>)["decision"] === "refuse-static-route-plan";
     const skippedManifest = records.some(({ kind, fields }) =>
       kind === "skipped" && (fields as Readonly<Record<string, AnalyzerFacetValue>>)["workId"] === "manifest-publication");
     if (refused !== skippedManifest) refuse();
   }
-  const normalized = normalizeAnalyzerFacetValue({ ...value, records });
+  if (truncationWitness?.reason === "records" && (truncationWitness.retained !== records.length || truncationWitness.retained !== truncationWitness.limit)) {
+    refuse();
+  }
+  const normalized = normalizeAnalyzerFacetValue({ ...value, truncationWitness, records });
   return frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE, version: ROUTE_EXPLAIN_VERSION, value: normalized });
 }
 
@@ -233,7 +281,21 @@ export function processRouteExplainContribution(
   const kept: RouteExplainRecord[] = [];
   const keptIds = new Set<string>();
   const children = new Map<string, number>();
-  let truncation: AnalyzerExplainTruncationReason | null = value.collectionTruncation;
+  const sourceTruncation = value.collectionTruncation;
+  const sourceWitness = value.truncationWitness;
+  if (sourceTruncation !== null) {
+    const expectedLimit = sourceTruncation === "bytes" ? budgets.bytes
+      : sourceTruncation === "records" ? budgets.records
+        : sourceTruncation === "depth" ? budgets.depth : budgets.children;
+    if (!sourceWitness || sourceWitness.reason !== sourceTruncation || sourceWitness.limit !== expectedLimit) refuse();
+  }
+  let truncation: AnalyzerExplainTruncationReason | null = null;
+  let truncationWitness: RouteExplainValue["truncationWitness"] = null;
+  const truncate = (reason: AnalyzerExplainTruncationReason, limit: number, observed: number, retained: number): void => {
+    if (truncation !== null) return;
+    truncation = reason;
+    truncationWitness = frozen({ reason, limit, observed, retained });
+  };
   const emptyContribution = frozen({
     namespace: ROUTE_EXPLAIN_NAMESPACE,
     version: ROUTE_EXPLAIN_VERSION,
@@ -245,19 +307,24 @@ export function processRouteExplainContribution(
   for (const current of ordered) {
     const dependencies = [current.parentId, ...current.causedBy].filter((id): id is string => id !== null);
     if (dependencies.some((id) => !keptIds.has(id))) continue;
-    if (kept.length >= budgets.records) { truncation ??= "records"; continue; }
-    if (dependencyDepths.get(current.id)! > budgets.depth) { truncation ??= "depth"; continue; }
+    if (kept.length >= budgets.records) { truncate("records", budgets.records, value.records.length, kept.length); continue; }
+    const dependencyDepth = dependencyDepths.get(current.id)!;
+    if (dependencyDepth > budgets.depth) { truncate("depth", budgets.depth, dependencyDepth, budgets.depth); continue; }
     if (current.parentId !== null) {
       const count = children.get(current.parentId) ?? 0;
-      if (count >= budgets.children) { truncation ??= "children"; continue; }
+      if (count >= budgets.children) { truncate("children", budgets.children, count + 1, count); continue; }
     }
     const recordBytes = new TextEncoder().encode(JSON.stringify(current)).byteLength;
     const candidateBytes = emptyBytes - 2 + retainedRecordBytes + recordBytes + kept.length;
-    if (candidateBytes > budgets.bytes) { truncation ??= "bytes"; continue; }
+    if (candidateBytes > budgets.bytes) { truncate("bytes", budgets.bytes, candidateBytes, emptyBytes - 2 + retainedRecordBytes + kept.length); continue; }
     kept.push(current);
     retainedRecordBytes += recordBytes;
     keptIds.add(current.id);
     if (current.parentId !== null) children.set(current.parentId, (children.get(current.parentId) ?? 0) + 1);
+  }
+  if (truncation === null && sourceTruncation !== null) {
+    truncation = sourceTruncation;
+    truncationWitness = sourceWitness;
   }
   const contribution = frozen({
     namespace: ROUTE_EXPLAIN_NAMESPACE,
@@ -265,6 +332,7 @@ export function processRouteExplainContribution(
     value: normalizeAnalyzerFacetValue({
       ...value,
       collectionTruncation: truncation,
+      truncationWitness,
       records: kept.sort((left, right) => compareText(left.id, right.id)),
     }),
   });
@@ -354,15 +422,21 @@ export function createRouteExplainContribution(
   ) throw new TypeError("FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS");
   const records: RouteExplainRecord[] = [];
   let collectionTruncation: AnalyzerExplainTruncationReason | null = null;
+  let truncationWitness: RouteExplainValue["truncationWitness"] = null;
+  const truncate = (reason: AnalyzerExplainTruncationReason, limit: number, observed: number, retained: number): void => {
+    if (collectionTruncation !== null) return;
+    collectionTruncation = reason;
+    truncationWitness = frozen({ reason, limit, observed, retained });
+  };
   let projectedRecordBytes = 0;
   const add = (candidate: RouteExplainRecord): boolean => {
     if (records.length >= budgets.records) {
-      collectionTruncation ??= "records";
+      truncate("records", budgets.records, records.length + 1, records.length);
       return false;
     }
     const bytes = new TextEncoder().encode(JSON.stringify(candidate)).byteLength;
     if (projectedRecordBytes + bytes > budgets.bytes) {
-      collectionTruncation ??= "bytes";
+      truncate("bytes", budgets.bytes, projectedRecordBytes + bytes, projectedRecordBytes);
       return false;
     }
     projectedRecordBytes += bytes;
@@ -377,7 +451,7 @@ export function createRouteExplainContribution(
   for (const [index, result] of decisionAdded ? publication.graph.results.entries() : []) {
     const ownershipId = `ownership-${index + 1}`;
     const artifactIds = result.artifacts.slice(0, budgets.children).map(({ id }) => id);
-    if (artifactIds.length < result.artifacts.length) collectionTruncation ??= "children";
+    if (artifactIds.length < result.artifacts.length) truncate("children", budgets.children, result.artifacts.length, artifactIds.length);
     if (!add(record(ownershipId, "ownership", {
       nodeId: result.id,
       ownerPath: projectPath(publication.ownership.root, result.provenance.primaryOrigin.uri),
@@ -392,12 +466,22 @@ export function createRouteExplainContribution(
       }, ownershipId))) break;
     }
   }
-  const causeIds = new Map<string, string>();
-  for (const [index, diagnostic] of decisionAdded ? diagnostics.diagnostics.entries() : []) {
-    if (diagnostic.causedBy.some((instanceId) => !causeIds.has(instanceId))) {
-      collectionTruncation ??= "records";
-      continue;
+  const orderedDiagnostics: AnalyzerDiagnosticBatch["diagnostics"][number][] = [];
+  const pendingDiagnostics = new Map(diagnostics.diagnostics.map((diagnostic) => [diagnostic.instanceId, diagnostic]));
+  const orderedDiagnosticIds = new Set<string>();
+  while (pendingDiagnostics.size > 0) {
+    const ready = [...pendingDiagnostics.values()]
+      .filter(({ causedBy }) => causedBy.every((instanceId) => orderedDiagnosticIds.has(instanceId)))
+      .sort((left, right) => compareText(left.instanceId, right.instanceId));
+    if (ready.length === 0) refuse();
+    for (const diagnostic of ready) {
+      orderedDiagnostics.push(diagnostic);
+      orderedDiagnosticIds.add(diagnostic.instanceId);
+      pendingDiagnostics.delete(diagnostic.instanceId);
     }
+  }
+  const causeIds = new Map<string, string>();
+  for (const [index, diagnostic] of decisionAdded ? orderedDiagnostics.entries() : []) {
     const id = `cause-${index + 1}`;
     if (!add(record(id, "cause", {
       code: diagnostic.code,
@@ -408,7 +492,7 @@ export function createRouteExplainContribution(
   const causeId = (instanceId: string): string => causeIds.get(instanceId) ?? refuse();
   for (const skipped of decisionAdded ? diagnostics.skippedWork : []) {
     if (skipped.causedBy.some((instanceId) => !causeIds.has(instanceId))) {
-      collectionTruncation ??= "records";
+      truncate("records", budgets.records, records.length + 1, records.length);
       continue;
     }
     if (!add(record(`skipped-${skipped.id}`, "skipped", {
@@ -418,7 +502,7 @@ export function createRouteExplainContribution(
   }
   const retainedDiagnostics = diagnostics.diagnostics.filter(({ instanceId }) => causeIds.has(instanceId));
   const artifactIds = publication.artifacts.slice(0, budgets.children).map(({ id }) => id);
-  if (artifactIds.length < publication.artifacts.length) collectionTruncation ??= "children";
+  if (artifactIds.length < publication.artifacts.length) truncate("children", budgets.children, publication.artifacts.length, artifactIds.length);
   if (decisionAdded) {
     add(record("route-outcome", "outcome", {
       status: refused ? "static-refused" : "static-ready",
@@ -435,6 +519,7 @@ export function createRouteExplainContribution(
     publicationGeneration: publication.publicationGeneration,
     detail,
     collectionTruncation,
+    truncationWitness,
     records,
   });
   return frozen({ namespace: ROUTE_EXPLAIN_NAMESPACE, version: ROUTE_EXPLAIN_VERSION, value });

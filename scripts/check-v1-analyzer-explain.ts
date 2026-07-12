@@ -196,6 +196,20 @@ try {
   }
   const serializedFlow = serializeRouteExplainContribution(routeContribution[0]!);
   assert.equal(serializeRouteExplainContribution(deserializeRouteExplainContribution(serializedFlow)), serializedFlow);
+  for (const [reason, limit, retained] of [
+    ["records", 512, 512],
+    ["depth", 8, 8],
+    ["children", 64, 64],
+  ] as const) {
+    const invalid = JSON.parse(serializedFlow);
+    invalid.contribution.value.records = [];
+    invalid.contribution.value.collectionTruncation = reason;
+    invalid.contribution.value.truncationWitness = { reason, limit, observed: limit + 1, retained };
+    assert.throws(
+      () => deserializeRouteExplainContribution(JSON.stringify(invalid)),
+      /FADENO_ANALYZER_ROUTE_EXPLAIN_SERIALIZATION/u,
+    );
+  }
   for (const mutate of [
     (value: any) => { value.contribution.value.records[0].fields.observedRequestOrder = 1; },
     (value: any) => {
@@ -268,7 +282,7 @@ try {
         createRouteExplainContribution(active, emptyDiagnosticsFor(active), "semantic", budgets),
       ],
     }).result;
-    assert.equal(limited.status, "partial");
+    assert.equal(limited.status, "partial", `expected ${reason} truncation`);
     if (limited.status === "partial") {
       assert.equal(limited.truncation, reason);
       const serializedResult = serializeAnalyzerExplainResult(limited);
@@ -461,6 +475,32 @@ try {
     }],
     corrections: [], skippedWork: [{ id: "manifest-publication", causedByKeys: ["route-collision"] }],
   });
+  const forwardCausalDiagnostics = createAnalyzerDiagnosticBatch({
+    graph: collisionPublication.graph,
+    documents: session.currentSnapshot.documents,
+    diagnostics: [
+      {
+        key: "a-child", code: "FADENO_ROUTE_ROUTE_ROLE_OWNER", parameters: { role: "page", route: "/" },
+        primaryLocation: { uri: currentPage.uri, path: currentPage.path, range: null, rangeReason: "filesystem-entry" },
+        causedByKeys: ["z-parent"],
+      },
+      {
+        key: "z-parent", code: "FADENO_ROUTE_ROUTE_ROLE_COLLISION", parameters: { route: "/" },
+        primaryLocation: { uri: currentLayout.uri, path: currentLayout.path, range: null, rangeReason: "filesystem-entry" },
+      },
+    ],
+    corrections: [],
+    skippedWork: [],
+  });
+  const forwardCausalContribution = createRouteExplainContribution(
+    collisionPublication,
+    forwardCausalDiagnostics,
+    "semantic",
+    defaultExplainBudgets,
+  );
+  const forwardCauses = (forwardCausalContribution.value as any).records.filter(({ kind }: any) => kind === "cause");
+  assert.equal(forwardCauses.length, 2);
+  assert.equal(forwardCauses.some(({ causedBy }: any) => causedBy.length === 1), true);
   for (const mutate of [
     (value: any) => { value.identity.sessionId = "different-session"; },
     (value: any) => { value.identity.documentVersions[0].version += 1; },
@@ -570,6 +610,20 @@ try {
   assert.throws(
     () => deserializeAnalyzerExplainResult(JSON.stringify(relabeledTruncation)),
     /FADENO_ANALYZER_EXPLAIN_SERIALIZATION/u,
+  );
+  const maximumIdentity = JSON.parse(serializedSemanticFlow);
+  const maximumIdentityRoot = maximumIdentity.result.identity.ownership.root.endsWith("/")
+    ? maximumIdentity.result.identity.ownership.root
+    : `${maximumIdentity.result.identity.ownership.root}/`;
+  maximumIdentity.result.identity.documentVersions = Array.from({ length: 4_096 }, (_, index) => ({
+    uri: new URL(`document-${String(index).padStart(4, "0")}.tsx`, maximumIdentityRoot).href,
+    version: 0,
+    lifetime: 1,
+  }));
+  const serializedMaximumIdentity = serializeAnalyzerExplainResult(maximumIdentity.result);
+  assert.equal(
+    serializeAnalyzerExplainResult(deserializeAnalyzerExplainResult(serializedMaximumIdentity)),
+    serializedMaximumIdentity,
   );
   assert.equal(session.currentPublicationSnapshot?.facets[0]?.value && true, true);
   console.log("V1 analyzer B6 lifecycle passed (disabled, activation, cancellation, supersession, freshness)");

@@ -392,7 +392,10 @@ export class AnalyzerExplainCoordinator {
   }
 }
 
-const explainSerializationMaximumBytes = 300_000;
+// Publication identity is already bounded by the 9 MB publication transport;
+// this envelope adds requested module evidence and retains room for the maximum
+// canonical document-version set while carrying no document text.
+const explainSerializationMaximumBytes = 20_000_000;
 const analyzerSessionIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const explainRefusalCodes = new Set([
   "FADENO_ANALYZER_EXPLAIN_PUBLICATION",
