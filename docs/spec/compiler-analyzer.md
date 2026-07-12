@@ -461,6 +461,23 @@ redaction, or use unsupported versions are refused without corrupting the
 snapshot. Explanation never re-executes application behavior and is never
 required for correctness.
 
+V1-DX-B6 implements explain as a separate private read-only operation bound to
+the exact current publication and workspace/configuration authority. Disabled
+mode does not invoke a collector. A newer explain supersedes prior work;
+document, configuration, or publication work invalidates it; cancellation races
+late asynchronous collection without changing graph, diagnostic, artifact, or
+correction state. Deep collection requires an explicit activation flag and
+explicitly bounded budgets.
+
+The first module-owned projector is the independently versioned
+`fadeno.routes.explain` contribution. It derives semantic decisions, contained
+source ownership, generated-artifact identity, skipped diagnostic work, and a
+static outcome from immutable publication evidence. Deep mode additionally
+projects construction transformation provenance. It never reads source text,
+executes construction callbacks, or emits observed runtime facts. The generic
+envelope remains open to later independently versioned module codecs rather
+than enumerating future framework concepts.
+
 Private analyzer snapshots contain static facets only. Observed runtime
 operation records use a separate record family and schema with independently
 versioned module-owned contributions. The two families may be correlated

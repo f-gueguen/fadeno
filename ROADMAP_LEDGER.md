@@ -10,7 +10,7 @@ V1-DX-B6 — lazy bounded static plan and explanation
 
 ## Exit criteria
 
-- [ ] Add one private read-only lazy explain operation bound to an immutable
+- [x] Add one private read-only lazy explain operation bound to an immutable
   current publication without recomputation or correctness-state mutation.
 - [ ] Prove disabled zero-work, bounded semantic detail, and explicitly
   activated deep detail with independent byte/record/depth/duration/child limits.
@@ -36,6 +36,11 @@ V1-DX-B6 — lazy bounded static plan and explanation
   refuse atomically.
 - B6 replaces hand-projected flow claims with actual private analyzer-produced
   canonical-app evidence. B7 owns packed public check/watch/build execution.
+- The current B6 lifecycle checker proves disabled zero collection, activation
+  and budget refusal, semantic/deep route projection, no construction
+  re-execution, cancellation, supersession, document/publication staleness, and
+  unchanged correctness publication. Truncation and strict transport remain
+  open in this slice.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
