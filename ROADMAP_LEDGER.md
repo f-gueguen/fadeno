@@ -6,27 +6,27 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-02 — select the initial Web-standard runtime adapter
+V1-03 — freeze the initial package boundary
 
 ## Exit criteria
 
-- [x] Select built-in Node HTTP with a declared Node 22.17.0 adapter minimum.
-- [x] Declare streaming, backpressure, cancellation, proxy, trailer,
-  request-limit, and graceful-drain capabilities explicitly.
-- [x] Prove request/response translation, URL authority, delayed uploads,
-  response flush, slow-reader backpressure, cookies, cancellation, and
-  successful keep-alive behavior in strict TypeScript.
-- [x] Prove active-response drain, new-connection refusal, and idle shutdown
-  without defining timeout or force-close semantics.
-- [x] Repeat the suite on the digest-pinned exact minimum runtime and prove all
-  repository projections and local CI pass.
+- [x] Select one logical framework package with runtime-neutral `.` and
+  Node-only `./node` facades without selecting a registry identity.
+- [x] Preserve server, compiler, shared, and browser zones as private internal
+  graphs rather than speculative packages.
+- [x] Enforce cross-package static import, re-export, dynamic import, traversal,
+  symlink, and private deep-import refusals.
+- [x] Pack emitted JS/declarations, install outside the workspace, compile a
+  NodeNext consumer, and run an adapter request using package specifiers only.
+- [x] Prove the neutral root has no Node reachability, a present internal file
+  remains unexported, and all repository projections and local CI pass.
 
 ## In progress
 
-- ADR 0023 selects Node HTTP without creating a public adapter or support claim.
-- V1-03 next freezes the smallest package boundary using the demonstrated
-  workflow, adapter, K0 imports, and one private consumer.
-- Package names, route syntax, renderer boundaries, request security policy,
+- ADR 0024 selects one logical package and its dependency direction without
+  creating the real package or fixing the complete root API.
+- V1-04 next creates that package and a clean public adapter smoke consumer.
+- Registry naming, route syntax, renderer boundaries, request security policy,
   and adapter timeout/force-close behavior remain unresolved by this slice.
 
 ## Blockers
@@ -102,3 +102,6 @@ V1-02 — select the initial Web-standard runtime adapter
 - V1-01 — Commit `6d03a92` freezes the root TypeScript config, command and
   output ownership, strict environment precedence, and deterministic private
   workflow prototype through ADR 0022.
+- V1-02 — Commit `e417d8a` selects Node 22.17 HTTP through ADR 0023 and proves
+  request/response translation, streaming, backpressure, cancellation,
+  authority handling, cookies, and graceful drain in a private adapter suite.

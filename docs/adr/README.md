@@ -33,6 +33,7 @@ effective decision.
 21. [ADR 0021 — Reconcile K0 evidence into V1 delivery](0021-reconcile-k0-into-v1-delivery.md)
 22. [ADR 0022 — Toolchain and configuration contract](0022-toolchain-and-configuration-contract.md)
 23. [ADR 0023 — Node HTTP as the initial adapter](0023-node-http-initial-adapter.md)
+24. [ADR 0024 — Initial package boundary](0024-initial-package-boundary.md)
 
 ## Superseded decisions
 

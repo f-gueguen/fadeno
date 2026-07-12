@@ -57,21 +57,22 @@ violate an architectural constraint.
 - `scripts/` contains repository-wide policy checks.
 
 The initial repository deliberately has no fictional framework package or
-example application. The first real package and example arrive together at the
-V1-04 checkpoint after DG-V1-01 selects the boundary.
-
-DG-V1-01 blocks the first package boundary until K0 imports and a demonstrated
-consumer show the smallest useful split.
+example application. ADR 0024 selects one logical framework package from K0
+imports and a packed private consumer. The first real package and example
+arrive together at the V1-04 checkpoint.
 
 ## Dependency direction
 
-When packages are introduced, public facades may depend on private compiler or
-runtime implementation packages. Implementation packages may depend on small
-shared internal types. Adapters depend on the server contract. Examples depend
-only on public entrypoints.
+The initial package has a runtime-neutral `.` facade and a Node-specific
+`./node` facade. Public facades may depend inward on private implementation;
+the neutral root cannot reach Node, compiler, or browser-only graphs. Private
+zones may be reorganized without becoming independent public packages.
+Adapters depend on the server contract. Examples depend only on public
+entrypoints.
 
 No package may import another package through a relative filesystem path or a
-private deep import. A boundary check will enforce the rule when the first
+private deep import. The boundary check enforces static imports, re-exports,
+dynamic imports, traversal, and symlink canonicalization before the first real
 package is added.
 
 ## Evidence gates

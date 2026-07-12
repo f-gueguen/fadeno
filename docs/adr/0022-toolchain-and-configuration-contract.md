@@ -79,7 +79,8 @@ explicit public-input schema before receiving environment data.
 - The V1 toolchain gate is resolved and leaves the open-gate ledger.
 - V1-02 and V1-05 may add adapter and route fields only through their owning
   ADRs and the same closed typed config.
-- Package names and entrypoints remain blocked by DG-V1-01.
+- Package topology is owned by ADR 0024; registry naming remains a later owner
+  decision.
 - The prototype remains private evidence; it is not the `fadeno` executable.
 
 ## Validation
