@@ -1,0 +1,55 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/revalidation-workload-v1.json",
+  "schemaVersion": 1,
+  "visibility": "private-harness-control",
+  "seed": "fadeno-k0-h4-workload-v1",
+  "authentication": {
+    "principalId": "principal-001",
+    "tenantId": "tenant-001",
+    "secretCanary": "fadeno-auth-secret-must-not-escape"
+  },
+  "dataset": { "rowCount": 10000, "generator": "deterministic-row-v1" },
+  "resources": ["activity", "notifications", "permissions", "profile", "projects", "tasks"],
+  "pageReads": [
+    { "resource": "profile", "input": { "view": "self" } },
+    { "resource": "projects", "input": { "limit": 32, "order": "rank" } },
+    { "resource": "tasks", "input": { "view": "all" } },
+    { "resource": "activity", "input": { "limit": 8 } },
+    { "resource": "notifications", "input": { "status": "unread" } },
+    { "resource": "permissions", "input": { "action": "complete-task" } },
+    { "resource": "profile", "input": { "view": "self" } },
+    { "resource": "projects", "input": { "order": "rank", "limit": 32 } },
+    { "resource": "tasks", "input": { "view": "all" } }
+  ],
+  "identityControls": {
+    "resource": "tasks",
+    "equivalentInputs": [
+      { "view": "all", "filters": { "completed": false, "owner": "self" } },
+      { "filters": { "owner": "self", "completed": false }, "view": "all" }
+    ],
+    "distinctInput": { "view": "archived", "filters": { "completed": true, "owner": "self" } }
+  },
+  "mutation": { "id": "complete-task", "affectedResource": "tasks", "rowId": 4242 },
+  "paths": ["success", "expected-error"],
+  "comparison": {
+    "strategy": "canonical-tagged-json-v1",
+    "handles": ["value", "expected-error", "ordering"],
+    "refuses": ["non-cacheable"]
+  },
+  "unsafeKeeps": [
+    { "id": "keeps-mutated-task-value", "class": "value", "declaredResource": "tasks" },
+    { "id": "keeps-error-transition", "class": "expected-error", "declaredResource": "permissions" },
+    { "id": "keeps-reordered-projects", "class": "ordering", "declaredResource": "projects" },
+    { "id": "keeps-non-cacheable-activity", "class": "non-cacheable", "declaredResource": "activity" }
+  ],
+  "qualificationProfile": {
+    "correctnessCycles": 10000,
+    "warmupActions": 100,
+    "measuredActions": 1000,
+    "memoryCycles": 10000,
+    "randomSeed": "fadeno-k0-h4-cycles-v1",
+    "defaultToSelectiveP95MaximumRatio": 2,
+    "defaultP95MaximumMilliseconds": 300,
+    "memoryGrowthMaximumRatio": 0.1
+  }
+}

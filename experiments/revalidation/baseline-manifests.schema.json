@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-baselines-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "visibility", "default", "selective"],
+  "properties": {
+    "$schema": { "const": "https://fadeno.dev/schemas/experiment/revalidation-baselines-v1.json" },
+    "schemaVersion": { "const": 1 },
+    "visibility": { "const": "private-harness-control" },
+    "default": { "const": { "mode": "correctness-first", "revalidates": ["activity", "notifications", "permissions", "profile", "projects", "tasks"] } },
+    "selective": { "const": { "mode": "comparison-only", "revalidates": ["tasks"], "publicApi": false } }
+  }
+}

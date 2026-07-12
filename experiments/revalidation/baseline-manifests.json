@@ -1,0 +1,14 @@
+{
+  "$schema": "https://fadeno.dev/schemas/experiment/revalidation-baselines-v1.json",
+  "schemaVersion": 1,
+  "visibility": "private-harness-control",
+  "default": {
+    "mode": "correctness-first",
+    "revalidates": ["activity", "notifications", "permissions", "profile", "projects", "tasks"]
+  },
+  "selective": {
+    "mode": "comparison-only",
+    "revalidates": ["tasks"],
+    "publicApi": false
+  }
+}

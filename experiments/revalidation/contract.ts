@@ -1,0 +1,66 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const REVALIDATION_RESOURCE_IDS = ["activity", "notifications", "permissions", "profile", "projects", "tasks"] as const;
+export type RevalidationResourceId = typeof REVALIDATION_RESOURCE_IDS[number];
+export type RevalidationInput = Readonly<Record<string, unknown>>;
+export type RevalidationRead = Readonly<{ resource: RevalidationResourceId; input: RevalidationInput }>;
+export type RevalidationBaselines = Readonly<{
+  schemaVersion: 1;
+  visibility: "private-harness-control";
+  default: Readonly<{ mode: "correctness-first"; revalidates: typeof REVALIDATION_RESOURCE_IDS }>;
+  selective: Readonly<{ mode: "comparison-only"; revalidates: readonly ["tasks"]; publicApi: false }>;
+}>;
+export type RevalidationWorkload = Readonly<{
+  schemaVersion: 1;
+  visibility: "private-harness-control";
+  seed: string;
+  authentication: Readonly<{ principalId: string; tenantId: string; secretCanary: string }>;
+  dataset: Readonly<{ rowCount: 10000; generator: "deterministic-row-v1" }>;
+  resources: readonly RevalidationResourceId[];
+  pageReads: readonly RevalidationRead[];
+  identityControls: Readonly<{
+    resource: "tasks";
+    equivalentInputs: readonly [RevalidationInput, RevalidationInput];
+    distinctInput: RevalidationInput;
+  }>;
+  mutation: Readonly<{ id: "complete-task"; affectedResource: "tasks"; rowId: 4242 }>;
+  paths: readonly ["success", "expected-error"];
+  comparison: Readonly<{ strategy: "canonical-tagged-json-v1"; handles: readonly string[]; refuses: readonly ["non-cacheable"] }>;
+  unsafeKeeps: readonly Readonly<{ id: string; class: "value" | "expected-error" | "ordering" | "non-cacheable"; declaredResource: RevalidationResourceId }>[];
+  qualificationProfile: Readonly<{
+    correctnessCycles: 10000; warmupActions: 100; measuredActions: 1000; memoryCycles: 10000;
+    randomSeed: "fadeno-k0-h4-cycles-v1";
+    defaultToSelectiveP95MaximumRatio: 2; defaultP95MaximumMilliseconds: 300; memoryGrowthMaximumRatio: 0.1;
+  }>;
+}>;
+
+const root = dirname(fileURLToPath(import.meta.url));
+export function loadRevalidationWorkload(): RevalidationWorkload {
+  return JSON.parse(readFileSync(join(root, "workload.json"), "utf8")) as RevalidationWorkload;
+}
+
+export function loadRevalidationBaselines(): RevalidationBaselines {
+  return JSON.parse(readFileSync(join(root, "baseline-manifests.json"), "utf8")) as RevalidationBaselines;
+}
+
+export function stableRevalidationContract(): string {
+  const files = ["baseline-manifests.json", "baseline-manifests.schema.json", "workload.json", "workload.schema.json"];
+  const workload = loadRevalidationWorkload();
+  return `${JSON.stringify({
+    schemaVersion: 1,
+    visibility: "private-harness-contract",
+    hypothesis: "H4",
+    workload: {
+      ...workload,
+      authentication: { ...workload.authentication, secretCanary: "[redacted]" },
+    },
+    baselines: loadRevalidationBaselines(),
+    sources: files.map((path) => ({
+      path,
+      sha256: createHash("sha256").update(readFileSync(join(root, path))).digest("hex"),
+    })),
+  })}\n`;
+}
