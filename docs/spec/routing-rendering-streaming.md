@@ -1,8 +1,9 @@
 # Routing, rendering, streaming, and failures
 
 This specification defines required V1 behavior. ADR 0027 fixes filesystem and
-link construction syntax. Rendering and streaming signatures remain blocked by
-DG-V1-03 and DG-V1-08.
+link construction syntax; ADR 0028 fixes rendering sink security. Renderer
+shape and streaming signatures remain later work, with streaming blocked by
+DG-V1-08.
 
 ## Route model
 
@@ -63,8 +64,9 @@ application; no package-global route registration exists.
 7. Framework diagnostics and error pages do not disclose secrets, cookie
    contents, authorization headers, or sensitive field values.
 
-DG-V1-03 fixes the unsafe capability and exact context rules only after the
-renderer threat model and negative fixtures exist.
+ADR 0028 fixes the exact sink taxonomy, unsafe capability, URL XSS floor,
+prohibited CSS/RAWTEXT/foreign contexts, nonce ownership, and redaction limits.
+V1-09 owns the JSX renderer and real parser/CSP integration.
 
 ## Streaming and boundaries
 
