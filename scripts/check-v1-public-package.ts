@@ -104,6 +104,8 @@ try {
     "package/dist/index.js",
     "package/dist/jsx-runtime.d.ts",
     "package/dist/jsx-runtime.js",
+    "package/dist/internal/analyzer-session.d.ts",
+    "package/dist/internal/analyzer-session.js",
     "package/dist/internal/config.d.ts",
     "package/dist/internal/config.js",
     "package/dist/internal/diagnostic.d.ts",
@@ -231,6 +233,12 @@ try {
   writeFileSync(join(consumer, "routing-deep-import.ts"), `import { generateRoutes } from "${packageName}/internal/routing/generator";\nvoid generateRoutes;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "routing-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/routing/generator")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+  const analyzerJs = join(installedPackage, "dist/internal/analyzer-session.js");
+  const analyzerTypes = join(installedPackage, "dist/internal/analyzer-session.d.ts");
+  if (!existsSync(analyzerJs) || !existsSync(analyzerTypes)) throw new Error("FADENO_PUBLIC_PACKAGE_ANALYZER_INTERNAL_ABSENT");
+  writeFileSync(join(consumer, "analyzer-deep-import.ts"), `import { AnalyzerSession } from "${packageName}/internal/analyzer-session";\nvoid AnalyzerSession;\n`);
+  expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-deep-import.ts"], consumer, "TS2307");
+  expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-session")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
 } finally {
   rmSync(join(packageRoot, "dist"), { recursive: true, force: true });
   rmSync(temporaryRoot, { recursive: true, force: true });

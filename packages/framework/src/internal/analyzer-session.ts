@@ -1,0 +1,332 @@
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+export type AnalyzerRefusalCode =
+  | "FADENO_ANALYZER_DOCUMENT_SCHEME"
+  | "FADENO_ANALYZER_URI_AUTHORITY"
+  | "FADENO_ANALYZER_URI_QUERY"
+  | "FADENO_ANALYZER_URI_FRAGMENT"
+  | "FADENO_ANALYZER_DOCUMENT_ESCAPE"
+  | "FADENO_ANALYZER_DOCUMENT_ROOT"
+  | "FADENO_ANALYZER_DOCUMENT_SYMLINK"
+  | "FADENO_ANALYZER_DOCUMENT_DIRECTORY"
+  | "FADENO_ANALYZER_DOCUMENT_TYPE"
+  | "FADENO_ANALYZER_DOCUMENT_PARENT"
+  | "FADENO_ANALYZER_DOCUMENT_ENCODING"
+  | "FADENO_ANALYZER_DOCUMENT_OPEN"
+  | "FADENO_ANALYZER_DOCUMENT_CLOSED"
+  | "FADENO_ANALYZER_VERSION"
+  | "FADENO_ANALYZER_CLOSE_VERSION"
+  | "FADENO_ANALYZER_EDIT_RANGE"
+  | "FADENO_ANALYZER_TEXT";
+
+export interface AnalyzerTextEdit {
+  readonly start: number;
+  readonly end: number;
+  readonly text: string;
+}
+
+export interface AnalyzerDocumentSnapshot {
+  readonly path: string;
+  readonly uri: string;
+  readonly savedRevision: number;
+  readonly open: Readonly<{ version: number; lifetime: number }> | null;
+  readonly effective: Readonly<{ source: "saved" | "overlay"; text: string }>;
+}
+
+export interface AnalyzerDocumentVersion {
+  readonly uri: string;
+  readonly version: number;
+  readonly lifetime: number;
+}
+
+export interface AnalyzerDocumentOnlySnapshot {
+  readonly analyzerVersion: 1;
+  readonly schemaVersion: 1;
+  readonly operationId: string;
+  readonly operation: "initialize" | "save" | "open" | "change" | "replace" | "close";
+  readonly workspaceEpoch: number;
+  readonly requestedFacets: readonly [];
+  readonly documentVersions: readonly AnalyzerDocumentVersion[];
+  readonly ownership: Readonly<{ mode: "single-root"; root: string }>;
+  readonly documents: readonly AnalyzerDocumentSnapshot[];
+  readonly completeness: "complete";
+  readonly interruption: null;
+  readonly truncated: false;
+}
+
+export type AnalyzerAccepted = Readonly<{
+  accepted: true;
+  operationId: string;
+  snapshot: AnalyzerDocumentOnlySnapshot;
+}>;
+
+export type AnalyzerRefused = Readonly<{
+  accepted: false;
+  operationId: string;
+  code: AnalyzerRefusalCode;
+  currentEpoch: number;
+  currentDocumentVersion: number | null;
+  currentLifetime: number | null;
+}>;
+
+export type AnalyzerOperationResult = AnalyzerAccepted | AnalyzerRefused;
+
+interface DocumentState {
+  readonly owner: string;
+  savedText?: string;
+  savedRevision: number;
+  overlayText?: string;
+  overlayVersion?: number;
+  overlayLifetime?: number;
+  nextLifetime: number;
+}
+
+class Refusal extends Error {
+  readonly code: AnalyzerRefusalCode;
+
+  constructor(code: AnalyzerRefusalCode) {
+    super(code);
+    this.code = code;
+  }
+}
+
+function refuse(code: AnalyzerRefusalCode): never {
+  throw new Refusal(code);
+}
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function frozen<T extends object>(value: T): Readonly<T> {
+  return Object.freeze(value);
+}
+
+function assertText(value: unknown): asserts value is string {
+  if (typeof value !== "string") refuse("FADENO_ANALYZER_TEXT");
+}
+
+function assertVersion(value: unknown): asserts value is number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) refuse("FADENO_ANALYZER_VERSION");
+}
+
+export class AnalyzerSession {
+  readonly #inputRoot: string;
+  readonly #root: string;
+  readonly #rootUri: string;
+  readonly #documents = new Map<string, DocumentState>();
+  #epoch = 0;
+  #operationSequence = 0;
+  #snapshot: AnalyzerDocumentOnlySnapshot;
+
+  constructor(projectRoot: string) {
+    if (typeof projectRoot !== "string" || !isAbsolute(projectRoot)) throw new TypeError("FADENO_ANALYZER_ROOT");
+    const absolute = resolve(projectRoot);
+    if (!existsSync(absolute)) throw new TypeError("FADENO_ANALYZER_ROOT_MISSING");
+    const status = lstatSync(absolute);
+    if (status.isSymbolicLink() || !status.isDirectory()) {
+      throw new TypeError("FADENO_ANALYZER_ROOT_OWNERSHIP");
+    }
+    this.#inputRoot = absolute;
+    this.#root = realpathSync(absolute);
+    this.#rootUri = pathToFileURL(this.#root.endsWith(sep) ? this.#root : `${this.#root}${sep}`).href;
+    this.#snapshot = this.#createSnapshot("session-initialize", "initialize");
+  }
+
+  get currentSnapshot(): AnalyzerDocumentOnlySnapshot {
+    return this.#snapshot;
+  }
+
+  save(document: string, text: string): AnalyzerOperationResult {
+    return this.#operate("save", document, (owner) => {
+      assertText(text);
+      const state = this.#documents.get(owner) ?? { owner, savedRevision: 0, nextLifetime: 0 };
+      state.savedText = text;
+      state.savedRevision += 1;
+      this.#documents.set(owner, state);
+    });
+  }
+
+  open(document: string, version: number, text: string): AnalyzerOperationResult {
+    return this.#operate("open", document, (owner) => {
+      assertVersion(version);
+      assertText(text);
+      const state = this.#documents.get(owner) ?? this.#initialState(owner);
+      if (state.overlayVersion !== undefined) refuse("FADENO_ANALYZER_DOCUMENT_OPEN");
+      state.nextLifetime += 1;
+      state.overlayLifetime = state.nextLifetime;
+      state.overlayVersion = version;
+      state.overlayText = text;
+      this.#documents.set(owner, state);
+    });
+  }
+
+  change(document: string, version: number, edits: readonly AnalyzerTextEdit[]): AnalyzerOperationResult {
+    return this.#operate("change", document, (owner) => {
+      assertVersion(version);
+      const state = this.#requireOpen(owner);
+      if (version <= state.overlayVersion!) refuse("FADENO_ANALYZER_VERSION");
+      if (!Array.isArray(edits)) refuse("FADENO_ANALYZER_EDIT_RANGE");
+      let next = state.overlayText!;
+      for (const edit of edits) {
+        if (
+          typeof edit !== "object" || edit === null || !Number.isInteger(edit.start) || !Number.isInteger(edit.end) ||
+          edit.start < 0 || edit.end < edit.start || edit.end > next.length || typeof edit.text !== "string"
+        ) refuse("FADENO_ANALYZER_EDIT_RANGE");
+        next = `${next.slice(0, edit.start)}${edit.text}${next.slice(edit.end)}`;
+      }
+      state.overlayText = next;
+      state.overlayVersion = version;
+    });
+  }
+
+  replace(document: string, version: number, text: string): AnalyzerOperationResult {
+    return this.#operate("replace", document, (owner) => {
+      assertVersion(version);
+      assertText(text);
+      const state = this.#requireOpen(owner);
+      if (version <= state.overlayVersion!) refuse("FADENO_ANALYZER_VERSION");
+      state.overlayText = text;
+      state.overlayVersion = version;
+    });
+  }
+
+  close(document: string, version: number): AnalyzerOperationResult {
+    return this.#operate("close", document, (owner) => {
+      assertVersion(version);
+      const state = this.#requireOpen(owner);
+      if (version !== state.overlayVersion) refuse("FADENO_ANALYZER_CLOSE_VERSION");
+      delete state.overlayText;
+      delete state.overlayVersion;
+      delete state.overlayLifetime;
+    });
+  }
+
+  #operate(
+    operation: Exclude<AnalyzerDocumentOnlySnapshot["operation"], "initialize">,
+    document: string,
+    transition: (owner: string) => void,
+  ): AnalyzerOperationResult {
+    const operationId = `analyzer-operation-${++this.#operationSequence}`;
+    let owner: string | undefined;
+    try {
+      owner = this.#canonicalOwner(document);
+      transition(owner);
+      this.#epoch += 1;
+      this.#snapshot = this.#createSnapshot(operationId, operation);
+      return frozen({ accepted: true as const, operationId, snapshot: this.#snapshot });
+    } catch (error) {
+      if (!(error instanceof Refusal)) throw error;
+      const state = owner === undefined ? undefined : this.#documents.get(owner);
+      return frozen({
+        accepted: false as const,
+        operationId,
+        code: error.code,
+        currentEpoch: this.#epoch,
+        currentDocumentVersion: state?.overlayVersion ?? null,
+        currentLifetime: state?.overlayLifetime ?? null,
+      });
+    }
+  }
+
+  #requireOpen(owner: string): DocumentState {
+    const state = this.#documents.get(owner);
+    if (!state || state.overlayVersion === undefined || state.overlayText === undefined || state.overlayLifetime === undefined) {
+      refuse("FADENO_ANALYZER_DOCUMENT_CLOSED");
+    }
+    return state;
+  }
+
+  #initialState(owner: string): DocumentState {
+    const state: DocumentState = { owner, savedRevision: 0, nextLifetime: 0 };
+    if (existsSync(owner)) {
+      const status = lstatSync(owner);
+      if (!status.isFile()) refuse(status.isDirectory() ? "FADENO_ANALYZER_DOCUMENT_DIRECTORY" : "FADENO_ANALYZER_DOCUMENT_TYPE");
+      try {
+        state.savedText = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(owner));
+      } catch {
+        refuse("FADENO_ANALYZER_DOCUMENT_ENCODING");
+      }
+    }
+    return state;
+  }
+
+  #canonicalOwner(document: string): string {
+    if (typeof document !== "string" || document.length === 0 || document.includes("\0")) {
+      refuse("FADENO_ANALYZER_DOCUMENT_SCHEME");
+    }
+    let candidate: string;
+    if (/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(document)) {
+      let url: URL;
+      try { url = new URL(document); } catch { refuse("FADENO_ANALYZER_DOCUMENT_SCHEME"); }
+      if (url.protocol !== "file:") refuse("FADENO_ANALYZER_DOCUMENT_SCHEME");
+      if (url.host !== "") refuse("FADENO_ANALYZER_URI_AUTHORITY");
+      if (url.search !== "") refuse("FADENO_ANALYZER_URI_QUERY");
+      if (url.hash !== "") refuse("FADENO_ANALYZER_URI_FRAGMENT");
+      try { candidate = resolve(fileURLToPath(url)); } catch { refuse("FADENO_ANALYZER_DOCUMENT_SCHEME"); }
+    } else {
+      candidate = resolve(this.#root, document);
+    }
+    let containment = relative(this.#inputRoot, candidate);
+    if (containment.startsWith("..") || isAbsolute(containment)) containment = relative(this.#root, candidate);
+    if (containment === "") refuse("FADENO_ANALYZER_DOCUMENT_ROOT");
+    if (containment.startsWith("..") || isAbsolute(containment)) refuse("FADENO_ANALYZER_DOCUMENT_ESCAPE");
+    candidate = join(this.#root, containment);
+    const parts = containment.split(sep);
+    let cursor = this.#root;
+    let missing = false;
+    for (const [index, part] of parts.entries()) {
+      cursor = join(cursor, part);
+      if (missing || !existsSync(cursor)) {
+        missing = true;
+        continue;
+      }
+      const status = lstatSync(cursor);
+      if (status.isSymbolicLink()) refuse("FADENO_ANALYZER_DOCUMENT_SYMLINK");
+      const last = index === parts.length - 1;
+      if (!last && !status.isDirectory()) refuse("FADENO_ANALYZER_DOCUMENT_PARENT");
+      if (last && status.isDirectory()) refuse("FADENO_ANALYZER_DOCUMENT_DIRECTORY");
+      if (last && !status.isFile()) refuse("FADENO_ANALYZER_DOCUMENT_TYPE");
+    }
+    return candidate;
+  }
+
+  #createSnapshot(operationId: string, operation: AnalyzerDocumentOnlySnapshot["operation"]): AnalyzerDocumentOnlySnapshot {
+    const documents: AnalyzerDocumentSnapshot[] = [];
+    const versions: AnalyzerDocumentVersion[] = [];
+    for (const state of [...this.#documents.values()].sort((left, right) => compareText(left.owner, right.owner))) {
+      const open = state.overlayVersion === undefined || state.overlayLifetime === undefined
+        ? null
+        : frozen({ version: state.overlayVersion, lifetime: state.overlayLifetime });
+      if (!open && state.savedText === undefined) continue;
+      const effective = open
+        ? frozen({ source: "overlay" as const, text: state.overlayText! })
+        : frozen({ source: "saved" as const, text: state.savedText! });
+      const uri = pathToFileURL(state.owner).href;
+      documents.push(frozen({
+        path: relative(this.#root, state.owner).split(sep).join("/"),
+        uri,
+        savedRevision: state.savedRevision,
+        open,
+        effective,
+      }));
+      if (open) versions.push(frozen({ uri, version: open.version, lifetime: open.lifetime }));
+    }
+    return frozen({
+      analyzerVersion: 1 as const,
+      schemaVersion: 1 as const,
+      operationId,
+      operation,
+      workspaceEpoch: this.#epoch,
+      requestedFacets: frozen([]) as readonly [],
+      documentVersions: frozen(versions),
+      ownership: frozen({ mode: "single-root" as const, root: this.#rootUri }),
+      documents: frozen(documents),
+      completeness: "complete" as const,
+      interruption: null,
+      truncated: false as const,
+    });
+  }
+}

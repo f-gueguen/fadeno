@@ -50,8 +50,46 @@ Document versions are monotonic. One operation may apply multiple sequential,
 position-dependent edits; each edit addresses the text produced by the
 preceding edit. Full-document replacement, close, and reopen are explicit.
 Invalid or out-of-order versions are refused without mutating current text.
-Normalization and line-ending tests prove the analyzer text is byte-for-byte
-equivalent to its declared owner after each accepted operation.
+Normalization and line-ending tests prove the analyzer string is
+code-unit-for-code-unit equivalent to its declared owner after each accepted
+operation.
+
+V1-DX-B1 represents saved backing text and an open unsaved overlay separately.
+While open, the overlay is authoritative. A saved-file notification updates the
+backing text without replacing the overlay; close reveals the latest backing
+text. Reopen creates a new lifetime identity and may restart its document
+version, so earlier-lifetime work cannot match it. Close carries the expected
+current open version.
+
+Edit coordinates are zero-based JavaScript string code-unit offsets with half-open
+`[start, end)` ranges. A batch is applied in declared order to a temporary text,
+where edit N addresses the result of edit N-1. The complete batch commits once;
+the analyzer never sorts edits or retains a valid prefix after a later refusal.
+Non-integer, reversed, and out-of-bounds ranges are refused.
+
+Every accepted transition advances the workspace epoch, including a same-text
+replacement or saved notification with a new internal revision. A refusal
+returns a frozen internal code and attempted operation identity but does not
+change document state, lifetime, version, epoch, or the current snapshot.
+
+Canonical document keys are file-backed paths beneath one absolute real root.
+Equivalent absolute paths and encoded `file:` URIs collapse to one owner.
+Other schemes, URI authority/query/fragment, root or directory ownership,
+escapes, symlink components/aliases, and a second root are refused. Existing
+files must be ordinary files. A new in-root file is accepted only when its
+nearest existing ancestor is a real contained directory. Paths are never
+lowercased generically.
+
+Source JavaScript strings are preserved code-unit-for-code-unit; URI
+normalization never changes text or line endings. Existing files decode as
+fatal UTF-8 while preserving an initial BOM as U+FEFF. LF, CRLF, BOM, and
+non-ASCII fixtures assert exact effective text rather than making a byte claim
+about JavaScript strings.
+
+B1 snapshots contain only the frozen operation envelope, ownership identity,
+and effective document states. They have no facets. Every nested object and
+array is frozen and prior snapshots remain unchanged. B2 adds namespaced facets
+and serialization without redefining this document authority.
 
 ## Invalidation, recomputation, and publication
 
