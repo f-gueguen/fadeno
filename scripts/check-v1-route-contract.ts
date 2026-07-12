@@ -13,12 +13,18 @@ import { tmpdir } from "node:os";
 import Ajv2020Module from "ajv/dist/2020.js";
 
 import {
+  assertRouteManifestSemantics,
   discoverRouteManifest,
   routeHref,
   RouteContractError,
   stableRouteManifest,
   type RouteManifest,
 } from "../prototypes/v1/routing-contract/contract.ts";
+import {
+  routeTypeModel,
+  type RouteHrefInput,
+  type RouteHrefFunction,
+} from "../prototypes/v1/routing-contract/types/generated-routes.ts";
 
 const root = join(import.meta.dirname, "..");
 const contractRoot = join(root, "prototypes/v1/routing-contract");
@@ -64,12 +70,14 @@ function withProject<T>(entries: readonly FixtureEntry[], run: (project: string)
   }
 }
 
-function expectCode(code: string, entries: readonly FixtureEntry[]): void {
+function expectCode(code: string, entries: readonly FixtureEntry[], locations?: readonly string[]): void {
   withProject(entries, (project) => {
     try {
       discoverRouteManifest(project, { root: "src/routes" });
     } catch (error) {
-      if (error instanceof RouteContractError && error.code === code && error.locations.every((path) => !path.startsWith("/"))) return;
+      if (error instanceof RouteContractError && error.code === code &&
+          error.locations.every((path) => !path.startsWith("/")) &&
+          (locations === undefined || JSON.stringify(error.locations) === JSON.stringify([...locations].sort()))) return;
       throw error;
     }
     throw new Error(`FADENO_V1_ROUTE_EXPECTED:${code}`);
@@ -89,6 +97,7 @@ const manifests = Array.from({ length: 7 }, (_, index) => withProject(validEntri
 if (new Set(manifests).size !== 1) throw new Error("FADENO_V1_ROUTE_NONDETERMINISTIC");
 const manifest = JSON.parse(manifests[0]!) as RouteManifest;
 if (!validate(manifest)) throw new Error(`FADENO_V1_ROUTE_SCHEMA:${JSON.stringify(validate.errors)}`);
+assertRouteManifestSemantics(manifest);
 if (manifests[0]!.includes(tmpdir()) || manifests[0]!.includes("\\")) throw new Error("FADENO_V1_ROUTE_HOST_PATH");
 const ids = manifest.routes.map(({ id }) => id);
 if (JSON.stringify(ids) !== JSON.stringify([...ids].sort())) throw new Error("FADENO_V1_ROUTE_ORDER");
@@ -98,14 +107,22 @@ if (JSON.stringify(member?.layouts) !== JSON.stringify(["src/routes/layout.tsx",
   throw new Error("FADENO_V1_ROUTE_INHERITANCE");
 }
 
+const manifestTypeModel = Object.fromEntries(manifest.routes.map((route) => [
+  route.id,
+  Object.fromEntries(route.parameters.map(({ name, kind }) => [name, kind === "rest" ? "rest" : "single"])),
+]));
+if (JSON.stringify(manifestTypeModel) !== JSON.stringify(routeTypeModel)) throw new Error("FADENO_V1_ROUTE_TYPE_MODEL_LINK");
+
+const publicRouteHref = ((input: RouteHrefInput): string => routeHref(manifest, input)) as RouteHrefFunction;
+
 const exactLinks = [
   [{ route: "/" }, "/"],
   [{ route: "/accounts/[accountId]", parameters: { accountId: "a/b ?#% ü !" } }, "/accounts/a%2Fb%20%3F%23%25%20%C3%BC%20%21"],
   [{ route: "/teams/[teamId]/members/[memberId]", parameters: { teamId: "one", memberId: "two" } }, "/teams/one/members/two"],
   [{ route: "/files/[...parts]", parameters: { parts: ["a/b", "two words"] } }, "/files/a%2Fb/two%20words"],
-] as const;
+] as const satisfies readonly (readonly [RouteHrefInput, string])[];
 for (const [input, expected] of exactLinks) {
-  if (routeHref(manifest, input) !== expected) throw new Error(`FADENO_V1_ROUTE_LINK:${expected}`);
+  if (publicRouteHref(input) !== expected) throw new Error(`FADENO_V1_ROUTE_LINK:${expected}`);
 }
 for (const invalid of [
   { route: "/missing" },
@@ -116,6 +133,7 @@ for (const invalid of [
   { route: "/accounts/[accountId]", parameters: { accountId: "ok", extra: "no" } },
   { route: "/files/[...parts]", parameters: { parts: [] } },
   { route: "/files/[...parts]", parameters: { parts: ["ok", "."] } },
+  { route: "/accounts/[accountId]", parameters: { accountId: "\ud800" } },
   Object.assign(Object.create({ inherited: true }) as object, { route: "/" }),
 ]) {
   let refused = false;
@@ -123,19 +141,20 @@ for (const invalid of [
   if (!refused) throw new Error("FADENO_V1_ROUTE_LINK_REFUSAL");
 }
 
-for (const [code, entries] of [
-  ["ROUTE_ROLE_COLLISION", [["page.tsx"], ["handler.ts"]]],
-  ["DYNAMIC_SIBLING_COLLISION", [["[id]/page.tsx"], ["[slug]/page.tsx"]]],
-  ["REST_SIBLING_COLLISION", [["[...one]/page.tsx"], ["[...two]/page.tsx"]]],
-  ["REST_NOT_TERMINAL", [["[...parts]/child/page.tsx"]]],
+for (const [code, entries, locations] of [
+  ["ROUTE_ROLE_COLLISION", [["page.tsx"], ["handler.ts"]], ["src/routes/handler.ts", "src/routes/page.tsx"]],
+  ["DYNAMIC_SIBLING_COLLISION", [["[id]/page.tsx"], ["[slug]/page.tsx"]], ["src/routes/[id]", "src/routes/[slug]"]],
+  ["REST_SIBLING_COLLISION", [["[...one]/page.tsx"], ["[...two]/page.tsx"]], ["src/routes/[...one]", "src/routes/[...two]"]],
+  ["REST_NOT_TERMINAL", [["[...parts]/child/page.tsx"]], ["src/routes/[...parts]", "src/routes/[...parts]/child"]],
   ["PARAMETER_DUPLICATE", [["[id]/child/[id]/page.tsx"]]],
   ["PARAMETER_NAME", [["[constructor]/page.tsx"]]],
   ["SEGMENT_NAME", [["Upper/page.tsx"]]],
   ["SEGMENT_NAME", [["café/page.tsx"]]],
   ["SEGMENT_NAME", [["percent%20name/page.tsx"]]],
+  ["SEGMENT_NAME", [["bad\\name/page.tsx"]]],
   ["UNSUPPORTED_ENTRY", [["page.ts"]]],
   ["UNSUPPORTED_ENTRY", [[".hidden"]]],
-] as const) expectCode(code, entries as readonly FixtureEntry[]);
+] as const) expectCode(code, entries as readonly FixtureEntry[], locations);
 
 withProject([["page.tsx"]], (project) => {
   const outside = join(project, "outside.tsx");
@@ -170,9 +189,19 @@ withProject([], (project) => {
     if (!(error instanceof RouteContractError) || error.code !== "SYMLINK") throw error;
   }
 });
+withProject([], (project) => {
+  mkdirSync(join(project, "actual"));
+  symlinkSync(join(project, "actual"), join(project, "linked"));
+  try {
+    discoverRouteManifest(project, { root: "linked/routes" });
+    throw new Error("FADENO_V1_ROUTE_EXPECTED:INTERMEDIATE_SYMLINK");
+  } catch (error) {
+    if (!(error instanceof RouteContractError) || error.code !== "SYMLINK") throw error;
+  }
+});
 
 withProject([["page.tsx"]], (project) => {
-  for (const configured of ["", ".", "../routes", "src\\routes", "/tmp/routes", "C:/routes", "src//routes"]) {
+  for (const configured of ["", ".", "../routes", "src/../routes", "src/routes/..", "src/routes/.", "src\\routes", "/tmp/routes", "C:/routes", "src//routes", "src/\0routes"]) {
     try {
       discoverRouteManifest(project, { root: configured });
       throw new Error(`FADENO_V1_ROUTE_EXPECTED:ROOT_PATH:${configured}`);
@@ -186,17 +215,56 @@ withProject([["page.tsx"]], (project) => {
   } catch (error) {
     if (!(error instanceof RouteContractError) || error.code !== "CONFIG") throw error;
   }
+  try {
+    discoverRouteManifest(project, { root: "missing/routes" });
+    throw new Error("FADENO_V1_ROUTE_EXPECTED:ROOT_MISSING");
+  } catch (error) {
+    if (!(error instanceof RouteContractError) || error.code !== "ROOT_MISSING") throw error;
+  }
+  writeFileSync(join(project, "route-file"), file);
+  try {
+    discoverRouteManifest(project, { root: "route-file" });
+    throw new Error("FADENO_V1_ROUTE_EXPECTED:ROOT_NOT_DIRECTORY");
+  } catch (error) {
+    if (!(error instanceof RouteContractError) || error.code !== "ROOT_NOT_DIRECTORY") throw error;
+  }
 });
+
+const missingProject = join(tmpdir(), `fadeno-v1-route-missing-${process.pid}`);
+rmSync(missingProject, { recursive: true, force: true });
+try {
+  discoverRouteManifest(missingProject, { root: "src/routes" });
+  throw new Error("FADENO_V1_ROUTE_EXPECTED:PROJECT_ROOT");
+} catch (error) {
+  if (!(error instanceof RouteContractError) || error.code !== "PROJECT_ROOT") throw error;
+}
 
 for (const mutate of [
   (value: any) => { value.visibility = "public"; },
   (value: any) => { value.routes[0].source = "/absolute/page.tsx"; },
   (value: any) => { value.routes[0].extra = true; },
   (value: any) => { value.routes[0].segments[0] = { kind: "unknown" }; },
+  (value: any) => { value.routes[1].id = value.routes[0].id; },
+  (value: any) => { value.routes[0].source = "src/routes/../page.tsx"; },
+  (value: any) => { value.routes[0].source = "C:/src/routes/page.tsx"; },
+  (value: any) => { value.routes[1].id = "/wrong"; },
+  (value: any) => { value.routes[1].parameters = []; },
+  (value: any) => {
+    const route = value.routes.find(({ id }: { id: string }) => id === "/files/[...parts]");
+    route.segments.push({ kind: "static", value: "child" });
+  },
+  (value: any) => {
+    const route = value.routes.find(({ id }: { id: string }) => id === "/accounts/[accountId]");
+    route.segments[1].name = "constructor";
+  },
 ]) {
   const candidate = structuredClone(manifest);
   mutate(candidate);
-  if (validate(candidate)) throw new Error("FADENO_V1_ROUTE_SCHEMA_MUTATION");
+  let accepted = validate(candidate);
+  if (accepted) {
+    try { assertRouteManifestSemantics(candidate as RouteManifest); } catch { accepted = false; }
+  }
+  if (accepted) throw new Error("FADENO_V1_ROUTE_SCHEMA_MUTATION");
 }
 
 const typeSources = ["generated-routes.ts", "valid.ts", "invalid.ts"].map((name) => readFileSync(join(contractRoot, "types", name), "utf8"));

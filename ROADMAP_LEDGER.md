@@ -10,15 +10,15 @@ V1-05 — freeze route filesystem and generated-link contracts
 
 ## Exit criteria
 
-- [ ] Accept ADR 0026 with one explicit route root, portable filesystem
+- [x] Accept ADR 0026 with one explicit route root, portable filesystem
   grammar, canonical collision identity, internal manifest, and typed links.
-- [ ] Prove deterministic, confined discovery over valid and invalid route
+- [x] Prove deterministic, confined discovery over valid and invalid route
   trees without implementing the production router.
-- [ ] Validate the internal manifest schema and byte identity without absolute
+- [x] Validate the internal manifest schema and byte identity without absolute
   host paths or external compatibility claims.
-- [ ] Preserve route/parameter union correlation under stock TypeScript and
+- [x] Preserve route/parameter union correlation under stock TypeScript and
   prove exact runtime pathname encoding and refusal behavior.
-- [ ] Remove the resolved route gate, align current documentation, and pass all
+- [x] Remove the resolved route gate, align current documentation, and pass all
   local gates.
 
 ## In progress
@@ -106,3 +106,6 @@ V1-05 — freeze route filesystem and generated-link contracts
   authority handling, cookies, and graceful drain in a private adapter suite.
 - V1-03 — Commit `7c4fb9d` selects one logical package through ADR 0024 and
   proves its exports and dependency direction with a packed private consumer.
+- V1-04 — Commit `1edea3c` creates the private framework package, moves the
+  selected Node adapter behind its exact public subpath, and proves the tracked
+  smoke example from an installed tarball on current and minimum runtimes.

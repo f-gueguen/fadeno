@@ -11,8 +11,10 @@ than becoming application vocabulary.
 
 Fadeno is in V1 implementation. Its private workspace package and Node adapter
 smoke example run from an installed tarball, but no package is published or
-production-supported. Routing and rendering are not implemented yet, so this
-checkpoint is not the first running framework application; that remains V1-09.
+production-supported. The route filesystem and generated-link contract is
+accepted and executable as a private prototype; the production router and
+rendering are not implemented yet, so this checkpoint is not the first running
+framework application. That remains V1-09.
 
 The four K0 kill-risk investigations are complete: structural preservation and
 incremental declaration generation were narrowed, while bounded interaction

@@ -112,11 +112,13 @@ never end in `/` except the root.
 
 ## Validation
 
-`pnpm check:v1-route-contract` validates the internal manifest schema; repeats
-discovery over shuffled creation orders; checks canonical route identity,
-precedence, inheritance, collisions, unsupported entries, traversal, separator,
+`pnpm check:v1-route-contract` validates the internal manifest schema and its
+semantic correlations; repeats discovery over shuffled creation orders; checks canonical route identity,
+inheritance, collisions, unsupported entries, traversal, separator,
 case, Unicode, malformed and symlink fixtures; proves byte-identical manifests
 without absolute paths; compiles positive and negative route/link fixtures with
-stock TypeScript; and asserts exact runtime pathnames for reserved, Unicode,
-single, and rest parameter values. V1-06 remains responsible for production
-router, generator, diagnostics, and runtime route-matrix implementation.
+stock TypeScript; binds the fixture type model to the discovered manifest; and
+asserts exact runtime pathnames for reserved, Unicode, single, and rest
+parameter values. V1-06 remains responsible for closed config-loader
+integration, production router/generator/diagnostics, and runtime matching
+precedence and route-matrix proof.

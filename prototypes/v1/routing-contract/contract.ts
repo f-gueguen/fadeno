@@ -139,8 +139,8 @@ type InheritedRoles = Readonly<{
 
 export function discoverRouteManifest(projectRoot: string, config: RouteConfig): RouteManifest {
   if (!isPlainRecord(config) || Object.keys(config).length !== 1 || typeof config["root"] !== "string") fail("CONFIG");
-  const canonicalProject = realpathSync(projectRoot);
   const root = assertRouteRoot(projectRoot, config.root);
+  const canonicalProject = realpathSync(projectRoot);
   const routes: RouteManifestEntry[] = [];
   const identities = new Map<string, string>();
 
@@ -234,6 +234,50 @@ export function discoverRouteManifest(projectRoot: string, config: RouteConfig):
 
 export function stableRouteManifest(manifest: RouteManifest): string {
   return `${JSON.stringify(manifest, null, 2)}\n`;
+}
+
+function safeManifestSource(path: unknown, suffix: string): path is string {
+  if (typeof path !== "string" || path.length === 0 || path.includes("\0") || path.includes("\\") ||
+      path.startsWith("/") || /^[A-Za-z]:/u.test(path) || !path.endsWith(suffix)) return false;
+  const parts = path.split("/");
+  return parts.every((part) => part !== "" && part !== "." && part !== "..");
+}
+
+export function assertRouteManifestSemantics(manifest: RouteManifest): void {
+  const identities = new Set<string>();
+  const sources = new Set<string>();
+  let previousId: string | undefined;
+  for (const route of manifest.routes) {
+    if (identities.has(route.id) || (previousId !== undefined && compareText(previousId, route.id) >= 0)) fail("MANIFEST_ORDER");
+    identities.add(route.id);
+    previousId = route.id;
+    if (!safeManifestSource(route.source, route.kind === "page" ? "/page.tsx" : "/handler.ts") || sources.has(route.source)) {
+      fail("MANIFEST_SOURCE");
+    }
+    sources.add(route.source);
+    if (route.id !== routeId(route.segments)) fail("MANIFEST_ID");
+
+    const names = new Set<string>();
+    const expectedParameters: RouteParameter[] = [];
+    for (const [index, segment] of route.segments.entries()) {
+      if (segment.kind === "static") {
+        if (!staticSegment.test(segment.value)) fail("MANIFEST_SEGMENT");
+        continue;
+      }
+      if (!parameterSegment.test(`[${segment.name}]`) || forbiddenParameters.has(segment.name) || names.has(segment.name)) {
+        fail("MANIFEST_PARAMETER");
+      }
+      names.add(segment.name);
+      if (segment.kind === "rest" && index !== route.segments.length - 1) fail("MANIFEST_REST");
+      expectedParameters.push({ name: segment.name, kind: segment.kind === "rest" ? "rest" : "single" });
+    }
+    if (JSON.stringify(route.parameters) !== JSON.stringify(expectedParameters)) fail("MANIFEST_PARAMETERS");
+    if (route.layouts.some((path) => !safeManifestSource(path, "/layout.tsx")) || new Set(route.layouts).size !== route.layouts.length ||
+        (route.notFound !== null && !safeManifestSource(route.notFound, "/not-found.tsx")) ||
+        (route.error !== null && !safeManifestSource(route.error, "/error.tsx"))) {
+      fail("MANIFEST_ROLE_SOURCE");
+    }
+  }
 }
 
 function encodePathValue(value: unknown): string {

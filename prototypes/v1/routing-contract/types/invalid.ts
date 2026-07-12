@@ -13,6 +13,9 @@ routeHref({ route: "/", parameters: {} });
 routeHref({ route: "/accounts/[accountId]", parameters: { memberId: "wrong" } });
 // @ts-expect-error excess parameters are refused
 routeHref({ route: "/accounts/[accountId]", parameters: { accountId: "ok", extra: "no" } });
+const indirectExcess = { route: "/accounts/[accountId]", parameters: { accountId: "ok", extra: "no" } } as const;
+// @ts-expect-error excess parameters remain refused through variables
+routeHref(indirectExcess);
 // @ts-expect-error rest routes require a non-empty tuple
 routeHref({ route: "/files/[...parts]", parameters: { parts: [] } });
 
