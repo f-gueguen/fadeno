@@ -6,37 +6,30 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-09 — implement the server renderer and first running routed application
+V1-DX-B1 — private versioned analyzer session and document synchronization
 
 ## Exit criteria
 
-- [x] Accept one narrow public JSX transform and matched-route rendering
-  contract without adding a manual route registry or general component runtime.
-- [x] Generate deterministic application bindings from discovered route modules
-  and keep them transactionally correlated with the route manifest.
-- [x] Reuse the accepted rendering-security and streaming-lifecycle
-  implementations through real parser, adapter, boundary, CSP, and cleanup
-  evidence.
-- [x] Add a permanent packed canonical application plus isolated failure,
-  normalized diagnostic, flow-inspection, correction, and recovery scenarios.
-- [x] Pass renderer, package, full repository, local CI, and independent
-  adversarial review gates.
+- [x] Enforce the seven atomic V1-DX-B sub-slices without weakening the fixed
+  V1-01 through V1-14 or V1-DX-A/B/C model.
+- [x] Implement one internal session with analyzer/schema version, operation ID,
+  workspace epoch, requested facets, document versions, ownership identity,
+  and completeness/interruption/truncation state.
+- [x] Support saved files and unsaved single-root buffers with monotonic
+  versions, sequential position edits, full replacement, close, and reopen.
+- [x] Refuse invalid/out-of-order versions, unsupported roots, ambiguous paths,
+  invalid ranges, and text divergence without mutating current state.
+- [x] Pass reference-model, normalization, line-ending, immutable-snapshot,
+  project-model, full repository, local CI, and independent review gates.
 
 ## In progress
 
-- V1-09 owns the first JSX renderer and running routed page example.
-- The public surface is limited to the automatic JSX runtime, opaque render
-  nodes, page/layout metadata, one local boundary, typed route outcomes, and
-  matched-route rendering used by generated bindings.
-- Ordinary pages emit no unnecessary executable markup; a separate integrated
-  fixture owns nonce/CSP enforcement evidence.
-- The packed canonical application passes route outcomes, generated links,
-  nested not-found ownership, three-engine parsing/CSP, failure observation,
-  normalized diagnostics, flow inspection, correction, and recovery.
-- Full repository validation and independent adversarial review pass at the
-  completed branch head; commit-bound local CI is the final merge gate.
-- V1-DX-B follows V1-09 and precedes V1-10; its analyzer foundation is split
-  into one-outcome implementation sub-slices declared before work begins.
+- V1-DX-B1 is private foundation only and adds no package export, public schema,
+  protocol, command, or supported editor product.
+- V1-DX-B2 through B7 remain dependency ordered and independently reversible.
+- The V1 application is the canonical analyzer corpus from B3 onward.
+- B1 focused checks, full repository validation, and independent adversarial
+  review pass; commit-bound local CI is the final merge gate.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -139,3 +132,8 @@ V1-09 — implement the server renderer and first running routed application
 - V1-DX-A — Commit `f3be905` accepts ADR 0030, schedules model-checked private
   analyzer foundation and lifecycle milestones, preserves external schema and
   editor-product gates, and introduces no analyzer implementation or export.
+- V1-09 — Commit `e561836` accepts ADR 0031 and implements the narrow JSX
+  runtime, generated route binding and link runtime, nearest not-found
+  ownership, streamed rendering, CSP/parser evidence, correlated failure
+  observation, and the packed canonical application with permanent failure,
+  flow, correction, and recovery examples.

@@ -166,9 +166,27 @@ expectPolicyFailure("empty V1/DX delivery boundary", "check-project-model.ts", "
   writeFileSync(path, content);
 });
 
+expectPolicyFailure("deleted V1-DX-B sub-slice", "check-project-model.ts", "expected ordered V1-DX-B sub-slices", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-B4 \|.*\n/m, ""));
+});
+
+expectPolicyFailure("reordered V1-DX-B sub-slices", "check-project-model.ts", "expected ordered V1-DX-B sub-slices", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8");
+  const row3 = content.match(/^\| V1-DX-B3 \|.*$/m)?.[0] ?? "";
+  const row4 = content.match(/^\| V1-DX-B4 \|.*$/m)?.[0] ?? "";
+  writeFileSync(path, content.replace(row3, "__V1_DX_B3__").replace(row4, row3).replace("__V1_DX_B3__", row4));
+});
+
+expectPolicyFailure("broken V1-DX-B dependency", "check-project-model.ts", "V1-DX-B5 missing dependency V1-DX-B4", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-B5 \|.*$/m, (line) => line.replace("V1-DX-B4", "V1-DX-B3")));
+});
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
 
-console.log("policy mutation tests passed (15 expected failures detected)");
+console.log("policy mutation tests passed (18 expected failures detected)");

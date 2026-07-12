@@ -384,6 +384,39 @@ for (const [slice, dependency] of requiredNumberedV1DxDependencies) {
   }
 }
 
+const expectedV1DxB = [
+  { id: "V1-DX-B1", features: ["BUILD-01", "TEST-01", "DX-01"], dependency: "V1-09" },
+  { id: "V1-DX-B2", features: ["TYPE-01", "TEST-01", "DX-01"], dependency: "V1-DX-B1" },
+  { id: "V1-DX-B3", features: ["TYPE-01", "BUILD-01", "TEST-01", "DX-01"], dependency: "V1-DX-B2" },
+  { id: "V1-DX-B4", features: ["BUILD-01", "TEST-01", "DX-01"], dependency: "V1-DX-B3" },
+  { id: "V1-DX-B5", features: ["TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B4" },
+  { id: "V1-DX-B6", features: ["TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B5" },
+  { id: "V1-DX-B7", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B6" },
+] as const;
+const v1DxBRows = tableRows(v1, /^\| V1-DX-B\d+ \|/);
+const v1DxBIds = v1DxBRows.map((cells) => cells[0]);
+const expectedV1DxBIds = expectedV1DxB.map((entry) => entry.id);
+if (JSON.stringify(v1DxBIds) !== JSON.stringify(expectedV1DxBIds)) {
+  errors.push(`docs/roadmap/v1.md: expected ordered V1-DX-B sub-slices ${expectedV1DxBIds.join(", ")}`);
+}
+for (const duplicate of duplicates(v1DxBIds)) errors.push(`docs/roadmap/v1.md: duplicate V1-DX-B sub-slice ${duplicate}`);
+for (const [index, expected] of expectedV1DxB.entries()) {
+  const cells = v1DxBRows[index];
+  if (!cells || cells[0] !== expected.id) continue;
+  if (cells.length !== 7) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} must have exactly 7 columns`);
+    continue;
+  }
+  const features = [...cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)].map((match) => match[1]);
+  if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} feature ownership differs from the accepted plan`);
+  }
+  if (!cells[3].includes(expected.dependency)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing dependency ${expected.dependency}`);
+  if (!cells[4]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no required artifacts`);
+  if (!cells[5].includes("`pnpm check:v1-analyzer`")) errors.push(`docs/roadmap/v1.md: ${expected.id} missing analyzer validation`);
+  if (!cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no example boundary`);
+}
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],
