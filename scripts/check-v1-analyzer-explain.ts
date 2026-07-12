@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { AnalyzerFacetContribution } from "../packages/framework/src/internal/analyzer-facets.ts";
+import { createAnalyzerDiagnosticBatch } from "../packages/framework/src/internal/analyzer-diagnostics.ts";
 import type { AnalyzerGraphComputeContext, AnalyzerGraphNodeDefinition } from "../packages/framework/src/internal/analyzer-graph.ts";
 import {
   createRouteExplainContribution,
@@ -109,6 +110,7 @@ try {
       value.contribution.value.records[1].parentId = value.contribution.value.records[0].id;
     },
     (value: any) => { value.contribution.value.family = "observed-runtime"; },
+    (value: any) => { value.contribution.value.records[0].fields.secret = "FADENO_EXPLAIN_SECRET_CANARY"; },
   ]) {
     const invalid = JSON.parse(serializedFlow);
     mutate(invalid);
@@ -168,7 +170,13 @@ try {
     detail: "semantic", collect: () => { cancelledCollectorCalls += 1; return routeContribution; },
   });
   cancelled.cancel();
-  assert.equal((await cancelled.result).status, "cancelled");
+  const cancelledResult = await cancelled.result;
+  assert.equal(cancelledResult.status, "cancelled");
+  if (cancelledResult.status === "cancelled") {
+    assert.equal(cancelledResult.completeness, "interrupted");
+    assert.equal(cancelledResult.interruption, "cancelled");
+    assert.deepEqual(cancelledResult.contributions, []);
+  }
   assert.equal(cancelledCollectorCalls, 0);
 
   const runningGate = deferred<readonly AnalyzerFacetContribution[]>();
@@ -185,7 +193,9 @@ try {
     detail: "deep", activateDeep: true,
     collect: ({ publication: active }) => [createRouteExplainContribution(active, null, "deep")],
   });
-  assert.equal((await obsolete.result).status, "superseded");
+  const obsoleteResult = await obsolete.result;
+  assert.equal(obsoleteResult.status, "superseded");
+  if (obsoleteResult.status === "superseded") assert.equal(obsoleteResult.interruption, "superseded");
   assert.equal((await current.result).status, "complete");
   obsoleteGate.resolve(routeContribution);
 
@@ -195,7 +205,9 @@ try {
   accepted(session.change(pagePath, page.open!.lifetime, 1, [{
     start: page.effective.text.length, end: page.effective.text.length, text: "\n/* explain stale */\n",
   }]));
-  assert.equal((await staleDocument.result).status, "stale");
+  const staleDocumentResult = await staleDocument.result;
+  assert.equal(staleDocumentResult.status, "stale");
+  if (staleDocumentResult.status === "stale") assert.equal(staleDocumentResult.interruption, "stale");
   staleDocumentGate.resolve(routeContribution);
 
   const republished = await session.startPublication({
@@ -215,6 +227,55 @@ try {
   assert.equal((await stalePublication.result).status, "stale");
   assert.equal((await replacement.result).status, "published");
   stalePublicationGate.resolve(routeContribution);
+
+  const collisionPublication = session.currentPublicationSnapshot!;
+  const currentPage = session.currentSnapshot.documents.find(({ path }) => path === "src/routes/page.tsx")!;
+  const currentLayout = session.currentSnapshot.documents.find(({ path }) => path === "src/routes/layout.tsx")!;
+  const collisionDiagnostics = createAnalyzerDiagnosticBatch({
+    graph: collisionPublication.graph,
+    documents: session.currentSnapshot.documents,
+    diagnostics: [{
+      key: "route-collision", code: "FADENO_ROUTE_ROUTE_ROLE_COLLISION", parameters: { route: "/" },
+      primaryLocation: { uri: currentPage.uri, path: currentPage.path, range: null, rangeReason: "filesystem-entry" },
+      relatedLocations: [{ uri: currentLayout.uri, path: currentLayout.path, range: null, rangeReason: "filesystem-entry" }],
+    }],
+    corrections: [], skippedWork: [{ id: "manifest-publication", causedByKeys: ["route-collision"] }],
+  });
+  const collisionFlow = await session.startExplain({
+    detail: "semantic",
+    collect: ({ publication: active }) => [createRouteExplainContribution(active, collisionDiagnostics, "semantic")],
+  }).result;
+  assert.equal(collisionFlow.status, "complete");
+  if (collisionFlow.status === "complete") {
+    const records = (collisionFlow.contributions[0]!.value as any).records;
+    assert.equal(records.some(({ kind, fields }: any) => kind === "cause" && fields.code === "FADENO_ROUTE_ROUTE_ROLE_COLLISION"), true);
+    assert.equal(records.some(({ kind, fields }: any) => kind === "skipped" && fields.workId === "manifest-publication"), true);
+    assert.equal(records.some(({ kind, fields }: any) => kind === "outcome" && fields.status === "static-refused"), true);
+  }
+  const recoveryFlow = await session.startExplain({
+    detail: "semantic",
+    collect: ({ publication: active }) => [createRouteExplainContribution(active, null, "semantic")],
+  }).result;
+  assert.equal(recoveryFlow.status, "complete");
+  const summarize = (result: typeof collisionFlow) => {
+    assert.equal(result.status, "complete");
+    if (result.status !== "complete") return null;
+    const records = (result.contributions[0]!.value as any).records;
+    return {
+      decision: records.find(({ kind }: any) => kind === "decision")?.fields.decision,
+      ownership: records.filter(({ kind }: any) => kind === "ownership").map(({ fields }: any) => ({ nodeId: fields.nodeId, ownerPath: fields.ownerPath })),
+      skipped: records.filter(({ kind }: any) => kind === "skipped").map(({ fields }: any) => fields.workId),
+      diagnosticCodes: records.find(({ kind }: any) => kind === "outcome")?.fields.diagnosticCodes,
+      outcome: records.find(({ kind }: any) => kind === "outcome")?.fields.status,
+    };
+  };
+  const flowFixture = readFileSync(new URL("../fixtures/v1-analyzer/explain-flow.normalized.json", import.meta.url), "utf8");
+  assert.equal(flowFixture.includes("FADENO_EXPLAIN_SECRET_CANARY"), false);
+  assert.deepEqual({
+    success: summarize(semanticFlow),
+    collision: summarize(collisionFlow),
+    recovery: summarize(recoveryFlow),
+  }, JSON.parse(flowFixture));
 
   const failed = await session.startExplain({ detail: "semantic", collect: () => Promise.reject(new Error("private")) }).result;
   assert.equal(failed.status, "refused");

@@ -13,7 +13,7 @@ type RouteExplainRecord = Readonly<{
   id: string;
   parentId: string | null;
   causedBy: readonly string[];
-  kind: "decision" | "ownership" | "skipped" | "outcome" | "forensic";
+  kind: "decision" | "cause" | "ownership" | "skipped" | "outcome" | "forensic";
   fields: AnalyzerFacetValue;
 }>;
 
@@ -64,6 +64,7 @@ function strings(value: unknown): string[] {
 
 function validateFields(kind: RouteExplainRecord["kind"], value: unknown): AnalyzerFacetValue {
   const keys = kind === "decision" ? ["decision", "graphGeneration"]
+    : kind === "cause" ? ["code", "diagnosticInstanceId"]
     : kind === "ownership" ? ["artifactIds", "nodeId", "ownerPath"]
       : kind === "skipped" ? ["diagnosticInstanceIds", "workId"]
         : kind === "outcome" ? ["artifactIds", "diagnosticCodes", "status"]
@@ -72,6 +73,8 @@ function validateFields(kind: RouteExplainRecord["kind"], value: unknown): Analy
   if (kind === "decision") {
     if (fields["decision"] !== "publish-static-route-plan" && fields["decision"] !== "refuse-static-route-plan") refuse();
     if (!Number.isSafeInteger(fields["graphGeneration"]) || (fields["graphGeneration"] as number) < 1) refuse();
+  } else if (kind === "cause") {
+    if (typeof fields["code"] !== "string" || typeof fields["diagnosticInstanceId"] !== "string") refuse();
   } else if (kind === "ownership") {
     if (typeof fields["nodeId"] !== "string" || typeof fields["ownerPath"] !== "string") refuse();
     const path = fields["ownerPath"];
@@ -110,7 +113,7 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
     if (index > 0 && compareText((value["records"] as any[])[index - 1].id, source["id"] as string) >= 0) refuse();
     ids.add(source["id"] as string);
     if (source["parentId"] !== null && typeof source["parentId"] !== "string") refuse();
-    if (!["decision", "ownership", "skipped", "outcome", "forensic"].includes(source["kind"] as string)) refuse();
+    if (!["decision", "cause", "ownership", "skipped", "outcome", "forensic"].includes(source["kind"] as string)) refuse();
     if (value["detail"] === "semantic" && source["kind"] === "forensic") refuse();
     return frozen({
       id: source["id"] as string, parentId: source["parentId"] as string | null,
@@ -239,17 +242,24 @@ export function createRouteExplainContribution(
       }, ownershipId));
     }
   }
+  const causeId = (instanceId: string) => `cause-${instanceId.replaceAll(":", "-")}`;
+  for (const diagnostic of diagnostics?.diagnostics ?? []) {
+    records.push(record(causeId(diagnostic.instanceId), "cause", {
+      code: diagnostic.code,
+      diagnosticInstanceId: diagnostic.instanceId,
+    }, "route-decision", diagnostic.causedBy.map(causeId)));
+  }
   for (const skipped of diagnostics?.skippedWork ?? []) {
     records.push(record(`skipped-${skipped.id}`, "skipped", {
       workId: skipped.id,
       diagnosticInstanceIds: skipped.causedBy,
-    }, "route-decision", skipped.causedBy));
+    }, "route-decision", skipped.causedBy.map(causeId)));
   }
   records.push(record("route-outcome", "outcome", {
     status: refused ? "static-refused" : "static-ready",
     diagnosticCodes: diagnostics?.diagnostics.map(({ code }) => code).sort(compareText) ?? [],
     artifactIds: publication.artifacts.map(({ id }) => id).sort(compareText),
-  }, "route-decision", diagnostics?.diagnostics.map(({ instanceId }) => instanceId) ?? []));
+  }, "route-decision", diagnostics?.diagnostics.map(({ instanceId }) => causeId(instanceId)) ?? []));
   records.sort((left, right) => compareText(left.id, right.id));
   const value = normalizeAnalyzerFacetValue({
     family: "static-analysis",

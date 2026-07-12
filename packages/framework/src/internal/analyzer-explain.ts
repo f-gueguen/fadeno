@@ -57,7 +57,17 @@ export type AnalyzerExplainResult =
     truncation: RouteExplainTruncationReason | "duration" | null;
   }>
   | Readonly<{
-    status: "cancelled" | "superseded" | "stale" | "refused";
+    status: "cancelled" | "superseded" | "stale";
+    operationId: string;
+    code: string;
+    publicationOperationId: string | null;
+    publicationGeneration: number | null;
+    contributions: readonly AnalyzerFacetContribution[];
+    completeness: "interrupted";
+    interruption: "cancelled" | "superseded" | "stale";
+  }>
+  | Readonly<{
+    status: "refused";
     operationId: string;
     code: string;
   }>;
@@ -163,14 +173,20 @@ export class AnalyzerExplainCoordinator {
   }
 
   async #execute(ticket: Ticket, request: Exclude<AnalyzerExplainRequest, { detail: "disabled" }>): Promise<AnalyzerExplainResult> {
+    const interrupted = (status: "cancelled" | "superseded" | "stale", code: string): AnalyzerExplainResult => frozen({
+      status, operationId: ticket.operationId, code,
+      publicationOperationId: ticket.authority.publication?.operationId ?? null,
+      publicationGeneration: ticket.authority.publication?.publicationGeneration ?? null,
+      contributions: frozen([]), completeness: "interrupted" as const, interruption: status,
+    });
     const terminal = (): AnalyzerExplainResult | null => {
-      if (ticket.state === "cancelled") return frozen({ status: "cancelled" as const, operationId: ticket.operationId, code: "FADENO_ANALYZER_EXPLAIN_CANCELLED" });
-      if (ticket.state === "stale") return frozen({ status: "stale" as const, operationId: ticket.operationId, code: "FADENO_ANALYZER_EXPLAIN_STALE" });
+      if (ticket.state === "cancelled") return interrupted("cancelled", "FADENO_ANALYZER_EXPLAIN_CANCELLED");
+      if (ticket.state === "stale") return interrupted("stale", "FADENO_ANALYZER_EXPLAIN_STALE");
       if (ticket.state === "superseded" || this.#active !== ticket) {
-        return frozen({ status: "superseded" as const, operationId: ticket.operationId, code: "FADENO_ANALYZER_EXPLAIN_SUPERSEDED" });
+        return interrupted("superseded", "FADENO_ANALYZER_EXPLAIN_SUPERSEDED");
       }
       if (authorityIdentity(this.#authority()) !== authorityIdentity(ticket.authority)) {
-        return frozen({ status: "stale" as const, operationId: ticket.operationId, code: "FADENO_ANALYZER_EXPLAIN_STALE" });
+        return interrupted("stale", "FADENO_ANALYZER_EXPLAIN_STALE");
       }
       return null;
     };

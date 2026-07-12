@@ -1,0 +1,32 @@
+{
+  "success": {
+    "decision": "publish-static-route-plan",
+    "ownership": [
+      { "nodeId": "route:page", "ownerPath": "src/routes/page.tsx" },
+      { "nodeId": "route:root", "ownerPath": "src/routes/layout.tsx" }
+    ],
+    "skipped": [],
+    "diagnosticCodes": [],
+    "outcome": "static-ready"
+  },
+  "collision": {
+    "decision": "refuse-static-route-plan",
+    "ownership": [
+      { "nodeId": "route:page", "ownerPath": "src/routes/page.tsx" },
+      { "nodeId": "route:root", "ownerPath": "src/routes/layout.tsx" }
+    ],
+    "skipped": ["manifest-publication"],
+    "diagnosticCodes": ["FADENO_ROUTE_ROUTE_ROLE_COLLISION"],
+    "outcome": "static-refused"
+  },
+  "recovery": {
+    "decision": "publish-static-route-plan",
+    "ownership": [
+      { "nodeId": "route:page", "ownerPath": "src/routes/page.tsx" },
+      { "nodeId": "route:root", "ownerPath": "src/routes/layout.tsx" }
+    ],
+    "skipped": [],
+    "diagnosticCodes": [],
+    "outcome": "static-ready"
+  }
+}
