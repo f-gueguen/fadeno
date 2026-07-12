@@ -10,13 +10,13 @@ V1-DX-B3 — deterministic analyzer recomputation and construction-time provenan
 
 ## Exit criteria
 
-- [ ] Establish one transactional dependency ownership graph over B1 document
+- [x] Establish one transactional dependency ownership graph over B1 document
   state with deterministic node, dependency, and artifact identities.
-- [ ] Separate complete affected-closure discovery from deterministic
+- [x] Separate complete affected-closure discovery from deterministic
   dependency-first recomputation and retain explicit invalidation causes.
-- [ ] Prove direct and three-level transitive refresh, configuration epochs,
+- [x] Prove direct and three-level transitive refresh, configuration epochs,
   cycle refusal, and deletion/rename cleanup without retaining stale results.
-- [ ] Attach source, transformation, ownership, and bidirectional artifact
+- [x] Attach source, transformation, ownership, and bidirectional artifact
   provenance while semantic results and artifacts are constructed.
 - [ ] Pass normalized provenance/recomputation fixtures, private-package,
   project-model, full repository, local CI, and independent review gates.
@@ -29,6 +29,9 @@ V1-DX-B3 — deterministic analyzer recomputation and construction-time provenan
 - The V1 application is the canonical analyzer corpus from B3 onward.
 - B3 is limited to private candidate recomputation evidence; B4 owns atomic
   publication, cancellation, supersession, and stale-result suppression.
+- The B3 focused checker copies the canonical V1 application sources into an
+  isolated workspace and retains one normalized recomputation/provenance
+  fixture; full repository, review, and local CI gates remain.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 

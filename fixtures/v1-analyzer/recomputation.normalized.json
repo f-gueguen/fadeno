@@ -35,6 +35,8 @@
       "primary": "routes/admin/layout.tsx",
       "related": ["routes/layout.tsx"],
       "module": { "namespace": "fadeno.routes", "version": 1, "transformation": "layout" },
+      "nodeSourceToArtifact": [],
+      "nodeArtifactToSource": [],
       "artifacts": []
     },
     {
@@ -42,6 +44,16 @@
       "primary": "routes/admin/dashboard/page.tsx",
       "related": ["routes/admin/layout.tsx", "routes/layout.tsx"],
       "module": { "namespace": "fadeno.routes", "version": 1, "transformation": "page" },
+      "nodeSourceToArtifact": [
+        { "source": "routes/admin/dashboard/page.tsx", "artifactId": "artifact:dashboard-route" },
+        { "source": "routes/admin/layout.tsx", "artifactId": "artifact:dashboard-route" },
+        { "source": "routes/layout.tsx", "artifactId": "artifact:dashboard-route" }
+      ],
+      "nodeArtifactToSource": [
+        { "artifactId": "artifact:dashboard-route", "source": "routes/admin/dashboard/page.tsx" },
+        { "artifactId": "artifact:dashboard-route", "source": "routes/admin/layout.tsx" },
+        { "artifactId": "artifact:dashboard-route", "source": "routes/layout.tsx" }
+      ],
       "artifacts": [
         {
           "id": "artifact:dashboard-route",
@@ -57,6 +69,18 @@
       "primary": "server.ts",
       "related": ["routes/admin/dashboard/page.tsx", "routes/admin/layout.tsx", "routes/layout.tsx"],
       "module": { "namespace": "fadeno.routes", "version": 1, "transformation": "manifest" },
+      "nodeSourceToArtifact": [
+        { "source": "server.ts", "artifactId": "artifact:route-manifest" },
+        { "source": "routes/admin/dashboard/page.tsx", "artifactId": "artifact:route-manifest" },
+        { "source": "routes/admin/layout.tsx", "artifactId": "artifact:route-manifest" },
+        { "source": "routes/layout.tsx", "artifactId": "artifact:route-manifest" }
+      ],
+      "nodeArtifactToSource": [
+        { "artifactId": "artifact:route-manifest", "source": "server.ts" },
+        { "artifactId": "artifact:route-manifest", "source": "routes/admin/dashboard/page.tsx" },
+        { "artifactId": "artifact:route-manifest", "source": "routes/admin/layout.tsx" },
+        { "artifactId": "artifact:route-manifest", "source": "routes/layout.tsx" }
+      ],
       "artifacts": [
         {
           "id": "artifact:route-manifest",
@@ -72,6 +96,12 @@
       "primary": "routes/layout.tsx",
       "related": [],
       "module": { "namespace": "fadeno.routes", "version": 1, "transformation": "layout" },
+      "nodeSourceToArtifact": [
+        { "source": "routes/layout.tsx", "artifactId": "artifact:root-declaration" }
+      ],
+      "nodeArtifactToSource": [
+        { "artifactId": "artifact:root-declaration", "source": "routes/layout.tsx" }
+      ],
       "artifacts": [
         {
           "id": "artifact:root-declaration",
@@ -84,7 +114,29 @@
     }
   ],
   "cleanup": {
-    "deleted": { "nodes": ["route:manifest"], "artifacts": ["artifact:route-manifest"] },
-    "renamed": { "nodes": ["route:dashboard"], "artifacts": ["artifact:dashboard-route"] }
+    "deleted": {
+      "nodes": [
+        { "nodeId": "route:obsolete", "ownerUri": "routes/obsolete/page.tsx", "reason": "owner-disappeared" }
+      ],
+      "artifacts": [
+        { "id": "artifact:obsolete-route", "path": ".fadeno/obsolete.route.json", "ownerNodeId": "route:obsolete" }
+      ]
+    },
+    "definitionRemoved": {
+      "nodes": [
+        { "nodeId": "route:manifest", "ownerUri": "server.ts", "reason": "definition-removed" }
+      ],
+      "artifacts": [
+        { "id": "artifact:route-manifest", "path": ".fadeno/routes.manifest.json", "ownerNodeId": "route:manifest" }
+      ]
+    },
+    "renamed": {
+      "nodes": [
+        { "nodeId": "route:dashboard", "ownerUri": "routes/admin/dashboard/page.tsx", "reason": "owner-disappeared" }
+      ],
+      "artifacts": [
+        { "id": "artifact:dashboard-route", "path": ".fadeno/dashboard.route.json", "ownerNodeId": "route:dashboard" }
+      ]
+    }
   }
 }

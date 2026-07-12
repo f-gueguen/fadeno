@@ -6,6 +6,9 @@ import type {
   AnalyzerDocumentOnlySnapshot,
   AnalyzerDocumentSnapshot,
 } from "./analyzer-session.ts";
+import { isAbsolute, relative, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { TextEncoder } from "node:util";
 
 export type AnalyzerGraphRefusalCode =
   | "FADENO_ANALYZER_GRAPH_DEFINITION"
@@ -15,12 +18,14 @@ export type AnalyzerGraphRefusalCode =
   | "FADENO_ANALYZER_GRAPH_CYCLE"
   | "FADENO_ANALYZER_GRAPH_ARTIFACT"
   | "FADENO_ANALYZER_GRAPH_VALUE"
+  | "FADENO_ANALYZER_GRAPH_LIMIT"
   | "FADENO_ANALYZER_GRAPH_COMPUTE";
 
 export const ANALYZER_GRAPH_LIMITS = Object.freeze({
   maximumNodes: 4_096,
   maximumDependenciesPerNode: 256,
   maximumArtifacts: 4_096,
+  maximumSnapshotBytes: 8_388_608,
 });
 
 export interface AnalyzerGraphModuleIdentity {
@@ -99,6 +104,7 @@ export interface AnalyzerGraphSnapshot {
   readonly workspaceEpoch: number;
   readonly configurationEpoch: number;
   readonly generation: number;
+  readonly requestedFacets: readonly Readonly<{ namespace: "fadeno.graph" }>[];
   readonly documentVersions: AnalyzerDocumentOnlySnapshot["documentVersions"];
   readonly ownership: Readonly<{
     mode: "single-root";
@@ -112,8 +118,12 @@ export interface AnalyzerGraphSnapshot {
     reasons: readonly AnalyzerInvalidationReason[];
   }>[];
   readonly results: readonly AnalyzerGraphNodeResult[];
-  readonly removedNodes: readonly string[];
-  readonly removedArtifacts: readonly string[];
+  readonly removedNodes: readonly Readonly<{
+    nodeId: string;
+    ownerUri: string;
+    reason: "definition-removed" | "owner-disappeared";
+  }>[];
+  readonly removedArtifacts: readonly Readonly<{ id: string; path: string; ownerNodeId: string }>[];
   readonly completeness: "complete";
   readonly interruption: null;
   readonly truncated: false;
@@ -181,11 +191,11 @@ function normalizeDefinitions(
   documents: ReadonlyMap<string, AnalyzerDocumentSnapshot>,
 ): ReadonlyMap<string, NormalizedDefinition> {
   if (!Array.isArray(definitions)) refuse("FADENO_ANALYZER_GRAPH_DEFINITION");
-  if (definitions.length > ANALYZER_GRAPH_LIMITS.maximumNodes) refuse("FADENO_ANALYZER_GRAPH_DEFINITION");
+  if (definitions.length > ANALYZER_GRAPH_LIMITS.maximumNodes) refuse("FADENO_ANALYZER_GRAPH_LIMIT");
   const normalized = new Map<string, NormalizedDefinition>();
   for (const definition of definitions) {
     if (typeof definition !== "object" || definition === null || typeof definition.compute !== "function") {
-      refuse("FADENO_ANALYZER_GRAPH_DEFINITION");
+      refuse("FADENO_ANALYZER_GRAPH_LIMIT");
     }
     if (!nodeIdPattern.test(definition.id) || typeof definition.ownerUri !== "string") refuse("FADENO_ANALYZER_GRAPH_DEFINITION");
     if (normalized.has(definition.id)) refuse("FADENO_ANALYZER_GRAPH_DUPLICATE");
@@ -193,7 +203,7 @@ function normalizeDefinitions(
     assertPositiveInteger(definition.definitionVersion);
     if (!Array.isArray(definition.dependencies)) refuse("FADENO_ANALYZER_GRAPH_DEFINITION");
     if (definition.dependencies.length > ANALYZER_GRAPH_LIMITS.maximumDependenciesPerNode) {
-      refuse("FADENO_ANALYZER_GRAPH_DEFINITION");
+      refuse("FADENO_ANALYZER_GRAPH_LIMIT");
     }
     const dependencies = [...definition.dependencies];
     if (dependencies.some((dependency) => !nodeIdPattern.test(dependency))) refuse("FADENO_ANALYZER_GRAPH_DEPENDENCY");
@@ -254,7 +264,7 @@ function topologicalOrder(definitions: ReadonlyMap<string, NormalizedDefinition>
 
 function definitionChanged(previous: NormalizedDefinition | undefined, next: NormalizedDefinition): boolean {
   return !previous || previous.ownerUri !== next.ownerUri || previous.definitionVersion !== next.definitionVersion ||
-    previous.compute !== next.compute || JSON.stringify(previous.dependencies) !== JSON.stringify(next.dependencies) ||
+    JSON.stringify(previous.dependencies) !== JSON.stringify(next.dependencies) ||
     JSON.stringify(previous.module) !== JSON.stringify(next.module);
 }
 
@@ -281,11 +291,16 @@ function originFor(document: AnalyzerDocumentSnapshot): AnalyzerSourceOrigin {
   return frozen({ uri: document.uri, range: frozen({ start: 0, end: document.effective.text.length }) });
 }
 
-function relatedOrigins(dependencies: readonly AnalyzerGraphNodeResult[]): readonly AnalyzerSourceOrigin[] {
+function relatedOrigins(
+  dependencies: readonly AnalyzerGraphNodeResult[],
+  primaryOrigin: AnalyzerSourceOrigin,
+): readonly AnalyzerSourceOrigin[] {
+  const primaryKey = `${primaryOrigin.uri}:${primaryOrigin.range.start}:${primaryOrigin.range.end}`;
   const byUri = new Map<string, AnalyzerSourceOrigin>();
   for (const dependency of dependencies) {
     for (const origin of [dependency.provenance.primaryOrigin, ...dependency.provenance.relatedOrigins]) {
-      byUri.set(`${origin.uri}:${origin.range.start}:${origin.range.end}`, origin);
+      const key = `${origin.uri}:${origin.range.start}:${origin.range.end}`;
+      if (key !== primaryKey) byUri.set(key, origin);
     }
   }
   return frozen([...byUri.values()].sort((left, right) => compareText(left.uri, right.uri)));
@@ -364,8 +379,15 @@ export class AnalyzerDependencyGraph {
       const affected = fullOrder.filter((id) => reasons.has(id));
       const nextGeneration = this.#generation + 1;
       const candidateResults = new Map(this.#results);
-      const removedNodes = [...this.#definitions.keys()].filter((id) => !nextDefinitions.has(id)).sort(compareText);
-      for (const id of removedNodes) candidateResults.delete(id);
+      const removedNodes = [...this.#definitions.values()]
+        .filter(({ id }) => !nextDefinitions.has(id))
+        .map((definition) => frozen({
+          nodeId: definition.id,
+          ownerUri: definition.ownerUri,
+          reason: (documents.has(definition.ownerUri) ? "definition-removed" : "owner-disappeared") as "definition-removed" | "owner-disappeared",
+        }))
+        .sort((left, right) => compareText(left.nodeId, right.nodeId));
+      for (const { nodeId } of removedNodes) candidateResults.delete(nodeId);
 
       const occupiedArtifactIds = new Map<string, string>();
       const occupiedArtifactPaths = new Map<string, string>();
@@ -388,7 +410,7 @@ export class AnalyzerDependencyGraph {
           return result;
         });
         const primaryOrigin = originFor(owner);
-        const related = relatedOrigins(dependencyResults);
+        const related = relatedOrigins(dependencyResults, primaryOrigin);
         const artifacts: AnalyzerGraphArtifact[] = [];
         const emitArtifact = (input: AnalyzerGraphArtifactInput): void => {
           if (
@@ -396,7 +418,7 @@ export class AnalyzerDependencyGraph {
             typeof input.path !== "string" || !validArtifactPath(input.path)
           ) refuse("FADENO_ANALYZER_GRAPH_ARTIFACT");
           artifactCount += 1;
-          if (artifactCount > ANALYZER_GRAPH_LIMITS.maximumArtifacts) refuse("FADENO_ANALYZER_GRAPH_ARTIFACT");
+          if (artifactCount > ANALYZER_GRAPH_LIMITS.maximumArtifacts) refuse("FADENO_ANALYZER_GRAPH_LIMIT");
           if (occupiedArtifactIds.has(input.id) || occupiedArtifactPaths.has(input.path)) refuse("FADENO_ANALYZER_GRAPH_ARTIFACT");
           occupiedArtifactIds.set(input.id, nodeId);
           occupiedArtifactPaths.set(input.path, nodeId);
@@ -423,13 +445,20 @@ export class AnalyzerDependencyGraph {
           refuse("FADENO_ANALYZER_GRAPH_COMPUTE");
         }
         artifacts.sort((left, right) => compareText(left.id, right.id));
+        const sourceOrigins = [primaryOrigin, ...related];
         const provenance = frozen({
           primaryOrigin,
           relatedOrigins: related,
           module: definition.module,
           generatedArtifactOwnership: null,
-          sourceToArtifacts: frozen(artifacts.map((artifact) => frozen({ sourceUri: primaryOrigin.uri, artifactId: artifact.id }))),
-          artifactToSources: frozen([]) as readonly Readonly<{ artifactId: string; sourceUri: string }>[],
+          sourceToArtifacts: frozen(sourceOrigins.flatMap((origin) => artifacts.map((artifact) => frozen({
+            sourceUri: origin.uri,
+            artifactId: artifact.id,
+          })))),
+          artifactToSources: frozen(artifacts.flatMap((artifact) => sourceOrigins.map((origin) => frozen({
+            artifactId: artifact.id,
+            sourceUri: origin.uri,
+          })))),
         });
         candidateResults.set(nodeId, frozen({
           id: nodeId,
@@ -440,9 +469,18 @@ export class AnalyzerDependencyGraph {
         }));
       }
 
-      const previousArtifacts = new Set([...this.#results.values()].flatMap((result) => result.artifacts.map((artifact) => artifact.id)));
-      const nextArtifacts = new Set([...candidateResults.values()].flatMap((result) => result.artifacts.map((artifact) => artifact.id)));
-      const removedArtifacts = [...previousArtifacts].filter((id) => !nextArtifacts.has(id)).sort(compareText);
+      const previousArtifacts = new Map<string, Readonly<{ id: string; path: string; ownerNodeId: string }>>();
+      for (const result of this.#results.values()) {
+        for (const artifact of result.artifacts) previousArtifacts.set(artifact.id, frozen({ id: artifact.id, path: artifact.path, ownerNodeId: result.id }));
+      }
+      const nextArtifacts = new Map<string, Readonly<{ id: string; path: string; ownerNodeId: string }>>();
+      for (const result of candidateResults.values()) {
+        for (const artifact of result.artifacts) nextArtifacts.set(artifact.id, frozen({ id: artifact.id, path: artifact.path, ownerNodeId: result.id }));
+      }
+      const removedArtifacts = [...previousArtifacts.values()].filter((previous) => {
+        const next = nextArtifacts.get(previous.id);
+        return !next || next.path !== previous.path || next.ownerNodeId !== previous.ownerNodeId;
+      }).sort((left, right) => compareText(`${left.id}:${left.path}`, `${right.id}:${right.path}`));
       const invalidations = affected.map((nodeId) => frozen({
         nodeId,
         reasons: frozen([...reasons.get(nodeId)!.values()].sort((left, right) => compareText(reasonKey(left), reasonKey(right)))),
@@ -456,7 +494,8 @@ export class AnalyzerDependencyGraph {
         workspaceEpoch: authority.snapshot.workspaceEpoch,
         configurationEpoch: authority.configurationEpoch,
         generation: nextGeneration,
-        documentVersions: authority.snapshot.documentVersions,
+        requestedFacets: frozen([frozen({ namespace: "fadeno.graph" as const })]),
+        documentVersions: frozen([...authority.snapshot.documentVersions].sort((left, right) => compareText(left.uri, right.uri))),
         ownership: frozen({
           mode: "single-root" as const,
           root: authority.snapshot.ownership.root,
@@ -472,6 +511,9 @@ export class AnalyzerDependencyGraph {
         interruption: null,
         truncated: false as const,
       });
+      if (new TextEncoder().encode(JSON.stringify(snapshot)).byteLength > ANALYZER_GRAPH_LIMITS.maximumSnapshotBytes) {
+        refuse("FADENO_ANALYZER_GRAPH_LIMIT");
+      }
 
       this.#definitions = new Map(nextDefinitions);
       this.#results = candidateResults;
@@ -490,5 +532,304 @@ export class AnalyzerDependencyGraph {
         currentGeneration: this.#generation,
       });
     }
+  }
+}
+
+function serializationRefuse(): never {
+  throw new TypeError("FADENO_ANALYZER_GRAPH_SERIALIZATION");
+}
+
+function exactRecord(value: unknown, keys: readonly string[]): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) serializationRefuse();
+  const record = value as Record<string, unknown>;
+  const actual = Object.keys(record).sort(compareText);
+  const expected = [...keys].sort(compareText);
+  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) serializationRefuse();
+  return record;
+}
+
+function serializedInteger(value: unknown, positive = false): number {
+  if (!Number.isSafeInteger(value) || (value as number) < (positive ? 1 : 0)) serializationRefuse();
+  return value as number;
+}
+
+function serializedString(value: unknown): string {
+  if (typeof value !== "string") serializationRefuse();
+  return value;
+}
+
+function serializedArray(value: unknown): unknown[] {
+  if (!Array.isArray(value)) serializationRefuse();
+  return value;
+}
+
+function validateOwnedUri(value: unknown, rootPath: string): string {
+  const uri = serializedString(value);
+  let candidate: string;
+  try {
+    const url = new URL(uri);
+    if (url.protocol !== "file:" || url.host !== "" || url.search !== "" || url.hash !== "") serializationRefuse();
+    candidate = fileURLToPath(url);
+  } catch { serializationRefuse(); }
+  if (pathToFileURL(candidate).href !== uri) serializationRefuse();
+  const containment = relative(rootPath, candidate);
+  if (containment === "" || containment.startsWith("..") || isAbsolute(containment)) serializationRefuse();
+  return uri;
+}
+
+function validateSerializedOrigin(value: unknown, rootPath: string): Readonly<{ uri: string; start: number; end: number }> {
+  const origin = exactRecord(value, ["uri", "range"]);
+  const uri = validateOwnedUri(origin["uri"], rootPath);
+  const range = exactRecord(origin["range"], ["start", "end"]);
+  const start = serializedInteger(range["start"]);
+  const end = serializedInteger(range["end"]);
+  if (end < start) serializationRefuse();
+  return { uri, start, end };
+}
+
+function validateSerializedModule(value: unknown): void {
+  const module = exactRecord(value, ["namespace", "version", "transformation"]);
+  if (!modulePattern.test(serializedString(module["namespace"])) || !transformationPattern.test(serializedString(module["transformation"]))) {
+    serializationRefuse();
+  }
+  serializedInteger(module["version"], true);
+}
+
+function validateSerializedRelations(value: unknown, keys: readonly [string, string]): readonly Readonly<Record<string, string>>[] {
+  const result: Readonly<Record<string, string>>[] = [];
+  for (const relation of serializedArray(value)) {
+    const record = exactRecord(relation, keys);
+    result.push({ [keys[0]]: serializedString(record[keys[0]]), [keys[1]]: serializedString(record[keys[1]]) });
+  }
+  return result;
+}
+
+function validateSerializedProvenance(
+  value: unknown,
+  rootPath: string,
+  artifactIds: readonly string[],
+  artifact?: Readonly<{ id: string; path: string; ownerNodeId: string }>,
+): void {
+  const provenance = exactRecord(value, [
+    "primaryOrigin", "relatedOrigins", "module", "generatedArtifactOwnership", "sourceToArtifacts", "artifactToSources",
+  ]);
+  const primary = validateSerializedOrigin(provenance["primaryOrigin"], rootPath);
+  const related = serializedArray(provenance["relatedOrigins"]).map((origin) => validateSerializedOrigin(origin, rootPath));
+  const sourceUris = [primary.uri, ...related.map(({ uri }) => uri)];
+  if (new Set(sourceUris).size !== sourceUris.length) serializationRefuse();
+  const relatedKeys = related.map(({ uri, start, end }) => `${uri}:${start}:${end}`);
+  if (relatedKeys.some((key, index) => index > 0 && compareText(relatedKeys[index - 1]!, key) >= 0)) serializationRefuse();
+  validateSerializedModule(provenance["module"]);
+  if (artifact) {
+    const ownership = exactRecord(provenance["generatedArtifactOwnership"], ["artifactId", "ownerNodeId", "path"]);
+    if (
+      ownership["artifactId"] !== artifact.id || ownership["ownerNodeId"] !== artifact.ownerNodeId || ownership["path"] !== artifact.path
+    ) serializationRefuse();
+  } else if (provenance["generatedArtifactOwnership"] !== null) serializationRefuse();
+  const sourceToArtifacts = validateSerializedRelations(provenance["sourceToArtifacts"], ["sourceUri", "artifactId"]);
+  const artifactToSources = validateSerializedRelations(provenance["artifactToSources"], ["artifactId", "sourceUri"]);
+  const expectedSourceToArtifacts = sourceUris.flatMap((sourceUri) => artifactIds.map((artifactId) => ({ sourceUri, artifactId })));
+  const expectedArtifactToSources = artifactIds.flatMap((artifactId) => sourceUris.map((sourceUri) => ({ artifactId, sourceUri })));
+  if (
+    JSON.stringify(sourceToArtifacts) !== JSON.stringify(expectedSourceToArtifacts) ||
+    JSON.stringify(artifactToSources) !== JSON.stringify(expectedArtifactToSources)
+  ) serializationRefuse();
+}
+
+function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot {
+  const snapshot = exactRecord(value, [
+    "analyzerVersion", "schemaVersion", "sessionId", "operationId", "operation", "workspaceEpoch",
+    "configurationEpoch", "generation", "requestedFacets", "documentVersions", "ownership", "affected",
+    "workOrder", "invalidations", "results", "removedNodes", "removedArtifacts", "completeness", "interruption", "truncated",
+  ]);
+  if (
+    snapshot["analyzerVersion"] !== 1 || snapshot["schemaVersion"] !== 3 || snapshot["operation"] !== "recompute" ||
+    snapshot["completeness"] !== "complete" || snapshot["interruption"] !== null || snapshot["truncated"] !== false
+  ) serializationRefuse();
+  const sessionId = serializedString(snapshot["sessionId"]);
+  const operationId = serializedString(snapshot["operationId"]);
+  const operationSuffix = operationId.slice(`${sessionId}:operation-`.length);
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(sessionId) ||
+    !operationId.startsWith(`${sessionId}:operation-`) ||
+    !/^[1-9][0-9]*$/u.test(operationSuffix) || !Number.isSafeInteger(Number(operationSuffix))
+  ) serializationRefuse();
+  serializedInteger(snapshot["workspaceEpoch"]);
+  serializedInteger(snapshot["configurationEpoch"]);
+  const generation = serializedInteger(snapshot["generation"], true);
+  const requests = serializedArray(snapshot["requestedFacets"]);
+  if (requests.length !== 1 || exactRecord(requests[0], ["namespace"])["namespace"] !== "fadeno.graph") serializationRefuse();
+  const ownership = exactRecord(snapshot["ownership"], ["mode", "root", "configurationFingerprint"]);
+  if (ownership["mode"] !== "single-root" || !/^[0-9a-f]{64}$/u.test(serializedString(ownership["configurationFingerprint"]))) {
+    serializationRefuse();
+  }
+  let rootPath: string;
+  try {
+    const root = new URL(serializedString(ownership["root"]));
+    if (root.protocol !== "file:" || root.host !== "" || root.search !== "" || root.hash !== "") serializationRefuse();
+    rootPath = fileURLToPath(root);
+  } catch { serializationRefuse(); }
+  if (!rootPath.endsWith(sep) || pathToFileURL(rootPath).href !== ownership["root"]) serializationRefuse();
+  const seenVersions = new Set<string>();
+  let previousVersionUri: string | undefined;
+  for (const value of serializedArray(snapshot["documentVersions"])) {
+    const version = exactRecord(value, ["uri", "version", "lifetime"]);
+    const uri = validateOwnedUri(version["uri"], rootPath);
+    serializedInteger(version["version"]);
+    serializedInteger(version["lifetime"], true);
+    if (seenVersions.has(uri) || (previousVersionUri !== undefined && compareText(previousVersionUri, uri) >= 0)) serializationRefuse();
+    seenVersions.add(uri);
+    previousVersionUri = uri;
+  }
+  const affected = serializedArray(snapshot["affected"]).map((value) => {
+    const id = serializedString(value);
+    if (!nodeIdPattern.test(id)) serializationRefuse();
+    return id;
+  });
+  const workOrder = serializedArray(snapshot["workOrder"]).map((value) => {
+    const id = serializedString(value);
+    if (!nodeIdPattern.test(id)) serializationRefuse();
+    return id;
+  });
+  if (JSON.stringify(affected) !== JSON.stringify(workOrder) || new Set(affected).size !== affected.length) serializationRefuse();
+  const invalidations = serializedArray(snapshot["invalidations"]);
+  if (invalidations.length !== affected.length) serializationRefuse();
+  for (const [index, value] of invalidations.entries()) {
+    const invalidation = exactRecord(value, ["nodeId", "reasons"]);
+    if (invalidation["nodeId"] !== affected[index]) serializationRefuse();
+    const reasons = serializedArray(invalidation["reasons"]);
+    if (reasons.length === 0) serializationRefuse();
+    let previousReason: string | undefined;
+    for (const reasonValue of reasons) {
+      const reason = reasonValue as Record<string, unknown>;
+      if (reason["kind"] === "document") {
+        exactRecord(reason, ["kind", "ownerUri"]);
+        validateOwnedUri(reason["ownerUri"], rootPath);
+      }
+      else if (reason["kind"] === "configuration") {
+        exactRecord(reason, ["kind", "configurationEpoch"]);
+        if (serializedInteger(reason["configurationEpoch"]) !== snapshot["configurationEpoch"]) serializationRefuse();
+      } else if (reason["kind"] === "dependency") {
+        exactRecord(reason, ["kind", "dependencyId"]);
+        if (!nodeIdPattern.test(serializedString(reason["dependencyId"]))) serializationRefuse();
+      } else if (reason["kind"] === "definition" || reason["kind"] === "initial") {
+        exactRecord(reason, ["kind", "nodeId"]);
+        if (reason["nodeId"] !== invalidation["nodeId"]) serializationRefuse();
+      }
+      else serializationRefuse();
+      const key = reason["kind"] === "document" ? `document:${String(reason["ownerUri"])}`
+        : reason["kind"] === "configuration" ? `configuration:${String(reason["configurationEpoch"])}`
+          : reason["kind"] === "dependency" ? `dependency:${String(reason["dependencyId"])}`
+            : `${String(reason["kind"])}:${String(reason["nodeId"])}`;
+      if (previousReason !== undefined && compareText(previousReason, key) >= 0) serializationRefuse();
+      previousReason = key;
+    }
+  }
+  const seenResults = new Set<string>();
+  const seenArtifacts = new Set<string>();
+  const seenArtifactPaths = new Set<string>();
+  let previousResult: string | undefined;
+  for (const value of serializedArray(snapshot["results"])) {
+    const result = exactRecord(value, ["id", "generation", "value", "provenance", "artifacts"]);
+    const id = serializedString(result["id"]);
+    if (!nodeIdPattern.test(id) || seenResults.has(id) || (previousResult !== undefined && compareText(previousResult, id) >= 0)) serializationRefuse();
+    seenResults.add(id);
+    previousResult = id;
+    if (serializedInteger(result["generation"], true) > generation) serializationRefuse();
+    if (JSON.stringify(normalizeAnalyzerFacetValue(result["value"])) !== JSON.stringify(result["value"])) serializationRefuse();
+    let previousArtifact: string | undefined;
+    const resultArtifactIds: string[] = [];
+    for (const artifactValue of serializedArray(result["artifacts"])) {
+      const artifact = exactRecord(artifactValue, ["id", "path", "value", "provenance"]);
+      const artifactId = serializedString(artifact["id"]);
+      const path = serializedString(artifact["path"]);
+      if (
+        !nodeIdPattern.test(artifactId) || !validArtifactPath(path) || seenArtifacts.has(artifactId) || seenArtifactPaths.has(path) ||
+        (previousArtifact !== undefined && compareText(previousArtifact, artifactId) >= 0)
+      ) serializationRefuse();
+      seenArtifacts.add(artifactId);
+      seenArtifactPaths.add(path);
+      resultArtifactIds.push(artifactId);
+      previousArtifact = artifactId;
+      if (JSON.stringify(normalizeAnalyzerFacetValue(artifact["value"])) !== JSON.stringify(artifact["value"])) serializationRefuse();
+      validateSerializedProvenance(artifact["provenance"], rootPath, [artifactId], { id: artifactId, path, ownerNodeId: id });
+    }
+    validateSerializedProvenance(result["provenance"], rootPath, resultArtifactIds);
+  }
+  if (affected.some((id) => !seenResults.has(id))) serializationRefuse();
+  for (const value of invalidations) {
+    const invalidation = value as Record<string, unknown>;
+    for (const reason of invalidation["reasons"] as Record<string, unknown>[]) {
+      if (reason["kind"] === "dependency" && !seenResults.has(reason["dependencyId"] as string)) serializationRefuse();
+    }
+  }
+  const removedNodeIds = new Set<string>();
+  let previousRemovedNode: string | undefined;
+  for (const value of serializedArray(snapshot["removedNodes"])) {
+    const removed = exactRecord(value, ["nodeId", "ownerUri", "reason"]);
+    const nodeId = serializedString(removed["nodeId"]);
+    if (
+      !nodeIdPattern.test(nodeId) || removedNodeIds.has(nodeId) || seenResults.has(nodeId) ||
+      (previousRemovedNode !== undefined && compareText(previousRemovedNode, nodeId) >= 0) ||
+      (removed["reason"] !== "definition-removed" && removed["reason"] !== "owner-disappeared")
+    ) serializationRefuse();
+    validateOwnedUri(removed["ownerUri"], rootPath);
+    removedNodeIds.add(nodeId);
+    previousRemovedNode = nodeId;
+  }
+  const removedArtifactIds = new Set<string>();
+  let previousRemovedArtifact: string | undefined;
+  for (const value of serializedArray(snapshot["removedArtifacts"])) {
+    const removed = exactRecord(value, ["id", "path", "ownerNodeId"]);
+    const id = serializedString(removed["id"]);
+    const path = serializedString(removed["path"]);
+    const key = `${id}:${path}`;
+    if (
+      !nodeIdPattern.test(id) || !validArtifactPath(path) || !nodeIdPattern.test(serializedString(removed["ownerNodeId"])) ||
+      removedArtifactIds.has(id) || (previousRemovedArtifact !== undefined && compareText(previousRemovedArtifact, key) >= 0)
+    ) serializationRefuse();
+    removedArtifactIds.add(id);
+    previousRemovedArtifact = key;
+  }
+  return deepFreezeGraph(value) as AnalyzerGraphSnapshot;
+}
+
+function deepFreezeGraph(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    for (const entry of value) deepFreezeGraph(entry);
+    return Object.freeze(value);
+  }
+  if (typeof value === "object" && value !== null) {
+    for (const entry of Object.values(value)) deepFreezeGraph(entry);
+    return Object.freeze(value);
+  }
+  return value;
+}
+
+export function serializeAnalyzerGraphSnapshot(snapshot: AnalyzerGraphSnapshot): string {
+  try {
+    const serialized = JSON.stringify({
+      format: "fadeno-private-analyzer-snapshot",
+      serializationVersion: 1,
+      snapshot,
+    });
+    if (new TextEncoder().encode(serialized).byteLength > ANALYZER_GRAPH_LIMITS.maximumSnapshotBytes) serializationRefuse();
+    deserializeAnalyzerGraphSnapshot(serialized);
+    return serialized;
+  } catch {
+    serializationRefuse();
+  }
+}
+
+export function deserializeAnalyzerGraphSnapshot(serialized: string): AnalyzerGraphSnapshot {
+  try {
+    if (typeof serialized !== "string" || new TextEncoder().encode(serialized).byteLength > ANALYZER_GRAPH_LIMITS.maximumSnapshotBytes) {
+      serializationRefuse();
+    }
+    const envelope = exactRecord(JSON.parse(serialized) as unknown, ["format", "serializationVersion", "snapshot"]);
+    if (envelope["format"] !== "fadeno-private-analyzer-snapshot" || envelope["serializationVersion"] !== 1) serializationRefuse();
+    return validateSerializedGraphSnapshot(envelope["snapshot"]);
+  } catch {
+    serializationRefuse();
   }
 }

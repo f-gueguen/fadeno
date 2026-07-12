@@ -180,6 +180,10 @@ export class AnalyzerSession {
     return this.#dependencyGraph.analyze(operationId, definitions);
   }
 
+  get currentGraphSnapshot() {
+    return this.#dependencyGraph.currentSnapshot;
+  }
+
   reloadConfiguration(fingerprint: string): AnalyzerOperationResult {
     const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
     if (typeof fingerprint !== "string" || !/^[0-9a-f]{64}$/u.test(fingerprint)) {

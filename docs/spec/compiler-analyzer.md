@@ -147,6 +147,82 @@ Deletion or rename removes artifacts whose owner disappeared; configuration
 and generated-artifact changes advance the workspace epoch independently from
 document versions.
 
+V1-DX-B3 represents this work as a private schema-v3 candidate graph derived
+from the current B1 document snapshot. Every node has a namespaced identity,
+one current document owner, a positive definition version, sorted dependency
+identities, one independently versioned module/transformation identity, and a
+bounded synchronous construction function. The graph permits at most 4,096
+nodes, 256 dependencies per node, 4,096 generated artifacts, and 8,388,608
+serialized snapshot bytes. Definitions
+with duplicate or missing identities, owners outside the current document
+snapshot, unknown dependencies, cycles, invalid artifact paths, duplicate
+artifact identities or paths, lossy values, limit violations, or failed
+construction are refused before graph state changes.
+
+The graph compares complete immutable B1 document records, rather than caller
+supplied dirty flags, with the records from its last accepted analysis. A
+saved-revision, overlay, version, lifetime, text, owner, definition, or
+configuration-epoch change therefore creates a direct invalidation reason.
+Reverse dependency traversal derives the complete affected closure before any
+construction runs. Dependency-first work order is a deterministic code-unit
+topological sort. Each affected node records its direct document, definition,
+configuration, or immediate dependency causes, so a multi-level causal chain
+remains inspectable without flattening it into one root label. A refusal leaves
+the prior definitions, results, fingerprints, generation, and snapshot object
+unchanged.
+
+Definition identity is the node owner, explicit definition version, sorted
+dependencies, and module/transformation identity. Function allocation identity
+is not semantic identity: reconstructing an equivalent private module callback
+does not invalidate work. A module that changes construction semantics must
+advance its definition or module version. Construction callbacks are pure
+analyzer-module functions over source text and prior analyzer values; they do
+not execute application behavior.
+
+Configuration reload is a session-owned transition identified by a normalized
+SHA-256 fingerprint. Every accepted reload, including a repeated fingerprint,
+advances both the workspace and configuration epochs without changing document
+versions. The next graph analysis invalidates every node for that configuration
+epoch. The fingerprint identifies an ownership input and is not configuration
+content.
+
+Owner deletion removes its node results and every artifact no longer present
+in the candidate graph. A rename is represented by the filesystem-backed B1
+removal of the closed old owner, addition of the new owner, and one validated
+next graph definition set. Stale old-owner results and artifacts disappear,
+while new-owner provenance is constructed from the new canonical URI. A
+surviving artifact identity may be replaced by its new owner in the candidate;
+an artifact absent from the candidate is listed for deletion. B4 owns atomic
+publication of these candidate replacements and deletions.
+
+Removed-node evidence retains the node ID, prior owner URI, and whether the
+definition was removed while its document remained or the owner document
+disappeared. Removed-artifact evidence retains its ID, old path, and old owner
+node. Changing an artifact path or owner while retaining its ID therefore
+deletes the old owned location rather than treating the ID alone as fresh.
+
+Every recomputed node normalizes its semantic value through the B2 bounded
+plain-data contract. While a node constructs an artifact, the graph attaches
+the primary source origin, transitive related origins, module and
+transformation identity, artifact ID/path/node ownership, and both
+source-to-artifact and artifact-to-source relations. The primary source range
+for this B3 whole-document corpus is the exact code-unit range of the owner;
+later semantic modules may narrow it during construction but may not reconstruct
+required provenance afterward. Reused unaffected results keep their original
+result generation, while recomputed results receive the new candidate
+generation.
+
+The schema-v3 candidate includes the requested `fadeno.graph` facet identity
+and uses the same private serialization-envelope version as B2. Deserialization
+revalidates the session-scoped operation ID, canonical contained root/document
+and provenance URIs, sorted document versions and graph identities, exact
+invalidation scalar types and causal references, normalized result/artifact
+values, removal causes, artifact ownership, and the complete bidirectional
+relation cross-product. Round trips preserve candidate generations,
+invalidation causes, provenance, ownership, removals, completeness, and
+truncation byte-for-byte. Malformed or over-budget transported evidence is
+refused rather than cast into a trusted snapshot.
+
 Recomputation publishes diagnostics, route manifests, generated declarations,
 mappings, and deletions atomically for one workspace epoch. Diagnostic batches
 use full-replacement semantics. No consumer can observe a partial mixture of

@@ -7,6 +7,8 @@ import { pathToFileURL } from "node:url";
 
 import {
   ANALYZER_GRAPH_LIMITS,
+  deserializeAnalyzerGraphSnapshot,
+  serializeAnalyzerGraphSnapshot,
   type AnalyzerGraphComputeContext,
   type AnalyzerGraphNodeDefinition,
   type AnalyzerGraphOperationResult,
@@ -55,7 +57,8 @@ function refuseGraph(
   code: string,
 ): void {
   const beforeDocument = session.currentSnapshot;
-  const beforeGraph = currentGraph;
+  const beforeGraph = session.currentGraphSnapshot;
+  assert.equal(beforeGraph, currentGraph);
   const result = action();
   recordOperation(result);
   assert.equal(result.accepted, false);
@@ -63,7 +66,7 @@ function refuseGraph(
   assert.equal(result.currentEpoch, beforeDocument.workspaceEpoch);
   assert.equal(result.currentGeneration, beforeGraph.generation);
   assert.equal(session.currentSnapshot, beforeDocument);
-  assert.equal(currentGraph, beforeGraph);
+  assert.equal(session.currentGraphSnapshot, beforeGraph);
 }
 
 function digest(context: AnalyzerGraphComputeContext): string {
@@ -127,6 +130,8 @@ try {
   ];
 
   currentGraph = acceptGraph(session.analyzeGraph(definitions));
+  assert.equal(session.currentGraphSnapshot, currentGraph);
+  assert.deepEqual(currentGraph.requestedFacets, [{ namespace: "fadeno.graph" }]);
   assert.deepEqual(currentGraph.workOrder, ["route:root-layout", "route:admin-layout", "route:dashboard", "route:manifest"]);
   assert.equal(currentGraph.results.every(({ generation }) => generation === 1), true);
   assert.equal(currentGraph.results.find(({ id }) => id === "route:manifest")?.provenance.relatedOrigins.length, 3);
@@ -151,6 +156,40 @@ try {
   for (const result of rootEdit.results) {
     assert.equal(result.generation, 2);
     assert.notEqual(JSON.stringify(result.value), initialDigests.get(result.id), `${result.id} did not refresh`);
+  }
+  const rootEditSerialized = serializeAnalyzerGraphSnapshot(rootEdit);
+  const rootEditRoundTrip = deserializeAnalyzerGraphSnapshot(rootEditSerialized);
+  assert.deepEqual(rootEditRoundTrip, rootEdit);
+  assert.equal(serializeAnalyzerGraphSnapshot(rootEditRoundTrip), rootEditSerialized);
+  assert.equal(Object.isFrozen(rootEditRoundTrip.results[0]?.provenance.relatedOrigins), true);
+  const malformedGraph = JSON.parse(rootEditSerialized) as {
+    snapshot: { results: Array<{ artifacts: Array<{ provenance: { generatedArtifactOwnership: { ownerNodeId: string } } }> }> };
+  };
+  const resultWithArtifact = malformedGraph.snapshot.results.find(({ artifacts }) => artifacts.length > 0)!;
+  resultWithArtifact.artifacts[0]!.provenance.generatedArtifactOwnership.ownerNodeId = "route:wrong-owner";
+  assert.throws(
+    () => deserializeAnalyzerGraphSnapshot(JSON.stringify(malformedGraph)),
+    /FADENO_ANALYZER_GRAPH_SERIALIZATION/u,
+  );
+  const serializationMutations: readonly ((value: any) => void)[] = [
+    (value) => { value.snapshot.invalidations[0].reasons[0].ownerUri = {}; },
+    (value) => { value.snapshot.invalidations[1].reasons[0].dependencyId = {}; },
+    (value) => { value.snapshot.invalidations[0].reasons = [{ kind: "definition", nodeId: {} }]; },
+    (value) => { value.snapshot.affected[0] = "arbitrary"; value.snapshot.workOrder[0] = "arbitrary"; value.snapshot.invalidations[0].nodeId = "arbitrary"; },
+    (value) => { value.snapshot.documentVersions[0].uri = "file:///outside.ts"; },
+    (value) => { value.snapshot.documentVersions.reverse(); },
+    (value) => { value.snapshot.ownership.root = "file:relative"; },
+    (value) => { value.snapshot.operationId = `${value.snapshot.sessionId}:operation-${"9".repeat(40)}`; },
+    (value) => { value.snapshot.results[0].provenance.primaryOrigin.uri = "file:///outside.ts"; },
+    (value) => { value.snapshot.results.find((result: any) => result.artifacts.length > 0).provenance.sourceToArtifacts.pop(); },
+  ];
+  for (const mutate of serializationMutations) {
+    const invalid = JSON.parse(rootEditSerialized);
+    mutate(invalid);
+    assert.throws(
+      () => deserializeAnalyzerGraphSnapshot(JSON.stringify(invalid)),
+      /FADENO_ANALYZER_GRAPH_SERIALIZATION/u,
+    );
   }
 
   const pageDocument = session.currentSnapshot.documents.find(({ uri }) => uri === uris.page)!;
@@ -180,6 +219,44 @@ try {
   assert.equal(Object.isFrozen(noOp), true);
   assert.equal(Object.isFrozen(noOp.results), true);
   assert.equal(Object.isFrozen(noOp.results[0]?.value), true);
+  const freshEquivalentDefinitions = definitions.map((definition) => ({
+    ...definition,
+    compute: compute(
+      definition.id === "route:root-layout" ? "root"
+        : definition.id === "route:admin-layout" ? "admin"
+          : definition.id === "route:dashboard" ? "page" : "manifest",
+      definition.id === "route:root-layout"
+        ? { id: "artifact:root-declaration", path: ".fadeno/root.d.ts" }
+        : definition.id === "route:dashboard"
+          ? { id: "artifact:dashboard-route", path: ".fadeno/dashboard.route.json" }
+          : definition.id === "route:manifest"
+            ? { id: "artifact:route-manifest", path: ".fadeno/routes.manifest.json" }
+            : undefined,
+    ),
+  }));
+  const allocationIndependent = acceptGraph(session.analyzeGraph(freshEquivalentDefinitions));
+  currentGraph = allocationIndependent;
+  assert.deepEqual(allocationIndependent.affected, [], "callback allocation changed graph identity");
+  currentGraph = acceptGraph(session.analyzeGraph(definitions));
+  assert.deepEqual(currentGraph.affected, []);
+
+  const movedArtifactDefinitions = definitions.map((definition) => definition.id === "route:dashboard"
+    ? {
+      ...definition,
+      definitionVersion: 2,
+      compute: compute("page", { id: "artifact:dashboard-route", path: ".fadeno/dashboard-v2.route.json" }),
+    }
+    : definition);
+  const movedArtifact = acceptGraph(session.analyzeGraph(movedArtifactDefinitions));
+  currentGraph = movedArtifact;
+  assert.deepEqual(movedArtifact.removedArtifacts, [{
+    id: "artifact:dashboard-route", path: ".fadeno/dashboard.route.json", ownerNodeId: "route:dashboard",
+  }]);
+  const restoredArtifact = acceptGraph(session.analyzeGraph(definitions));
+  currentGraph = restoredArtifact;
+  assert.deepEqual(restoredArtifact.removedArtifacts, [{
+    id: "artifact:dashboard-route", path: ".fadeno/dashboard-v2.route.json", ownerNodeId: "route:dashboard",
+  }]);
 
   const cyclic = definitions.map((definition) => definition.id === "route:root-layout"
     ? { ...definition, definitionVersion: 2, dependencies: ["route:manifest"] }
@@ -205,7 +282,7 @@ try {
   refuseGraph(
     session,
     () => session.analyzeGraph(Array.from({ length: ANALYZER_GRAPH_LIMITS.maximumNodes + 1 }, () => definitions[0]!)),
-    "FADENO_ANALYZER_GRAPH_DEFINITION",
+    "FADENO_ANALYZER_GRAPH_LIMIT",
   );
   const excessiveDependencies = definitions.map((definition) => definition.id === "route:root-layout"
     ? {
@@ -214,7 +291,7 @@ try {
       dependencies: Array.from({ length: ANALYZER_GRAPH_LIMITS.maximumDependenciesPerNode + 1 }, () => "route:admin-layout"),
     }
     : definition);
-  refuseGraph(session, () => session.analyzeGraph(excessiveDependencies), "FADENO_ANALYZER_GRAPH_DEFINITION");
+  refuseGraph(session, () => session.analyzeGraph(excessiveDependencies), "FADENO_ANALYZER_GRAPH_LIMIT");
   const invalidArtifact = definitions.map((definition) => definition.id === "route:root-layout"
     ? {
       ...definition,
@@ -249,13 +326,54 @@ try {
       },
     }
     : definition);
-  refuseGraph(session, () => session.analyzeGraph(excessiveArtifacts), "FADENO_ANALYZER_GRAPH_ARTIFACT");
+  refuseGraph(session, () => session.analyzeGraph(excessiveArtifacts), "FADENO_ANALYZER_GRAPH_LIMIT");
+
+  const latestRoot = session.currentSnapshot.documents.find(({ uri }) => uri === uris.root)!;
+  acceptDocument(session.change(paths.root, latestRoot.open!.lifetime, 2, [
+    { start: latestRoot.effective.text.length, end: latestRoot.effective.text.length, text: "\n/* FINAL_NODE_ROLLBACK */\n" },
+  ]));
+  const failAtFinalNode = definitions.map((definition) => definition.id === "route:manifest"
+    ? { ...definition, definitionVersion: 2, compute: () => { throw new Error("final-node-refusal"); } }
+    : definition);
+  refuseGraph(session, () => session.analyzeGraph(failAtFinalNode), "FADENO_ANALYZER_GRAPH_COMPUTE");
+  const recoveredAfterFinalFailure = acceptGraph(session.analyzeGraph(definitions));
+  currentGraph = recoveredAfterFinalFailure;
+  assert.deepEqual(recoveredAfterFinalFailure.affected, [
+    "route:root-layout", "route:admin-layout", "route:dashboard", "route:manifest",
+  ]);
+
+  const obsoletePath = join(root, "routes/obsolete/page.tsx");
+  mkdirSync(join(root, "routes/obsolete"));
+  cpSync(paths.page, obsoletePath);
+  acceptDocument(session.open(obsoletePath, 0, readFileSync(obsoletePath, "utf8")));
+  const obsoleteUri = session.currentSnapshot.documents.find(({ path }) => path === "routes/obsolete/page.tsx")!.uri;
+  const obsoleteDefinition: AnalyzerGraphNodeDefinition = {
+    id: "route:obsolete", ownerUri: obsoleteUri, definitionVersion: 1, dependencies: ["route:admin-layout"],
+    module: { namespace: "fadeno.routes", version: 1, transformation: "page" },
+    compute: compute("obsolete", { id: "artifact:obsolete-route", path: ".fadeno/obsolete.route.json" }),
+  };
+  currentGraph = acceptGraph(session.analyzeGraph([...definitions, obsoleteDefinition]));
+  acceptDocument(session.close(obsoletePath, 1, 0));
+  rmSync(obsoletePath);
+  acceptDocument(session.remove(obsoletePath));
+  const deletedOwner = acceptGraph(session.analyzeGraph(definitions));
+  currentGraph = deletedOwner;
+  assert.deepEqual(deletedOwner.removedNodes, [{
+    nodeId: "route:obsolete", ownerUri: obsoleteUri, reason: "owner-disappeared",
+  }]);
+  assert.deepEqual(deletedOwner.removedArtifacts, [{
+    id: "artifact:obsolete-route", path: ".fadeno/obsolete.route.json", ownerNodeId: "route:obsolete",
+  }]);
 
   const withoutManifest = definitions.filter(({ id }) => id !== "route:manifest");
   const manifestRemoved = acceptGraph(session.analyzeGraph(withoutManifest));
   currentGraph = manifestRemoved;
-  assert.deepEqual(manifestRemoved.removedNodes, ["route:manifest"]);
-  assert.deepEqual(manifestRemoved.removedArtifacts, ["artifact:route-manifest"]);
+  assert.deepEqual(manifestRemoved.removedNodes, [{
+    nodeId: "route:manifest", ownerUri: uris.manifest, reason: "definition-removed",
+  }]);
+  assert.deepEqual(manifestRemoved.removedArtifacts, [{
+    id: "artifact:route-manifest", path: ".fadeno/routes.manifest.json", ownerNodeId: "route:manifest",
+  }]);
   assert.equal(manifestRemoved.results.some(({ id }) => id === "route:manifest"), false);
 
   acceptDocument(session.close(paths.page, pageDocument.open!.lifetime, 1));
@@ -278,14 +396,22 @@ try {
   ];
   const renamed = acceptGraph(session.analyzeGraph(renamedDefinitions));
   currentGraph = renamed;
-  assert.deepEqual(renamed.removedNodes, ["route:dashboard"]);
-  assert.deepEqual(renamed.removedArtifacts, ["artifact:dashboard-route"]);
+  assert.deepEqual(renamed.removedNodes, [{
+    nodeId: "route:dashboard", ownerUri: uris.page, reason: "owner-disappeared",
+  }]);
+  assert.deepEqual(renamed.removedArtifacts, [{
+    id: "artifact:dashboard-route", path: ".fadeno/dashboard.route.json", ownerNodeId: "route:dashboard",
+  }]);
   assert.equal(renamed.results.some(({ id }) => id === "route:dashboard"), false);
   assert.equal(renamed.results.find(({ id }) => id === "route:overview")?.provenance.primaryOrigin.uri, overviewUri);
   assert.equal(session.currentSnapshot.documents.some(({ uri }) => uri === uris.page), false);
+  const renamedRoundTrip = deserializeAnalyzerGraphSnapshot(serializeAnalyzerGraphSnapshot(renamed));
+  assert.deepEqual(renamedRoundTrip.removedNodes, renamed.removedNodes);
+  assert.deepEqual(renamedRoundTrip.removedArtifacts, renamed.removedArtifacts);
 
   const normalizedUris = new Map(Object.entries(uris).map(([key, uri]) => [uri, documentPaths[key as keyof typeof documentPaths]]));
   normalizedUris.set(overviewUri, "routes/admin/overview/page.tsx");
+  normalizedUris.set(obsoleteUri, "routes/obsolete/page.tsx");
   const normalizeUri = (uri: string) => normalizedUris.get(uri) ?? "<unknown>";
   const fixture = {
     affected: rootEdit.affected,
@@ -299,6 +425,12 @@ try {
       primary: normalizeUri(provenance.primaryOrigin.uri),
       related: provenance.relatedOrigins.map(({ uri }) => normalizeUri(uri)),
       module: provenance.module,
+      nodeSourceToArtifact: provenance.sourceToArtifacts.map(({ sourceUri, artifactId }) => ({
+        source: normalizeUri(sourceUri), artifactId,
+      })),
+      nodeArtifactToSource: provenance.artifactToSources.map(({ artifactId, sourceUri }) => ({
+        artifactId, source: normalizeUri(sourceUri),
+      })),
       artifacts: artifacts.map((artifact) => ({
         id: artifact.id,
         path: artifact.path,
@@ -308,8 +440,18 @@ try {
       })),
     })),
     cleanup: {
-      deleted: { nodes: manifestRemoved.removedNodes, artifacts: manifestRemoved.removedArtifacts },
-      renamed: { nodes: renamed.removedNodes, artifacts: renamed.removedArtifacts },
+      deleted: {
+        nodes: deletedOwner.removedNodes.map((node) => ({ ...node, ownerUri: normalizeUri(node.ownerUri) })),
+        artifacts: deletedOwner.removedArtifacts,
+      },
+      definitionRemoved: {
+        nodes: manifestRemoved.removedNodes.map((node) => ({ ...node, ownerUri: normalizeUri(node.ownerUri) })),
+        artifacts: manifestRemoved.removedArtifacts,
+      },
+      renamed: {
+        nodes: renamed.removedNodes.map((node) => ({ ...node, ownerUri: normalizeUri(node.ownerUri) })),
+        artifacts: renamed.removedArtifacts,
+      },
     },
   };
   const expected = JSON.parse(readFileSync(new URL("../fixtures/v1-analyzer/recomputation.normalized.json", import.meta.url), "utf8"));
