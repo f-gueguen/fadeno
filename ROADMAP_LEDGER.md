@@ -18,7 +18,7 @@ V1-01 — freeze the supported config and command workflow
   syntax without automatically exposing values to browser output.
 - [x] Prove the private TypeScript prototype runs check/dev/build, produces
   byte-identical repeated build output, and rejects config/env mutations.
-- [ ] Prove all projections and `pnpm ci:local` pass.
+- [x] Prove all projections and `pnpm ci:local` pass.
 
 ## In progress
 
@@ -26,6 +26,8 @@ V1-01 — freeze the supported config and command workflow
   adapter, or route contracts.
 - V1-02 next selects the first Web-standard runtime adapter from a private
   conformance feasibility harness.
+- Clean local CI passes the toolchain contract at `9fb0464`; the final ledger
+  projection is revalidated before review.
 
 ## Blockers
 
