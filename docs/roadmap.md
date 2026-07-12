@@ -4,10 +4,10 @@ The roadmap defines evidence gates, not dates, release counts, or a speculative
 package inventory. Only the current slice appears in detail in
 [ROADMAP_LEDGER.md](../ROADMAP_LEDGER.md).
 
-The next implementation gate has a reviewed
-[detailed K0 plan](roadmap/k0.md). A detailed plan for the following gate is
-written only after the current evidence is accepted, so future work is neither
-forgotten nor specified from guesses. The
+K0 follows its reviewed [detailed plan](roadmap/k0.md), and accepted K0 evidence
+now feeds the dependency-ordered [detailed V1 plan](roadmap/v1.md). Later gates
+receive detailed plans only after their entry evidence is accepted, so future
+work is neither forgotten nor specified from guesses. The
 [feature matrix](product/scope.md) preserves full release coverage meanwhile.
 
 ## F0 — Canonical foundation
@@ -23,6 +23,8 @@ environment, result, and go, narrow, or pivot decision. Browser updates and
 interaction extraction run in real browsers. Type generation runs through
 stock TypeScript. Revalidation is measured in a representative data workflow.
 
+Status: complete through ADR 0021. H1/H3 are NARROW; H2/H4 are GO.
+
 ## V1 — Secure no-JavaScript vertical slice
 
 Outcome: one authenticated CRUD application routes, renders, reads, submits,
@@ -30,6 +32,9 @@ validates, redirects, revalidates, and handles failures with JavaScript
 disabled. A server adapter, renderer, resource/action model, form decoder,
 cookie policy, threat model, test helpers, and reproducible build exist only to
 the extent required by that slice.
+
+Implementation order and the first-running/usable checkpoints are defined in
+the [V1 plan](roadmap/v1.md).
 
 ## V2 — Browser enhancement
 

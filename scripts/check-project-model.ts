@@ -268,6 +268,50 @@ for (const hypothesis of ["H1", "H2", "H3", "H4"]) {
   }
 }
 
+const v1 = read("docs/roadmap/v1.md");
+const expectedV1Ids = Array.from({ length: 14 }, (_, index) => `V1-${String(index + 1).padStart(2, "0")}`);
+const v1Rows = tableRows(v1, /^\| V1-\d{2} \|/);
+const v1Ids = v1Rows.map((cells) => cells[0]);
+const v1Set = new Set(v1Ids);
+const v1Order = new Map(v1Ids.map((id, index) => [id, index]));
+if (JSON.stringify(v1Ids) !== JSON.stringify(expectedV1Ids)) {
+  errors.push(`docs/roadmap/v1.md: expected ordered slices ${expectedV1Ids.join(", ")}`);
+}
+for (const duplicate of duplicates(v1Ids)) errors.push(`docs/roadmap/v1.md: duplicate slice ${duplicate}`);
+
+const v1Features = new Set();
+const v1Gates = new Set();
+for (const cells of v1Rows) {
+  const slice = cells[0];
+  if (cells.length !== 6) {
+    errors.push(`docs/roadmap/v1.md: ${slice} must have exactly 6 columns`);
+    continue;
+  }
+  for (const match of cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)) {
+    if (!scopeSet.has(match[1])) errors.push(`docs/roadmap/v1.md: ${slice} references unknown feature ${match[1]}`);
+    v1Features.add(match[1]);
+  }
+  for (const match of cells[3].matchAll(/\b(DG-V1-\d{2})\b/g)) {
+    if (!gateSet.has(match[1])) errors.push(`docs/roadmap/v1.md: ${slice} references unknown gate ${match[1]}`);
+    v1Gates.add(match[1]);
+  }
+  for (const dependency of cells[3].matchAll(/(?<!DG-)\b(V1-\d{2})\b/g)) {
+    if (!v1Set.has(dependency[1])) errors.push(`docs/roadmap/v1.md: ${slice} depends on missing ${dependency[1]}`);
+    else if ((v1Order.get(dependency[1]) ?? Infinity) >= (v1Order.get(slice) ?? -1)) {
+      errors.push(`docs/roadmap/v1.md: ${slice} dependency ${dependency[1]} is not earlier`);
+    }
+  }
+  if (!cells[4] || !cells[5]) errors.push(`docs/roadmap/v1.md: ${slice} is missing artifacts or validation`);
+}
+const requiredV1Features = new Set([
+  "GOV-01", "WEB-01", "WEB-02", "WEB-03", "DATA-01", "DATA-02", "DATA-03", "STATE-01",
+  "TYPE-01", "SEC-01", "BUILD-01", "ADP-01", "TEST-01", "DX-01", "CLI-01", "DOC-01", "ACCESS-01", "PERF-01",
+]);
+for (const feature of setDifference(requiredV1Features, v1Features)) errors.push(`docs/roadmap/v1.md: missing V1 feature ${feature}`);
+for (const gate of Array.from({ length: 8 }, (_, index) => `DG-V1-${String(index + 1).padStart(2, "0")}`)) {
+  if (!v1Gates.has(gate)) errors.push(`docs/roadmap/v1.md: missing gate ${gate}`);
+}
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],

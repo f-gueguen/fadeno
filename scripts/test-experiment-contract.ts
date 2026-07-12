@@ -545,12 +545,11 @@ const commandCases = [
     stderr: "",
   },
   {
-    name: "unavailable",
+    name: "qualified",
     args: [],
-    status: 2,
-    stdout: "",
-    stderr:
-      "FADENO_K0_001: aggregate execution is unavailable until all four harnesses exist; use --list to inspect the approved plan.\n",
+    status: 0,
+    stdoutEndsWith: "all K0 qualification evidence passed (H1 NARROW, H2 GO, H3 NARROW, H4 GO)\n",
+    stderr: "",
   },
   {
     name: "unsupported",
@@ -567,7 +566,7 @@ for (const fixture of commandCases) {
   });
   if (
     result.status !== fixture.status ||
-    result.stdout !== fixture.stdout ||
+    (fixture.stdoutEndsWith ? !result.stdout.endsWith(fixture.stdoutEndsWith) : result.stdout !== fixture.stdout) ||
     result.stderr !== fixture.stderr
   ) {
     recordFailure(`${fixture.name} command contract failed: ${JSON.stringify(result)}`);
@@ -583,7 +582,7 @@ for (const fixture of [commandCases[0], commandCases[2]]) {
   );
   if (
     result.status !== fixture.status ||
-    result.stdout !== fixture.stdout ||
+    (fixture.stdoutEndsWith ? !result.stdout.endsWith(fixture.stdoutEndsWith) : result.stdout !== fixture.stdout) ||
     result.stderr !== fixture.stderr
   ) {
     recordFailure(`${fixture.name} pnpm contract failed: ${JSON.stringify(result)}`);
