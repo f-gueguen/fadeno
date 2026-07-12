@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import type { AnalyzerFacetContribution } from "../packages/framework/src/internal/analyzer-facets.ts";
 import type { AnalyzerGraphComputeContext, AnalyzerGraphNodeDefinition } from "../packages/framework/src/internal/analyzer-graph.ts";
+import { createRouteExplainContribution } from "../packages/framework/src/internal/analyzer-route-explain.ts";
 import { AnalyzerSession, type AnalyzerOperationResult } from "../packages/framework/src/internal/analyzer-session.ts";
 
 function accepted(result: AnalyzerOperationResult) {
@@ -70,6 +71,33 @@ try {
   assert.equal(collectorCalls, 0);
   assert.equal(session.currentPublicationSnapshot, publication);
   assert.equal(constructionCalls, callsAfterPublication);
+
+  const semanticFlow = await session.startExplain({
+    detail: "semantic",
+    collect: ({ publication: current, detail }) => [createRouteExplainContribution(current, null, detail)],
+  }).result;
+  assert.equal(semanticFlow.status, "complete");
+  if (semanticFlow.status === "complete") {
+    const value = semanticFlow.contributions[0]!.value as any;
+    assert.equal(value.family, "static-analysis");
+    assert.equal(value.detail, "semantic");
+    assert.deepEqual(value.records.filter(({ kind }: any) => kind === "decision").map(({ fields }: any) => fields.decision), [
+      "publish-static-route-plan",
+    ]);
+    assert.equal(value.records.some(({ kind }: any) => kind === "forensic"), false);
+    assert.equal(value.records.some(({ kind, fields }: any) => kind === "outcome" && fields.status === "static-ready"), true);
+  }
+  const deepFlow = await session.startExplain({
+    detail: "deep",
+    activateDeep: true,
+    collect: ({ publication: current, detail }) => [createRouteExplainContribution(current, null, detail)],
+  }).result;
+  assert.equal(deepFlow.status, "complete");
+  if (deepFlow.status === "complete") {
+    assert.equal((deepFlow.contributions[0]!.value as any).records.some(({ kind }: any) => kind === "forensic"), true);
+  }
+  assert.equal(constructionCalls, callsAfterPublication);
+  assert.equal(session.currentPublicationSnapshot, publication);
 
   for (const request of [
     { detail: "deep", collect: () => { collectorCalls += 1; return routeContribution; } },

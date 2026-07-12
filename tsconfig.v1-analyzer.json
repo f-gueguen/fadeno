@@ -11,6 +11,7 @@
     "packages/framework/src/internal/analyzer-session.ts",
     "packages/framework/src/internal/analyzer-diagnostics.ts",
     "packages/framework/src/internal/analyzer-explain.ts",
+    "packages/framework/src/internal/analyzer-route-explain.ts",
     "scripts/check-v1-analyzer.ts",
     "scripts/check-v1-analyzer-graph.ts",
     "scripts/check-v1-analyzer-publication.ts",
