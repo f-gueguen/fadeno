@@ -21,7 +21,7 @@
   "unsafeKeeps": [
     { "id": "keeps-mutated-task-value", "class": "value", "declaredResource": "tasks" },
     { "id": "keeps-error-transition", "class": "expected-error", "declaredResource": "permissions" },
-    { "id": "keeps-reordered-activity", "class": "ordering", "declaredResource": "activity" },
+    { "id": "keeps-reordered-projects", "class": "ordering", "declaredResource": "projects" },
     { "id": "keeps-non-cacheable-activity", "class": "non-cacheable", "declaredResource": "activity" }
   ]
 }

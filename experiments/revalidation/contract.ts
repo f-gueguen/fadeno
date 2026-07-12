@@ -25,7 +25,7 @@ export function loadRevalidationWorkload(): RevalidationWorkload {
 }
 
 export function stableRevalidationContract(): string {
-  const files = ["workload.json", "workload.schema.json"];
+  const files = ["baseline-manifests.json", "baseline-manifests.schema.json", "workload.json", "workload.schema.json"];
   const workload = loadRevalidationWorkload();
   return `${JSON.stringify({
     schemaVersion: 1,
@@ -35,6 +35,7 @@ export function stableRevalidationContract(): string {
       ...workload,
       authentication: { ...workload.authentication, secretCanary: "[redacted]" },
     },
+    baselines: JSON.parse(readFileSync(join(root, "baseline-manifests.json"), "utf8")),
     sources: files.map((path) => ({
       path,
       sha256: createHash("sha256").update(readFileSync(join(root, path))).digest("hex"),

@@ -13,6 +13,10 @@ const document = JSON.parse(readFileSync(join(experiment, "workload.json"), "utf
 const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown>) => { compile(schema: unknown): ((value: unknown) => boolean) & { errors?: unknown } };
 const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
 if (!validate(document)) throw new Error(`FADENO_REVALIDATION_SCHEMA:${JSON.stringify(validate.errors)}`);
+const baselineSchema = JSON.parse(readFileSync(join(experiment, "baseline-manifests.schema.json"), "utf8"));
+const baselines = JSON.parse(readFileSync(join(experiment, "baseline-manifests.json"), "utf8"));
+const validateBaselines = new Ajv2020({ allErrors: true, strict: true }).compile(baselineSchema);
+if (!validateBaselines(baselines)) throw new Error(`FADENO_REVALIDATION_BASELINE_SCHEMA:${JSON.stringify(validateBaselines.errors)}`);
 const workload = loadRevalidationWorkload();
 if (JSON.stringify([...workload.resources].sort()) !== JSON.stringify(REVALIDATION_RESOURCE_IDS)) throw new Error("FADENO_REVALIDATION_RESOURCES");
 const counts = new Map(REVALIDATION_RESOURCE_IDS.map((id) => [id, workload.pageReads.filter((value) => value === id).length]));
