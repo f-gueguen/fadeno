@@ -1,4 +1,3 @@
-import { once } from "node:events";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 
@@ -38,11 +37,23 @@ function requestBody(request: IncomingMessage): ReadableStream<Uint8Array> | und
   return Readable.toWeb(request) as ReadableStream<Uint8Array>;
 }
 
+function requestHeaders(request: IncomingMessage): Headers {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (Array.isArray(value)) {
+      for (const item of value) headers.append(name, item);
+    } else if (value !== undefined) {
+      headers.append(name, value);
+    }
+  }
+  return headers;
+}
+
 function toWebRequest(request: IncomingMessage, origin: string, signal: AbortSignal): Request {
   const body = requestBody(request);
   const init: RequestInit & { duplex?: "half" } = {
     method: request.method ?? "GET",
-    headers: request.headers as HeadersInit,
+    headers: requestHeaders(request),
     signal,
   };
   if (body) {
@@ -62,11 +73,20 @@ function copyResponseHead(response: Response, target: ServerResponse): void {
   if (cookies.length > 0) target.setHeader("set-cookie", cookies);
 }
 
-async function waitForDrain(target: ServerResponse): Promise<void> {
-  await Promise.race([
-    once(target, "drain"),
-    once(target, "close").then(() => { throw new DOMException("Client disconnected", "AbortError"); }),
-  ]);
+function waitForDrain(target: ServerResponse): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cleanup = (): void => {
+      target.off("drain", onDrain);
+      target.off("close", onClose);
+      target.off("error", onError);
+    };
+    const onDrain = (): void => { cleanup(); resolve(); };
+    const onClose = (): void => { cleanup(); reject(new DOMException("Client disconnected", "AbortError")); };
+    const onError = (error: Error): void => { cleanup(); reject(error); };
+    target.once("drain", onDrain);
+    target.once("close", onClose);
+    target.once("error", onError);
+  });
 }
 
 async function writeWebResponse(response: Response, target: ServerResponse): Promise<void> {
@@ -78,6 +98,10 @@ async function writeWebResponse(response: Response, target: ServerResponse): Pro
 
   const reader = response.body.getReader();
   let completed = false;
+  const cancelOnDisconnect = (): void => {
+    if (!target.writableEnded) void reader.cancel("client disconnected").catch(() => undefined);
+  };
+  target.once("close", cancelOnDisconnect);
   try {
     while (!target.destroyed) {
       const next = await reader.read();
@@ -89,6 +113,7 @@ async function writeWebResponse(response: Response, target: ServerResponse): Pro
       if (!target.write(next.value)) await waitForDrain(target);
     }
   } finally {
+    target.off("close", cancelOnDisconnect);
     if (!completed) await reader.cancel("client disconnected").catch(() => undefined);
     reader.releaseLock();
   }
@@ -136,7 +161,11 @@ export async function listenNodeHttpAdapter(options: ListenNodeHttpAdapterOption
   assertSupportedRuntime();
   const hostname = options.hostname ?? "127.0.0.1";
   let origin: string | undefined;
+  let draining = false;
   const server = createServer({ highWaterMark: 16 * 1024 }, (request, response) => {
+    response.once("finish", () => {
+      if (draining) server.closeIdleConnections();
+    });
     handleRequest(options.handler, () => {
       if (!origin) throw new Error("FADENO_ADAPTER_NOT_LISTENING");
       return origin;
@@ -148,6 +177,9 @@ export async function listenNodeHttpAdapter(options: ListenNodeHttpAdapterOption
   origin = `http://${hostname}:${address.port}`;
   return {
     origin,
-    close: () => close(server),
+    close: () => {
+      draining = true;
+      return close(server);
+    },
   };
 }

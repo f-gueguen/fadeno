@@ -24,6 +24,7 @@
     "check:revalidation-qualification-cli": "node --no-warnings --experimental-strip-types scripts/test-revalidation-qualification-cli.ts",
     "check:v1-toolchain": "node --no-warnings --experimental-strip-types scripts/check-v1-toolchain-contract.ts",
     "check:v1-adapter": "tsc -p tsconfig.v1-adapter.json && node --no-warnings --experimental-strip-types scripts/check-v1-adapter-contract.ts",
+    "check:v1-adapter:minimum": "node --no-warnings --experimental-strip-types scripts/check-v1-adapter-minimum.ts",
     "check:revalidation-qualification-runner": "node --no-warnings --experimental-strip-types scripts/check-revalidation-qualification-runner.ts && node --no-warnings --experimental-strip-types scripts/test-revalidation-qualification-runner.ts",
     "check:revalidation-qualification-schedule": "node --no-warnings --experimental-strip-types scripts/build-revalidation-qualification-schedule.ts --check && node --no-warnings --experimental-strip-types scripts/check-revalidation-qualification-schedule.ts && node --no-warnings --experimental-strip-types scripts/test-revalidation-qualification-schedule.ts",
     "check:revalidation-reference": "node --no-warnings --experimental-strip-types scripts/check-revalidation-reference.ts && node --no-warnings --experimental-strip-types scripts/test-revalidation-reference.ts",
