@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-qualification-result-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sourceCommit", "captureSha256", "metrics", "decision"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "captureSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "metrics": { "type": "object", "additionalProperties": false, "required": ["correctnessCycles", "staleCycles", "deduplicationFailures", "defaultP95Ns", "selectiveP95Ns", "defaultToSelectiveP95Ratio", "defaultP95Milliseconds", "memoryGrowthRatio", "unsafeKeepDetectionRatio"], "properties": { "correctnessCycles": { "const": 10000 }, "staleCycles": { "type": "integer", "minimum": 0, "maximum": 10000 }, "deduplicationFailures": { "type": "integer", "minimum": 0, "maximum": 10000 }, "defaultP95Ns": { "type": "integer", "minimum": 1 }, "selectiveP95Ns": { "type": "integer", "minimum": 1 }, "defaultToSelectiveP95Ratio": { "type": "number", "minimum": 0 }, "defaultP95Milliseconds": { "type": "number", "minimum": 0 }, "memoryGrowthRatio": { "type": "number", "minimum": -1000, "maximum": 1000 }, "unsafeKeepDetectionRatio": { "type": "number", "minimum": 0, "maximum": 1 } } },
+    "decision": { "$ref": "https://fadeno.dev/schemas/experiment/revalidation-qualification-decision-v1.json" }
+  }
+}

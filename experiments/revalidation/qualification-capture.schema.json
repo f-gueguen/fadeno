@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-qualification-capture-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sourceCommit", "environmentId", "status", "inputHashes", "preflight", "failures"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "environmentId": { "const": "k0-h4-local-docker-arm64-v1" },
+    "status": { "enum": ["complete", "inconclusive"] },
+    "inputHashes": { "type": "object", "minProperties": 6, "maxProperties": 16, "additionalProperties": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },
+    "preflight": { "type": "object", "additionalProperties": false, "required": ["beforeAccepted", "afterAccepted", "beforeHostSha256", "afterHostSha256", "beforeContainerSha256", "afterContainerSha256"], "properties": { "beforeAccepted": { "type": "boolean" }, "afterAccepted": { "type": "boolean" }, "beforeHostSha256": { "$ref": "#/$defs/sha256" }, "afterHostSha256": { "$ref": "#/$defs/sha256" }, "beforeContainerSha256": { "$ref": "#/$defs/sha256" }, "afterContainerSha256": { "$ref": "#/$defs/sha256" } } },
+    "correctness": { "$ref": "#/$defs/correctness" },
+    "latency": { "$ref": "#/$defs/latency" },
+    "memory": { "$ref": "#/$defs/memory" },
+    "controls": { "type": "object", "additionalProperties": false, "required": ["unsafeKeepsDetected", "unsafeKeepsTotal", "comparisonPass", "sensitiveValuesDisclosed"], "properties": { "unsafeKeepsDetected": { "const": 4 }, "unsafeKeepsTotal": { "const": 4 }, "comparisonPass": { "type": "boolean" }, "sensitiveValuesDisclosed": { "const": false } } },
+    "failures": { "type": "array", "maxItems": 10000, "items": { "type": "object", "additionalProperties": false, "required": ["code"], "properties": { "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,79}$" }, "cycleId": { "type": "string", "pattern": "^c[0-9]{5}$" } } } }
+  },
+  "allOf": [
+    { "if": { "properties": { "status": { "const": "complete" } } }, "then": { "required": ["correctness", "latency", "memory", "controls"], "properties": { "correctness": {}, "latency": {}, "memory": {}, "controls": {}, "preflight": { "type": "object", "properties": { "beforeAccepted": { "const": true }, "afterAccepted": { "const": true } } } } } }
+  ],
+  "$defs": {
+    "correctness": { "type": "object", "additionalProperties": false, "required": ["cycles"], "properties": { "cycles": { "type": "array", "minItems": 10000, "maxItems": 10000, "items": { "type": "object", "additionalProperties": false, "required": ["id", "path", "readOrder", "beforeDigest", "defaultDigest", "selectiveDigest", "defaultExecutions", "selectiveExecutions", "actionStatus", "stale"], "properties": { "id": { "type": "string", "pattern": "^c[0-9]{5}$" }, "path": { "enum": ["s", "e"] }, "readOrder": { "type": "string", "pattern": "^[0-8]{9}$" }, "beforeDigest": { "$ref": "#/$defs/sha256" }, "defaultDigest": { "$ref": "#/$defs/sha256" }, "selectiveDigest": { "$ref": "#/$defs/sha256" }, "defaultExecutions": { "type": "string", "pattern": "^1{6}$" }, "selectiveExecutions": { "type": "string", "pattern": "^0{5}1$" }, "actionStatus": { "enum": ["success", "expected-error"] }, "stale": { "type": "boolean" } } } } } },
+    "latency": { "type": "object", "additionalProperties": false, "required": ["defaultNs", "selectiveNs", "outputsMatch"], "properties": { "defaultNs": { "$ref": "#/$defs/samples" }, "selectiveNs": { "$ref": "#/$defs/samples" }, "outputsMatch": { "const": true } } },
+    "memory": { "type": "object", "additionalProperties": false, "required": ["gcAvailable", "gcRounds", "baselineRss", "afterRss", "baselineHeapUsed", "afterHeapUsed", "checkpoints"], "properties": { "gcAvailable": { "const": true }, "gcRounds": { "const": 3 }, "baselineRss": { "type": "integer", "minimum": 1 }, "afterRss": { "type": "integer", "minimum": 1 }, "baselineHeapUsed": { "type": "integer", "minimum": 1 }, "afterHeapUsed": { "type": "integer", "minimum": 1 }, "checkpoints": { "type": "array", "minItems": 10, "maxItems": 10, "items": { "type": "integer", "minimum": 1 } } } },
+    "samples": { "type": "array", "minItems": 1000, "maxItems": 1000, "items": { "type": "integer", "minimum": 1 } },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}
