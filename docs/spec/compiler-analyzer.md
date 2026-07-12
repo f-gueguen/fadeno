@@ -399,6 +399,21 @@ instances that prevented it. Expected user errors remain separate from
 internal failures, and ordinary runtime exceptions remain outside the static
 analyzer contract.
 
+V1-DX-B5 implements these semantics as the private independently versioned
+`fadeno.diagnostics` facet. Diagnostic definitions own the only accepted code,
+module, phase, parameter keys, parameter values, summary renderer, redaction,
+and explanation mapping. Inputs cannot contribute free-form prose, stacks, or
+arbitrary context. Instance, cause, correction, and skipped-work references are
+same-batch, unique, acyclic, and canonically ordered. Locations are contained
+project files with an exact bounded offset range or one explicit ownership
+reason for a null range. The module rejects evidence that cannot prove those
+facts rather than repairing it during deserialization.
+
+This facet is a static analyzer record family. Existing build and runtime
+exceptions remain separate and are not retrofitted or parsed to construct it.
+Its version and fixtures are private evidence, not the compatibility-controlled
+external diagnostic schema gated by DG-A0-02.
+
 ## Corrections
 
 Structured corrections contain a stable internal fix ID, parameters, concrete
@@ -411,12 +426,32 @@ Position-dependent correction edits follow the document synchronization order.
 A correction is refused as stale unless its document version, workspace epoch,
 and ownership inputs still match.
 
+B5 correction applicability captures the diagnostic publication's session,
+operation, workspace and configuration epochs, complete document-version set,
+root, configuration fingerprint, and document text lengths. Both automatic and
+review-only intents are checked against the current publication operation and
+authority before use, so full-batch replacement stales every prior intent even
+when document and configuration state did not change. The only initial
+automatic correction is a code-owned single-document configuration edit whose
+expected old bytes, exact diagnostic range, and replacement bytes derive from
+its validated parameters; the route-role
+collision stays review-only because removing either owner would guess intent.
+The analyzer prepares one already-validated sequential edit batch and the
+document session applies it atomically. Repair makes the prior intent stale.
+
 ## Serialization and explanation
 
 Snapshots, diagnostic batches, cached results, explanation records, and
 transported artifacts are versioned. Round trips preserve diagnostic codes and
 parameters, primary and related locations, causal edges, provenance, artifact
 ownership, skipped-work reasons, completeness, redaction, and truncation.
+
+The private B5 diagnostic codec uses exact keys, canonical ordering, same-batch
+referential integrity, construction-time redaction, contained locations, and a
+262,144-byte total bound. Serialize/deserialize/serialize is byte stable. The
+generic facet transport preserves the resulting value, while consumers that
+interpret diagnostics must use the module-owned codec rather than treating an
+arbitrary facet object as a diagnostic batch.
 
 Plan and explain data are lazy namespaced facets. Semantic detail is bounded;
 forensic detail requires explicit activation and byte, record, depth, duration,

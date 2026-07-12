@@ -159,6 +159,14 @@ use public package entrypoints, assert behavior, normalize unstable values, and
 source documentation snippets and expected output from executed files. A
 deliberate failure never prevents the primary application from building.
 
+Before B7 establishes the supported check/watch/build path, private analyzer
+foundation fixtures may copy the canonical application as semantic corpus.
+Those fixtures are conformance evidence, not public analyzer examples. The
+`check:v1-analyzer-package` gate rebuilds and packs the current framework,
+proves the private implementation is present, and proves package exports still
+refuse analyzer deep imports. B7 owns executing analyzer examples through the
+packed public workflow.
+
 The V1 lifecycle workload measures edit/save to a fresh framework diagnostic
 and edit/save to a cleared diagnostic across invalidation, generation,
 TypeScript refresh, Fadeno analysis, and final consumer-visible publication.
