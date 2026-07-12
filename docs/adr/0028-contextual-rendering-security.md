@@ -71,8 +71,7 @@ not claim same-origin safety.
 
 Boolean sinks accept only booleans: true emits the static attribute name and
 false omits it. Enumerated sinks accept only their registry token, in canonical
-lowercase. Cross-attribute rules such as `_blank` plus `noopener` are registry
-requirements consumed by V1-09. Inline CSS is refused; applications use
+lowercase. Inline CSS is refused; applications use
 `class` and external CSS until a separate property/value grammar earns scope.
 
 The neutral package root exports exactly one raw constructor, `unsafeHtml`, and

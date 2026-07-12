@@ -1,4 +1,4 @@
-import { createUnsafeHtml } from "./internal/unsafe-html.js";
+import { createUnsafeHtml } from "./internal/unsafe-html.ts";
 
 export type Handler = (request: Request) => Response | Promise<Response>;
 

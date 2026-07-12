@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "policyVersion": 1,
   "futureConsumer": "V1-09 renderer and browser conformance",
+  "classifierRegistrySha256": "db94685fd3ef60fb9baf3ffb16e9ea10b9b98d8ebc11c27c921879122f2340e4",
   "textCases": [
     { "id": "text-delimiters", "context": "html-text", "input": "&<>\"'", "output": "&amp;&lt;&gt;\"'" },
     { "id": "title-end-tag", "context": "rcdata-title", "input": "</TiTlE><script>x</script>", "output": "&lt;/TiTlE&gt;&lt;script&gt;x&lt;/script&gt;" },
