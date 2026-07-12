@@ -33,8 +33,9 @@ export type QualificationCycleRecord = Readonly<{
   selectiveDigest: string;
   defaultExecutions: string;
   selectiveExecutions: string;
-  actionStatus: "success" | "expected-error";
-  stateIsolated: true;
+  defaultActionStatus: "success" | "expected-error";
+  selectiveActionStatus: "success" | "expected-error";
+  stateIsolated: boolean;
   stale: boolean;
 }>;
 
@@ -157,8 +158,9 @@ function correctnessCycle(
     selectiveDigest,
     defaultExecutions,
     selectiveExecutions,
-    actionStatus: defaultAction.status,
-    stateIsolated: true,
+    defaultActionStatus: defaultAction.status,
+    selectiveActionStatus: selectiveAction.status,
+    stateIsolated,
     stale,
   };
 }

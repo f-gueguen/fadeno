@@ -110,7 +110,8 @@ export function deriveQualificationResult(
       const expectedSelectiveExecutions = expected.path === "s" ? "000001" : "000000";
       if (
         cycle.stale || !cycle.stateIsolated || cycle.beforeDigest !== schedule.outputDigests.before ||
-        cycle.defaultDigest !== expectedDigest || cycle.selectiveDigest !== expectedDigest || cycle.actionStatus !== expectedStatus
+        cycle.defaultDigest !== expectedDigest || cycle.selectiveDigest !== expectedDigest ||
+        cycle.defaultActionStatus !== expectedStatus || cycle.selectiveActionStatus !== expectedStatus
       ) staleCycles += 1;
       if (cycle.defaultExecutions !== expectedDefaultExecutions || cycle.selectiveExecutions !== expectedSelectiveExecutions) {
         deduplicationFailures += 1;

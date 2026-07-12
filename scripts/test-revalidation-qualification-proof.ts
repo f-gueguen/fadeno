@@ -17,6 +17,8 @@ const cases: readonly Readonly<{
 }>[] = [
   { mutate: (capture) => { capture.correctness!.cycles[0]!.stale = true; }, outcome: "pivot" },
   { mutate: (capture) => { capture.correctness!.cycles[0]!.defaultDigest = zeroHash; }, outcome: "pivot" },
+  { mutate: (capture) => { capture.correctness!.cycles[0]!.defaultActionStatus = "expected-error"; }, outcome: "pivot" },
+  { mutate: (capture) => { capture.correctness!.cycles[0]!.selectiveActionStatus = "expected-error"; }, outcome: "pivot" },
   { mutate: (capture) => { capture.correctness!.cycles[0]!.defaultExecutions = "111112"; }, outcome: "pivot" },
   { mutate: (capture) => { (capture.correctness!.cycles[0]! as { stateIsolated: boolean }).stateIsolated = false; }, outcome: "pivot" },
   { mutate: (capture) => { capture.correctness!.cycles.pop(); }, outcome: "inconclusive" },
