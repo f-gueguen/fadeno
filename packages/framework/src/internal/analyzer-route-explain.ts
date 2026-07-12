@@ -3,9 +3,11 @@ import { fileURLToPath } from "node:url";
 
 import { normalizeAnalyzerFacetValue, type AnalyzerFacetContribution, type AnalyzerFacetValue } from "./analyzer-facets.ts";
 import {
+  deserializeAnalyzerDiagnosticBatch,
   isAnalyzerDiagnosticCode,
   isAnalyzerDiagnosticInstanceId,
   isAnalyzerSkippedWorkId,
+  serializeAnalyzerDiagnosticBatch,
   type AnalyzerDiagnosticBatch,
 } from "./analyzer-diagnostics.ts";
 import {
@@ -328,10 +330,16 @@ function record(
 
 export function createRouteExplainContribution(
   publication: AnalyzerPublicationSnapshot,
-  diagnostics: AnalyzerDiagnosticBatch,
+  inputDiagnostics: AnalyzerDiagnosticBatch,
   detail: "semantic" | "deep",
   budgets: AnalyzerExplainBudgets,
 ): AnalyzerFacetContribution {
+  let diagnostics: AnalyzerDiagnosticBatch;
+  try {
+    diagnostics = deserializeAnalyzerDiagnosticBatch(serializeAnalyzerDiagnosticBatch(inputDiagnostics));
+  } catch {
+    throw new TypeError("FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS");
+  }
   if (
     (
       diagnostics.identity.sessionId !== publication.sessionId ||

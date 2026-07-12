@@ -474,6 +474,13 @@ try {
       /FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS/u,
     );
   }
+  const incompleteDiagnostics = JSON.parse(JSON.stringify(collisionDiagnostics));
+  incompleteDiagnostics.completeness = "partial";
+  incompleteDiagnostics.truncated = true;
+  assert.throws(
+    () => createRouteExplainContribution(collisionPublication, incompleteDiagnostics, "semantic", defaultExplainBudgets),
+    /FADENO_ANALYZER_ROUTE_EXPLAIN_DIAGNOSTICS/u,
+  );
   const collisionFlow = await session.startExplain({
     detail: "semantic",
     collect: ({ publication: active, budgets }) => [
@@ -541,6 +548,7 @@ try {
     (value: any) => { value.result.identity.operationId = "different:operation-1"; },
     (value: any) => { value.result.identity.documentVersions[0].uri = "file:///outside.tsx"; },
     (value: any) => { value.result.identity.ownership.configurationFingerprint = "secret"; },
+    (value: any) => { value.result.identity.ownership.root += "?marker=FADENO_EXPLAIN_SECRET_CANARY"; },
     (value: any) => { value.result.completeness = "partial"; },
     (value: any) => { value.result.contributions[0].value.publicationGeneration += 1; },
     (value: any) => { value.result.observedRuntime = true; },
@@ -549,6 +557,20 @@ try {
     mutate(invalid);
     assert.throws(() => deserializeAnalyzerExplainResult(JSON.stringify(invalid)), /FADENO_ANALYZER_EXPLAIN_SERIALIZATION/u);
   }
+  const inventedRefusal = JSON.parse(serializedFailed);
+  inventedRefusal.result.code = "FADENO_ANALYZER_EXPLAIN_CANARY";
+  assert.throws(
+    () => deserializeAnalyzerExplainResult(JSON.stringify(inventedRefusal)),
+    /FADENO_ANALYZER_EXPLAIN_SERIALIZATION/u,
+  );
+  const relabeledTruncation = JSON.parse(serializedSemanticFlow);
+  relabeledTruncation.result.status = "partial";
+  relabeledTruncation.result.completeness = "partial";
+  relabeledTruncation.result.truncation = "records";
+  assert.throws(
+    () => deserializeAnalyzerExplainResult(JSON.stringify(relabeledTruncation)),
+    /FADENO_ANALYZER_EXPLAIN_SERIALIZATION/u,
+  );
   assert.equal(session.currentPublicationSnapshot?.facets[0]?.value && true, true);
   console.log("V1 analyzer B6 lifecycle passed (disabled, activation, cancellation, supersession, freshness)");
 } finally {

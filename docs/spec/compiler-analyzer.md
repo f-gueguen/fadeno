@@ -484,7 +484,9 @@ envelope remains open to later independently versioned module codecs rather
 than enumerating future framework concepts.
 
 The route projector requires a complete current diagnostic batch. A missing
-batch is not treated as an empty batch. Static route refusal derives from the
+batch is not treated as an empty batch, and the projector round-trips the B5
+module codec before using it so forged partial or truncated evidence refuses.
+Static route refusal derives from the
 module-owned skipped manifest relationship rather than from the mere presence
 of diagnostics, so later non-blocking diagnostics cannot silently change plan
 policy. Explanation record IDs use deterministic local ordinals while original
@@ -518,8 +520,13 @@ session, workspace and configuration epochs, requested facet, complete
 document-version set, root and configuration ownership, publication identity,
 budgets, completeness, interruption, and truncation.
 Complete, limit-truncated, duration-truncated, and interrupted results round
-trip byte-stably. A contribution whose publication or detail identity differs
-from the operation refuses atomically. B6 accepts exactly the initial route
+trip byte-stably. Deserialization reprocesses each module contribution under
+the transported budgets and requires its module truncation to agree with the
+common status; complete and partial evidence cannot be relabeled independently.
+A contribution whose publication or detail identity differs
+from the operation refuses atomically. Refusal codes are allowlisted and
+workspace/document file URIs are exact, canonical, query-free, fragment-free,
+and contained. B6 accepts exactly the initial route
 contribution. A small private descriptor registry dispatches requested
 namespaces to their module-owned processor, identity matcher, and codec; unknown
 or duplicate requests refuse before collection. Later modules register their

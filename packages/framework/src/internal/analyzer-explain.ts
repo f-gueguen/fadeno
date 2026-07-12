@@ -1,3 +1,6 @@
+import { isAbsolute, relative } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
 import type { AnalyzerFacetContribution } from "./analyzer-facets.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
 import {
@@ -391,6 +394,14 @@ export class AnalyzerExplainCoordinator {
 
 const explainSerializationMaximumBytes = 300_000;
 const analyzerSessionIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const explainRefusalCodes = new Set([
+  "FADENO_ANALYZER_EXPLAIN_PUBLICATION",
+  "FADENO_ANALYZER_EXPLAIN_REQUEST",
+  "FADENO_ANALYZER_EXPLAIN_ACTIVATION",
+  "FADENO_ANALYZER_EXPLAIN_BUDGET",
+  "FADENO_ANALYZER_EXPLAIN_COLLECTION",
+  "FADENO_ANALYZER_EXPLAIN_CONTRIBUTION",
+]);
 
 function serializationRefuse(): never {
   throw new TypeError("FADENO_ANALYZER_EXPLAIN_SERIALIZATION");
@@ -465,7 +476,12 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
     !/^[0-9a-f]{64}$/u.test(ownership["configurationFingerprint"])
   ) serializationRefuse();
   let rootPath: string;
-  try { rootPath = fileURLToPath(ownership["root"] as string); } catch { serializationRefuse(); }
+  try {
+    const rootUrl = new URL(ownership["root"] as string);
+    if (rootUrl.protocol !== "file:" || rootUrl.hostname !== "" || rootUrl.search !== "" || rootUrl.hash !== "") serializationRefuse();
+    rootPath = fileURLToPath(rootUrl);
+    if (pathToFileURL(rootPath).href !== rootUrl.href) serializationRefuse();
+  } catch { serializationRefuse(); }
   let priorUri: string | undefined;
   for (const entry of identity["documentVersions"] as unknown[]) {
     const document = exactRecord(entry, ["uri", "version", "lifetime"]);
@@ -475,7 +491,14 @@ function validateSerializedIdentity(value: unknown, requested: boolean): Analyze
       (document["lifetime"] as number) < 1 || (priorUri !== undefined && priorUri >= document["uri"])
     ) serializationRefuse();
     let documentPath: string;
-    try { documentPath = fileURLToPath(document["uri"]); } catch { serializationRefuse(); }
+    try {
+      const documentUrl = new URL(document["uri"] as string);
+      if (documentUrl.protocol !== "file:" || documentUrl.hostname !== "" || documentUrl.search !== "" || documentUrl.hash !== "") {
+        serializationRefuse();
+      }
+      documentPath = fileURLToPath(documentUrl);
+      if (pathToFileURL(documentPath).href !== documentUrl.href) serializationRefuse();
+    } catch { serializationRefuse(); }
     const contained = relative(rootPath, documentPath);
     if (contained === "" || contained.startsWith("..") || isAbsolute(contained)) serializationRefuse();
     priorUri = document["uri"];
@@ -501,7 +524,7 @@ function validateSerializedResult(value: unknown): AnalyzerExplainResult {
   if (statusValue === "refused") {
     const source = exactRecord(value, ["status", "identity", "code"]);
     const identity = validateSerializedIdentity(source["identity"], true);
-    if (typeof source["code"] !== "string" || !/^FADENO_ANALYZER_EXPLAIN_[A-Z_]+$/u.test(source["code"])) serializationRefuse();
+    if (typeof source["code"] !== "string" || !explainRefusalCodes.has(source["code"])) serializationRefuse();
     return deepFreeze({ ...source, identity }) as unknown as AnalyzerExplainResult;
   }
   if (statusValue === "cancelled" || statusValue === "superseded" || statusValue === "stale") {
@@ -533,15 +556,34 @@ function validateSerializedResult(value: unknown): AnalyzerExplainResult {
         source["truncation"] === "bytes" ? contributionCount !== 0 && contributionCount !== identity.requestedFacets.length :
           contributionCount !== identity.requestedFacets.length
     ) serializationRefuse();
-    const contributions = (source["contributions"] as unknown[]).map((contribution, index) => {
+    const processedContributions = (source["contributions"] as unknown[]).map((contribution, index) => {
       const descriptor = explainModule(identity.requestedFacets[index]!.namespace);
       if (!descriptor) serializationRefuse();
       const validated = descriptor.deserialize(descriptor.serialize(contribution as AnalyzerFacetContribution));
       if (validated.namespace !== descriptor.namespace || !descriptor.matches(validated, identity, source["detail"] as "semantic" | "deep")) {
         serializationRefuse();
       }
-      return validated;
+      const processed = descriptor.process(
+        validated,
+        validatedBudgets,
+        source["detail"] as "semantic" | "deep",
+        {
+          operationId: identity.publicationOperationId,
+          publicationGeneration: identity.publicationGeneration,
+        } as AnalyzerPublicationSnapshot,
+      );
+      if (!processed.contribution || JSON.stringify(processed.contribution) !== JSON.stringify(validated)) serializationRefuse();
+      return { contribution: validated, truncation: processed.truncation };
     });
+    const contributions = processedContributions.map(({ contribution }) => contribution);
+    if (statusValue === "complete") {
+      if (processedContributions.some(({ truncation }) => truncation !== null)) serializationRefuse();
+    } else if (source["truncation"] === "bytes") {
+      if (contributions.length > 0 && !processedContributions.some(({ truncation }) => truncation === "bytes")) serializationRefuse();
+    } else if (
+      source["truncation"] !== "duration" &&
+      !processedContributions.some(({ truncation }) => truncation === source["truncation"])
+    ) serializationRefuse();
     return deepFreeze({
       ...source,
       identity,
@@ -584,5 +626,3 @@ export function deserializeAnalyzerExplainResult(serialized: string): AnalyzerEx
     serializationRefuse();
   }
 }
-import { isAbsolute, relative } from "node:path";
-import { fileURLToPath } from "node:url";
