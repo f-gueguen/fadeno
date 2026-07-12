@@ -1,7 +1,87 @@
 # Compiler, analyzer, generated types, and diagnostics
 
 The compiler and analyzer preserve standard TypeScript and JSX while enforcing
-Fadeno's structural boundaries. They do not create a second source language.
+Fadeno's structural boundaries. They do not create a second source language or
+replace ordinary TypeScript parsing, typing, completion, hover, references,
+rename, formatting, or refactoring.
+
+## Private analyzer authority
+
+ADR 0030 requires one private, tool-neutral analyzer session for Fadeno
+semantics. Framework check, watch/build integration, tests, and a disposable
+lifecycle consumer use that session instead of recreating configuration,
+ownership, diagnostic, correction, or explanation policy.
+
+The session is not a public package entrypoint or supported protocol. Its wire
+representation and concrete TypeScript interfaces remain implementation
+details until a demonstrated consumer and DG-A0-02 justify compatibility.
+
+The analyzer owns only framework configuration and workspace ownership, route
+and generated-artifact relationships, execution-boundary facts, framework
+diagnostics and corrections, construction-time provenance, and framework plan
+or explanation evidence. It does not infer observed request, authorization,
+resource, streaming, cancellation, or browser outcomes from source.
+
+## Operation and facet model
+
+Every analyzer operation and immutable snapshot identifies:
+
+- analyzer/schema version and operation ID;
+- workspace epoch and relevant document versions;
+- requested namespaced facets and ownership inputs;
+- completeness or interruption state;
+- explicit truncation state where limits apply;
+- correlation and causation IDs where evidence is linked.
+
+Module-owned facets have independent versions and bounded contributions. An
+absent facet, an unknown facet namespace, and a newer unsupported facet version
+are distinct states. A consumer preserves opaque evidence or explicitly
+refuses interpretation; it never silently discards or reinterprets it. The
+envelope remains minimal and does not centrally enumerate future framework
+concepts.
+
+## Document synchronization
+
+V1 supports saved files and unsaved buffers in one workspace root. The session
+normalizes URI and path ownership through the same configuration rules as
+build, watch, and tests. Multi-root requests are explicitly unsupported.
+
+Document versions are monotonic. One operation may apply multiple sequential,
+position-dependent edits; each edit addresses the text produced by the
+preceding edit. Full-document replacement, close, and reopen are explicit.
+Invalid or out-of-order versions are refused without mutating current text.
+Normalization and line-ending tests prove the analyzer text is byte-for-byte
+equivalent to its declared owner after each accepted operation.
+
+## Invalidation, recomputation, and publication
+
+Invalidation discovers the complete affected dependency closure before
+recomputation. It records the cause for each affected item and produces one
+deterministic work order. Direct and at least three-level transitive changes
+must refresh every affected result. Unsupported cycles are refused explicitly.
+Deletion or rename removes artifacts whose owner disappeared; configuration
+and generated-artifact changes advance the workspace epoch independently from
+document versions.
+
+Recomputation publishes diagnostics, route manifests, generated declarations,
+mappings, and deletions atomically for one workspace epoch. Diagnostic batches
+use full-replacement semantics. No consumer can observe a partial mixture of
+generations, and repairing an error removes its stale diagnostic instance.
+
+Long operations and deep explanation accept cancellation. New work supersedes
+obsolete work. A completed result is publishable only while its document
+versions, workspace epoch, operation ID, requested facets, and ownership inputs
+remain current.
+
+## Provenance
+
+Route records, declarations, generated artifacts, ownership edges, later
+resource/action relationships, extracted handlers, rendering decisions, and
+explanation facets attach provenance during semantic construction. Provenance
+contains the primary source origin, related origins, module/transformation
+identity, generated-artifact owner, and both source-to-artifact and
+artifact-to-source relations. Later reconstruction is not an acceptable source
+of required evidence.
 
 ## Inputs and ownership
 
@@ -95,6 +175,52 @@ Diagnostic identifiers become compatibility-controlled only when DG-A0-02
 accepts the external schema. Until then they remain internal but are still
 snapshot-tested to prevent accidental churn.
 
+Analyzer diagnostic results add structured parameters, module and phase,
+primary and related locations, exact ranges or an explicit null-range reason,
+causal diagnostic instance IDs, skipped-work relationships, internal-failure
+identity, correction intent, redaction state, and explanation reference where
+applicable. Human messages are rendered from structured fields. Consumers do
+not parse prose to select behavior, identity, or fixes.
+
+An independently actionable child remains a diagnostic instance rather than
+being hidden in parent prose. A skipped operation names the causal diagnostic
+instances that prevented it. Expected user errors remain separate from
+internal failures, and ordinary runtime exceptions remain outside the static
+analyzer contract.
+
+## Corrections
+
+Structured corrections contain a stable internal fix ID, parameters, concrete
+edits when safe, preferred status when applicable, `automatic` or `review`
+safety, and the diagnostic instance IDs addressed. The analyzer constructs the
+correction. A consumer may present or apply it but does not infer edits from a
+message.
+
+Position-dependent correction edits follow the document synchronization order.
+A correction is refused as stale unless its document version, workspace epoch,
+and ownership inputs still match.
+
+## Serialization and explanation
+
+Snapshots, diagnostic batches, cached results, explanation records, and
+transported artifacts are versioned. Round trips preserve diagnostic codes and
+parameters, primary and related locations, causal edges, provenance, artifact
+ownership, skipped-work reasons, completeness, redaction, and truncation.
+
+Plan and explain data are lazy namespaced facets. Semantic detail is bounded;
+forensic detail requires explicit activation and byte, record, depth, duration,
+and child-event limits. Redaction happens before collection. Cancellation and
+explicit truncation are observable. Contributions that exceed bounds, violate
+redaction, or use unsupported versions are refused without corrupting the
+snapshot. Explanation never re-executes application behavior and is never
+required for correctness.
+
+Static analyzer explanations and observed runtime records are separate facets.
+They may be correlated through stable operation or artifact identity only when
+the observed evidence exists. Static analysis never reports an observed
+authorization result, request order, stream timing, cancellation result, or
+browser outcome.
+
 ## Conformance
 
 - Positive and negative zone, import, capture, serialization, route, link,
@@ -103,5 +229,30 @@ snapshot-tested to prevent accidental churn.
 - Diagnostic fixtures assert identifier, source range, explanation link, and
   stable correction.
 - Path and symlink fixtures prove generated output cannot escape declared roots.
-- Public API and analyzer schema snapshots are added when those surfaces become
-  externally supported, not before.
+- Document synchronization reference-model fixtures cover incremental edits,
+  sequential edit batches, full replacement, version refusal, close/reopen,
+  normalization, and analyzer-text equivalence.
+- Direct and three-level transitive dependency fixtures cover deterministic
+  recomputation, cycles, deletion, rename, configuration epochs, and owner
+  disappearance.
+- Atomic-publication fixtures compare diagnostics, declarations, manifests,
+  mappings, and deletions as one epoch, including error repair and recovery.
+- Cancellation and supersession fixtures prove obsolete results are not
+  published.
+- Construction-time provenance, exact and explicitly unknown ranges, causal
+  diagnostics, actionable children, and correction application have positive
+  and refusal fixtures.
+- Versioned serialization round trips preserve all semantic evidence.
+- Explain fixtures cover disabled, semantic, deep, truncated, cancelled,
+  redacted, and malicious-contribution refusal behavior.
+- After V1-09, the canonical application supplies executable success, failure,
+  correction, flow-inspection, and recovery scenarios from a current packed
+  package through public entrypoints. Outputs normalize unstable values and
+  documentation is sourced from verified files.
+- Before V1 exit, a disposable private client proves the full open/edit/
+  diagnose/regenerate/reload/repair/supersede/close lifecycle and cleanup.
+- Feedback evidence measures edit/save to fresh and cleared consumer-visible
+  state, including invalidation, generation, TypeScript refresh, Fadeno
+  analysis, and publication. It makes no incremental bound claim.
+- Public API and analyzer schema snapshots are added only when those surfaces
+  become externally supported, not for the private V1 session.

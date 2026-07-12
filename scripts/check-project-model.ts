@@ -312,6 +312,78 @@ for (const gate of gateIds.filter((id) => id.startsWith("DG-V1-"))) {
   if (!v1Gates.has(gate)) errors.push(`docs/roadmap/v1.md: missing gate ${gate}`);
 }
 
+const expectedV1Dx = [
+  {
+    id: "V1-DX-A",
+    features: ["GOV-01", "TYPE-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01", "PERF-01"],
+    dependencies: ["V1-08", "ADR 0030"],
+    commands: ["pnpm check:docs", "pnpm check:decisions", "pnpm check:ledgers", "pnpm check:model", "pnpm check:policies", "pnpm check"],
+  },
+  {
+    id: "V1-DX-B",
+    features: ["TYPE-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01"],
+    dependencies: ["V1-DX-A", "V1-09"],
+    commands: ["pnpm check:v1-analyzer", "pnpm check:v1-analyzer-package", "pnpm check"],
+  },
+  {
+    id: "V1-DX-C",
+    features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01", "PERF-01"],
+    dependencies: ["V1-DX-B", "V1-13"],
+    commands: ["pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-feedback", "pnpm ci:local"],
+  },
+] as const;
+const v1DxRows = tableRows(v1, /^\| V1-DX-[A-Z] \|/);
+const v1DxIds = v1DxRows.map((cells) => cells[0]);
+const expectedV1DxIds = expectedV1Dx.map((entry) => entry.id);
+if (JSON.stringify(v1DxIds) !== JSON.stringify(expectedV1DxIds)) {
+  errors.push(`docs/roadmap/v1.md: expected ordered V1/DX milestones ${expectedV1DxIds.join(", ")}`);
+}
+for (const duplicate of duplicates(v1DxIds)) {
+  errors.push(`docs/roadmap/v1.md: duplicate V1/DX milestone ${duplicate}`);
+}
+
+for (const [index, expected] of expectedV1Dx.entries()) {
+  const cells = v1DxRows[index];
+  if (!cells || cells[0] !== expected.id) continue;
+  if (cells.length !== 7) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} must have exactly 7 columns`);
+    continue;
+  }
+  const features = [...cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)].map((match) => match[1]);
+  if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} feature ownership differs from the accepted plan`);
+  }
+  for (const feature of features) {
+    if (!scopeSet.has(feature)) {
+      errors.push(`docs/roadmap/v1.md: ${expected.id} references unknown feature ${feature}`);
+    }
+  }
+  for (const dependency of expected.dependencies) {
+    if (!cells[3].includes(dependency)) {
+      errors.push(`docs/roadmap/v1.md: ${expected.id} missing dependency ${dependency}`);
+    }
+  }
+  if (!cells[4]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no required artifacts`);
+  for (const command of expected.commands) {
+    if (!cells[5].includes(`\`${command}\``)) {
+      errors.push(`docs/roadmap/v1.md: ${expected.id} missing validation command ${command}`);
+    }
+  }
+  if (!cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no delivery boundary`);
+}
+
+const requiredNumberedV1DxDependencies = new Map([
+  ["V1-09", "V1-DX-A"],
+  ["V1-10", "V1-DX-B"],
+  ["V1-14", "V1-DX-C"],
+]);
+for (const [slice, dependency] of requiredNumberedV1DxDependencies) {
+  const row = v1Rows.find((cells) => cells[0] === slice);
+  if (!row?.[3].includes(dependency)) {
+    errors.push(`docs/roadmap/v1.md: ${slice} missing dependency ${dependency}`);
+  }
+}
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],
