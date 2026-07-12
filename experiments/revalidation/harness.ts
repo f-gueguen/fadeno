@@ -20,7 +20,9 @@ export type RevalidationHarnessReport = Readonly<{
   duplicateReads: number;
   deduplicationPass: boolean;
   equivalentInputDeduplicationPass: boolean;
+  equivalentInputValuePass: boolean;
   distinctInputIsolationPass: boolean;
+  distinctInputValuePass: boolean;
   successPathPass: boolean;
   observableMutationPass: boolean;
   staleControlRejected: boolean;
@@ -42,12 +44,16 @@ function observableTaskTransition(before: ResourceResult | undefined, after: Res
 }
 
 export function assertRevalidationHarnessReport(report: RevalidationHarnessReport): void {
+  const authentication = loadRevalidationWorkload().authentication;
+  const sensitiveValues = [authentication.secretCanary, authentication.principalId, authentication.tenantId];
+  const diagnosticDisclosure = report.diagnostics.some((diagnostic) => sensitiveValues.some((value) => diagnostic.includes(value)));
   if (
     report.rows !== 10_000 || report.uniqueResources !== 6 || report.pageReads !== 9 || report.duplicateReads !== 3 ||
-    !report.deduplicationPass || !report.equivalentInputDeduplicationPass || !report.distinctInputIsolationPass ||
+    !report.deduplicationPass || !report.equivalentInputDeduplicationPass || !report.equivalentInputValuePass ||
+    !report.distinctInputIsolationPass || !report.distinctInputValuePass ||
     !report.successPathPass || !report.observableMutationPass || !report.staleControlRejected || !report.failurePathPass ||
     !report.defaultRevalidationPass || !report.selectiveBaselinePass ||
-    report.unsafeKeepsDetected !== 4 || report.unsafeKeepsTotal !== 4 || report.sensitiveValuesDisclosed
+    report.unsafeKeepsDetected !== 4 || report.unsafeKeepsTotal !== 4 || report.sensitiveValuesDisclosed || diagnosticDisclosure
   ) throw new Error(`FADENO_REVALIDATION_HARNESS:${JSON.stringify(report)}`);
 }
 
@@ -72,10 +78,10 @@ export function executeRevalidationHarness(): RevalidationHarnessReport {
   const identityState = createState(workload.dataset.rowCount);
   const identityScope = new RequestScope(identityState, auth);
   const [equivalentLeft, equivalentRight] = workload.identityControls.equivalentInputs;
-  identityScope.read(workload.identityControls.resource, equivalentLeft);
-  identityScope.read(workload.identityControls.resource, equivalentRight);
+  const equivalentLeftResult = identityScope.read(workload.identityControls.resource, equivalentLeft);
+  const equivalentRightResult = identityScope.read(workload.identityControls.resource, equivalentRight);
   const equivalentExecutions = identityScope.executions()[workload.identityControls.resource];
-  identityScope.read(workload.identityControls.resource, workload.identityControls.distinctInput);
+  const distinctResult = identityScope.read(workload.identityControls.resource, workload.identityControls.distinctInput);
   const distinctExecutions = identityScope.executions()[workload.identityControls.resource];
 
   const failureState = createState(workload.dataset.rowCount);
@@ -103,7 +109,9 @@ export function executeRevalidationHarness(): RevalidationHarnessReport {
     duplicateReads,
     deduplicationPass: allOnce(before.executions) && allOnce(afterDefault.executions),
     equivalentInputDeduplicationPass: equivalentExecutions === 1,
+    equivalentInputValuePass: compareResourceResults(equivalentLeftResult, equivalentRightResult) === "equal",
     distinctInputIsolationPass: distinctExecutions === 2,
+    distinctInputValuePass: compareResourceResults(equivalentLeftResult, distinctResult) === "changed",
     successPathPass: success.status === "success" && targetBefore === false && targetAfter === true && state.revision === 1,
     observableMutationPass:
       observableTaskTransition(before.results.tasks, afterDefault.results.tasks) &&

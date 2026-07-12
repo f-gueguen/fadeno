@@ -30,6 +30,19 @@ function canonicalJson(value: unknown, ancestors = new Set<object>()): string | 
   const prototype = Object.getPrototypeOf(value);
   if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return undefined;
 
+  const ownKeys = Reflect.ownKeys(value);
+  if (ownKeys.some((key) => typeof key === "symbol")) return undefined;
+  if (Array.isArray(value)) {
+    if (
+      ownKeys.length !== value.length + 1 ||
+      !ownKeys.includes("length") ||
+      !Array.from({ length: value.length }, (_, index) => Object.hasOwn(value, index)).every(Boolean)
+    ) return undefined;
+  } else if (ownKeys.some((key) => {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return !descriptor?.enumerable || !("value" in descriptor);
+  })) return undefined;
+
   ancestors.add(value);
   const entries = Array.isArray(value)
     ? value.map((child, index) => [String(index), child] as const)
@@ -76,12 +89,15 @@ export function createState(rowCount: number): State {
   };
 }
 
-function loadResource(id: RevalidationResourceId, state: State, auth: Auth, _input: RevalidationInput): ResourceResult {
+function loadResource(id: RevalidationResourceId, state: State, auth: Auth, input: RevalidationInput): ResourceResult {
   if (auth.principalId !== "principal-001" || auth.tenantId !== "tenant-001") return { status: "expected-error", cacheable: true, code: "not-authorized" };
   switch (id) {
     case "profile": return { status: "value", cacheable: true, value: { id: auth.principalId, tenant: auth.tenantId } };
     case "projects": return { status: "value", cacheable: true, value: state.tasks.slice(0, 32).sort((left, right) => left.rank - right.rank).map(({ id: taskId }) => taskId) };
-    case "tasks": return { status: "value", cacheable: true, value: { completed: state.tasks.filter(({ completed }) => completed).length, target: state.tasks[4242]?.completed } };
+    case "tasks": {
+      const view = input.view === "archived" ? "archived" : "all";
+      return { status: "value", cacheable: true, value: { view, completed: state.tasks.filter(({ completed }) => completed).length, target: state.tasks[4242]?.completed } };
+    }
     case "activity": return { status: "value", cacheable: false, value: { ids: state.tasks.slice(0, 8).map(({ id: taskId }) => taskId) } };
     case "notifications": return { status: "value", cacheable: true, value: { unread: 0 } };
     case "permissions": return { status: "value", cacheable: true, value: ["read", "complete-task"] };

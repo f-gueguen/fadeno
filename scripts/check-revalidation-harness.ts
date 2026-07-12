@@ -12,6 +12,13 @@ if (JSON.stringify(repeated) !== JSON.stringify(report)) throw new Error("FADENO
 
 const cyclic: Record<string, unknown> = {};
 cyclic.self = cyclic;
+const symbolLeft = { visible: true };
+const symbolRight = { visible: true, [Symbol("hidden")]: true };
+const nonEnumerable = { visible: true };
+Object.defineProperty(nonEnumerable, "hidden", { value: true, enumerable: false });
+const accessor: Record<string, unknown> = {};
+Object.defineProperty(accessor, "value", { get: () => true, enumerable: true });
+const sparse = Array(1);
 if (
   compareResourceResults(
     { status: "value", cacheable: true, value: { a: 1, b: 2 } },
@@ -36,25 +43,52 @@ if (
   compareResourceResults(
     { status: "value", cacheable: true, value: cyclic },
     { status: "value", cacheable: true, value: cyclic },
+  ) !== "refused" ||
+  compareResourceResults(
+    { status: "value", cacheable: true, value: symbolLeft },
+    { status: "value", cacheable: true, value: symbolRight },
+  ) !== "refused" ||
+  compareResourceResults(
+    { status: "value", cacheable: true, value: { visible: true } },
+    { status: "value", cacheable: true, value: nonEnumerable },
+  ) !== "refused" ||
+  compareResourceResults(
+    { status: "value", cacheable: true, value: [] },
+    { status: "value", cacheable: true, value: sparse },
+  ) !== "refused" ||
+  compareResourceResults(
+    { status: "value", cacheable: true, value: { value: true } },
+    { status: "value", cacheable: true, value: accessor },
   ) !== "refused"
 ) throw new Error("FADENO_REVALIDATION_COMPARISON_CONTROLS");
 
-let unsupportedInputRefused = false;
-try {
-  resourceIdentityKey("tasks", { unsupported: new Map() });
-} catch (error: unknown) {
-  unsupportedInputRefused = error instanceof Error && error.message === "FADENO_REVALIDATION_UNSUPPORTED_INPUT:tasks";
+for (const input of [
+  { unsupported: new Map() },
+  symbolRight,
+  nonEnumerable,
+  accessor,
+  { unsupported: sparse },
+]) {
+  let unsupportedInputRefused = false;
+  try {
+    resourceIdentityKey("tasks", input);
+  } catch (error: unknown) {
+    unsupportedInputRefused = error instanceof Error && error.message === "FADENO_REVALIDATION_UNSUPPORTED_INPUT:tasks";
+  }
+  if (!unsupportedInputRefused) throw new Error("FADENO_REVALIDATION_INPUT_REFUSAL");
 }
-if (!unsupportedInputRefused) throw new Error("FADENO_REVALIDATION_INPUT_REFUSAL");
 
 const failingReports: readonly RevalidationHarnessReport[] = [
   { ...report, deduplicationPass: false },
   { ...report, equivalentInputDeduplicationPass: false },
+  { ...report, equivalentInputValuePass: false },
   { ...report, distinctInputIsolationPass: false },
+  { ...report, distinctInputValuePass: false },
   { ...report, observableMutationPass: false },
   { ...report, staleControlRejected: false },
   { ...report, unsafeKeepsDetected: 3 },
   { ...report, sensitiveValuesDisclosed: true },
+  { ...report, diagnostics: [...report.diagnostics, "injected:fadeno-auth-secret-must-not-escape"], sensitiveValuesDisclosed: false },
 ];
 for (const candidate of failingReports) {
   let rejected = false;
