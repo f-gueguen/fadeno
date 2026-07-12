@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import {
   mkdirSync,
@@ -15,7 +16,7 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { loadConfig, normalizeConfig } from "../packages/framework/src/internal/config.ts";
-import { FadenoDiagnosticError } from "../packages/framework/src/internal/diagnostic.ts";
+import { FadenoDiagnosticError, formatDiagnostic } from "../packages/framework/src/internal/diagnostic.ts";
 import { RouteContractError, type RouteManifest } from "../packages/framework/src/internal/routing/discovery.ts";
 import { generateRoutes, type GenerationFailurePoint } from "../packages/framework/src/internal/routing/generator.ts";
 import { matchRoutePathname } from "../packages/framework/src/internal/routing/matcher.ts";
@@ -59,14 +60,30 @@ function runTypeFixture(project: string, declaration: string): void {
   const fixture = join(project, "route-types.ts");
   writeFileSync(fixture, [
     'import { routeHref, type RouteHrefInput } from "fadeno:routes";',
+    '// @ts-expect-error internal generator helper is not exported',
+    'import type { RouteDefinitionMap } from "fadeno:routes";',
+    '// @ts-expect-error internal exactness helper is not exported',
+    'import type { NoExtra } from "fadeno:routes";',
+    '// @ts-expect-error internal input helper is not exported',
+    'import type { ExactRouteHrefInput } from "fadeno:routes";',
     'routeHref({ route: "/" });',
     'routeHref({ route: "/accounts/[accountId]", parameters: { accountId: "a" } });',
+    'routeHref({ route: "/docs/[...parts]", parameters: { parts: ["one", "two"] } });',
     'const union: RouteHrefInput<"/" | "/accounts/[accountId]"> = Math.random() ? { route: "/" } : { route: "/accounts/[accountId]", parameters: { accountId: "a" } };',
     'routeHref(union);',
     '// @ts-expect-error unknown route',
     'routeHref({ route: "/unknown" });',
+    'declare const broad: string;',
+    '// @ts-expect-error broad strings are not route identities',
+    'routeHref({ route: broad });',
     '// @ts-expect-error missing parameters',
     'routeHref({ route: "/accounts/[accountId]" });',
+    '// @ts-expect-error static routes do not accept parameters',
+    'routeHref({ route: "/", parameters: {} });',
+    '// @ts-expect-error wrong parameter name',
+    'routeHref({ route: "/accounts/[accountId]", parameters: { wrong: "a" } });',
+    '// @ts-expect-error rest parameters are non-empty tuples',
+    'routeHref({ route: "/docs/[...parts]", parameters: { parts: [] } });',
     'const extra = { route: "/accounts/[accountId]", parameters: { accountId: "a", extra: "no" } } as const;',
     '// @ts-expect-error indirect excess parameter',
     'routeHref(extra);',
@@ -117,6 +134,8 @@ try {
     ["/docs/a%2Fb/details", "/docs/[slug]/details", { slug: "a/b" }],
     ["/accounts/%25", "/accounts/[accountId]", { accountId: "%" }],
     ["/accounts/%C3%BC", "/accounts/[accountId]", { accountId: "ü" }],
+    ["/docs/a%2Fb/%25/%C3%BC", "/docs/[...parts]", { parts: ["a/b", "%", "ü"] }],
+    ["/accounts/%3F%23%5C", "/accounts/[accountId]", { accountId: "?#\\" }],
     ["/docs/%61bout", "/docs/[...parts]", { parts: ["about"] }],
     ["/docs", undefined],
     ["/docs/", undefined],
@@ -125,6 +144,10 @@ try {
     ["/accounts/%C3", undefined],
     ["/accounts/%2E", undefined],
     ["/accounts/%2E%2E", undefined],
+    ["/accounts/raw space", undefined],
+    ["/accounts/ü", undefined],
+    ["/accounts/raw\\slash", undefined],
+    [`/accounts/${String.fromCharCode(0)}`, undefined],
     ["/docs/about?query=1", undefined],
   ];
   for (const [pathname, id, parameters] of cases) {
@@ -143,8 +166,34 @@ try {
   if (runtime.routeHref({ route: "/accounts/[accountId]", parameters: { accountId: "a/b" } }) !== "/accounts/a%2Fb") {
     throw new Error("FADENO_ROUTING_RUNTIME_LINK");
   }
+  const nullParameters = Object.assign(Object.create(null) as object, { accountId: "null-prototype" });
+  const nullInput = Object.assign(Object.create(null) as object, { route: "/accounts/[accountId]", parameters: nullParameters });
+  if (runtime.routeHref(nullInput) !== "/accounts/null-prototype") throw new Error("FADENO_ROUTING_RUNTIME_NULL_PROTOTYPE");
+  const encoded = runtime.routeHref({ route: "/docs/[...parts]", parameters: { parts: ["!'()*", "a/b", "?#%", "ü"] } });
+  if (encoded !== "/docs/%21%27%28%29%2A/a%2Fb/%3F%23%25/%C3%BC") throw new Error(`FADENO_ROUTING_RUNTIME_ENCODING:${encoded}`);
   expectError(() => runtime.routeHref({ route: "/unknown" }), "FADENO_ROUTE_LINK_ROUTE");
   expectError(() => runtime.routeHref({ route: "constructor" }), "FADENO_ROUTE_LINK_ROUTE");
+  const sparseFirst = new Array<string>(2); sparseFirst[1] = "two";
+  const sparseMiddle = ["one", "three"] as string[]; sparseMiddle.length = 3; sparseMiddle[2] = "three"; delete sparseMiddle[1];
+  const sparseLast = ["one"] as string[]; sparseLast.length = 2;
+  const restExtraKey = ["one"] as string[] & { extra?: string }; restExtraKey.extra = "no";
+  for (const invalid of [
+    { route: "/", extra: true },
+    { route: "/", parameters: {} },
+    { route: "/accounts/[accountId]" },
+    { route: "/accounts/[accountId]", parameters: { wrong: "a" } },
+    { route: "/accounts/[accountId]", parameters: { accountId: "a", extra: "no" } },
+    { route: "/accounts/[accountId]", parameters: { accountId: "" } },
+    { route: "/accounts/[accountId]", parameters: { accountId: "." } },
+    { route: "/accounts/[accountId]", parameters: { accountId: ".." } },
+    { route: "/accounts/[accountId]", parameters: { accountId: "\ud800" } },
+    { route: "/docs/[...parts]", parameters: { parts: [] } },
+    { route: "/docs/[...parts]", parameters: { parts: sparseFirst } },
+    { route: "/docs/[...parts]", parameters: { parts: sparseMiddle } },
+    { route: "/docs/[...parts]", parameters: { parts: sparseLast } },
+    { route: "/docs/[...parts]", parameters: { parts: restExtraKey } },
+    { route: "/docs/[...parts]", parameters: { parts: [undefined] } },
+  ]) expectError(() => runtime.routeHref(invalid), "FADENO_ROUTE_LINK");
 
   writeRoute(main, "new/page.tsx");
   for (const point of ["manifest", "runtime", "declaration", "owner", "beforeReplace"] satisfies readonly GenerationFailurePoint[]) {
@@ -154,16 +203,38 @@ try {
       throw new Error("FADENO_ROUTING_TRANSACTION_DEBRIS");
     }
   }
+  for (const operation of ["afterBackup", "replace", "restore"] as const) {
+    expectError(() => generateRoutes(main, config, undefined, undefined, operation), "FADENO_GENERATION_INJECTED");
+    assertSnapshot(first.output, accepted, true);
+    if (readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.pending-") || name.startsWith("routes.previous-"))) {
+      throw new Error(`FADENO_ROUTING_REPLACEMENT_DEBRIS:${operation}`);
+    }
+  }
   const accountSource = join(main, "src/routes/accounts/[accountId]/page.tsx");
   expectError(() => generateRoutes(main, config, undefined, () => writeFileSync(accountSource, `${moduleSource}// changed\n`)), "FADENO_GENERATION_SOURCE_CHANGED");
   assertSnapshot(first.output, accepted);
   writeFileSync(accountSource, moduleSource);
+  expectError(
+    () => generateRoutes(main, config, undefined, undefined, undefined, () => writeFileSync(accountSource, `${moduleSource}// changed after replace\n`)),
+    "FADENO_GENERATION_SOURCE_CHANGED_AFTER_REPLACE",
+  );
+  assertSnapshot(first.output, accepted);
+  writeFileSync(accountSource, moduleSource);
 
   const changed = generateRoutes(main, config);
-  if (!changed.changed || !readFileSync(join(changed.output, "index.d.ts"), "utf8").includes('readonly "/new"')) throw new Error("FADENO_ROUTING_STALE_ADD");
+  if (!changed.changed || !readFileSync(join(changed.output, "index.d.ts"), "utf8").includes('Id extends "/new"')) throw new Error("FADENO_ROUTING_STALE_ADD");
+  writeRoute(main, "cleanup/page.tsx");
+  const cleanup = generateRoutes(main, config, undefined, undefined, "cleanup");
+  if (!cleanup.changed || !readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.previous-"))) {
+    throw new Error("FADENO_ROUTING_CLEANUP_PUBLICATION");
+  }
+  if (generateRoutes(main, config).changed || readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.previous-"))) {
+    throw new Error("FADENO_ROUTING_CLEANUP_RECOVERY");
+  }
+  rmSync(join(main, "src/routes/cleanup"), { recursive: true });
   rmSync(join(main, "src/routes/new"), { recursive: true });
   generateRoutes(main, config);
-  if (readFileSync(join(changed.output, "index.d.ts"), "utf8").includes('readonly "/new"')) throw new Error("FADENO_ROUTING_STALE_REMOVE");
+  if (readFileSync(join(changed.output, "index.d.ts"), "utf8").includes('Id extends "/new"')) throw new Error("FADENO_ROUTING_STALE_REMOVE");
 
   const ownerPath = join(changed.output, "owner.json");
   const ownerBytes = readFileSync(ownerPath);
@@ -177,7 +248,19 @@ try {
   try {
     let diagnostic: RouteContractError | undefined;
     try { generateRoutes(diagnosticProject, await loadConfig(diagnosticProject)); } catch (error) { if (error instanceof RouteContractError) diagnostic = error; }
-    if (!diagnostic || diagnostic.severity !== "error" || diagnostic.locations.length !== 2 || !diagnostic.explanation.startsWith("https://fadeno.dev/diagnostics/routes/") || diagnostic.correction.length === 0) {
+    const expectedDiagnostic = `${JSON.stringify({
+      id: "FADENO_ROUTE_ROUTE_ROLE_COLLISION",
+      severity: "error",
+      summary: "Route contract violation: route role collision",
+      locations: ["src/routes/handler.ts", "src/routes/page.tsx"],
+      sourceRanges: [
+        { path: "src/routes/handler.ts", range: null },
+        { path: "src/routes/page.tsx", range: null },
+      ],
+      explanation: "https://fadeno.dev/diagnostics/routes/route-role-collision",
+      correction: "Correct the reported route configuration or filesystem locations and run fadeno check again.",
+    })}\n`;
+    if (!diagnostic || formatDiagnostic(diagnostic) !== expectedDiagnostic || formatDiagnostic(diagnostic).includes(diagnosticProject) || formatDiagnostic(diagnostic).includes("ROUTE_MODULE_EXECUTED")) {
       throw new Error("FADENO_ROUTING_STRUCTURED_DIAGNOSTIC");
     }
   } finally { rmSync(diagnosticProject, { recursive: true, force: true }); }
@@ -199,6 +282,16 @@ try {
   rmSync(appA, { recursive: true, force: true });
   rmSync(appB, { recursive: true, force: true });
 }
+
+const fallbackProject = createProject(["shop/sale/page.tsx", "shop/[id]/details/page.tsx"]);
+try {
+  const output = generateRoutes(fallbackProject, await loadConfig(fallbackProject)).output;
+  const manifest = JSON.parse(readFileSync(join(output, "manifest.json"), "utf8")) as RouteManifest;
+  const match = matchRoutePathname(manifest, "/shop/sale/details");
+  if (match?.route.id !== "/shop/[id]/details" || match.parameters["id"] !== "sale") {
+    throw new Error("FADENO_ROUTING_STATIC_DEAD_END_FALLBACK");
+  }
+} finally { rmSync(fallbackProject, { recursive: true, force: true }); }
 
 for (const invalid of [null, [], new (class Config {})(), new Proxy({}, { ownKeys: () => { throw new Error("trap"); } }), { unknown: true }, { routes: null }, { routes: "src/routes" }, { routes: {} }, { routes: { root: 1 } }, { routes: { root: "src/routes", extra: true } }]) {
   expectError(() => normalizeConfig(invalid), "FADENO_CONFIG");
@@ -241,5 +334,32 @@ for (const kind of ["parent", "output"] as const) {
     rmSync(external, { recursive: true, force: true });
   }
 }
+
+for (const child of ["index.d.ts", "index.js", "manifest.json", "owner.json"] as const) {
+  const project = createProject(["page.tsx"]);
+  const external = join(project, `external-${child.replaceAll(".", "-")}`);
+  try {
+    const config = await loadConfig(project);
+    const output = generateRoutes(project, config).output;
+    const childPath = join(output, child);
+    writeFileSync(external, readFileSync(childPath));
+    rmSync(childPath);
+    symlinkSync(external, childPath);
+    expectError(() => generateRoutes(project, config), "FADENO_GENERATION_OUTPUT_CHILD_TYPE");
+  } finally { rmSync(project, { recursive: true, force: true }); }
+}
+
+const malformed = createProject(["page.tsx"]);
+try {
+  const config = await loadConfig(malformed);
+  const output = generateRoutes(malformed, config).output;
+  const manifestPath = join(output, "manifest.json");
+  writeFileSync(manifestPath, "{\n");
+  const ownerPath = join(output, "owner.json");
+  const owner = JSON.parse(readFileSync(ownerPath, "utf8")) as { files: { path: string; sha256: string }[] };
+  owner.files.find(({ path }) => path === "manifest.json")!.sha256 = createHash("sha256").update("{\n").digest("hex");
+  writeFileSync(ownerPath, `${JSON.stringify(owner, null, 2)}\n`);
+  expectError(() => generateRoutes(malformed, config), "FADENO_GENERATION_OUTPUT_MANIFEST");
+} finally { rmSync(malformed, { recursive: true, force: true }); }
 
 console.log("V1 production routing passed (config, discovery, transaction, stock types, app-bound links, metadata matcher)");

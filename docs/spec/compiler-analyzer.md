@@ -84,7 +84,10 @@ are refused at every nesting depth.
 ## Diagnostics
 
 Every diagnostic has a stable internal identifier, severity, concise message,
-source range, explanation link, and actionable correction where one exists.
+explanation link, and actionable correction where one exists. A diagnostic tied
+to source text has an exact source range; filesystem/configuration ownership
+diagnostics carry the project-relative path and an explicit `null` range rather
+than inventing a line number.
 Expected user errors omit internal stack noise. Internal defects retain an
 incident identity and reproduction context without leaking source secrets.
 

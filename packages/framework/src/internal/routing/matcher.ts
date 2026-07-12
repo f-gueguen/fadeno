@@ -11,6 +11,10 @@ type Candidate = Readonly<{
 }>;
 
 function decodeSegment(value: string): string | undefined {
+  if ([...value].some((character) => {
+    const point = character.codePointAt(0)!;
+    return point < 0x21 || point > 0x7e || character === "\\" || character === "/" || character === "?" || character === "#";
+  })) return undefined;
   try {
     const decoded = decodeURIComponent(value);
     return decoded === "" || decoded === "." || decoded === ".." ? undefined : decoded;
