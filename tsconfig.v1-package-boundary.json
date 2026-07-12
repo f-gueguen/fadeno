@@ -10,6 +10,8 @@
   "include": [
     "scripts/check-package-boundaries.ts",
     "scripts/test-package-boundaries.ts",
-    "scripts/lib/package-boundaries.ts"
+    "scripts/check-v1-package-consumer.ts",
+    "scripts/lib/package-boundaries.ts",
+    "prototypes/v1/package-boundary/**/*.ts"
   ]
 }
