@@ -27,6 +27,7 @@ resource, streaming, cancellation, or browser outcomes from source.
 Every analyzer operation and immutable snapshot identifies:
 
 - analyzer/schema version and operation ID;
+- a workspace-incarnation identity unique across session restarts;
 - workspace epoch and relevant document versions;
 - requested namespaced facets and ownership inputs;
 - completeness or interruption state;
@@ -73,6 +74,13 @@ Every accepted transition advances the workspace epoch, including a same-text
 replacement or saved notification with a new internal revision. A refusal
 returns a frozen internal code and attempted operation identity but does not
 change document state, lifetime, version, epoch, or the current snapshot.
+
+Saved notifications are accepted only after fatal UTF-8 decoding of the
+canonical owned file produces exactly the supplied JavaScript string. A
+mismatch, missing owner, or decode failure is atomic and cannot publish a saved
+state that differs from the filesystem. Workspace-incarnation identity and
+session-prefixed operation IDs prevent stale work from a replaced session from
+matching a new session whose epoch and document versions restarted.
 
 Canonical document keys are file-backed paths beneath one absolute real root.
 Equivalent absolute paths and encoded `file:` URIs collapse to one owner.

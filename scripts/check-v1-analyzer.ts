@@ -20,6 +20,68 @@ interface ReferenceDocument {
   lifetime: number;
 }
 
+type ReferenceOperation =
+  | Readonly<{ kind: "open"; version: number; text: string }>
+  | Readonly<{ kind: "save"; text: string }>
+  | Readonly<{ kind: "change"; lifetime: number; version: number; edits: readonly Readonly<{ start: number; end: number; text: string }>[] }>
+  | Readonly<{ kind: "replace"; lifetime: number; version: number; text: string }>
+  | Readonly<{ kind: "close"; lifetime: number; version: number }>;
+
+interface ReferenceState {
+  epoch: number;
+  saved: string;
+  savedRevision: number;
+  overlay?: string;
+  version?: number;
+  lifetime?: number;
+  nextLifetime: number;
+}
+
+function referenceTransition(state: ReferenceState, operation: ReferenceOperation): Readonly<{ accepted: boolean; state: ReferenceState }> {
+  const next: ReferenceState = { ...state };
+  const accept = (): Readonly<{ accepted: true; state: ReferenceState }> => {
+    next.epoch += 1;
+    return { accepted: true, state: next };
+  };
+  if (operation.kind === "open") {
+    if (!Number.isSafeInteger(operation.version) || operation.version < 0 || next.version !== undefined) return { accepted: false, state };
+    next.nextLifetime += 1;
+    next.lifetime = next.nextLifetime;
+    next.version = operation.version;
+    next.overlay = operation.text;
+    return accept();
+  }
+  if (operation.kind === "save") {
+    next.saved = operation.text;
+    next.savedRevision += 1;
+    return accept();
+  }
+  if (next.version === undefined || next.overlay === undefined || next.lifetime !== operation.lifetime) return { accepted: false, state };
+  if (operation.kind === "close") {
+    if (operation.version !== next.version) return { accepted: false, state };
+    delete next.overlay;
+    delete next.version;
+    delete next.lifetime;
+    return accept();
+  }
+  if (operation.version <= next.version) return { accepted: false, state };
+  if (operation.kind === "replace") {
+    next.overlay = operation.text;
+    next.version = operation.version;
+    return accept();
+  }
+  let text = next.overlay;
+  for (const edit of operation.edits) {
+    if (!Number.isInteger(edit.start) || !Number.isInteger(edit.end) || edit.start < 0 || edit.end < edit.start || edit.end > text.length) {
+      return { accepted: false, state };
+    }
+    text = `${text.slice(0, edit.start)}${edit.text}${text.slice(edit.end)}`;
+  }
+  next.overlay = text;
+  next.version = operation.version;
+  return accept();
+}
+
 const root = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-"));
 const otherRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-other-"));
 const operationIds = new Set<string>();
@@ -41,12 +103,17 @@ function refused(
   session: AnalyzerSession,
   action: () => AnalyzerOperationResult,
   code: AnalyzerRefusalCode,
+  current?: Readonly<{ version: number | null; lifetime: number | null }>,
 ): void {
   const before = session.currentSnapshot;
   const result = record(action());
   assert.equal(result.accepted, false);
   assert.equal(result.code, code);
   assert.equal(result.currentEpoch, before.workspaceEpoch);
+  if (current) {
+    assert.equal(result.currentDocumentVersion, current.version);
+    assert.equal(result.currentLifetime, current.lifetime);
+  }
   assert.equal(session.currentSnapshot, before);
 }
 
@@ -78,7 +145,10 @@ try {
   assert.throws(() => new AnalyzerSession(rootAlias), /FADENO_ANALYZER_ROOT_OWNERSHIP/u);
 
   const session = new AnalyzerSession(root);
+  const replacementSession = new AnalyzerSession(root);
   const initial = session.currentSnapshot;
+  assert.notEqual(initial.sessionId, replacementSession.currentSnapshot.sessionId);
+  assert.notEqual(initial.operationId, replacementSession.currentSnapshot.operationId);
   assert.equal(initial.workspaceEpoch, 0);
   assert.equal(initial.operation, "initialize");
   assert.deepEqual(initial.requestedFacets, []);
@@ -86,6 +156,10 @@ try {
   assert.ok(Object.isFrozen(initial));
   assert.ok(Object.isFrozen(initial.documents));
   assert.ok(Object.isFrozen(initial.ownership));
+
+  const replacementOpened = accepted(replacementSession.open(documentPath, 0, "replacement overlay"));
+  const replacementClosed = accepted(replacementSession.close(documentPath, 1, 0));
+  assert.equal(replacementClosed.documents[0]?.effective.text, initialSaved, "initial BOM/CRLF backing text changed");
 
   const reference: ReferenceDocument = {
     epoch: 1,
@@ -97,12 +171,24 @@ try {
   };
   const opened = accepted(session.open(documentPath, 0, reference.overlay!));
   assertDocument(opened, "src/document.ts", reference);
+  assert.equal(opened.workspaceEpoch, replacementOpened.workspaceEpoch);
+  assert.equal(opened.documentVersions[0]?.version, replacementOpened.documentVersions[0]?.version);
+  assert.equal(opened.documentVersions[0]?.lifetime, replacementOpened.documentVersions[0]?.lifetime);
+  assert.notEqual(opened.sessionId, replacementOpened.sessionId, "session restart identity collided");
+  assert.notEqual(opened.operationId, replacementOpened.operationId, "cross-session operation identity collided");
   assert.equal(Object.isFrozen(opened.documents[0]?.effective), true);
   assert.equal(Reflect.set(opened.documents[0]!.effective, "text", "mutated"), false);
   assert.throws(() => (opened.documents as unknown[]).push({}), TypeError);
 
-  reference.epoch += 1;
   reference.saved = "saved while open\r\n新";
+  refused(
+    session,
+    () => session.save(documentPath, reference.saved),
+    "FADENO_ANALYZER_SAVED_MISMATCH",
+    { version: 0, lifetime: 1 },
+  );
+  writeFileSync(documentPath, reference.saved);
+  reference.epoch += 1;
   reference.savedRevision += 1;
   const savedWhileOpen = accepted(session.save(documentPath, reference.saved));
   assertDocument(savedWhileOpen, "src/document.ts", reference);
@@ -120,34 +206,37 @@ try {
   refused(session, () => session.change(documentPath, 1, 2, [
     { start: 0, end: 1, text: "valid-prefix" },
     { start: 999, end: 1000, text: "invalid-later-edit" },
-  ]), "FADENO_ANALYZER_EDIT_RANGE");
+  ]), "FADENO_ANALYZER_EDIT_RANGE", { version: 1, lifetime: 1 });
   assertDocument(session.currentSnapshot, "src/document.ts", reference);
   for (const edits of [
     [{ start: 2, end: 1, text: "reversed" }],
     [{ start: 0.5, end: 1, text: "fractional" }],
     [{ start: -1, end: 0, text: "negative" }],
-  ]) refused(session, () => session.change(documentPath, 1, 2, edits), "FADENO_ANALYZER_EDIT_RANGE");
-  refused(session, () => session.change(documentPath, 1, 1, []), "FADENO_ANALYZER_VERSION");
-  refused(session, () => session.change(documentPath, 1, 0, []), "FADENO_ANALYZER_VERSION");
+  ]) refused(session, () => session.change(documentPath, 1, 2, edits), "FADENO_ANALYZER_EDIT_RANGE", { version: 1, lifetime: 1 });
+  refused(session, () => session.change(documentPath, 1, 1, []), "FADENO_ANALYZER_VERSION", { version: 1, lifetime: 1 });
+  refused(session, () => session.change(documentPath, 1, 0, []), "FADENO_ANALYZER_VERSION", { version: 1, lifetime: 1 });
 
   reference.epoch += 1;
   reference.overlay = "\uFEFFline\r\n😀";
   reference.version = 2;
   assertDocument(accepted(session.replace(documentPath, 1, 2, reference.overlay)), "src/document.ts", reference);
-  refused(session, () => session.replace(documentPath, 1, 2, "equal-version"), "FADENO_ANALYZER_VERSION");
+  refused(session, () => session.replace(documentPath, 1, 2, "equal-version"), "FADENO_ANALYZER_VERSION", { version: 2, lifetime: 1 });
+  reference.epoch += 1;
+  reference.version = 3;
+  assertDocument(accepted(session.replace(documentPath, 1, 3, reference.overlay)), "src/document.ts", reference);
 
   reference.epoch += 1;
   reference.savedRevision += 1;
   const identicalSave = accepted(session.save(documentPath, reference.saved));
   assertDocument(identicalSave, "src/document.ts", reference);
 
-  refused(session, () => session.close(documentPath, 1, 1), "FADENO_ANALYZER_CLOSE_VERSION");
+  refused(session, () => session.close(documentPath, 1, 2), "FADENO_ANALYZER_CLOSE_VERSION", { version: 3, lifetime: 1 });
   reference.epoch += 1;
   delete reference.overlay;
   delete reference.version;
-  const closed = accepted(session.close(documentPath, 1, 2));
+  const closed = accepted(session.close(documentPath, 1, 3));
   assertDocument(closed, "src/document.ts", reference);
-  refused(session, () => session.close(documentPath, 1, 2), "FADENO_ANALYZER_DOCUMENT_CLOSED");
+  refused(session, () => session.close(documentPath, 1, 3), "FADENO_ANALYZER_DOCUMENT_CLOSED", { version: null, lifetime: null });
 
   reference.epoch += 1;
   reference.overlay = "restart\r\n寿";
@@ -158,7 +247,7 @@ try {
   assert.equal(closed.documents[0]?.open, null);
   assert.equal(reopened.documentVersions[0]?.lifetime, 2);
   refused(session, () => session.open(documentPath, 1, "duplicate"), "FADENO_ANALYZER_DOCUMENT_OPEN");
-  refused(session, () => session.change(documentPath, 1, 3, []), "FADENO_ANALYZER_LIFETIME");
+  refused(session, () => session.change(documentPath, 1, 4, []), "FADENO_ANALYZER_LIFETIME", { version: 0, lifetime: 2 });
 
   reference.epoch += 1;
   delete reference.overlay;
@@ -171,6 +260,8 @@ try {
   accepted(session.close(spacedPath, 1, 0));
 
   const newPath = join(root, "new", "nested.ts");
+  refused(session, () => session.open(newPath, -1, "invalid"), "FADENO_ANALYZER_VERSION", { version: null, lifetime: null });
+  refused(session, () => session.open(newPath, 0.5, "invalid"), "FADENO_ANALYZER_VERSION", { version: null, lifetime: null });
   const newOpen = accepted(session.open(newPath, 0, "new\r\nfile"));
   assert.equal(newOpen.documents.find(({ path }) => path === "new/nested.ts")?.effective.text, "new\r\nfile");
   const newClosed = accepted(session.close(newPath, 1, 0));
@@ -185,6 +276,51 @@ try {
   refused(session, () => session.open(sourceDirectory, 0, "directory"), "FADENO_ANALYZER_DOCUMENT_DIRECTORY");
   refused(session, () => session.open(symlinkPath, 0, "symlink"), "FADENO_ANALYZER_DOCUMENT_SYMLINK");
   refused(session, () => session.open(invalidUtf8, 0, "overlay"), "FADENO_ANALYZER_DOCUMENT_ENCODING");
+  const saveUnknown = session.save.bind(session) as unknown as (document: string, text: unknown) => AnalyzerOperationResult;
+  refused(session, () => saveUnknown(documentPath, 42), "FADENO_ANALYZER_TEXT", { version: null, lifetime: null });
+
+  const modelPath = join(sourceDirectory, "model.ts");
+  writeFileSync(modelPath, "model-base\r\n");
+  const modelSession = new AnalyzerSession(root);
+  let model: ReferenceState = {
+    epoch: 0,
+    saved: "model-base\r\n",
+    savedRevision: 0,
+    nextLifetime: 0,
+  };
+  const modelOperations: readonly ReferenceOperation[] = [
+    { kind: "open", version: 0, text: "alpha\r\nβ" },
+    { kind: "save", text: "disk-update\n新" },
+    { kind: "change", lifetime: 1, version: 1, edits: [{ start: 0, end: 5, text: "A" }, { start: 1, end: 3, text: "--" }] },
+    { kind: "change", lifetime: 1, version: 2, edits: [{ start: 0, end: 1, text: "valid" }, { start: 99, end: 100, text: "invalid" }] },
+    { kind: "replace", lifetime: 1, version: 2, text: "replacement" },
+    { kind: "replace", lifetime: 1, version: 3, text: "replacement" },
+    { kind: "close", lifetime: 1, version: 3 },
+    { kind: "open", version: 0, text: "reopened" },
+    { kind: "change", lifetime: 1, version: 4, edits: [] },
+    { kind: "close", lifetime: 2, version: 0 },
+  ];
+  for (const operation of modelOperations) {
+    if (operation.kind === "save") writeFileSync(modelPath, operation.text);
+    const expectedTransition = referenceTransition(model, operation);
+    let actual: AnalyzerOperationResult;
+    if (operation.kind === "open") actual = modelSession.open(modelPath, operation.version, operation.text);
+    else if (operation.kind === "save") actual = modelSession.save(modelPath, operation.text);
+    else if (operation.kind === "change") actual = modelSession.change(modelPath, operation.lifetime, operation.version, operation.edits);
+    else if (operation.kind === "replace") actual = modelSession.replace(modelPath, operation.lifetime, operation.version, operation.text);
+    else actual = modelSession.close(modelPath, operation.lifetime, operation.version);
+    record(actual);
+    assert.equal(actual.accepted, expectedTransition.accepted, `reference disagreement for ${operation.kind}`);
+    if (actual.accepted) model = expectedTransition.state;
+    else assert.equal(model, expectedTransition.state, `reference refusal mutated ${operation.kind}`);
+    assert.equal(modelSession.currentSnapshot.workspaceEpoch, model.epoch);
+    const actualDocument = modelSession.currentSnapshot.documents.find(({ path }) => path === "src/model.ts");
+    assert.ok(actualDocument);
+    assert.equal(actualDocument.savedRevision, model.savedRevision);
+    assert.equal(actualDocument.open?.version, model.version);
+    assert.equal(actualDocument.open?.lifetime, model.lifetime);
+    assert.equal(actualDocument.effective.text, model.overlay ?? model.saved);
+  }
 
   const finalSnapshot = session.currentSnapshot;
   assert.equal(finalSnapshot.documents.find(({ path }) => path === "src/document.ts")?.effective.text, reference.saved);

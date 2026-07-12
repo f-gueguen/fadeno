@@ -1,4 +1,5 @@
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -14,6 +15,7 @@ export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_DOCUMENT_TYPE"
   | "FADENO_ANALYZER_DOCUMENT_PARENT"
   | "FADENO_ANALYZER_DOCUMENT_ENCODING"
+  | "FADENO_ANALYZER_SAVED_MISMATCH"
   | "FADENO_ANALYZER_DOCUMENT_OPEN"
   | "FADENO_ANALYZER_DOCUMENT_CLOSED"
   | "FADENO_ANALYZER_LIFETIME"
@@ -45,6 +47,7 @@ export interface AnalyzerDocumentVersion {
 export interface AnalyzerDocumentOnlySnapshot {
   readonly analyzerVersion: 1;
   readonly schemaVersion: 1;
+  readonly sessionId: string;
   readonly operationId: string;
   readonly operation: "initialize" | "save" | "open" | "change" | "replace" | "close";
   readonly workspaceEpoch: number;
@@ -117,6 +120,7 @@ export class AnalyzerSession {
   readonly #inputRoot: string;
   readonly #root: string;
   readonly #rootUri: string;
+  readonly #sessionId = randomUUID();
   readonly #documents = new Map<string, DocumentState>();
   #epoch = 0;
   #operationSequence = 0;
@@ -133,7 +137,7 @@ export class AnalyzerSession {
     this.#inputRoot = absolute;
     this.#root = realpathSync(absolute);
     this.#rootUri = pathToFileURL(this.#root.endsWith(sep) ? this.#root : `${this.#root}${sep}`).href;
-    this.#snapshot = this.#createSnapshot("session-initialize", "initialize");
+    this.#snapshot = this.#createSnapshot(`${this.#sessionId}:initialize`, "initialize");
   }
 
   get currentSnapshot(): AnalyzerDocumentOnlySnapshot {
@@ -143,6 +147,12 @@ export class AnalyzerSession {
   save(document: string, text: string): AnalyzerOperationResult {
     return this.#operate("save", document, (owner) => {
       assertText(text);
+      let ownedText: string;
+      try { ownedText = this.#readOwnedFile(owner); } catch (error) {
+        if (error instanceof Refusal && error.code === "FADENO_ANALYZER_DOCUMENT_ENCODING") throw error;
+        refuse("FADENO_ANALYZER_SAVED_MISMATCH");
+      }
+      if (ownedText !== text) refuse("FADENO_ANALYZER_SAVED_MISMATCH");
       const state = this.#documents.get(owner) ?? { owner, savedRevision: 0, nextLifetime: 0 };
       state.savedText = text;
       state.savedRevision += 1;
@@ -210,7 +220,7 @@ export class AnalyzerSession {
     document: string,
     transition: (owner: string) => void,
   ): AnalyzerOperationResult {
-    const operationId = `analyzer-operation-${++this.#operationSequence}`;
+    const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
     let owner: string | undefined;
     try {
       owner = this.#canonicalOwner(document);
@@ -247,13 +257,18 @@ export class AnalyzerSession {
     if (existsSync(owner)) {
       const status = lstatSync(owner);
       if (!status.isFile()) refuse(status.isDirectory() ? "FADENO_ANALYZER_DOCUMENT_DIRECTORY" : "FADENO_ANALYZER_DOCUMENT_TYPE");
-      try {
-        state.savedText = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(owner));
-      } catch {
-        refuse("FADENO_ANALYZER_DOCUMENT_ENCODING");
-      }
+      state.savedText = this.#readOwnedFile(owner);
     }
     return state;
+  }
+
+  #readOwnedFile(owner: string): string {
+    if (!existsSync(owner) || !lstatSync(owner).isFile()) refuse("FADENO_ANALYZER_SAVED_MISMATCH");
+    try {
+      return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(owner));
+    } catch {
+      refuse("FADENO_ANALYZER_DOCUMENT_ENCODING");
+    }
   }
 
   #canonicalOwner(document: string): string {
@@ -320,6 +335,7 @@ export class AnalyzerSession {
     return frozen({
       analyzerVersion: 1 as const,
       schemaVersion: 1 as const,
+      sessionId: this.#sessionId,
       operationId,
       operation,
       workspaceEpoch: this.#epoch,
