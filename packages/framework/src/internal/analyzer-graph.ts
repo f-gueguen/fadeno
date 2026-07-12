@@ -195,7 +195,7 @@ function normalizeDefinitions(
   const normalized = new Map<string, NormalizedDefinition>();
   for (const definition of definitions) {
     if (typeof definition !== "object" || definition === null || typeof definition.compute !== "function") {
-      refuse("FADENO_ANALYZER_GRAPH_LIMIT");
+      refuse("FADENO_ANALYZER_GRAPH_DEFINITION");
     }
     if (!nodeIdPattern.test(definition.id) || typeof definition.ownerUri !== "string") refuse("FADENO_ANALYZER_GRAPH_DEFINITION");
     if (normalized.has(definition.id)) refuse("FADENO_ANALYZER_GRAPH_DUPLICATE");
@@ -694,6 +694,7 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
   if (JSON.stringify(affected) !== JSON.stringify(workOrder) || new Set(affected).size !== affected.length) serializationRefuse();
   const invalidations = serializedArray(snapshot["invalidations"]);
   if (invalidations.length !== affected.length) serializationRefuse();
+  const affectedIndex = new Map(affected.map((id, index) => [id, index]));
   for (const [index, value] of invalidations.entries()) {
     const invalidation = exactRecord(value, ["nodeId", "reasons"]);
     if (invalidation["nodeId"] !== affected[index]) serializationRefuse();
@@ -711,10 +712,12 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
         if (serializedInteger(reason["configurationEpoch"]) !== snapshot["configurationEpoch"]) serializationRefuse();
       } else if (reason["kind"] === "dependency") {
         exactRecord(reason, ["kind", "dependencyId"]);
-        if (!nodeIdPattern.test(serializedString(reason["dependencyId"]))) serializationRefuse();
+        const dependencyId = serializedString(reason["dependencyId"]);
+        if (!nodeIdPattern.test(dependencyId) || (affectedIndex.get(dependencyId) ?? Number.POSITIVE_INFINITY) >= index) serializationRefuse();
       } else if (reason["kind"] === "definition" || reason["kind"] === "initial") {
         exactRecord(reason, ["kind", "nodeId"]);
         if (reason["nodeId"] !== invalidation["nodeId"]) serializationRefuse();
+        if (reason["kind"] === "initial" && generation !== 1) serializationRefuse();
       }
       else serializationRefuse();
       const key = reason["kind"] === "document" ? `document:${String(reason["ownerUri"])}`
@@ -729,13 +732,16 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
   const seenArtifacts = new Set<string>();
   const seenArtifactPaths = new Set<string>();
   let previousResult: string | undefined;
-  for (const value of serializedArray(snapshot["results"])) {
+  const resultValues = serializedArray(snapshot["results"]);
+  if (resultValues.length > ANALYZER_GRAPH_LIMITS.maximumNodes) serializationRefuse();
+  for (const value of resultValues) {
     const result = exactRecord(value, ["id", "generation", "value", "provenance", "artifacts"]);
     const id = serializedString(result["id"]);
     if (!nodeIdPattern.test(id) || seenResults.has(id) || (previousResult !== undefined && compareText(previousResult, id) >= 0)) serializationRefuse();
     seenResults.add(id);
     previousResult = id;
-    if (serializedInteger(result["generation"], true) > generation) serializationRefuse();
+    const resultGeneration = serializedInteger(result["generation"], true);
+    if (resultGeneration > generation || (affectedIndex.has(id) && resultGeneration !== generation)) serializationRefuse();
     if (JSON.stringify(normalizeAnalyzerFacetValue(result["value"])) !== JSON.stringify(result["value"])) serializationRefuse();
     let previousArtifact: string | undefined;
     const resultArtifactIds: string[] = [];
@@ -748,6 +754,7 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
         (previousArtifact !== undefined && compareText(previousArtifact, artifactId) >= 0)
       ) serializationRefuse();
       seenArtifacts.add(artifactId);
+      if (seenArtifacts.size > ANALYZER_GRAPH_LIMITS.maximumArtifacts) serializationRefuse();
       seenArtifactPaths.add(path);
       resultArtifactIds.push(artifactId);
       previousArtifact = artifactId;
@@ -765,7 +772,9 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
   }
   const removedNodeIds = new Set<string>();
   let previousRemovedNode: string | undefined;
-  for (const value of serializedArray(snapshot["removedNodes"])) {
+  const removedNodeValues = serializedArray(snapshot["removedNodes"]);
+  if (removedNodeValues.length > ANALYZER_GRAPH_LIMITS.maximumNodes) serializationRefuse();
+  for (const value of removedNodeValues) {
     const removed = exactRecord(value, ["nodeId", "ownerUri", "reason"]);
     const nodeId = serializedString(removed["nodeId"]);
     if (
@@ -779,7 +788,9 @@ function validateSerializedGraphSnapshot(value: unknown): AnalyzerGraphSnapshot 
   }
   const removedArtifactIds = new Set<string>();
   let previousRemovedArtifact: string | undefined;
-  for (const value of serializedArray(snapshot["removedArtifacts"])) {
+  const removedArtifactValues = serializedArray(snapshot["removedArtifacts"]);
+  if (removedArtifactValues.length > ANALYZER_GRAPH_LIMITS.maximumArtifacts) serializationRefuse();
+  for (const value of removedArtifactValues) {
     const removed = exactRecord(value, ["id", "path", "ownerNodeId"]);
     const id = serializedString(removed["id"]);
     const path = serializedString(removed["path"]);

@@ -182,6 +182,17 @@ try {
     (value) => { value.snapshot.operationId = `${value.snapshot.sessionId}:operation-${"9".repeat(40)}`; },
     (value) => { value.snapshot.results[0].provenance.primaryOrigin.uri = "file:///outside.ts"; },
     (value) => { value.snapshot.results.find((result: any) => result.artifacts.length > 0).provenance.sourceToArtifacts.pop(); },
+    (value) => {
+      const affectedId = value.snapshot.affected[0];
+      value.snapshot.results.find((result: any) => result.id === affectedId).generation -= 1;
+    },
+    (value) => { value.snapshot.invalidations[1].reasons[0].dependencyId = "route:manifest"; },
+    (value) => { value.snapshot.invalidations[0].reasons = [{ kind: "initial", nodeId: value.snapshot.invalidations[0].nodeId }]; },
+    (value) => { value.snapshot.results = Array.from({ length: ANALYZER_GRAPH_LIMITS.maximumNodes + 1 }, () => value.snapshot.results[0]); },
+    (value) => {
+      const result = value.snapshot.results.find((candidate: any) => candidate.artifacts.length > 0);
+      result.artifacts = Array.from({ length: ANALYZER_GRAPH_LIMITS.maximumArtifacts + 1 }, () => result.artifacts[0]);
+    },
   ];
   for (const mutate of serializationMutations) {
     const invalid = JSON.parse(rootEditSerialized);
@@ -212,6 +223,13 @@ try {
   assert.equal(configured.configurationEpoch, 1);
   assert.equal(configured.ownership.configurationFingerprint, "a".repeat(64));
   assert.equal(configured.invalidations.every(({ reasons }) => reasons.some(({ kind }) => kind === "configuration")), true);
+  const epochBeforeRepeatedConfiguration = session.currentSnapshot.workspaceEpoch;
+  acceptDocument(session.reloadConfiguration("a".repeat(64)));
+  assert.equal(session.currentSnapshot.workspaceEpoch, epochBeforeRepeatedConfiguration + 1);
+  const repeatedConfiguration = acceptGraph(session.analyzeGraph(definitions));
+  currentGraph = repeatedConfiguration;
+  assert.equal(repeatedConfiguration.configurationEpoch, 2);
+  assert.equal(repeatedConfiguration.invalidations.every(({ reasons }) => reasons.some(({ kind }) => kind === "configuration")), true);
   const noOp = acceptGraph(session.analyzeGraph(definitions));
   currentGraph = noOp;
   assert.deepEqual(noOp.affected, []);
@@ -279,6 +297,11 @@ try {
     : definition);
   refuseGraph(session, () => session.analyzeGraph(unknownDependency), "FADENO_ANALYZER_GRAPH_DEPENDENCY");
   refuseGraph(session, () => session.analyzeGraph([definitions[0]!, definitions[0]!]), "FADENO_ANALYZER_GRAPH_DUPLICATE");
+  refuseGraph(
+    session,
+    () => session.analyzeGraph([null as unknown as AnalyzerGraphNodeDefinition]),
+    "FADENO_ANALYZER_GRAPH_DEFINITION",
+  );
   refuseGraph(
     session,
     () => session.analyzeGraph(Array.from({ length: ANALYZER_GRAPH_LIMITS.maximumNodes + 1 }, () => definitions[0]!)),
