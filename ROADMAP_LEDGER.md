@@ -6,27 +6,28 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-K0-11 — reconcile K0 decisions into implementable V1 scope
+V1-01 — freeze the supported config and command workflow
 
 ## Exit criteria
 
-- [x] Reconcile H1 NARROW, H2 GO, H3 NARROW, and H4 GO into one effective
-  delivery decision without publishing experiment syntax.
-- [x] Update product scope, specifications, risks, architecture, and traceability
-  so no K0 mechanism remains described as an unresolved hypothesis.
-- [x] Publish a dependency-ordered V1 plan covering every V1 feature and
-  DG-V1-01 through DG-V1-08.
-- [x] Define V1-04 as an integration smoke checkpoint, V1-09 as the first
-  running framework, and V1-13/V1-14 as the usable/complete checkpoints.
-- [x] Prove reconciliation/model controls and `pnpm ci:local` pass.
+- [x] Accept one root `fadeno.config.ts` default-export contract without route
+  or adapter fields.
+- [x] Freeze `fadeno dev`, `fadeno build`, and `fadeno check` plus `.fadeno/`
+  ephemeral and `dist/` deployable output ownership.
+- [x] Freeze `.env` < `.env.local` < process precedence and refuse ambiguous
+  syntax without automatically exposing values to browser output.
+- [x] Prove the private TypeScript prototype runs check/dev/build, produces
+  byte-identical repeated build output, and rejects config/env mutations.
+- [x] Prove all projections and `pnpm ci:local` pass.
 
 ## In progress
 
-- ADR 0021 makes the V1 plan the implementation continuation after K0.
-- Open V1 gates remain open; K0-11 orders them and does not invent their public
-  contracts.
-- Clean local CI and the aggregate immutable K0 verifier pass at `6dc8b52`;
-  the final ledger-only projection is revalidated before review.
+- ADR 0022 resolves the former V1 toolchain gate without resolving package,
+  adapter, or route contracts.
+- V1-02 next selects the first Web-standard runtime adapter from a private
+  conformance feasibility harness.
+- Clean local CI passes the toolchain contract at `9fb0464`; the final ledger
+  projection is revalidated before review.
 
 ## Blockers
 
@@ -95,3 +96,6 @@ K0-11 — reconcile K0 decisions into implementable V1 scope
 - K0-10B — Commit `67f51ca` retains all 12 exact-source H4 attempts, independently
   verifies attempt 12 as the first complete reference-valid run, and accepts
   correctness-first revalidation through ADR 0020 with every locked gate green.
+- K0-11 — Commit `143cbb4` reconciles all four K0 outcomes through ADR 0021,
+  publishes the model-checked 14-slice V1 plan, and makes `experiment:all`
+  verify every immutable K0 outcome.

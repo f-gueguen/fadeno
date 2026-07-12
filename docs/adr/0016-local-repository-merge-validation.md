@@ -23,7 +23,7 @@ maintainer workstation is the frozen K0 reference host.
 - K0 reference measurements must retain their versioned host classification and
   immutable historical provenance.
 - Internal repository policy must not invent a public Fadeno command or a CI
-  service product while TOOL-01 and DG-V1-07 remain unresolved.
+  service product while TOOL-01 and the toolchain contract remained unresolved.
 
 ## Decision
 

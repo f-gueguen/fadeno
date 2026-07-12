@@ -308,7 +308,7 @@ const requiredV1Features = new Set([
   "TYPE-01", "SEC-01", "BUILD-01", "ADP-01", "TEST-01", "DX-01", "CLI-01", "DOC-01", "ACCESS-01", "PERF-01",
 ]);
 for (const feature of setDifference(requiredV1Features, v1Features)) errors.push(`docs/roadmap/v1.md: missing V1 feature ${feature}`);
-for (const gate of Array.from({ length: 8 }, (_, index) => `DG-V1-${String(index + 1).padStart(2, "0")}`)) {
+for (const gate of gateIds.filter((id) => id.startsWith("DG-V1-"))) {
   if (!v1Gates.has(gate)) errors.push(`docs/roadmap/v1.md: missing gate ${gate}`);
 }
 

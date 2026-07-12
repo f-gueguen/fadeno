@@ -31,6 +31,7 @@ effective decision.
 19. [ADR 0019 — H4 local Docker reference environment](0019-h4-local-docker-reference.md)
 20. [ADR 0020 — Accept correctness-first revalidation](0020-accept-correctness-first-revalidation.md)
 21. [ADR 0021 — Reconcile K0 evidence into V1 delivery](0021-reconcile-k0-into-v1-delivery.md)
+22. [ADR 0022 — Toolchain and configuration contract](0022-toolchain-and-configuration-contract.md)
 
 ## Superseded decisions
 
