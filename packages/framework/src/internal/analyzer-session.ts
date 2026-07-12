@@ -9,6 +9,11 @@ import {
   type AnalyzerFacetOperationResult,
   type AnalyzerFacetRequest,
 } from "./analyzer-facets.ts";
+import {
+  AnalyzerDependencyGraph,
+  type AnalyzerGraphNodeDefinition,
+  type AnalyzerGraphOperationResult,
+} from "./analyzer-graph.ts";
 
 export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_DOCUMENT_SCHEME"
@@ -21,6 +26,8 @@ export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_DOCUMENT_DIRECTORY"
   | "FADENO_ANALYZER_DOCUMENT_TYPE"
   | "FADENO_ANALYZER_DOCUMENT_PARENT"
+  | "FADENO_ANALYZER_DOCUMENT_EXISTS"
+  | "FADENO_ANALYZER_DOCUMENT_UNKNOWN"
   | "FADENO_ANALYZER_DOCUMENT_ENCODING"
   | "FADENO_ANALYZER_SAVED_MISMATCH"
   | "FADENO_ANALYZER_DOCUMENT_OPEN"
@@ -29,7 +36,8 @@ export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_VERSION"
   | "FADENO_ANALYZER_CLOSE_VERSION"
   | "FADENO_ANALYZER_EDIT_RANGE"
-  | "FADENO_ANALYZER_TEXT";
+  | "FADENO_ANALYZER_TEXT"
+  | "FADENO_ANALYZER_CONFIGURATION_IDENTITY";
 
 export interface AnalyzerTextEdit {
   readonly start: number;
@@ -56,7 +64,7 @@ export interface AnalyzerDocumentOnlySnapshot {
   readonly schemaVersion: 1;
   readonly sessionId: string;
   readonly operationId: string;
-  readonly operation: "initialize" | "save" | "open" | "change" | "replace" | "close";
+  readonly operation: "initialize" | "save" | "open" | "change" | "replace" | "close" | "remove" | "configuration";
   readonly workspaceEpoch: number;
   readonly requestedFacets: readonly [];
   readonly documentVersions: readonly AnalyzerDocumentVersion[];
@@ -132,6 +140,9 @@ export class AnalyzerSession {
   #epoch = 0;
   #operationSequence = 0;
   #snapshot: AnalyzerDocumentOnlySnapshot;
+  #configurationEpoch = 0;
+  #configurationFingerprint = "0".repeat(64);
+  readonly #dependencyGraph: AnalyzerDependencyGraph;
 
   constructor(projectRoot: string) {
     if (typeof projectRoot !== "string" || !isAbsolute(projectRoot)) throw new TypeError("FADENO_ANALYZER_ROOT");
@@ -145,6 +156,11 @@ export class AnalyzerSession {
     this.#root = realpathSync(absolute);
     this.#rootUri = pathToFileURL(this.#root.endsWith(sep) ? this.#root : `${this.#root}${sep}`).href;
     this.#snapshot = this.#createSnapshot(`${this.#sessionId}:initialize`, "initialize");
+    this.#dependencyGraph = new AnalyzerDependencyGraph(() => ({
+      snapshot: this.#snapshot,
+      configurationEpoch: this.#configurationEpoch,
+      configurationFingerprint: this.#configurationFingerprint,
+    }));
   }
 
   get currentSnapshot(): AnalyzerDocumentOnlySnapshot {
@@ -157,6 +173,34 @@ export class AnalyzerSession {
   ): AnalyzerFacetOperationResult {
     const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
     return createAnalyzerFacetSnapshot(this.#snapshot, operationId, requests, contributions);
+  }
+
+  analyzeGraph(definitions: readonly AnalyzerGraphNodeDefinition[]): AnalyzerGraphOperationResult {
+    const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
+    return this.#dependencyGraph.analyze(operationId, definitions);
+  }
+
+  get currentGraphSnapshot() {
+    return this.#dependencyGraph.currentSnapshot;
+  }
+
+  reloadConfiguration(fingerprint: string): AnalyzerOperationResult {
+    const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
+    if (typeof fingerprint !== "string" || !/^[0-9a-f]{64}$/u.test(fingerprint)) {
+      return frozen({
+        accepted: false as const,
+        operationId,
+        code: "FADENO_ANALYZER_CONFIGURATION_IDENTITY" as const,
+        currentEpoch: this.#epoch,
+        currentDocumentVersion: null,
+        currentLifetime: null,
+      });
+    }
+    this.#configurationEpoch += 1;
+    this.#configurationFingerprint = fingerprint;
+    this.#epoch += 1;
+    this.#snapshot = this.#createSnapshot(operationId, "configuration");
+    return frozen({ accepted: true as const, operationId, snapshot: this.#snapshot });
   }
 
   save(document: string, text: string): AnalyzerOperationResult {
@@ -227,6 +271,16 @@ export class AnalyzerSession {
       delete state.overlayText;
       delete state.overlayVersion;
       delete state.overlayLifetime;
+    });
+  }
+
+  remove(document: string): AnalyzerOperationResult {
+    return this.#operate("remove", document, (owner) => {
+      const state = this.#documents.get(owner);
+      if (!state) refuse("FADENO_ANALYZER_DOCUMENT_UNKNOWN");
+      if (state.overlayVersion !== undefined) refuse("FADENO_ANALYZER_DOCUMENT_OPEN");
+      if (existsSync(owner)) refuse("FADENO_ANALYZER_DOCUMENT_EXISTS");
+      this.#documents.delete(owner);
     });
   }
 

@@ -6,33 +6,33 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B2 — private namespaced analyzer facets and versioned serialization
+V1-DX-B3 — deterministic analyzer recomputation and construction-time provenance
 
 ## Exit criteria
 
-- [x] Derive facet snapshots from the current immutable B1 document snapshot
-  without replacing document authority or advancing its workspace epoch.
-- [x] Identify every requested and contributed facet by namespace, give each
-  contribution an independent positive version, and distinguish absent,
-  unknown, newer, and supported interpretation states.
-- [x] Enforce facet-count, per-contribution byte, aggregate byte, depth, and
-  node limits while refusing duplicate, unrequested, non-plain, or lossy data
-  without publishing partial evidence.
-- [x] Serialize the complete schema-v2 private snapshot through a versioned
-  envelope and prove byte-stable round trips preserve B1 identity, documents,
-  opaque unsupported facets, completeness, and truncation state.
-- [x] Pass normalized-fixture, malformed-serialization, private-package,
+- [x] Establish one transactional dependency ownership graph over B1 document
+  state with deterministic node, dependency, and artifact identities.
+- [x] Separate complete affected-closure discovery from deterministic
+  dependency-first recomputation and retain explicit invalidation causes.
+- [x] Prove direct and three-level transitive refresh, configuration epochs,
+  cycle refusal, and deletion/rename cleanup without retaining stale results.
+- [x] Attach source, transformation, ownership, and bidirectional artifact
+  provenance while semantic results and artifacts are constructed.
+- [x] Pass normalized provenance/recomputation fixtures, private-package,
   project-model, full repository, local CI, and independent review gates.
 
 ## In progress
 
-- V1-DX-B2 is private foundation only and adds no package export, public schema,
+- V1-DX-B3 is private foundation only and adds no package export, public schema,
   protocol, command, or supported editor product.
-- V1-DX-B3 through B7 remain dependency ordered and independently reversible.
+- V1-DX-B4 through B7 remain dependency ordered and independently reversible.
 - The V1 application is the canonical analyzer corpus from B3 onward.
-- B2 focused checks, its permanent normalized private snapshot fixture, full
-  repository validation, and independent adversarial review pass;
-  commit-bound local CI is the final merge gate.
+- B3 is limited to private candidate recomputation evidence; B4 owns atomic
+  publication, cancellation, supersession, and stale-result suppression.
+- The B3 focused checker copies the canonical V1 application sources into an
+  isolated workspace and retains one normalized recomputation/provenance
+  fixture. Focused, private-package, full repository, and independent review
+  gates pass; commit-bound local CI is the final merge gate.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -144,3 +144,7 @@ V1-DX-B2 — private namespaced analyzer facets and versioned serialization
   session, exact saved/overlay document authority, versioned lifetimes,
   transactional sequential edits, immutable document-only snapshots, and
   atomic refusal evidence without exposing an analyzer API or editor product.
+- V1-DX-B2 — Commit `ff1eeaa` adds private namespaced, independently versioned
+  facets; bounded normalized plain-data contributions; explicit
+  absent/unknown/newer handling; strict lossless snapshot serialization; and a
+  permanent normalized fixture without exposing an analyzer schema or product.

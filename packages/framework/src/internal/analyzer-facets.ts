@@ -146,6 +146,17 @@ function encodedBytes(value: unknown): number {
   return encoder.encode(JSON.stringify(value)).byteLength;
 }
 
+export function normalizeAnalyzerFacetValue(value: unknown): AnalyzerFacetValue {
+  try {
+    const normalized = normalizeValue(value, 0, { nodes: 0 });
+    if (encodedBytes(normalized) > ANALYZER_FACET_LIMITS.maximumFacetBytes) refuse("FADENO_ANALYZER_FACET_LIMIT");
+    return normalized;
+  } catch (error) {
+    if (error instanceof FacetRefusal) throw new TypeError(error.code);
+    throw error;
+  }
+}
+
 function assertExactKeys(value: Record<string, unknown>, keys: readonly string[]): void {
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
