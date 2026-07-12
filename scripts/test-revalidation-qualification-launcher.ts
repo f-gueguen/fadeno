@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertSafeRetainedText, qualificationAttemptId } from "./run-revalidation-reference-qualification.ts";
+import { assertSafeRetainedText, nextQualificationAttempt, qualificationAttemptId } from "./run-revalidation-reference-qualification.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 if (qualificationAttemptId("2026-07-12T00:00:00Z", "a".repeat(40), 1) !== "20260712T000000Z-aaaaaaa-a1") {
@@ -26,6 +26,7 @@ for (const text of [...sensitive, "Authorization: Bearer abcdefghijklmnopqrstuvw
   if (!rejected) throw new Error("FADENO_REVALIDATION_LAUNCHER_SECRET_MUTATION");
 }
 assertSafeRetainedText("allowlisted metrics and digests only", sensitive);
+if (nextQualificationAttempt(join(root, "experiments/revalidation/results")) !== 1) throw new Error("FADENO_REVALIDATION_LAUNCHER_ATTEMPT_SEQUENCE");
 
 const launcher = readFileSync(join(root, "scripts/run-revalidation-reference-qualification.ts"), "utf8");
 for (const required of [
@@ -34,5 +35,6 @@ for (const required of [
 ]) {
   if (!launcher.includes(required)) throw new Error(`FADENO_REVALIDATION_LAUNCHER_POLICY:${required}`);
 }
+if ((launcher.match(/writeFileSync\(/gu) ?? []).length !== 1) throw new Error("FADENO_REVALIDATION_LAUNCHER_UNSAFE_SINK");
 if (launcher.includes(".mjs")) throw new Error("FADENO_REVALIDATION_LAUNCHER_MJS");
 console.log("revalidation qualification launcher controls passed (source, limits, network, GC, retention, redaction)");

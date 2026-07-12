@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
+
+import { assertQualificationAttemptDocument, assertQualificationCaptureDocument } from "./lib/revalidation-qualification-validation.ts";
 
 const IMAGE = "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94";
 const INPUT_KEYS = ["workload", "baselines", "schedule", "scheduleGolden", "dependencyLock"] as const;
@@ -47,6 +49,14 @@ export function qualificationAttemptId(startedAt: string, sourceCommit: string, 
     throw new Error("FADENO_REVALIDATION_ATTEMPT_ID");
   }
   return `${timestamp[1]}${timestamp[2]}${timestamp[3]}T${timestamp[4]}${timestamp[5]}${timestamp[6]}Z-${sourceCommit.slice(0, 7)}-a${attempt}`;
+}
+
+export function nextQualificationAttempt(resultsRoot: string): number {
+  const attempts = readdirSync(resultsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => Number(/-a([1-9][0-9]*)$/u.exec(entry.name)?.[1]))
+    .filter(Number.isSafeInteger);
+  return attempts.length === 0 ? 1 : Math.max(...attempts) + 1;
 }
 
 function hostSample(): HostSample {
@@ -123,6 +133,7 @@ export function runRevalidationReferenceQualification(
     throw new Error("FADENO_REVALIDATION_SOURCE_IDENTITY");
   }
   const resultsRoot = resolve(repository, "experiments/revalidation/results");
+  if (attempt !== nextQualificationAttempt(resultsRoot)) throw new Error("FADENO_REVALIDATION_ATTEMPT_SEQUENCE");
   const attemptRoot = resolve(resultsRoot, runId);
   if (!attemptRoot.startsWith(`${resultsRoot}/`)) throw new Error("FADENO_REVALIDATION_ATTEMPT_PATH");
   mkdirSync(attemptRoot, { recursive: false });
@@ -139,7 +150,12 @@ export function runRevalidationReferenceQualification(
     phase,
     ...(failureCode ? { failureCode } : {}),
   });
-  safeWriteJson(join(attemptRoot, "attempt.json"), attemptRecord("launched", "allocated"), sensitiveValues);
+  const writeAttempt = (status: "launched" | "complete" | "inconclusive", phase: "allocated" | "preflight" | "measurement" | "postflight" | "complete", failureCode?: string) => {
+    const document = attemptRecord(status, phase, failureCode);
+    assertQualificationAttemptDocument(repository, document);
+    safeWriteJson(join(attemptRoot, "attempt.json"), document, sensitiveValues);
+  };
+  writeAttempt("launched", "allocated");
 
   const temporary = mkdtempSync(join(tmpdir(), "fadeno-k010b-"));
   const container = `fadeno-k010b-${randomUUID()}`;
@@ -171,7 +187,7 @@ export function runRevalidationReferenceQualification(
     const beforeContainerSha256 = safeWriteJson(join(attemptRoot, "before-container.json"), beforeContainer, sensitiveValues);
 
     phase = "measurement";
-    safeWriteJson(join(attemptRoot, "attempt.json"), attemptRecord("launched", "measurement"), sensitiveValues);
+    writeAttempt("launched", "measurement");
     const output = command("docker", ["exec", container, "node", "--expose-gc", "--no-warnings", "--experimental-strip-types", "/work/experiments/revalidation/qualification-entry.ts"]);
     assertSafeRetainedText(output, sensitiveValues);
     const line = output.split("\n").find((candidate) => candidate.startsWith("FADENO_H4_MEASUREMENTS="));
@@ -198,6 +214,7 @@ export function runRevalidationReferenceQualification(
       ...measurements,
       failures: environmentValid ? [] : [{ code: "FADENO_REVALIDATION_POSTFLIGHT_INCONCLUSIVE" }],
     };
+    assertQualificationCaptureDocument(repository, capture);
     safeWriteJson(join(attemptRoot, "capture.json"), capture, sensitiveValues);
     if (!environmentValid) throw new Error("FADENO_REVALIDATION_POSTFLIGHT_INCONCLUSIVE");
     const statusPaths = command("git", ["status", "--porcelain"], repository)
@@ -210,13 +227,13 @@ export function runRevalidationReferenceQualification(
     ) {
       throw new Error("FADENO_REVALIDATION_SOURCE_CHANGED");
     }
-    safeWriteJson(join(attemptRoot, "attempt.json"), attemptRecord("complete", "complete"), sensitiveValues);
+    writeAttempt("complete", "complete");
     return attemptRoot;
   } catch (error: unknown) {
     const failureCode = error instanceof Error && /^FADENO_REVALIDATION_[A-Z0-9_]+$/u.test(error.message)
       ? error.message
       : "FADENO_REVALIDATION_LAUNCHER_FAILURE";
-    safeWriteJson(join(attemptRoot, "attempt.json"), attemptRecord("inconclusive", phase, failureCode), sensitiveValues);
+    writeAttempt("inconclusive", phase, failureCode);
     throw new Error(failureCode);
   } finally {
     try { command("docker", ["rm", "-f", container]); } catch { /* best-effort cleanup */ }
