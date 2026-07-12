@@ -28,14 +28,17 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 
 export function normalizeConfig(value: unknown): FadenoConfig {
   try {
-    if (!isPlainRecord(value) || Object.keys(value).some((key) => key !== "routes")) fail("SHAPE");
-    if (!("routes" in value)) return Object.freeze({});
+    if (!isPlainRecord(value)) fail("SHAPE");
+    const keys = Reflect.ownKeys(value);
+    if (keys.length === 0) return Object.freeze({});
+    if (keys.length !== 1 || keys[0] !== "routes") fail("SHAPE");
     const routesDescriptor = Object.getOwnPropertyDescriptor(value, "routes");
-    if (!routesDescriptor || !("value" in routesDescriptor)) fail("ROUTES");
+    if (!routesDescriptor?.enumerable || !("value" in routesDescriptor)) fail("ROUTES");
     const routes = routesDescriptor.value;
-    if (!isPlainRecord(routes) || Object.keys(routes).length !== 1) fail("ROUTES");
+    const routeKeys = isPlainRecord(routes) ? Reflect.ownKeys(routes) : [];
+    if (!isPlainRecord(routes) || routeKeys.length !== 1 || routeKeys[0] !== "root") fail("ROUTES");
     const rootDescriptor = Object.getOwnPropertyDescriptor(routes, "root");
-    if (!rootDescriptor || !("value" in rootDescriptor) || typeof rootDescriptor.value !== "string") fail("ROUTES");
+    if (!rootDescriptor?.enumerable || !("value" in rootDescriptor) || typeof rootDescriptor.value !== "string") fail("ROUTES");
     return Object.freeze({ routes: Object.freeze({ root: rootDescriptor.value }) });
   } catch (error) {
     if (error instanceof FadenoDiagnosticError) throw error;

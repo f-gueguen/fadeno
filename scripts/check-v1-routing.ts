@@ -304,7 +304,11 @@ try {
   }
 } finally { rmSync(fallbackProject, { recursive: true, force: true }); }
 
-for (const invalid of [null, [], new (class Config {})(), new Proxy({}, { ownKeys: () => { throw new Error("trap"); } }), { unknown: true }, { get routes() { return { root: "src/routes" }; } }, { routes: { get root() { return "src/routes"; } } }, { routes: null }, { routes: "src/routes" }, { routes: {} }, { routes: { root: 1 } }, { routes: { root: "src/routes", extra: true } }]) {
+const hiddenRoutes = Object.defineProperty({}, "routes", { value: { root: "src/routes" }, enumerable: false });
+const hiddenRoot = { routes: Object.defineProperty({ extra: true }, "root", { value: "src/routes", enumerable: false }) };
+const topSymbol = { [Symbol("extra")]: true };
+const nestedSymbol = { routes: { root: "src/routes", [Symbol("extra")]: true } };
+for (const invalid of [null, [], new (class Config {})(), new Proxy({}, { ownKeys: () => { throw new Error("trap"); } }), hiddenRoutes, hiddenRoot, topSymbol, nestedSymbol, { unknown: true }, { get routes() { return { root: "src/routes" }; } }, { routes: { get root() { return "src/routes"; } } }, { routes: null }, { routes: "src/routes" }, { routes: {} }, { routes: { root: 1 } }, { routes: { root: "src/routes", extra: true } }]) {
   expectError(() => normalizeConfig(invalid), "FADENO_CONFIG");
 }
 try { normalizeConfig({ unknown: true }); } catch (error) {
