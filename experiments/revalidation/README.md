@@ -6,6 +6,10 @@
 - Exact-source execution slice: K0-10B.
 - Command: `pnpm experiment:revalidation -- --list` prints the locked private
   workload contract without executing qualification cycles.
+- Capability command: `pnpm experiment:revalidation -- --verify-qualification`
+  verifies the H4 environment, schedule, runner, proof, launcher, and absence of
+  results without executing the full qualification.
+- `--qualify` refuses until K0-10B binds the exact clean merged K0-10A source.
 
 `app/`, `fixtures/`, `tests/`, and `results/` are reserved by the K0 plan.
 K0-09 owns the private CRUD benchmark and unsafe-`keeps` controls; K0-10 owns
