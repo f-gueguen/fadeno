@@ -18,7 +18,7 @@ V1-DX-B6 — lazy bounded static plan and explanation
   suppress superseded or stale results and atomically refuse malformed evidence.
 - [x] Add one independently versioned route-flow codec with pre-collection
   allowlists/redaction and explicit static/runtime record separation.
-- [ ] Pass analyzer-produced canonical flow, cancellation, serialization,
+- [x] Pass analyzer-produced canonical flow, cancellation, serialization,
   private-package, full repository, local CI, and independent review gates.
 
 ## In progress
@@ -46,6 +46,11 @@ V1-DX-B6 — lazy bounded static plan and explanation
   malformed fields, runtime-family claims, dangling parents, parent or causal
   cycles, and mismatched publication identity refuse. Analyzer-produced human
   and normalized flow fixtures cover success, collision refusal, and recovery.
+- The completed B6 evidence also covers construction-time budgets, causal-order
+  projection, structurally consistent private truncation witnesses, the maximum
+  4,096-document identity, strict diagnostic authority, canonical contained
+  URIs, and exact module/common transport agreement. Independent ready review
+  found no remaining P1 or P2 blocker and confirmed the analyzer remains private.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
