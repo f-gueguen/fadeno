@@ -14,6 +14,12 @@ import {
   type AnalyzerGraphNodeDefinition,
   type AnalyzerGraphOperationResult,
 } from "./analyzer-graph.ts";
+import {
+  AnalyzerPublicationCoordinator,
+  type AnalyzerPublicationHandle,
+  type AnalyzerPublicationRequest,
+  type AnalyzerPublicationSnapshot,
+} from "./analyzer-publication.ts";
 
 export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_DOCUMENT_SCHEME"
@@ -143,6 +149,7 @@ export class AnalyzerSession {
   #configurationEpoch = 0;
   #configurationFingerprint = "0".repeat(64);
   readonly #dependencyGraph: AnalyzerDependencyGraph;
+  readonly #publication: AnalyzerPublicationCoordinator;
 
   constructor(projectRoot: string) {
     if (typeof projectRoot !== "string" || !isAbsolute(projectRoot)) throw new TypeError("FADENO_ANALYZER_ROOT");
@@ -161,6 +168,15 @@ export class AnalyzerSession {
       configurationEpoch: this.#configurationEpoch,
       configurationFingerprint: this.#configurationFingerprint,
     }));
+    this.#publication = new AnalyzerPublicationCoordinator(
+      () => ({
+        snapshot: this.#snapshot,
+        configurationEpoch: this.#configurationEpoch,
+        configurationFingerprint: this.#configurationFingerprint,
+      }),
+      (operationId, definitions, signal) => this.#dependencyGraph.analyze(operationId, definitions, { commit: false, signal }),
+      (operationId, expected) => this.#dependencyGraph.commitPrepared(operationId, expected),
+    );
   }
 
   get currentSnapshot(): AnalyzerDocumentOnlySnapshot {
@@ -184,6 +200,15 @@ export class AnalyzerSession {
     return this.#dependencyGraph.currentSnapshot;
   }
 
+  startPublication(request: AnalyzerPublicationRequest): AnalyzerPublicationHandle {
+    const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
+    return this.#publication.start(operationId, request);
+  }
+
+  get currentPublicationSnapshot(): AnalyzerPublicationSnapshot | null {
+    return this.#publication.currentSnapshot;
+  }
+
   reloadConfiguration(fingerprint: string): AnalyzerOperationResult {
     const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
     if (typeof fingerprint !== "string" || !/^[0-9a-f]{64}$/u.test(fingerprint)) {
@@ -200,6 +225,7 @@ export class AnalyzerSession {
     this.#configurationFingerprint = fingerprint;
     this.#epoch += 1;
     this.#snapshot = this.#createSnapshot(operationId, "configuration");
+    this.#publication.invalidate();
     return frozen({ accepted: true as const, operationId, snapshot: this.#snapshot });
   }
 
@@ -296,6 +322,7 @@ export class AnalyzerSession {
       transition(owner);
       this.#epoch += 1;
       this.#snapshot = this.#createSnapshot(operationId, operation);
+      this.#publication.invalidate();
       return frozen({ accepted: true as const, operationId, snapshot: this.#snapshot });
     } catch (error) {
       if (!(error instanceof Refusal)) throw error;

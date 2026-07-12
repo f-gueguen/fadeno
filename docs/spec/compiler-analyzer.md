@@ -228,6 +228,57 @@ mappings, and deletions atomically for one workspace epoch. Diagnostic batches
 use full-replacement semantics. No consumer can observe a partial mixture of
 generations, and repairing an error removes its stale diagnostic instance.
 
+V1-DX-B4 implements this boundary as one private schema-v4 in-memory
+publication generation. A publication ticket captures session, operation,
+workspace epoch, sorted document versions, requested facets, configuration
+epoch/fingerprint, and single-root ownership before asynchronous materialization
+begins. The B3 graph candidate, module-owned facet replacements, complete
+artifact set, and owned deletion records are fully validated and frozen before
+one reference replaces the prior published snapshot. Check/watch/build and
+filesystem application remain B7 responsibilities.
+
+Facet batches and artifact sets use full replacement. An empty diagnostic-like
+facet removes all prior records for that namespace; an artifact absent from the
+new complete set is no longer current, and its B3 deletion record retains the
+old path and owner. Until the replacement reference is assigned, consumers see
+the complete prior generation. They never observe a new facet beside old
+artifacts or a new artifact set beside old facet records.
+
+Each session permits one current publication ticket. Explicit cancellation,
+an accepted document/configuration transition, or a newer ticket aborts the
+materialization wait immediately even when module work ignores the abort
+signal. A cancelled, stale, superseded, refused, or failed ticket returns
+structured internal status and cannot advance the publication generation.
+Before the final reference swap, the coordinator rechecks the captured session,
+workspace epoch, document versions, root, configuration identity, requested
+operation, and active-ticket ownership. Obsolete completion cannot overwrite a
+newer publication.
+
+The graph preview retains a private prepared candidate bound to its exact graph
+baseline and authority identity. Final commit installs that already-constructed
+candidate without invoking module construction a second time; a changed
+baseline or authority refuses the commit as stale.
+
+Graph preview is queued after the handle is returned, so immediate cancellation
+or same-turn supersession prevents graph construction from starting. The graph
+passes the abort signal into each bounded synchronous module-construction
+callback and checks it before and after every affected node, so cancellation
+stops deterministic recomputation before a downstream node begins. A callback
+that subdivides its bounded work must inspect that signal between units; it
+cannot perform application work or unbounded asynchronous work. Long-running
+publication materialization is asynchronous, receives the abort signal, and is
+raced against cancellation so an uncooperative promise cannot delay terminal
+cancellation or supersession.
+Complete lifecycle latency and cancellation timing are qualified in V1-DX-C.
+
+Schema-v4 serialization embeds the strictly validated schema-v3 graph and
+revalidates outer/graph identity equality, sorted requested facets,
+independently versioned normalized facet contributions, the exact flattened
+artifact/provenance set, deletion equality, completeness, and truncation. A
+serialize/deserialize/serialize round trip is byte stable; malformed,
+inconsistent, or over-budget transported publication evidence is refused.
+These private generations do not stabilize an external schema.
+
 Long operations and deep explanation accept cancellation. New work supersedes
 obsolete work. A completed result is publishable only while its document
 versions, workspace epoch, operation ID, requested facets, and ownership inputs

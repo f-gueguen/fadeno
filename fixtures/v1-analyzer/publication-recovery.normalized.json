@@ -1,0 +1,52 @@
+{
+  "error": {
+    "generation": 2,
+    "facets": [
+      {
+        "namespace": "fadeno.diagnostics",
+        "version": 1,
+        "value": { "records": [{ "code": "FADENO_SAMPLE_ERROR" }] }
+      },
+      {
+        "namespace": "fadeno.routes",
+        "version": 1,
+        "value": { "status": "blocked" }
+      }
+    ],
+    "artifacts": [
+      { "id": "artifact:page", "path": ".fadeno/page.json", "ownerNodeId": "route:page" },
+      { "id": "artifact:root", "path": ".fadeno/root.json", "ownerNodeId": "route:root" },
+      {
+        "id": "artifact:stale-diagnostic-output",
+        "path": ".fadeno/stale-diagnostic-output.json",
+        "ownerNodeId": "route:page"
+      }
+    ]
+  },
+  "recovery": {
+    "generation": 3,
+    "facets": [
+      {
+        "namespace": "fadeno.diagnostics",
+        "version": 1,
+        "value": { "records": [] }
+      },
+      {
+        "namespace": "fadeno.routes",
+        "version": 1,
+        "value": { "status": "ready" }
+      }
+    ],
+    "artifacts": [
+      { "id": "artifact:page", "path": ".fadeno/page.json", "ownerNodeId": "route:page" },
+      { "id": "artifact:root", "path": ".fadeno/root.json", "ownerNodeId": "route:root" }
+    ],
+    "removedArtifacts": [
+      {
+        "id": "artifact:stale-diagnostic-output",
+        "path": ".fadeno/stale-diagnostic-output.json",
+        "ownerNodeId": "route:page"
+      }
+    ]
+  }
+}
