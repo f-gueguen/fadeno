@@ -8,16 +8,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { TypeSpineInput } from "./contract.ts";
 import { generateTypeSpine } from "./generator.ts";
+import { QUALIFICATION_POLICY } from "./qualification-policy.ts";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const typescriptRoot = dirname(require.resolve("typescript/package.json"));
 const tsc = join(typescriptRoot, "bin/tsc");
-const compilerArguments = [
-  "--noEmit", "--strict", "--target", "ES2022", "--module", "ESNext",
-  "--moduleResolution", "Bundler", "--allowImportingTsExtensions",
-  "--skipLibCheck", "false", "--incremental", "false", "--pretty", "false",
-] as const;
 
 const diagnosticContract = {
   "invalid-route.ts": { code: 2322, line: 3, anchor: "p00" },
@@ -27,13 +23,13 @@ const diagnosticContract = {
 } as const;
 
 function runTsc(files: readonly string[]): { status: number; output: string } {
-  const child = spawnSync(process.execPath, [tsc, ...compilerArguments, ...files], { encoding: "utf8" });
+  const child = spawnSync(process.execPath, [tsc, ...QUALIFICATION_POLICY.stockTypeScript.compilerArguments, ...files], { encoding: "utf8" });
   if (child.error) throw child.error;
   return { status: child.status ?? 1, output: `${child.stdout}${child.stderr}` };
 }
 
 async function verifyLanguageServer(source: string, candidate: string): Promise<void> {
-  const child = spawn(process.execPath, [tsc, "--lsp", "--stdio"], { stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(process.execPath, [tsc, ...QUALIFICATION_POLICY.stockTypeScript.languageServerArguments], { stdio: ["pipe", "pipe", "pipe"] });
   let stdout = "";
   let stderr = "";
   child.stdout.setEncoding("utf8");
@@ -45,7 +41,6 @@ async function verifyLanguageServer(source: string, candidate: string): Promise<
     child.stdin.write(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
   };
   const waitFor = (needle: string) => new Promise<void>((resolve, reject) => {
-    const deadline = setTimeout(() => reject(new Error(`FADENO_TYPE_SPINE_LANGUAGE_SERVER_TIMEOUT:${stdout}:${stderr}`)), 10_000);
     const poll = setInterval(() => {
       if (stdout.includes(needle)) {
         clearTimeout(deadline);
@@ -53,18 +48,25 @@ async function verifyLanguageServer(source: string, candidate: string): Promise<
         resolve();
       }
     }, 20);
+    const deadline = setTimeout(() => {
+      clearInterval(poll);
+      reject(new Error(`FADENO_TYPE_SPINE_LANGUAGE_SERVER_TIMEOUT:${stdout}:${stderr}`));
+    }, 10_000);
   });
   const sourceUri = pathToFileURL(source).href;
-  send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { processId: null, rootUri: pathToFileURL(dirname(dirname(source))).href, capabilities: {} } });
-  await waitFor('"id":1');
-  send({ jsonrpc: "2.0", method: "initialized", params: {} });
-  await waitFor('"id":"ts1"');
-  send({ jsonrpc: "2.0", id: "ts1", result: null });
-  send({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri: sourceUri, languageId: "typescript", version: 1, text: readFileSync(source, "utf8") } } });
-  send({ jsonrpc: "2.0", id: 2, method: "textDocument/hover", params: { textDocument: { uri: sourceUri }, position: { line: 4, character: 4 } } });
-  send({ jsonrpc: "2.0", id: 3, method: "textDocument/definition", params: { textDocument: { uri: sourceUri }, position: { line: 4, character: 4 } } });
-  await waitFor('"id":3');
-  child.kill();
+  try {
+    send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { processId: null, rootUri: pathToFileURL(dirname(dirname(source))).href, capabilities: {} } });
+    await waitFor('"id":1');
+    send({ jsonrpc: "2.0", method: "initialized", params: {} });
+    await waitFor('"id":"ts1"');
+    send({ jsonrpc: "2.0", id: "ts1", result: null });
+    send({ jsonrpc: "2.0", method: "textDocument/didOpen", params: { textDocument: { uri: sourceUri, languageId: "typescript", version: 1, text: readFileSync(source, "utf8") } } });
+    send({ jsonrpc: "2.0", id: 2, method: "textDocument/hover", params: { textDocument: { uri: sourceUri }, position: { line: 4, character: 4 } } });
+    send({ jsonrpc: "2.0", id: 3, method: "textDocument/definition", params: { textDocument: { uri: sourceUri }, position: { line: 4, character: 4 } } });
+    await Promise.all([waitFor('"id":2'), waitFor('"id":3')]);
+  } finally {
+    child.kill();
+  }
   if (!stdout.includes('"id":2') || !stdout.includes("RouteParameters") || !stdout.includes(pathToFileURL(candidate).href)) {
     throw new Error(`FADENO_TYPE_SPINE_LANGUAGE_SERVER_RESPONSE:${stdout}:${stderr}`);
   }

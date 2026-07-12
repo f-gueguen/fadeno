@@ -7,14 +7,14 @@ import { fileURLToPath } from "node:url";
 
 import type { TypeSpineInput } from "./contract.ts";
 import { generateTypeSpine } from "./generator.ts";
+import { QUALIFICATION_POLICY } from "./qualification-policy.ts";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const sampleScript = join(root, "qualification-sample.ts");
 const tsc = join(dirname(createRequire(import.meta.url).resolve("typescript/package.json")), "bin/tsc");
-const tscArguments = ["--noEmit", "--strict", "--target", "ES2022", "--module", "ESNext", "--moduleResolution", "Bundler", "--allowImportingTsExtensions", "--skipLibCheck", "false", "--incremental", "false", "--pretty", "false"] as const;
 const expected = {
-  A: "eb98472c8a9bfa5c1902fa2c127d0343be9e9dba27377453909441d26fbff421",
-  B: "3033291eb9cb6875ceca30b17e1fcc4829f9d86658af41ba5ceb3cde71da2037",
+  A: QUALIFICATION_POLICY.corpus.outputA,
+  B: QUALIFICATION_POLICY.corpus.outputB,
 } as const;
 
 type Variant = keyof typeof expected;
@@ -53,7 +53,7 @@ function generatorSample(variant: Variant, output: string, cwd: string): { elaps
 }
 
 function tscSample(project: string, cwd: string): number {
-  return timedChild([tsc, ...tscArguments, join(project, "qualification-fixtures/valid.ts")], cwd).elapsedNs;
+  return timedChild([tsc, ...QUALIFICATION_POLICY.stockTypeScript.compilerArguments, join(project, "qualification-fixtures/valid.ts")], cwd).elapsedNs;
 }
 
 export function nearestRank95(values: readonly number[]): number {
@@ -106,7 +106,10 @@ function prepareProject(workspace: string, inputA: TypeSpineInput): string {
   return project;
 }
 
-export function executeQualificationTimingRunner(options: Readonly<{ warmups: number; samples: number }>): readonly TimingSample[] {
+export function executeQualificationTimingRunner(profile: "smoke" | "qualification"): readonly TimingSample[] {
+  const options = profile === "qualification"
+    ? QUALIFICATION_POLICY.measurement
+    : { warmups: 1, samples: 2 };
   const corpus = JSON.parse(readFileSync(join(root, "qualification-corpus.json"), "utf8")) as { inputA: TypeSpineInput; inputB: TypeSpineInput };
   const workspace = mkdtempSync(join(realpathSync(tmpdir()), "fadeno-type-spine-timing-"));
   try {
@@ -143,7 +146,7 @@ export function executeQualificationTimingRunner(options: Readonly<{ warmups: nu
 }
 
 export function verifyQualificationTimingRunner(): void {
-  const samples = executeQualificationTimingRunner({ warmups: 1, samples: 2 });
+  const samples = executeQualificationTimingRunner("smoke");
   if (samples.length !== 2 || samples[0]?.incrementalVariant !== "A-to-B" || samples[1]?.incrementalVariant !== "B-to-A") {
     throw new Error("FADENO_TYPE_SPINE_TIMING_SCHEDULE");
   }
