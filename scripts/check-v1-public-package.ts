@@ -108,10 +108,14 @@ try {
     "package/dist/internal/analyzer-facets.js",
     "package/dist/internal/analyzer-diagnostics.d.ts",
     "package/dist/internal/analyzer-diagnostics.js",
+    "package/dist/internal/analyzer-explain.d.ts",
+    "package/dist/internal/analyzer-explain.js",
     "package/dist/internal/analyzer-graph.d.ts",
     "package/dist/internal/analyzer-graph.js",
     "package/dist/internal/analyzer-publication.d.ts",
     "package/dist/internal/analyzer-publication.js",
+    "package/dist/internal/analyzer-route-explain.d.ts",
+    "package/dist/internal/analyzer-route-explain.js",
     "package/dist/internal/analyzer-session.d.ts",
     "package/dist/internal/analyzer-session.js",
     "package/dist/internal/config.d.ts",
@@ -256,6 +260,17 @@ try {
   writeFileSync(join(consumer, "analyzer-diagnostics-deep-import.ts"), `import { createAnalyzerDiagnosticBatch } from "${packageName}/internal/analyzer-diagnostics";\nvoid createAnalyzerDiagnosticBatch;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-diagnostics-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-diagnostics")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+  for (const [subpath, symbol] of [
+    ["analyzer-explain", "AnalyzerExplainCoordinator"],
+    ["analyzer-route-explain", "createRouteExplainContribution"],
+  ] as const) {
+    const internalJs = join(installedPackage, `dist/internal/${subpath}.js`);
+    const internalTypes = join(installedPackage, `dist/internal/${subpath}.d.ts`);
+    if (!existsSync(internalJs) || !existsSync(internalTypes)) throw new Error(`FADENO_PUBLIC_PACKAGE_EXPLAIN_INTERNAL_ABSENT:${subpath}`);
+    writeFileSync(join(consumer, `${subpath}-deep-import.ts`), `import { ${symbol} } from "${packageName}/internal/${subpath}";\nvoid ${symbol};\n`);
+    expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", `${subpath}-deep-import.ts`], consumer, "TS2307");
+    expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/${subpath}")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+  }
   writeFileSync(join(consumer, "analyzer-graph-deep-import.ts"), `import { AnalyzerDependencyGraph } from "${packageName}/internal/analyzer-graph";\nvoid AnalyzerDependencyGraph;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-graph-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-graph")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
