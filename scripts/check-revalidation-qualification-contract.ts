@@ -16,6 +16,7 @@ const Ajv2020 = Ajv2020Module as unknown as new (options: Record<string, unknown
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const schemaNames = [
   "qualification-contract.schema.json",
+  "qualification-attempt.schema.json",
   "qualification-capture.schema.json",
   "qualification-decision.schema.json",
   "qualification-result.schema.json",
@@ -36,6 +37,7 @@ for (const input of [contract.environment, ...Object.values(contract.inputs)]) {
   if (digest !== input.sha256) throw new Error(`FADENO_REVALIDATION_QUALIFICATION_INPUT:${input.path}`);
 }
 const validateCapture = ajv.compile(schemas.get("qualification-capture.schema.json"));
+const validateAttempt = ajv.compile(schemas.get("qualification-attempt.schema.json"));
 const validateDecision = ajv.compile(schemas.get("qualification-decision.schema.json"));
 const validateResult = ajv.compile(schemas.get("qualification-result.schema.json"));
 const schedule = JSON.parse(readFileSync(join(experiment, "qualification-schedule.json"), "utf8")) as {
@@ -43,6 +45,8 @@ const schedule = JSON.parse(readFileSync(join(experiment, "qualification-schedul
   outputDigests: { before: string; success: string };
 };
 const zeroHash = "0".repeat(64);
+const attempt = { schemaVersion: 1, id: "20260712T000000Z-0000000-a1", attempt: 1, sourceCommit: "0".repeat(40), startedAt: "2026-07-12T00:00:00Z", status: "launched", phase: "allocated" };
+if (!validateAttempt(attempt)) throw new Error(`FADENO_REVALIDATION_QUALIFICATION_ATTEMPT_SCHEMA:${JSON.stringify(validateAttempt.errors)}`);
 const capture = {
   schemaVersion: 1,
   sourceCommit: "0".repeat(40),

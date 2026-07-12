@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.dev/schemas/experiment/revalidation-qualification-attempt-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "attempt", "sourceCommit", "startedAt", "status", "phase"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{7}-a[1-9][0-9]*$" },
+    "attempt": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "startedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "completedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{3})?Z$" },
+    "status": { "enum": ["launched", "complete", "inconclusive"] },
+    "phase": { "enum": ["allocated", "preflight", "measurement", "postflight", "complete"] },
+    "failureCode": { "type": "string", "pattern": "^FADENO_REVALIDATION_[A-Z0-9_]{1,80}$" }
+  }
+}
