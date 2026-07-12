@@ -586,16 +586,20 @@ export function prepareAnalyzerCorrectionApplication(
     snapshot: AnalyzerDocumentOnlySnapshot;
     configurationEpoch: number;
     configurationFingerprint: string;
+    publicationOperationId: string | null;
   }>,
 ): AnalyzerCorrectionApplicationResult {
   const validated = validateBatch(batch);
   const correction = validated.corrections.find((candidate) => candidate.fixId === fixId);
   if (!correction) return frozen({ accepted: false as const, fixId, code: "FADENO_ANALYZER_CORRECTION_ID" as const });
   const expectedIdentity = correction.applicability;
+  if (current.publicationOperationId !== expectedIdentity.operationId) {
+    return frozen({ accepted: false as const, fixId, code: "FADENO_ANALYZER_CORRECTION_STALE" as const });
+  }
   const currentDocuments = [...current.snapshot.documents].sort((left, right) => compareText(left.path, right.path));
   const currentIdentity = {
     sessionId: current.snapshot.sessionId,
-    operationId: expectedIdentity.operationId,
+    operationId: current.publicationOperationId,
     workspaceEpoch: current.snapshot.workspaceEpoch,
     configurationEpoch: current.configurationEpoch,
     documentVersions: current.snapshot.documentVersions,

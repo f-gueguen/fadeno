@@ -182,6 +182,7 @@ try {
   }));
   assert.equal(prepareAnalyzerCorrectionApplication(collision.batch, "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION", {
     snapshot: session.currentSnapshot, configurationEpoch: 0, configurationFingerprint: "0".repeat(64),
+    publicationOperationId: session.currentPublicationSnapshot?.operationId ?? null,
   }).accepted, false);
   const serializedCollision = serializeAnalyzerDiagnosticBatch(collision.batch);
   const collisionRoundTrip = deserializeAnalyzerDiagnosticBatch(serializedCollision);
@@ -194,6 +195,10 @@ try {
   assert.equal(recovery.batch.diagnostics.length, 0);
   assert.equal(recovery.snapshot.artifacts.some(({ id }) => id === "artifact:stale-route-owner"), false);
   assert.equal(recovery.snapshot.removedArtifacts.some(({ id }) => id === "artifact:stale-route-owner"), true);
+  assert.deepEqual(prepareAnalyzerCorrectionApplication(collision.batch, "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION", {
+    snapshot: session.currentSnapshot, configurationEpoch: 0, configurationFingerprint: "0".repeat(64),
+    publicationOperationId: session.currentPublicationSnapshot?.operationId ?? null,
+  }), { accepted: false, fixId: "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION", code: "FADENO_ANALYZER_CORRECTION_STALE" });
 
   const config = session.currentSnapshot.documents.find(({ path }) => path === "fadeno.config.ts")!;
   const configuredRootStart = config.effective.text.indexOf(JSON.stringify("src/routes"));
@@ -207,7 +212,7 @@ try {
     id: "config:root", ownerUri: changedConfig.uri, definitionVersion: 1, dependencies: [],
     module: { namespace: "fadeno.configuration", version: 1, transformation: "ownership" }, compute: compute("config"),
   }];
-  const configuration = await publish(session, configDefinitions, (graph) => createAnalyzerDiagnosticBatch({
+  const configurationBatch = (graph: AnalyzerPublicationSnapshot["graph"]) => createAnalyzerDiagnosticBatch({
     graph,
     documents: session.currentSnapshot.documents,
     diagnostics: [{
@@ -224,7 +229,8 @@ try {
       }],
     }],
     skippedWork: [{ id: "route-analysis", causedByKeys: ["missing-root"] }],
-  }));
+  });
+  let configuration = await publish(session, configDefinitions, configurationBatch);
   const incidentId = "123e4567-e89b-42d3-a456-426614174000";
   const internal = createAnalyzerDiagnosticBatch({
     graph: configuration.snapshot.graph,
@@ -236,6 +242,16 @@ try {
     corrections: [], skippedWork: [{ id: "route-analysis", causedByKeys: ["internal-failure"] }],
   });
   const canary = "FADENO_SECRET_CANARY";
+  assert.throws(() => createAnalyzerDiagnosticBatch({
+    graph: configuration.snapshot.graph,
+    documents: session.currentSnapshot.documents,
+    diagnostics: [{
+      key: "internal-failure", code: "FADENO_ANALYZER_INTERNAL_FAILURE",
+      parameters: { operation: "route-analysis", details: canary } as any,
+      primaryLocation: configuration.batch.diagnostics[0]!.primaryLocation, internalFailure: { incidentId },
+    }],
+    corrections: [], skippedWork: [],
+  }), /FADENO_ANALYZER_DIAGNOSTIC/u);
   const internalSerialized = serializeAnalyzerDiagnosticBatch(internal);
   assert.equal(internalSerialized.includes(canary), false);
   assert.equal(formatAnalyzerDiagnosticBatchHuman(internal).includes(canary), false);
@@ -243,17 +259,45 @@ try {
   invalidInternal.batch.diagnostics[0].parameters.details = canary;
   assert.throws(() => deserializeAnalyzerDiagnosticBatch(JSON.stringify(invalidInternal)), /FADENO_ANALYZER_DIAGNOSTIC_SERIALIZATION/u);
 
+  const counterfeitSnapshot = {
+    ...session.currentSnapshot,
+    documents: session.currentSnapshot.documents.map((document) => document.path === "fadeno.config.ts"
+      ? {
+        ...document,
+        effective: {
+          ...document.effective,
+          text: `${document.effective.text.slice(0, wrongRootStart)}${JSON.stringify("src/wrong")}${document.effective.text.slice(wrongRootStart + JSON.stringify("src/route").length)}`,
+        },
+      }
+      : document),
+  };
+  assert.deepEqual(prepareAnalyzerCorrectionApplication(configuration.batch, "FADENO_FIX_CONFIG_ROOT", {
+    snapshot: counterfeitSnapshot, configurationEpoch: 0, configurationFingerprint: "0".repeat(64),
+    publicationOperationId: session.currentPublicationSnapshot?.operationId ?? null,
+  }), { accepted: false, fixId: "FADENO_FIX_CONFIG_ROOT", code: "FADENO_ANALYZER_CORRECTION_STALE" });
+  const replacedConfiguration = configuration;
+  await publish(session, configDefinitions, (graph) => createAnalyzerDiagnosticBatch({
+    graph, documents: session.currentSnapshot.documents, diagnostics: [], corrections: [], skippedWork: [],
+  }));
+  assert.deepEqual(prepareAnalyzerCorrectionApplication(replacedConfiguration.batch, "FADENO_FIX_CONFIG_ROOT", {
+    snapshot: session.currentSnapshot, configurationEpoch: 0, configurationFingerprint: "0".repeat(64),
+    publicationOperationId: session.currentPublicationSnapshot?.operationId ?? null,
+  }), { accepted: false, fixId: "FADENO_FIX_CONFIG_ROOT", code: "FADENO_ANALYZER_CORRECTION_STALE" });
+  configuration = await publish(session, configDefinitions, configurationBatch);
   const application = prepareAnalyzerCorrectionApplication(configuration.batch, "FADENO_FIX_CONFIG_ROOT", {
     snapshot: session.currentSnapshot, configurationEpoch: 0, configurationFingerprint: "0".repeat(64),
+    publicationOperationId: session.currentPublicationSnapshot?.operationId ?? null,
   });
   assert.equal(application.accepted, true);
   assert.equal(application.after.includes(JSON.stringify("src/routes")), true);
   accepted(session.change(configPath, application.lifetime, application.version, application.edits));
   assert.deepEqual(prepareAnalyzerCorrectionApplication(configuration.batch, "FADENO_FIX_CONFIG_ROOT", {
     snapshot: session.currentSnapshot, configurationEpoch: 0, configurationFingerprint: "0".repeat(64),
+    publicationOperationId: session.currentPublicationSnapshot?.operationId ?? null,
   }), { accepted: false, fixId: "FADENO_FIX_CONFIG_ROOT", code: "FADENO_ANALYZER_CORRECTION_STALE" });
   assert.deepEqual(prepareAnalyzerCorrectionApplication(collision.batch, "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION", {
     snapshot: session.currentSnapshot, configurationEpoch: 0, configurationFingerprint: "0".repeat(64),
+    publicationOperationId: session.currentPublicationSnapshot?.operationId ?? null,
   }), { accepted: false, fixId: "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION", code: "FADENO_ANALYZER_CORRECTION_STALE" });
 
   for (const mutate of [
@@ -274,6 +318,9 @@ try {
   const serializedConfiguration = serializeAnalyzerDiagnosticBatch(configuration.batch);
   for (const mutate of [
     (value: any) => { value.batch.diagnostics[0].primaryLocation.range.end = 1_000_000; },
+    (value: any) => { value.batch.corrections[0].edits[0].range = { start: 0, end: 11 }; },
+    (value: any) => { value.batch.corrections[0].edits[0].version += 1; },
+    (value: any) => { value.batch.corrections[0].edits[0].lifetime += 1; },
     (value: any) => { value.batch.corrections[0].edits[0].text = JSON.stringify("unsafe"); },
     (value: any) => { value.batch.corrections[0].edits[0].expectedText = JSON.stringify("unrelated"); },
     (value: any) => { value.batch.corrections[0].edits[0].range.end = 1_000_000; },
@@ -308,13 +355,14 @@ try {
     },
     internalFailure: normalizeBatch(internal),
   };
-  assert.deepEqual(
-    normalized,
-    JSON.parse(readFileSync(new URL("../fixtures/v1-analyzer/diagnostics.normalized.json", import.meta.url), "utf8")),
-  );
+  const normalizedFixture = readFileSync(new URL("../fixtures/v1-analyzer/diagnostics.normalized.json", import.meta.url), "utf8");
+  const humanFixture = readFileSync(new URL("../fixtures/v1-analyzer/diagnostics.human.txt", import.meta.url), "utf8");
+  assert.equal(normalizedFixture.includes(canary), false);
+  assert.equal(humanFixture.includes(canary), false);
+  assert.deepEqual(normalized, JSON.parse(normalizedFixture));
   assert.equal(
     normalizedHuman(collision.batch),
-    readFileSync(new URL("../fixtures/v1-analyzer/diagnostics.human.txt", import.meta.url), "utf8"),
+    humanFixture,
   );
   console.log("V1 analyzer B5 passed (structured diagnostics, corrections, redaction, recovery)");
 } finally {

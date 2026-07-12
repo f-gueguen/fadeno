@@ -429,7 +429,9 @@ and ownership inputs still match.
 B5 correction applicability captures the diagnostic publication's session,
 operation, workspace and configuration epochs, complete document-version set,
 root, configuration fingerprint, and document text lengths. Both automatic and
-review-only intents are checked for freshness before use. The only initial
+review-only intents are checked against the current publication operation and
+authority before use, so full-batch replacement stales every prior intent even
+when document and configuration state did not change. The only initial
 automatic correction is a code-owned single-document configuration edit whose
 expected old bytes, exact diagnostic range, and replacement bytes derive from
 its validated parameters; the route-role
