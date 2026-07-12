@@ -1,0 +1,5 @@
+FADENO_ROUTE_ROUTE_ROLE_COLLISION: Route contract violation: route role collision
+  at src/routes/handler.ts
+  at src/routes/page.tsx
+  explanation: https://fadeno.dev/diagnostics/routes/route-role-collision
+  correction: Correct the reported route configuration or filesystem locations and run fadeno check again.

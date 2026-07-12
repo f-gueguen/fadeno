@@ -88,7 +88,7 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
   try {
     const pageResult = await input.page(context);
     const pageOutcome = typeof pageResult === "object" && pageResult !== null ? outcomes.get(pageResult) : undefined;
-    if (pageOutcome?.kind === "not-found") return renderNotFound(input.notFound, context, input.layouts);
+    if (pageOutcome?.kind === "not-found") return await renderNotFound(input.notFound, context, input.layouts);
     if (pageOutcome?.kind === "redirect") {
       const target = new URL(pageOutcome.location, input.request.url);
       if (target.origin !== new URL(input.request.url).origin || target.username !== "" || target.password !== "") {

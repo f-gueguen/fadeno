@@ -200,8 +200,8 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
       try {
         if (!iterator) throw new TypeError("FADENO_RENDER_STREAM_ITERATOR");
         const next = await iterator.next();
-        if (next.done) await lifecycle.complete();
-        else await lifecycle.write(encoder.encode(next.value));
+        if (next.done === true) await lifecycle.complete();
+        else await lifecycle.write(encoder.encode(next.value as string));
       } catch {
         await iterator?.return(undefined).catch(() => undefined);
         await lifecycle.fail("unexpected");
