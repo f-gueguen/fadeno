@@ -14,5 +14,10 @@
     "status": { "enum": ["launched", "complete", "inconclusive"] },
     "phase": { "enum": ["allocated", "preflight", "measurement", "postflight", "complete"] },
     "failureCode": { "type": "string", "pattern": "^FADENO_REVALIDATION_[A-Z0-9_]{1,80}$" }
-  }
+  },
+  "oneOf": [
+    { "properties": { "status": { "const": "launched" }, "phase": { "enum": ["allocated", "preflight", "measurement", "postflight"] }, "completedAt": false, "failureCode": false } },
+    { "required": ["completedAt"], "properties": { "status": { "const": "complete" }, "phase": { "const": "complete" }, "completedAt": {}, "failureCode": false } },
+    { "required": ["completedAt", "failureCode"], "properties": { "status": { "const": "inconclusive" }, "phase": { "enum": ["allocated", "preflight", "measurement", "postflight"] }, "completedAt": {}, "failureCode": {} } }
+  ]
 }

@@ -72,18 +72,37 @@ export type QualificationRunnerHooks = Readonly<{
   memoryUsage: () => Readonly<{ rss: number; heapUsed: number }>;
 }>;
 
-export const QUALIFICATION_RUNNER_PROFILE: QualificationRunnerProfile = {
-  correctnessCycles: 10_000,
-  latencyWarmups: 100,
-  latencySamples: 1_000,
-  memoryWarmups: 100,
-  memoryCycles: 10_000,
-  memoryCheckpointInterval: 1_000,
-  gcRounds: 3,
-  stabilizationTurnsPerRound: 3,
-};
-
 const root = dirname(fileURLToPath(import.meta.url));
+
+type QualificationPolicyDocument = Readonly<{
+  correctness: Readonly<{ cycles: number }>;
+  latency: Readonly<{ warmupsPerPath: number; samplesPerPath: number }>;
+  memory: Readonly<{
+    warmupCycles: number;
+    measuredCycles: number;
+    checkpointInterval: number;
+    gc: Readonly<{ rounds: 3; stabilizationTurnsPerRound: 3 }>;
+  }>;
+}>;
+
+export function loadQualificationRunnerProfile(): QualificationRunnerProfile {
+  const policy = JSON.parse(readFileSync(join(root, "qualification-contract.json"), "utf8")) as QualificationPolicyDocument;
+  if (policy.memory.gc.rounds !== 3 || policy.memory.gc.stabilizationTurnsPerRound !== 3) {
+    throw new Error("FADENO_REVALIDATION_QUALIFICATION_GC_POLICY");
+  }
+  return {
+    correctnessCycles: policy.correctness.cycles,
+    latencyWarmups: policy.latency.warmupsPerPath,
+    latencySamples: policy.latency.samplesPerPath,
+    memoryWarmups: policy.memory.warmupCycles,
+    memoryCycles: policy.memory.measuredCycles,
+    memoryCheckpointInterval: policy.memory.checkpointInterval,
+    gcRounds: policy.memory.gc.rounds,
+    stabilizationTurnsPerRound: policy.memory.gc.stabilizationTurnsPerRound,
+  };
+}
+
+export const QUALIFICATION_RUNNER_PROFILE: QualificationRunnerProfile = loadQualificationRunnerProfile();
 
 export function loadQualificationSchedule(): QualificationSchedule {
   return JSON.parse(readFileSync(join(root, "qualification-schedule.json"), "utf8")) as QualificationSchedule;
@@ -121,7 +140,7 @@ function correctnessCycle(
   const selectiveAction = completeTask(selectiveState, actionAuth, workload.mutation.rowId);
   const defaultAfter = cycle.path === "s"
     ? revalidateDefault(defaultState, workload.authentication, ordered, baselines)
-    : defaultBefore;
+    : renderPage(defaultState, workload.authentication, ordered);
   const selectiveObservation: SelectiveObservation = cycle.path === "s"
     ? revalidateSelective(selectiveState, workload.authentication, ordered, baselines)
     : {
@@ -130,7 +149,7 @@ function correctnessCycle(
       };
   const selectiveAfter = cycle.path === "s"
     ? composeSelectivePage(selectiveBefore, selectiveObservation)
-    : selectiveBefore;
+    : renderPage(selectiveState, workload.authentication, ordered);
   const expectedDigest = cycle.expectedDigest === "s" ? schedule.outputDigests.success : schedule.outputDigests.before;
   const beforeDigest = digest(defaultBefore);
   const selectiveBeforeDigest = digest(selectiveBefore);
@@ -272,11 +291,13 @@ export async function executeQualificationMeasurements(
   if (profile.correctnessCycles > schedule.cycles.length) throw new Error("FADENO_REVALIDATION_QUALIFICATION_SCHEDULE_SHORT");
   const workload = loadRevalidationWorkload();
   const baselines = loadRevalidationBaselines();
+  // Measure RSS before retaining the O(cycles) correctness and latency evidence.
+  // Otherwise those prior allocations can inflate the baseline and mask growth.
+  const memory = await runMemory(workload, baselines, profile, hooks);
   const correctness = {
     cycles: schedule.cycles.slice(0, profile.correctnessCycles).map((cycle) => correctnessCycle(cycle, schedule, workload, baselines)),
   };
   const latency = runLatency(workload, baselines, profile, hooks, schedule.outputDigests.success);
-  const memory = await runMemory(workload, baselines, profile, hooks);
   const harness = executeRevalidationHarness();
   assertRevalidationHarnessReport(harness);
   return {

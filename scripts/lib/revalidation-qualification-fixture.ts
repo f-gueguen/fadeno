@@ -9,7 +9,7 @@ export function validQualificationCapture(schedule: QualificationSchedule): Qual
     environmentId: "k0-h4-local-docker-arm64-v1",
     status: "complete",
     inputHashes: { environment: zeroHash, workload: zeroHash, baselines: zeroHash, schedule: zeroHash, golden: zeroHash, lock: zeroHash },
-    preflight: { beforeAccepted: true, afterAccepted: true, beforeHostSha256: zeroHash, afterHostSha256: zeroHash, beforeContainerSha256: zeroHash, afterContainerSha256: zeroHash },
+    preflight: { identitySha256: zeroHash, beforeAccepted: true, afterAccepted: true, beforeHostSha256: zeroHash, afterHostSha256: zeroHash, beforeContainerSha256: zeroHash, afterContainerSha256: zeroHash },
     correctness: { cycles: schedule.cycles.map((cycle) => ({
       id: cycle.id,
       path: cycle.path,

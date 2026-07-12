@@ -8,6 +8,7 @@ export type QualificationCapture = Readonly<{
   status: "complete" | "inconclusive";
   inputHashes: Readonly<Record<string, string>>;
   preflight: Readonly<{
+    identitySha256: string;
     beforeAccepted: boolean;
     afterAccepted: boolean;
     beforeHostSha256: string;
@@ -68,6 +69,35 @@ export type QualificationResult = Readonly<{
   }>;
 }>;
 
+export type QualificationProofPolicy = Readonly<{
+  correctnessCycles: 10000;
+  latencySamples: number;
+  latencyMaximumRatio: number;
+  latencyMaximumMilliseconds: number;
+  memoryCheckpoints: number;
+  memoryMaximumGrowthRatio: number;
+  gcRounds: number;
+}>;
+
+const root = dirname(fileURLToPath(import.meta.url));
+
+export function loadQualificationProofPolicy(): QualificationProofPolicy {
+  const contract = JSON.parse(readFileSync(join(root, "qualification-contract.json"), "utf8")) as {
+    correctness: { cycles: 10000 };
+    latency: { samplesPerPath: number; thresholds: { defaultToSelectiveP95MaximumRatio: number; defaultP95MaximumMilliseconds: number } };
+    memory: { measuredCycles: number; checkpointInterval: number; maximumGrowthRatio: number; gc: { rounds: number } };
+  };
+  return {
+    correctnessCycles: contract.correctness.cycles,
+    latencySamples: contract.latency.samplesPerPath,
+    latencyMaximumRatio: contract.latency.thresholds.defaultToSelectiveP95MaximumRatio,
+    latencyMaximumMilliseconds: contract.latency.thresholds.defaultP95MaximumMilliseconds,
+    memoryCheckpoints: contract.memory.measuredCycles / contract.memory.checkpointInterval,
+    memoryMaximumGrowthRatio: contract.memory.maximumGrowthRatio,
+    gcRounds: contract.memory.gc.rounds,
+  };
+}
+
 export function nearestRank95(values: readonly number[]): number {
   if (values.length === 0 || values.some((value) => !Number.isSafeInteger(value) || value <= 0)) {
     throw new Error("FADENO_REVALIDATION_QUALIFICATION_SAMPLES");
@@ -76,8 +106,8 @@ export function nearestRank95(values: readonly number[]): number {
   return sorted[Math.ceil(0.95 * sorted.length) - 1]!;
 }
 
-function scheduleAligned(cycles: readonly QualificationCycleRecord[], schedule: QualificationSchedule): boolean {
-  return cycles.length === 10_000 && schedule.cycles.length === 10_000 && cycles.every((cycle, index) => {
+function scheduleAligned(cycles: readonly QualificationCycleRecord[], schedule: QualificationSchedule, policy: QualificationProofPolicy): boolean {
+  return cycles.length === policy.correctnessCycles && schedule.cycles.length === policy.correctnessCycles && cycles.every((cycle, index) => {
     const expected = schedule.cycles[index];
     return expected !== undefined && cycle.id === expected.id && cycle.path === expected.path && cycle.readOrder === expected.readOrder;
   });
@@ -89,14 +119,15 @@ export function deriveQualificationResult(
   captureSha256: string,
   environmentEvidenceValid: boolean,
   artifactIntegrityValid: boolean,
+  policy: QualificationProofPolicy = loadQualificationProofPolicy(),
 ): QualificationResult {
   const cycles = capture.correctness?.cycles ?? [];
-  const aligned = scheduleAligned(cycles, schedule);
-  const latencyShape = capture.latency?.defaultNs.length === 1000 && capture.latency.selectiveNs.length === 1000;
-  const memoryShape = capture.memory?.checkpoints.length === 10;
+  const aligned = scheduleAligned(cycles, schedule, policy);
+  const latencyShape = capture.latency?.defaultNs.length === policy.latencySamples && capture.latency.selectiveNs.length === policy.latencySamples;
+  const memoryShape = capture.memory?.checkpoints.length === policy.memoryCheckpoints;
   const integrity = artifactIntegrityValid && aligned && latencyShape && memoryShape && /^[a-f0-9]{64}$/u.test(captureSha256);
   const environment = environmentEvidenceValid && capture.status === "complete" && capture.preflight.beforeAccepted &&
-    capture.preflight.afterAccepted && capture.memory?.gcAvailable === true && capture.memory.gcRounds === 3;
+    capture.preflight.afterAccepted && capture.memory?.gcAvailable === true && capture.memory.gcRounds === policy.gcRounds;
 
   let staleCycles = 0;
   let deduplicationFailures = 0;
@@ -136,9 +167,9 @@ export function deriveQualificationResult(
   const gates: QualificationGates = {
     correctness: aligned && staleCycles === 0 && capture.failures.length === 0,
     deduplication: aligned && deduplicationFailures === 0,
-    latencyRatio: latencyShape && capture.latency?.outputsMatch === true && defaultToSelectiveP95Ratio <= 2,
-    latencyAbsolute: latencyShape && defaultP95Milliseconds <= 300,
-    memory: memoryShape && Number.isFinite(memoryGrowthRatio) && memoryGrowthRatio <= 0.1,
+    latencyRatio: latencyShape && capture.latency?.outputsMatch === true && defaultToSelectiveP95Ratio <= policy.latencyMaximumRatio,
+    latencyAbsolute: latencyShape && defaultP95Milliseconds <= policy.latencyMaximumMilliseconds,
+    memory: memoryShape && Number.isFinite(memoryGrowthRatio) && memoryGrowthRatio <= policy.memoryMaximumGrowthRatio,
     unsafeKeeps: unsafeKeepDetectionRatio === 1,
     comparison: capture.controls?.comparisonPass === true && capture.controls.sensitiveValuesDisclosed === false,
     environment,
@@ -170,3 +201,6 @@ export function deriveQualificationResult(
     decision: { schemaVersion: 1, outcome, productDecision: outcome !== "inconclusive", gates, reasons },
   };
 }
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";

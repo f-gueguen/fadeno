@@ -4,7 +4,16 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { assertQualificationAttemptDocument, assertQualificationCaptureDocument } from "./lib/revalidation-qualification-validation.ts";
+import {
+  assertQualificationAttemptDocument,
+  assertQualificationCaptureDocument,
+  assertReferenceIdentityDocument,
+} from "./lib/revalidation-qualification-validation.ts";
+import {
+  referenceIdentityAccepted,
+  type ReferenceEnvironmentIdentity,
+  type ReferenceIdentityObservation,
+} from "../experiments/revalidation/reference-identity.ts";
 
 const IMAGE = "node@sha256:663c09e4fd483fbcb2bb7297b3618061ac23f0a1925b0958db2ab734efad7c94";
 const INPUT_KEYS = ["workload", "baselines", "schedule", "scheduleGolden", "dependencyLock"] as const;
@@ -12,6 +21,10 @@ const INPUT_KEYS = ["workload", "baselines", "schedule", "scheduleGolden", "depe
 type QualificationContract = Readonly<{
   environment: Readonly<{ path: string; sha256: string }>;
   inputs: Readonly<Record<(typeof INPUT_KEYS)[number], Readonly<{ path: string; sha256: string }>>>;
+}>;
+type ReferenceEnvironment = ReferenceEnvironmentIdentity & Readonly<{
+  container: Readonly<{ runtimeImage: string; configDigest: string; platform: string; cpuLimit: number; memoryMiB: number; memorySwapMiB: number; pidsLimit: number; workingDirectory: string }>;
+  preflight: Readonly<{ hostSamples: number; minimumCpuIdlePercent: number; maximumLoadAveragePerLogicalCpu: number; containerProcessLimit: number; maximumCpuThrottledRatio: number; requiredOomDelta: number; requiredOomKillDelta: number }>;
 }>;
 type HostSample = Readonly<{ cpuIdlePercent: number; loadAveragePerLogicalCpu: number; powerSource: "ac"; thermalState: "no-warning" }>;
 type ContainerSample = Readonly<{ nrPeriods: number; nrThrottled: number; oom: number; oomKill: number; pidsCurrent: number; networkDisabled: boolean; memoryCurrent: number }>;
@@ -30,6 +43,7 @@ export function assertSafeRetainedText(text: string, sensitiveValues: readonly s
     /\bgh[pousr]_[A-Za-z0-9]{20,}\b/u,
     /-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
     /\b(?:api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|client[-_ ]?secret|password|passwd|session(?:id|_id|[-_ ]?token)?)\s*[:=]\s*\S+/iu,
+    /["'](?:api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|client[-_ ]?secret|password|passwd|session(?:id|_id|[-_ ]?token)?)["']\s*:\s*["'][^"']+["']/iu,
   ];
   if (sensitiveValues.some((value) => value.length > 0 && text.includes(value)) || secretPatterns.some((pattern) => pattern.test(text))) {
     throw new Error("FADENO_REVALIDATION_RETAINED_SECRET");
@@ -59,7 +73,7 @@ export function nextQualificationAttempt(resultsRoot: string): number {
   return attempts.length === 0 ? 1 : Math.max(...attempts) + 1;
 }
 
-function hostSample(): HostSample {
+function hostSample(logicalCpuCount: number): HostSample {
   const top = command("top", ["-l", "2", "-n", "0", "-s", "1"]);
   const cpuLine = top.split("\n").filter((line) => line.includes("CPU usage:")).at(-1) ?? "";
   const idle = Number(/([0-9.]+)% idle/u.exec(cpuLine)?.[1]);
@@ -69,15 +83,50 @@ function hostSample(): HostSample {
   if (!Number.isFinite(idle) || !Number.isFinite(load) || !power.includes("AC Power") || !thermal.includes("No thermal warning level has been recorded")) {
     throw new Error("FADENO_REVALIDATION_HOST_OBSERVATION");
   }
-  return { cpuIdlePercent: idle, loadAveragePerLogicalCpu: load / 10, powerSource: "ac", thermalState: "no-warning" };
+  return { cpuIdlePercent: idle, loadAveragePerLogicalCpu: load / logicalCpuCount, powerSource: "ac", thermalState: "no-warning" };
 }
 
-function hostPhase(): readonly HostSample[] {
-  return [hostSample(), hostSample(), hostSample()];
+function hostPhase(sampleCount: number, logicalCpuCount: number): readonly HostSample[] {
+  return Array.from({ length: sampleCount }, () => hostSample(logicalCpuCount));
 }
 
-function hostAccepted(samples: readonly HostSample[]): boolean {
-  return samples.length === 3 && samples.every((sample) => sample.cpuIdlePercent >= 75 && sample.loadAveragePerLogicalCpu <= 0.5);
+function hostAccepted(samples: readonly HostSample[], reference: ReferenceEnvironment): boolean {
+  return samples.length === reference.preflight.hostSamples && samples.every((sample) =>
+    sample.cpuIdlePercent >= reference.preflight.minimumCpuIdlePercent &&
+    sample.loadAveragePerLogicalCpu <= reference.preflight.maximumLoadAveragePerLogicalCpu);
+}
+
+function observeReferenceIdentity(environmentId: string): ReferenceIdentityObservation {
+  const dockerVersion = JSON.parse(command("docker", ["version", "--format", "{{json .}}"] )) as {
+    Server: { Platform: { Name: string }; Version: string; ApiVersion: string; Os: string; Arch: string; KernelVersion: string };
+  };
+  const dockerInfo = JSON.parse(command("docker", ["info", "--format", "{{json .}}"] )) as { NCPU: number; MemTotal: number };
+  const desktopVersion = /Docker Desktop ([0-9.]+)/u.exec(dockerVersion.Server.Platform.Name)?.[1];
+  if (!desktopVersion) throw new Error("FADENO_REVALIDATION_IDENTITY_OBSERVATION");
+  return {
+    schemaVersion: 1,
+    environmentId,
+    host: {
+      operatingSystemVersion: command("sw_vers", ["-productVersion"]),
+      buildVersion: command("sw_vers", ["-buildVersion"]),
+      kernelVersion: command("uname", ["-r"]),
+      architecture: command("uname", ["-m"]),
+      cpuModel: command("sysctl", ["-n", "machdep.cpu.brand_string"]),
+      logicalCpuCount: Number(command("sysctl", ["-n", "hw.logicalcpu"])),
+      memoryMiB: Math.floor(Number(command("sysctl", ["-n", "hw.memsize"])) / 1024 / 1024),
+      freeStorageMiB: Number(command("df", ["-Pm", "."]).split("\n").at(-1)?.trim().split(/\s+/u)[3]),
+    },
+    docker: {
+      desktopVersion,
+      engineVersion: dockerVersion.Server.Version,
+      apiVersion: dockerVersion.Server.ApiVersion,
+      operatingSystem: dockerVersion.Server.Os,
+      architecture: dockerVersion.Server.Arch,
+      kernelVersion: dockerVersion.Server.KernelVersion,
+      cpuCount: dockerInfo.NCPU,
+      memoryMiB: Math.floor(dockerInfo.MemTotal / 1024 / 1024),
+    },
+  };
 }
 
 function cgroup(container: string): ContainerSample {
@@ -114,12 +163,15 @@ function verifyContainerInputs(container: string, inputs: ReturnType<typeof inpu
   }
 }
 
-function containerAccepted(before: ContainerSample, after: ContainerSample): boolean {
+function containerAccepted(before: ContainerSample, after: ContainerSample, reference: ReferenceEnvironment): boolean {
   const periods = after.nrPeriods - before.nrPeriods;
   const throttled = after.nrThrottled - before.nrThrottled;
   const throttledRatio = periods === 0 ? 0 : throttled / periods;
-  return before.networkDisabled && after.networkDisabled && before.pidsCurrent <= 64 && after.pidsCurrent <= 64 &&
-    throttledRatio <= 0.1 && after.oom - before.oom === 0 && after.oomKill - before.oomKill === 0;
+  return before.networkDisabled && after.networkDisabled &&
+    before.pidsCurrent <= reference.preflight.containerProcessLimit && after.pidsCurrent <= reference.preflight.containerProcessLimit &&
+    throttledRatio <= reference.preflight.maximumCpuThrottledRatio &&
+    after.oom - before.oom === reference.preflight.requiredOomDelta &&
+    after.oomKill - before.oomKill === reference.preflight.requiredOomKillDelta;
 }
 
 export function runRevalidationReferenceQualification(
@@ -129,7 +181,11 @@ export function runRevalidationReferenceQualification(
   attempt: number,
 ): string {
   const runId = qualificationAttemptId(startedAt, sourceCommit, attempt);
-  if (command("git", ["status", "--porcelain"], repository) !== "" || command("git", ["rev-parse", "--abbrev-ref", "HEAD"], repository) !== "main" || command("git", ["rev-parse", "HEAD"], repository) !== sourceCommit) {
+  if (command("git", ["remote", "get-url", "origin"], repository) !== "https://github.com/f-gueguen/fadeno.git") {
+    throw new Error("FADENO_REVALIDATION_SOURCE_REMOTE");
+  }
+  const remoteMain = command("git", ["ls-remote", "--exit-code", "origin", "refs/heads/main"], repository).split(/\s+/u)[0];
+  if (remoteMain !== sourceCommit || command("git", ["status", "--porcelain"], repository) !== "" || command("git", ["rev-parse", "--abbrev-ref", "HEAD"], repository) !== "main" || command("git", ["rev-parse", "HEAD"], repository) !== sourceCommit) {
     throw new Error("FADENO_REVALIDATION_SOURCE_IDENTITY");
   }
   const resultsRoot = resolve(repository, "experiments/revalidation/results");
@@ -137,8 +193,7 @@ export function runRevalidationReferenceQualification(
   const attemptRoot = resolve(resultsRoot, runId);
   if (!attemptRoot.startsWith(`${resultsRoot}/`)) throw new Error("FADENO_REVALIDATION_ATTEMPT_PATH");
   mkdirSync(attemptRoot, { recursive: false });
-  const workload = JSON.parse(readFileSync(join(repository, "experiments/revalidation/workload.json"), "utf8")) as { authentication: { secretCanary: string; principalId: string; tenantId: string } };
-  const sensitiveValues = [workload.authentication.secretCanary, workload.authentication.principalId, workload.authentication.tenantId];
+  let sensitiveValues: readonly string[] = [];
   const attemptRecord = (status: "launched" | "complete" | "inconclusive", phase: "allocated" | "preflight" | "measurement" | "postflight" | "complete", failureCode?: string) => ({
     schemaVersion: 1,
     id: runId,
@@ -155,26 +210,33 @@ export function runRevalidationReferenceQualification(
     assertQualificationAttemptDocument(repository, document);
     safeWriteJson(join(attemptRoot, "attempt.json"), document, sensitiveValues);
   };
-  writeAttempt("launched", "allocated");
-
   const temporary = mkdtempSync(join(tmpdir(), "fadeno-k010b-"));
   const container = `fadeno-k010b-${randomUUID()}`;
-  let phase: "preflight" | "measurement" | "postflight" = "preflight";
+  let phase: "allocated" | "preflight" | "measurement" | "postflight" = "allocated";
   try {
+    const workload = JSON.parse(readFileSync(join(repository, "experiments/revalidation/workload.json"), "utf8")) as { authentication: { secretCanary: string; principalId: string; tenantId: string } };
+    sensitiveValues = [workload.authentication.secretCanary, workload.authentication.principalId, workload.authentication.tenantId];
+    writeAttempt("launched", "allocated");
+    phase = "preflight";
     const contract = JSON.parse(readFileSync(join(repository, "experiments/revalidation/qualification-contract.json"), "utf8")) as QualificationContract;
     const inputs = inputRecords(contract);
     verifySourceInputs(repository, sourceCommit, inputs);
+    const reference = JSON.parse(readFileSync(join(repository, contract.environment.path), "utf8")) as ReferenceEnvironment;
+    const identity = observeReferenceIdentity(reference.id);
+    assertReferenceIdentityDocument(repository, identity);
+    const identitySha256 = safeWriteJson(join(attemptRoot, "identity.json"), identity, sensitiveValues);
+    if (!referenceIdentityAccepted(reference, identity)) throw new Error("FADENO_REVALIDATION_REFERENCE_IDENTITY");
     if (command("docker", ["ps", "-aq", "--filter", "label=fadeno.qualification=h4"]) !== "") throw new Error("FADENO_REVALIDATION_COMPETING_CONTAINER");
-    if (command("docker", ["image", "inspect", "--format", "{{.Id}}", IMAGE]) !== "sha256:cb36a58af87cd9b6203aa5fdc9493fe5d14500c7d52391e7e87d459e739dd770") {
+    if (reference.container.runtimeImage !== IMAGE || command("docker", ["image", "inspect", "--format", "{{.Id}}", IMAGE]) !== reference.container.configDigest) {
       throw new Error("FADENO_REVALIDATION_IMAGE_IDENTITY");
     }
-    const beforeHost = hostPhase();
+    const beforeHost = hostPhase(reference.preflight.hostSamples, reference.host.logicalCpuCount);
     const beforeHostSha256 = safeWriteJson(join(attemptRoot, "before-host.json"), beforeHost, sensitiveValues);
-    if (!hostAccepted(beforeHost)) throw new Error("FADENO_REVALIDATION_PREFLIGHT_INCONCLUSIVE");
+    if (!hostAccepted(beforeHost, reference)) throw new Error("FADENO_REVALIDATION_PREFLIGHT_INCONCLUSIVE");
 
     const archive = join(temporary, "source.tar");
     command("git", ["archive", "--format=tar", `--output=${archive}`, sourceCommit], repository);
-    command("docker", ["create", "--name", container, "--label", "fadeno.qualification=h4", "--platform", "linux/arm64", "--cpus", "2", "--memory", "8192m", "--memory-swap", "8192m", "--pids-limit", "256", "--workdir", "/work", IMAGE, "sleep", "infinity"]);
+    command("docker", ["create", "--name", container, "--label", "fadeno.qualification=h4", "--platform", reference.container.platform, "--cpus", String(reference.container.cpuLimit), "--memory", `${reference.container.memoryMiB}m`, "--memory-swap", `${reference.container.memorySwapMiB}m`, "--pids-limit", String(reference.container.pidsLimit), "--workdir", reference.container.workingDirectory, IMAGE, "sleep", "infinity"]);
     command("docker", ["start", container]);
     command("docker", ["cp", archive, `${container}:/tmp/source.tar`]);
     command("docker", ["exec", container, "tar", "-xf", "/tmp/source.tar", "-C", "/work"]);
@@ -198,9 +260,9 @@ export function runRevalidationReferenceQualification(
     phase = "postflight";
     const afterContainer = cgroup(container);
     const afterContainerSha256 = safeWriteJson(join(attemptRoot, "after-container.json"), afterContainer, sensitiveValues);
-    const afterHost = hostPhase();
+    const afterHost = hostPhase(reference.preflight.hostSamples, reference.host.logicalCpuCount);
     const afterHostSha256 = safeWriteJson(join(attemptRoot, "after-host.json"), afterHost, sensitiveValues);
-    const environmentValid = hostAccepted(afterHost) && containerAccepted(beforeContainer, afterContainer);
+    const environmentValid = hostAccepted(afterHost, reference) && containerAccepted(beforeContainer, afterContainer, reference);
     const memory = measurements.memory as Record<string, unknown>;
     memory.baselineCgroupMemory = beforeContainer.memoryCurrent;
     memory.afterCgroupMemory = afterContainer.memoryCurrent;
@@ -210,7 +272,7 @@ export function runRevalidationReferenceQualification(
       environmentId: "k0-h4-local-docker-arm64-v1",
       status: environmentValid ? "complete" : "inconclusive",
       inputHashes: Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key, value.sha256])),
-      preflight: { beforeAccepted: true, afterAccepted: environmentValid, beforeHostSha256, afterHostSha256, beforeContainerSha256, afterContainerSha256 },
+      preflight: { identitySha256, beforeAccepted: true, afterAccepted: environmentValid, beforeHostSha256, afterHostSha256, beforeContainerSha256, afterContainerSha256 },
       ...measurements,
       failures: environmentValid ? [] : [{ code: "FADENO_REVALIDATION_POSTFLIGHT_INCONCLUSIVE" }],
     };
