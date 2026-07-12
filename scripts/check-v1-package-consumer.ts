@@ -10,7 +10,7 @@ import { scanModuleReferences } from "./lib/package-boundaries.ts";
 const sentinelPackageName = "fadeno-private-boundary-sentinel";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const prototypeRoot = join(root, "prototypes/v1/package-boundary");
-const adapterRoot = join(root, "prototypes/v1/adapter");
+const adapterRoot = join(root, "packages/framework/src/internal");
 const require = createRequire(import.meta.url);
 const tsc = join(dirname(require.resolve("typescript/package.json")), "bin/tsc");
 
@@ -88,9 +88,9 @@ try {
   mkdirSync(internalRoot, { recursive: true });
   cpSync(join(prototypeRoot, "prototype-root.ts"), join(sourceRoot, "index.ts"));
   cpSync(join(prototypeRoot, "internal-canary.ts"), join(internalRoot, "canary.ts"));
-  cpSync(join(adapterRoot, "capabilities.ts"), join(internalRoot, "capabilities.ts"));
+  cpSync(join(adapterRoot, "node-http-capabilities.ts"), join(internalRoot, "node-http-capabilities.ts"));
   cpSync(join(adapterRoot, "node-http.ts"), join(internalRoot, "node-http.ts"));
-  writeFileSync(join(sourceRoot, "node.ts"), 'export { listenNodeHttpAdapter as prototypeListen } from "./internal/node-http.ts";\n');
+  writeFileSync(join(sourceRoot, "node.ts"), 'export { listenNodeHttp as prototypeListen } from "./internal/node-http.ts";\n');
   writeJson(join(packageRoot, "package.json"), {
     name: sentinelPackageName,
     version: "0.0.0-private",

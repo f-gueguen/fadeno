@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,11 +31,13 @@ ajv.addSchema(schemas.get("qualification-decision.schema.json"));
 const contract = JSON.parse(readFileSync(join(experiment, "qualification-contract.json"), "utf8")) as {
   inputs: Record<string, { path: string; sha256: string }>;
   environment: { path: string; sha256: string };
+  executionSlice: { requiredSource: string };
 };
 const validateContract = ajv.compile(schemas.get("qualification-contract.schema.json"));
 if (!validateContract(contract)) throw new Error(`FADENO_REVALIDATION_QUALIFICATION_CONTRACT:${JSON.stringify(validateContract.errors)}`);
 for (const input of [contract.environment, ...Object.values(contract.inputs)]) {
-  const digest = createHash("sha256").update(readFileSync(join(root, input.path))).digest("hex");
+  const sourceBytes = execFileSync("git", ["show", `${contract.executionSlice.requiredSource}:${input.path}`], { cwd: root });
+  const digest = createHash("sha256").update(sourceBytes).digest("hex");
   if (digest !== input.sha256) throw new Error(`FADENO_REVALIDATION_QUALIFICATION_INPUT:${input.path}`);
 }
 const validateCapture = ajv.compile(schemas.get("qualification-capture.schema.json"));

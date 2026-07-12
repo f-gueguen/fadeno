@@ -6,26 +6,26 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-03 — freeze the initial package boundary
+V1-04 — create the public adapter smoke package
 
 ## Exit criteria
 
-- [x] Select one logical framework package with runtime-neutral `.` and
-  Node-only `./node` facades without selecting a registry identity.
-- [x] Preserve server, compiler, shared, and browser zones as private internal
-  graphs rather than speculative packages.
-- [x] Enforce cross-package static import, re-export, dynamic import, traversal,
-  symlink, and private deep-import refusals.
-- [x] Pack emitted JS/declarations, install outside the workspace, compile a
-  NodeNext consumer, and run an adapter request using package specifiers only.
-- [x] Prove the neutral root has no Node reachability, a present internal file
-  remains unexported, and all repository projections and local CI pass.
+- [x] Create one private workspace package with exact `.` and `./node` exports
+  and no registry or publication claim.
+- [x] Freeze the minimal `Handler` and raw Node HTTP adapter symbols through
+  ADR 0025 without crossing route, renderer, or streaming-failure gates.
+- [x] Keep one adapter implementation and run the host and exact-minimum V1-02
+  suites against it.
+- [x] Pack an exact content allowlist, install outside the workspace, copy the
+  tracked example byte-for-byte, compile it with NodeNext, and run its HTTP
+  assertion using only package exports.
+- [x] Prove neutral-root reachability, export target presence, private deep
+  import refusal, documentation alignment, and all local merge gates.
 
 ## In progress
 
-- ADR 0024 selects one logical package and its dependency direction without
-  creating the real package or fixing the complete root API.
-- V1-04 next creates that package and a clean public adapter smoke consumer.
+- ADR 0025 fixes the private package's first raw Handler/Node adapter surface.
+- V1-05 next freezes route filesystem and generated-link contracts.
 - Registry naming, route syntax, renderer boundaries, request security policy,
   and adapter timeout/force-close behavior remain unresolved by this slice.
 
@@ -105,3 +105,5 @@ V1-03 — freeze the initial package boundary
 - V1-02 — Commit `e417d8a` selects Node 22.17 HTTP through ADR 0023 and proves
   request/response translation, streaming, backpressure, cancellation,
   authority handling, cookies, and graceful drain in a private adapter suite.
+- V1-03 — Commit `7c4fb9d` selects one logical package through ADR 0024 and
+  proves its exports and dependency direction with a packed private consumer.

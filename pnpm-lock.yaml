@@ -21,6 +21,14 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  examples/adapter-smoke:
+    dependencies:
+      fadeno-framework-internal:
+        specifier: workspace:*
+        version: link:../../packages/framework
+
+  packages/framework: {}
+
 packages:
 
   '@playwright/test@1.61.0':

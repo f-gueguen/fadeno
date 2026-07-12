@@ -56,10 +56,10 @@ violate an architectural constraint.
 - `docs/ledgers/` separates hypotheses, risks, and deferrals.
 - `scripts/` contains repository-wide policy checks.
 
-The initial repository deliberately has no fictional framework package or
-example application. ADR 0024 selects one logical framework package from K0
-imports and a packed private consumer. The first real package and example
-arrive together at the V1-04 checkpoint.
+ADR 0024 selects one logical framework package from K0 imports and a packed
+private consumer. ADR 0025 creates that private package and its executable Node
+adapter smoke example at the V1-04 checkpoint. Routing and rendering remain
+unimplemented until their later V1 slices.
 
 ## Dependency direction
 

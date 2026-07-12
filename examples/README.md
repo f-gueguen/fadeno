@@ -1,6 +1,8 @@
 # Examples
 
-This directory is intentionally empty of example applications. An example is
-added only when its displayed source executes in CI against public entrypoints.
+`adapter-smoke/` is the executable V1 package/adapter integration example. Its
+tracked TypeScript source is copied byte-for-byte into a clean consumer and run
+against the packed package.
 
-Documentation imports example source rather than maintaining copied snippets.
+It is not a routed or rendered framework application. Later examples continue
+to use one tested source rather than copied Markdown snippets.

@@ -9,22 +9,30 @@ than becoming application vocabulary.
 
 ## Status
 
-Fadeno is in repository-foundation and kill-risk validation. No framework
-package is published and no example is presented as runnable yet.
+Fadeno is in V1 implementation. Its private workspace package and Node adapter
+smoke example run from an installed tarball, but no package is published or
+production-supported. Routing and rendering are not implemented yet, so this
+checkpoint is not the first running framework application; that remains V1-09.
 
-The first implementation work is evidence gathering for four claims:
-
-1. HTML morphing can preserve browser and user-owned state.
-2. Small interactions can be extracted without component hydration.
-3. Stock TypeScript can carry the route, form, and context type spine.
-4. Revalidation by default is viable for the intended application class.
+The four K0 kill-risk investigations are complete: structural preservation and
+incremental declaration generation were narrowed, while bounded interaction
+extraction and correctness-first revalidation were accepted within their
+measured evidence.
 
 See [the roadmap](docs/roadmap.md) and
-[current hypotheses](docs/ledgers/hypotheses.md).
+[current V1 plan](docs/roadmap/v1.md).
 
 For a complete view of planned capabilities, use the
 [feature matrix](docs/product/scope.md), [traceability matrix](docs/traceability.md),
-and [detailed K0 plan](docs/roadmap/k0.md).
+and [detailed V1 plan](docs/roadmap/v1.md).
+
+The current adapter integration can be replayed with:
+
+```sh
+pnpm check:v1-public-package
+```
+
+It is a package/adapter smoke proof, not the supported `fadeno dev` workflow.
 
 ## Repository contract
 

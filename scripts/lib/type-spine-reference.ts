@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -44,7 +45,7 @@ export function verifyTypeSpineReferenceSemantics(
   root: string,
   reference: TypeSpineReferenceEnvironment,
 ): void {
-  const lock = readFileSync(join(root, reference.toolchain.lockfile));
+  const lock = execFileSync("git", ["show", `122ba574a5de78394ca375277c867378af0bd658:${reference.toolchain.lockfile}`], { cwd: root });
   const hash = createHash("sha256").update(lock).digest("hex");
   if (hash !== reference.toolchain.lockSha256) {
     throw new Error("H3 reference dependency lock differs");

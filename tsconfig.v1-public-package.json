@@ -8,8 +8,7 @@
     "types": ["node"]
   },
   "include": [
-    "packages/framework/src/**/*.ts",
-    "scripts/check-v1-adapter-contract.ts",
-    "scripts/check-v1-adapter-minimum.ts"
+    "scripts/check-v1-public-package.ts",
+    "scripts/lib/package-boundaries.ts"
   ]
 }

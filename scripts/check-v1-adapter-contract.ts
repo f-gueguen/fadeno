@@ -2,8 +2,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { Agent, request as httpRequest, type IncomingHttpHeaders } from "node:http";
 import { connect } from "node:net";
 
-import { nodeHttpAdapterCapabilities } from "../prototypes/v1/adapter/capabilities.ts";
-import { listenNodeHttpAdapter, type WebHandler } from "../prototypes/v1/adapter/node-http.ts";
+import type { Handler } from "../packages/framework/src/index.ts";
+import { listenNodeHttp, nodeHttpCapabilities } from "../packages/framework/src/node.ts";
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -69,8 +69,8 @@ function exchange(origin: string, path: string, options: ExchangeOptions = {}): 
   });
 }
 
-async function withAdapter<T>(handler: WebHandler, run: (origin: string) => Promise<T>): Promise<T> {
-  const adapter = await listenNodeHttpAdapter({ handler });
+async function withAdapter<T>(handler: Handler, run: (origin: string) => Promise<T>): Promise<T> {
+  const adapter = await listenNodeHttp({ handler });
   try {
     return await run(adapter.origin);
   } finally {
@@ -137,7 +137,7 @@ async function verifyIpv6AuthorityWhenAvailable(): Promise<void> {
   let observedOrigin: string | undefined;
   let adapter;
   try {
-    adapter = await listenNodeHttpAdapter({
+    adapter = await listenNodeHttp({
       hostname: "::1",
       handler: (request) => {
         observedOrigin = new URL(request.url).origin;
@@ -343,7 +343,7 @@ async function verifyGracefulShutdown(): Promise<void> {
   const release = deferred<void>();
   const firstSeen = deferred<void>();
   let phase = 0;
-  const adapter = await listenNodeHttpAdapter({ handler: () => new Response(new ReadableStream<Uint8Array>({
+  const adapter = await listenNodeHttp({ handler: () => new Response(new ReadableStream<Uint8Array>({
     async pull(controller) {
       if (phase === 0) {
         phase = 1;
@@ -386,7 +386,7 @@ async function verifyGracefulShutdown(): Promise<void> {
 
 async function verifyIdleKeepAliveShutdown(): Promise<void> {
   const agent = new Agent({ keepAlive: true, maxSockets: 1 });
-  const adapter = await listenNodeHttpAdapter({ handler: () => new Response("idle") });
+  const adapter = await listenNodeHttp({ handler: () => new Response("idle") });
   try {
     await exchange(adapter.origin, "/idle", { agent });
     await within(adapter.close(), "shutdown-idle");
@@ -408,9 +408,9 @@ const expectedCapabilities = {
   trustedProxyHeaders: false,
   gracefulShutdown: "drain",
 };
-if (JSON.stringify(nodeHttpAdapterCapabilities) !== JSON.stringify(expectedCapabilities)) throw new Error("FADENO_ADAPTER_CAPABILITIES");
-if (process.argv.includes("--require-minimum") && process.versions.node !== nodeHttpAdapterCapabilities.minimumVersion) {
-  throw new Error(`FADENO_ADAPTER_MINIMUM_RUNTIME: expected ${nodeHttpAdapterCapabilities.minimumVersion}, received ${process.versions.node}`);
+if (JSON.stringify(nodeHttpCapabilities) !== JSON.stringify(expectedCapabilities)) throw new Error("FADENO_ADAPTER_CAPABILITIES");
+if (process.argv.includes("--require-minimum") && process.versions.node !== nodeHttpCapabilities.minimumVersion) {
+  throw new Error(`FADENO_ADAPTER_MINIMUM_RUNTIME: expected ${nodeHttpCapabilities.minimumVersion}, received ${process.versions.node}`);
 }
 
 await verifyRequestResponseAndCookies();

@@ -1,4 +1,4 @@
-export const nodeHttpAdapterCapabilities = {
+export const nodeHttpCapabilities = Object.freeze({
   runtime: "node",
   minimumVersion: "22.17.0",
   webRequestResponse: true,
@@ -10,6 +10,4 @@ export const nodeHttpAdapterCapabilities = {
   requestSizeEnforcement: "none",
   trustedProxyHeaders: false,
   gracefulShutdown: "drain",
-} as const;
-
-export type NodeHttpAdapterCapabilities = typeof nodeHttpAdapterCapabilities;
+} as const);
