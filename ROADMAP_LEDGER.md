@@ -6,27 +6,27 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-06 — implement deterministic routing and clean declaration generation
+V1-07 — freeze contextual rendering and unsafe-capability security contracts
 
 ## Exit criteria
 
-- [x] Promote ADR 0027 discovery, manifest, link, and config behavior from the
-  private contract prototype into the one logical framework package.
-- [x] Generate the internal manifest and stock-TypeScript route declarations
-  transactionally with byte-identical clean output, unchanged-byte avoidance,
-  stale-output deletion, and no incremental-speed claim.
-- [x] Match canonical request pathnames with static, dynamic, then rest
-  precedence and exact decoded parameters without importing renderer behavior.
-- [x] Add nested page, raw-handler, not-found, error, invalid-tree, link, and
-  runtime route fixtures using only the accepted route roles.
-- [x] Keep compiler/Node internals unreachable from the neutral facade, align
-  current documentation, and pass all local merge gates.
+- [ ] Accept one rendering-security ADR that fixes contextual escaping, unsafe
+  HTML authority, CSP nonce flow, and the audit/redaction surface.
+- [ ] Freeze explicit text, ordinary attribute, URL, style, boolean,
+  enumerated, and raw-text element context behavior without implementing the
+  renderer or streaming state machine.
+- [ ] Prove the unsafe capability cannot be forged from an ordinary string and
+  that every accepted unsafe use remains statically auditable.
+- [ ] Add a threat model plus positive/negative XSS, nonce, URL/style,
+  delimiter, and secret-redaction fixtures that a later renderer must satisfy.
+- [ ] Remove the resolved rendering-security gate, align current documentation,
+  and pass all local merge gates.
 
 ## In progress
 
-- ADR 0027 corrects the application binding and owns V1-06's implemented route
-  filesystem, metadata matcher, transaction, and generated-link behavior.
-- V1-07 next freezes contextual rendering and unsafe-capability security.
+- V1-07 is selecting the contextual rendering and unsafe-capability contract.
+- V1-08 next freezes streaming, failure, timeout, cancellation, and
+  response-commit behavior.
 - Registry naming, renderer boundaries, request security policy,
   and adapter timeout/force-close behavior remain unresolved by this slice.
 
@@ -114,3 +114,6 @@ V1-06 — implement deterministic routing and clean declaration generation
 - V1-05 — Commit `92f10d5` accepts ADR 0026 and proves portable route discovery,
   an ownership-correlated internal manifest, stock-TypeScript link correlation,
   and exact runtime pathname construction without implementing the router.
+- V1-06 — Commit `e9f249a` supersedes the impossible global link binding with
+  ADR 0027 and implements exact config loading, transactional app-bound route
+  generation, metadata-only matching, structured diagnostics, and recovery.
