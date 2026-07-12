@@ -10,13 +10,13 @@ K0-09 — establish the private authenticated CRUD/revalidation benchmark
 
 ## Exit criteria
 
-- [ ] Lock one private authenticated page with six unique resources, three
+- [x] Lock one private authenticated page with six unique resources, three
   duplicate reads, one single-resource mutation, and at least 10,000 rows.
-- [ ] Model success, expected failure, ordering, non-cacheable results, request
+- [x] Model success, expected failure, ordering, non-cacheable results, request
   deduplication, default revalidation, and a selective comparison baseline.
-- [ ] Seed unsafe `keeps` declarations and prove development verification finds
+- [x] Seed unsafe `keeps` declarations and prove development verification finds
   every one without exposing authorization-sensitive values.
-- [ ] Publish deterministic workload/baseline manifests and a strict executable
+- [x] Publish deterministic workload/baseline manifests and a strict executable
   contract without collecting an H4 qualification result.
 - [ ] `pnpm experiment:revalidation -- --list` and `pnpm ci:local` pass.
 
@@ -26,6 +26,9 @@ K0-09 — establish the private authenticated CRUD/revalidation benchmark
   longer blocks the independent H4 harness slice.
 - K0-09 begins from the accepted correctness-first direction in ADR 0006 and
   keeps the benchmark API private rather than defining V1 resource syntax.
+- The locked harness executes 10,000 rows, six unique/nine total page reads,
+  default and selective revalidation, success/error paths, and 4/4 unsafe
+  `keeps` detections; K0-10 counts and thresholds are frozen before measurement.
 
 ## Blockers
 

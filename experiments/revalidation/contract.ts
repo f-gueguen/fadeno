@@ -17,6 +17,11 @@ export type RevalidationWorkload = Readonly<{
   paths: readonly ["success", "expected-error"];
   comparison: Readonly<{ strategy: "canonical-tagged-json-v1"; handles: readonly string[]; refuses: readonly ["non-cacheable"] }>;
   unsafeKeeps: readonly Readonly<{ id: string; class: "value" | "expected-error" | "ordering" | "non-cacheable"; declaredResource: RevalidationResourceId }>[];
+  qualificationProfile: Readonly<{
+    correctnessCycles: 10000; warmupActions: 100; measuredActions: 1000; memoryCycles: 10000;
+    randomSeed: "fadeno-k0-h4-cycles-v1";
+    defaultToSelectiveP95MaximumRatio: 2; defaultP95MaximumMilliseconds: 300; memoryGrowthMaximumRatio: 0.1;
+  }>;
 }>;
 
 const root = dirname(fileURLToPath(import.meta.url));

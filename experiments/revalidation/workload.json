@@ -23,5 +23,15 @@
     { "id": "keeps-error-transition", "class": "expected-error", "declaredResource": "permissions" },
     { "id": "keeps-reordered-projects", "class": "ordering", "declaredResource": "projects" },
     { "id": "keeps-non-cacheable-activity", "class": "non-cacheable", "declaredResource": "activity" }
-  ]
+  ],
+  "qualificationProfile": {
+    "correctnessCycles": 10000,
+    "warmupActions": 100,
+    "measuredActions": 1000,
+    "memoryCycles": 10000,
+    "randomSeed": "fadeno-k0-h4-cycles-v1",
+    "defaultToSelectiveP95MaximumRatio": 2,
+    "defaultP95MaximumMilliseconds": 300,
+    "memoryGrowthMaximumRatio": 0.1
+  }
 }

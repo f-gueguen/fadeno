@@ -15,6 +15,7 @@ type MutableWorkload = {
   comparison: { refuses: string[] };
   unsafeKeeps: unknown[];
   authentication: { extra?: boolean };
+  qualificationProfile: { measuredActions: number };
 };
 const workload = JSON.parse(
   readFileSync(join(root, "experiments/revalidation/workload.json"), "utf8"),
@@ -30,6 +31,7 @@ const mutations: readonly ((value: MutableWorkload) => void)[] = [
   (value) => { value.comparison.refuses = []; },
   (value) => { value.unsafeKeeps.pop(); },
   (value) => { value.authentication.extra = true; },
+  (value) => { value.qualificationProfile.measuredActions = 100; },
 ];
 for (const mutate of mutations) {
   const candidate = structuredClone(workload);

@@ -3,7 +3,7 @@
   "$id": "https://fadeno.dev/schemas/experiment/revalidation-workload-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["$schema", "schemaVersion", "visibility", "seed", "authentication", "dataset", "resources", "pageReads", "mutation", "paths", "comparison", "unsafeKeeps"],
+  "required": ["$schema", "schemaVersion", "visibility", "seed", "authentication", "dataset", "resources", "pageReads", "mutation", "paths", "comparison", "unsafeKeeps", "qualificationProfile"],
   "properties": {
     "$schema": { "const": "https://fadeno.dev/schemas/experiment/revalidation-workload-v1.json" },
     "schemaVersion": { "const": 1 },
@@ -33,6 +33,7 @@
           "declaredResource": { "enum": ["activity", "notifications", "permissions", "profile", "projects", "tasks"] }
         }
       }
-    }
+    },
+    "qualificationProfile": { "const": { "correctnessCycles": 10000, "warmupActions": 100, "measuredActions": 1000, "memoryCycles": 10000, "randomSeed": "fadeno-k0-h4-cycles-v1", "defaultToSelectiveP95MaximumRatio": 2, "defaultP95MaximumMilliseconds": 300, "memoryGrowthMaximumRatio": 0.1 } }
   }
 }
