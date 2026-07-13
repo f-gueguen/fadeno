@@ -21,7 +21,7 @@ V1-DX-B7D6 — transactional production build
 - [x] Extend the canonical packed application with permanent executable build,
   start, deliberate failure, human diagnostic, flow-inspection, rollback, and
   recovery evidence through public package entrypoints.
-- [ ] Prove reproducible bytes, first-build cleanup, last-good preservation,
+- [x] Prove reproducible bytes, first-build cleanup, last-good preservation,
   secret exclusion, package-boundary stability, full repository, local CI,
   architecture, Big-O applicability, and fresh review gates.
 
@@ -39,6 +39,9 @@ V1-DX-B7D6 — transactional production build
   gated or deferred.
 - The canonical V1 application and its isolated scenarios own the permanent
   public build/start/failure/flow/rollback/recovery evidence.
+- Fresh architecture and Big-O challenges found no remaining blocker after the
+  final runtime-import scanner became bounded and linear; local CI passed the
+  exact clean implementation commit before this ledger transition.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
