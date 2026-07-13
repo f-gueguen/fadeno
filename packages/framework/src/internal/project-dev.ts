@@ -35,6 +35,7 @@ const usage = "FADENO_DEV_USAGE: fadeno dev --project-root <path> --port <1..655
 const gracefulDeadlineMs = 5_000;
 const childStartupDeadlineMs = 15_000;
 const maximumChildOutputBytes = 8 * 1024 * 1024;
+const maximumChildLineBytes = 1024 * 1024;
 
 export interface ProjectDevCommandResult {
   readonly exitCode: 0 | 1 | 2 | 3;
@@ -94,7 +95,9 @@ class PrivateDevelopmentChild {
   readonly #stdoutDecoder = new StringDecoder("utf8");
   readonly #stderrDecoder = new StringDecoder("utf8");
   #stdoutFragments: string[] = [];
-  #outputBytes = 0;
+  #stdoutFragmentBytes = 0;
+  #startupOutputBytes = 0;
+  #outputFailed = false;
 
   private constructor(
     projectRoot: string,
@@ -172,12 +175,23 @@ class PrivateDevelopmentChild {
     let acceptReady!: () => void;
     let refuseReady!: (error: unknown) => void;
     const ready = new Promise<void>((accept, refuse) => { acceptReady = accept; refuseReady = refuse; });
-    const consume = (target: "stdout" | "stderr", chunk: Buffer): void => {
-      this.#outputBytes += chunk.byteLength;
-      if (this.#outputBytes > maximumChildOutputBytes) {
+    const failOutput = (): void => {
+      if (this.#outputFailed) return;
+      this.#outputFailed = true;
+      if (this.#ready) {
+        if (this.#child.exitCode === null && this.#child.signalCode === null) this.#child.kill("SIGKILL");
+      } else {
         refuseReady(new PrivateDevelopmentStartupError());
         this.force();
-        return;
+      }
+    };
+    const consume = (target: "stdout" | "stderr", chunk: Buffer): void => {
+      if (!this.#ready) {
+        this.#startupOutputBytes += chunk.byteLength;
+        if (this.#startupOutputBytes > maximumChildOutputBytes) {
+          failOutput();
+          return;
+        }
       }
       if (target === "stderr") {
         const text = this.#stderrDecoder.write(chunk);
@@ -190,10 +204,16 @@ class PrivateDevelopmentChild {
         const newline = text.indexOf("\n", start);
         if (newline < 0) break;
         const fragment = text.slice(start, newline);
+        const fragmentBytes = Buffer.byteLength(fragment);
+        if (this.#stdoutFragmentBytes > maximumChildLineBytes - fragmentBytes) {
+          failOutput();
+          return;
+        }
         const line = this.#stdoutFragments.length === 0
           ? fragment
           : `${this.#stdoutFragments.join("")}${fragment}`;
         this.#stdoutFragments = [];
+        this.#stdoutFragmentBytes = 0;
         if (!this.#ready && line === expected) {
           this.#ready = true;
           acceptReady();
@@ -202,7 +222,16 @@ class PrivateDevelopmentChild {
         }
         start = newline + 1;
       }
-      if (start < text.length) this.#stdoutFragments.push(text.slice(start));
+      if (start < text.length) {
+        const fragment = text.slice(start);
+        const fragmentBytes = Buffer.byteLength(fragment);
+        if (this.#stdoutFragmentBytes > maximumChildLineBytes - fragmentBytes) {
+          failOutput();
+          return;
+        }
+        this.#stdoutFragments.push(fragment);
+        this.#stdoutFragmentBytes += fragmentBytes;
+      }
     };
     this.#child.stdout.on("data", (chunk: Buffer) => consume("stdout", chunk));
     this.#child.stderr.on("data", (chunk: Buffer) => consume("stderr", chunk));

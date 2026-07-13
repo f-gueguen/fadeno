@@ -145,6 +145,25 @@ try {
   assert.equal(development.stderr(), "");
   await responseText(origin, "First running Fadeno application");
 
+  const runtimeOutputRoot = join(project, "src/routes/runtime-output");
+  mkdirSync(runtimeOutputRoot);
+  writeFileSync(join(runtimeOutputRoot, "handler.ts"), [
+    'import { stdout } from "node:process";',
+    'import type { Handler } from "fadeno-framework-internal";',
+    'const runtimeLine = "x".repeat(900 * 1024);',
+    "const handler: Handler = () => { stdout.write(`${runtimeLine}\\n`); return new Response('runtime-output'); };",
+    "export default handler;",
+    "",
+  ].join("\n"));
+  stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
+  for (let request = 0; request < 10; request += 1) {
+    assert.equal(await responseText(`${origin}/runtime-output`, "runtime-output"), "runtime-output");
+  }
+  assert.equal(development.child.exitCode, null);
+  await responseText(origin, "First running Fadeno application");
+  rmSync(runtimeOutputRoot, { recursive: true });
+  stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
+
   const pagePath = join(project, "src/routes/page.tsx");
   const originalPage = readFileSync(pagePath, "utf8");
   writeFileSync(pagePath, originalPage.replace(
