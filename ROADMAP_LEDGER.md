@@ -10,13 +10,13 @@ V1-DX-B7B — packed public project-check workflow
 
 ## Exit criteria
 
-- [ ] Add the accepted `fadeno` executable with one `check` command, explicit
+- [x] Add the accepted `fadeno` executable with one `check` command, explicit
   project-root semantics, deterministic exit status, and human diagnostics.
-- [ ] Route the executable exclusively through the private project analyzer and
+- [x] Route the executable exclusively through the private project analyzer and
   keep runtime-neutral and Node adapter package exports unchanged.
-- [ ] Prove current packed-package execution with a stale-package canary and
+- [x] Prove current packed-package execution with a stale-package canary and
   canonical success, deliberate collision, flow-inspection, and recovery runs.
-- [ ] Keep analyzer transports private and add no filesystem publication,
+- [x] Keep analyzer transports private and add no filesystem publication,
   build/watch consumer, public schema, protocol, or editor product.
 - [ ] Pass analyzer-workflow, private-package, full repository, local CI, and
   fresh independent review gates.
@@ -34,6 +34,10 @@ V1-DX-B7B — packed public project-check workflow
 - Packed workflow evidence must install the current tarball, execute its declared
   `fadeno` binary, and reject a seeded stale-package canary before any scenario
   can pass.
+- The current packed workflow verifies the exact installed CLI/internal closure,
+  mutation-tests stale identity refusal, and executes stable human success,
+  collision, correction, semantic flow, and recovery outputs without writing
+  project artifacts.
 - The real project authority must replace manual analyzer definitions and the
   running example's direct generation path incrementally; it may not wrap or
   preserve a second discovery/diagnostic/generation policy.

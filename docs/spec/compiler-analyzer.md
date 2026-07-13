@@ -360,6 +360,24 @@ protocol, schema version, editor product, or public compatibility promise.
 V1-DX-B7B owns the first packed project-check consumer, and V1-DX-B7C owns the
 only transactional filesystem applicator.
 
+V1-DX-B7B adds that first consumer as the single declared `fadeno` executable.
+Its internal command driver parses only ADR 0032's explicit project-root and
+semantic-explanation arguments, then delegates every configuration, route,
+diagnostic, correction, artifact, and explanation decision to the B7A project
+authority. Complete no-diagnostic route analysis writes a narrowly scoped human
+success report to stdout. Expected project diagnostics, usage refusal, and
+redacted internal failure use distinct exit codes and stderr reports. Human
+causal and skipped-work lines render stable diagnostic codes rather than random
+operation-instance identities.
+
+The packed workflow hashes the freshly built CLI and its complete relative
+internal module closure, verifies the installed tarball matches, and mutation-
+tests that a changed installed CLI is refused before scenarios run. Canonical
+success, collision, correction guidance, semantic flow, and recovery execute
+only through `node_modules/.bin/fadeno` and leave no project output. JSON and
+other machine-output options remain usage errors; private analyzer transports
+and DG-A0-02 are unchanged.
+
 ## Type spine
 
 ADR 0018 establishes that stock `tsc` and the stock TypeScript language server
