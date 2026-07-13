@@ -10,16 +10,16 @@ V1-DX-B7D1 — private retained project coordinator
 
 ## Exit criteria
 
-- [ ] Give the private project authority one FIFO owner for accepted analysis
+- [x] Give the private project authority one FIFO owner for accepted analysis
   and explanation work while retaining exactly one analyzer session.
-- [ ] Allocate immutable monotonic private request identities at admission so
+- [x] Allocate immutable monotonic private request identities at admission so
   success and failure remain correlated independently of publication identity.
-- [ ] Preserve immediate staleness of prior application capabilities when a
+- [x] Preserve immediate staleness of prior application capabilities when a
   newer analysis is admitted, without sequencing filesystem application here.
-- [ ] Implement an explicit accepting → closing → closed lifecycle that drains
+- [x] Implement an explicit accepting → closing → closed lifecycle that drains
   admitted work, absorbs operation failure, refuses later derived work, and
   closes idempotently.
-- [ ] Prove exact non-overlap and lifecycle order through the private
+- [x] Prove exact non-overlap and lifecycle order through the private
   coordinator task boundary, plus failure recovery, explanation freshness, application
   staleness, package inaccessibility, full repository, local CI, architecture,
   Big-O, and fresh independent review gates.
