@@ -39,7 +39,7 @@ type PrivateCompilerInputIdentity = Readonly<{
   sha256: string;
 }>;
 
-type PrivateDependencyRoots = Readonly<{
+export type PrivateDependencyRoots = Readonly<{
   roots: readonly string[];
   sha256: string;
 }>;
@@ -209,7 +209,11 @@ function hasOwnedAncestor(path: string, roots: ReadonlySet<string>): boolean {
   return roots.has(current);
 }
 
-async function dependencyRoots(root: string, runId: string, signal?: AbortSignal): Promise<PrivateDependencyRoots> {
+export async function capturePrivateCompilerDependencyRoots(
+  root: string,
+  runId: string,
+  signal?: AbortSignal,
+): Promise<PrivateDependencyRoots> {
   const directory = join(root, "node_modules");
   if (!existsSync(directory)) return Object.freeze({ roots: Object.freeze([]), sha256: createHash("sha256").digest("hex") });
   const canonicalDirectory = realpathSync(directory);
@@ -357,7 +361,7 @@ async function compilerInputSnapshot(
   compilerInputRoot: string | null,
   signal?: AbortSignal,
 ): Promise<PrivateCompilerInputSnapshot> {
-  const installed = await dependencyRoots(root, runId, signal);
+  const installed = await capturePrivateCompilerDependencyRoots(root, runId, signal);
   const dependencies = new Set(compilerInputRoot
     ? [...installed.roots, compilerInputRoot]
     : installed.roots);
@@ -403,7 +407,7 @@ async function refreshCompilerInputSnapshot(
   runId: string,
   signal: AbortSignal,
 ): Promise<string> {
-  const installed = await dependencyRoots(root, runId, signal);
+  const installed = await capturePrivateCompilerDependencyRoots(root, runId, signal);
   if (installed.sha256 !== expectedOwnershipSha256) {
     throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
   }

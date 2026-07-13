@@ -8,6 +8,7 @@ import {
   type PrivateAnalyzerOperationHandle,
 } from "./analyzer-coordinator.ts";
 import {
+  PrivateCompilerValidationError,
   PrivateCompilerValidator,
   type PrivateCompilerValidation,
 } from "./analyzer-compiler.ts";
@@ -75,6 +76,7 @@ export interface PrivateProjectAnalyzerOptions {
 export interface PrivateProjectRefreshOptions {
   readonly application?: PrivateProjectApplicationOptions;
   readonly beforeCommit?: () => void;
+  readonly onCompilerDiagnostic?: (error: PrivateCompilerValidationError) => void | Promise<void>;
 }
 
 export type PrivateProjectRefresh = Readonly<{
@@ -255,6 +257,12 @@ export class PrivateProjectAnalyzer {
         if (transaction.cleanupPending) this.#pendingCleanup = transaction;
         return Object.freeze({ requestId, generation, publication: analysis.publication, application, compiler });
       } catch (error) {
+        if (
+          error instanceof PrivateCompilerValidationError &&
+          error.code === "FADENO_ANALYZER_COMPILER_DIAGNOSTIC"
+        ) {
+          await options.onCompilerDiagnostic?.(error);
+        }
         if (transaction?.state === "pending") {
           try {
             transaction.rollback();

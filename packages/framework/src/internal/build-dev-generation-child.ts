@@ -21,6 +21,7 @@ import {
   capturePrivateRuntimeIdentity,
   type PrivateRuntimeIdentity,
 } from "./build-dev-decision.ts";
+import { capturePrivateCompilerDependencyRoots } from "./analyzer-compiler.ts";
 
 const maximumRequestBytes = 256 * 1024;
 const maximumCompilerOutputBytes = 1024 * 1024;
@@ -260,6 +261,7 @@ function outputPaths(
 function assertCompilerOwnership(
   programFiles: readonly string[],
   projectRoot: string,
+  dependencyRoots: readonly string[],
   closures: readonly RuntimeClosure[],
 ): void {
   const ownership = closures.map((closure) => Object.freeze({
@@ -268,6 +270,7 @@ function assertCompilerOwnership(
   }));
   for (const file of programFiles) {
     if (contained(projectRoot, file)) continue;
+    if (dependencyRoots.some((root) => contained(root, file))) continue;
     const owner = ownership.find(({ root }) => contained(root, file));
     const path = owner ? relative(owner.root, file).split("\\").join("/") : null;
     if (!owner || !path || !owner.paths.has(path)) fail("FADENO_BUILD_CHILD_COMPILER_INPUT");
@@ -300,8 +303,17 @@ async function main(): Promise<void> {
   try { config = JSON.parse(configBytes.toString("utf8")); } catch { fail("FADENO_BUILD_CHILD_TSCONFIG"); }
   assertPrivateBuildCompilerContract(config);
   const stageRoot = prepareStage(projectRoot, input.stageRoot, input.generation);
+  const dependencyBefore = await capturePrivateCompilerDependencyRoots(
+    projectRoot,
+    `build-generation-${input.generation}`,
+  );
   const analysis = await structuredDiagnostics(projectRoot);
-  assertCompilerOwnership(analysis.programFiles, projectRoot, input.runtimeClosures);
+  const dependencyAfterAnalysis = await capturePrivateCompilerDependencyRoots(
+    projectRoot,
+    `build-generation-${input.generation}`,
+  );
+  if (dependencyAfterAnalysis.sha256 !== dependencyBefore.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
+  assertCompilerOwnership(analysis.programFiles, projectRoot, dependencyBefore.roots, input.runtimeClosures);
   const sourcePaths = new Set(analysis.projectFiles);
   for (const path of ["tsconfig.json", "package.json", ".env", ".env.local"]) {
     if (existsSync(join(projectRoot, path))) sourcePaths.add(path);
@@ -330,6 +342,10 @@ async function main(): Promise<void> {
   emit(projectRoot, stageRoot);
   const after = capturePrivateRuntimeIdentity(projectRoot, ownedSourcePaths);
   if (after.sha256 !== before.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
+  if ((await capturePrivateCompilerDependencyRoots(
+    projectRoot,
+    `build-generation-${input.generation}`,
+  )).sha256 !== dependencyBefore.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
   for (const closure of input.runtimeClosures) assertPrivateRuntimeIdentity(closure.root, closure.identity);
   if (capturePrivateEnvironment(projectRoot, process.env).sha256 !== environment.sha256) fail("FADENO_BUILD_CHILD_ENVIRONMENT");
   const output = capturePrivateRuntimeIdentity(stageRoot, outputPaths(stageRoot));
