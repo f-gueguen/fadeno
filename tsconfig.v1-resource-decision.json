@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "packages/framework/src/internal/resource-decision.ts",
+    "scripts/check-v1-resource-decision.ts"
+  ]
+}
