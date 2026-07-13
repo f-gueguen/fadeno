@@ -10,19 +10,19 @@ V1-DX-B7D3 — serialized analyzer application and compiler validation
 
 ## Exit criteria
 
-- [ ] Run analysis, provisional route-artifact application, validation-only
+- [x] Run analysis, provisional route-artifact application, validation-only
   stock compilation, final freshness validation, and acceptance or rollback as
   one retained coordinator operation.
-- [ ] Preserve the exact last accepted route generation across compiler
+- [x] Preserve the exact last accepted route generation across compiler
   diagnostics, cancellation, supersession, process failure, cleanup failure,
   and first-generation or restart recovery.
-- [ ] Bind compiler acceptance to the current coordinator generation, analyzer
+- [x] Bind compiler acceptance to the current coordinator generation, analyzer
   publication, provisional artifact identity, and live operation signal without
   building a second application dependency graph.
-- [ ] Terminate and await every compiler child before rollback, queue progress,
+- [x] Terminate and await every compiler child before rollback, queue progress,
   or close completion, while producing no `dist`, build-info, cache, declaration,
   map, or other compiler output.
-- [ ] Prove real stock-compiler success, direct/transitive/delete/rename failure
+- [x] Prove real stock-compiler success, direct/transitive/delete/rename failure
   and recovery, late stale refusal, consumer exclusion, transaction recovery,
   package inaccessibility, full repository, local CI, architecture, Big-O, and
   fresh independent review gates.
