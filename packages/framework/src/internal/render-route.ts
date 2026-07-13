@@ -4,6 +4,9 @@ import type {
   MatchedRouteRender,
   NotFoundPage,
   PageContext,
+  ResourceDeclaration,
+  ResourceInput,
+  ResourceStatus,
   RedirectOutcome,
   RenderChild,
   RouteOutcome,
@@ -11,6 +14,7 @@ import type {
 import { createElementNode } from "./render-node.ts";
 import { renderDocument } from "./renderer.ts";
 import { captureRequestFailureObserver, reportFrameworkFailure } from "./failure-observer.ts";
+import { readResourceError, ResourceRequestScope } from "./resource.ts";
 
 type OutcomePayload = Readonly<{ kind: "not-found" }> | Readonly<{ kind: "redirect"; location: string; status: 303 | 307 | 308 }>;
 const outcomes = new WeakMap<object, OutcomePayload>();
@@ -56,9 +60,10 @@ async function renderNotFound(
   page: NotFoundPage<Record<string, string | readonly string[]>> | undefined,
   context: PageContext<Record<string, string | readonly string[]>>,
   layouts: readonly Layout<Record<string, string | readonly string[]>>[],
+  resources: ResourceRequestScope,
 ): Promise<Response> {
   const child = page ? await page(context) : safeDocument("Not found", "Not found", "The requested page does not exist.");
-  return renderDocument(await composeLayouts(layouts, context, child), { request: context.request, status: 404 });
+  return renderDocument(await composeLayouts(layouts, context, child), { request: context.request, status: 404, cleanup: () => resources.close() });
 }
 
 async function renderFailure(
@@ -66,42 +71,62 @@ async function renderFailure(
   context: PageContext<Record<string, string | readonly string[]>>,
   layouts: readonly Layout<Record<string, string | readonly string[]>>[],
   incidentId: string,
+  resources: ResourceRequestScope,
+  expected: Readonly<{ code: string; status: ResourceStatus }> | undefined,
 ): Promise<Response> {
   try {
     const child = page
-      ? await page({ ...context, incidentId })
-      : safeDocument("Unexpected failure", "Unexpected failure", `Incident ${incidentId}`);
-    return renderDocument(await composeLayouts(layouts, context, child), { request: context.request, status: 500 });
-  } catch {
-    return renderDocument(safeDocument("Unexpected failure", "Unexpected failure", `Incident ${incidentId}`), {
+      ? await page({ ...context, incidentId, ...(expected ? { resourceError: expected } : {}) })
+      : expected
+        ? safeDocument("Resource unavailable", "Resource unavailable", expected.code)
+        : safeDocument("Unexpected failure", "Unexpected failure", `Incident ${incidentId}`);
+    return renderDocument(await composeLayouts(layouts, context, child), {
       request: context.request,
-      status: 500,
+      status: expected?.status ?? 500,
+      cleanup: () => resources.close(),
+    });
+  } catch {
+    const child = expected
+      ? safeDocument("Resource unavailable", "Resource unavailable", expected.code)
+      : safeDocument("Unexpected failure", "Unexpected failure", `Incident ${incidentId}`);
+    return renderDocument(child, {
+      request: context.request,
+      status: expected?.status ?? 500,
+      cleanup: () => resources.close(),
     });
   }
 }
 
 export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Response> {
   const failureObserver = captureRequestFailureObserver(input.request);
+  const resources = new ResourceRequestScope(input.request);
   const context: PageContext<Record<string, string | readonly string[]>> = Object.freeze({
     request: input.request,
     parameters: input.parameters,
     signal: input.request.signal,
+    read: <Input extends ResourceInput, Value>(resource: ResourceDeclaration<Input, Value>, resourceInput: Input) =>
+      resources.read(resource, resourceInput),
   });
   try {
     const pageResult = await input.page(context);
     const pageOutcome = typeof pageResult === "object" && pageResult !== null ? outcomes.get(pageResult) : undefined;
-    if (pageOutcome?.kind === "not-found") return await renderNotFound(input.notFound, context, input.layouts);
+    if (pageOutcome?.kind === "not-found") return await renderNotFound(input.notFound, context, input.layouts, resources);
     if (pageOutcome?.kind === "redirect") {
       const target = new URL(pageOutcome.location, input.request.url);
       if (target.origin !== new URL(input.request.url).origin || target.username !== "" || target.password !== "") {
         throw new TypeError("FADENO_RENDER_REDIRECT_ORIGIN");
       }
+      resources.close();
       return new Response(null, { status: pageOutcome.status, headers: { location: `${target.pathname}${target.search}${target.hash}` } });
     }
-    return renderDocument(await composeLayouts(input.layouts, context, pageResult as RenderChild), { request: input.request });
+    return renderDocument(await composeLayouts(input.layouts, context, pageResult as RenderChild), {
+      request: input.request,
+      cleanup: () => resources.close(),
+    });
   } catch (cause) {
     const incidentId = globalThis.crypto.randomUUID();
-    reportFrameworkFailure(failureObserver, input.request, incidentId, "pre-publication", "FADENO_RENDER_UNEXPECTED", cause);
-    return renderFailure(input.error, context, input.layouts, incidentId);
+    const expected = readResourceError(cause);
+    if (!expected) reportFrameworkFailure(failureObserver, input.request, incidentId, "pre-publication", "FADENO_RENDER_UNEXPECTED", cause);
+    return renderFailure(input.error, context, input.layouts, incidentId, resources, expected);
   }
 }

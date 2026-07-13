@@ -1,6 +1,47 @@
 import { createUnsafeHtml } from "./internal/unsafe-html.ts";
 import { createBoundaryNode } from "./internal/render-node.ts";
 import { createNotFoundOutcome, createRedirectOutcome, renderMatchedRoute } from "./internal/render-route.ts";
+import { createResourceDeclaration, createResourceError } from "./internal/resource.ts";
+
+export interface ResourceInputObject {
+  readonly [key: string]: ResourceInput;
+}
+
+export type ResourceInput = null | boolean | number | string | readonly ResourceInput[] | ResourceInputObject;
+export type ResourceStatus = 400 | 401 | 403 | 404 | 409 | 422 | 429 | 503;
+
+export interface ResourceReadContext<Input extends ResourceInput> {
+  readonly input: Input;
+  readonly request: Request;
+  readonly signal: AbortSignal;
+}
+
+export type ResourceLoader<Input extends ResourceInput, Value> = (
+  context: ResourceReadContext<Input>,
+) => Value | Promise<Value>;
+
+declare const resourceDeclarationBrand: unique symbol;
+declare const resourceErrorBrand: unique symbol;
+
+export interface ResourceDeclaration<Input extends ResourceInput, Value> {
+  readonly [resourceDeclarationBrand]: Readonly<{ input: Input; value: Value }>;
+}
+
+export interface ResourceError extends Error {
+  readonly [resourceErrorBrand]: true;
+  readonly code: string;
+  readonly status: ResourceStatus;
+}
+
+export function defineResource<Input extends ResourceInput, Value>(
+  options: Readonly<{ read: ResourceLoader<Input, Value> }>,
+): ResourceDeclaration<Input, Value> {
+  return createResourceDeclaration(options);
+}
+
+export function resourceError(options: Readonly<{ code: string; status: ResourceStatus }>): ResourceError {
+  return createResourceError(options);
+}
 
 export type Handler = (request: Request) => Response | Promise<Response>;
 
@@ -25,6 +66,7 @@ export interface PageContext<Parameters extends Readonly<Record<string, string |
   readonly request: Request;
   readonly parameters: Parameters;
   readonly signal: AbortSignal;
+  readonly read: <Input extends ResourceInput, Value>(resource: ResourceDeclaration<Input, Value>, input: Input) => Promise<Value>;
 }
 
 export type Page<Parameters extends Readonly<Record<string, string | readonly string[]>> = Readonly<Record<string, string | readonly string[]>>> = (
@@ -36,7 +78,10 @@ export type NotFoundPage<Parameters extends Readonly<Record<string, string | rea
 ) => RenderChild | Promise<RenderChild>;
 
 export type ErrorPage<Parameters extends Readonly<Record<string, string | readonly string[]>> = Readonly<Record<string, string | readonly string[]>>> = (
-  context: PageContext<Parameters> & Readonly<{ incidentId: string }>,
+  context: PageContext<Parameters> & Readonly<{
+    incidentId: string;
+    resourceError?: Readonly<Pick<ResourceError, "code" | "status">>;
+  }>,
 ) => RenderChild | Promise<RenderChild>;
 
 export type Layout<Parameters extends Readonly<Record<string, string | readonly string[]>> = Readonly<Record<string, string | readonly string[]>>> = (

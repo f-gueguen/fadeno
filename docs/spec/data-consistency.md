@@ -15,8 +15,10 @@ frozen normalized snapshot rather than the caller's mutable object identity;
 non-enumerable and symbol-keyed properties are stripped from both key and
 snapshot. Cycles, enumerable accessors, sparse arrays, inherited enumerable
 properties, custom prototypes, non-finite numbers, symbol values, and other
-unsupported or over-budget values are refused without executing application
-code.
+unsupported or over-budget values are refused without invoking loader or
+accessor code. Proxy-interposed application objects are refused, may run their
+own reflection traps during validation, and cannot customize identity;
+external decoders must produce ordinary data before calling a resource.
 
 Each request owns a fresh declaration/input map. It records a dependency and
 stores the loader promise before awaiting it, so equivalent concurrent and

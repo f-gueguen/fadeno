@@ -22,6 +22,7 @@ export interface RenderDocumentOptions {
   readonly request: Request;
   readonly status?: number;
   readonly frameworkExecutable?: boolean;
+  readonly cleanup?: () => void;
 }
 
 function childContext(element: string): TextContext {
@@ -198,6 +199,7 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
   const lifecycle = new StreamingLifecycle({
     sink,
     signal: options.request.signal,
+    ...(options.cleanup ? { cleanup: options.cleanup } : {}),
     reporter: {
       report(code) {
         if (terminalIncidentId) {

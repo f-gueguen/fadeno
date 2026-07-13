@@ -8,7 +8,7 @@
     "types": ["node"]
   },
   "include": [
-    "packages/framework/src/internal/resource-decision.ts",
+    "packages/framework/src/internal/resource.ts",
     "scripts/check-v1-resource-decision.ts"
   ]
 }

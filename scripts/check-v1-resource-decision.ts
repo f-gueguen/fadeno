@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 
+import { defineResource, resourceError } from "../packages/framework/src/index.ts";
 import {
-  assertPrivateResourceCachePolicy,
-  classifyPrivateResourceBoundary,
-  definePrivateResource,
-  PrivateResourceExpectedError,
-  PrivateResourceRequestScope,
-  privateExpectedResourceError,
-} from "../packages/framework/src/internal/resource-decision.ts";
+  assertResourceCachePolicy,
+  classifyResourceFailure,
+  readResourceError,
+  ResourceRequestScope,
+} from "../packages/framework/src/internal/resource.ts";
 
 function request(signal?: AbortSignal, authorization = "Bearer redacted"): Request {
   return new Request("https://example.test/projects", { headers: { authorization }, ...(signal ? { signal } : {}) });
@@ -15,12 +14,12 @@ function request(signal?: AbortSignal, authorization = "Bearer redacted"): Reque
 
 let projectLoads = 0;
 let releaseProject: (() => void) | undefined;
-const projects = definePrivateResource({ read: async ({ input }: { input: Readonly<{ account: number; filters: Readonly<{ open: boolean; tag: string }> }> }) => {
+const projects = defineResource({ read: async ({ input }: { input: Readonly<{ account: number; filters: Readonly<{ open: boolean; tag: string }> }> }) => {
   projectLoads += 1;
   await new Promise<void>((resolve) => { releaseProject = resolve; });
   return [{ id: input.account, title: input.filters.tag }];
 } });
-const success = new PrivateResourceRequestScope(request());
+const success = new ResourceRequestScope(request());
 const first = success.read(projects, { account: 7, filters: { tag: "active", open: true } });
 const equivalent = success.read(projects, { filters: { open: true, tag: "active" }, account: 7 });
 assert.equal(projectLoads, 1, "equivalent concurrent reads share the in-flight request promise");
@@ -28,6 +27,7 @@ releaseProject?.();
 assert.deepEqual(await first, [{ id: 7, title: "active" }]);
 assert.strictEqual(await equivalent, await first);
 assert.equal(success.dependencies.length, 1);
+assert.equal(success.dependencies[0]?.observation.status, "value");
 assert.deepEqual(success.flows.map(({ cache, cause }) => ({ cache, cause })), [
   { cache: "miss", cause: "loader-completed" },
   { cache: "request-hit", cause: "equivalent-input" },
@@ -40,71 +40,72 @@ assert.deepEqual(await distinct, [{ id: 8, title: "active" }]);
 assert.equal(success.dependencies.length, 2);
 
 let authorizationLoads = 0;
-const authorized = definePrivateResource({ read: ({ request: ownedRequest }) => {
+const authorized = defineResource({ read: ({ request: ownedRequest }) => {
   authorizationLoads += 1;
   if (ownedRequest.headers.get("authorization") !== "Bearer tenant-a") {
-    throw privateExpectedResourceError("RESOURCE_FORBIDDEN", 403);
+    throw resourceError({ code: "RESOURCE_FORBIDDEN", status: 403 });
   }
   return "tenant-a-value";
 } });
-const tenantA = new PrivateResourceRequestScope(request(undefined, "Bearer tenant-a"));
-const tenantB = new PrivateResourceRequestScope(request(undefined, "Bearer tenant-b"));
+const tenantA = new ResourceRequestScope(request(undefined, "Bearer tenant-a"));
+const tenantB = new ResourceRequestScope(request(undefined, "Bearer tenant-b"));
 assert.equal(await tenantA.read(authorized, null), "tenant-a-value");
 await assert.rejects(tenantB.read(authorized, null), (error: unknown) => {
-  assert(error instanceof PrivateResourceExpectedError);
-  assert.equal(error.code, "RESOURCE_FORBIDDEN");
-  assert.equal(error.httpStatus, 403);
-  assert.equal(classifyPrivateResourceBoundary(error), "expected");
+  assert.deepEqual(readResourceError(error), { code: "RESOURCE_FORBIDDEN", status: 403 });
+  assert.equal(classifyResourceFailure(error), "expected");
   return true;
 });
-await assert.rejects(tenantB.read(authorized, null), PrivateResourceExpectedError);
+await assert.rejects(tenantB.read(authorized, null), (error: unknown) => readResourceError(error)?.code === "RESOURCE_FORBIDDEN");
 assert.equal(authorizationLoads, 2, "separate request owners cannot share authorization-bearing results");
 assert.equal(tenantB.dependencies.length, 1);
+assert.deepEqual(tenantB.dependencies[0]?.observation, { status: "expected-error", code: "RESOURCE_FORBIDDEN", httpStatus: 403 });
 
 let unexpectedLoads = 0;
-const broken = definePrivateResource({ read: () => {
+const broken = defineResource({ read: () => {
   unexpectedLoads += 1;
   throw new Error("storage unavailable");
 } });
-const failed = new PrivateResourceRequestScope(request());
+const failed = new ResourceRequestScope(request());
 const unexpectedFirst = failed.read(broken, null);
 const unexpectedSecond = failed.read(broken, null);
 await assert.rejects(unexpectedFirst, /storage unavailable/u);
 await assert.rejects(unexpectedSecond, /storage unavailable/u);
 assert.equal(unexpectedLoads, 1, "unexpected failure remains request-local and is not rerun");
-assert.equal(classifyPrivateResourceBoundary(new Error("failure")), "unexpected");
+assert.equal(classifyResourceFailure(new Error("failure")), "unexpected");
+assert.deepEqual(failed.dependencies[0]?.observation, { status: "unexpected-error" });
 
 let recoveryLoads = 0;
-const recovering = definePrivateResource({ read: () => {
+const recovering = defineResource({ read: () => {
   recoveryLoads += 1;
-  if (recoveryLoads === 1) throw privateExpectedResourceError("RESOURCE_TEMPORARY", 503);
+  if (recoveryLoads === 1) throw resourceError({ code: "RESOURCE_TEMPORARY", status: 503 });
   return "fresh";
 } });
-await assert.rejects(new PrivateResourceRequestScope(request()).read(recovering, null), PrivateResourceExpectedError);
-assert.equal(await new PrivateResourceRequestScope(request()).read(recovering, null), "fresh");
+await assert.rejects(new ResourceRequestScope(request()).read(recovering, null), (error: unknown) => readResourceError(error)?.code === "RESOURCE_TEMPORARY");
+assert.equal(await new ResourceRequestScope(request()).read(recovering, null), "fresh");
 assert.equal(recoveryLoads, 2, "a new request has no stale failure or result artifact");
 
 const cancelledController = new AbortController();
 let releaseCancelled: (() => void) | undefined;
-const cancellable = definePrivateResource({ read: async () => {
+const cancellable = defineResource({ read: async () => {
   await new Promise<void>((resolve) => { releaseCancelled = resolve; });
   return "obsolete";
 } });
-const cancelled = new PrivateResourceRequestScope(request(cancelledController.signal));
+const cancelled = new ResourceRequestScope(request(cancelledController.signal));
 const obsolete = cancelled.read(cancellable, null);
 cancelledController.abort();
 releaseCancelled?.();
 await assert.rejects(obsolete, (error: unknown) => {
-  assert.equal(classifyPrivateResourceBoundary(error), "cancelled");
+  assert.equal(classifyResourceFailure(error), "cancelled");
   return true;
 });
+assert.deepEqual(cancelled.dependencies[0]?.observation, { status: "cancelled" });
 
-assert.doesNotThrow(() => { assertPrivateResourceCachePolicy("request"); });
+assert.doesNotThrow(() => { assertResourceCachePolicy("request"); });
 for (const refused of ["shared", "global", "persistent", "none"]) {
-  assert.throws(() => { assertPrivateResourceCachePolicy(refused); }, /FADENO_RESOURCE_CACHE_POLICY/u);
+  assert.throws(() => { assertResourceCachePolicy(refused); }, /FADENO_RESOURCE_CACHE_POLICY/u);
 }
 
-const refusal = new PrivateResourceRequestScope(request());
+const refusal = new ResourceRequestScope(request());
 let getterRan = false;
 const accessor = Object.defineProperty({}, "secret", {
   enumerable: true,
@@ -134,26 +135,23 @@ await assert.rejects(refusal.read(projects as never, Object.fromEntries(
 ) as never), /FADENO_RESOURCE_INPUT_LIMIT/u);
 assert.equal(refusal.dependencies.length, 0, "refused input records no dependency or cache entry");
 await assert.rejects(refusal.read({ declaration: {}, read: () => "counterfeit" } as never, null), /FADENO_RESOURCE_DECLARATION/u);
-assert.throws(() => privateExpectedResourceError("lowercase", 404), /FADENO_RESOURCE_EXPECTED_ERROR/u);
-assert.throws(() => definePrivateResource({ read: () => "value", extra: true } as never), /FADENO_RESOURCE_DECLARATION/u);
+assert.throws(() => resourceError({ code: "lowercase", status: 404 }), /FADENO_RESOURCE_EXPECTED_ERROR/u);
+assert.throws(() => defineResource({ read: () => "value", extra: true } as never), /FADENO_RESOURCE_DECLARATION/u);
 let declarationGetterRan = false;
 const declarationAccessor = Object.defineProperty({}, "read", {
   enumerable: true,
   get() { declarationGetterRan = true; return () => "value"; },
 });
-assert.throws(() => definePrivateResource(declarationAccessor as never), /FADENO_RESOURCE_DECLARATION/u);
+assert.throws(() => defineResource(declarationAccessor as never), /FADENO_RESOURCE_DECLARATION/u);
 assert.equal(declarationGetterRan, false, "declaration refusal does not invoke an accessor");
-let proxyTrapRan = false;
-const proxy = new Proxy({}, { ownKeys() { proxyTrapRan = true; return []; } });
+const proxy = new Proxy({}, { ownKeys() { return []; } });
 await assert.rejects(refusal.read(projects as never, proxy as never), /FADENO_RESOURCE_INPUT/u);
-assert.equal(proxyTrapRan, false, "proxy refusal does not execute application reflection traps");
-
 const hiddenSymbol = Symbol("hidden");
 const originalInput: Record<string | symbol, unknown> = { visible: "captured" };
 Object.defineProperty(originalInput, "hidden", { value: "not-keyed", enumerable: false });
 originalInput[hiddenSymbol] = "not-keyed";
 let releaseSnapshot: (() => void) | undefined;
-const snapshotResource = definePrivateResource({ read: async ({ input }: { input: Readonly<{ visible: string }> }) => {
+const snapshotResource = defineResource({ read: async ({ input }: { input: Readonly<{ visible: string }> }) => {
   await new Promise<void>((resolve) => { releaseSnapshot = resolve; });
   return {
     frozen: Object.isFrozen(input),
@@ -162,21 +160,35 @@ const snapshotResource = definePrivateResource({ read: async ({ input }: { input
     visible: input.visible,
   };
 } });
-const snapshotRead = new PrivateResourceRequestScope(request()).read(snapshotResource, originalInput as never);
+const snapshotRead = new ResourceRequestScope(request()).read(snapshotResource, originalInput as never);
 originalInput["visible"] = "mutated";
 releaseSnapshot?.();
 assert.deepEqual(await snapshotRead, { frozen: true, hidden: false, symbols: 0, visible: "captured" });
 
-const boundedReads = new PrivateResourceRequestScope(request());
-const boundedResource = definePrivateResource({ read: ({ input }: { input: number }) => input });
+const boundedReads = new ResourceRequestScope(request());
+const boundedResource = defineResource({ read: ({ input }: { input: number }) => input });
 for (let index = 0; index < 1_024; index += 1) assert.equal(await boundedReads.read(boundedResource, index), index);
 await assert.rejects(boundedReads.read(boundedResource, 1_024), /FADENO_RESOURCE_READ_LIMIT/u);
 assert.equal(boundedReads.dependencies.length, 1_024);
 
-const boundedCalls = new PrivateResourceRequestScope(request());
+const boundedCalls = new ResourceRequestScope(request());
 for (let index = 0; index < 4_096; index += 1) assert.equal(await boundedCalls.read(boundedResource, 0), 0);
 await assert.rejects(boundedCalls.read(boundedResource, 0), /FADENO_RESOURCE_CALL_LIMIT/u);
 assert.equal(boundedCalls.flows.length, 4_096, "flow evidence cannot grow past the admitted call budget");
+
+let releaseClosed: (() => void) | undefined;
+const closeResource = defineResource({ read: async () => {
+  await new Promise<void>((resolve) => { releaseClosed = resolve; });
+  return "late";
+} });
+const closedScope = new ResourceRequestScope(request());
+const lateRead = closedScope.read(closeResource, null);
+closedScope.close();
+releaseClosed?.();
+await assert.rejects(lateRead, (error: unknown) => classifyResourceFailure(error) === "cancelled");
+assert.equal(closedScope.closed, true);
+assert.deepEqual(closedScope.dependencies[0]?.observation, { status: "cancelled" });
+await assert.rejects(closedScope.read(closeResource, null), /FADENO_RESOURCE_SCOPE_CLOSED/u);
 
 const flowInspection = {
   operation: "resource-decision",
