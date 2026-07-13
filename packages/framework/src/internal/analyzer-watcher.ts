@@ -310,9 +310,11 @@ export class PrivateFilesystemInvalidationAdapter {
       this.#hints.clear();
       this.#rawAliases.clear();
     } else if (!this.#fullWorkspace && hint !== null) {
-      this.#hints.add(hint);
-      this.#rawAliases.set(hint, this.#rawAliases.get(hint) ?? rawPath ?? hint);
-      this.#pendingBytes += Buffer.byteLength(hint) + Buffer.byteLength(rawPath ?? hint);
+      if (!this.#hints.has(hint)) {
+        this.#hints.add(hint);
+        this.#rawAliases.set(hint, rawPath ?? hint);
+        this.#pendingBytes += Buffer.byteLength(hint) + Buffer.byteLength(rawPath ?? hint);
+      }
     }
     if (!this.#active) this.#schedule();
     return Object.freeze({ notificationSequence, admissionSequence: sequence, status: "accepted", reason });

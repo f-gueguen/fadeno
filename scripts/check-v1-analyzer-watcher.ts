@@ -272,12 +272,16 @@ try {
     assert.equal(duplicate.notificationSequence, index + 4);
     assert.equal(duplicate.admissionSequence, index + 2);
   }
+  const distinctAfterDuplicates = identityAdapter.notify({ kind: "change", path: "src/identity-b.ts" });
+  assert.equal(distinctAfterDuplicates.reason, "contained-change");
+  assert.equal(distinctAfterDuplicates.admissionSequence, 12);
   const identityFlush = identityAdapter.flush();
   identityTarget.pending[0]!.resolve();
   const identityCycle = await identityFlush;
   assert.equal(identityCycle.batch.firstAdmissionSequence, 1);
-  assert.equal(identityCycle.batch.latestAdmissionSequence, 11);
-  assert.equal(identityCycle.batch.size, 11, "duplicate events must not silently truncate batch size");
+  assert.equal(identityCycle.batch.latestAdmissionSequence, 12);
+  assert.equal(identityCycle.batch.size, 12, "duplicate events must not silently truncate batch size");
+  assert.deepEqual(identityCycle.batch.hints, ["src/identity-b.ts", "src/identity.ts"]);
   await identityAdapter.close();
 
   const byteScheduler = new ManualScheduler();
