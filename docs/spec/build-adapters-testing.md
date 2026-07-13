@@ -235,13 +235,22 @@ provisional B7C application, validation-only stock compilation, final freshness,
 and commit or rollback execute as one queue item. The exact previous route set
 or first-generation empty state remains recoverable until acceptance. Compiler
 diagnostics, process failure, cancellation, supersession, ownership drift, and
-close all await child termination and restore the prior accepted generation.
+close all await child termination and restore the prior accepted generation. A
+rollback failure remains explicitly owned, is retried before later work or
+close, and prevents successful close if deterministic recovery still cannot
+restore the accepted state.
 
 The compiler is invoked asynchronously from the installed toolchain with the
-project configuration and no emit or incremental output. A bounded
-project-owned inventory must remain unchanged, compiler text is not exposed,
-and acceptance binds the coordinator generation, analyzer publication,
-provisional artifact identity, compiler version, and inventory identity. The
+project configuration, resolved input listing, and no emit or incremental
+output. Resolved local inputs must remain under the canonical project root;
+only the selected compiler and roots owned through the installed dependency
+directory may resolve outside it. Project source symlinks and validators bound
+to another root refuse. A bounded
+project-owned inventory is streamed with bounded memory and cancellation checks,
+must remain unchanged across compilation, and is rechecked immediately before
+commit. Compiler text is not exposed, and acceptance binds the coordinator
+generation, analyzer publication, provisional artifact identity, compiler
+version, and validation inventory identity. The
 framework project authority owns route, configuration, containment, and
 generated-output facts; the stock compiler owns the ordinary application module
 graph. No second application graph, `dist`, build-info, watcher, command, server,

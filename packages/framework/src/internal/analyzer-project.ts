@@ -173,6 +173,7 @@ export class PrivateProjectAnalyzer {
   readonly #coordinator = new PrivateAnalyzerOperationCoordinator();
   #compiler: PrivateCompilerValidator | null;
   #closePromise: Promise<void> | null = null;
+  #pendingRollback: RouteArtifactApplicationTransaction | null = null;
   readonly #managedDocuments = new Map<string, number>();
   #configurationFingerprint: string | null = null;
   #configurationSourceSha256: string | null = null;
@@ -182,11 +183,17 @@ export class PrivateProjectAnalyzer {
   constructor(projectRoot: string, options: PrivateProjectAnalyzerOptions = {}) {
     this.#root = resolve(projectRoot);
     this.#session = options.session ?? new AnalyzerSession(this.#root);
+    if (options.compiler && !options.compiler.ownsProject(this.#root)) {
+      throw new TypeError("FADENO_ANALYZER_COMPILER_CONFIG");
+    }
     this.#compiler = options.compiler ?? null;
   }
 
   analyze(): PrivateProjectAnalysisHandle {
-    const handle = this.#coordinator.start("analysis", (requestId, { signal }) => this.#analyze(requestId, signal));
+    const handle = this.#coordinator.start("analysis", (requestId, { signal }) => {
+      this.#recoverPendingRollback();
+      return this.#analyze(requestId, signal);
+    });
     this.#currentAnalysisToken = null;
     this.#latestAnalysisRequestId = handle.requestId;
     return handle;
@@ -194,13 +201,15 @@ export class PrivateProjectAnalyzer {
 
   refresh(options: PrivateProjectRefreshOptions = {}): PrivateProjectRefreshHandle {
     const handle = this.#coordinator.start("analysis", async (requestId, { signal, generation }) => {
+      this.#recoverPendingRollback();
       const analysis = await this.#analyze(requestId, signal);
       signal.throwIfAborted();
       let transaction: RouteArtifactApplicationTransaction | null = null;
       try {
         transaction = analysis[beginApplication](options.application);
         signal.throwIfAborted();
-        const compiler = await this.#compilerValidator().validate({
+        const validator = this.#compilerValidator();
+        const compiler = await validator.validate({
           requestId,
           generation,
           publicationOperationId: analysis.publication.operationId,
@@ -212,11 +221,20 @@ export class PrivateProjectAnalyzer {
         options.beforeCommit?.();
         signal.throwIfAborted();
         analysis[assertAnalysisFresh]();
+        await validator.assertCurrent(compiler, signal);
+        signal.throwIfAborted();
+        analysis[assertAnalysisFresh]();
+        transaction.assertPending();
         const application = transaction.commit();
         return Object.freeze({ requestId, generation, publication: analysis.publication, application, compiler });
       } catch (error) {
         if (transaction?.state === "pending") {
-          try { transaction.rollback(); } catch { /* next operation recovers retained rollback state */ }
+          try {
+            transaction.rollback();
+          } catch {
+            this.#pendingRollback = transaction;
+            this.#recoverPendingRollback();
+          }
         }
         throw error;
       }
@@ -231,13 +249,26 @@ export class PrivateProjectAnalyzer {
     this.#currentAnalysisToken = null;
     this.#latestAnalysisRequestId = null;
     this.#closePromise = this.#coordinator.close().then(async () => {
+      let rollbackFailure: unknown = null;
+      try { this.#recoverPendingRollback(); } catch (error) { rollbackFailure = error; }
       await this.#compiler?.close();
+      if (rollbackFailure) throw rollbackFailure;
     });
     return this.#closePromise;
   }
 
   #compilerValidator(): PrivateCompilerValidator {
     return this.#compiler ??= new PrivateCompilerValidator(this.#root);
+  }
+
+  #recoverPendingRollback(): void {
+    if (!this.#pendingRollback) return;
+    try {
+      this.#pendingRollback.rollback();
+      this.#pendingRollback = null;
+    } catch (error) {
+      throw new TypeError("FADENO_ANALYZER_APPLICATION_ROLLBACK", { cause: error });
+    }
   }
 
   async #analyze(requestId: string, signal: AbortSignal): Promise<PrivateProjectInternalAnalysis> {

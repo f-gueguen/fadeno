@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 import {
   PrivateCompilerValidationError,
@@ -11,6 +11,7 @@ import {
   PrivateProjectAnalyzer,
   type PrivateProjectRefreshHandle,
 } from "../packages/framework/src/internal/analyzer-project.ts";
+import type { RouteArtifactMutationFileSystem } from "../packages/framework/src/internal/routing/generator.ts";
 
 function copyApplication(root: string): void {
   cpSync(new URL("../examples/v1-app/src/", import.meta.url), join(root, "src"), { recursive: true });
@@ -48,6 +49,23 @@ function assertNoCompilerOutput(root: string): void {
   if (existsSync(parent)) {
     assert.equal(readdirSync(parent).some((name) => /routes\.(?:pending|previous|empty)-/u.test(name)), false);
   }
+}
+
+function oneTimeRollbackFailure(root: string): RouteArtifactMutationFileSystem {
+  const output = join(root, ".fadeno/routes");
+  let refused = false;
+  return Object.freeze({
+    mkdir: (path: string) => mkdirSync(path),
+    writeFile: (path: string, bytes: string) => writeFileSync(path, bytes),
+    rename: (from: string, to: string) => renameSync(from, to),
+    remove: (path: string) => {
+      if (!refused && path === output) {
+        refused = true;
+        throw new Error("FADENO_TEST_ROLLBACK_REMOVE_FAILURE");
+      }
+      rmSync(path, { recursive: true, force: true });
+    },
+  });
 }
 
 function deferred<T>(): Readonly<{ promise: Promise<T>; resolve(value: T): void }> {
@@ -90,8 +108,12 @@ try {
   assert.equal(directRecovery.application.changed, false);
 
   const helperDirectory = join(root, "src/support");
-  const helperPath = join(helperDirectory, "message.ts");
+  const helperEntryPath = join(helperDirectory, "message.ts");
+  const helperMiddlePath = join(helperDirectory, "message-middle.ts");
+  const helperPath = join(helperDirectory, "message-value.ts");
   mkdirSync(helperDirectory, { recursive: true });
+  writeFileSync(helperEntryPath, "export { message } from './message-middle.ts';\n");
+  writeFileSync(helperMiddlePath, "export { message } from './message-value.ts';\n");
   writeFileSync(helperPath, "export const message: string = 'ready';\n");
   const pagePath = join(root, "src/routes/page.tsx");
   const pageBytes = readFileSync(pagePath, "utf8");
@@ -131,6 +153,40 @@ try {
   await compilerFailure(analyzer.refresh());
   assertOutput(root, beforeRouteChangingFailure);
   writeFileSync(helperPath, "export const message: string = 'final';\n");
+  await analyzer.refresh().result;
+
+  const beforeLateSource = outputBytes(root);
+  mkdirSync(join(root, "src/routes/late-source"), { recursive: true });
+  writeFileSync(join(root, "src/routes/late-source/page.tsx"), "export default function Page(): string { return 'late'; }\n");
+  const lateSource = analyzer.refresh({ beforeCommit: () => {
+    writeFileSync(directPath, `${directBytes}\nconst lateCompilerFailure: string = 1;\n`);
+  } });
+  const lateSourceFailure = await compilerFailure(lateSource);
+  assert.equal(lateSourceFailure.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(root, beforeLateSource);
+  writeFileSync(directPath, directBytes);
+  await analyzer.refresh().result;
+
+  const beforeArtifactDrift = outputBytes(root);
+  mkdirSync(join(root, "src/routes/artifact-drift"), { recursive: true });
+  writeFileSync(join(root, "src/routes/artifact-drift/page.tsx"), "export default function Page(): string { return 'artifact'; }\n");
+  const artifactDrift = analyzer.refresh({ beforeCommit: () => {
+    writeFileSync(join(root, ".fadeno/routes/index.d.ts"), "// corrupted provisional artifact\n");
+  } });
+  const artifactDriftFailure = await compilerFailure(artifactDrift);
+  assert.equal(artifactDriftFailure.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(root, beforeArtifactDrift);
+  assertNoCompilerOutput(root);
+  await analyzer.refresh().result;
+
+  const beforeRollbackFailure = outputBytes(root);
+  mkdirSync(join(root, "src/routes/rollback-failure"), { recursive: true });
+  writeFileSync(join(root, "src/routes/rollback-failure/page.tsx"), "export default function Page(): string { return 'rollback'; }\n");
+  writeFileSync(helperPath, "export const message: string = 1;\n");
+  await compilerFailure(analyzer.refresh({ application: { fileSystem: oneTimeRollbackFailure(root) } }));
+  assertOutput(root, beforeRollbackFailure);
+  assertNoCompilerOutput(root);
+  writeFileSync(helperPath, "export const message: string = 'rollback-recovered';\n");
   await analyzer.refresh().result;
 
   const lateAdmission = deferred<PrivateProjectRefreshHandle>();
@@ -186,6 +242,113 @@ try {
   rmSync(externalConfigurationRoot, { recursive: true, force: true });
 }
 
+const ownershipRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-ownership-"));
+const outsideOwnershipRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-outside-"));
+const foreignProjectRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-foreign-project-"));
+try {
+  copyApplication(ownershipRoot);
+  copyApplication(foreignProjectRoot);
+  const analyzer = new PrivateProjectAnalyzer(ownershipRoot);
+  await analyzer.refresh().result;
+  const baseline = outputBytes(ownershipRoot);
+  const configPath = join(ownershipRoot, "tsconfig.json");
+  const configBytes = readFileSync(configPath, "utf8");
+  const config = JSON.parse(configBytes) as { compilerOptions: Record<string, unknown>; include: string[] };
+  const outsidePath = join(outsideOwnershipRoot, "outside.ts");
+  writeFileSync(join(outsideOwnershipRoot, "package.json"), "{\"type\":\"module\"}\n");
+  writeFileSync(outsidePath, "export const outside: string = 'outside';\n");
+  config.compilerOptions["rootDir"] = resolve("/");
+  config.include.push(relative(ownershipRoot, outsidePath));
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const externalInclude = await compilerFailure(analyzer.refresh());
+  assert.equal(externalInclude.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(ownershipRoot, baseline);
+  writeFileSync(configPath, configBytes);
+
+  const serverPath = join(ownershipRoot, "src/server.ts");
+  const serverBytes = readFileSync(serverPath, "utf8");
+  const linkedInput = join(ownershipRoot, "src/external-linked.ts");
+  symlinkSync(outsidePath, linkedInput);
+  writeFileSync(serverPath, `import { outside } from './external-linked.ts';\nvoid outside;\n${serverBytes}`);
+  const linkedFailure = await compilerFailure(analyzer.refresh());
+  assert.equal(linkedFailure.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(ownershipRoot, baseline);
+  writeFileSync(serverPath, serverBytes);
+  rmSync(linkedInput);
+
+  const importPath = relative(dirname(serverPath), outsidePath).replaceAll("\\", "/");
+  const importSpecifier = importPath.startsWith(".") ? importPath : `./${importPath}`;
+  const importConfig = JSON.parse(configBytes) as { compilerOptions: Record<string, unknown>; include: string[] };
+  importConfig.compilerOptions["rootDir"] = resolve("/");
+  writeFileSync(configPath, `${JSON.stringify(importConfig, null, 2)}\n`);
+  writeFileSync(serverPath, `import { outside } from ${JSON.stringify(importSpecifier)};\nvoid outside;\n${serverBytes}`);
+  const externalImport = await compilerFailure(analyzer.refresh());
+  assert.equal(externalImport.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(ownershipRoot, baseline);
+  writeFileSync(serverPath, serverBytes);
+  writeFileSync(configPath, configBytes);
+  await analyzer.refresh().result;
+  await analyzer.close();
+
+  const foreignCompiler = new PrivateCompilerValidator(foreignProjectRoot);
+  assert.throws(
+    () => new PrivateProjectAnalyzer(ownershipRoot, { compiler: foreignCompiler }),
+    /FADENO_ANALYZER_COMPILER_CONFIG/u,
+  );
+  await foreignCompiler.close();
+} finally {
+  rmSync(ownershipRoot, { recursive: true, force: true });
+  rmSync(outsideOwnershipRoot, { recursive: true, force: true });
+  rmSync(foreignProjectRoot, { recursive: true, force: true });
+}
+
+const observerRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-observer-"));
+try {
+  copyApplication(observerRoot);
+  const child = join(observerRoot, "compiler-observer-child.mjs");
+  writeFileSync(child, `console.log(${JSON.stringify(join(observerRoot, "src/server.ts"))});\nprocess.exit(0);\n`);
+  const request = Object.freeze({
+    requestId: "observer-request",
+    generation: 1,
+    publicationOperationId: "observer-publication",
+    artifactSourceSha256: "0".repeat(64),
+    signal: new AbortController().signal,
+  });
+  let spawnObserved = false;
+  let closeObserved = false;
+  let compiler!: PrivateCompilerValidator;
+  compiler = new PrivateCompilerValidator(observerRoot, {
+    command: Object.freeze({ executable: process.execPath, argumentsPrefix: Object.freeze([child]) }),
+    onSpawn: () => {
+      spawnObserved = true;
+      assert.throws(() => compiler.validate(request), /FADENO_ANALYZER_COMPILER_STATE/u);
+      throw new Error("FADENO_TEST_SPAWN_OBSERVER_FAILURE");
+    },
+    onClose: () => {
+      closeObserved = true;
+      throw new Error("FADENO_TEST_CLOSE_OBSERVER_FAILURE");
+    },
+  });
+  await compiler.validate(request);
+  assert.equal(spawnObserved, true);
+  assert.equal(closeObserved, true);
+  await compiler.close();
+
+  let spawnedDuringCancelledInventory = false;
+  const cancellation = new AbortController();
+  const cancelledCompiler = new PrivateCompilerValidator(observerRoot, {
+    command: Object.freeze({ executable: process.execPath, argumentsPrefix: Object.freeze([child]) }),
+    onSpawn: () => { spawnedDuringCancelledInventory = true; },
+  });
+  const cancelled = cancelledCompiler.validate({ ...request, signal: cancellation.signal });
+  cancellation.abort();
+  await assert.rejects(cancelled, /AbortError/u);
+  assert.equal(spawnedDuringCancelledInventory, false);
+  await cancelledCompiler.close();
+} finally {
+  rmSync(observerRoot, { recursive: true, force: true });
+}
+
 const processFailureRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-process-failure-"));
 try {
   copyApplication(processFailureRoot);
@@ -213,6 +376,99 @@ try {
   rmSync(processFailureRoot, { recursive: true, force: true });
 }
 
+const negativeChildRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-negative-child-"));
+const negativeChildControlRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-negative-control-"));
+try {
+  copyApplication(negativeChildRoot);
+  const baselineAnalyzer = new PrivateProjectAnalyzer(negativeChildRoot);
+  await baselineAnalyzer.refresh().result;
+  await baselineAnalyzer.close();
+  const baseline = outputBytes(negativeChildRoot);
+  const ownedInput = join(negativeChildRoot, "src/server.ts");
+
+  mkdirSync(join(negativeChildRoot, "src/routes/output-mutation"), { recursive: true });
+  writeFileSync(join(negativeChildRoot, "src/routes/output-mutation/page.tsx"), "export default function Page(): string { return 'output'; }\n");
+  const outputChild = join(negativeChildRoot, "compiler-output-child.mjs");
+  writeFileSync(outputChild, [
+    'import { writeFileSync } from "node:fs";',
+    'writeFileSync("compiler-output.txt", "unexpected\\n");',
+    `console.log(${JSON.stringify(ownedInput)});`,
+    "",
+  ].join("\n"));
+  const outputCompiler = new PrivateCompilerValidator(negativeChildRoot, {
+    command: Object.freeze({ executable: process.execPath, argumentsPrefix: Object.freeze([outputChild]) }),
+  });
+  const outputAnalyzer = new PrivateProjectAnalyzer(negativeChildRoot, { compiler: outputCompiler });
+  const outputFailure = await compilerFailure(outputAnalyzer.refresh());
+  assert.equal(outputFailure.code, "FADENO_ANALYZER_COMPILER_OUTPUT");
+  assertOutput(negativeChildRoot, baseline);
+  assert.equal(existsSync(join(negativeChildRoot, "compiler-output.txt")), true);
+  rmSync(join(negativeChildRoot, "compiler-output.txt"));
+  await outputAnalyzer.close();
+
+  mkdirSync(join(negativeChildRoot, "src/routes/output-limit"), { recursive: true });
+  writeFileSync(join(negativeChildRoot, "src/routes/output-limit/page.tsx"), "export default function Page(): string { return 'limit'; }\n");
+  const limitChild = join(negativeChildRoot, "compiler-output-limit-child.mjs");
+  writeFileSync(limitChild, 'process.stdout.write("x".repeat(4_300_000));\nsetInterval(() => undefined, 1_000);\n');
+  const limitCompiler = new PrivateCompilerValidator(negativeChildRoot, {
+    command: Object.freeze({ executable: process.execPath, argumentsPrefix: Object.freeze([limitChild]) }),
+  });
+  const limitAnalyzer = new PrivateProjectAnalyzer(negativeChildRoot, { compiler: limitCompiler });
+  const limitFailure = await compilerFailure(limitAnalyzer.refresh());
+  assert.equal(limitFailure.code, "FADENO_ANALYZER_COMPILER_OUTPUT_LIMIT");
+  assertOutput(negativeChildRoot, baseline);
+  await limitAnalyzer.close();
+
+  mkdirSync(join(negativeChildRoot, "src/routes/spawn-failure"), { recursive: true });
+  writeFileSync(join(negativeChildRoot, "src/routes/spawn-failure/page.tsx"), "export default function Page(): string { return 'spawn'; }\n");
+  const spawnCompiler = new PrivateCompilerValidator(negativeChildRoot, {
+    command: Object.freeze({ executable: join(negativeChildRoot, "missing-compiler"), argumentsPrefix: Object.freeze([]) }),
+  });
+  const spawnAnalyzer = new PrivateProjectAnalyzer(negativeChildRoot, { compiler: spawnCompiler });
+  const spawnFailure = await compilerFailure(spawnAnalyzer.refresh());
+  assert.equal(spawnFailure.code, "FADENO_ANALYZER_COMPILER_PROCESS");
+  assertOutput(negativeChildRoot, baseline);
+  await spawnAnalyzer.close();
+
+  mkdirSync(join(negativeChildRoot, "src/routes/forced-termination"), { recursive: true });
+  writeFileSync(join(negativeChildRoot, "src/routes/forced-termination/page.tsx"), "export default function Page(): string { return 'forced'; }\n");
+  const forcedChild = join(negativeChildRoot, "compiler-forced-termination-child.mjs");
+  const forcedReady = join(negativeChildControlRoot, "compiler-forced-termination-ready.txt");
+  writeFileSync(forcedChild, [
+    'import { writeFileSync } from "node:fs";',
+    'process.on("SIGTERM", () => undefined);',
+    'writeFileSync(process.argv[2], "1");',
+    `console.log(${JSON.stringify(ownedInput)});`,
+    'setInterval(() => undefined, 1_000);',
+    "",
+  ].join("\n"));
+  const forcedSpawn = deferred<number>();
+  let forcedSignal: NodeJS.Signals | null = null;
+  const forcedCompiler = new PrivateCompilerValidator(negativeChildRoot, {
+    command: Object.freeze({ executable: process.execPath, argumentsPrefix: Object.freeze([forcedChild, forcedReady]) }),
+    onSpawn: (pid) => forcedSpawn.resolve(pid),
+    onClose: (_pid, _code, signal) => { forcedSignal = signal; },
+  });
+  const forcedAnalyzer = new PrivateProjectAnalyzer(negativeChildRoot, { compiler: forcedCompiler });
+  const forced = forcedAnalyzer.refresh();
+  await forcedSpawn.promise;
+  await waitForCounter(forcedReady, 1);
+  forced.cancel();
+  await assert.rejects(forced.result, /FADENO_ANALYZER_PROJECT_CANCELLED/u);
+  assert.equal(forcedSignal, "SIGKILL");
+  assertOutput(negativeChildRoot, baseline);
+  await forcedAnalyzer.close();
+  rmSync(forcedReady);
+  assertNoCompilerOutput(negativeChildRoot);
+
+  const recovery = new PrivateProjectAnalyzer(negativeChildRoot);
+  await recovery.refresh().result;
+  await recovery.close();
+} finally {
+  rmSync(negativeChildRoot, { recursive: true, force: true });
+  rmSync(negativeChildControlRoot, { recursive: true, force: true });
+}
+
 const lifecycleRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-lifecycle-"));
 const controlRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-control-"));
 try {
@@ -222,7 +478,8 @@ try {
   const childScript = join(controlRoot, "compiler-child.mjs");
   writeFileSync(childScript, [
     'import { existsSync, readFileSync, writeFileSync } from "node:fs";',
-    'const [counter, release] = process.argv.slice(2);',
+    'const [counter, release, ownedInput] = process.argv.slice(2);',
+    'console.log(ownedInput);',
     'const run = existsSync(counter) ? Number(readFileSync(counter, "utf8")) + 1 : 1;',
     'writeFileSync(counter, String(run));',
     'if (run % 2 === 0) process.exit(0);',
@@ -234,7 +491,10 @@ try {
   const closed: number[] = [];
   let nextSpawn = deferred<number>();
   const compiler = new PrivateCompilerValidator(lifecycleRoot, {
-    command: Object.freeze({ executable: process.execPath, argumentsPrefix: Object.freeze([childScript, counter, release]) }),
+    command: Object.freeze({
+      executable: process.execPath,
+      argumentsPrefix: Object.freeze([childScript, counter, release, join(lifecycleRoot, "src/server.ts")]),
+    }),
     onSpawn: (pid) => {
       if (spawned.length > 0) assert.equal(closed.includes(spawned.at(-1)!), true, "new compiler started before old close");
       spawned.push(pid);

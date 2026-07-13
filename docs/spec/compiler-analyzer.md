@@ -710,24 +710,35 @@ route-directory transaction, runs stock compiler validation, rechecks the live
 operation and exact analysis authority, and then either commits the generated
 set or restores the prior accepted set before the item settles. The transaction
 retains a validated previous generation, or an explicit first-generation empty
-marker, until final acceptance. A later admission, explicit cancellation,
+marker, until final acceptance. Its exact provisional bytes and rollback set or
+empty marker are revalidated immediately before cleanup. A later admission, explicit cancellation,
 compiler diagnostic, process failure, application failure, or close therefore
-cannot accept the provisional route set.
+cannot accept the provisional route set. A rollback operation failure is retried
+and retained as project-owned unresolved state; later work must recover it, and
+close refuses instead of silently completing while an unaccepted generation is
+visible.
 
 Compiler validation uses the installed stock compiler asynchronously with the
 project `tsconfig.json`, `--noEmit`, pretty output disabled, and incremental
-output disabled. The project root and configuration must remain ordinary,
+output disabled. The compiler's own resolved input listing is checked without
+recreating its module graph: every local input must resolve inside the project,
+while only roots reached through the installed dependency directory and the
+selected compiler package are accepted outside it. Project-owned source
+symlinks, external includes or imports, and a validator bound to another root
+are refused. The project root and configuration must remain ordinary,
 symlink-free owned paths. A bounded project-owned inventory, excluding dependency
-and repository metadata directories, must be identical before and after the
-compiler child. Captured output is bounded and never transported as diagnostic
-prose; only compiler diagnostic numbers and an internal run identity survive a
-failure. Cancellation requests termination, escalates if necessary, and waits
-for the actual child close before rollback, later queue work, or analyzer close
-can complete.
+and repository metadata directories, is traversed asynchronously with
+cancellation checks and fixed-size file streaming. Its digest must be identical
+before and after the compiler child and is checked again immediately before
+commit, while the provisional transaction is still rollback-capable. Captured
+output is bounded and never transported as diagnostic prose; only compiler
+diagnostic numbers and an internal run identity survive a failure. Cancellation
+requests termination, escalates if necessary, and waits for the actual child
+close before rollback, later queue work, or analyzer close can complete.
 
 An accepted compiler result binds its coordinator request and generation,
 analyzer publication operation, provisional artifact source hash, compiler
-version, and final inventory identity. Framework analysis remains authoritative
+version, and validation inventory identity. Framework analysis remains authoritative
 for configuration, routes, generated ownership, and framework diagnostics. The
 stock compiler remains authoritative for ordinary direct and transitive module
 refresh; Fadeno does not build a second application dependency graph. B7D4 is
@@ -768,10 +779,15 @@ their exact command and lifecycle contracts in an accepted ADR.
   epoch across duplicate alias, symlink, stale revision, text mismatch, and
   desired/forgotten open-owner refusal.
 - Retained compiler fixtures use the stock compiler over direct and ordinary
-  transitive modules, cover deletion and rename failure and recovery, preserve
+  three-edge transitive modules, cover deletion and rename failure and recovery, preserve
   exact prior route bytes across diagnostic/process/cancel/supersede/close and
-  first-generation refusal, reject configuration ownership drift, await every
-  child close, and prove no compiler output or transaction debris remains.
+  first-generation refusal, reject configuration ownership and post-validation
+  ordinary-source drift, recover a transient rollback failure before settlement,
+  refuse external include/import, source-symlink and mismatched-root ownership,
+  isolate observer re-entry/failure, detect output mutation and bounded-output
+  overflow, cancel inventory before child spawn, prove forced termination and
+  failed spawn, await every child close, and prove stock compilation leaves no
+  compiler output or transaction debris.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.

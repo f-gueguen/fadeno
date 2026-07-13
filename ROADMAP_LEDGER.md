@@ -36,8 +36,12 @@ V1-DX-B7D3 — serialized analyzer application and compiler validation
   consumers. A new private two-phase transaction retains verified rollback
   ownership and first-generation recovery identity until validation commits.
 - The compiler boundary invokes the installed stock compiler asynchronously in
-  validation-only mode, bounds and redacts captured output, awaits actual child
-  termination, and never emits application files.
+  validation-only mode, confines its resolved local inputs, streams a bounded
+  cancellable project inventory, bounds and redacts captured output, awaits
+  actual child termination, and never emits application files.
+- Final acceptance rechecks the validation inventory and exact provisional and
+  rollback artifact state. Rollback failure stays owned and prevents successful
+  close until deterministic recovery succeeds.
 - The stock compiler owns ordinary direct and transitive module refresh. Fadeno
   binds acceptance to operation and artifact identity but does not maintain a
   second application dependency graph.

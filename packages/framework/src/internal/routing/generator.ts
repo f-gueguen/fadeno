@@ -40,6 +40,7 @@ export type RouteGenerationResult = Readonly<{
 export type RouteArtifactApplicationTransaction = Readonly<{
   readonly result: RouteGenerationResult;
   readonly state: "pending" | "committed" | "rolled-back";
+  assertPending(): void;
   commit(): RouteGenerationResult;
   rollback(): void;
 }>;
@@ -104,6 +105,34 @@ function parseManifest(bytes: string): RouteManifest {
     fail("OUTPUT_MANIFEST");
   }
   return value as RouteManifest;
+}
+
+function assertRouteArtifactDirectoryShape(output: string): void {
+  if (!existsSync(output) || lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) {
+    fail("TRANSACTION_CHANGED");
+  }
+  const names = readdirSync(output).sort(compareText);
+  if (names.length !== ROUTE_ARTIFACT_NAMES.length || names.some((name, index) => name !== [...ROUTE_ARTIFACT_NAMES].sort(compareText)[index])) {
+    fail("TRANSACTION_CHANGED");
+  }
+  for (const name of ROUTE_ARTIFACT_NAMES) {
+    const path = join(output, name);
+    if (lstatSync(path).isSymbolicLink() || !lstatSync(path).isFile()) fail("TRANSACTION_CHANGED");
+  }
+}
+
+function assertExactOwnedOutput(output: string, expected: Readonly<Record<string, string>>): void {
+  assertRouteArtifactDirectoryShape(output);
+  assertOwnedOutput(output);
+  for (const name of ROUTE_ARTIFACT_NAMES) {
+    if (readFileSync(join(output, name), "utf8") !== expected[name]) fail("TRANSACTION_CHANGED");
+  }
+}
+
+function assertEmptyMarker(path: string): void {
+  if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !lstatSync(path).isDirectory() || readdirSync(path).length > 0) {
+    fail("TRANSACTION_CHANGED");
+  }
 }
 
 function renderRuntime(manifest: RouteManifest): string {
@@ -451,11 +480,20 @@ export function beginRouteArtifactApplication(
     options.assertFresh();
     const result = Object.freeze({ changed: false, output, sourceSha256: plan.sourceSha256 });
     let state: RouteArtifactApplicationTransaction["state"] = "pending";
+    const assertPending = (): void => {
+      if (state !== "pending") fail("TRANSACTION_STATE");
+      assertExactOwnedOutput(output, expected);
+    };
     return Object.freeze({
       result,
       get state() { return state; },
+      assertPending,
       commit: () => {
         if (state === "rolled-back") fail("TRANSACTION_STATE");
+        if (state === "pending") {
+          options.assertFresh();
+          assertPending();
+        }
         state = "committed";
         return result;
       },
@@ -487,6 +525,9 @@ export function beginRouteArtifactApplication(
     if (existsSync(output)) assertOwnedOutput(output);
 
     const hadOutput = existsSync(output);
+    const previousFiles = hadOutput
+      ? Object.freeze(Object.fromEntries(ROUTE_ARTIFACT_NAMES.map((name) => [name, readFileSync(join(output, name), "utf8")])))
+      : null;
     if (hadOutput) {
       fileSystem.rename(output, previous);
       rollbackKind = "previous";
@@ -524,9 +565,20 @@ export function beginRouteArtifactApplication(
     }
     const result = Object.freeze({ changed: true, output, sourceSha256: plan.sourceSha256 });
     let state: RouteArtifactApplicationTransaction["state"] = "pending";
+    const assertPending = (): void => {
+      if (state !== "pending") fail("TRANSACTION_STATE");
+      assertExactOwnedOutput(output, expected);
+      if (rollbackKind === "previous" && previousFiles) assertExactOwnedOutput(previous, previousFiles);
+      else if (rollbackKind === "empty") assertEmptyMarker(empty);
+      else fail("TRANSACTION_STATE");
+    };
     const rollback = (): void => {
       if (state === "committed") fail("TRANSACTION_STATE");
       if (state === "rolled-back") return;
+      if (existsSync(output)) assertRouteArtifactDirectoryShape(output);
+      if (rollbackKind === "previous" && previousFiles) assertExactOwnedOutput(previous, previousFiles);
+      else if (rollbackKind === "empty") assertEmptyMarker(empty);
+      else fail("TRANSACTION_STATE");
       if (existsSync(output)) fileSystem.remove(output);
       if (rollbackKind === "previous" && existsSync(previous)) {
         fileSystem.rename(previous, output);
@@ -538,10 +590,15 @@ export function beginRouteArtifactApplication(
     return Object.freeze({
       result,
       get state() { return state; },
+      assertPending,
       commit: () => {
         if (state === "rolled-back") fail("TRANSACTION_STATE");
         if (state === "committed") return result;
+        options.assertFresh();
+        assertPending();
         options.observe?.("before-cleanup");
+        options.assertFresh();
+        assertPending();
         if (rollbackKind === "previous") fileSystem.remove(previous);
         if (rollbackKind === "empty") fileSystem.remove(empty);
         state = "committed";
