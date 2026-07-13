@@ -10,19 +10,19 @@ V1-DX-B7D4 — contained filesystem invalidation hints
 
 ## Exit criteria
 
-- [ ] Accept filesystem notifications only as contained invalidation hints and
+- [x] Accept filesystem notifications only as contained invalidation hints and
   derive semantic truth by deterministic project rescan through the B7D3
   analyzer authority.
-- [ ] Coalesce bursts with bounded debounce and maximum-delay ownership, retain
+- [x] Coalesce bursts with bounded debounce and maximum-delay ownership, retain
   one dirty signal for notifications arriving during active work, and prove no
   wakeup is lost.
-- [ ] Exclude framework-owned output and refuse ambiguous rename, missing-name,
+- [x] Exclude framework-owned output and refuse ambiguous rename, missing-name,
   duplicate-alias, symlink, external, and overflow notification state without
   publishing a generation or creating an output loop.
-- [ ] Close idempotently by cancelling timers, draining or cancelling retained
+- [x] Close idempotently by cancelling timers, draining or cancelling retained
   work, and leaving no watcher, compiler child, transaction marker, server, or
   public command behind.
-- [ ] Prove direct, transitive, configuration, deletion, rename, burst,
+- [x] Prove direct, transitive, configuration, deletion, rename, burst,
   event-during-work, output-exclusion, refusal, recovery, package-inaccessibility,
   full repository, local CI, architecture, Big-O, and fresh review gates.
 
@@ -32,8 +32,9 @@ V1-DX-B7D4 — contained filesystem invalidation hints
   treats notification paths and kinds only as reasons to schedule a complete
   authoritative rescan; it never creates, deletes, or renames semantic records
   from notification payloads.
-- The adapter will own a bounded pending-hint set, debounce deadline, maximum
-  deadline, active dirty flag, and one latest completion handoff. Notifications
+- The adapter owns a bounded pending-hint set and byte budget, distinct raw and
+  accepted identities, monotonic debounce and maximum-delay deadlines, an
+  active dirty flag, and one latest completion handoff. Notifications
   arriving during work schedule exactly one later rescan.
 - Canonical root and URI policy remains owned by the project analyzer. The
   adapter adds only containment, reserved-output exclusion, ambiguity refusal,
