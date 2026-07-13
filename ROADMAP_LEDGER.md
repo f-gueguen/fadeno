@@ -10,15 +10,15 @@ V1-10 — resource identity and cache contract
 
 ## Exit criteria
 
-- [ ] Accept ADR 0034 as the resource identity/cache decision without
+- [x] Accept ADR 0034 as the resource identity/cache decision without
   implementing the V1-11 runtime or crossing the action/session gate.
-- [ ] Define exact resource declaration and call identity, equivalent/distinct
+- [x] Define exact resource declaration and call identity, equivalent/distinct
   input rules, request-local deduplication, concurrent ownership, cancellation,
   dependency recording, and rendering-boundary failure behavior.
-- [ ] Define error caching, authorization and representation partitioning,
+- [x] Define error caching, authorization and representation partitioning,
   cross-request cache opt-in or explicit V1 refusal, bounded value/key rules,
   and conservative unsupported-value behavior.
-- [ ] Freeze correctness-first revalidation and any public `keeps` declaration
+- [x] Freeze correctness-first revalidation and any public `keeps` declaration
   boundary so removing every optimization preserves correctness and unsafe
   declarations remain development-visible refusals.
 - [ ] Add private strict-TypeScript executable success/refusal/isolation/
@@ -27,17 +27,23 @@ V1-10 — resource identity and cache contract
 
 ## In progress
 
-- V1-10 owns a decision and private evidence only. Public resource execution,
-  renderer integration, generated declarations, and revalidation runtime remain
-  V1-11 work after this gate resolves.
-- ADR 0020 already accepts correctness-first full revalidation and equivalent
-  request-local deduplication. V1-10 must preserve that result without
-  extrapolating cross-request caching or selective optimization safety.
-- DG-V1-05 continues to own actions, forms, sessions, origin/CSRF, replay,
-  redirects, uploads, and cookie lifecycle; this slice cannot invent them.
-- The decision evidence must include tenant/authorization isolation, expected
-  and unexpected failure behavior, cancellation, concurrency, bounded inputs,
-  conservative comparison refusal, and an unsafe-`keeps` control.
+- V1-10 is ready for review. ADR 0034 resolves the resource decision through
+  opaque declaration identity, deeply frozen normalized structural input,
+  request-only promise caching, branded failure behavior, request cancellation,
+  declaration-reference `keeps`, and explicit cross-request cache refusal.
+- `pnpm check:v1-resource-decision` proves equivalent/distinct and concurrent
+  reads, authorization isolation, expected/unexpected failure caching,
+  cancellation, bounded refusal, normalized flow evidence, and next-request
+  recovery. Immutable H4 evidence continues to own unsafe-`keeps` comparison.
+- Architecture review found no duplicated ownership or weak-payoff layer in the
+  bounded decision model. Independent Big-O challenge found no remaining
+  asymptotic issue after call/flow, entry, string/key, lazy-enumeration, and
+  snapshot bounds were added.
+- Public resource execution, renderer integration, generated declarations, and
+  revalidation runtime remain V1-11 work. DG-V1-05 continues to own actions,
+  forms, sessions, origin/CSRF, replay, redirects, uploads, and cookies.
+- The package contains the private evidence module but exports no resource API,
+  analyzer schema, editor product, or cross-request cache policy.
 
 ## Blockers
 
@@ -45,11 +51,6 @@ V1-10 — resource identity and cache contract
 
 ## Open questions
 
-- Whether V1 should refuse cross-request result caching entirely or accept one
-  narrowly partitioned explicit opt-in after the isolation evidence passes.
-- Whether equivalent resource input is a closed framework-owned structural
-  value grammar or an explicit application-owned key function with stricter
-  collision and purity obligations.
 - DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
