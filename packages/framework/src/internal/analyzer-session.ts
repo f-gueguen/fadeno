@@ -332,15 +332,6 @@ export class AnalyzerSession {
     });
   }
 
-  release(document: string): AnalyzerOperationResult {
-    return this.#operate("remove", document, (owner) => {
-      const state = this.#documents.get(owner);
-      if (!state) refuse("FADENO_ANALYZER_DOCUMENT_UNKNOWN");
-      if (state.overlayVersion !== undefined) refuse("FADENO_ANALYZER_DOCUMENT_OPEN");
-      this.#documents.delete(owner);
-    });
-  }
-
   #operate(
     operation: Exclude<AnalyzerDocumentOnlySnapshot["operation"], "initialize">,
     document: string,

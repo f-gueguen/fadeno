@@ -332,6 +332,13 @@ session, and publishes a complete in-memory route artifact plan. The plan owns
 the seven correlated route outputs, their fixed `.fadeno/routes` paths, source
 identity, bytes, hashes, and construction-time provenance. Planning never
 creates or modifies `.fadeno`; filesystem application remains V1-DX-B7C.
+The configuration value fingerprint and exact validated configuration-source
+identity are tracked separately. A source-only configuration edit advances the
+configuration epoch even when normalization produces the same value. A route
+root change closes sources that leave current ownership; surviving files remain
+closed session knowledge while their graph nodes are removed as definition
+changes, never fabricated filesystem deletion. Diagnostic evidence lists only
+the currently managed configuration and route sources.
 
 The same publication replaces the complete diagnostic facet and artifact set.
 A page/handler ownership collision therefore publishes causal owner and route

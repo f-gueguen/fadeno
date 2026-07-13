@@ -129,9 +129,13 @@ try {
   if (!Object.isFrozen(planned) || !Object.isFrozen(planned.sources) || !Object.isFrozen(planned.files)) {
     throw new Error("FADENO_ROUTING_PLAN_MUTABLE");
   }
-  if (!Object.isFrozen(planned.manifest.routes) || !Object.isFrozen(planned.manifest.routes[0]!.segments) ||
-      !Object.isFrozen(planned.manifest.routes[0]!.layouts)) throw new Error("FADENO_ROUTING_PLAN_NESTED_MUTABLE");
+  if (!Object.isFrozen(planned.manifest.routes) || !Object.isFrozen(planned.manifest.routes[0]) ||
+      !Object.isFrozen(planned.manifest.routes[0]!.segments) || !Object.isFrozen(planned.manifest.routes[0]!.segments[0]) ||
+      !Object.isFrozen(planned.manifest.routes[0]!.parameters) || !Object.isFrozen(planned.manifest.routes[0]!.layouts)) {
+    throw new Error("FADENO_ROUTING_PLAN_NESTED_MUTABLE");
+  }
   assert.throws(() => (planned.manifest.routes as RouteManifest["routes"][number][]).push(planned.manifest.routes[0]!));
+  assert.throws(() => { (planned.manifest.routes[0] as { id: string }).id = "/mutated"; });
   if (planned.sourceSha256 !== planned.manifest.generation.sourceSha256 ||
       JSON.stringify(planned.files) !== JSON.stringify(repeatedPlan.files)) {
     throw new Error("FADENO_ROUTING_PLAN_IDENTITY");

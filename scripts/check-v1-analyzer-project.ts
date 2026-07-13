@@ -127,6 +127,8 @@ try {
     switchedRoot.diagnostics.identity.documents.map(({ path }) => path),
     ["fadeno.config.ts", "src/alternate-routes/page.tsx"],
   );
+  assert.equal(switchedRoot.publication.graph.removedNodes.length > 0, true);
+  assert.equal(switchedRoot.publication.graph.removedNodes.every(({ reason }) => reason === "definition-removed"), true);
   assert.equal(switchedRoot.publication.artifacts.length, 7);
 
   writeFileSync(join(root, "fadeno.config.ts"), [

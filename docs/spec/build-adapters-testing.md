@@ -10,6 +10,9 @@ Node HTTP as the initial adapter target without creating a public package.
    root.
 2. The only discovered file is root `fadeno.config.ts`, with a default plain
    object export and a closed typed shape.
+   Ownership is validated as a non-symlink ordinary file before source bytes are
+   read. Evaluation is accepted only when those exact source bytes remain
+   current; self-modifying or concurrently replaced configuration is refused.
 3. Unknown keys, invalid combinations, missing paths, and unsupported adapter
    capabilities fail before serving or building.
 4. Configuration used by a production build is serializable into a redacted

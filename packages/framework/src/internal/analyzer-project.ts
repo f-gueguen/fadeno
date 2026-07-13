@@ -101,7 +101,7 @@ export class PrivateProjectAnalyzer {
       this.#configurationSourceSha256 = configurationSourceSha256;
     }
 
-    const documents = this.#session.currentSnapshot.documents;
+    const documents = this.#session.currentSnapshot.documents.filter(({ path }) => this.#managedPaths.has(path));
     const documentByPath = new Map(documents.map((document) => [document.path, document]));
     const definitions = this.#definitions(routePlan, Object.keys(desiredSources), documentByPath);
     let diagnostics: AnalyzerDiagnosticBatch | null = null;
@@ -157,8 +157,7 @@ export class PrivateProjectAnalyzer {
       if (desired.has(path)) continue;
       const current = this.#session.currentSnapshot.documents.find((document) => document.path === path);
       if (current?.open) accepted(this.#session.close(join(this.#root, path), current.open.lifetime, current.open.version));
-      if (existsSync(join(this.#root, path))) accepted(this.#session.release(join(this.#root, path)));
-      else accepted(this.#session.remove(join(this.#root, path)));
+      if (!existsSync(join(this.#root, path))) accepted(this.#session.remove(join(this.#root, path)));
       this.#managedPaths.delete(path);
     }
     for (const [path, text] of [...desired].sort(([left], [right]) => compareText(left, right))) {
