@@ -22,7 +22,7 @@ V1-DX-B7D5 — build and development lifecycle contract
 - [x] Preserve human-only command output, private analyzer and watcher
   boundaries, and every external-schema, editor-product, registry, deployment,
   and support gate.
-- [ ] Prove private decision evidence, documentation/model consistency, full
+- [x] Prove private decision evidence, documentation/model consistency, full
   repository, local CI, architecture, Big-O applicability, and fresh review
   gates without implementing `fadeno build` or `fadeno dev`.
 
