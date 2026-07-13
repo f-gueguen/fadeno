@@ -310,7 +310,7 @@ export class PrivateDevelopmentDecisionModel {
   }
 
   refuseCandidate(): PrivateDevelopmentTransition {
-    if (this.#state !== "preparing") throw new TypeError("FADENO_DEV_STATE");
+    if (this.#state !== "preparing" && this.#state !== "switching") throw new TypeError("FADENO_DEV_STATE");
     this.#state = "ready";
     this.#candidateGeneration = null;
     return this.#snapshot("Fadeno development diagnostics published; last accepted generation remains active.\n");

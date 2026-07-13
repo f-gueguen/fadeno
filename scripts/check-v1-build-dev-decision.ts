@@ -158,6 +158,12 @@ try {
   assert.throws(() => { recovery.prepare(3); }, /FADENO_DEV_STATE/u);
   assert.throws(() => { recovery.prepare(Number.NaN); }, /FADENO_DEV_STATE/u);
 
+  const switchingRefusal = new PrivateDevelopmentDecisionModel(5_000, 4_173);
+  switchingRefusal.ready(1);
+  switchingRefusal.prepare(2);
+  switchingRefusal.candidateReady();
+  assert.equal(switchingRefusal.refuseCandidate().state, "ready");
+
   const graceful = new PrivateDevelopmentDecisionModel(100, 4_173);
   graceful.ready(1);
   assert.equal(graceful.signal(1_000).state, "stopping");

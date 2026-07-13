@@ -218,6 +218,7 @@ try {
   assert.equal((await maximum).batch.fullWorkspace, true, "bounded hint overflow did not rescan workspace");
 
   assert.equal(adapter.notify({ kind: "change", path: ".fadeno/routes/index.js" }).status, "excluded");
+  assert.equal(adapter.notify({ kind: "change", path: "dist/server/bootstrap.js" }).status, "excluded");
   assert.equal(adapter.notify({ kind: "change", path: ".git/index" }).status, "excluded");
   assert.equal(adapter.notify({ kind: "change", path: "../external.ts" }).status, "refused");
   assert.equal(adapter.notify({ kind: "change", path: "bad\0path" }).status, "refused");

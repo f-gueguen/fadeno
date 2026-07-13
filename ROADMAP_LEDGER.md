@@ -6,42 +6,43 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7D6 — transactional production build
+V1-DX-B7D7 — packed development server lifecycle
 
 ## Exit criteria
 
-- [x] Add the exact public `fadeno build --project-root <path>` dispatch without
-  changing `fadeno check` or accepting development and machine-output options.
-- [x] Build from one current diagnostic-free retained analyzer/compiler
-  generation into a contained stage, validate the complete runtime closure,
-  and atomically accept or restore exactly one `dist` generation.
-- [x] Generate a deterministic manifest, route loader, and loopback-only server
-  bootstrap whose documented production invocation refuses stale or mixed
-  runtime ownership before importing application behavior.
-- [x] Extend the canonical packed application with permanent executable build,
-  start, deliberate failure, human diagnostic, flow-inspection, rollback, and
-  recovery evidence through public package entrypoints.
-- [x] Prove reproducible bytes, first-build cleanup, last-good preservation,
-  secret exclusion, package-boundary stability, full repository, local CI,
-  architecture, Big-O applicability, and fresh review gates.
+- [x] Add only the exact public
+  `fadeno dev --project-root <path> --port <1..65535>` dispatch and one retained
+  supervisor using the accepted project authority and invalidation adapter.
+- [x] Start the initial complete generation in a fresh verified child, register
+  the route loader before application import, bind loopback at the explicit
+  port, and print readiness only after the complete lifecycle is active.
+- [x] Prove direct, transitive, configuration, deletion, rename, and burst
+  changes use authoritative rescan, supersede stale work, replace diagnostic
+  batches, clear repaired diagnostics, and preserve the last-good child.
+- [x] Implement the bounded stop-old/accept/start-new switch, startup rollback,
+  stream ownership, graceful 5,000 ms drain, repeated-signal force, and complete
+  watcher/compiler/transaction/child cleanup.
+- [ ] Extend the canonical packed application with permanent executable
+  serve/change/failure/flow/recovery/shutdown evidence and pass full repository,
+  local CI, architecture, Big-O, and fresh review gates.
 
 ## In progress
 
-- B7D6 implements only ADR 0033's production build/start half. B7D7 remains the
-  sole owner of the operating-system watcher, development server, last-good
-  child switching, reload, and shutdown command behavior.
-- Build reuses the private project authority, retained compiler validation, and
-  accepted generation evidence. It does not publish those internals or create a
-  second route/configuration/diagnostic policy.
-- Human command output and the installed executable are the public behavior.
-  Machine-readable output, a stable external diagnostic schema, a public
-  analyzer API, registry identity, and broader deployment addresses remain
-  gated or deferred.
-- The canonical V1 application and its isolated scenarios own the permanent
-  public build/start/failure/flow/rollback/recovery evidence.
-- Fresh architecture and Big-O challenges found no remaining blocker after the
-  final runtime-import scanner became bounded and linear; local CI passed the
-  exact clean implementation commit before this ledger transition.
+- The exact installed `fadeno dev` command, retained private supervisor,
+  authoritative watcher integration, isolated generation children, last-good
+  switching, startup rollback, and bounded shutdown behavior are implemented.
+- The canonical packed application permanently proves public readiness,
+  direct/transitive/configuration/rename/deletion/burst changes, compiler and
+  startup refusal, correction, flow, recovery, stale-artifact removal,
+  sustained runtime output, graceful close, repeated-signal force, occupied
+  address refusal, and usage refusal.
+- Focused and complete repository checks pass. Architecture and independently
+  challenged Big-O audits found no remaining architectural or asymptotic
+  blocker; one output-longevity issue found during challenge was corrected and
+  covered before completion.
+- Machine-readable command output, a stable external diagnostic schema, a
+  public analyzer API, registry identity, broader deployment addresses, and a
+  supported editor product remain gated or deferred.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -211,3 +212,7 @@ V1-DX-B7D6 — transactional production build
   lifecycle contract after current packed decision evidence for compiler,
   output, runtime, environment, loader, last-good, diagnostics, and shutdown
   ownership, without shipping either command or a public analyzer surface.
+- V1-DX-B7D6 — Merge commit `b381041` implements the packed transactional
+  production build and generated production start with exact current-package,
+  compiler, source, dependency, runtime, output, rollback, concurrency,
+  redaction, and clean-consumer evidence.

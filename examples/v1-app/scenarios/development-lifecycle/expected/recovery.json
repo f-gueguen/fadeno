@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "scenario": "development-lifecycle",
+  "correction": "replace-the-invalid-value-with-a-number",
+  "staleDiagnosticRemoved": true,
+  "lastGoodServerPreservedDuringFailure": true,
+  "correctedArtifactPublished": true,
+  "staleArtifactRemovedAfterOwnerDeletion": true,
+  "ownedChildrenRemovedOnShutdown": true
+}

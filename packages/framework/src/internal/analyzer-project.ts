@@ -89,6 +89,16 @@ export type PrivateProjectRefresh = Readonly<{
 
 export type PrivateProjectRefreshHandle = PrivateAnalyzerOperationHandle<PrivateProjectRefresh>;
 
+export class PrivateProjectDiagnosticError extends TypeError {
+  readonly diagnostics: AnalyzerDiagnosticBatch;
+
+  constructor(diagnostics: AnalyzerDiagnosticBatch) {
+    super("FADENO_ANALYZER_APPLICATION_DIAGNOSTIC");
+    this.name = "PrivateProjectDiagnosticError";
+    this.diagnostics = diagnostics;
+  }
+}
+
 const beginApplication = Symbol("beginApplication");
 const assertAnalysisFresh = Symbol("assertAnalysisFresh");
 
@@ -223,6 +233,9 @@ export class PrivateProjectAnalyzer {
       this.#recoverPendingRollback();
       this.#recoverPendingCleanup();
       const analysis = await this.#analyze(requestId, signal);
+      if (analysis.diagnostics.diagnostics.length > 0) {
+        throw new PrivateProjectDiagnosticError(analysis.diagnostics);
+      }
       signal.throwIfAborted();
       let transaction: RouteArtifactApplicationTransaction | null = null;
       try {

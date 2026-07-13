@@ -146,6 +146,8 @@ try {
     "package/dist/internal/project-build.js",
     "package/dist/internal/project-check.d.ts",
     "package/dist/internal/project-check.js",
+    "package/dist/internal/project-dev.d.ts",
+    "package/dist/internal/project-dev.js",
     "package/dist/internal/routing/artifact-contract.d.ts",
     "package/dist/internal/routing/artifact-contract.js",
     "package/dist/internal/routing/discovery.d.ts",
@@ -288,6 +290,7 @@ try {
     ["analyzer-explain", "AnalyzerExplainCoordinator"],
     ["analyzer-route-explain", "createRouteExplainContribution"],
     ["project-build", "runProjectBuildCommand"],
+    ["project-dev", "runProjectDevCommand"],
   ] as const) {
     const internalJs = join(installedPackage, `dist/internal/${subpath}.js`);
     const internalTypes = join(installedPackage, `dist/internal/${subpath}.d.ts`);

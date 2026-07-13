@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "scenario": "development-lifecycle",
+  "decision": "publish-only-complete-current-generation",
+  "causes": [
+    "direct-route-change",
+    "transitive-module-change",
+    "configuration-change",
+    "rename-and-deletion-rescan",
+    "burst-supersession"
+  ],
+  "ownership": {
+    "analyzer": ".fadeno/routes",
+    "candidate": ".fadeno/build-stage/generation-1",
+    "acceptedOutput": "dist",
+    "server": "retained-supervisor-child"
+  },
+  "skippedWork": [
+    "obsolete-burst-generations",
+    "failed-candidate-publication",
+    "failed-child-switch"
+  ],
+  "observableOutcome": "latest-complete-generation-served"
+}
