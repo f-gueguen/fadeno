@@ -285,6 +285,17 @@ for work arriving during an operation, and recover by deterministic rescan
 rather than interpreting notification names as truth. None of these private
 stages implies a public production build or development server.
 
+The B7D4 private adapter normalizes named hints against the project root,
+refuses external, malformed, or symlink paths, and excludes `.fadeno` and
+repository metadata before scheduling. Rename, missing-name, alias ambiguity,
+and bounded precise-hint overflow become full-workspace rescans rather than
+semantic path operations. A bounded debounce and maximum delay coalesce idle
+bursts; notifications admitted during one B7D3 refresh form exactly one later
+batch. Flush and idempotent close own completion, cancellation, timer cleanup,
+project close, and observer isolation. This is disposable watcher-lifecycle
+evidence only: no operating-system watcher, server, CLI, or public contract is
+selected.
+
 DG-V1-06 must be resolved before either public command is implemented. Its ADR
 must define the production entry and compiler inputs, transactional output and
 start contract, development server address and readiness, watch/restart and

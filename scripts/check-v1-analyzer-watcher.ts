@@ -144,12 +144,17 @@ try {
   const scheduler = new ManualScheduler();
   const target = new ManualRefreshTarget(schedulerRoot);
   const cycles: PrivateFilesystemRefreshCycle[] = [];
+  const failures: string[] = [];
   const adapter = new PrivateFilesystemInvalidationAdapter(schedulerRoot, target, {
     debounceMs: 25,
     maximumDelayMs: 100,
     maximumPendingHints: 2,
     scheduler,
     onCycle: (cycle) => { cycles.push(cycle); },
+    onFailure: (_batch, error) => {
+      failures.push(error instanceof Error ? error.message : String(error));
+      throw new Error("FADENO_TEST_FAILURE_OBSERVER");
+    },
   });
 
   assert.equal(adapter.notify({ kind: "change", path: "src/a.ts" }).reason, "contained-change");
@@ -221,8 +226,18 @@ try {
   target.pending[6]!.resolve();
   assert.equal((await ambiguous).batch.fullWorkspace, true);
 
+  adapter.notify({ kind: "change", path: "src/failure.ts" });
+  const failed = adapter.flush();
+  target.pending[7]!.reject(new Error("FADENO_TEST_REFRESH_FAILURE"));
+  await assert.rejects(failed, /FADENO_TEST_REFRESH_FAILURE/u);
+  assert.deepEqual(failures, ["FADENO_TEST_REFRESH_FAILURE"]);
+
+  adapter.notify({ kind: "change", path: "src/closing.ts" });
+  scheduler.advance(25);
+  const closingFlush = adapter.flush();
   const close = adapter.close();
   assert.equal(adapter.close(), close);
+  await assert.rejects(closingFlush, /FADENO_ANALYZER_WATCH_CLOSED/u);
   await close;
   assert.equal(target.closeCount, 1);
   assert.throws(() => adapter.notify({ kind: "change", path: "src/closed.ts" }), /FADENO_ANALYZER_WATCH_CLOSED/u);
@@ -236,6 +251,15 @@ try {
 const integrationRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-watcher-integration-"));
 try {
   copyApplication(integrationRoot);
+  const server = join(integrationRoot, "src/server.ts");
+  const serverBytes = readFileSync(server, "utf8");
+  const support = join(integrationRoot, "src/watcher-support");
+  mkdirSync(support);
+  writeFileSync(join(support, "first.ts"), "export { watcherValue } from './second.ts';\n");
+  writeFileSync(join(support, "second.ts"), "export { watcherValue } from './third.ts';\n");
+  const transitiveLeaf = join(support, "third.ts");
+  writeFileSync(transitiveLeaf, "export const watcherValue: string = 'current';\n");
+  writeFileSync(server, "import { watcherValue } from './watcher-support/first.ts';\nvoid watcherValue;\n" + serverBytes);
   const analyzer = new PrivateProjectAnalyzer(integrationRoot);
   const adapter = new PrivateFilesystemInvalidationAdapter(integrationRoot, analyzer, {
     debounceMs: 0,
@@ -250,15 +274,13 @@ try {
   adapter.notify({ kind: "change", path: route });
   assert.equal((await adapter.flush()).refresh.application.changed, true);
 
-  const server = join(integrationRoot, "src/server.ts");
-  const serverBytes = readFileSync(server, "utf8");
   const beforeFailure = outputBytes(integrationRoot);
-  writeFileSync(server, `${serverBytes}\nconst watcherFailure: string = 1;\n`);
-  adapter.notify({ kind: "change", path: "src/server.ts" });
+  writeFileSync(transitiveLeaf, "export const watcherValue: string = 1;\n");
+  adapter.notify({ kind: "change", path: "src/watcher-support/third.ts" });
   await assert.rejects(adapter.flush(), /FADENO_ANALYZER_COMPILER_DIAGNOSTIC/u);
   assertOutput(integrationRoot, beforeFailure);
-  writeFileSync(server, serverBytes);
-  adapter.notify({ kind: "change", path: "src/server.ts" });
+  writeFileSync(transitiveLeaf, "export const watcherValue: string = 'recovered';\n");
+  adapter.notify({ kind: "change", path: "src/watcher-support/third.ts" });
   await adapter.flush();
 
   rmSync(join(integrationRoot, "src/routes/watched"), { recursive: true });
