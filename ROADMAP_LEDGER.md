@@ -6,41 +6,46 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7B — packed public project-check workflow
+V1-DX-B7C — analyzer-owned transactional route-artifact application
 
 ## Exit criteria
 
-- [x] Add the accepted `fadeno` executable with one `check` command, explicit
-  project-root semantics, deterministic exit status, and human diagnostics.
-- [x] Route the executable exclusively through the private project analyzer and
-  keep runtime-neutral and Node adapter package exports unchanged.
-- [x] Prove current packed-package execution with a stale-package canary and
-  canonical success, deliberate collision, flow-inspection, and recovery runs.
-- [x] Keep analyzer transports private and add no filesystem publication,
-  build/watch consumer, public schema, protocol, or editor product.
-- [x] Pass analyzer-workflow, private-package, full repository, local CI, and
-  fresh independent review gates.
+- [ ] Apply only the exact current, complete, diagnostic-free seven-artifact
+  route publication; analyzer removals and diagnostic publications never delete
+  the last accepted disk generation.
+- [ ] Use one route-specific contained transaction with exact-plan no-op,
+  symlink and unowned-content refusal, stale replacement, and no mixed file set.
+- [ ] Bind application to the originating analyzer publication and refuse older
+  analysis, changed source/configuration/structure, or transported artifacts
+  before mutation or through rollback.
+- [ ] Prove actual stage, backup, replacement, validation, restore, cleanup, and
+  restart-recovery failures without promoting unconfirmed pending output.
+- [ ] Route the canonical running example and project integration evidence
+  through analyze-then-apply while adding no command, build/watch consumer,
+  package export, public schema, protocol, or editor product.
+- [ ] Pass routing, analyzer, workflow, private-package, running-example, full
+  repository, local CI, and fresh independent review gates.
 
 ## In progress
 
 - Independent challenge split the former B7 outcome into B7A through B7D so
   route authority, packed check, transactional application, and retained
   build/watch consumers remain independently reviewable and reversible.
-- B7B is one public executable consumer over the B7A private authority. It does
-  not expose analyzer modules or permit command code to rediscover route facts.
-- ADR 0032 fixes `fadeno check --project-root <path> [--explain]`, human stream
-  ownership, and exit codes 0 through 3. Machine output remains refused while
-  DG-A0-02 is open; private normalized fixtures remain conformance evidence.
-- Packed workflow evidence must install the current tarball, execute its declared
-  `fadeno` binary, and reject a seeded stale-package canary before any scenario
-  can pass.
-- The current packed workflow verifies the exact installed manifest,
-  CLI/internal closure, configuration parser, and selected parser executable;
-  mutation-tests stale identity refusal; and executes stable human success,
-  collision, correction, semantic flow, and recovery outputs without writing
-  project artifacts.
-- Fresh independent review found no P1 or P2 issue, and the complete local
-  merge gate passed from one unchanged committed worktree.
+- B7C reuses ADR 0027's exact owned route set and directory transaction but may
+  consume bytes only from B7A's accepted analyzer publication. It may not
+  discover routes, render files, or interpret generic analyzer artifact paths.
+- A diagnostic publication's in-memory removals are causal evidence, not disk
+  deletion authority. Collision preserves the last accepted disk generation;
+  repair applies one new complete publication.
+- Portable directory replacement guarantees that observers never see a mixed
+  generation, but there is a bounded interval with no `routes` directory between
+  backup and replacement. B7D must serialize retained consumers across that
+  interval; B7C does not claim observer-continuous availability.
+- One validated previous generation may support immediate or next-run recovery.
+  Pending output is never promoted, and ambiguous, symlinked, partial, or
+  unowned transaction debris is refused rather than guessed or deleted.
+- Exact publication reapplication performs no writes and preserves mtimes.
+  Partial per-file preservation is not claimed.
 - The real project authority must replace manual analyzer definitions and the
   running example's direct generation path incrementally; it may not wrap or
   preserve a second discovery/diagnostic/generation policy.
@@ -188,3 +193,7 @@ V1-DX-B7B — packed public project-check workflow
   freshness, atomic diagnostics/artifacts/removals, typed collision facts,
   provenance, flow and recovery evidence, and no filesystem or public analyzer
   surface.
+- V1-DX-B7B — Commit `5c8fc17` adds the packed human `fadeno check` workflow,
+  static non-executing configuration parsing, exact installed implementation and
+  parser identity, stable success/collision/correction/flow/recovery evidence,
+  and no filesystem writes, machine schema, or editor product.
