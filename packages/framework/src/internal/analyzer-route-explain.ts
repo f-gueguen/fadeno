@@ -212,7 +212,8 @@ function validateContribution(input: AnalyzerFacetContribution): AnalyzerFacetCo
     const outcomeFields = outcome.fields as Readonly<Record<string, AnalyzerFacetValue>>;
     const refused = decisionFields["decision"] === "refuse-static-route-plan";
     if ((outcomeFields["status"] === "static-refused") !== refused) refuse();
-    const codes = causes.map(({ fields }) => String((fields as Readonly<Record<string, AnalyzerFacetValue>>)["code"])).sort(compareText);
+    const codes = [...new Set(causes.map(({ fields }) =>
+      String((fields as Readonly<Record<string, AnalyzerFacetValue>>)["code"])))].sort(compareText);
     if (JSON.stringify(outcomeFields["diagnosticCodes"]) !== JSON.stringify(codes)) refuse();
     if (JSON.stringify(outcome.causedBy) !== JSON.stringify([...causeIds].sort(compareText))) refuse();
   }
@@ -506,7 +507,7 @@ export function createRouteExplainContribution(
   if (decisionAdded) {
     add(record("route-outcome", "outcome", {
       status: refused ? "static-refused" : "static-ready",
-      diagnosticCodes: retainedDiagnostics.map(({ code }) => code).sort(compareText),
+      diagnosticCodes: [...new Set(retainedDiagnostics.map(({ code }) => code))].sort(compareText),
       artifactIds,
     }, "route-decision", retainedDiagnostics.map(({ instanceId }) => causeId(instanceId))));
   }

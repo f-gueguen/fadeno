@@ -391,9 +391,12 @@ const expectedV1DxB = [
   { id: "V1-DX-B4", features: ["BUILD-01", "TEST-01", "DX-01"], dependency: "V1-DX-B3" },
   { id: "V1-DX-B5", features: ["TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B4" },
   { id: "V1-DX-B6", features: ["TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B5" },
-  { id: "V1-DX-B7", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B6" },
+  { id: "V1-DX-B7A", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B6" },
+  { id: "V1-DX-B7B", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B7A" },
+  { id: "V1-DX-B7C", features: ["BUILD-01", "TEST-01", "DX-01"], dependency: "V1-DX-B7B" },
+  { id: "V1-DX-B7D", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B7C" },
 ] as const;
-const v1DxBRows = tableRows(v1, /^\| V1-DX-B\d+ \|/);
+const v1DxBRows = tableRows(v1, /^\| V1-DX-B\d+[A-Z]? \|/);
 const v1DxBIds = v1DxBRows.map((cells) => cells[0]);
 const expectedV1DxBIds = expectedV1DxB.map((entry) => entry.id);
 if (JSON.stringify(v1DxBIds) !== JSON.stringify(expectedV1DxBIds)) {

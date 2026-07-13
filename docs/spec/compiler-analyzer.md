@@ -325,6 +325,41 @@ Generation is reproducible: a clean second run over identical inputs produces
 byte-identical outputs and does not rewrite unchanged files. Generated files
 identify their generator version and are never hand-edited.
 
+V1-DX-B7A places route discovery and byte rendering behind one private project
+authority. One project analysis loads the owned configuration, captures the
+exact symlink-free route sources, synchronizes them into a retained analyzer
+session, and publishes a complete in-memory route artifact plan. The plan owns
+the seven correlated route outputs, their fixed `.fadeno/routes` paths, source
+identity, bytes, hashes, and construction-time provenance. Planning never
+creates or modifies `.fadeno`; filesystem application remains V1-DX-B7C.
+The configuration value fingerprint and exact validated configuration-source
+identity are tracked separately. A source-only configuration edit advances the
+configuration epoch even when normalization produces the same value. A route
+root change closes sources that leave current ownership; surviving files remain
+closed session knowledge while their graph nodes are removed as definition
+changes, never fabricated filesystem deletion. Diagnostic evidence lists only
+the currently managed configuration and route sources.
+Immediately before publication, the authority revalidates the complete route
+structure and source identity, including newly added entries that were absent
+from the captured plan. A stale plan is refused. This analysis-time freshness
+check does not authorize a later filesystem applicator to rediscover or rebuild
+accepted bytes.
+
+The same publication replaces the complete diagnostic facet and artifact set.
+A page/handler ownership collision therefore publishes causal owner and route
+diagnostics, review-only correction intent, skipped manifest work, and removal
+of the previously current artifact set in one generation. Repair publishes an
+empty diagnostic/correction replacement and restores the complete artifact
+set. Semantic or explicitly activated deep route explanation is collected
+later from that accepted publication and never reruns route discovery or
+application behavior.
+
+This authority is an internal module included in the packed implementation but
+blocked from package deep imports. It adds no export, executable, command,
+protocol, schema version, editor product, or public compatibility promise.
+V1-DX-B7B owns the first packed project-check consumer, and V1-DX-B7C owns the
+only transactional filesystem applicator.
+
 ## Type spine
 
 ADR 0018 establishes that stock `tsc` and the stock TypeScript language server

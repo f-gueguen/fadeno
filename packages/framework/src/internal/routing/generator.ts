@@ -16,6 +16,7 @@ import { FadenoDiagnosticError } from "../diagnostic.ts";
 import {
   assertRouteManifestSemantics,
   discoverRouteManifest,
+  discoverRouteManifestWithSources,
   stableRouteManifest,
   type RouteManifest,
   type RouteSegment,
@@ -23,6 +24,14 @@ import {
 
 const GENERATOR_VERSION = 1;
 const OUTPUT_FILES = ["app.ts", "index.d.ts", "index.js", "loader.ts", "manifest.json", "owner.json", "virtual.ts"] as const;
+
+export type RouteArtifactName = typeof OUTPUT_FILES[number];
+export type RouteArtifactPlan = Readonly<{
+  manifest: RouteManifest;
+  sourceSha256: string;
+  sources: Readonly<Record<string, string>>;
+  files: Readonly<Record<RouteArtifactName, string>>;
+}>;
 
 export type GenerationFailurePoint = "manifest" | "runtime" | "declaration" | "owner" | "beforeReplace";
 export type GenerationOperationFailure = "afterBackup" | "replace" | "restore" | "cleanup";
@@ -314,6 +323,39 @@ function recoverPreviousOutput(parent: string, output: string): void {
   else renameSync(path, output);
 }
 
+export function createRouteArtifactPlan(projectRoot: string, config: FadenoConfig): RouteArtifactPlan {
+  if (!config.routes) fail("ROUTES_REQUIRED");
+  const { manifest, sources } = discoverRouteManifestWithSources(projectRoot, config.routes);
+  assertRouteManifestSemantics(manifest);
+  const correlated = Object.freeze({
+    "app.ts": renderApplication(manifest),
+    "index.d.ts": renderDeclaration(manifest),
+    "index.js": renderRuntime(manifest),
+    "loader.ts": renderVirtualLoader(manifest),
+    "manifest.json": stableRouteManifest(manifest),
+    "virtual.ts": renderVirtualRuntime(manifest),
+  });
+  const files: Readonly<Record<RouteArtifactName, string>> = Object.freeze({
+    ...correlated,
+    "owner.json": ownerDocument(manifest, correlated),
+  });
+  return Object.freeze({ manifest, sourceSha256: manifest.generation.sourceSha256, sources, files });
+}
+
+export function verifyRouteArtifactPlanFreshness(
+  projectRoot: string,
+  config: FadenoConfig,
+  plan: RouteArtifactPlan,
+): void {
+  if (!config.routes) fail("ROUTES_REQUIRED");
+  const current = discoverRouteManifestWithSources(projectRoot, config.routes);
+  if (
+    current.manifest.generation.sourceSha256 !== plan.sourceSha256 ||
+    stableRouteManifest(current.manifest) !== stableRouteManifest(plan.manifest) ||
+    JSON.stringify(current.sources) !== JSON.stringify(plan.sources)
+  ) fail("SOURCE_CHANGED");
+}
+
 export function generateRoutes(
   projectRoot: string,
   config: FadenoConfig,
@@ -322,25 +364,11 @@ export function generateRoutes(
   operationFailure?: GenerationOperationFailure,
   afterReplaceValidation?: () => void,
 ): RouteGenerationResult {
-  if (!config.routes) fail("ROUTES_REQUIRED");
-  const manifest = discoverRouteManifest(projectRoot, config.routes);
-  assertRouteManifestSemantics(manifest);
-  const manifestBytes = stableRouteManifest(manifest);
-  const runtimeBytes = renderRuntime(manifest);
-  const declarationBytes = renderDeclaration(manifest);
-  const applicationBytes = renderApplication(manifest);
-  const loaderBytes = renderVirtualLoader(manifest);
-  const virtualBytes = renderVirtualRuntime(manifest);
-  const correlated = {
-    "app.ts": applicationBytes,
-    "index.d.ts": declarationBytes,
-    "index.js": runtimeBytes,
-    "loader.ts": loaderBytes,
-    "manifest.json": manifestBytes,
-    "virtual.ts": virtualBytes,
-  };
-  const ownerBytes = ownerDocument(manifest, correlated);
-  const expected: Readonly<Record<string, string>> = { ...correlated, "owner.json": ownerBytes };
+  const routeConfig = config.routes;
+  if (!routeConfig) fail("ROUTES_REQUIRED");
+  const plan = createRouteArtifactPlan(projectRoot, config);
+  const { manifest } = plan;
+  const expected: Readonly<Record<string, string>> = plan.files;
 
   const parent = join(resolve(projectRoot), ".fadeno");
   const output = join(parent, "routes");
@@ -356,13 +384,13 @@ export function generateRoutes(
   mkdirSync(pending);
   try {
     for (const [name, bytes, point] of [
-      ["manifest.json", manifestBytes, "manifest"],
-      ["app.ts", applicationBytes, "runtime"],
-      ["index.js", runtimeBytes, "runtime"],
-      ["loader.ts", loaderBytes, "runtime"],
-      ["virtual.ts", virtualBytes, "runtime"],
-      ["index.d.ts", declarationBytes, "declaration"],
-      ["owner.json", ownerBytes, "owner"],
+      ["manifest.json", plan.files["manifest.json"], "manifest"],
+      ["app.ts", plan.files["app.ts"], "runtime"],
+      ["index.js", plan.files["index.js"], "runtime"],
+      ["loader.ts", plan.files["loader.ts"], "runtime"],
+      ["virtual.ts", plan.files["virtual.ts"], "runtime"],
+      ["index.d.ts", plan.files["index.d.ts"], "declaration"],
+      ["owner.json", plan.files["owner.json"], "owner"],
     ] as const) {
       writeFileSync(join(pending, name), bytes);
       if (failurePoint === point) fail(`INJECTED_${point.toUpperCase()}`);
@@ -370,7 +398,7 @@ export function generateRoutes(
     assertOwnedOutput(pending);
     readManifest(join(pending, "manifest.json"));
     beforeSourceValidation?.();
-    const finalManifest = discoverRouteManifest(projectRoot, config.routes);
+    const finalManifest = discoverRouteManifest(projectRoot, routeConfig);
     if (finalManifest.generation.sourceSha256 !== manifest.generation.sourceSha256) fail("SOURCE_CHANGED");
     if (failurePoint === "beforeReplace") fail("INJECTED_BEFORE_REPLACE");
     assertOutputParent(projectRoot, parent);
@@ -396,7 +424,7 @@ export function generateRoutes(
     }
     try {
       afterReplaceValidation?.();
-      const publishedManifest = discoverRouteManifest(projectRoot, config.routes);
+      const publishedManifest = discoverRouteManifest(projectRoot, routeConfig);
       if (publishedManifest.generation.sourceSha256 !== manifest.generation.sourceSha256) fail("SOURCE_CHANGED_AFTER_REPLACE");
     } catch (error) {
       rmSync(output, { recursive: true, force: true });

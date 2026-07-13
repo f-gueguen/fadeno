@@ -112,6 +112,8 @@ try {
     "package/dist/internal/analyzer-explain.js",
     "package/dist/internal/analyzer-graph.d.ts",
     "package/dist/internal/analyzer-graph.js",
+    "package/dist/internal/analyzer-project.d.ts",
+    "package/dist/internal/analyzer-project.js",
     "package/dist/internal/analyzer-publication.d.ts",
     "package/dist/internal/analyzer-publication.js",
     "package/dist/internal/analyzer-route-explain.d.ts",
