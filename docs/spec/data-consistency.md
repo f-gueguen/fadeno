@@ -2,25 +2,51 @@
 
 ## Request-scoped reads
 
-Resources provide server-owned reads. Calls with equivalent identity and input
-deduplicate within a request. A page render records which resources contributed
-to its output. Failures propagate to the nearest applicable rendering boundary.
+ADR 0034 fixes one `defineResource({ read })` declaration and one
+`context.read(resource, input)` call. The opaque declaration object is the
+authored identity. The analyzer attaches construction-time source provenance;
+applications do not maintain resource-name registries.
 
-Cross-request caching is not implicit. A cache policy, key, scope, freshness,
-and authorization boundary must be explicit before values are shared across
-requests or users.
+Equivalent input is a bounded tagged structural value: `null`, boolean, finite
+number, string, dense array, or ordinary/null-prototype object with recursively
+supported enumerable own string properties. Object key order is insignificant,
+array order is significant, and `-0` equals `0`. The loader receives a deeply
+frozen normalized snapshot rather than the caller's mutable object identity;
+non-enumerable and symbol-keyed properties are stripped from both key and
+snapshot. Cycles, enumerable accessors, sparse arrays, inherited enumerable
+properties, custom prototypes, non-finite numbers, symbol values, and other
+unsupported or over-budget values are refused without executing application
+code.
+
+Each request owns a fresh declaration/input map. It records a dependency and
+stores the loader promise before awaiting it, so equivalent concurrent and
+later reads share one value, expected failure, or unexpected failure. Distinct
+identity/input pairs execute independently. Attempted failures and cancellation
+remain dependencies; refused inputs do not. Request completion releases all
+entries, so a later request cannot observe a stale result or failure.
+
+V1 explicitly refuses shared, global, persistent, time-based, or other
+cross-request result caches. A future shared cache requires a new decision with
+explicit authorization and representation partitioning, freshness, bounded
+storage, invalidation, eviction, and isolation evidence.
+
+Expected loader failures use the branded `resourceError({ code, status })`
+capability and propagate without becoming internal incidents. Unexpected
+failures use the redacted incident path. Both reject `context.read` and flow to
+the nearest applicable rendering boundary. The request signal owns shared work;
+an aborted operation cannot publish a late value.
 
 ## Mutation and revalidation
 
 After a successful action, every resource used by the active page revalidates.
 The next server-derived output is computed from those results.
 
-An action may declare `keeps` for resources that it cannot affect. Development
-verification must detect unsafe declarations before the optimization becomes
-public. H4 accepted conservative resource-result comparison as the private V1
-direction: value, expected-error, and ordering changes are detected, while
-non-cacheable and unsupported values are refused. DG-V1-04 still owns the exact
-public declaration and comparison API.
+An action may declare `keeps` as opaque resource declaration references for
+resources that it cannot affect for any input. The later action container stays
+owned by DG-V1-05. Development verification detects unsafe declarations before
+using the optimization. H4 accepts conservative resource-result comparison:
+value, expected-error code/status, and ordering changes are detected, while
+non-cacheable, unsupported, and over-budget values refuse the optimization.
 
 The baseline remains correct when all `keeps` declarations are removed.
 

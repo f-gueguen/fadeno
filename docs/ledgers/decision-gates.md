@@ -6,7 +6,6 @@ ledger when an effective ADR and current specification resolve it.
 
 | ID | Needed before | Decision required | Required evidence | Resolution artifact | Status |
 | --- | --- | --- | --- | --- | --- |
-| DG-V1-04 | DATA-01 implementation | Define resource identity, equivalent inputs, request cache keys, cross-request cache opt-in, and error caching | CRUD data graph and cache-isolation tests | Resource identity/cache ADR | Open |
 | DG-V1-05 | DATA-02 and STATE-01 implementation | Define field-descriptor and decoder semantics, action method/identity, origin and CSRF proof, replay policy, field/file limits, redirect validation, cookie protection, session rotation, and key lifecycle | Threat model plus native-form vertical slice | Form/action/session ADR | Open |
 | DG-V2-01 | ENH-01 implementation | Define experimental patch identity, scroll boundary, ordering, redirects, errors, recovery, cache policy, and version negotiation | ADR 0014 narrowed result and V1 action round trip | Patch-protocol ADR and versioned fixtures | Open |
 | DG-V3-02 | ISLAND-01 implementation | Define island authoring adapter, mount triggers, serialized input, changed-input delivery, teardown, and root-island declaration | V2 preservation runtime and lifecycle spike | Island-lifecycle ADR | Open |

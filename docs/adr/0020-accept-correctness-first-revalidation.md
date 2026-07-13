@@ -44,7 +44,7 @@ resources used by the active page, with equivalent request-local reads
 deduplicated by resource identity and input.
 
 Selective `keeps` remains an optional later optimization. Before it becomes
-public, its API and comparison semantics must pass DG-V1-04 and preserve the
+public, its API and comparison semantics must pass a resource decision and preserve the
 qualification's conservative refusal behavior for non-cacheable or unsupported
 values. The GO result does not authorize cross-request caching or public syntax.
 
@@ -64,7 +64,7 @@ values. The GO result does not authorize cross-request caching or public syntax.
 - DATA-03 may proceed to V1 implementation planning without an H4 blocker.
 - The default implementation remains correct with all `keeps` declarations
   removed.
-- DG-V1-04 still owns public resource/cache/`keeps` shape and semantics.
+- ADR 0034 now owns public resource/cache/`keeps` shape and semantics.
 - H3's incremental-generation NARROW remains independent; it does not reduce
   the accepted revalidation scope.
 
