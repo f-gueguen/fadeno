@@ -6,44 +6,43 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7D4 — contained filesystem invalidation hints
+V1-DX-B7D5 — build and development lifecycle contract
 
 ## Exit criteria
 
-- [x] Accept filesystem notifications only as contained invalidation hints and
-  derive semantic truth by deterministic project rescan through the B7D3
-  analyzer authority.
-- [x] Coalesce bursts with bounded debounce and maximum-delay ownership, retain
-  one dirty signal for notifications arriving during active work, and prove no
-  wakeup is lost.
-- [x] Exclude framework-owned output and refuse ambiguous rename, missing-name,
-  duplicate-alias, symlink, external, and overflow notification state without
-  publishing a generation or creating an output loop.
-- [x] Close idempotently by cancelling timers, draining or cancelling retained
-  work, and leaving no watcher, compiler child, transaction marker, server, or
-  public command behind.
-- [x] Prove direct, transitive, configuration, deletion, rename, burst,
-  event-during-work, output-exclusion, refusal, recovery, package-inaccessibility,
-  full repository, local CI, architecture, Big-O, and fresh review gates.
+- [x] Prove the proposed build and development contract through one private
+  packed decision harness before accepting a public command contract.
+- [x] Accept ADR 0033 to resolve the build/development decision gate with exact command grammar,
+  production entry and compiler inputs, transactional output ownership,
+  development address/readiness/watch/last-good behavior, diagnostics,
+  environment snapshots, shutdown, streams, and exit statuses.
+- [x] Require emitted compiler and runtime inputs to remain correlated with one
+  current analyzer generation, use isolated bounded development generations,
+  and refuse stale, external, mixed, or unowned output and dependencies.
+- [x] Preserve human-only command output, private analyzer and watcher
+  boundaries, and every external-schema, editor-product, registry, deployment,
+  and support gate.
+- [x] Prove private decision evidence, documentation/model consistency, full
+  repository, local CI, architecture, Big-O applicability, and fresh review
+  gates without implementing `fadeno build` or `fadeno dev`.
 
 ## In progress
 
-- B7D4 adds one private adapter around the retained B7D3 refresh operation. It
-  treats notification paths and kinds only as reasons to schedule a complete
-  authoritative rescan; it never creates, deletes, or renames semantic records
-  from notification payloads.
-- The adapter owns a bounded pending-hint set and byte budget, distinct raw and
-  accepted identities, monotonic debounce and maximum-delay deadlines, an
-  active dirty flag, and one latest completion handoff. Notifications
-  arriving during work schedule exactly one later rescan.
-- Canonical root and URI policy remains owned by the project analyzer. The
-  adapter adds only containment, reserved-output exclusion, ambiguity refusal,
-  and bounded scheduling; it does not construct another dependency graph.
-- The implementation and disposable fixtures remain packed private internals.
-  No operating-system watcher selection, server, CLI, public schema, or editor
-  product is introduced.
-- DG-V1-06 still gates public compiler inputs and build/development contracts.
-  No `dist`, watcher, command, server, public schema, or editor product is added.
+- B7D5 is a decision-and-evidence slice. It adds no shipped build or development
+  command, server, watcher backend, package export, or analyzer schema.
+- The private packed harness closes the former evidence-ordering gap by
+  exercising the accepted bootstrap order, derived compiler configuration,
+  contained staged output, ownership and runtime identity, isolated child
+  generations, last-good recovery, environment snapshots, structured
+  same-pass diagnostics, and bounded shutdown state transitions.
+- The candidate contract keeps one mandatory explicit project root, one
+  generated production bootstrap loaded after its route hook, loopback-only
+  address ownership with explicit port selection, and one transactional
+  `dist` generation. Development uses restartable isolated generations rather
+  than retaining unbounded module instances in one process.
+- B7D6 and B7D7 remain the only owners of public build and development
+  implementation and permanent user-facing success, failure, flow, recovery,
+  start, reload, and shutdown examples.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -56,8 +55,6 @@ V1-DX-B7D4 — contained filesystem invalidation hints
 - DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
-- DG-V1-06: exact public build and development workflow contract before either
-  command is implemented.
 
 ## Completed slices
 
@@ -193,7 +190,7 @@ V1-DX-B7D4 — contained filesystem invalidation hints
   migrates canonical project integration, and adds no build/watch or public API.
 - V1-DX-B7D0 — Commit `ebb6a86` decomposes retained consumption into bounded
   coordination, batching, compiler, watcher, decision, build, and development
-  slices and adds DG-V1-06 before public build or development implementation.
+  slices and adds a decision gate before public build or development implementation.
 - V1-DX-B7D1 — Commit `14de5c8` gives one retained private project authority a
   FIFO coordinator with immutable request identities, failure-absorbing drain,
   immediate derived freshness, and explicit idempotent close without adding a
@@ -206,3 +203,8 @@ V1-DX-B7D4 — contained filesystem invalidation hints
   two-pass stock-compiler validation, exact dependency and package freshness,
   retained rollback and cleanup, cancellation, supersession, close, and restart
   recovery without adding build, development, watcher, server, or public API.
+- V1-DX-B7D4 — Commit `1ff4f42` translates bounded contained filesystem
+  notifications into authoritative rescans, separates notification and
+  admission identity, bounds path retention by count and bytes, preserves dirty
+  work across refresh, and closes without adding an operating-system watcher,
+  server, command, or public API.

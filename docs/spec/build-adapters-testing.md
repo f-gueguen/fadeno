@@ -188,8 +188,9 @@ examples. The
 `check:v1-analyzer-package` gate rebuilds and packs the current framework,
 proves the private implementation is present, and proves package exports still
 refuse analyzer deep imports. B7B executes analyzer examples through the packed
-public check workflow. B7D6 and B7D7 may add packed build and development
-examples only after DG-V1-06 is resolved. B6's private canonical-app flow
+public check workflow. ADR 0033 now permits B7D6 and B7D7 to add packed build
+and development examples while keeping both commands unimplemented in B7D5.
+B6's private canonical-app flow
 fixtures contain both module-rendered human output and normalized machine
 output from executed success, deliberate route refusal, and recovery
 operations.
@@ -299,13 +300,30 @@ project close, and observer isolation. This is disposable watcher-lifecycle
 evidence only: no operating-system watcher, server, CLI, or public contract is
 selected.
 
-DG-V1-06 must be resolved before either public command is implemented. Its ADR
-must define the production entry and compiler inputs, transactional output and
-start contract, development server address and readiness, watch/restart and
-last-good behavior, diagnostic publication, streams, shutdown, and exit
-statuses. Only then may separate packed-package slices implement and document
-`fadeno build` and `fadeno dev` with executable success, failure,
-flow-inspection, recovery, and cleanup evidence.
+ADR 0033 resolves the build and development contract. Build requires one
+explicit project root; development additionally requires one explicit
+`1..65535` port and binds only `127.0.0.1`. Both capture immutable
+generation-scoped environment and runtime identities, consume one current
+analyzer publication, obtain structured stock-compiler diagnostics without
+parsing prose, and emit only a clean fresh generation. Build stages outside
+`dist`, validates the complete stage, and atomically accepts or restores one
+generation. Its production entry is the generated route loader followed by the
+generated server bootstrap, with one required `FADENO_PORT` and loopback-only
+V1 listening.
+
+Development keeps application imports out of the supervisor and runs each
+accepted generation in a fresh child. Diagnostic, cancelled, stale, or failed
+candidates leave the last accepted child active. A successful switch drains
+the previous child before the new child binds the explicit port; V1 promises a
+bounded switch and rollback, not uninterrupted reload. Notification names
+remain hints for authoritative rescan. Full diagnostic batches replace prior
+batches, and repair clears stale diagnostics. The first termination signal
+starts a 5,000 ms graceful drain; a repeated signal or deadline forces owned
+children and exits `3`. Statuses are `0` for complete success/graceful stop, `1`
+for expected project or startup diagnostics, `2` for usage, and `3` for
+unexpected or forced failure. B7D6 and B7D7 separately implement and document
+these contracts with executable success, failure, flow, recovery, and cleanup
+evidence.
 
 ## V1 and A0 conformance
 

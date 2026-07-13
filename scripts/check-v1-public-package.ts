@@ -128,6 +128,10 @@ try {
     "package/dist/internal/analyzer-session.js",
     "package/dist/internal/analyzer-watcher.d.ts",
     "package/dist/internal/analyzer-watcher.js",
+    "package/dist/internal/build-dev-decision.d.ts",
+    "package/dist/internal/build-dev-decision.js",
+    "package/dist/internal/build-dev-generation-child.d.ts",
+    "package/dist/internal/build-dev-generation-child.js",
     "package/dist/internal/config.d.ts",
     "package/dist/internal/config.js",
     "package/dist/internal/diagnostic.d.ts",
@@ -310,6 +314,12 @@ try {
   writeFileSync(join(consumer, "analyzer-watcher-deep-import.ts"), `import { PrivateFilesystemInvalidationAdapter } from "${packageName}/internal/analyzer-watcher";\nvoid PrivateFilesystemInvalidationAdapter;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-watcher-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-watcher")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+  const buildDevDecisionJs = join(installedPackage, "dist/internal/build-dev-decision.js");
+  const buildDevDecisionTypes = join(installedPackage, "dist/internal/build-dev-decision.d.ts");
+  if (!existsSync(buildDevDecisionJs) || !existsSync(buildDevDecisionTypes)) throw new Error("FADENO_PUBLIC_PACKAGE_BUILD_DEV_DECISION_INTERNAL_ABSENT");
+  writeFileSync(join(consumer, "build-dev-decision-deep-import.ts"), `import { PrivateDevelopmentDecisionModel } from "${packageName}/internal/build-dev-decision";\nvoid PrivateDevelopmentDecisionModel;\n`);
+  expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "build-dev-decision-deep-import.ts"], consumer, "TS2307");
+  expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/build-dev-decision")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
   writeFileSync(join(consumer, "analyzer-publication-deep-import.ts"), `import { AnalyzerPublicationCoordinator } from "${packageName}/internal/analyzer-publication";\nvoid AnalyzerPublicationCoordinator;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-publication-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-publication")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");

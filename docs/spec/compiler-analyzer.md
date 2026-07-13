@@ -811,9 +811,17 @@ generation.
 These stages are private evidence. The B7D1 through B7D3 implementation is
 included in packed internals and explicitly unavailable through package
 exports. It adds no stable analyzer schema, editor product, production output,
-watcher command, or server. Public
-`fadeno build` and `fadeno dev` remain unimplemented until DG-V1-06 resolves
-their exact command and lifecycle contracts in an accepted ADR.
+watcher command, or server. ADR 0033 accepts the exact build and development
+lifecycle while leaving both commands unimplemented until B7D6 and B7D7. Its
+private packed evidence uses one structured stock-compiler snapshot, permits
+emission only after a clean batch, and performs a separate no-check stock
+emission into a contained stage. Source, environment, framework runtime,
+compiler API, compiler binary, generated ownership, and output identities are
+rechecked before acceptance. Application modules run only in isolated
+generation children after route-loader registration; the retained analyzer
+supervisor never imports them. Diagnostic, cancelled, stale, and
+runtime-identity-refused candidates preserve the last accepted generation.
+This adds no public analyzer schema or deep import.
 
 ## Conformance
 
@@ -870,6 +878,12 @@ their exact command and lifecycle contracts in an accepted ADR.
   or retained-work leak. A real canonical application fixture proves direct
   change, compiler failure with last-good preservation, recovery, deletion,
   rename, configuration epoch, and packed-private inaccessibility.
+- Build/development decision fixtures use a current packed package to prove
+  exact command and compiler refusal, generation-scoped environment precedence,
+  bounded framework/compiler/runtime identity, structured exact/global
+  diagnostics, contained clean emission, loader-before-bootstrap refusal and
+  success, distinct child identities, last-good failure, diagnostic repair,
+  stale runtime refusal, and graceful/deadline/repeated-signal shutdown states.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.
