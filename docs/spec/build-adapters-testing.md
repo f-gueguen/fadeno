@@ -188,8 +188,9 @@ examples. The
 `check:v1-analyzer-package` gate rebuilds and packs the current framework,
 proves the private implementation is present, and proves package exports still
 refuse analyzer deep imports. B7B executes analyzer examples through the packed
-public check workflow. ADR 0033 now permits B7D6 and B7D7 to add packed build
-and development examples while keeping both commands unimplemented in B7D5.
+public check workflow. ADR 0033 permits B7D6 and B7D7 to add packed build and
+development examples. B7D6 now implements the build half while development
+remains unimplemented until B7D7.
 B6's private canonical-app flow
 fixtures contain both module-rendered human output and normalized machine
 output from executed success, deliberate route refusal, and recovery
@@ -203,7 +204,8 @@ reuse or revive the narrowed K0 incremental-generation claim.
 
 ## Retained build and development sequence
 
-`fadeno check` remains the only implemented project command. B7D1 gives the
+`fadeno check` and `fadeno build` are the implemented project commands; `dev`
+remains B7D7 work. B7D1 gives the
 private project authority one retained FIFO coordinator and exactly one analyzer
 session. Frozen admission handles preserve monotonic request identity across
 success and failure. Analysis and explanation never overlap; admitted work
@@ -324,6 +326,35 @@ for expected project or startup diagnostics, `2` for usage, and `3` for
 unexpected or forced failure. B7D6 and B7D7 separately implement and document
 these contracts with executable success, failure, flow, recovery, and cleanup
 evidence.
+
+B7D6 implements the production half through the installed `fadeno` executable.
+It first obtains one diagnostic-free retained analyzer/compiler generation and
+then runs the current packed emission child against the same accepted route
+artifacts. The child captures structured stock-compiler diagnostics before any
+emit, verifies exact project and installed-package ownership, emits with
+no-check only after a clean snapshot, and rechecks source, dependency,
+environment, compiler, and framework identities. Expected diagnostics remove
+the candidate stage and preserve the accepted `dist` generation.
+
+The command adds one deterministic build-owned bootstrap and a versioned
+manifest to the complete stage. The manifest contains file and runtime hashes,
+compiler and analyzer artifact identity, and the environment fingerprint but no
+environment values, absolute roots, timestamps, or secrets. Atomic renames
+replace `dist`; a validated previous generation remains rollback authority until
+the complete candidate identity is rechecked. Startup parses the required port,
+verifies the exact manifest file set and installed runtime closure, and only then
+dynamically imports the public Node adapter and generated application handler.
+The route loader is still a required earlier Node import.
+
+The canonical packed application is the public build example. Its gate proves
+two byte-identical builds, a compiler failure with unchanged last-good output,
+an injected post-stage identity failure with actual rollback, correction and
+diagnostic clearing, deleted-owner artifact cleanup, secret exclusion,
+normalized manifest evidence, missing-port, missing-loader and changed-runtime
+refusal before readiness, production start, HTTP behavior, and graceful stop.
+The build driver and generation child remain package-private; no machine command
+output, public analyzer schema, development watcher, or broader listener address
+is introduced.
 
 ## V1 and A0 conformance
 

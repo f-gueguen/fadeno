@@ -10,15 +10,15 @@ V1-DX-B7D6 — transactional production build
 
 ## Exit criteria
 
-- [ ] Add the exact public `fadeno build --project-root <path>` dispatch without
+- [x] Add the exact public `fadeno build --project-root <path>` dispatch without
   changing `fadeno check` or accepting development and machine-output options.
-- [ ] Build from one current diagnostic-free retained analyzer/compiler
+- [x] Build from one current diagnostic-free retained analyzer/compiler
   generation into a contained stage, validate the complete runtime closure,
   and atomically accept or restore exactly one `dist` generation.
-- [ ] Generate a deterministic manifest, route loader, and loopback-only server
+- [x] Generate a deterministic manifest, route loader, and loopback-only server
   bootstrap whose documented production invocation refuses stale or mixed
   runtime ownership before importing application behavior.
-- [ ] Extend the canonical packed application with permanent executable build,
+- [x] Extend the canonical packed application with permanent executable build,
   start, deliberate failure, human diagnostic, flow-inspection, rollback, and
   recovery evidence through public package entrypoints.
 - [ ] Prove reproducible bytes, first-build cleanup, last-good preservation,

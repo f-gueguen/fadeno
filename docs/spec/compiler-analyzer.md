@@ -812,7 +812,7 @@ These stages are private evidence. The B7D1 through B7D3 implementation is
 included in packed internals and explicitly unavailable through package
 exports. It adds no stable analyzer schema, editor product, production output,
 watcher command, or server. ADR 0033 accepts the exact build and development
-lifecycle while leaving both commands unimplemented until B7D6 and B7D7. Its
+lifecycle. B7D6 now implements build while development remains B7D7 work. Its
 private packed evidence uses one structured stock-compiler snapshot, permits
 emission only after a clean batch, and performs a separate no-check stock
 emission into a contained stage. Source, environment, framework runtime,
@@ -822,6 +822,16 @@ generation children after route-loader registration; the retained analyzer
 supervisor never imports them. Diagnostic, cancelled, stale, and
 runtime-identity-refused candidates preserve the last accepted generation.
 This adds no public analyzer schema or deep import.
+
+B7D6's private build driver consumes one retained diagnostic-free refresh,
+captures structured compiler diagnostics while provisional route ownership is
+still current, and delegates clean emission to the isolated packed child. The
+child reuses the retained compiler's bounded installed-package discovery rules
+instead of accepting arbitrary external compiler inputs. A complete stage gains
+only the build-owned bootstrap and manifest before one output identity is
+atomically accepted or the prior `dist` is restored. The public surface is the
+human `fadeno build` command and documented start invocation, not an analyzer or
+build transport API.
 
 ## Conformance
 
