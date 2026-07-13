@@ -931,7 +931,7 @@ function formatCompilerDiagnostics(diagnostics: readonly StructuredCompilerDiagn
   return `${lines.join("\n")}\n`;
 }
 
-function rootFailure(error: AnalyzerRootError): string {
+export function formatPrivateProjectRootFailure(error: AnalyzerRootError): string {
   const summary = error.code === "FADENO_ANALYZER_ROOT_MISSING"
     ? "Project root does not exist."
     : error.code === "FADENO_ANALYZER_ROOT_OWNERSHIP"
@@ -1145,7 +1145,7 @@ export async function runProjectBuildCommand(
       return Object.freeze({ exitCode: 1 as const, stdout: "", stderr: formatDiagnosticHuman(error) });
     }
     if (error instanceof AnalyzerRootError) {
-      return Object.freeze({ exitCode: 1 as const, stdout: "", stderr: rootFailure(error) });
+      return Object.freeze({ exitCode: 1 as const, stdout: "", stderr: formatPrivateProjectRootFailure(error) });
     }
     if (error instanceof TypeError && error.message === "FADENO_BUILD_TRANSACTION_STATE") {
       const incident = context.createIncidentId?.() ?? randomUUID();
