@@ -50,6 +50,9 @@ interface QueuedOperation<T> {
   readonly reject: (reason: unknown) => void;
   state: OperationState;
   settled: boolean;
+  queued: boolean;
+  previous: QueuedOperation<unknown> | null;
+  next: QueuedOperation<unknown> | null;
 }
 
 function interruption(item: QueuedOperation<unknown>): PrivateAnalyzerOperationInterrupted {
@@ -64,7 +67,8 @@ export class PrivateAnalyzerOperationCoordinator {
   #sequence = 0;
   #analysisGeneration = 0;
   #state: PrivateAnalyzerCoordinatorState = "accepting";
-  readonly #queue: QueuedOperation<unknown>[] = [];
+  #queueHead: QueuedOperation<unknown> | null = null;
+  #queueTail: QueuedOperation<unknown> | null = null;
   #active: QueuedOperation<unknown> | null = null;
   #pendingAnalysis: QueuedOperation<unknown> | null = null;
   #drainPromise: Promise<void> | null = null;
@@ -111,6 +115,9 @@ export class PrivateAnalyzerOperationCoordinator {
       reject,
       state: "pending",
       settled: false,
+      queued: false,
+      previous: null,
+      next: null,
     };
 
     if (kind === "analysis") {
@@ -121,9 +128,9 @@ export class PrivateAnalyzerOperationCoordinator {
         this.#interrupt(pendingAnalysis, "superseded");
       }
       this.#pendingAnalysis = item as QueuedOperation<unknown>;
-      this.#queue.push(item as QueuedOperation<unknown>);
+      this.#enqueue(item as QueuedOperation<unknown>);
     } else {
-      this.#queue.push(item as QueuedOperation<unknown>);
+      this.#enqueue(item as QueuedOperation<unknown>);
     }
     this.#ensureDrain();
 
@@ -152,6 +159,7 @@ export class PrivateAnalyzerOperationCoordinator {
     item.controller.abort(new DOMException(state === "cancelled" ? "Cancelled" : "Superseded", "AbortError"));
     if (wasPending) {
       if (this.#pendingAnalysis === item) this.#pendingAnalysis = null;
+      this.#unlink(item);
       this.#settleInterrupted(item);
     }
   }
@@ -161,13 +169,13 @@ export class PrivateAnalyzerOperationCoordinator {
     const draining = Promise.resolve().then(() => this.#drain());
     this.#drainPromise = draining.then(() => {
       this.#drainPromise = null;
-      if (this.#queue.length > 0) this.#ensureDrain();
+      if (this.#queueHead) this.#ensureDrain();
     });
   }
 
   async #waitForIdle(): Promise<void> {
     for (;;) {
-      if (this.#queue.length > 0 && !this.#drainPromise) this.#ensureDrain();
+      if (this.#queueHead && !this.#drainPromise) this.#ensureDrain();
       const drain = this.#drainPromise;
       if (!drain) return;
       await drain;
@@ -176,8 +184,8 @@ export class PrivateAnalyzerOperationCoordinator {
 
   async #drain(): Promise<void> {
     for (;;) {
-      while (this.#queue.length > 0) {
-        const item = this.#queue.shift()!;
+      while (this.#queueHead) {
+        const item = this.#dequeue();
         if (item.state === "cancelled" || item.state === "superseded") continue;
         if (this.#pendingAnalysis === item) this.#pendingAnalysis = null;
         this.#active = item;
@@ -209,8 +217,34 @@ export class PrivateAnalyzerOperationCoordinator {
       // owns the drain promise. Give that handoff one deterministic checkpoint
       // before declaring the coordinator idle.
       await Promise.resolve();
-      if (this.#queue.length === 0) return;
+      if (!this.#queueHead) return;
     }
+  }
+
+  #enqueue(item: QueuedOperation<unknown>): void {
+    item.queued = true;
+    item.previous = this.#queueTail;
+    item.next = null;
+    if (this.#queueTail) this.#queueTail.next = item;
+    else this.#queueHead = item;
+    this.#queueTail = item;
+  }
+
+  #dequeue(): QueuedOperation<unknown> {
+    const item = this.#queueHead!;
+    this.#unlink(item);
+    return item;
+  }
+
+  #unlink(item: QueuedOperation<unknown>): void {
+    if (!item.queued) return;
+    if (item.previous) item.previous.next = item.next;
+    else this.#queueHead = item.next;
+    if (item.next) item.next.previous = item.previous;
+    else this.#queueTail = item.previous;
+    item.queued = false;
+    item.previous = null;
+    item.next = null;
   }
 
   #settleInterrupted(item: QueuedOperation<unknown>): void {

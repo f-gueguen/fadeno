@@ -213,7 +213,8 @@ server behavior.
 B7D2 extends that same coordinator with deterministic analysis batches. A
 same-turn burst records a compact first/latest/count identity, supersedes
 pending middle work, signals active obsolete work, and gives application and
-explanation authority only to the newest complete result. Cancellation,
+explanation authority only to the newest complete result. Pending obsolete work
+unlinks in constant time instead of remaining as FIFO tombstones. Cancellation,
 supersession, expected failure, and close are distinct terminal paths. A
 result-continuation handoff and close both recheck the owned drain, so no
 accepted invalidation can disappear at the idle boundary.

@@ -350,6 +350,16 @@ try {
     forget: [{ document: retainedRoots[1]!.path, expectedOpen: { lifetime: secondIdentity.lifetime + 1, version: secondIdentity.version } }],
   }), "FADENO_ANALYZER_LIFETIME");
   assert.equal(reconcileSession.currentSnapshot, beforeFailedReconcile);
+  refused(reconcileSession, () => reconcileSession.reconcile({
+    documents: [{ document: retainedRoots[2]!.path, text: "not-authoritative", expectedOpen: null }],
+    forget: [{ document: retainedRoots[1]!.path, expectedOpen: secondIdentity }],
+  }), "FADENO_ANALYZER_SAVED_MISMATCH");
+  assert.equal(reconcileSession.currentSnapshot, beforeFailedReconcile);
+  refused(reconcileSession, () => reconcileSession.reconcile({
+    documents: [{ document: retainedRoots[2]!.path, text: retainedRoots[2]!.text, expectedOpen: null }],
+    forget: [{ document: retainedRoots[1]!.path, expectedOpen: { lifetime: secondIdentity.lifetime, version: secondIdentity.version + 1 } }],
+  }), "FADENO_ANALYZER_CLOSE_VERSION");
+  assert.equal(reconcileSession.currentSnapshot, beforeFailedReconcile);
   const updatedSecondText = "export default 'second-updated';\n";
   writeFileSync(retainedRoots[1]!.path, updatedSecondText);
   reconciled = accepted(reconcileSession.reconcile({

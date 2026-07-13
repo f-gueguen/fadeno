@@ -61,7 +61,30 @@ assert.deepEqual(burstBatch, {
   latestRequestId: burstNewest.requestId,
   size: 3,
 });
+assert.equal(Object.isFrozen(burstBatch), true);
 assert.deepEqual(trace, ["start:burst-newest", "finish:burst-newest"]);
+
+const largeBurstCoordinator = new PrivateAnalyzerOperationCoordinator();
+const largeBurstInterruptions: Promise<void>[] = [];
+let largeBurstPrevious: PrivateAnalyzerOperationHandle<number> | null = null;
+let largeBurstCalls = 0;
+let largeBurstSize = 0;
+for (let index = 0; index < 256; index += 1) {
+  const next = largeBurstCoordinator.start("analysis", (_requestId, context) => {
+    largeBurstCalls += 1;
+    largeBurstSize = context.batch.size;
+    return index;
+  });
+  if (largeBurstPrevious) {
+    largeBurstInterruptions.push(interrupted(largeBurstPrevious, "FADENO_ANALYZER_PROJECT_SUPERSEDED"));
+  }
+  largeBurstPrevious = next;
+}
+await Promise.all(largeBurstInterruptions);
+assert.equal(await largeBurstPrevious!.result, 255);
+assert.equal(largeBurstCalls, 1);
+assert.equal(largeBurstSize, 256);
+await largeBurstCoordinator.close();
 
 const activeStarted = deferred();
 const activeGate = deferred();

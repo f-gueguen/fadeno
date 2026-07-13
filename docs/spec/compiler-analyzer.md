@@ -671,7 +671,9 @@ admissions collapse into one deterministic batch identified by its first and
 latest request identities and admission count. A newer admission synchronously
 supersedes a pending analysis and signals an active analysis before returning;
 only the newest complete generation can regain application or explanation
-ownership. Explicit cancellation has a distinct terminal identity. An already
+ownership. Superseded or cancelled pending entries unlink from the FIFO in
+constant time; the retained batch summary does not copy every request identity.
+Explicit cancellation has a distinct terminal identity. An already
 admitted explanation remains ordered before a later analysis and is not
 cancelled merely because analysis became dirty.
 
