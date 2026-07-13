@@ -334,7 +334,9 @@ try {
   await assert.rejects(compiler.validate(request), /AbortError/u);
   assert.equal(spawnObserved, true);
   assert.equal(closeObserved, true);
-  await compiler.close();
+  const observerClose = compiler.close();
+  assert.equal(compiler.close(), observerClose);
+  await observerClose;
 
   let spawnedDuringCancelledInventory = false;
   const cancellation = new AbortController();

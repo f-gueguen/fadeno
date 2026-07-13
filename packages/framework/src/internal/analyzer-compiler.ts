@@ -225,6 +225,7 @@ export class PrivateCompilerValidator {
   readonly #onSpawn?: PrivateCompilerValidatorOptions["onSpawn"];
   readonly #onClose?: PrivateCompilerValidatorOptions["onClose"];
   #closed = false;
+  #closePromise: Promise<void> | null = null;
   #active: Readonly<{
     abort: AbortController;
     result: Promise<PrivateCompilerValidation>;
@@ -351,12 +352,15 @@ export class PrivateCompilerValidator {
     });
   }
 
-  async close(): Promise<void> {
-    if (this.#closed) return;
+  close(): Promise<void> {
+    if (this.#closePromise) return this.#closePromise;
     this.#closed = true;
-    if (this.#active) {
-      this.#active.abort.abort();
-      try { await this.#active.result; } catch { /* close drains terminal compiler state */ }
-    }
+    this.#closePromise = (async () => {
+      if (this.#active) {
+        this.#active.abort.abort();
+        try { await this.#active.result; } catch { /* close drains terminal compiler state */ }
+      }
+    })();
+    return this.#closePromise;
   }
 }
