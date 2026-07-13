@@ -738,7 +738,10 @@ accounting, file-stability checks, and bounded file streaming. Its digest must
 be identical before and after the compiler child and is checked again
 immediately before commit. Every exact resolved compiler input is independently
 content-identified and rechecked before commit, including installed dependency
-inputs, while the provisional transaction remains rollback-capable. Installed
+inputs, while the provisional transaction remains rollback-capable. Device,
+inode, size, modification, and change identities are part of both input passes
+and the final check, so a change-and-restore sequence cannot masquerade as one
+stable validation generation. Installed
 package traversal has one global raw-entry budget, bounded aggregate and
 per-manifest bytes, cancellation checks, and identities for logical entries,
 canonical roots, package names, and manifest content. Captured
@@ -812,7 +815,8 @@ their exact command and lifecycle contracts in an accepted ADR.
   refuse external include/import, source-symlink and mismatched-root ownership,
   reject exact-input whitespace ambiguity and broad dependency-root aliases,
   recheck changed dependency content, package mapping, and manifests during
-  validation and before commit, bound globally discovered project and installed
+  validation and before commit, reject change-and-restore input mutation, bound
+  globally discovered project and installed
   package entries plus manifest bytes,
   isolate observer re-entry/failure, detect output mutation and bounded-output
   overflow, cancel inventory before child spawn, prove forced termination and

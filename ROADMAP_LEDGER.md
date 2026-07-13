@@ -41,7 +41,8 @@ V1-DX-B7D3 — serialized analyzer application and compiler validation
   globally bounded cancellable project inventory, bounds and redacts captured
   output, awaits actual child termination, and never emits application files.
 - Final acceptance rechecks the project inventory, the content identity of
-  every resolved compiler input including dependencies, and the exact
+  every resolved compiler input including dependencies, its ordinary-file
+  identity and change metadata, and the exact
   provisional and rollback artifact state. Rollback failure stays owned and
   prevents successful close until deterministic recovery succeeds.
 - Route generations move between authoritative, rollback, and non-authoritative

@@ -31,7 +31,11 @@ export type PrivateCompilerValidation = Readonly<{
 
 type PrivateCompilerInputIdentity = Readonly<{
   path: string;
+  device: number;
+  inode: number;
   size: number;
+  modifiedAtMs: number;
+  changedAtMs: number;
   sha256: string;
 }>;
 
@@ -161,7 +165,7 @@ async function projectInventory(root: string, signal: AbortSignal | undefined, r
           throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
         }
         bytes += status.size;
-        record(`${path}\0file\0${status.size}\0${fileHash}`);
+        record(`${path}\0file\0${status.dev}\0${status.ino}\0${status.size}\0${status.mtimeMs}\0${status.ctimeMs}\0${fileHash}`);
       } else {
         record(`${path}\0other`);
       }
@@ -274,7 +278,7 @@ async function dependencyRoots(root: string, runId: string, signal?: AbortSignal
       throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
     }
     if (name !== expectedName) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
-    identities.push(`${resolve(path)}\0${canonical}\0${expectedName}\0${createHash("sha256").update(manifestBytesValue).digest("hex")}`);
+    identities.push(`${resolve(path)}\0${canonical}\0${expectedName}\0${manifestStatus.dev}\0${manifestStatus.ino}\0${manifestStatus.size}\0${manifestStatus.mtimeMs}\0${manifestStatus.ctimeMs}\0${createHash("sha256").update(manifestBytesValue).digest("hex")}`);
     if (roots.has(canonical)) return;
     roots.add(canonical);
     packages += 1;
@@ -327,13 +331,21 @@ async function compilerInputIdentity(
   if (!after.isFile() || after.size !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.mtimeMs !== before.mtimeMs) {
     throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
   }
-  return Object.freeze({ path, size: before.size, sha256: fileHash });
+  return Object.freeze({
+    path,
+    device: before.dev,
+    inode: before.ino,
+    size: before.size,
+    modifiedAtMs: before.mtimeMs,
+    changedAtMs: before.ctimeMs,
+    sha256: fileHash,
+  });
 }
 
 function inputIdentitySha256(inputs: readonly PrivateCompilerInputIdentity[]): string {
   const hash = createHash("sha256");
   for (const input of inputs) {
-    hash.update(`${input.path}\0${input.size}\0${input.sha256}\n`);
+    hash.update(`${input.path}\0${input.device}\0${input.inode}\0${input.size}\0${input.modifiedAtMs}\0${input.changedAtMs}\0${input.sha256}\n`);
   }
   return hash.digest("hex");
 }

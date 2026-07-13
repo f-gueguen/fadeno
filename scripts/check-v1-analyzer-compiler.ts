@@ -634,7 +634,7 @@ try {
   }));
   writeFileSync(join(dependency, "package.json"), '{"name":"fadeno-during-validation","type":"module","types":"index.d.ts"}\n');
   const declaration = join(dependency, "index.d.ts");
-  writeFileSync(declaration, "export declare const value: string;\n");
+  writeFileSync(declaration, "export declare const value: number;\n");
   const counter = join(duringValidationControl, "counter.txt");
   const child = join(duringValidationControl, "compiler.mjs");
   writeFileSync(child, [
@@ -642,6 +642,7 @@ try {
     'const [counter, projectInput, dependencyInput] = process.argv.slice(2);',
     'const run = existsSync(counter) ? Number(readFileSync(counter, "utf8")) + 1 : 1;',
     'writeFileSync(counter, String(run));',
+    'if (run === 2) writeFileSync(dependencyInput, "export declare const value: string;\\n");',
     'readFileSync(dependencyInput);',
     'if (run === 2) writeFileSync(dependencyInput, "export declare const value: number;\\n");',
     'process.stdout.write(`${projectInput}\\n${dependencyInput}\\n`);',
@@ -661,6 +662,7 @@ try {
     signal: new AbortController().signal,
   }))).code, "FADENO_ANALYZER_COMPILER_INPUT");
   assert.equal(readFileSync(counter, "utf8"), "2");
+  assert.equal(readFileSync(declaration, "utf8"), "export declare const value: number;\n");
   await compiler.close();
 } finally {
   rmSync(duringValidationRoot, { recursive: true, force: true });

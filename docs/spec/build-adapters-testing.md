@@ -254,10 +254,13 @@ bounded project-owned inventory is streamed with bounded memory, actual-byte
 accounting, file-stability checks, and cancellation checks; it must remain
 unchanged across compilation and is rechecked immediately before commit. Every
 resolved compiler input is also content-identified and rechecked immediately
-before commit, including inputs below installed package roots. Package
+before commit, including inputs below installed package roots. Device, inode,
+size, modification, and change identities prevent a changed input from being
+accepted merely because its bytes were restored before the child exited.
+Package
 discovery has global entry and manifest-byte limits, observes cancellation, and
 binds each logical installed-package entry, canonical root, package identity,
-and manifest content. Compiler text is
+manifest content, and manifest change identity. Compiler text is
 not exposed, and acceptance binds the coordinator generation, analyzer
 publication, provisional artifact identity, compiler version, validation
 inventory identity, and resolved-input identity. The
