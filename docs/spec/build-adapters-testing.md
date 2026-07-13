@@ -11,8 +11,10 @@ Node HTTP as the initial adapter target without creating a public package.
 2. The only discovered file is root `fadeno.config.ts`, with a default plain
    object export and a closed typed shape.
    Ownership is validated as a non-symlink ordinary file before source bytes are
-   read. Evaluation is accepted only when those exact source bytes remain
-   current; self-modifying or concurrently replaced configuration is refused.
+   read. B7B parses the demonstrated plain literal or `defineConfig`-wrapped
+   literal with the standard TypeScript parser and never executes configuration.
+   Side-effecting or computed forms are refused. Analysis is accepted only when
+   those exact source bytes remain current.
 3. Unknown keys, invalid combinations, missing paths, and unsupported adapter
    capabilities fail before serving or building.
 4. Configuration used by a production build is serializable into a redacted
@@ -26,6 +28,13 @@ The core commands are `fadeno dev`, `fadeno build`, and `fadeno check`.
 `.fadeno/` contains disposable internal state; transactional, reproducible
 deployable output belongs to `dist/`. Scaffold and additional diagnostic
 convenience commands remain A0 work.
+
+ADR 0032 fixes the first packed check invocation as
+`fadeno check --project-root <path> [--explain]`. The root is mandatory and
+explicit; semantic explanation is the only option. Complete success exits `0`,
+expected project diagnostics exit `1`, usage exits `2`, and redacted unexpected
+failure exits `3`. Human output is public now. Machine-readable command output
+remains refused while DG-A0-02 is open.
 
 Optional `.env` and `.env.local` files load in that order before the existing
 process environment, which has final precedence. The strict line grammar and

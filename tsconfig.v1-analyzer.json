@@ -13,11 +13,14 @@
     "packages/framework/src/internal/analyzer-explain.ts",
     "packages/framework/src/internal/analyzer-route-explain.ts",
     "packages/framework/src/internal/analyzer-project.ts",
+    "packages/framework/src/internal/project-check.ts",
     "scripts/check-v1-analyzer.ts",
     "scripts/check-v1-analyzer-graph.ts",
     "scripts/check-v1-analyzer-publication.ts",
     "scripts/check-v1-analyzer-diagnostics.ts",
     "scripts/check-v1-analyzer-explain.ts",
-    "scripts/check-v1-analyzer-project.ts"
+    "scripts/check-v1-analyzer-project.ts",
+    "scripts/check-v1-project-check-command.ts",
+    "scripts/check-v1-analyzer-workflow.ts"
   ]
 }

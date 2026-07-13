@@ -7,6 +7,9 @@
   "engines": {
     "node": ">=22.17.0"
   },
+  "bin": {
+    "fadeno": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -25,6 +28,9 @@
     "dist",
     "README.md"
   ],
+  "dependencies": {
+    "typescript": "7.0.2"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.neutral.json"

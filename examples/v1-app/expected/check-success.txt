@@ -1,0 +1,1 @@
+Fadeno framework route analysis completed: 7 routes, 7 artifacts planned, no files written.

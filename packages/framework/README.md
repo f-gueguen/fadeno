@@ -7,7 +7,16 @@ identity.
 The runtime-neutral `.` facade exports the standard Web `Handler` type plus
 `FadenoConfig`, `RouteConfig`, and the identity helper `defineConfig`. The
 `./node` facade exports the raw Node HTTP adapter contract for the V1
-integration smoke.
+integration smoke. The package declares one executable project-analysis path:
+
+```sh
+fadeno check --project-root ./my-project
+fadeno check --project-root ./my-project --explain
+```
+
+This B7B command validates current configuration and route framework semantics,
+reports human diagnostics, and plans artifacts without writing them. It is not
+yet the later complete type/build/boundary check and has no machine-output mode.
 
 Private package internals now discover and match route metadata and generate one
 transactional, application-bound `fadeno:routes` module under `.fadeno/routes/`.
