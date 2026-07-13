@@ -13,6 +13,18 @@ pnpm build
 FADENO_PORT=3000 pnpm start
 ```
 
+The demonstrated development workflow is:
+
+```sh
+pnpm dev
+```
+
+It prints `Fadeno development server ready at http://127.0.0.1:4173.` only
+after a complete verified generation is accepting requests. The permanent
+`development-lifecycle` scenario is executed by `pnpm check:v1-development`
+and proves direct and transitive reloads, diagnostic last-good behavior,
+recovery, artifact cleanup, and graceful shutdown.
+
 Run the verified application, failure, flow, and recovery evidence with:
 
 ```sh

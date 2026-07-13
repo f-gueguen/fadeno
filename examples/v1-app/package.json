@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "fadeno build --project-root .",
+    "dev": "fadeno dev --project-root . --port 4173",
     "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"
   },
   "dependencies": {

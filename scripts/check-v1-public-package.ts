@@ -288,6 +288,7 @@ try {
     ["analyzer-explain", "AnalyzerExplainCoordinator"],
     ["analyzer-route-explain", "createRouteExplainContribution"],
     ["project-build", "runProjectBuildCommand"],
+    ["project-dev", "runProjectDevCommand"],
   ] as const) {
     const internalJs = join(installedPackage, `dist/internal/${subpath}.js`);
     const internalTypes = join(installedPackage, `dist/internal/${subpath}.d.ts`);

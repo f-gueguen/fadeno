@@ -433,11 +433,13 @@ export async function runProjectDevCommand(
   let adapter: PrivateFilesystemInvalidationAdapter<DevelopmentRefresh> | null = null;
   let watcher: FSWatcher | null = null;
   let shuttingDown = false;
+  let forced = false;
   let terminalResolve!: (exitCode: 0 | 3) => void;
   const terminal = new Promise<0 | 3>((accept) => { terminalResolve = accept; });
   let shutdownTimer: ReturnType<typeof setTimeout> | null = null;
 
   const force = (message: string): void => {
+    forced = true;
     if (message !== "") writeStdout(message);
     target?.force();
     terminalResolve(3);
@@ -457,7 +459,7 @@ export async function runProjectDevCommand(
     void (adapter?.close() ?? Promise.resolve()).then(() => {
       if (shutdownTimer) clearTimeout(shutdownTimer);
       shutdownTimer = null;
-      if (forcedByFailure) terminalResolve(3);
+      if (forcedByFailure || forced) terminalResolve(3);
       else {
         const drained = target?.drained() ?? "";
         if (drained !== "") writeStdout(drained);
