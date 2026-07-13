@@ -78,10 +78,11 @@ try {
 
   const directPath = join(root, "src/server.ts");
   const directBytes = readFileSync(directPath, "utf8");
-  writeFileSync(directPath, `${directBytes}\nconst compilerFailure: string = 1;\n`);
+  writeFileSync(directPath, `${directBytes}\n// FADENO_TEST_PRIVATE_COMPILER_SENTINEL\nconst compilerFailure: string = 1;\n`);
   const directFailure = await compilerFailure(analyzer.refresh());
   assert.equal(directFailure.code, "FADENO_ANALYZER_COMPILER_DIAGNOSTIC");
   assert.equal(directFailure.diagnosticCodes.includes(2322), true);
+  assert.equal(JSON.stringify(directFailure).includes("FADENO_TEST_PRIVATE_COMPILER_SENTINEL"), false);
   assertOutput(root, firstOutput);
   assertNoCompilerOutput(root);
   writeFileSync(directPath, directBytes);
@@ -155,6 +156,34 @@ try {
   await analyzer.close();
 } finally {
   rmSync(firstFailureRoot, { recursive: true, force: true });
+}
+
+const configurationRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-configuration-"));
+const externalConfigurationRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-external-configuration-"));
+try {
+  copyApplication(configurationRoot);
+  const config = join(configurationRoot, "tsconfig.json");
+  const retainedConfig = join(configurationRoot, "tsconfig.retained.json");
+  const externalConfig = join(externalConfigurationRoot, "tsconfig.json");
+  writeFileSync(externalConfig, readFileSync(config));
+  const compiler = new PrivateCompilerValidator(configurationRoot);
+  renameSync(config, retainedConfig);
+  symlinkSync(externalConfig, config);
+  assert.throws(() => compiler.validate({
+    requestId: "configuration-request",
+    generation: 1,
+    publicationOperationId: "configuration-publication",
+    artifactSourceSha256: "0".repeat(64),
+    signal: new AbortController().signal,
+  }), /FADENO_ANALYZER_COMPILER_CONFIG/u);
+  rmSync(config);
+  renameSync(retainedConfig, config);
+  await compiler.close();
+  rmSync(config);
+  assert.throws(() => new PrivateCompilerValidator(configurationRoot), /FADENO_ANALYZER_COMPILER_CONFIG/u);
+} finally {
+  rmSync(configurationRoot, { recursive: true, force: true });
+  rmSync(externalConfigurationRoot, { recursive: true, force: true });
 }
 
 const processFailureRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-process-failure-"));

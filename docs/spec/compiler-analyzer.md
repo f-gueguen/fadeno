@@ -404,8 +404,9 @@ revalidates freshness, and cleans the backup. Exact reapplication is a zero-writ
 operation that preserves every mtime; partial per-file preservation is not
 claimed. Portable replacement has a bounded interval between the backup and
 replacement renames in which the `routes` directory is absent, but it never
-exposes a mixed file generation. B7D must serialize retained consumers across
-that interval before build/watch integration can claim continuous usable state.
+exposes a mixed file generation. B7D3 serializes analyzer application and
+compiler validation across that interval; later build and development consumers
+must use the same retained boundary before claiming continuous usable state.
 
 An actual operation failure restores the validated previous generation when
 possible. If restore itself fails, the validated previous directory remains for
@@ -703,16 +704,38 @@ coalesce contained hints, exclude owned output, and rescan through the same
 project authority used by check and tests. Rename, duplicate, missing-name, and
 overflow notifications cannot directly create or delete framework records.
 
-B7D3 must serialize the current analyzer publication, the B7C route-artifact
-application boundary, stock-compiler refresh, and validation. Framework
-analysis remains authoritative for configuration, routes, generated ownership,
-and framework diagnostics. The stock compiler remains authoritative for
-ordinary direct and transitive module refresh; the coordinator must not build a
-second application dependency graph. Compiler and later server consumers must
-be excluded from B7C's bounded route-directory replacement interval, and only
-the newest complete analyzer generation may be accepted.
+B7D3 adds one private `refresh` operation to the retained analysis queue. One
+coordinator item performs project analysis, begins a provisional B7C
+route-directory transaction, runs stock compiler validation, rechecks the live
+operation and exact analysis authority, and then either commits the generated
+set or restores the prior accepted set before the item settles. The transaction
+retains a validated previous generation, or an explicit first-generation empty
+marker, until final acceptance. A later admission, explicit cancellation,
+compiler diagnostic, process failure, application failure, or close therefore
+cannot accept the provisional route set.
 
-These stages are private evidence. The B7D1/B7D2 coordinator implementation is
+Compiler validation uses the installed stock compiler asynchronously with the
+project `tsconfig.json`, `--noEmit`, pretty output disabled, and incremental
+output disabled. The project root and configuration must remain ordinary,
+symlink-free owned paths. A bounded project-owned inventory, excluding dependency
+and repository metadata directories, must be identical before and after the
+compiler child. Captured output is bounded and never transported as diagnostic
+prose; only compiler diagnostic numbers and an internal run identity survive a
+failure. Cancellation requests termination, escalates if necessary, and waits
+for the actual child close before rollback, later queue work, or analyzer close
+can complete.
+
+An accepted compiler result binds its coordinator request and generation,
+analyzer publication operation, provisional artifact source hash, compiler
+version, and final inventory identity. Framework analysis remains authoritative
+for configuration, routes, generated ownership, and framework diagnostics. The
+stock compiler remains authoritative for ordinary direct and transitive module
+refresh; Fadeno does not build a second application dependency graph. B7D4 is
+still responsible for translating filesystem notifications into contained
+admissions, and later server consumers must use the same accepted coordinator
+generation.
+
+These stages are private evidence. The B7D1 through B7D3 implementation is
 included in packed internals and explicitly unavailable through package
 exports. It adds no stable analyzer schema, editor product, production output,
 watcher command, or server. Public
@@ -744,6 +767,11 @@ their exact command and lifecycle contracts in an accepted ADR.
   prove exact current-document retention, and preserve the prior snapshot and
   epoch across duplicate alias, symlink, stale revision, text mismatch, and
   desired/forgotten open-owner refusal.
+- Retained compiler fixtures use the stock compiler over direct and ordinary
+  transitive modules, cover deletion and rename failure and recovery, preserve
+  exact prior route bytes across diagnostic/process/cancel/supersede/close and
+  first-generation refusal, reject configuration ownership drift, await every
+  child close, and prove no compiler output or transaction debris remains.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.

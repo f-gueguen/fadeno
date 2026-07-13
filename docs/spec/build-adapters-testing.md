@@ -58,7 +58,7 @@ publication, not a generic artifact list, and it cannot rediscover or rerender
 route facts. Diagnostic publications preserve the last accepted disk set.
 Directory replacement never exposes mixed generations, although portable
 backup-and-replace has a bounded interval with no route directory; retained
-consumer application/compiler serialization remains V1-DX-B7D3 work. Actual
+consumer application/compiler serialization is implemented by V1-DX-B7D3. Actual
 filesystem-operation and restart-recovery tests cover stage, backup, replace,
 validation, restore, and cleanup failures. No command behavior changes in B7C.
 
@@ -230,20 +230,28 @@ structural, configuration,
 deletion, rename, and burst fixtures issue only a generic private analysis
 admission after mutating authoritative project state.
 
-Later retained build and development consumption proceeds through separate V1
-slices: serialized analyzer application plus stock-compiler refresh, and a
-filesystem adapter that treats notifications only as rescan hints. None of
-these private stages implies a public production build or development server.
+B7D3 gives that coordinator one private retained refresh operation. Analysis,
+provisional B7C application, validation-only stock compilation, final freshness,
+and commit or rollback execute as one queue item. The exact previous route set
+or first-generation empty state remains recoverable until acceptance. Compiler
+diagnostics, process failure, cancellation, supersession, ownership drift, and
+close all await child termination and restore the prior accepted generation.
 
-The retained coordinator must serialize analysis, B7C route-artifact
-application, compiler refresh, and validation around one current operation. It
-must preserve the last accepted generation on diagnostic, application, or
-compiler failure and suppress obsolete results. The framework project
-authority owns route, configuration, containment, and generated-output facts;
-the stock compiler owns the ordinary application module graph. Watch adaptation
-must coalesce changes, avoid owned-output loops, retain a dirty signal for work
-arriving during an operation, and recover by deterministic rescan rather than
-interpreting notification names as truth.
+The compiler is invoked asynchronously from the installed toolchain with the
+project configuration and no emit or incremental output. A bounded
+project-owned inventory must remain unchanged, compiler text is not exposed,
+and acceptance binds the coordinator generation, analyzer publication,
+provisional artifact identity, compiler version, and inventory identity. The
+framework project authority owns route, configuration, containment, and
+generated-output facts; the stock compiler owns the ordinary application module
+graph. No second application graph, `dist`, build-info, watcher, command, server,
+or public analyzer surface is introduced.
+
+B7D4 next adds a filesystem adapter that treats notifications only as rescan
+hints. It must coalesce changes, avoid owned-output loops, retain a dirty signal
+for work arriving during an operation, and recover by deterministic rescan
+rather than interpreting notification names as truth. None of these private
+stages implies a public production build or development server.
 
 DG-V1-06 must be resolved before either public command is implemented. Its ADR
 must define the production entry and compiler inputs, transactional output and

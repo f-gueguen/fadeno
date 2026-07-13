@@ -134,7 +134,11 @@ export class PrivateCompilerValidator {
   readonly #onSpawn?: PrivateCompilerValidatorOptions["onSpawn"];
   readonly #onClose?: PrivateCompilerValidatorOptions["onClose"];
   #closed = false;
-  #active: Readonly<{ child: ChildProcess; result: Promise<PrivateCompilerValidation> }> | null = null;
+  #active: Readonly<{
+    child: ChildProcess;
+    result: Promise<PrivateCompilerValidation>;
+    terminate(): void;
+  }> | null = null;
 
   constructor(projectRoot: string, options: PrivateCompilerValidatorOptions = {}) {
     this.#root = ownedRoot(projectRoot);
@@ -225,7 +229,7 @@ export class PrivateCompilerValidator {
     }).finally(() => {
       this.#active = null;
     });
-    this.#active = Object.freeze({ child, result });
+    this.#active = Object.freeze({ child, result, terminate });
     return result;
   }
 
@@ -233,7 +237,7 @@ export class PrivateCompilerValidator {
     if (this.#closed) return;
     this.#closed = true;
     if (this.#active) {
-      this.#active.child.kill("SIGTERM");
+      this.#active.terminate();
       try { await this.#active.result; } catch { /* close drains terminal compiler state */ }
     }
   }
