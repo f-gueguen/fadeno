@@ -1,0 +1,282 @@
+import assert from "node:assert/strict";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+
+import type { PrivateAnalyzerOperationHandle } from "../packages/framework/src/internal/analyzer-coordinator.ts";
+import { PrivateProjectAnalyzer, type PrivateProjectRefresh } from "../packages/framework/src/internal/analyzer-project.ts";
+import {
+  PrivateFilesystemInvalidationAdapter,
+  type PrivateFilesystemInvalidationScheduler,
+  type PrivateFilesystemRefreshCycle,
+  type PrivateFilesystemRefreshTarget,
+} from "../packages/framework/src/internal/analyzer-watcher.ts";
+
+function deferred<T>(): Readonly<{
+  promise: Promise<T>;
+  resolve(value: T): void;
+  reject(error: unknown): void;
+}> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((accept, refuse) => { resolve = accept; reject = refuse; });
+  return Object.freeze({ promise, resolve, reject });
+}
+
+class ManualScheduler implements PrivateFilesystemInvalidationScheduler {
+  #now = 0;
+  #sequence = 0;
+  readonly #timers = new Map<number, Readonly<{ at: number; callback(): void }>>();
+
+  now(): number { return this.#now; }
+
+  set(delayMs: number, callback: () => void): unknown {
+    const id = ++this.#sequence;
+    this.#timers.set(id, Object.freeze({ at: this.#now + delayMs, callback }));
+    return id;
+  }
+
+  clear(timer: unknown): void {
+    this.#timers.delete(timer as number);
+  }
+
+  advance(milliseconds: number): void {
+    const target = this.#now + milliseconds;
+    for (;;) {
+      const due = [...this.#timers.entries()]
+        .filter(([, timer]) => timer.at <= target)
+        .sort(([leftId, left], [rightId, right]) => left.at - right.at || leftId - rightId)[0];
+      if (!due) break;
+      this.#now = due[1].at;
+      this.#timers.delete(due[0]);
+      due[1].callback();
+    }
+    this.#now = target;
+  }
+}
+
+type PendingRefresh = Readonly<{
+  handle: PrivateAnalyzerOperationHandle<PrivateProjectRefresh>;
+  resolve(): void;
+  reject(error: unknown): void;
+}>;
+
+class ManualRefreshTarget implements PrivateFilesystemRefreshTarget {
+  readonly #root: string;
+  #sequence = 0;
+  #closed = false;
+  readonly pending: PendingRefresh[] = [];
+  closeCount = 0;
+
+  constructor(root: string) { this.#root = resolve(root); }
+
+  ownsProject(projectRoot: string): boolean { return resolve(projectRoot) === this.#root; }
+
+  refresh(): PrivateAnalyzerOperationHandle<PrivateProjectRefresh> {
+    if (this.#closed) throw new TypeError("FADENO_TEST_TARGET_CLOSED");
+    const sequence = ++this.#sequence;
+    const operation = deferred<PrivateProjectRefresh>();
+    let settled = false;
+    const handle = Object.freeze({
+      requestId: `manual:request-${sequence}`,
+      sequence,
+      kind: "analysis" as const,
+      result: operation.promise,
+      cancel: () => {
+        if (settled) return;
+        settled = true;
+        operation.reject(new TypeError("FADENO_TEST_TARGET_CANCELLED"));
+      },
+    });
+    this.pending.push(Object.freeze({
+      handle,
+      resolve: () => {
+        if (settled) return;
+        settled = true;
+        operation.resolve(Object.freeze({ requestId: handle.requestId, generation: sequence }) as PrivateProjectRefresh);
+      },
+      reject: (error) => {
+        if (settled) return;
+        settled = true;
+        operation.reject(error);
+      },
+    }));
+    return handle;
+  }
+
+  async close(): Promise<void> {
+    this.#closed = true;
+    this.closeCount += 1;
+  }
+}
+
+function copyApplication(root: string): void {
+  cpSync(new URL("../examples/v1-app/src/", import.meta.url), join(root, "src"), { recursive: true });
+  cpSync(new URL("../examples/v1-app/fadeno.config.ts", import.meta.url), join(root, "fadeno.config.ts"));
+  cpSync(new URL("../examples/v1-app/tsconfig.json", import.meta.url), join(root, "tsconfig.json"));
+  cpSync(new URL("../examples/v1-app/package.json", import.meta.url), join(root, "package.json"));
+  symlinkSync(resolve(new URL("../examples/v1-app/node_modules", import.meta.url).pathname), join(root, "node_modules"));
+}
+
+function outputBytes(root: string): Readonly<Record<string, Buffer>> {
+  const output = join(root, ".fadeno/routes");
+  return Object.freeze(Object.fromEntries(readdirSync(output).sort().map((name) => [name, readFileSync(join(output, name))])));
+}
+
+function assertOutput(root: string, expected: Readonly<Record<string, Buffer>>): void {
+  const actual = outputBytes(root);
+  assert.deepEqual(Object.keys(actual), Object.keys(expected));
+  for (const [name, bytes] of Object.entries(expected)) assert.equal(actual[name]?.equals(bytes), true, name);
+}
+
+const schedulerRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-watcher-scheduler-"));
+const externalRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-watcher-external-"));
+try {
+  const scheduler = new ManualScheduler();
+  const target = new ManualRefreshTarget(schedulerRoot);
+  const cycles: PrivateFilesystemRefreshCycle[] = [];
+  const adapter = new PrivateFilesystemInvalidationAdapter(schedulerRoot, target, {
+    debounceMs: 25,
+    maximumDelayMs: 100,
+    maximumPendingHints: 2,
+    scheduler,
+    onCycle: (cycle) => { cycles.push(cycle); },
+  });
+
+  assert.equal(adapter.notify({ kind: "change", path: "src/a.ts" }).reason, "contained-change");
+  scheduler.advance(10);
+  adapter.notify({ kind: "change", path: "src/b.ts" });
+  scheduler.advance(10);
+  assert.equal(adapter.notify({ kind: "change", path: "src/b.ts" }).reason, "duplicate-change");
+  scheduler.advance(24);
+  assert.equal(target.pending.length, 0);
+  scheduler.advance(1);
+  assert.equal(target.pending.length, 1);
+  const burst = adapter.flush();
+  target.pending[0]!.resolve();
+  const burstCycle = await burst;
+  assert.equal(burstCycle.batch.size, 3);
+  assert.deepEqual(burstCycle.batch.hints, ["src/a.ts", "src/b.ts"]);
+  assert.deepEqual(burstCycle.batch.reasons, ["contained-change", "duplicate-change"]);
+
+  adapter.notify({ kind: "change", path: "src/alias.ts" });
+  assert.equal(adapter.notify({ kind: "change", path: "src/./alias.ts" }).reason, "duplicate-alias-rescan");
+  const alias = adapter.flush();
+  target.pending[1]!.resolve();
+  assert.equal((await alias).batch.fullWorkspace, true);
+
+  adapter.notify({ kind: "change", path: "src/overflow-a.ts" });
+  adapter.notify({ kind: "change", path: "src/overflow-b.ts" });
+  assert.equal(adapter.notify({ kind: "change", path: "src/overflow-c.ts" }).reason, "overflow-rescan");
+  const overflow = adapter.flush();
+  target.pending[2]!.resolve();
+  assert.equal((await overflow).batch.fullWorkspace, true);
+
+  adapter.notify({ kind: "change", path: "src/active.ts" });
+  scheduler.advance(25);
+  assert.equal(target.pending.length, 4);
+  const active = adapter.flush();
+  adapter.notify({ kind: "change", path: "src/during-work.ts" });
+  target.pending[3]!.resolve();
+  await active;
+  await Promise.resolve();
+  await Promise.resolve();
+  scheduler.advance(24);
+  assert.equal(target.pending.length, 4);
+  scheduler.advance(1);
+  assert.equal(target.pending.length, 5);
+  const dirty = adapter.flush();
+  target.pending[4]!.resolve();
+  assert.deepEqual((await dirty).batch.hints, ["src/during-work.ts"]);
+
+  adapter.notify({ kind: "change", path: "src/max-0.ts" });
+  for (let index = 1; index <= 4; index += 1) {
+    scheduler.advance(20);
+    adapter.notify({ kind: "change", path: `src/max-${index}.ts` });
+  }
+  scheduler.advance(20);
+  assert.equal(target.pending.length, 6, "maximum delay did not force refresh");
+  const maximum = adapter.flush();
+  target.pending[5]!.resolve();
+  assert.equal((await maximum).batch.fullWorkspace, true, "bounded hint overflow did not rescan workspace");
+
+  assert.equal(adapter.notify({ kind: "change", path: ".fadeno/routes/index.js" }).status, "excluded");
+  assert.equal(adapter.notify({ kind: "change", path: ".git/index" }).status, "excluded");
+  assert.equal(adapter.notify({ kind: "change", path: "../external.ts" }).status, "refused");
+  assert.equal(adapter.notify({ kind: "change", path: "bad\0path" }).status, "refused");
+  symlinkSync(externalRoot, join(schedulerRoot, "linked"));
+  assert.equal(adapter.notify({ kind: "change", path: "linked/file.ts" }).reason, "symlink-path");
+  assert.equal(adapter.notify({ kind: "rename", path: "src/renamed.ts" }).reason, "rename-rescan");
+  assert.equal(adapter.notify({ kind: "change", path: null }).reason, "missing-name-rescan");
+  const ambiguous = adapter.flush();
+  target.pending[6]!.resolve();
+  assert.equal((await ambiguous).batch.fullWorkspace, true);
+
+  const close = adapter.close();
+  assert.equal(adapter.close(), close);
+  await close;
+  assert.equal(target.closeCount, 1);
+  assert.throws(() => adapter.notify({ kind: "change", path: "src/closed.ts" }), /FADENO_ANALYZER_WATCH_CLOSED/u);
+  await assert.rejects(adapter.flush(), /FADENO_ANALYZER_WATCH_CLOSED/u);
+  assert.equal(cycles.length, 7);
+} finally {
+  rmSync(schedulerRoot, { recursive: true, force: true });
+  rmSync(externalRoot, { recursive: true, force: true });
+}
+
+const integrationRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-watcher-integration-"));
+try {
+  copyApplication(integrationRoot);
+  const analyzer = new PrivateProjectAnalyzer(integrationRoot);
+  const adapter = new PrivateFilesystemInvalidationAdapter(integrationRoot, analyzer, {
+    debounceMs: 0,
+    maximumDelayMs: 1,
+  });
+  await adapter.flush();
+  const initial = outputBytes(integrationRoot);
+
+  const route = join(integrationRoot, "src/routes/watched/page.tsx");
+  mkdirSync(join(integrationRoot, "src/routes/watched"), { recursive: true });
+  writeFileSync(route, "export default function Page(): string { return 'watched'; }\n");
+  adapter.notify({ kind: "change", path: route });
+  assert.equal((await adapter.flush()).refresh.application.changed, true);
+
+  const server = join(integrationRoot, "src/server.ts");
+  const serverBytes = readFileSync(server, "utf8");
+  const beforeFailure = outputBytes(integrationRoot);
+  writeFileSync(server, `${serverBytes}\nconst watcherFailure: string = 1;\n`);
+  adapter.notify({ kind: "change", path: "src/server.ts" });
+  await assert.rejects(adapter.flush(), /FADENO_ANALYZER_COMPILER_DIAGNOSTIC/u);
+  assertOutput(integrationRoot, beforeFailure);
+  writeFileSync(server, serverBytes);
+  adapter.notify({ kind: "change", path: "src/server.ts" });
+  await adapter.flush();
+
+  rmSync(join(integrationRoot, "src/routes/watched"), { recursive: true });
+  adapter.notify({ kind: "rename", path: route });
+  assert.equal((await adapter.flush()).refresh.application.changed, true);
+  assert.deepEqual(Object.keys(initial), Object.keys(outputBytes(integrationRoot)));
+
+  const config = join(integrationRoot, "fadeno.config.ts");
+  const configBytes = readFileSync(config, "utf8");
+  writeFileSync(config, `// watcher configuration epoch\n${configBytes}`);
+  adapter.notify({ kind: "change", path: "fadeno.config.ts" });
+  assert.equal((await adapter.flush()).refresh.application.changed, false);
+
+  const closing = adapter.close();
+  assert.equal(adapter.close(), closing);
+  await closing;
+} finally {
+  rmSync(integrationRoot, { recursive: true, force: true });
+}
+
+console.log("V1 filesystem invalidation adapter passed (bounded hints, dirty work, refusal, rescan, recovery, close)");
