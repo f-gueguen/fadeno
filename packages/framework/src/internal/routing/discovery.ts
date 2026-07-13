@@ -50,10 +50,16 @@ export type RouteDiscoveryResult = Readonly<{
   sources: Readonly<Record<string, string>>;
 }>;
 
+export type RouteRoleCollisionFact = Readonly<{
+  route: string;
+  owners: readonly Readonly<{ role: "handler" | "page"; path: string }>[];
+}>;
+
 export class RouteContractError extends FadenoDiagnosticError {
   readonly code: string;
+  readonly routeRoleCollision: RouteRoleCollisionFact | null;
 
-  constructor(code: string, locations: readonly string[] = []) {
+  constructor(code: string, locations: readonly string[] = [], routeRoleCollision: RouteRoleCollisionFact | null = null) {
     super(
       `FADENO_ROUTE_${code}`,
       `Route contract violation: ${code.toLowerCase().replaceAll("_", " ")}`,
@@ -63,6 +69,7 @@ export class RouteContractError extends FadenoDiagnosticError {
     );
     this.name = "RouteContractError";
     this.code = code;
+    this.routeRoleCollision = routeRoleCollision;
   }
 }
 
@@ -76,8 +83,8 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function fail(code: string, locations: readonly string[] = []): never {
-  throw new RouteContractError(code, locations);
+function fail(code: string, locations: readonly string[] = [], routeRoleCollision: RouteRoleCollisionFact | null = null): never {
+  throw new RouteContractError(code, locations, routeRoleCollision);
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -204,7 +211,13 @@ function discoverRouteInputs(projectRoot: string, config: RouteConfig): RouteDis
     if (restChildren.length > 1) fail("REST_SIBLING_COLLISION", restChildren.map(({ source }) => source));
     const page = roles.get("page.tsx");
     const handler = roles.get("handler.ts");
-    if (page && handler) fail("ROUTE_ROLE_COLLISION", [page, handler]);
+    if (page && handler) fail("ROUTE_ROLE_COLLISION", [page, handler], Object.freeze({
+      route: routeId(segments),
+      owners: Object.freeze([
+        Object.freeze({ role: "handler" as const, path: handler }),
+        Object.freeze({ role: "page" as const, path: page }),
+      ]),
+    }));
 
     const layout = roles.get("layout.tsx");
     const nextInherited: InheritedRoles = {
@@ -245,6 +258,12 @@ function discoverRouteInputs(projectRoot: string, config: RouteConfig): RouteDis
 
   walk(root, [], new Set(), { layouts: [], notFound: null, error: null }, false);
   routes.sort((left, right) => compareText(left.id, right.id));
+  const immutableRoutes = Object.freeze(routes.map((route) => Object.freeze({
+    ...route,
+    segments: Object.freeze(route.segments.map((segment) => Object.freeze({ ...segment }))),
+    parameters: Object.freeze(route.parameters.map((parameter) => Object.freeze({ ...parameter }))),
+    layouts: Object.freeze([...route.layouts]),
+  })));
   const sources = Object.freeze(Object.fromEntries([...sourceFiles].sort(compareText).map((path) => {
     const bytes = readFileSync(join(canonicalProject, path));
     return [path, Object.freeze({ text: bytes.toString("utf8"), sha256: createHash("sha256").update(bytes).digest("hex") })];
@@ -256,7 +275,7 @@ function discoverRouteInputs(projectRoot: string, config: RouteConfig): RouteDis
     visibility: "internal-route-manifest",
     root: config.root,
     generation: Object.freeze({ version: 1, sourceSha256 }),
-    routes,
+    routes: immutableRoutes,
   });
   return Object.freeze({
     manifest,

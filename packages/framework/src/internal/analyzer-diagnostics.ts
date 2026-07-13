@@ -141,7 +141,8 @@ const encoder = new TextEncoder();
 const keyPattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 const workPattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 const configuredPathPattern = /^[a-zA-Z0-9._-]+(?:\/[a-zA-Z0-9._-]+)*$/u;
-const routePattern = /^\/(?:[a-z0-9-]+(?:\/[a-z0-9-]+)*)?$/u;
+const routeSegmentPattern = "(?:[a-z0-9]+(?:-[a-z0-9]+)*|\\[[A-Za-z_][A-Za-z0-9_]*\\]|\\[\\.\\.\\.[A-Za-z_][A-Za-z0-9_]*\\])";
+const routePattern = new RegExp(`^/(?:${routeSegmentPattern}(?:/${routeSegmentPattern})*)?$`, "u");
 const incidentPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const maximumBatchBytes = 262_144;
 

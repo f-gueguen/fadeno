@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
@@ -128,6 +129,9 @@ try {
   if (!Object.isFrozen(planned) || !Object.isFrozen(planned.sources) || !Object.isFrozen(planned.files)) {
     throw new Error("FADENO_ROUTING_PLAN_MUTABLE");
   }
+  if (!Object.isFrozen(planned.manifest.routes) || !Object.isFrozen(planned.manifest.routes[0]!.segments) ||
+      !Object.isFrozen(planned.manifest.routes[0]!.layouts)) throw new Error("FADENO_ROUTING_PLAN_NESTED_MUTABLE");
+  assert.throws(() => (planned.manifest.routes as RouteManifest["routes"][number][]).push(planned.manifest.routes[0]!));
   if (planned.sourceSha256 !== planned.manifest.generation.sourceSha256 ||
       JSON.stringify(planned.files) !== JSON.stringify(repeatedPlan.files)) {
     throw new Error("FADENO_ROUTING_PLAN_IDENTITY");

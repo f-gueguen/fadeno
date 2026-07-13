@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, lstatSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -46,19 +46,27 @@ export function normalizeConfig(value: unknown): FadenoConfig {
   }
 }
 
-export async function loadConfig(projectRoot: string): Promise<FadenoConfig> {
+export type LoadedConfig = Readonly<{ config: FadenoConfig; source: string }>;
+
+export async function loadConfigWithSource(projectRoot: string): Promise<LoadedConfig> {
   if (!existsSync(projectRoot) || lstatSync(projectRoot).isSymbolicLink() || !lstatSync(projectRoot).isDirectory()) {
     fail("PROJECT_ROOT");
   }
   const configPath = resolve(projectRoot, "fadeno.config.ts");
   if (!existsSync(configPath)) fail("MISSING");
   if (lstatSync(configPath).isSymbolicLink() || !lstatSync(configPath).isFile()) fail("FILE");
+  const source = readFileSync(configPath, "utf8");
   let module: Record<string, unknown>;
   try {
     module = await import(`${pathToFileURL(configPath).href}?fadeno=${randomUUID()}`) as Record<string, unknown>;
   } catch {
     fail("EXECUTION");
   }
+  if (readFileSync(configPath, "utf8") !== source) fail("SOURCE_CHANGED");
   if (Object.keys(module).some((key) => key !== "default")) fail("EXPORTS");
-  return normalizeConfig(module["default"]);
+  return Object.freeze({ config: normalizeConfig(module["default"]), source });
+}
+
+export async function loadConfig(projectRoot: string): Promise<FadenoConfig> {
+  return (await loadConfigWithSource(projectRoot)).config;
 }

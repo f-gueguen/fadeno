@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -98,6 +98,37 @@ try {
   assert.equal(existsSync(join(root, ".fadeno")), false);
   assert.equal(readFileSync(join(root, "fadeno.config.ts"), "utf8"), "export default { routes: { root: 'src/routes' } };\n");
 
+  const nestedCollisionPath = join(root, "src/routes/hello/[name]/handler.ts");
+  cpSync(new URL("../examples/v1-app/scenarios/analyzer-project/handler.ts", import.meta.url), nestedCollisionPath);
+  const nestedCollision = await analyzer.analyze();
+  assert.equal(nestedCollision.routePlan, null);
+  assert.deepEqual(
+    nestedCollision.diagnostics.diagnostics.map(({ parameters }) => parameters["route"]),
+    ["/hello/[name]", "/hello/[name]", "/hello/[name]"],
+  );
+  rmSync(nestedCollisionPath);
+  const nestedRecovery = await analyzer.analyze();
+  assert.equal(nestedRecovery.diagnostics.diagnostics.length, 0);
+
+  const sessionId = nestedRecovery.publication.sessionId;
+  const configurationEpoch = nestedRecovery.publication.configurationEpoch;
+  writeFileSync(join(root, "fadeno.config.ts"), "// equivalent configuration edit\nexport default { routes: { root: 'src/routes' } };\n");
+  const equivalentConfiguration = await analyzer.analyze();
+  assert.equal(equivalentConfiguration.publication.sessionId, sessionId);
+  assert.equal(equivalentConfiguration.publication.configurationEpoch, configurationEpoch + 1);
+
+  mkdirSync(join(root, "src/alternate-routes"), { recursive: true });
+  writeFileSync(join(root, "src/alternate-routes/page.tsx"), "export default function page(): string { return 'alternate'; }\n");
+  writeFileSync(join(root, "fadeno.config.ts"), "export default { routes: { root: 'src/alternate-routes' } };\n");
+  const switchedRoot = await analyzer.analyze();
+  assert.equal(switchedRoot.publication.sessionId, sessionId);
+  assert.equal(switchedRoot.routePlan?.manifest.root, "src/alternate-routes");
+  assert.deepEqual(
+    switchedRoot.diagnostics.identity.documents.map(({ path }) => path),
+    ["fadeno.config.ts", "src/alternate-routes/page.tsx"],
+  );
+  assert.equal(switchedRoot.publication.artifacts.length, 7);
+
   writeFileSync(join(root, "fadeno.config.ts"), [
     'import { writeFileSync } from "node:fs";',
     "const owner = new URL(import.meta.url);",
@@ -106,8 +137,14 @@ try {
     "export default { routes: { root: 'src/other-routes' } };",
     "",
   ].join("\n"));
-  await assert.rejects(() => analyzer.analyze(), /FADENO_ANALYZER_PROJECT_CONFIGURATION_CHANGED/u);
+  await assert.rejects(() => analyzer.analyze(), /FADENO_CONFIG_SOURCE_CHANGED/u);
   assert.equal(existsSync(join(root, ".fadeno")), false);
+
+  const targetConfig = join(root, "owned-config-target.ts");
+  writeFileSync(targetConfig, "export default { routes: { root: 'src/routes' } };\n");
+  rmSync(join(root, "fadeno.config.ts"));
+  symlinkSync(targetConfig, join(root, "fadeno.config.ts"));
+  await assert.rejects(() => analyzer.analyze(), /FADENO_CONFIG_FILE/u);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

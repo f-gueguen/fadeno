@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { join, posix, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
-import { loadConfig } from "./config.ts";
+import { loadConfigWithSource } from "./config.ts";
 import { normalizeAnalyzerFacetValue } from "./analyzer-facets.ts";
 import {
   ANALYZER_DIAGNOSTIC_NAMESPACE,
@@ -16,7 +16,7 @@ import type { AnalyzerGraphNodeDefinition } from "./analyzer-graph.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
 import { createRouteExplainContribution } from "./analyzer-route-explain.ts";
 import { AnalyzerSession, type AnalyzerDocumentSnapshot, type AnalyzerOperationResult } from "./analyzer-session.ts";
-import { FadenoDiagnosticError } from "./diagnostic.ts";
+import { RouteContractError, type RouteRoleCollisionFact } from "./routing/discovery.ts";
 import {
   createRouteArtifactPlan,
   type RouteArtifactName,
@@ -59,16 +59,12 @@ function location(document: AnalyzerDocumentSnapshot) {
   });
 }
 
-function routeId(configuredRoot: string, source: string): string {
-  const directory = posix.relative(configuredRoot, posix.dirname(source));
-  return directory === "" ? "/" : `/${directory}`;
-}
-
 export class PrivateProjectAnalyzer {
   readonly #root: string;
   readonly #session: AnalyzerSession;
   readonly #managedPaths = new Set<string>();
   #configurationFingerprint: string | null = null;
+  #configurationSourceSha256: string | null = null;
 
   constructor(projectRoot: string) {
     this.#root = resolve(projectRoot);
@@ -76,24 +72,22 @@ export class PrivateProjectAnalyzer {
   }
 
   async analyze(): Promise<PrivateProjectAnalysis> {
-    const configPath = join(this.#root, "fadeno.config.ts");
-    const configSource = readFileSync(configPath, "utf8");
-    const config = await loadConfig(this.#root);
-    if (readFileSync(configPath, "utf8") !== configSource) {
-      throw new TypeError("FADENO_ANALYZER_PROJECT_CONFIGURATION_CHANGED");
-    }
+    const { config, source: configSource } = await loadConfigWithSource(this.#root);
     const configFingerprint = sha256(JSON.stringify(config));
+    const configurationSourceSha256 = sha256(configSource);
     let routePlan: RouteArtifactPlan | null = null;
-    let routeFailure: FadenoDiagnosticError | null = null;
+    let routeCollision: RouteRoleCollisionFact | null = null;
     try {
       routePlan = createRouteArtifactPlan(this.#root, config);
     } catch (error) {
-      if (!(error instanceof FadenoDiagnosticError) || error.id !== "FADENO_ROUTE_ROUTE_ROLE_COLLISION") throw error;
-      routeFailure = error;
+      if (!(error instanceof RouteContractError) || !error.routeRoleCollision) throw error;
+      routeCollision = error.routeRoleCollision;
     }
 
+    const configuredRoot = config.routes?.root;
+    if (!configuredRoot) throw new TypeError("FADENO_ANALYZER_PROJECT_ROUTES_REQUIRED");
     const desiredSources = routePlan?.sources ?? Object.freeze(Object.fromEntries(
-      (routeFailure?.locations ?? []).map((path) => [path, readFileSync(join(this.#root, path), "utf8")]),
+      (routeCollision?.owners ?? []).map(({ path }) => [path, readFileSync(join(this.#root, path), "utf8")]),
     ));
     const desired = new Map<string, string>([
       ["fadeno.config.ts", configSource],
@@ -101,9 +95,10 @@ export class PrivateProjectAnalyzer {
     ]);
     this.#synchronizeDocuments(desired);
     this.#assertInputsCurrent(desired);
-    if (this.#configurationFingerprint !== configFingerprint) {
+    if (this.#configurationFingerprint !== configFingerprint || this.#configurationSourceSha256 !== configurationSourceSha256) {
       accepted(this.#session.reloadConfiguration(configFingerprint));
       this.#configurationFingerprint = configFingerprint;
+      this.#configurationSourceSha256 = configurationSourceSha256;
     }
 
     const documents = this.#session.currentSnapshot.documents;
@@ -115,7 +110,7 @@ export class PrivateProjectAnalyzer {
       requestedFacets: [{ namespace: ANALYZER_DIAGNOSTIC_NAMESPACE }],
       materialize: ({ graph }) => {
         this.#assertInputsCurrent(desired);
-        const diagnosticInput = this.#diagnosticInput(routeFailure, config.routes?.root, documentByPath);
+        const diagnosticInput = this.#diagnosticInput(routeCollision, documentByPath);
         diagnostics = createAnalyzerDiagnosticBatch({ graph, documents, ...diagnosticInput });
         return [{
           namespace: ANALYZER_DIAGNOSTIC_NAMESPACE,
@@ -162,7 +157,8 @@ export class PrivateProjectAnalyzer {
       if (desired.has(path)) continue;
       const current = this.#session.currentSnapshot.documents.find((document) => document.path === path);
       if (current?.open) accepted(this.#session.close(join(this.#root, path), current.open.lifetime, current.open.version));
-      if (!existsSync(join(this.#root, path))) accepted(this.#session.remove(join(this.#root, path)));
+      if (existsSync(join(this.#root, path))) accepted(this.#session.release(join(this.#root, path)));
+      else accepted(this.#session.remove(join(this.#root, path)));
       this.#managedPaths.delete(path);
     }
     for (const [path, text] of [...desired].sort(([left], [right]) => compareText(left, right))) {
@@ -213,20 +209,15 @@ export class PrivateProjectAnalyzer {
   }
 
   #diagnosticInput(
-    failure: FadenoDiagnosticError | null,
-    configuredRoot: string | undefined,
+    collision: RouteRoleCollisionFact | null,
     documents: ReadonlyMap<string, AnalyzerDocumentSnapshot>,
   ): Readonly<{
     diagnostics: readonly AnalyzerDiagnosticInput[];
     corrections: readonly AnalyzerCorrectionInput[];
     skippedWork: readonly Readonly<{ id: string; causedByKeys: readonly string[] }>[];
   }> {
-    if (!failure) return { diagnostics: [], corrections: [], skippedWork: [] };
-    if (failure.id !== "FADENO_ROUTE_ROUTE_ROLE_COLLISION" || !configuredRoot || failure.locations.length !== 2) {
-      throw failure;
-    }
-    const owners = failure.locations.map((path) => ({ path, role: path.endsWith("handler.ts") ? "handler" as const : "page" as const }));
-    const route = routeId(configuredRoot, owners[0]!.path);
+    if (!collision) return { diagnostics: [], corrections: [], skippedWork: [] };
+    const { owners, route } = collision;
     const ownerDiagnostics: AnalyzerDiagnosticInput[] = owners.map(({ path, role }) => ({
       key: `${role}-owner`,
       code: "FADENO_ROUTE_ROUTE_ROLE_OWNER",
