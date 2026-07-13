@@ -254,7 +254,7 @@ try {
   const routingJs = join(installedPackage, "dist/internal/routing/generator.js");
   const routingTypes = join(installedPackage, "dist/internal/routing/generator.d.ts");
   if (!existsSync(routingJs) || !existsSync(routingTypes)) throw new Error("FADENO_PUBLIC_PACKAGE_ROUTING_INTERNAL_ABSENT");
-  writeFileSync(join(consumer, "routing-deep-import.ts"), `import { generateRoutes } from "${packageName}/internal/routing/generator";\nvoid generateRoutes;\n`);
+  writeFileSync(join(consumer, "routing-deep-import.ts"), `import { createRouteArtifactPlan } from "${packageName}/internal/routing/generator";\nvoid createRouteArtifactPlan;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "routing-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/routing/generator")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
   const analyzerJs = join(installedPackage, "dist/internal/analyzer-session.js");
