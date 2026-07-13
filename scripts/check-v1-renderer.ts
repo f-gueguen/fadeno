@@ -72,6 +72,26 @@ const streamedResourceResponse = await renderRoute({
 assert.match(await body(streamedResourceResponse), /streamed resource/u);
 assert.equal(streamedResourceLoads, 1, "the request resource scope remains open through streamed boundary work");
 
+let returnedValueInspections = 0;
+const opaqueResourceValue = new Proxy(Object.create(null) as object, {
+  ownKeys() {
+    returnedValueInspections += 1;
+    throw new Error("rendering must not inspect an unused loader result");
+  },
+});
+const opaqueResource = defineResource({ read: () => opaqueResourceValue });
+const opaqueResourceResponse = await renderRoute({
+  request: new Request("https://example.test/opaque-resource-value"),
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: async ({ read }) => {
+    await read(opaqueResource, null);
+    return document(jsx("p", { children: "opaque resource accepted" }));
+  },
+});
+assert.match(await body(opaqueResourceResponse), /opaque resource accepted/u);
+assert.equal(returnedValueInspections, 0, "ordinary rendering does not build unused revalidation comparison evidence");
+
 const expectedReports: FrameworkFailureReport[] = [];
 const expectedRequest = new Request("https://example.test/resource-missing");
 const releaseExpectedObserver = bindRequestFailureObserver(expectedRequest, (report) => { expectedReports.push(report); });

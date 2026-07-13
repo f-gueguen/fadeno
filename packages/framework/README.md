@@ -39,7 +39,8 @@ frozen normalized input. `resourceError({ code, status })` creates a typed
 expected application outcome for the route error page; it does not create an
 internal incident. Every request releases values, failures, dependencies, and
 flow records when its response finishes. V1 deliberately has no cross-request
-result cache.
+result cache. Input limits bound framework-retained normalized data; they do not
+make an application-created giant object or proxy cheap to enumerate.
 
 The permanent packed examples are the source of the resource usage and failure
 documentation: `examples/v1-app/src/resources/projects.ts`,

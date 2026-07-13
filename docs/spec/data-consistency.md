@@ -19,6 +19,10 @@ unsupported or over-budget values are refused without invoking loader or
 accessor code. Proxy-interposed application objects are refused, may run their
 own reflection traps during validation, and cannot customize identity;
 external decoders must produce ordinary data before calling a resource.
+The limits bound the normalized key and framework-retained data. Enumerating an
+application-created object can still cost time proportional to that original
+object's property count, and proxy traps are application execution rather than
+a security boundary; applications should construct bounded ordinary inputs.
 
 Each request owns a fresh declaration/input map. It records a dependency and
 stores the loader promise before awaiting it, so equivalent concurrent and

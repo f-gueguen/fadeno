@@ -99,7 +99,7 @@ async function renderFailure(
 
 export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Response> {
   const failureObserver = captureRequestFailureObserver(input.request);
-  const resources = new ResourceRequestScope(input.request);
+  const resources = new ResourceRequestScope(input.request, "omit");
   const context: PageContext<Record<string, string | readonly string[]>> = Object.freeze({
     request: input.request,
     parameters: input.parameters,

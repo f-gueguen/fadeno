@@ -69,6 +69,25 @@ function byteLength(value: string): number {
   return byteEncoder.encode(value).byteLength;
 }
 
+function waitForResourceLoader<Value>(operation: Value | Promise<Value>, signal: AbortSignal): Promise<Value> {
+  if (signal.aborted) return Promise.reject(new DOMException("FADENO_RESOURCE_ABORTED", "AbortError"));
+  return new Promise<Value>((resolve, reject) => {
+    let settled = false;
+    const finish = (complete: () => void): void => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", abort);
+      complete();
+    };
+    const abort = (): void => finish(() => reject(new DOMException("FADENO_RESOURCE_ABORTED", "AbortError")));
+    signal.addEventListener("abort", abort, { once: true });
+    Promise.resolve(operation).then(
+      (value) => finish(() => resolve(value)),
+      (error: unknown) => finish(() => reject(error)),
+    );
+  });
+}
+
 function normalizeInput(value: unknown): Readonly<{ input: ResourceInput; key: string }> {
   const active = new Set<object>();
   let entries = 0;
@@ -223,14 +242,17 @@ export class ResourceRequestScope {
   readonly #flows: ResourceFlow[] = [];
   readonly #closure = new AbortController();
   readonly #signal: AbortSignal;
+  readonly #comparisonEvidence: "record" | "omit";
   #closed = false;
   #reads = 0;
   #calls = 0;
 
-  constructor(request: Request) {
+  constructor(request: Request, comparisonEvidence: "record" | "omit" = "record") {
     if (!(request instanceof Request)) throw new TypeError("FADENO_RESOURCE_REQUEST");
+    if (comparisonEvidence !== "record" && comparisonEvidence !== "omit") throw new TypeError("FADENO_RESOURCE_COMPARISON_EVIDENCE");
     this.#request = request;
     this.#signal = AbortSignal.any([request.signal, this.#closure.signal]);
+    this.#comparisonEvidence = comparisonEvidence;
   }
 
   get dependencies(): readonly ResourceDependency[] {
@@ -324,10 +346,16 @@ export class ResourceRequestScope {
     try {
       const loader = loaders.get(resource) as ResourceLoader<Input, Value> | undefined;
       if (!loader) throw new TypeError("FADENO_RESOURCE_DECLARATION");
-      const loaded = await loader(Object.freeze({ input, request: this.#request, signal: this.#signal }));
+      if (this.#signal.aborted) throw new DOMException("FADENO_RESOURCE_ABORTED", "AbortError");
+      const loaded = await waitForResourceLoader(
+        loader(Object.freeze({ input, request: this.#request, signal: this.#signal })),
+        this.#signal,
+      );
       if (this.#signal.aborted) throw new DOMException("FADENO_RESOURCE_ABORTED", "AbortError");
       let comparisonKey: string | null = null;
-      try { comparisonKey = normalizeInput(loaded).key; } catch { /* unsupported values conservatively refuse comparison */ }
+      if (this.#comparisonEvidence === "record") {
+        try { comparisonKey = normalizeInput(loaded).key; } catch { /* unsupported values conservatively refuse comparison */ }
+      }
       dependency.observation = Object.freeze({ status: "value", comparisonKey });
       this.#record("value", "miss", true, "loader-completed");
       return Object.freeze({ status: "value" as const, value: loaded as Value });

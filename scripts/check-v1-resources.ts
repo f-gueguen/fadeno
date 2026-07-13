@@ -194,9 +194,8 @@ await assert.rejects(
 let cancellationPhase: "baseline" | "blocked" = "baseline";
 const cancellable = defineResource({ read: ({ signal }) => {
   if (cancellationPhase === "baseline") return "ready";
-  return new Promise<string>((_resolve, reject) => {
-    signal.addEventListener("abort", () => reject(new DOMException("cancelled", "AbortError")), { once: true });
-  });
+  void signal;
+  return new Promise<string>(() => undefined);
 } });
 const cancellationBaselineScope = new ResourceRequestScope(request());
 assert.equal(await cancellationBaselineScope.read(cancellable, null), "ready");
@@ -206,7 +205,14 @@ cancellationPhase = "blocked";
 const controller = new AbortController();
 const cancelled = revalidateResourceDependencies(request(controller.signal), cancellationBaseline);
 queueMicrotask(() => controller.abort());
-await assert.rejects(cancelled, (error: unknown) => error instanceof DOMException && error.name === "AbortError");
+const cancellationOutcome = await Promise.race([
+  cancelled.then(
+    () => "completed",
+    (error: unknown) => error instanceof DOMException && error.name === "AbortError" ? "cancelled" : "wrong-error",
+  ),
+  new Promise<"timed-out">((resolve) => setTimeout(() => resolve("timed-out"), 100)),
+]);
+assert.equal(cancellationOutcome, "cancelled", "cancellation cannot wait for an application loader that ignores its signal");
 
 const flow = {
   operation: "correctness-first-resource-revalidation",
