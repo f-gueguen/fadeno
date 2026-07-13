@@ -42,6 +42,7 @@ type StructuredDiagnostic = Readonly<{
   file: string | null;
   start: number | null;
   end: number | null;
+  rangeReason: "global" | null;
   text: string;
 }>;
 
@@ -174,6 +175,7 @@ function structuredDiagnostics(projectRoot: string): readonly StructuredDiagnost
           : null,
         start: Number.isSafeInteger(diagnostic.pos) && diagnostic.pos! >= 0 ? diagnostic.pos! : null,
         end: Number.isSafeInteger(diagnostic.end) && diagnostic.end! >= 0 ? diagnostic.end! : null,
+        rangeReason: Number.isSafeInteger(diagnostic.pos) && diagnostic.pos! >= 0 ? null : "global",
         text: diagnostic.text,
       });
     }).sort((left, right) =>

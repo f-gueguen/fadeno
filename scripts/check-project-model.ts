@@ -400,7 +400,7 @@ const expectedV1DxB = [
   { id: "V1-DX-B7D2", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-B7D1"], commands: ["pnpm check:v1-analyzer"] },
   { id: "V1-DX-B7D3", features: ["TYPE-01", "BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-B7D2", "V1-DX-B7C"], commands: ["pnpm check:v1-analyzer"] },
   { id: "V1-DX-B7D4", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-B7D3"], commands: ["pnpm check:v1-analyzer"] },
-  { id: "V1-DX-B7D5", features: ["GOV-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-B7D3", "DG-V1-06"], commands: ["pnpm check", "pnpm ci:local"] },
+  { id: "V1-DX-B7D5", features: ["GOV-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-B7D3", "ADR 0033"], commands: ["pnpm check", "pnpm ci:local"] },
   { id: "V1-DX-B7D6", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-B7D5"], commands: ["pnpm check:v1-analyzer", "pnpm ci:local"] },
   { id: "V1-DX-B7D7", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-B7D4", "V1-DX-B7D5", "V1-DX-B7D6"], commands: ["pnpm check:v1-analyzer", "pnpm ci:local"] },
 ] as const;

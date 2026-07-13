@@ -38,6 +38,7 @@ type ChildResult = Readonly<{
     file: string | null;
     start: number | null;
     end: number | null;
+    rangeReason: "global" | null;
     text: string;
   }>[];
   output?: RuntimeIdentity;
@@ -270,6 +271,7 @@ try {
     file: "src/handler.ts",
     start: 13,
     end: 25,
+    rangeReason: null,
     text: "normalized",
   });
   assert.deepEqual({ ...runtime(projectRoot, second.environment), pid: 0 }, {

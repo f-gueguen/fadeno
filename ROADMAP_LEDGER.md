@@ -10,16 +10,16 @@ V1-DX-B7D5 — build and development lifecycle contract
 
 ## Exit criteria
 
-- [ ] Prove the proposed build and development contract through one private
+- [x] Prove the proposed build and development contract through one private
   packed decision harness before accepting a public command contract.
-- [ ] Accept one ADR that resolves DG-V1-06 with exact command grammar,
+- [x] Accept ADR 0033 to resolve the build/development decision gate with exact command grammar,
   production entry and compiler inputs, transactional output ownership,
   development address/readiness/watch/last-good behavior, diagnostics,
   environment snapshots, shutdown, streams, and exit statuses.
-- [ ] Require emitted compiler and runtime inputs to remain correlated with one
+- [x] Require emitted compiler and runtime inputs to remain correlated with one
   current analyzer generation, use isolated bounded development generations,
   and refuse stale, external, mixed, or unowned output and dependencies.
-- [ ] Preserve human-only command output, private analyzer and watcher
+- [x] Preserve human-only command output, private analyzer and watcher
   boundaries, and every external-schema, editor-product, registry, deployment,
   and support gate.
 - [ ] Prove private decision evidence, documentation/model consistency, full
@@ -30,8 +30,8 @@ V1-DX-B7D5 — build and development lifecycle contract
 
 - B7D5 is a decision-and-evidence slice. It adds no shipped build or development
   command, server, watcher backend, package export, or analyzer schema.
-- A private packed harness must close the former evidence-ordering gap by
-  exercising the proposed bootstrap order, derived compiler configuration,
+- The private packed harness closes the former evidence-ordering gap by
+  exercising the accepted bootstrap order, derived compiler configuration,
   contained staged output, ownership and runtime identity, isolated child
   generations, last-good recovery, environment snapshots, structured
   same-pass diagnostics, and bounded shutdown state transitions.
@@ -55,8 +55,6 @@ V1-DX-B7D5 — build and development lifecycle contract
 - DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
-- DG-V1-06: exact public build and development workflow contract before either
-  command is implemented.
 
 ## Completed slices
 
@@ -192,7 +190,7 @@ V1-DX-B7D5 — build and development lifecycle contract
   migrates canonical project integration, and adds no build/watch or public API.
 - V1-DX-B7D0 — Commit `ebb6a86` decomposes retained consumption into bounded
   coordination, batching, compiler, watcher, decision, build, and development
-  slices and adds DG-V1-06 before public build or development implementation.
+  slices and adds a decision gate before public build or development implementation.
 - V1-DX-B7D1 — Commit `14de5c8` gives one retained private project authority a
   FIFO coordinator with immutable request identities, failure-absorbing drain,
   immediate derived freshness, and explicit idempotent close without adding a

@@ -41,6 +41,7 @@ effective decision.
 29. [ADR 0030 — Private incremental analyzer session](0030-private-incremental-analyzer-session.md)
 30. [ADR 0031 — JSX renderer and generated route binding](0031-jsx-renderer-and-generated-route-binding.md)
 31. [ADR 0032 — Project-check command contract](0032-project-check-command-contract.md)
+32. [ADR 0033 — Build and development lifecycle](0033-build-and-development-lifecycle.md)
 
 ## Superseded decisions
 

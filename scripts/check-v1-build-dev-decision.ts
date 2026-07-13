@@ -128,10 +128,10 @@ try {
   symlinkSync(join(externalRoot, "file.js"), join(projectRoot, ".env.local"));
   assert.throws(() => { capturePrivateEnvironment(projectRoot, {}); }, /FADENO_BUILD_ENV/u);
 
-  const recovery = new PrivateDevelopmentDecisionModel(5_000);
+  const recovery = new PrivateDevelopmentDecisionModel(5_000, 4_173);
   assert.deepEqual(recovery.ready(1), {
     state: "ready", acceptedGeneration: 1, candidateGeneration: null, exitCode: null,
-    output: "Fadeno development server ready.\n",
+    output: "Fadeno development server ready at http://127.0.0.1:4173.\n",
   });
   assert.equal(recovery.prepare(2).state, "preparing");
   assert.deepEqual(recovery.refuseCandidate(), {
@@ -146,7 +146,7 @@ try {
   });
   assert.throws(() => { recovery.prepare(3); }, /FADENO_DEV_STATE/u);
 
-  const graceful = new PrivateDevelopmentDecisionModel(100);
+  const graceful = new PrivateDevelopmentDecisionModel(100, 4_173);
   graceful.ready(1);
   assert.equal(graceful.signal(1_000).state, "stopping");
   assert.equal(graceful.tick(1_099).state, "stopping");
@@ -155,7 +155,7 @@ try {
     output: "Fadeno development server stopped.\n",
   });
 
-  const deadline = new PrivateDevelopmentDecisionModel(100);
+  const deadline = new PrivateDevelopmentDecisionModel(100, 4_173);
   deadline.ready(1);
   deadline.signal(1_000);
   assert.deepEqual(deadline.tick(1_100), {
@@ -163,13 +163,14 @@ try {
     output: "Fadeno development shutdown deadline exceeded.\n",
   });
 
-  const repeated = new PrivateDevelopmentDecisionModel(100);
+  const repeated = new PrivateDevelopmentDecisionModel(100, 4_173);
   repeated.ready(1);
   repeated.signal(1_000);
   assert.deepEqual(repeated.signal(1_001), {
     state: "forced", acceptedGeneration: 1, candidateGeneration: null, exitCode: 3,
     output: "Fadeno development shutdown forced.\n",
   });
+  assert.throws(() => { new PrivateDevelopmentDecisionModel(100, 0); }, /FADENO_DEV_ADDRESS/u);
 } finally {
   rmSync(temporaryRoot, { recursive: true, force: true });
 }

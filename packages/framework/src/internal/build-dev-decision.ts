@@ -255,24 +255,27 @@ export function capturePrivateEnvironment(
 
 export class PrivateDevelopmentDecisionModel {
   readonly #shutdownDeadlineMs: number;
+  readonly #origin: string;
   #state: PrivateDevelopmentState = "starting";
   #acceptedGeneration: number | null = null;
   #candidateGeneration: number | null = null;
   #shutdownAt: number | null = null;
   #exitCode: 0 | 3 | null = null;
 
-  constructor(shutdownDeadlineMs: number) {
+  constructor(shutdownDeadlineMs: number, port: number) {
     if (!Number.isSafeInteger(shutdownDeadlineMs) || shutdownDeadlineMs < 1 || shutdownDeadlineMs > 60_000) {
       throw new TypeError("FADENO_DEV_SHUTDOWN_CONFIG");
     }
+    if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new TypeError("FADENO_DEV_ADDRESS");
     this.#shutdownDeadlineMs = shutdownDeadlineMs;
+    this.#origin = `http://127.0.0.1:${port}`;
   }
 
   ready(generation: number): PrivateDevelopmentTransition {
     if (this.#state !== "starting" || generation !== 1) throw new TypeError("FADENO_DEV_STATE");
     this.#state = "ready";
     this.#acceptedGeneration = generation;
-    return this.#snapshot("Fadeno development server ready.\n");
+    return this.#snapshot(`Fadeno development server ready at ${this.#origin}.\n`);
   }
 
   prepare(generation: number): PrivateDevelopmentTransition {
