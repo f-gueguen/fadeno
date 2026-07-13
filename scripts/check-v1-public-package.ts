@@ -130,6 +130,8 @@ try {
     "package/dist/internal/analyzer-watcher.js",
     "package/dist/internal/build-dev-decision.d.ts",
     "package/dist/internal/build-dev-decision.js",
+    "package/dist/internal/build-dev-generation-child.d.ts",
+    "package/dist/internal/build-dev-generation-child.js",
     "package/dist/internal/config.d.ts",
     "package/dist/internal/config.js",
     "package/dist/internal/diagnostic.d.ts",

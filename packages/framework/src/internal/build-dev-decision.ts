@@ -3,8 +3,8 @@ import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 const maximumIdentityFiles = 4_096;
-const maximumIdentityFileBytes = 4 * 1024 * 1024;
-const maximumIdentityBytes = 32 * 1024 * 1024;
+const maximumIdentityFileBytes = 64 * 1024 * 1024;
+const maximumIdentityBytes = 128 * 1024 * 1024;
 const maximumEnvironmentFileBytes = 1024 * 1024;
 
 export type PrivateBuildDevCommand = Readonly<

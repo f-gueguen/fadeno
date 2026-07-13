@@ -9,6 +9,8 @@
   },
   "include": [
     "packages/framework/src/internal/build-dev-decision.ts",
-    "scripts/check-v1-build-dev-decision.ts"
+    "packages/framework/src/internal/build-dev-generation-child.ts",
+    "scripts/check-v1-build-dev-decision.ts",
+    "scripts/check-v1-build-dev-packed-decision.ts"
   ]
 }
