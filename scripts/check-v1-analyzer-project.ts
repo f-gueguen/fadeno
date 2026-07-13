@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -110,6 +110,28 @@ try {
   const nestedRecovery = await analyzer.analyze().result;
   assert.equal(nestedRecovery.diagnostics.diagnostics.length, 0);
 
+  const batchedDirectory = join(root, "src/routes/batched");
+  const batchedPage = join(batchedDirectory, "page.tsx");
+  mkdirSync(batchedDirectory, { recursive: true });
+  writeFileSync(batchedPage, "export default function Page(): string { return 'batched'; }\n");
+  const structuralAddition = await analyzer.analyze().result;
+  assert.equal(structuralAddition.routePlan?.manifest.routes.some(({ id }) => id === "/batched"), true);
+  writeFileSync(batchedPage, "export default function Page(): string { return 'direct-edit'; }\n");
+  const directEdit = await analyzer.analyze().result;
+  assert.equal(directEdit.publication.graph.invalidations.some(({ reasons }) => reasons.some(({ kind }) => kind === "document")), true);
+  const renamedDirectory = join(root, "src/routes/batched-renamed");
+  const renamedPage = join(renamedDirectory, "page.tsx");
+  mkdirSync(renamedDirectory, { recursive: true });
+  renameSync(batchedPage, renamedPage);
+  const renamed = await analyzer.analyze().result;
+  assert.equal(renamed.routePlan?.manifest.routes.some(({ id }) => id === "/batched"), false);
+  assert.equal(renamed.routePlan?.manifest.routes.some(({ id }) => id === "/batched-renamed"), true);
+  assert.equal(renamed.publication.graph.removedNodes.some(({ reason }) => reason === "owner-disappeared"), true);
+  rmSync(renamedPage);
+  const deleted = await analyzer.analyze().result;
+  assert.equal(deleted.routePlan?.manifest.routes.some(({ id }) => id === "/batched-renamed"), false);
+  assert.equal(deleted.publication.graph.removedNodes.some(({ reason }) => reason === "owner-disappeared"), true);
+
   const sessionId = nestedRecovery.publication.sessionId;
   const configurationEpoch = nestedRecovery.publication.configurationEpoch;
   writeFileSync(join(root, "fadeno.config.ts"), "// equivalent configuration edit\nexport default { routes: { root: 'src/routes' } };\n");
@@ -128,7 +150,7 @@ try {
     ["fadeno.config.ts", "src/alternate-routes/page.tsx"],
   );
   assert.equal(switchedRoot.publication.graph.removedNodes.length > 0, true);
-  assert.equal(switchedRoot.publication.graph.removedNodes.every(({ reason }) => reason === "definition-removed"), true);
+  assert.equal(switchedRoot.publication.graph.removedNodes.every(({ reason }) => reason === "owner-disappeared"), true);
   assert.equal(switchedRoot.publication.artifacts.length, 7);
 
   writeFileSync(join(root, "fadeno.config.ts"), [

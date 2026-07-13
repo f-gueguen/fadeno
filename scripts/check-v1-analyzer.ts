@@ -308,6 +308,72 @@ try {
   const saveUnknown = session.save.bind(session) as unknown as (document: string, text: unknown) => AnalyzerOperationResult;
   refused(session, () => saveUnknown(documentPath, 42), "FADENO_ANALYZER_TEXT", { version: null, lifetime: null });
 
+  const reconcileSession = new AnalyzerSession(root);
+  const retainedRoots = ["first", "second", "third"].map((name) => {
+    const directory = join(root, "retained", name);
+    mkdirSync(directory, { recursive: true });
+    const path = join(directory, "page.tsx");
+    const text = `export default ${JSON.stringify(name)};\n`;
+    writeFileSync(path, text);
+    return { name, path, text };
+  });
+  let reconciled = accepted(reconcileSession.reconcile({
+    documents: [{ document: retainedRoots[0]!.path, text: retainedRoots[0]!.text, expectedOpen: null }],
+    forget: [],
+  }));
+  assert.equal(reconciled.operation, "reconcile");
+  assert.deepEqual(reconciled.documents.map(({ path }) => path), ["retained/first/page.tsx"]);
+  const firstIdentity = reconciled.documents[0]!.open!;
+  reconciled = accepted(reconcileSession.reconcile({
+    documents: [{ document: retainedRoots[1]!.path, text: retainedRoots[1]!.text, expectedOpen: null }],
+    forget: [{ document: retainedRoots[0]!.path, expectedOpen: firstIdentity }],
+  }));
+  assert.deepEqual(reconciled.documents.map(({ path }) => path), ["retained/second/page.tsx"]);
+  assert.equal(readFileSync(retainedRoots[0]!.path, "utf8"), retainedRoots[0]!.text, "forget removed an existing source");
+  const secondIdentity = reconciled.documents[0]!.open!;
+  const beforeFailedReconcile = reconcileSession.currentSnapshot;
+  refused(reconcileSession, () => reconcileSession.reconcile({
+    documents: [
+      { document: retainedRoots[2]!.path, text: retainedRoots[2]!.text, expectedOpen: null },
+      { document: pathToFileURL(retainedRoots[2]!.path).href, text: retainedRoots[2]!.text, expectedOpen: null },
+    ],
+    forget: [{ document: retainedRoots[1]!.path, expectedOpen: secondIdentity }],
+  }), "FADENO_ANALYZER_RECONCILE_DUPLICATE");
+  assert.equal(reconcileSession.currentSnapshot, beforeFailedReconcile);
+  refused(reconcileSession, () => reconcileSession.reconcile({
+    documents: [{ document: symlinkPath, text: readFileSync(documentPath, "utf8"), expectedOpen: null }],
+    forget: [{ document: retainedRoots[1]!.path, expectedOpen: secondIdentity }],
+  }), "FADENO_ANALYZER_DOCUMENT_SYMLINK");
+  assert.equal(reconcileSession.currentSnapshot, beforeFailedReconcile);
+  refused(reconcileSession, () => reconcileSession.reconcile({
+    documents: [{ document: retainedRoots[2]!.path, text: retainedRoots[2]!.text, expectedOpen: null }],
+    forget: [{ document: retainedRoots[1]!.path, expectedOpen: { lifetime: secondIdentity.lifetime + 1, version: secondIdentity.version } }],
+  }), "FADENO_ANALYZER_LIFETIME");
+  assert.equal(reconcileSession.currentSnapshot, beforeFailedReconcile);
+  const updatedSecondText = "export default 'second-updated';\n";
+  writeFileSync(retainedRoots[1]!.path, updatedSecondText);
+  reconciled = accepted(reconcileSession.reconcile({
+    documents: [{ document: retainedRoots[1]!.path, text: updatedSecondText, expectedOpen: secondIdentity }],
+    forget: [],
+  }));
+  assert.equal(reconciled.documents[0]!.open!.version, secondIdentity.version + 1);
+  const updatedSecondIdentity = reconciled.documents[0]!.open!;
+  reconciled = accepted(reconcileSession.reconcile({
+    documents: [{ document: retainedRoots[2]!.path, text: retainedRoots[2]!.text, expectedOpen: null }],
+    forget: [{ document: retainedRoots[1]!.path, expectedOpen: updatedSecondIdentity }],
+  }));
+  assert.deepEqual(reconciled.documents.map(({ path }) => path), ["retained/third/page.tsx"]);
+  assert.equal(reconciled.workspaceEpoch, 4, "reconcile did not commit exactly one epoch per batch");
+
+  const unrelatedOpen = accepted(reconcileSession.open(documentPath, 9, "unsaved owner"));
+  const unrelated = unrelatedOpen.documents.find(({ path }) => path === "src/document.ts")!;
+  const beforeOpenRefusal = reconcileSession.currentSnapshot;
+  refused(reconcileSession, () => reconcileSession.reconcile({
+    documents: [],
+    forget: [{ document: documentPath, expectedOpen: null }],
+  }), "FADENO_ANALYZER_DOCUMENT_OPEN", { version: 9, lifetime: unrelated.open!.lifetime });
+  assert.equal(reconcileSession.currentSnapshot, beforeOpenRefusal, "open-owner refusal changed the batch snapshot");
+
   const modelPath = join(sourceDirectory, "model.ts");
   writeFileSync(modelPath, "model-base\r\n");
   const modelSession = new AnalyzerSession(root);

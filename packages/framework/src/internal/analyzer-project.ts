@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { loadConfigWithSource } from "./config.ts";
@@ -137,7 +137,7 @@ export class PrivateProjectAnalyzer {
   }
 
   analyze(): PrivateProjectAnalysisHandle {
-    const handle = this.#coordinator.start("analysis", (requestId) => this.#analyze(requestId));
+    const handle = this.#coordinator.start("analysis", (requestId, { signal }) => this.#analyze(requestId, signal));
     this.#currentAnalysisToken = null;
     this.#latestAnalysisRequestId = handle.requestId;
     return handle;
@@ -149,8 +149,10 @@ export class PrivateProjectAnalyzer {
     return this.#coordinator.close();
   }
 
-  async #analyze(requestId: string): Promise<PrivateProjectAnalysis> {
+  async #analyze(requestId: string, signal: AbortSignal): Promise<PrivateProjectAnalysis> {
+    signal.throwIfAborted();
     const { config, source: configSource } = await loadConfigWithSource(this.#root);
+    signal.throwIfAborted();
     const configFingerprint = sha256(JSON.stringify(config));
     const configurationSourceSha256 = sha256(configSource);
     let routePlan: RouteArtifactPlan | null = null;
@@ -171,6 +173,7 @@ export class PrivateProjectAnalyzer {
       ["fadeno.config.ts", configSource],
       ...Object.entries(desiredSources),
     ]);
+    signal.throwIfAborted();
     this.#synchronizeDocuments(desired);
     this.#assertInputsCurrent(desired);
     this.#assertRouteAnalysisCurrent(config, routePlan, routeCollision);
@@ -179,12 +182,13 @@ export class PrivateProjectAnalyzer {
       this.#configurationFingerprint = configFingerprint;
       this.#configurationSourceSha256 = configurationSourceSha256;
     }
+    signal.throwIfAborted();
 
     const documents = this.#session.currentSnapshot.documents.filter(({ path }) => this.#managedPaths.has(path));
     const documentByPath = new Map(documents.map((document) => [document.path, document]));
     const definitions = this.#definitions(routePlan, Object.keys(desiredSources), documentByPath);
     let diagnostics: AnalyzerDiagnosticBatch | null = null;
-    const publicationResult = await this.#session.startPublication({
+    const publicationHandle = this.#session.startPublication({
       definitions,
       requestedFacets: [{ namespace: ANALYZER_DIAGNOSTIC_NAMESPACE }],
       materialize: ({ graph }) => {
@@ -198,14 +202,24 @@ export class PrivateProjectAnalyzer {
           value: normalizeAnalyzerFacetValue(diagnostics),
         }];
       },
-    }).result;
+    });
+    const cancelPublication = (): void => publicationHandle.cancel();
+    if (signal.aborted) publicationHandle.cancel();
+    else signal.addEventListener("abort", cancelPublication, { once: true });
+    let publicationResult;
+    try {
+      publicationResult = await publicationHandle.result;
+    } finally {
+      signal.removeEventListener("abort", cancelPublication);
+    }
+    signal.throwIfAborted();
     if (publicationResult.status !== "published" || diagnostics === null) {
-      throw new TypeError("FADENO_ANALYZER_PROJECT_PUBLICATION");
+      throw new TypeError(`FADENO_ANALYZER_PROJECT_${publicationResult.status.toUpperCase()}`);
     }
     const publication = publicationResult.snapshot;
     const batch = diagnostics as AnalyzerDiagnosticBatch;
     const analysisToken = Object.freeze({ requestId, operationId: publication.operationId });
-    if (this.#coordinator.state === "accepting" && this.#latestAnalysisRequestId === requestId) {
+    if (!signal.aborted && this.#coordinator.state === "accepting" && this.#latestAnalysisRequestId === requestId) {
       this.#currentAnalysisToken = analysisToken;
     }
     return Object.freeze({
@@ -281,22 +295,30 @@ export class PrivateProjectAnalyzer {
   }
 
   #synchronizeDocuments(desired: ReadonlyMap<string, string>): void {
-    for (const path of [...this.#managedPaths].sort(compareText)) {
-      if (desired.has(path)) continue;
-      const current = this.#session.currentSnapshot.documents.find((document) => document.path === path);
-      if (current?.open) accepted(this.#session.close(join(this.#root, path), current.open.lifetime, current.open.version));
-      if (!existsSync(join(this.#root, path))) accepted(this.#session.remove(join(this.#root, path)));
-      this.#managedPaths.delete(path);
-    }
-    for (const [path, text] of [...desired].sort(([left], [right]) => compareText(left, right))) {
-      const absolute = join(this.#root, path);
-      const current = this.#session.currentSnapshot.documents.find((document) => document.path === path);
-      if (!current?.open) accepted(this.#session.open(absolute, 0, text));
-      else if (current.effective.text !== text) {
-        accepted(this.#session.replace(absolute, current.open.lifetime, current.open.version + 1, text));
-      }
-      this.#managedPaths.add(path);
-    }
+    const currentByPath = new Map(this.#session.currentSnapshot.documents.map((document) => [document.path, document]));
+    const forgotten = [...this.#managedPaths]
+      .filter((path) => !desired.has(path))
+      .sort(compareText)
+      .map((path) => {
+        const current = currentByPath.get(path);
+        if (!current) throw new TypeError("FADENO_ANALYZER_DOCUMENT_UNKNOWN");
+        return { document: join(this.#root, path), expectedOpen: current.open };
+      });
+    let changed = forgotten.length > 0;
+    const documents = [...desired]
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([path, text]) => {
+        const current = currentByPath.get(path);
+        if (!current?.open || current.effective.text !== text) changed = true;
+        return {
+          document: join(this.#root, path),
+          text,
+          expectedOpen: current?.open ?? null,
+        };
+      });
+    if (changed) accepted(this.#session.reconcile({ documents, forget: forgotten }));
+    this.#managedPaths.clear();
+    for (const path of desired.keys()) this.#managedPaths.add(path);
   }
 
   #definitions(
