@@ -235,13 +235,21 @@ try {
       throw new Error("FADENO_ROUTING_TRANSACTION_DEBRIS");
     }
   }
-  for (const operation of ["afterBackup", "replace", "restore"] as const) {
+  for (const operation of ["afterBackup", "replace"] as const) {
     expectError(() => generateRoutes(main, config, undefined, undefined, operation), "FADENO_GENERATION_INJECTED");
     assertSnapshot(first.output, accepted, true);
     if (readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.pending-") || name.startsWith("routes.previous-"))) {
       throw new Error(`FADENO_ROUTING_REPLACEMENT_DEBRIS:${operation}`);
     }
   }
+  expectError(() => generateRoutes(main, config, undefined, undefined, "restore"), "FADENO_GENERATION_INJECTED");
+  if (existsSync(first.output) || readdirSync(join(main, ".fadeno")).filter((name) => name.startsWith("routes.previous-")).length !== 1) {
+    throw new Error("FADENO_ROUTING_RESTORE_RECOVERY_STATE");
+  }
+  rmSync(join(main, "src/routes/new"), { recursive: true });
+  if (generateRoutes(main, config).changed) throw new Error("FADENO_ROUTING_RESTORE_RECOVERY_REWROTE");
+  assertSnapshot(first.output, accepted, true);
+  writeRoute(main, "new/page.tsx");
   const accountSource = join(main, "src/routes/accounts/[accountId]/page.tsx");
   expectError(() => generateRoutes(main, config, undefined, () => writeFileSync(accountSource, `${moduleSource}// changed\n`)), "FADENO_GENERATION_SOURCE_CHANGED");
   assertSnapshot(first.output, accepted);
@@ -267,11 +275,11 @@ try {
   const changed = generateRoutes(main, config);
   if (!changed.changed || !readFileSync(join(changed.output, "index.d.ts"), "utf8").includes('Id extends "/new"')) throw new Error("FADENO_ROUTING_STALE_ADD");
   writeRoute(main, "cleanup/page.tsx");
-  const cleanup = generateRoutes(main, config, undefined, undefined, "cleanup");
-  if (!cleanup.changed || !readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.previous-"))) {
+  expectError(() => generateRoutes(main, config, undefined, undefined, "cleanup"), "FADENO_GENERATION_INJECTED_CLEANUP");
+  if (!readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.previous-"))) {
     throw new Error("FADENO_ROUTING_CLEANUP_PUBLICATION");
   }
-  if (generateRoutes(main, config).changed || readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.previous-"))) {
+  if (!generateRoutes(main, config).changed || readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.previous-"))) {
     throw new Error("FADENO_ROUTING_CLEANUP_RECOVERY");
   }
   rmSync(join(main, "src/routes/cleanup"), { recursive: true });
