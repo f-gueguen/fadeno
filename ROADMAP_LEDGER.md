@@ -34,8 +34,9 @@ V1-DX-B7B — packed public project-check workflow
 - Packed workflow evidence must install the current tarball, execute its declared
   `fadeno` binary, and reject a seeded stale-package canary before any scenario
   can pass.
-- The current packed workflow verifies the exact installed CLI/internal closure,
-  mutation-tests stale identity refusal, and executes stable human success,
+- The current packed workflow verifies the exact installed manifest,
+  CLI/internal closure, configuration parser, and selected parser executable;
+  mutation-tests stale identity refusal; and executes stable human success,
   collision, correction, semantic flow, and recovery outputs without writing
   project artifacts.
 - The real project authority must replace manual analyzer definitions and the

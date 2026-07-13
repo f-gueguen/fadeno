@@ -88,6 +88,11 @@ try {
   assert.equal(JSON.stringify(sideEffecting).includes("CONFIG_SECRET"), false);
   assert.equal(existsSync(mutationPath), false);
 
+  writeFileSync(join(root, "fadeno.config.ts"), "export default defineConfig({ routes: { root: 'src/routes' } });\n");
+  const missingDefineConfigImport = await runProjectCheckCommand(["check", "--project-root", root], { cwd: dirname(root) });
+  assert.equal(missingDefineConfigImport.exitCode, 1);
+  assert.match(missingDefineConfigImport.stderr, /^FADENO_CONFIG_STATIC:/u);
+
   rmSync(join(root, "fadeno.config.ts"));
   const missingConfig = await runProjectCheckCommand(["check", "--project-root", root], { cwd: dirname(root) });
   assert.equal(missingConfig.exitCode, 1);

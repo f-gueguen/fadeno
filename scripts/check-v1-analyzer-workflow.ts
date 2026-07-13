@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import {
   cpSync,
   existsSync,
@@ -8,6 +9,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -27,6 +29,12 @@ interface CommandResult {
   readonly stdout: string;
   readonly stderr: string;
 }
+
+type DirectoryIdentity = readonly Readonly<{ path: string; sha256: string }>[];
+type ParserIdentity = Readonly<{
+  parser: DirectoryIdentity;
+  executable: DirectoryIdentity;
+}>;
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = join(root, "packages/framework");
@@ -78,6 +86,42 @@ function assertPackageIdentity(packageDirectory: string, expected: PackedIdentit
   if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new TypeError("FADENO_PACKED_IDENTITY_STALE");
 }
 
+function directoryIdentity(directory: string): DirectoryIdentity {
+  const files: { path: string; sha256: string }[] = [];
+  const visit = (current: string): void => {
+    for (const entry of readdirSync(current, { withFileTypes: true }).sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0)) {
+      const path = join(current, entry.name);
+      if (entry.isDirectory() && entry.name === "node_modules") continue;
+      if (entry.isDirectory()) visit(path);
+      else if (entry.isFile()) files.push({ path: relative(directory, path).split("\\").join("/"), sha256: sha256(readFileSync(path)) });
+      else throw new TypeError("FADENO_PACKED_DEPENDENCY_OWNERSHIP");
+    }
+  };
+  visit(directory);
+  return Object.freeze(files.map((file) => Object.freeze(file)));
+}
+
+function assertParserIdentity(
+  directories: Readonly<{ parser: string; executable: string }>,
+  expected: ParserIdentity,
+): void {
+  const actual = {
+    parser: directoryIdentity(directories.parser),
+    executable: directoryIdentity(directories.executable),
+  } satisfies ParserIdentity;
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new TypeError("FADENO_PACKED_DEPENDENCY_STALE");
+  }
+}
+
+function parserDirectories(packageDirectory: string): Readonly<{ parser: string; executable: string }> {
+  const require = createRequire(join(realpathSync(packageDirectory), "package.json"));
+  const parser = dirname(require.resolve("typescript/package.json"));
+  const parserRequire = createRequire(join(parser, "package.json"));
+  const executable = dirname(parserRequire.resolve(`@typescript/typescript-${process.platform}-${process.arch}/package.json`));
+  return Object.freeze({ parser, executable });
+}
+
 function fixture(name: string): string {
   return readFileSync(join(root, "examples/v1-app/expected", name), "utf8");
 }
@@ -86,6 +130,11 @@ const temporary = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-workflow-"));
 try {
   requireSuccess("pnpm", ["--filter", "fadeno-framework-internal", "build"], root);
   const builtIdentity = packageIdentity(packageRoot);
+  const builtParserDirectories = parserDirectories(packageRoot);
+  const builtParserIdentity = Object.freeze({
+    parser: directoryIdentity(builtParserDirectories.parser),
+    executable: directoryIdentity(builtParserDirectories.executable),
+  });
   const tarballs = join(temporary, "tarballs");
   mkdirSync(tarballs);
   requireSuccess("pnpm", ["pack", "--pack-destination", tarballs], packageRoot);
@@ -104,6 +153,8 @@ try {
   requireSuccess("pnpm", ["install", "--offline", "--ignore-scripts"], consumer);
   const installedPackage = join(consumer, "node_modules/fadeno-framework-internal");
   assertPackageIdentity(installedPackage, builtIdentity);
+  const installedParserDirectories = parserDirectories(installedPackage);
+  assertParserIdentity(installedParserDirectories, builtParserIdentity);
 
   const installedCli = join(installedPackage, "dist/cli.js");
   const installedCliBytes = readFileSync(installedCli);
@@ -111,6 +162,29 @@ try {
   assert.throws(() => assertPackageIdentity(installedPackage, builtIdentity), /FADENO_PACKED_IDENTITY_STALE/u);
   writeFileSync(installedCli, installedCliBytes);
   assertPackageIdentity(installedPackage, builtIdentity);
+
+  const mutatedParser = join(temporary, "mutated-parser");
+  cpSync(installedParserDirectories.parser, mutatedParser, { recursive: true });
+  const mutatedParserEntry = join(mutatedParser, "dist/ast/index.js");
+  const mutatedParserBytes = readFileSync(mutatedParserEntry);
+  rmSync(mutatedParserEntry);
+  writeFileSync(mutatedParserEntry, `${mutatedParserBytes.toString("utf8")}\n// stale parser canary\n`);
+  assert.throws(
+    () => assertParserIdentity({ parser: mutatedParser, executable: installedParserDirectories.executable }, builtParserIdentity),
+    /FADENO_PACKED_DEPENDENCY_STALE/u,
+  );
+
+  const mutatedExecutable = join(temporary, "mutated-parser-executable");
+  cpSync(installedParserDirectories.executable, mutatedExecutable, { recursive: true });
+  const executableEntry = join(mutatedExecutable, "lib", process.platform === "win32" ? "tsc.exe" : "tsc");
+  const executableBytes = readFileSync(executableEntry);
+  rmSync(executableEntry);
+  writeFileSync(executableEntry, Buffer.concat([executableBytes, Buffer.from("stale parser executable canary")]));
+  assert.throws(
+    () => assertParserIdentity({ parser: installedParserDirectories.parser, executable: mutatedExecutable }, builtParserIdentity),
+    /FADENO_PACKED_DEPENDENCY_STALE/u,
+  );
+  assertParserIdentity(installedParserDirectories, builtParserIdentity);
 
   const application = join(consumer, "app");
   mkdirSync(application);
@@ -153,6 +227,11 @@ try {
   assert.match(sideEffecting.stderr, /^FADENO_CONFIG_STATIC:/u);
   assert.equal(`${sideEffecting.stdout}${sideEffecting.stderr}`.includes("CONFIG_SECRET"), false);
   assert.equal(existsSync(mutationPath), false);
+
+  writeFileSync(join(application, "fadeno.config.ts"), "export default defineConfig({ routes: { root: 'src/routes' } });\n");
+  const missingDefineConfigImport = run(executable, ["check", "--project-root", "app"], consumer);
+  assert.equal(missingDefineConfigImport.status, 1);
+  assert.match(missingDefineConfigImport.stderr, /^FADENO_CONFIG_STATIC:/u);
 
   for (const arguments_ of [
     ["check", "--project-root", "app", "--json"],

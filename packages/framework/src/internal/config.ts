@@ -80,17 +80,24 @@ function objectProperties(expression: ts.Expression): ReadonlyMap<string, ts.Exp
 
 function configurationFromSourceFile(file: ts.SourceFile): FadenoConfig {
   let exported: ts.Expression | null = null;
+  let defineConfigImported = false;
   for (const statement of file.statements) {
     if (ts.isImportDeclaration(statement)) {
       const clause = statement.importClause;
       const bindings = clause?.namedBindings;
       if (
-        clause?.phaseModifier !== undefined || clause?.name || !ts.isStringLiteral(statement.moduleSpecifier) ||
+        statement.attributes !== undefined || clause?.phaseModifier !== undefined || clause?.name ||
+        !ts.isStringLiteral(statement.moduleSpecifier) ||
         statement.moduleSpecifier.text !== "fadeno-framework-internal" || !bindings || !ts.isNamedImports(bindings) ||
         bindings.elements.length !== 1 || bindings.elements[0]!.propertyName !== undefined ||
-        bindings.elements[0]!.isTypeOnly || bindings.elements[0]!.name.text !== "defineConfig"
+        bindings.elements[0]!.isTypeOnly || bindings.elements[0]!.name.text !== "defineConfig" || defineConfigImported
       ) fail("STATIC");
+      defineConfigImported = true;
       continue;
+    }
+    const modified = statement as ts.Statement & { readonly modifiers?: readonly ts.ModifierLike[] };
+    if (ts.isExportDeclaration(statement) || modified.modifiers?.some(({ kind }) => kind === ts.SyntaxKind.ExportKeyword)) {
+      fail("EXPORTS");
     }
     if (!ts.isExportAssignment(statement) || statement.isExportEquals || exported !== null) fail("STATIC");
     exported = statement.expression;
@@ -100,14 +107,23 @@ function configurationFromSourceFile(file: ts.SourceFile): FadenoConfig {
   if (ts.isCallExpression(expression)) {
     if (
       !ts.isIdentifier(expression.expression) || expression.expression.text !== "defineConfig" ||
-      expression.arguments.length !== 1
+      expression.arguments.length !== 1 || !defineConfigImported
     ) fail("STATIC");
     expression = expression.arguments[0]!;
   }
   const top = objectProperties(expression);
   if (top.size === 0) return normalizeConfig({});
   if (top.size !== 1 || !top.has("routes")) fail("SHAPE");
-  const routes = objectProperties(top.get("routes")!);
+  const routesExpression = unwrap(top.get("routes")!);
+  if (!ts.isObjectLiteralExpression(routesExpression)) {
+    if (
+      ts.isStringLiteral(routesExpression) || ts.isNoSubstitutionTemplateLiteral(routesExpression) ||
+      routesExpression.kind === ts.SyntaxKind.TrueKeyword || routesExpression.kind === ts.SyntaxKind.FalseKeyword ||
+      routesExpression.kind === ts.SyntaxKind.NullKeyword || ts.isNumericLiteral(routesExpression)
+    ) fail("ROUTES");
+    fail("STATIC");
+  }
+  const routes = objectProperties(routesExpression);
   if (routes.size !== 1 || !routes.has("root")) fail("ROUTES");
   const root = unwrap(routes.get("root")!);
   if (!ts.isStringLiteral(root) && !ts.isNoSubstitutionTemplateLiteral(root)) fail("STATIC");

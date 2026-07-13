@@ -370,9 +370,11 @@ redacted internal failure use distinct exit codes and stderr reports. Human
 causal and skipped-work lines render stable diagnostic codes rather than random
 operation-instance identities.
 
-The packed workflow hashes the freshly built CLI and its complete relative
-internal module closure, verifies the installed tarball matches, and mutation-
-tests that a changed installed CLI is refused before scenarios run. Canonical
+The packed workflow hashes the freshly built package manifest, CLI, complete
+relative internal module closure, installed configuration-parser package, and
+the parser's selected platform executable. It verifies the clean installation
+matches and mutation-tests the CLI, parser code, and parser executable identity
+before scenarios run. Canonical
 success, collision, correction guidance, semantic flow, and recovery execute
 only through `node_modules/.bin/fadeno` and leave no project output. JSON and
 other machine-output options remain usage errors; private analyzer transports
