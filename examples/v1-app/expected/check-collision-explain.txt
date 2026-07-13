@@ -1,0 +1,26 @@
+FADENO_ROUTE_ROUTE_ROLE_OWNER: Handler ownership conflicts at route /.
+  at src/routes/handler.ts (range unavailable: filesystem-entry)
+  related src/routes/page.tsx (range unavailable: filesystem-entry)
+  correction: FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION (review)
+  explanation: https://fadeno.dev/diagnostics/routes/route-role-collision
+FADENO_ROUTE_ROUTE_ROLE_OWNER: Page ownership conflicts at route /.
+  at src/routes/page.tsx (range unavailable: filesystem-entry)
+  related src/routes/handler.ts (range unavailable: filesystem-entry)
+  correction: FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION (review)
+  explanation: https://fadeno.dev/diagnostics/routes/route-role-collision
+FADENO_ROUTE_ROUTE_ROLE_COLLISION: Route / has conflicting owners.
+  at src/routes/handler.ts (range unavailable: filesystem-entry)
+  related src/routes/page.tsx (range unavailable: filesystem-entry)
+  caused by: FADENO_ROUTE_ROUTE_ROLE_OWNER, FADENO_ROUTE_ROUTE_ROLE_OWNER
+  correction: FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION (review)
+  explanation: https://fadeno.dev/diagnostics/routes/route-role-collision
+SKIPPED manifest-publication: FADENO_ROUTE_ROUTE_ROLE_COLLISION
+Static route explanation (semantic)
+decision: refuse-static-route-plan
+cause: FADENO_ROUTE_ROUTE_ROLE_OWNER
+cause: FADENO_ROUTE_ROUTE_ROLE_OWNER
+cause: FADENO_ROUTE_ROUTE_ROLE_COLLISION
+ownership: route:source-8481b8cd0d85f846 <- src/routes/handler.ts
+ownership: route:source-a9be90f679cf3603 <- src/routes/page.tsx
+skipped: manifest-publication
+outcome: static-refused

@@ -100,6 +100,8 @@ try {
   const expectedEntries = [
     "package/LICENSE",
     "package/README.md",
+    "package/dist/cli.d.ts",
+    "package/dist/cli.js",
     "package/dist/index.d.ts",
     "package/dist/index.js",
     "package/dist/jsx-runtime.d.ts",
@@ -130,6 +132,8 @@ try {
     "package/dist/internal/node-http-capabilities.js",
     "package/dist/internal/node-http.d.ts",
     "package/dist/internal/node-http.js",
+    "package/dist/internal/project-check.d.ts",
+    "package/dist/internal/project-check.js",
     "package/dist/internal/routing/discovery.d.ts",
     "package/dist/internal/routing/discovery.js",
     "package/dist/internal/routing/generator.d.ts",
@@ -189,6 +193,7 @@ try {
     private?: boolean;
     publishConfig?: unknown;
     version?: string;
+    bin?: Record<string, string>;
     exports?: Record<string, { import?: string; types?: string }>;
   };
   const expectedExports = {
@@ -198,7 +203,8 @@ try {
   };
   if (
     manifest.name !== packageName || manifest.version !== "0.0.0-private" || manifest.private !== true ||
-    manifest.publishConfig !== undefined || JSON.stringify(manifest.exports) !== JSON.stringify(expectedExports)
+    manifest.publishConfig !== undefined || JSON.stringify(manifest.bin) !== JSON.stringify({ fadeno: "./dist/cli.js" }) ||
+    JSON.stringify(manifest.exports) !== JSON.stringify(expectedExports)
   ) {
     throw new Error("FADENO_PUBLIC_PACKAGE_MANIFEST");
   }
