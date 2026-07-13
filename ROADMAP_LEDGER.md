@@ -10,17 +10,17 @@ V1-DX-B7D0 — retained-consumer sequencing and command gate
 
 ## Exit criteria
 
-- [ ] Decompose the former B7D implementation outcome into retained ownership,
+- [x] Decompose the former B7D implementation outcome into retained ownership,
   batching/supersession, current-epoch compiler sequencing, watch adaptation,
   command decision, production build, and development lifecycle slices.
-- [ ] Add one explicit V1 decision gate for public build/dev entry, output,
+- [x] Add one explicit V1 decision gate for public build/dev entry, output,
   compiler, server, address, diagnostic, last-good, shutdown, and exit behavior.
-- [ ] Align the V1 roadmap, compiler/build specifications, traceability, and risk
+- [x] Align the V1 roadmap, compiler/build specifications, traceability, and risk
   ledger without claiming that retained consumers or public commands exist.
-- [ ] Keep `fadeno check` as the only implemented command and add no watcher,
+- [x] Keep `fadeno check` as the only implemented command and add no watcher,
   server, compiler orchestration, package export, analyzer schema, or editor
   product in this planning slice.
-- [ ] Pass documentation, decision, ledger, project-model, policy, full
+- [x] Pass documentation, decision, ledger, project-model, policy, full
   repository, local CI, and fresh independent review gates.
 
 ## In progress
