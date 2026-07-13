@@ -6,47 +6,45 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7D2 — deterministic invalidation batches and supersession
+V1-DX-B7D3 — serialized analyzer application and compiler validation
 
 ## Exit criteria
 
-- [x] Coalesce generic private invalidation admissions into deterministic
-  generations without interpreting filesystem notification names or timers.
-- [x] Supersede active obsolete analysis at admission, preserve request
-  identity and terminal reason, and allow only the newest complete generation
-  to own application or explanation capabilities.
-- [x] Retain every invalidation admitted during active work, failure cleanup,
-  idle handoff, or pre-close drain without a lost wakeup.
-- [x] Reconcile current project documents and forget explicitly unmanaged
-  closed owners through one atomic session transition, including still-existing
-  files, without discarding unrelated open buffers.
-- [x] Prove direct, structural, configuration, deletion, rename, burst,
-  refusal, recovery, close, retained-memory, package-inaccessibility, full
-  repository, local CI, architecture, Big-O, and fresh independent review gates.
+- [ ] Run analysis, provisional route-artifact application, validation-only
+  stock compilation, final freshness validation, and acceptance or rollback as
+  one retained coordinator operation.
+- [ ] Preserve the exact last accepted route generation across compiler
+  diagnostics, cancellation, supersession, process failure, cleanup failure,
+  and first-generation or restart recovery.
+- [ ] Bind compiler acceptance to the current coordinator generation, analyzer
+  publication, provisional artifact identity, and live operation signal without
+  building a second application dependency graph.
+- [ ] Terminate and await every compiler child before rollback, queue progress,
+  or close completion, while producing no `dist`, build-info, cache, declaration,
+  map, or other compiler output.
+- [ ] Prove real stock-compiler success, direct/transitive/delete/rename failure
+  and recovery, late stale refusal, consumer exclusion, transaction recovery,
+  package inaccessibility, full repository, local CI, architecture, Big-O, and
+  fresh independent review gates.
 
 ## In progress
 
-- B7D2 extends the one B7D1 project coordinator; it does not add a parallel
-  scheduler, watcher adapter, or second workspace/configuration authority.
-- Independent challenge requires admission to synchronously obsolete and
-  signal active analysis. FIFO publication supersession alone is too late
-  because it permits an obsolete generation to publish before newer work starts.
-- A monotonic admission generation owns pending dirtiness. A worker clears only
-  the generation it consumed, so work arriving during execution, rejection,
-  idle handoff, or close remains queued and reaches a terminal outcome.
-- An explanation admitted before a later analysis continues to drain in FIFO
-  order. New analysis supersedes analysis work, not every derived operation
-  indiscriminately.
-- One private session reconcile validates the complete desired and forgotten
-  owner set against cloned state, commits one snapshot and workspace epoch, and
-  refuses atomically. Project scanning owns exact saved revisions and never
-  adopts or overwrites an overlay; an open desired or forgotten owner refuses.
-- Direct, structure, configuration, deletion, rename, and burst fixtures mutate
-  authoritative project state then submit generic invalidation. Filesystem event
-  interpretation and debounce policy remain B7D4.
-- Filesystem application remains synchronous and outside the coordinator until
-  B7D3. Compiler refresh, watching, commands, servers, public schemas, and
-  editor products remain later work.
+- B7D3 adds one private retained refresh operation to the B7D2 coordinator. It
+  performs analysis, provisional B7C application, compiler validation, final
+  freshness, and commit or rollback before its coordinator item settles.
+- B7C's immediate application capability remains available to existing private
+  consumers. A new private two-phase transaction retains verified rollback
+  ownership and first-generation recovery identity until validation commits.
+- The compiler boundary invokes the installed stock compiler asynchronously in
+  validation-only mode, bounds and redacts captured output, awaits actual child
+  termination, and never emits application files.
+- The stock compiler owns ordinary direct and transitive module refresh. Fadeno
+  binds acceptance to operation and artifact identity but does not maintain a
+  second application dependency graph.
+- B7D3 treats explicit newer admissions as invalidation. Translating arbitrary
+  filesystem notifications into contained admissions remains B7D4.
+- DG-V1-06 still gates public compiler inputs and build/development contracts.
+  No `dist`, watcher, command, server, public schema, or editor product is added.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -201,3 +199,7 @@ V1-DX-B7D2 — deterministic invalidation batches and supersession
   FIFO coordinator with immutable request identities, failure-absorbing drain,
   immediate derived freshness, and explicit idempotent close without adding a
   watcher, compiler pipeline, command, server, or public analyzer surface.
+- V1-DX-B7D2 — Commit `23c9d58` adds deterministic invalidation batching,
+  synchronous active supersession, constant-time pending unlink, atomic saved
+  reconcile and forgetting, exact document-authority freshness, bounded retained
+  ownership, and no watcher, compiler, command, server, or public analyzer surface.
