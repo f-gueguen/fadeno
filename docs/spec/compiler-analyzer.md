@@ -335,10 +335,12 @@ creates or modifies `.fadeno`; filesystem application remains V1-DX-B7C.
 The configuration value fingerprint and exact validated configuration-source
 identity are tracked separately. A source-only configuration edit advances the
 configuration epoch even when normalization produces the same value. A route
-root change closes sources that leave current ownership; surviving files remain
-closed session knowledge while their graph nodes are removed as definition
-changes, never fabricated filesystem deletion. Diagnostic evidence lists only
-the currently managed configuration and route sources.
+root change forgets sources that leave project ownership, including
+still-existing former-root files, while preserving unrelated session documents
+and unsaved overlays. Their graph nodes are removed as definition changes,
+never fabricated filesystem deletion. Diagnostic locations name only the
+currently managed configuration and route sources, while the private batch
+identity retains the complete session document authority needed for freshness.
 Immediately before publication, the authority revalidates the complete route
 structure and source identity, including newly added entries that were absent
 from the captured plan. A stale plan is refused. This analysis-time freshness

@@ -58,6 +58,13 @@ export interface PrivateProjectAnalyzerOptions {
   readonly session?: AnalyzerSession;
 }
 
+interface PrivateProjectAnalysisToken {
+  readonly requestId: string;
+  readonly operationId: string;
+  readonly documentSnapshot: AnalyzerDocumentOnlySnapshot;
+  readonly publication: AnalyzerPublicationSnapshot;
+}
+
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -138,7 +145,7 @@ export class PrivateProjectAnalyzer {
   readonly #managedDocuments = new Map<string, number>();
   #configurationFingerprint: string | null = null;
   #configurationSourceSha256: string | null = null;
-  #currentAnalysisToken: object | null = null;
+  #currentAnalysisToken: PrivateProjectAnalysisToken | null = null;
   #latestAnalysisRequestId: string | null = null;
 
   constructor(projectRoot: string, options: PrivateProjectAnalyzerOptions = {}) {
@@ -194,7 +201,8 @@ export class PrivateProjectAnalyzer {
     }
     signal.throwIfAborted();
 
-    const documents = this.#session.currentSnapshot.documents.filter(({ path }) => this.#managedDocuments.has(path));
+    const sessionDocuments = this.#session.currentSnapshot.documents;
+    const documents = sessionDocuments.filter(({ path }) => this.#managedDocuments.has(path));
     const documentByPath = new Map(documents.map((document) => [document.path, document]));
     const definitions = this.#definitions(routePlan, Object.keys(desiredSources), documentByPath);
     let diagnostics: AnalyzerDiagnosticBatch | null = null;
@@ -205,7 +213,7 @@ export class PrivateProjectAnalyzer {
         this.#assertInputsCurrent(desired);
         this.#assertRouteAnalysisCurrent(config, routePlan, routeCollision);
         const diagnosticInput = this.#diagnosticInput(routeCollision, documentByPath);
-        diagnostics = createAnalyzerDiagnosticBatch({ graph, documents, ...diagnosticInput });
+        diagnostics = createAnalyzerDiagnosticBatch({ graph, documents: sessionDocuments, ...diagnosticInput });
         return [{
           namespace: ANALYZER_DIAGNOSTIC_NAMESPACE,
           version: 1,
@@ -228,7 +236,12 @@ export class PrivateProjectAnalyzer {
     }
     const publication = publicationResult.snapshot;
     const batch = diagnostics as AnalyzerDiagnosticBatch;
-    const analysisToken = Object.freeze({ requestId, operationId: publication.operationId });
+    const analysisToken: PrivateProjectAnalysisToken = Object.freeze({
+      requestId,
+      operationId: publication.operationId,
+      documentSnapshot: this.#session.currentSnapshot,
+      publication,
+    });
     if (!signal.aborted && this.#coordinator.state === "accepting" && this.#latestAnalysisRequestId === requestId) {
       this.#currentAnalysisToken = analysisToken;
     }
@@ -238,14 +251,22 @@ export class PrivateProjectAnalyzer {
       routePlan,
       apply: (options: PrivateProjectApplicationOptions = {}) => {
         if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
-        if (this.#currentAnalysisToken !== analysisToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
+        if (
+          this.#currentAnalysisToken !== analysisToken ||
+          this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+          this.#session.currentPublicationSnapshot !== publication
+        ) applicationRefuse("STALE");
         if (routePlan === null || batch.diagnostics.length > 0 || batch.corrections.length > 0 || batch.skippedWork.length > 0) {
           applicationRefuse("DIAGNOSTIC");
         }
         const publishedPlan = routeArtifactPlanFromPublication(publication, routePlan);
         const assertFresh = (): void => {
           if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
-          if (this.#currentAnalysisToken !== analysisToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
+          if (
+            this.#currentAnalysisToken !== analysisToken ||
+            this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+            this.#session.currentPublicationSnapshot !== publication
+          ) applicationRefuse("STALE");
           this.#assertInputsCurrent(desired);
           this.#assertRouteAnalysisCurrent(config, routePlan, null);
         };
@@ -256,20 +277,35 @@ export class PrivateProjectAnalyzer {
   }
 
   async #explain(
-    analysisToken: object,
+    analysisToken: PrivateProjectAnalysisToken,
     diagnostics: AnalyzerDiagnosticBatch,
     detail: "semantic" | "deep",
   ): Promise<AnalyzerExplainResult> {
     if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
-    if (this.#currentAnalysisToken !== analysisToken) projectRefuse("STALE");
-    return this.#coordinator.start("explanation", async () => this.#session.startExplain({
-      detail,
-      ...(detail === "deep" ? { activateDeep: true } : {}),
-      requestedFacets: [{ namespace: "fadeno.routes.explain" }],
-      collect: ({ publication: current, budgets }) => [
-        createRouteExplainContribution(current, diagnostics, detail, budgets),
-      ],
-    }).result).result;
+    if (
+      this.#currentAnalysisToken !== analysisToken ||
+      this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+      this.#session.currentPublicationSnapshot !== analysisToken.publication
+    ) projectRefuse("STALE");
+    return this.#coordinator.start("explanation", async () => {
+      if (
+        this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+        this.#session.currentPublicationSnapshot !== analysisToken.publication
+      ) projectRefuse("STALE");
+      const result = await this.#session.startExplain({
+        detail,
+        ...(detail === "deep" ? { activateDeep: true } : {}),
+        requestedFacets: [{ namespace: "fadeno.routes.explain" }],
+        collect: ({ publication: current, budgets }) => [
+          createRouteExplainContribution(current, diagnostics, detail, budgets),
+        ],
+      }).result;
+      if (
+        this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+        this.#session.currentPublicationSnapshot !== analysisToken.publication
+      ) projectRefuse("STALE");
+      return result;
+    }).result;
   }
 
   #assertInputsCurrent(expected: ReadonlyMap<string, string>): void {
