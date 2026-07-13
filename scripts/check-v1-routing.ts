@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -18,7 +19,11 @@ import { pathToFileURL } from "node:url";
 import { loadConfig, normalizeConfig } from "../packages/framework/src/internal/config.ts";
 import { FadenoDiagnosticError, formatDiagnostic } from "../packages/framework/src/internal/diagnostic.ts";
 import { RouteContractError, type RouteManifest } from "../packages/framework/src/internal/routing/discovery.ts";
-import { generateRoutes, type GenerationFailurePoint } from "../packages/framework/src/internal/routing/generator.ts";
+import {
+  createRouteArtifactPlan,
+  generateRoutes,
+  type GenerationFailurePoint,
+} from "../packages/framework/src/internal/routing/generator.ts";
 import { matchRoutePathname } from "../packages/framework/src/internal/routing/matcher.ts";
 
 const require = createRequire(import.meta.url);
@@ -117,6 +122,14 @@ try {
   if ((await loadConfig(main)).routes !== undefined) throw new Error("FADENO_ROUTING_CONFIG_CACHE");
   writeFileSync(join(main, "fadeno.config.ts"), originalConfig);
   if ((await loadConfig(main)).routes?.root !== "src/routes") throw new Error("FADENO_ROUTING_CONFIG_RELOAD");
+  const planned = createRouteArtifactPlan(main, config);
+  const repeatedPlan = createRouteArtifactPlan(main, config);
+  if (existsSync(join(main, ".fadeno"))) throw new Error("FADENO_ROUTING_PLAN_WROTE_OUTPUT");
+  if (!Object.isFrozen(planned) || !Object.isFrozen(planned.files)) throw new Error("FADENO_ROUTING_PLAN_MUTABLE");
+  if (planned.sourceSha256 !== planned.manifest.generation.sourceSha256 ||
+      JSON.stringify(planned.files) !== JSON.stringify(repeatedPlan.files)) {
+    throw new Error("FADENO_ROUTING_PLAN_IDENTITY");
+  }
   const first = generateRoutes(main, config);
   if (!first.changed) throw new Error("FADENO_ROUTING_FIRST_UNCHANGED");
   const accepted = snapshot(first.output);
@@ -258,7 +271,7 @@ try {
   const diagnosticProject = createProject(["page.tsx", "handler.ts"]);
   try {
     let diagnostic: RouteContractError | undefined;
-    try { generateRoutes(diagnosticProject, await loadConfig(diagnosticProject)); } catch (error) { if (error instanceof RouteContractError) diagnostic = error; }
+    try { createRouteArtifactPlan(diagnosticProject, await loadConfig(diagnosticProject)); } catch (error) { if (error instanceof RouteContractError) diagnostic = error; }
     const expectedDiagnostic = `${JSON.stringify({
       id: "FADENO_ROUTE_ROUTE_ROLE_COLLISION",
       severity: "error",
@@ -274,6 +287,7 @@ try {
     if (!diagnostic || formatDiagnostic(diagnostic) !== expectedDiagnostic || formatDiagnostic(diagnostic).includes(diagnosticProject) || formatDiagnostic(diagnostic).includes("ROUTE_MODULE_EXECUTED")) {
       throw new Error("FADENO_ROUTING_STRUCTURED_DIAGNOSTIC");
     }
+    if (existsSync(join(diagnosticProject, ".fadeno"))) throw new Error("FADENO_ROUTING_REFUSED_PLAN_WROTE_OUTPUT");
   } finally { rmSync(diagnosticProject, { recursive: true, force: true }); }
 } finally {
   rmSync(main, { recursive: true, force: true });
