@@ -4,6 +4,7 @@ const cookieName = "__Host-fadeno-session";
 const envelopeVersion = "v1";
 const maximumKeys = 4;
 const maximumCookieBytes = 4_096;
+const maximumEnvelopeBytes = maximumCookieBytes - Buffer.byteLength(cookieName) - 1;
 const maximumValueBytes = 2_048;
 const maximumValueDepth = 16;
 const maximumValueEntries = 256;
@@ -169,7 +170,7 @@ function seal(keyring: DecisionSessionKeyring, session: DecisionSessionSnapshot)
   cipher.setAAD(aad);
   const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const envelope = [envelopeVersion, key.id, base64url(iv), base64url(encrypted), base64url(cipher.getAuthTag())].join(".");
-  if (Buffer.byteLength(envelope) > maximumCookieBytes) fail("FADENO_SESSION_COOKIE_LIMIT");
+  if (Buffer.byteLength(envelope) > maximumEnvelopeBytes) fail("FADENO_SESSION_COOKIE_LIMIT");
   return envelope;
 }
 
@@ -213,7 +214,7 @@ export function openDecisionSession(
   if (!Number.isSafeInteger(now) || now < 0) fail("FADENO_SESSION_TIME");
   if (envelope === undefined) return Object.freeze({ status: "missing", snapshot: null, clearCookie: false });
   try {
-    if (typeof envelope !== "string" || Buffer.byteLength(envelope) > maximumCookieBytes) fail("FADENO_SESSION_COOKIE");
+    if (typeof envelope !== "string" || Buffer.byteLength(envelope) > maximumEnvelopeBytes) fail("FADENO_SESSION_COOKIE");
     const parts = envelope.split(".");
     if (parts.length !== 5 || parts[0] !== envelopeVersion) fail("FADENO_SESSION_COOKIE");
     const state = keyringState(keyring);
@@ -255,7 +256,7 @@ export function renewDecisionSession(
 }
 
 export function formatDecisionSessionCookie(envelope: string, now: number, expiresAt: number): string {
-  if (typeof envelope !== "string" || Buffer.byteLength(envelope) > maximumCookieBytes || expiresAt <= now) {
+  if (typeof envelope !== "string" || Buffer.byteLength(`${cookieName}=${envelope}`) > maximumCookieBytes || expiresAt <= now) {
     fail("FADENO_SESSION_COOKIE");
   }
   const maximumAge = Math.floor((expiresAt - now) / 1_000);

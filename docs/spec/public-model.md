@@ -36,6 +36,15 @@ form failure, redirect, or complete successfully and trigger revalidation.
 
 A GET form represents navigation and does not invoke an action.
 
+ADR 0035 fixes one `defineAction({ fields, authorize, run, keeps? })`
+declaration with opaque generated form and field identity. The V1 descriptor
+set is text, integer, checkbox, and file. Exact-origin proof, replay, complete
+decoding, and limits finish before the mandatory application authorization;
+only accepted authorized input reaches mutation. Expected failure is one typed
+`actionError`, redirects are same-origin 303, and successful or possibly
+changed state enters complete revalidation. V1-12 proves this privately;
+V1-13 owns the first public implementation.
+
 ## Island
 
 An island is an explicit client-owned boundary with serializable input,
@@ -67,6 +76,12 @@ mutation. Error and pending boundaries define local rendering outcomes. Raw
 request handlers are the explicit escape hatch for endpoints that do not fit
 the page and action model.
 
+ADR 0035 fixes the protected session as another request-scoped capability. A
+read view can inspect bounded normalized values. Only mutation execution can
+buffer writes, deletion, or privilege-change identity rotation. The fixed
+host-only encrypted cookie, active/prior keyring, absolute expiry, and failure
+behavior are framework-owned; cookies never become an ambient state API.
+
 ADR 0031 fixes the first construction boundary. Standard TypeScript's automatic
 JSX transform imports the package's `./jsx-runtime` subpath. Page and layout
 modules return opaque render nodes, promises of render nodes, or the narrow
@@ -75,6 +90,7 @@ decoded route parameters, and cancellation signal; layouts additionally receive
 their child node. Generated application bindings, not authored route tables,
 connect those modules to the matched-route renderer.
 
-Action, request-context extensions beyond the implemented resource read,
-island, and client-interaction signatures remain unset until their vertical
-slices prove them. Names fixed by effective ADRs remain current decisions.
+The action and session names above are selected but remain unimplemented until
+V1-13. Island and client-interaction signatures remain unset until their
+vertical slices prove them. Names fixed by effective ADRs remain current
+decisions.

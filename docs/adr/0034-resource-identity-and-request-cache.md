@@ -158,7 +158,7 @@ After a successful action, the correctness baseline reruns every resource
 declaration used by the active page with each recorded input. The later action
 declaration may contain `keeps: readonly ResourceDeclaration[]`; entries are
 opaque declaration references, never strings, input keys, or predicate
-callbacks. This fixes only the metadata boundary. DG-V1-05 still owns the
+callbacks. This fixes only the metadata boundary. The later action decision still owns the
 action container, invocation, form, session, origin, replay, and redirect
 contracts.
 

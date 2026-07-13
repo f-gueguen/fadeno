@@ -39,6 +39,13 @@ The threat model covers at least:
 12. Dependencies, release artifacts, and build provenance are verified before
     public publication.
 
+ADR 0035 selects V1's exact-origin native action proof, bounded single-process
+replay owner, same-origin 303 redirect, upload cleanup, encrypted host-only
+session cookie, key rotation, absolute expiry, and privilege-change rotation.
+The companion [action/session threat model](action-session-threat-model.md)
+records residual bearer-cookie and unsupported multi-process risk. V1-13 must
+integrate those controls before exporting the action/session runtime.
+
 ## Evidence gate
 
 A vertical slice that introduces a trust boundary includes:

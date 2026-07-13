@@ -11,6 +11,8 @@ const maximumFieldBytes = 64 * 1_024;
 const maximumParts = 128;
 const maximumFiles = 8;
 const maximumFieldNameBytes = 128;
+const maximumFileNameBytes = 256;
+const maximumBoundaryDurationMilliseconds = 5_000;
 const maximumReplayEntries = 4_096;
 const maximumSessionReplayEntries = 64;
 
@@ -22,6 +24,8 @@ export const decisionActionLimits = Object.freeze({
   maximumParts,
   maximumFiles,
   maximumFieldNameBytes,
+  maximumFileNameBytes,
+  maximumBoundaryDurationMilliseconds,
   maximumReplayEntries,
   maximumSessionReplayEntries,
 });
@@ -51,6 +55,7 @@ export type DecisionSubmissionPart =
 export type DecisionAction = Readonly<{ readonly decisionAction: unique symbol }>;
 type ActionState = Readonly<{ id: string; fields: Readonly<Record<string, DecisionActionField>> }>;
 const actions = new WeakMap<object, ActionState>();
+const fieldDeclarations = new WeakSet<object>();
 
 export type DecisionActionExpectedFailure = Readonly<{
   code: string;
@@ -72,10 +77,18 @@ export type DecisionActionOutcome = Readonly<{
   revalidation: "complete" | "none";
   redirect: string | null;
   fields: Readonly<Record<string, unknown>> | null;
+  expectedFailure: DecisionActionExpectedFailure | null;
   flow: readonly DecisionActionFlow[];
 }>;
 
-function fail(code: string): never { throw new TypeError(code); }
+class DecisionActionRefusal extends TypeError {
+  readonly code: string;
+  constructor(code: string) {
+    super(code);
+    this.code = code;
+  }
+}
+function fail(code: string): never { throw new DecisionActionRefusal(code); }
 function compareText(left: string, right: string): number { return left < right ? -1 : left > right ? 1 : 0; }
 function ownData(value: object, name: string): unknown {
   const descriptor = Object.getOwnPropertyDescriptor(value, name);
@@ -110,7 +123,9 @@ export function decisionTextField(options: Readonly<{ required?: boolean; maximu
   }
   const required = options.required ?? true;
   if (typeof required !== "boolean") fail("FADENO_ACTION_DECLARATION");
-  return Object.freeze({ kind: "text", required, maximumBytes: boundedPositiveInteger(options.maximumBytes ?? maximumFieldBytes, maximumFieldBytes) });
+  const field = Object.freeze({ kind: "text", required, maximumBytes: boundedPositiveInteger(options.maximumBytes ?? maximumFieldBytes, maximumFieldBytes) }) as TextField;
+  fieldDeclarations.add(field);
+  return field;
 }
 
 export function decisionIntegerField(options: Readonly<{ required?: boolean; minimum?: number; maximum?: number }> = {}): DecisionActionField {
@@ -124,11 +139,15 @@ export function decisionIntegerField(options: Readonly<{ required?: boolean; min
     fail("FADENO_ACTION_DECLARATION");
   }
   if (minimum !== undefined && maximum !== undefined && minimum > maximum) fail("FADENO_ACTION_DECLARATION");
-  return Object.freeze({ kind: "integer", required, ...(minimum === undefined ? {} : { minimum }), ...(maximum === undefined ? {} : { maximum }) });
+  const field = Object.freeze({ kind: "integer", required, ...(minimum === undefined ? {} : { minimum }), ...(maximum === undefined ? {} : { maximum }) }) as IntegerField;
+  fieldDeclarations.add(field);
+  return field;
 }
 
 export function decisionCheckboxField(): DecisionActionField {
-  return Object.freeze({ kind: "checkbox" });
+  const field = Object.freeze({ kind: "checkbox" }) as CheckboxField;
+  fieldDeclarations.add(field);
+  return field;
 }
 
 export function decisionFileField(options: Readonly<{ required?: boolean; maximumBytes?: number; acceptedTypes?: readonly string[] }> = {}): DecisionActionField {
@@ -141,12 +160,14 @@ export function decisionFileField(options: Readonly<{ required?: boolean; maximu
     typeof required !== "boolean" || !Array.isArray(acceptedTypes) || acceptedTypes.length > 16 ||
     acceptedTypes.some((value) => typeof value !== "string" || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/u.test(value))
   ) fail("FADENO_ACTION_DECLARATION");
-  return Object.freeze({
+  const field = Object.freeze({
     kind: "file",
     required,
     maximumBytes: boundedPositiveInteger(options.maximumBytes ?? maximumFileBytes, maximumFileBytes),
     acceptedTypes: Object.freeze([...new Set(acceptedTypes)].sort(compareText)),
-  });
+  }) as FileField;
+  fieldDeclarations.add(field);
+  return field;
 }
 
 export function createDecisionAction(fields: Readonly<Record<string, DecisionActionField>>): DecisionAction {
@@ -159,7 +180,7 @@ export function createDecisionAction(fields: Readonly<Record<string, DecisionAct
       fail("FADENO_ACTION_DECLARATION");
     }
     const field = ownData(fields, name);
-    if (!field || typeof field !== "object" || !Object.isFrozen(field) || !["text", "integer", "checkbox", "file"].includes((field as { kind?: unknown }).kind as string)) {
+    if (!field || typeof field !== "object" || !fieldDeclarations.has(field)) {
       fail("FADENO_ACTION_DECLARATION");
     }
     normalized[name] = field as DecisionActionField;
@@ -183,7 +204,10 @@ export function issueDecisionActionProof(input: Readonly<{
   nonce?: Uint8Array;
 }>): string {
   if (!Number.isSafeInteger(input.now) || input.now < 0 || input.now >= input.session.expiresAt) fail("FADENO_ACTION_PROOF");
-  if (!input.routeId || !input.generation || encoder.encode(input.routeId).byteLength > 256 || encoder.encode(input.generation).byteLength > 256) {
+  if (
+    !input.routeId || !input.generation || input.routeId.includes("\0") || input.generation.includes("\0") ||
+    encoder.encode(input.routeId).byteLength > 256 || encoder.encode(input.generation).byteLength > 256
+  ) {
     fail("FADENO_ACTION_PROOF");
   }
   const nonceBytes = input.nonce ?? randomBytes(24);
@@ -256,8 +280,11 @@ function cleanupUploads(parts: readonly DecisionSubmissionPart[]): void {
   }
 }
 
-function decodeFields(action: ActionState, parts: readonly DecisionSubmissionPart[], contentLength: number): Readonly<Record<string, unknown>> {
-  if (!Array.isArray(parts) || parts.length > maximumParts || !Number.isSafeInteger(contentLength) || contentLength < 0 || contentLength > maximumBodyBytes) {
+function decodeFields(action: ActionState, parts: readonly DecisionSubmissionPart[], contentLength: number | null): Readonly<Record<string, unknown>> {
+  if (
+    !Array.isArray(parts) || parts.length > maximumParts ||
+    (contentLength !== null && (!Number.isSafeInteger(contentLength) || contentLength < 0 || contentLength > maximumBodyBytes))
+  ) {
     fail("FADENO_ACTION_BODY_LIMIT");
   }
   const supplied = new Map<string, DecisionSubmissionPart>();
@@ -279,13 +306,16 @@ function decodeFields(action: ActionState, parts: readonly DecisionSubmissionPar
       files += 1;
       if (
         !(part.upload.bytes instanceof Uint8Array) || typeof part.upload.originalName !== "string" ||
-        typeof part.upload.contentType !== "string" || typeof part.upload.cleanup !== "function"
+        encoder.encode(part.upload.originalName).byteLength > maximumFileNameBytes ||
+        typeof part.upload.contentType !== "string" || part.upload.contentType.length > 127 ||
+        !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/u.test(part.upload.contentType) ||
+        typeof part.upload.cleanup !== "function"
       ) fail("FADENO_ACTION_PART");
       observedBytes += part.upload.bytes.byteLength;
     }
     if (observedBytes > maximumBodyBytes || files > maximumFiles) fail("FADENO_ACTION_BODY_LIMIT");
   }
-  if (observedBytes > contentLength) fail("FADENO_ACTION_CONTENT_LENGTH");
+  if (contentLength !== null && observedBytes > contentLength) fail("FADENO_ACTION_CONTENT_LENGTH");
 
   const decoded: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
   for (const [name, descriptor] of Object.entries(action.fields)) {
@@ -363,7 +393,7 @@ export function decisionActionFailure(input: Readonly<{
 
 function refusal(code: string, flow: DecisionActionFlow[]): DecisionActionOutcome {
   flow.push(Object.freeze({ phase: "boundary", decision: "refused", cause: code }));
-  return Object.freeze({ status: "refused", code, revalidation: "none", redirect: null, fields: null, flow: Object.freeze(flow) });
+  return Object.freeze({ status: "refused", code, revalidation: "none", redirect: null, fields: null, expectedFailure: null, flow: Object.freeze(flow) });
 }
 
 export async function executeDecisionAction(input: Readonly<{
@@ -379,7 +409,8 @@ export async function executeDecisionAction(input: Readonly<{
   proofKey: Uint8Array;
   session: DecisionSessionSnapshot;
   replay: DecisionReplayLedger;
-  contentLength: number;
+  contentLength: number | null;
+  boundaryDurationMilliseconds: number;
   parts: readonly DecisionSubmissionPart[];
   now: number;
   authorize: (fields: Readonly<Record<string, unknown>>) => boolean | Promise<boolean>;
@@ -391,6 +422,10 @@ export async function executeDecisionAction(input: Readonly<{
     try {
       if (input.method !== "POST") fail("FADENO_ACTION_METHOD");
       if (input.mediaType !== "application/x-www-form-urlencoded" && input.mediaType !== "multipart/form-data") fail("FADENO_ACTION_MEDIA_TYPE");
+      if (
+        !Number.isSafeInteger(input.boundaryDurationMilliseconds) || input.boundaryDurationMilliseconds < 0 ||
+        input.boundaryDurationMilliseconds > maximumBoundaryDurationMilliseconds
+      ) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
       if (input.expectedOrigin !== new URL(input.expectedOrigin).origin || input.origin !== input.expectedOrigin) fail("FADENO_ACTION_ORIGIN");
       if (input.routeId !== input.expectedRouteId) fail("FADENO_ACTION_ROUTE");
       const action = state(input.action);
@@ -407,15 +442,18 @@ export async function executeDecisionAction(input: Readonly<{
       input.replay.consume(proof.replayId, input.session.sessionId, proof.expiresAt, input.now);
       flow.push(Object.freeze({ phase: "boundary", decision: "accepted", cause: "complete-native-request" }));
     } catch (error) {
-      return refusal(error instanceof Error ? error.message : "FADENO_ACTION_BOUNDARY", flow);
+      return refusal(error instanceof DecisionActionRefusal ? error.code : "FADENO_ACTION_INTERNAL", flow);
     }
 
     let authorized: boolean;
     try { authorized = await input.authorize(fields); }
-    catch { authorized = false; }
+    catch {
+      flow.push(Object.freeze({ phase: "authorization", decision: "unexpected-failure", cause: "redacted-internal-failure" }));
+      return Object.freeze({ status: "unexpected-failure", code: "FADENO_ACTION_INTERNAL", revalidation: "none", redirect: null, fields: null, expectedFailure: null, flow: Object.freeze(flow) });
+    }
     if (!authorized) {
       flow.push(Object.freeze({ phase: "authorization", decision: "refused", cause: "application-authorization" }));
-      return Object.freeze({ status: "unauthorized", code: "FADENO_ACTION_UNAUTHORIZED", revalidation: "none", redirect: null, fields: null, flow: Object.freeze(flow) });
+      return Object.freeze({ status: "unauthorized", code: "FADENO_ACTION_UNAUTHORIZED", revalidation: "none", redirect: null, fields: null, expectedFailure: null, flow: Object.freeze(flow) });
     }
     flow.push(Object.freeze({ phase: "authorization", decision: "accepted", cause: "application-authorization" }));
 
@@ -432,11 +470,12 @@ export async function executeDecisionAction(input: Readonly<{
           revalidation: "complete",
           redirect: null,
           fields: null,
+          expectedFailure: null,
           flow: Object.freeze(flow),
         });
       }
       flow.push(Object.freeze({ phase: "completion", decision: redirect ? "redirect-303" : "render", cause: "complete-revalidation" }));
-      return Object.freeze({ status: "success", code: "FADENO_ACTION_OK", revalidation: "complete", redirect, fields, flow: Object.freeze(flow) });
+      return Object.freeze({ status: "success", code: "FADENO_ACTION_OK", revalidation: "complete", redirect, fields, expectedFailure: null, flow: Object.freeze(flow) });
     } catch (error) {
       const expected = error && typeof error === "object" ? expectedFailures.get(error) : undefined;
       if (expected) {
@@ -447,11 +486,12 @@ export async function executeDecisionAction(input: Readonly<{
           revalidation: expected.changed ? "complete" : "none",
           redirect: null,
           fields,
+          expectedFailure: expected,
           flow: Object.freeze(flow),
         });
       }
       flow.push(Object.freeze({ phase: "mutation", decision: "unexpected-failure", cause: "redacted-internal-failure" }));
-      return Object.freeze({ status: "unexpected-failure", code: "FADENO_ACTION_INTERNAL", revalidation: "complete", redirect: null, fields: null, flow: Object.freeze(flow) });
+      return Object.freeze({ status: "unexpected-failure", code: "FADENO_ACTION_INTERNAL", revalidation: "complete", redirect: null, fields: null, expectedFailure: null, flow: Object.freeze(flow) });
     }
   } finally {
     cleanupUploads(input.parts);

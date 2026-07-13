@@ -10,7 +10,7 @@ V1-12 — native form, action, session, replay, redirect, and upload contract
 
 ## Exit criteria
 
-- [ ] Accept one form/action/session ADR that resolves DG-V1-05 with exact
+- [ ] Accept one form/action/session ADR that resolves the former action/session gate with exact
   declaration identity, native request, field decoder, expected failure,
   authorization, origin/CSRF, replay, redirect, revalidation, upload, cookie,
   session, rotation, expiry, and limit ownership without exporting a runtime.
@@ -30,23 +30,19 @@ V1-12 — native form, action, session, replay, redirect, and upload contract
 
 ## In progress
 
-- V1-12 gathers the threat-model and native-form evidence required to resolve
-  DG-V1-05. No action, form helper, session capability, cookie writer, upload
-  parser, enhanced protocol, or package export may precede the accepted ADR.
-- One authored action declaration must own mutation identity. GET remains
-  navigation, while ordinary mutations remain standard form-callable POSTs.
-- Boundary acceptance must finish method/media/origin/CSRF/replay, route,
-  decoder, upload, and size checks before application mutation or authorization
-  code runs. Application authorization remains a separate explicit decision.
-- Successful actions enter complete resource revalidation and then either
-  render server truth or produce a validated same-origin redirect. Expected
-  failures declare whether mutation occurred; prose never selects behavior.
-- Sessions are request-scoped capabilities over protected cookies, not ambient
-  mutable globals. Key lifecycle, fixation resistance, expiry, renewal,
-  deletion, confidentiality, and bounded serialization require executable
-  negative evidence.
-- All V1-12 runtime records and schemas remain private decision evidence. V1-13
-  owns the public implementation and packed authenticated CRUD application.
+- ADR 0035 now selects the native action/session contract from the private
+  model and threat corpus. The remaining V1-12 work is alignment, full/local
+  validation, independent architecture/security review, and merge review.
+- The accepted contract retains one opaque action declaration, generated native
+  POST/field/proof identity, complete bounded boundary acceptance before
+  authorization or mutation, single-process replay, complete revalidation,
+  same-origin 303, exactly-once upload cleanup, and protected request sessions.
+- No action, form helper, session capability, cookie writer, upload parser,
+  enhanced protocol, or package export exists in V1-12. V1-13 owns the first
+  public implementation and packed authenticated CRUD application.
+- All V1-12 runtime records and schemas remain private decision evidence; no
+  external schema, editor product, shared replay/session owner, or
+  multi-process action support is introduced.
 
 ## Blockers
 

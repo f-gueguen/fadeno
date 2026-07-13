@@ -89,6 +89,8 @@ type ExecuteOverrides = Partial<Readonly<{
   owner: DecisionSessionSnapshot;
   replay: DecisionReplayLedger;
   contentLength: number;
+  boundaryDurationMilliseconds: number;
+  time: number;
   parts: readonly DecisionSubmissionPart[];
   authorize: (fields: Readonly<Record<string, unknown>>) => boolean | Promise<boolean>;
   run: (fields: Readonly<Record<string, unknown>>) => Readonly<{ redirect?: string }> | Promise<Readonly<{ redirect?: string }>>;
@@ -119,8 +121,9 @@ async function execute(overrides: ExecuteOverrides = {}): Promise<DecisionAction
     session: owner,
     replay: overrides.replay ?? new DecisionReplayLedger(),
     contentLength: overrides.contentLength ?? 1_024,
+    boundaryDurationMilliseconds: overrides.boundaryDurationMilliseconds ?? 0,
     parts: overrides.parts ?? normalParts(),
-    now,
+    now: overrides.time ?? now,
     authorize: overrides.authorize ?? (() => true),
     run: overrides.run ?? (() => ({ redirect: "/projects/7?updated=1" })),
   });
@@ -152,12 +155,15 @@ assert.equal(success.revalidation, "complete");
 assert.equal(successfulUploadCleanups, 1);
 assert.equal((success.fields?.["brief"] as { originalName: string }).originalName, "../../untrusted-name.txt", "original upload names remain data, never paths");
 record("native-success", success.code);
+record("get-mutation", (await execute({ method: "GET" })).code);
+record("unsupported-media", (await execute({ mediaType: "application/json" })).code);
 
 record("missing-field", (await execute({ parts: normalParts().filter(({ name }) => name !== "title") })).code);
 record("malformed-field", (await execute({ parts: normalParts().map((part) => part.name === "priority" ? { ...part, value: "3.0" } : part) })).code);
 record("duplicate-field", (await execute({ parts: [...normalParts(), { kind: "field", name: "title", value: "duplicate" }] })).code);
 record("unexpected-field", (await execute({ parts: [...normalParts(), { kind: "field", name: "admin", value: "true" }] })).code);
 record("oversized-body", (await execute({ contentLength: decisionActionLimits.maximumBodyBytes + 1 })).code);
+record("boundary-timeout", (await execute({ boundaryDurationMilliseconds: decisionActionLimits.maximumBoundaryDurationMilliseconds + 1 })).code);
 
 let refusedUploadCleanups = 0;
 const hostileUpload = await execute({
@@ -190,17 +196,33 @@ assert.equal(boundaryAuthorizationCalls, 0);
 assert.equal(boundaryMutationCalls, 0);
 record("cross-origin", crossOrigin.code);
 record("invalid-proof", (await execute({ submittedProof: "v1.invalid" })).code);
+record("expired-proof", (await execute({ submittedProof: proof(), time: now + decisionActionLimits.proofLifetimeMilliseconds + 1 })).code);
+record("wrong-route", (await execute({ expectedRouteId: "route:projects/other" })).code);
+record("stale-generation", (await execute({ generation: "generation-2", submittedProof: proof(action, session, "generation-1") })).code);
 
 let unauthorizedMutations = 0;
 const unauthorized = await execute({ authorize: () => false, run: () => { unauthorizedMutations += 1; return {}; } });
 assert.equal(unauthorizedMutations, 0);
 record("unauthorized", unauthorized.code);
+let authorizationFailureMutations = 0;
+const authorizationFailure = await execute({
+  authorize: () => { throw new Error("credential backend and submitted secret must stay private"); },
+  run: () => { authorizationFailureMutations += 1; return {}; },
+});
+assert.equal(authorizationFailureMutations, 0);
+assert.equal(JSON.stringify(authorizationFailure).includes("credential backend"), false);
+record("authorization-failure", authorizationFailure.code);
 
 const replayLedger = new DecisionReplayLedger();
 const replayProof = proof();
 assert.equal((await execute({ replay: replayLedger, submittedProof: replayProof })).status, "success");
 const replayed = await execute({ replay: replayLedger, submittedProof: replayProof });
 record("replayed", replayed.code);
+const boundedReplay = new DecisionReplayLedger();
+for (let index = 0; index < decisionActionLimits.maximumSessionReplayEntries; index += 1) {
+  assert.equal((await execute({ replay: boundedReplay })).status, "success");
+}
+assert.equal((await execute({ replay: boundedReplay })).code, "FADENO_ACTION_REPLAY_LIMIT");
 
 const unsafeRedirect = await execute({ run: () => ({ redirect: "https://attacker.test/steal" }) });
 assert.equal(unsafeRedirect.revalidation, "complete", "unsafe completion after mutation still refreshes server truth");
@@ -208,9 +230,11 @@ record("unsafe-redirect", unsafeRedirect.code);
 
 const expectedUnchanged = await execute({ run: () => { throw decisionActionFailure({ code: "PROJECT_CONFLICT", fieldErrors: { title: "Already exists" } }); } });
 assert.equal(expectedUnchanged.revalidation, "none");
+assert.deepEqual(expectedUnchanged.expectedFailure, { code: "PROJECT_CONFLICT", changed: false, fieldErrors: { title: "Already exists" }, formErrors: [] });
 record("expected-unchanged", expectedUnchanged.code);
 const expectedChanged = await execute({ run: () => { throw decisionActionFailure({ code: "PROJECT_STORED_WITH_WARNING", changed: true, formErrors: ["Notification failed"] }); } });
 assert.equal(expectedChanged.revalidation, "complete");
+assert.deepEqual(expectedChanged.expectedFailure, { code: "PROJECT_STORED_WITH_WARNING", changed: true, fieldErrors: {}, formErrors: ["Notification failed"] });
 record("expected-changed", expectedChanged.code);
 
 const tamperedEnvelope = `${created.envelope.slice(0, -1)}${created.envelope.endsWith("A") ? "B" : "A"}`;
@@ -256,6 +280,7 @@ assert.deepEqual([...observed.keys()].sort(), corpus.cases.map(({ id }) => id).s
 assert.match(formatDecisionSessionCookie(created.envelope, now, session.expiresAt), /^__Host-fadeno-session=.*; Path=\/; Max-Age=43200; Secure; HttpOnly; SameSite=Lax$/u);
 assert.equal(formatDecisionSessionDeletionCookie(), "__Host-fadeno-session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax");
 assert.throws(() => createDecisionSessionKeyring([]), /FADENO_SESSION_KEYS/u);
+assert.throws(() => createDecisionAction({ title: Object.freeze({ kind: "text", required: true, maximumBytes: 12 }) as never }), /FADENO_ACTION_DECLARATION/u);
 assert.throws(() => createDecisionSessionKeyring([{ id: "short", key: new Uint8Array(31) }]), /FADENO_SESSION_KEYS/u);
 assert.throws(() => createDecisionSession(keyring, { secret: "x".repeat(decisionSessionLimits.maximumValueBytes + 1) }, now), /FADENO_SESSION_VALUE_LIMIT/u);
 const cyclic: Record<string, unknown> = {};

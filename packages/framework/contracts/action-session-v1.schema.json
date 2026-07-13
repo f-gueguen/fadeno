@@ -10,7 +10,7 @@
     "operation": { "const": "fadeno.private.action-session-decision" },
     "cases": {
       "type": "array",
-      "minItems": 19,
+      "minItems": 26,
       "maxItems": 128,
       "items": {
         "type": "object",

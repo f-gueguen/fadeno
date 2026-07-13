@@ -43,6 +43,7 @@ effective decision.
 31. [ADR 0032 — Project-check command contract](0032-project-check-command-contract.md)
 32. [ADR 0033 — Build and development lifecycle](0033-build-and-development-lifecycle.md)
 33. [ADR 0034 — Resource identity and request cache](0034-resource-identity-and-request-cache.md)
+34. [ADR 0035 — Native actions and protected sessions](0035-native-actions-and-protected-sessions.md)
 
 ## Superseded decisions
 
