@@ -10,16 +10,16 @@ V1-DX-B7D7 — packed development server lifecycle
 
 ## Exit criteria
 
-- [ ] Add only the exact public
+- [x] Add only the exact public
   `fadeno dev --project-root <path> --port <1..65535>` dispatch and one retained
   supervisor using the accepted project authority and invalidation adapter.
-- [ ] Start the initial complete generation in a fresh verified child, register
+- [x] Start the initial complete generation in a fresh verified child, register
   the route loader before application import, bind loopback at the explicit
   port, and print readiness only after the complete lifecycle is active.
-- [ ] Prove direct, transitive, configuration, deletion, rename, and burst
+- [x] Prove direct, transitive, configuration, deletion, rename, and burst
   changes use authoritative rescan, supersede stale work, replace diagnostic
   batches, clear repaired diagnostics, and preserve the last-good child.
-- [ ] Implement the bounded stop-old/accept/start-new switch, startup rollback,
+- [x] Implement the bounded stop-old/accept/start-new switch, startup rollback,
   stream ownership, graceful 5,000 ms drain, repeated-signal force, and complete
   watcher/compiler/transaction/child cleanup.
 - [ ] Extend the canonical packed application with permanent executable
@@ -28,20 +28,21 @@ V1-DX-B7D7 — packed development server lifecycle
 
 ## In progress
 
-- B7D6 completed ADR 0033's production build/start half. B7D7 now owns only the
-  operating-system watcher, development server, last-good child switching,
-  reload, and shutdown command behavior.
-- Development must reuse the private project authority, retained compiler
-  validation, accepted generation evidence, and B7D4 invalidation policy. It
-  cannot publish those internals or create a second route/configuration,
-  generation, dependency, or diagnostic policy.
-- Human command output and the installed executable are the public behavior.
-  Machine-readable output, a stable external diagnostic schema, a public
-  analyzer API, registry identity, and broader deployment addresses remain
-  gated or deferred.
-- The canonical V1 application and isolated scenarios will own permanent
-  public serve/change/failure/flow/recovery/shutdown evidence. The supervisor
-  remains private and no supported editor product or external schema is added.
+- The exact installed `fadeno dev` command, retained private supervisor,
+  authoritative watcher integration, isolated generation children, last-good
+  switching, startup rollback, and bounded shutdown behavior are implemented.
+- The canonical packed application permanently proves public readiness,
+  direct/transitive/configuration/rename/deletion/burst changes, compiler and
+  startup refusal, correction, flow, recovery, stale-artifact removal,
+  sustained runtime output, graceful close, repeated-signal force, occupied
+  address refusal, and usage refusal.
+- Focused and complete repository checks pass. Architecture and independently
+  challenged Big-O audits found no remaining architectural or asymptotic
+  blocker; one output-longevity issue found during challenge was corrected and
+  covered before completion.
+- Machine-readable command output, a stable external diagnostic schema, a
+  public analyzer API, registry identity, broader deployment addresses, and a
+  supported editor product remain gated or deferred.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -211,3 +212,7 @@ V1-DX-B7D7 — packed development server lifecycle
   lifecycle contract after current packed decision evidence for compiler,
   output, runtime, environment, loader, last-good, diagnostics, and shutdown
   ownership, without shipping either command or a public analyzer surface.
+- V1-DX-B7D6 — Merge commit `b381041` implements the packed transactional
+  production build and generated production start with exact current-package,
+  compiler, source, dependency, runtime, output, rollback, concurrency,
+  redaction, and clean-consumer evidence.
