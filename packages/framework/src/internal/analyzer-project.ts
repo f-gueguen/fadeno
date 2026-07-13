@@ -16,6 +16,12 @@ import type { AnalyzerGraphNodeDefinition } from "./analyzer-graph.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
 import { createRouteExplainContribution } from "./analyzer-route-explain.ts";
 import { AnalyzerSession, type AnalyzerDocumentSnapshot, type AnalyzerOperationResult } from "./analyzer-session.ts";
+import {
+  ROUTE_ARTIFACT_DESCRIPTORS,
+  ROUTE_ARTIFACT_MODULE,
+  ROUTE_ARTIFACT_NAMES,
+  ROUTE_ARTIFACT_OWNER_NODE_ID,
+} from "./routing/artifact-contract.ts";
 import { RouteContractError, type RouteRoleCollisionFact } from "./routing/discovery.ts";
 import {
   applyRouteArtifactPlan,
@@ -53,10 +59,6 @@ function nodeSuffix(path: string): string {
   return sha256(path).slice(0, 16);
 }
 
-function artifactId(name: RouteArtifactName): string {
-  return `generated:routes-${name.replaceAll(".", "-")}`;
-}
-
 function applicationRefuse(code: "DIAGNOSTIC" | "PUBLICATION" | "STALE"): never {
   throw new TypeError(`FADENO_ANALYZER_APPLICATION_${code}`);
 }
@@ -65,15 +67,13 @@ export function routeArtifactPlanFromPublication(
   publication: AnalyzerPublicationSnapshot,
   plan: RouteArtifactPlan,
 ): RouteArtifactPlan {
-  const names = Object.keys(plan.files).sort(compareText) as RouteArtifactName[];
-  if (names.length !== 7 || publication.artifacts.length !== names.length) applicationRefuse("PUBLICATION");
+  if (JSON.stringify(Object.keys(plan.files).sort(compareText)) !== JSON.stringify([...ROUTE_ARTIFACT_NAMES].sort(compareText)) ||
+      publication.artifacts.length !== ROUTE_ARTIFACT_DESCRIPTORS.length) applicationRefuse("PUBLICATION");
   const files: Partial<Record<RouteArtifactName, string>> = {};
   const seenPaths = new Set<string>();
-  for (const name of names) {
-    const expectedId = artifactId(name);
-    const expectedPath = `.fadeno/routes/${name}`;
-    const artifact = publication.artifacts.find(({ id }) => id === expectedId);
-    if (!artifact || artifact.path !== expectedPath || artifact.ownerNodeId !== "route:artifact-plan" || seenPaths.has(artifact.path)) {
+  for (const descriptor of ROUTE_ARTIFACT_DESCRIPTORS) {
+    const artifact = publication.artifacts.find(({ id }) => id === descriptor.id);
+    if (!artifact || artifact.path !== descriptor.path || artifact.ownerNodeId !== ROUTE_ARTIFACT_OWNER_NODE_ID || seenPaths.has(artifact.path)) {
       applicationRefuse("PUBLICATION");
     }
     seenPaths.add(artifact.path);
@@ -83,15 +83,16 @@ export function routeArtifactPlanFromPublication(
     if (JSON.stringify(Object.keys(record).sort(compareText)) !== JSON.stringify(["bytes", "encoding", "sha256"]) ||
         record["encoding"] !== "utf8" || typeof record["bytes"] !== "string" ||
         typeof record["sha256"] !== "string" || sha256(record["bytes"]) !== record["sha256"] ||
-        record["bytes"] !== plan.files[name]) applicationRefuse("PUBLICATION");
+        record["bytes"] !== plan.files[descriptor.name]) applicationRefuse("PUBLICATION");
     const ownership = artifact.provenance.generatedArtifactOwnership;
-    if (artifact.provenance.module.namespace !== "fadeno.routes" || artifact.provenance.module.version !== 1 ||
-        artifact.provenance.module.transformation !== "artifact-plan" || ownership?.artifactId !== expectedId ||
-        ownership.ownerNodeId !== "route:artifact-plan" || ownership.path !== expectedPath ||
+    if (artifact.provenance.module.namespace !== ROUTE_ARTIFACT_MODULE.namespace ||
+        artifact.provenance.module.version !== ROUTE_ARTIFACT_MODULE.version ||
+        artifact.provenance.module.transformation !== ROUTE_ARTIFACT_MODULE.transformation || ownership?.artifactId !== descriptor.id ||
+        ownership.ownerNodeId !== ROUTE_ARTIFACT_OWNER_NODE_ID || ownership.path !== descriptor.path ||
         artifact.provenance.sourceToArtifacts.length === 0 || artifact.provenance.artifactToSources.length === 0 ||
-        artifact.provenance.sourceToArtifacts.some(({ artifactId: id }) => id !== expectedId) ||
-        artifact.provenance.artifactToSources.some(({ artifactId: id }) => id !== expectedId)) applicationRefuse("PUBLICATION");
-    files[name] = record["bytes"];
+        artifact.provenance.sourceToArtifacts.some(({ artifactId: id }) => id !== descriptor.id) ||
+        artifact.provenance.artifactToSources.some(({ artifactId: id }) => id !== descriptor.id)) applicationRefuse("PUBLICATION");
+    files[descriptor.name] = record["bytes"];
   }
   return Object.freeze({
     manifest: plan.manifest,
@@ -277,16 +278,17 @@ export class PrivateProjectAnalyzer {
     const dependencies = sourceDefinitions.map(({ id }) => id).sort(compareText);
     const config = documents.get("fadeno.config.ts")!;
     const planDefinition: AnalyzerGraphNodeDefinition = {
-      id: "route:artifact-plan",
+      id: ROUTE_ARTIFACT_OWNER_NODE_ID,
       ownerUri: config.uri,
       definitionVersion: 1,
       dependencies,
-      module: { namespace: "fadeno.routes", version: 1, transformation: "artifact-plan" },
+      module: ROUTE_ARTIFACT_MODULE,
       compute: (context) => {
-        for (const [name, bytes] of Object.entries(plan.files).sort(([left], [right]) => compareText(left, right))) {
+        for (const descriptor of ROUTE_ARTIFACT_DESCRIPTORS) {
+          const bytes = plan.files[descriptor.name];
           context.emitArtifact({
-            id: artifactId(name as RouteArtifactName),
-            path: `.fadeno/routes/${name}`,
+            id: descriptor.id,
+            path: descriptor.path,
             value: { encoding: "utf8", sha256: sha256(bytes), bytes },
           });
         }

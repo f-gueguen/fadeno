@@ -134,6 +134,8 @@ try {
     "package/dist/internal/node-http.js",
     "package/dist/internal/project-check.d.ts",
     "package/dist/internal/project-check.js",
+    "package/dist/internal/routing/artifact-contract.d.ts",
+    "package/dist/internal/routing/artifact-contract.js",
     "package/dist/internal/routing/discovery.d.ts",
     "package/dist/internal/routing/discovery.js",
     "package/dist/internal/routing/generator.d.ts",

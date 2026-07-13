@@ -8,29 +8,96 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { loadConfig, normalizeConfig } from "../packages/framework/src/internal/config.ts";
 import { FadenoDiagnosticError, formatDiagnostic } from "../packages/framework/src/internal/diagnostic.ts";
+import type { FadenoConfig } from "../packages/framework/src/index.ts";
 import { RouteContractError, type RouteManifest } from "../packages/framework/src/internal/routing/discovery.ts";
 import {
+  applyRouteArtifactPlan,
   createRouteArtifactPlan,
-  generateRoutes,
   verifyRouteArtifactPlanFreshness,
-  type GenerationFailurePoint,
+  type RouteArtifactMutationFileSystem,
+  type RouteGenerationResult,
 } from "../packages/framework/src/internal/routing/generator.ts";
 import { matchRoutePathname } from "../packages/framework/src/internal/routing/matcher.ts";
 
 const require = createRequire(import.meta.url);
 const tsc = join(dirname(require.resolve("typescript/package.json")), "bin/tsc");
 const moduleSource = "throw new Error('FADENO_ROUTE_MODULE_EXECUTED');\nexport {};\n";
+
+type GenerationFailurePoint = "manifest" | "runtime" | "declaration" | "owner" | "beforeReplace";
+type GenerationOperationFailure = "afterBackup" | "replace" | "restore" | "cleanup";
+
+function injected(code: string): never {
+  throw new TypeError(`FADENO_GENERATION_INJECTED_${code}`);
+}
+
+function generateRoutes(
+  projectRoot: string,
+  config: FadenoConfig,
+  failurePoint?: GenerationFailurePoint,
+  beforeSourceValidation?: () => void,
+  operationFailure?: GenerationOperationFailure,
+  afterReplaceValidation?: () => void,
+): RouteGenerationResult {
+  const plan = createRouteArtifactPlan(projectRoot, config);
+  const operationFileSystem: RouteArtifactMutationFileSystem = Object.freeze({
+    mkdir: (path) => mkdirSync(path),
+    writeFile: (path, bytes) => writeFileSync(path, bytes),
+    rename: (from, to) => {
+      const fromName = basename(from);
+      const toName = basename(to);
+      if ((operationFailure === "replace" || operationFailure === "restore") && fromName.startsWith("routes.pending-") && toName === "routes") {
+        injected("REPLACE");
+      }
+      if (operationFailure === "restore" && fromName.startsWith("routes.previous-") && toName === "routes") injected("RESTORE");
+      renameSync(from, to);
+    },
+    remove: (path) => {
+      if (operationFailure === "cleanup" && basename(path).startsWith("routes.previous-")) injected("CLEANUP");
+      rmSync(path, { recursive: true, force: true });
+    },
+  });
+  let replaced = false;
+  return applyRouteArtifactPlan(projectRoot, plan, {
+    assertFresh: () => {
+      try { verifyRouteArtifactPlanFreshness(projectRoot, config, plan); } catch (error) {
+        if (replaced && error instanceof FadenoDiagnosticError && error.id === "FADENO_GENERATION_SOURCE_CHANGED") {
+          throw new TypeError("FADENO_GENERATION_SOURCE_CHANGED_AFTER_REPLACE");
+        }
+        throw error;
+      }
+    },
+    fileSystem: operationFileSystem,
+    afterWrite: (name) => {
+      const point = name === "manifest.json" ? "manifest"
+        : name === "index.d.ts" ? "declaration"
+          : name === "owner.json" ? "owner" : "runtime";
+      if (failurePoint === point) injected(point.toUpperCase());
+    },
+    observe: (phase) => {
+      if (phase === "after-stage") {
+        beforeSourceValidation?.();
+        if (failurePoint === "beforeReplace") injected("BEFORE_REPLACE");
+      }
+      if (phase === "after-backup" && operationFailure === "afterBackup") injected("AFTER_BACKUP");
+      if (phase === "after-replace") {
+        replaced = true;
+        afterReplaceValidation?.();
+      }
+    },
+  });
+}
 
 function writeRoute(project: string, path: string, source = moduleSource): void {
   const absolute = join(project, "src/routes", path);

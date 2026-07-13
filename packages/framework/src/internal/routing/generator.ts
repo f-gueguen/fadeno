@@ -9,10 +9,11 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { basename, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 import type { FadenoConfig } from "../../index.ts";
 import { FadenoDiagnosticError } from "../diagnostic.ts";
+import { ROUTE_ARTIFACT_NAMES, type RouteArtifactName } from "./artifact-contract.ts";
 import {
   assertRouteManifestSemantics,
   discoverRouteManifestWithSources,
@@ -22,9 +23,7 @@ import {
 } from "./discovery.ts";
 
 const GENERATOR_VERSION = 1;
-const OUTPUT_FILES = ["app.ts", "index.d.ts", "index.js", "loader.ts", "manifest.json", "owner.json", "virtual.ts"] as const;
-
-export type RouteArtifactName = typeof OUTPUT_FILES[number];
+export type { RouteArtifactName } from "./artifact-contract.ts";
 export type RouteArtifactPlan = Readonly<{
   manifest: RouteManifest;
   sourceSha256: string;
@@ -32,8 +31,6 @@ export type RouteArtifactPlan = Readonly<{
   files: Readonly<Record<RouteArtifactName, string>>;
 }>;
 
-export type GenerationFailurePoint = "manifest" | "runtime" | "declaration" | "owner" | "beforeReplace";
-export type GenerationOperationFailure = "afterBackup" | "replace" | "restore" | "cleanup";
 export type RouteGenerationResult = Readonly<{
   changed: boolean;
   output: string;
@@ -291,7 +288,7 @@ function ownerDocument(manifest: RouteManifest, files: Readonly<Record<string, s
 }
 
 function assertOwnedFiles(files: Readonly<Record<string, string>>): RouteManifest {
-  if (JSON.stringify(Object.keys(files).sort(compareText)) !== JSON.stringify([...OUTPUT_FILES].sort(compareText))) {
+  if (JSON.stringify(Object.keys(files).sort(compareText)) !== JSON.stringify([...ROUTE_ARTIFACT_NAMES].sort(compareText))) {
     fail("OUTPUT_UNOWNED");
   }
   let ownerValue: unknown;
@@ -308,7 +305,7 @@ function assertOwnedFiles(files: Readonly<Record<string, string>>): RouteManifes
     if (!isPlainRecord(fileValue)) fail("OUTPUT_OWNER");
     const file = fileValue as { path?: unknown; sha256?: unknown };
     if (JSON.stringify(Object.keys(file).sort(compareText)) !== JSON.stringify(["path", "sha256"]) ||
-        typeof file.path !== "string" || typeof file.sha256 !== "string" || !OUTPUT_FILES.includes(file.path as typeof OUTPUT_FILES[number]) ||
+        typeof file.path !== "string" || typeof file.sha256 !== "string" || !ROUTE_ARTIFACT_NAMES.includes(file.path as RouteArtifactName) ||
         sha256(files[file.path]!) !== file.sha256) fail("OUTPUT_OWNER");
     ownerFiles.push({ path: file.path, sha256: file.sha256 });
   }
@@ -331,9 +328,9 @@ function assertOwnedOutput(output: string): void {
   if (!existsSync(output)) return;
   if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) fail("OUTPUT_TYPE");
   const entries = readdirSync(output).sort(compareText);
-  if (JSON.stringify(entries) !== JSON.stringify([...OUTPUT_FILES].sort(compareText))) fail("OUTPUT_UNOWNED");
+  if (JSON.stringify(entries) !== JSON.stringify([...ROUTE_ARTIFACT_NAMES].sort(compareText))) fail("OUTPUT_UNOWNED");
   const files: Record<string, string> = {};
-  for (const name of OUTPUT_FILES) {
+  for (const name of ROUTE_ARTIFACT_NAMES) {
     const path = join(output, name);
     const status = lstatSync(path);
     if (status.isSymbolicLink() || !status.isFile()) fail("OUTPUT_CHILD_TYPE");
@@ -440,7 +437,7 @@ export function applyRouteArtifactPlan(
   const previous = join(parent, `routes.previous-${randomUUID()}`);
   fileSystem.mkdir(pending);
   try {
-    for (const name of OUTPUT_FILES) {
+    for (const name of ROUTE_ARTIFACT_NAMES) {
       assertOutputParent(projectRoot, parent);
       if (lstatSync(pending).isSymbolicLink() || !lstatSync(pending).isDirectory()) fail("OUTPUT_PENDING");
       fileSystem.writeFile(join(pending, name), plan.files[name]);
@@ -485,60 +482,4 @@ export function applyRouteArtifactPlan(
   } finally {
     if (existsSync(pending)) fileSystem.remove(pending);
   }
-}
-
-export function generateRoutes(
-  projectRoot: string,
-  config: FadenoConfig,
-  failurePoint?: GenerationFailurePoint,
-  beforeSourceValidation?: () => void,
-  operationFailure?: GenerationOperationFailure,
-  afterReplaceValidation?: () => void,
-): RouteGenerationResult {
-  const plan = createRouteArtifactPlan(projectRoot, config);
-  const operationFileSystem: RouteArtifactMutationFileSystem = Object.freeze({
-    ...nodeMutationFileSystem,
-    rename: (from, to) => {
-      const fromName = basename(from);
-      const toName = basename(to);
-      if ((operationFailure === "replace" || operationFailure === "restore") && fromName.startsWith("routes.pending-") && toName === "routes") {
-        fail("INJECTED_REPLACE");
-      }
-      if (operationFailure === "restore" && fromName.startsWith("routes.previous-") && toName === "routes") fail("INJECTED_RESTORE");
-      nodeMutationFileSystem.rename(from, to);
-    },
-    remove: (path) => {
-      if (operationFailure === "cleanup" && basename(path).startsWith("routes.previous-")) fail("INJECTED_CLEANUP");
-      nodeMutationFileSystem.remove(path);
-    },
-  });
-  let replaced = false;
-  return applyRouteArtifactPlan(projectRoot, plan, {
-    assertFresh: () => {
-      try { verifyRouteArtifactPlanFreshness(projectRoot, config, plan); } catch (error) {
-        if (replaced && error instanceof FadenoDiagnosticError && error.id === "FADENO_GENERATION_SOURCE_CHANGED") {
-          fail("SOURCE_CHANGED_AFTER_REPLACE");
-        }
-        throw error;
-      }
-    },
-    fileSystem: operationFileSystem,
-    afterWrite: (name) => {
-      const point = name === "manifest.json" ? "manifest"
-        : name === "index.d.ts" ? "declaration"
-          : name === "owner.json" ? "owner" : "runtime";
-      if (failurePoint === point) fail(`INJECTED_${point.toUpperCase()}`);
-    },
-    observe: (phase) => {
-      if (phase === "after-stage") {
-        beforeSourceValidation?.();
-        if (failurePoint === "beforeReplace") fail("INJECTED_BEFORE_REPLACE");
-      }
-      if (phase === "after-backup" && operationFailure === "afterBackup") fail("INJECTED_AFTER_BACKUP");
-      if (phase === "after-replace") {
-        replaced = true;
-        afterReplaceValidation?.();
-      }
-    },
-  });
 }

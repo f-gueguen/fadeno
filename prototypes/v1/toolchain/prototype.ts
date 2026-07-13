@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { join } from "node:path";
 
 import { defineConfig, type FadenoConfig } from "../../../packages/framework/src/index.ts";
+import { PrivateProjectAnalyzer } from "../../../packages/framework/src/internal/analyzer-project.ts";
 import { loadConfig } from "../../../packages/framework/src/internal/config.ts";
-import { generateRoutes } from "../../../packages/framework/src/internal/routing/generator.ts";
 
 export { defineConfig };
 
@@ -51,7 +51,7 @@ export async function executePrototype(
   processValues: Readonly<Record<string, string | undefined>> = {},
 ): Promise<string> {
   const config = await loadPrototypeConfig(root);
-  if (config.routes) generateRoutes(root, config);
+  if (config.routes) (await new PrivateProjectAnalyzer(root).analyze()).apply();
   const environment = loadEnvironment(root, processValues);
   const manifest = `${JSON.stringify({ schemaVersion: 1, command, environment: Object.keys(environment).sort() })}\n`;
   if (command === "check") return manifest;
