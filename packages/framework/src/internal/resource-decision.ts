@@ -1,3 +1,5 @@
+import { types } from "node:util";
+
 const maximumInputDepth = 32;
 const maximumInputEntries = 4_096;
 const maximumInputKeyBytes = 1_024;
@@ -10,17 +12,13 @@ interface PrivatePlainObject {
 
 type PrivatePlainInput = null | boolean | number | string | readonly PrivatePlainInput[] | PrivatePlainObject;
 
-export type PrivateResourceResult<Value> =
-  | Readonly<{ status: "value"; value: Value }>
-  | Readonly<{ status: "expected-error"; code: string; httpStatus: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 503 }>;
-
 export type PrivateResourceLoader<Input extends PrivatePlainInput, Value> = (
   context: Readonly<{ input: Input; request: Request; signal: AbortSignal }>,
-) => Value | PrivateResourceResult<Value> | Promise<Value | PrivateResourceResult<Value>>;
+) => Value | Promise<Value>;
 
 export type PrivateResourceDeclaration<Input extends PrivatePlainInput, Value> = Readonly<{
   declaration: object;
-  load: PrivateResourceLoader<Input, Value>;
+  read: PrivateResourceLoader<Input, Value>;
 }>;
 
 export type PrivateResourceDependency = Readonly<{
@@ -42,12 +40,17 @@ export class PrivateResourceExpectedError extends Error {
   readonly httpStatus: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 503;
 
   constructor(code: string, httpStatus: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 503) {
+    if (!/^[A-Z][A-Z0-9_]{0,127}$/u.test(code) || ![400, 401, 403, 404, 409, 422, 429, 503].includes(httpStatus)) {
+      throw new TypeError("FADENO_RESOURCE_EXPECTED_ERROR");
+    }
     super("FADENO_RESOURCE_EXPECTED");
     this.name = "PrivateResourceExpectedError";
     this.code = code;
     this.httpStatus = httpStatus;
   }
 }
+
+const declarations = new WeakSet<object>();
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -73,11 +76,14 @@ function encodeInput(value: unknown): string {
       return ["number", Object.is(current, -0) ? "0" : String(current)];
     }
     if (typeof current !== "object") throw new TypeError("FADENO_RESOURCE_INPUT");
+    if (types.isProxy(current)) throw new TypeError("FADENO_RESOURCE_INPUT");
     if (active.has(current)) throw new TypeError("FADENO_RESOURCE_INPUT");
     active.add(current);
     try {
       if (Array.isArray(current)) {
-        if (Object.getOwnPropertySymbols(current).length > 0) throw new TypeError("FADENO_RESOURCE_INPUT");
+        if (Object.getPrototypeOf(current) !== Array.prototype || Object.getOwnPropertySymbols(current).length > 0) {
+          throw new TypeError("FADENO_RESOURCE_INPUT");
+        }
         for (let index = 0; index < current.length; index += 1) {
           const descriptor = Object.getOwnPropertyDescriptor(current, String(index));
           if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw new TypeError("FADENO_RESOURCE_INPUT");
@@ -109,33 +115,30 @@ function encodeInput(value: unknown): string {
   return encoded;
 }
 
-function validExpectedResult(value: unknown): value is Extract<PrivateResourceResult<unknown>, { status: "expected-error" }> {
-  if (value === null || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return candidate["status"] === "expected-error" && typeof candidate["code"] === "string" &&
-    /^[A-Z][A-Z0-9_]{0,127}$/u.test(candidate["code"]) &&
-    [400, 401, 403, 404, 409, 422, 429, 503].includes(candidate["httpStatus"] as number) &&
-    Object.keys(candidate).length === 3;
-}
-
-function valueResult<Value>(value: Value): Readonly<{ status: "value"; value: Value }> {
-  return Object.freeze({ status: "value" as const, value });
-}
-
 export function definePrivateResource<Input extends PrivatePlainInput, Value>(
-  load: PrivateResourceLoader<Input, Value>,
+  options: Readonly<{ read: PrivateResourceLoader<Input, Value> }>,
 ): PrivateResourceDeclaration<Input, Value> {
-  if (typeof load !== "function") throw new TypeError("FADENO_RESOURCE_DECLARATION");
-  return Object.freeze({ declaration: Object.freeze(Object.create(null) as object), load });
+  const read = options !== null && typeof options === "object" && !types.isProxy(options)
+    ? Object.getOwnPropertyDescriptor(options, "read")
+    : undefined;
+  if (
+    options === null || typeof options !== "object" || types.isProxy(options) || !ordinaryObject(options) ||
+    Object.getOwnPropertySymbols(options).length > 0 || Object.getOwnPropertyNames(options).length !== 1 ||
+    !read || !("value" in read) || !read.enumerable || typeof read.value !== "function"
+  ) throw new TypeError("FADENO_RESOURCE_DECLARATION");
+  const resource = Object.freeze({
+    declaration: Object.freeze(Object.create(null) as object),
+    read: read.value as PrivateResourceLoader<Input, Value>,
+  });
+  declarations.add(resource);
+  return resource;
 }
 
 export function privateExpectedResourceError(
   code: string,
   httpStatus: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 503,
-): Extract<PrivateResourceResult<never>, { status: "expected-error" }> {
-  const result = Object.freeze({ status: "expected-error" as const, code, httpStatus });
-  if (!validExpectedResult(result)) throw new TypeError("FADENO_RESOURCE_EXPECTED_ERROR");
-  return result;
+): PrivateResourceExpectedError {
+  return Object.freeze(new PrivateResourceExpectedError(code, httpStatus));
 }
 
 export function assertPrivateResourceCachePolicy(policy: string): asserts policy is "request" {
@@ -172,7 +175,7 @@ export class PrivateResourceRequestScope {
     resource: PrivateResourceDeclaration<Input, Value>,
     input: Input,
   ): Promise<Value> {
-    if (!resource || typeof resource !== "object" || typeof resource.load !== "function" || typeof resource.declaration !== "object") {
+    if (!resource || typeof resource !== "object" || !declarations.has(resource)) {
       this.#record("refused", "none", false, "invalid-declaration");
       throw new TypeError("FADENO_RESOURCE_DECLARATION");
     }
@@ -190,8 +193,20 @@ export class PrivateResourceRequestScope {
     let declarationCache = this.#cache.get(resource.declaration);
     const existing = declarationCache?.get(inputKey);
     if (existing) {
-      this.#record("value", "request-hit", true, "equivalent-input");
-      return (await existing).value as Value;
+      try {
+        const result = await existing;
+        this.#record("value", "request-hit", true, "equivalent-input");
+        return result.value as Value;
+      } catch (error) {
+        const boundary = classifyPrivateResourceBoundary(error);
+        this.#record(
+          boundary === "expected" ? "expected-error" : boundary === "cancelled" ? "cancelled" : "unexpected-error",
+          "request-hit",
+          true,
+          "equivalent-input",
+        );
+        throw error;
+      }
     }
     this.#reads += 1;
     if (this.#reads > maximumRequestReads) {
@@ -213,19 +228,15 @@ export class PrivateResourceRequestScope {
     input: Input,
   ): Promise<Readonly<{ status: "value"; value: Value }>> {
     try {
-      const loaded = await resource.load(Object.freeze({ input, request: this.#request, signal: this.#request.signal }));
+      const loaded = await resource.read(Object.freeze({ input, request: this.#request, signal: this.#request.signal }));
       if (this.#request.signal.aborted) throw new DOMException("FADENO_RESOURCE_ABORTED", "AbortError");
-      if (validExpectedResult(loaded)) {
-        this.#record("expected-error", "miss", true, loaded.code);
-        throw new PrivateResourceExpectedError(loaded.code, loaded.httpStatus);
-      }
-      const result = loaded !== null && typeof loaded === "object" && (loaded as { status?: unknown }).status === "value"
-        ? loaded as Readonly<{ status: "value"; value: Value }>
-        : valueResult(loaded as Value);
       this.#record("value", "miss", true, "loader-completed");
-      return result;
+      return Object.freeze({ status: "value" as const, value: loaded as Value });
     } catch (error) {
-      if (error instanceof PrivateResourceExpectedError) throw error;
+      if (error instanceof PrivateResourceExpectedError) {
+        this.#record("expected-error", "miss", true, error.code);
+        throw error;
+      }
       if (this.#request.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
         this.#record("cancelled", "miss", true, "request-aborted");
         throw new DOMException("FADENO_RESOURCE_ABORTED", "AbortError");

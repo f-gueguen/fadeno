@@ -26,7 +26,9 @@ The threat model covers at least:
 6. Cookies define integrity, confidentiality where required, scope, expiry,
    rotation, and secure defaults.
 7. Shared caches partition by every authorization- and representation-relevant
-   input and never share private values accidentally.
+   input and never share private values accidentally. ADR 0034 refuses all V1
+   cross-request resource result caching; any later shared cache requires a new
+   decision and isolation evidence rather than weakening this default.
 8. Protocol decoders limit depth, count, size, time, and unsupported versions.
 9. Streams handle authentication expiry, cancellation, reconnect pressure, and
    backpressure.

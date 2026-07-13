@@ -10,7 +10,7 @@ V1-10 — resource identity and cache contract
 
 ## Exit criteria
 
-- [ ] Accept one resource identity/cache ADR that resolves DG-V1-04 without
+- [ ] Accept ADR 0034 as the resource identity/cache decision without
   implementing the V1-11 runtime or crossing the action/session gate.
 - [ ] Define exact resource declaration and call identity, equivalent/distinct
   input rules, request-local deduplication, concurrent ownership, cancellation,

@@ -15,11 +15,11 @@ function request(signal?: AbortSignal, authorization = "Bearer redacted"): Reque
 
 let projectLoads = 0;
 let releaseProject: (() => void) | undefined;
-const projects = definePrivateResource(async ({ input }: { input: Readonly<{ account: number; filters: Readonly<{ open: boolean; tag: string }> }> }) => {
+const projects = definePrivateResource({ read: async ({ input }: { input: Readonly<{ account: number; filters: Readonly<{ open: boolean; tag: string }> }> }) => {
   projectLoads += 1;
   await new Promise<void>((resolve) => { releaseProject = resolve; });
   return [{ id: input.account, title: input.filters.tag }];
-});
+} });
 const success = new PrivateResourceRequestScope(request());
 const first = success.read(projects, { account: 7, filters: { tag: "active", open: true } });
 const equivalent = success.read(projects, { filters: { open: true, tag: "active" }, account: 7 });
@@ -29,8 +29,8 @@ assert.deepEqual(await first, [{ id: 7, title: "active" }]);
 assert.strictEqual(await equivalent, await first);
 assert.equal(success.dependencies.length, 1);
 assert.deepEqual(success.flows.map(({ cache, cause }) => ({ cache, cause })), [
-  { cache: "request-hit", cause: "equivalent-input" },
   { cache: "miss", cause: "loader-completed" },
+  { cache: "request-hit", cause: "equivalent-input" },
 ]);
 
 const distinct = success.read(projects, { account: 8, filters: { tag: "active", open: true } });
@@ -40,12 +40,13 @@ assert.deepEqual(await distinct, [{ id: 8, title: "active" }]);
 assert.equal(success.dependencies.length, 2);
 
 let authorizationLoads = 0;
-const authorized = definePrivateResource(({ request: ownedRequest }) => {
+const authorized = definePrivateResource({ read: ({ request: ownedRequest }) => {
   authorizationLoads += 1;
-  return ownedRequest.headers.get("authorization") === "Bearer tenant-a"
-    ? "tenant-a-value"
-    : privateExpectedResourceError("RESOURCE_FORBIDDEN", 403);
-});
+  if (ownedRequest.headers.get("authorization") !== "Bearer tenant-a") {
+    throw privateExpectedResourceError("RESOURCE_FORBIDDEN", 403);
+  }
+  return "tenant-a-value";
+} });
 const tenantA = new PrivateResourceRequestScope(request(undefined, "Bearer tenant-a"));
 const tenantB = new PrivateResourceRequestScope(request(undefined, "Bearer tenant-b"));
 assert.equal(await tenantA.read(authorized, null), "tenant-a-value");
@@ -61,10 +62,10 @@ assert.equal(authorizationLoads, 2, "separate request owners cannot share author
 assert.equal(tenantB.dependencies.length, 1);
 
 let unexpectedLoads = 0;
-const broken = definePrivateResource(() => {
+const broken = definePrivateResource({ read: () => {
   unexpectedLoads += 1;
   throw new Error("storage unavailable");
-});
+} });
 const failed = new PrivateResourceRequestScope(request());
 const unexpectedFirst = failed.read(broken, null);
 const unexpectedSecond = failed.read(broken, null);
@@ -74,20 +75,21 @@ assert.equal(unexpectedLoads, 1, "unexpected failure remains request-local and i
 assert.equal(classifyPrivateResourceBoundary(new Error("failure")), "unexpected");
 
 let recoveryLoads = 0;
-const recovering = definePrivateResource(() => {
+const recovering = definePrivateResource({ read: () => {
   recoveryLoads += 1;
-  return recoveryLoads === 1 ? privateExpectedResourceError("RESOURCE_TEMPORARY", 503) : "fresh";
-});
+  if (recoveryLoads === 1) throw privateExpectedResourceError("RESOURCE_TEMPORARY", 503);
+  return "fresh";
+} });
 await assert.rejects(new PrivateResourceRequestScope(request()).read(recovering, null), PrivateResourceExpectedError);
 assert.equal(await new PrivateResourceRequestScope(request()).read(recovering, null), "fresh");
 assert.equal(recoveryLoads, 2, "a new request has no stale failure or result artifact");
 
 const cancelledController = new AbortController();
 let releaseCancelled: (() => void) | undefined;
-const cancellable = definePrivateResource(async () => {
+const cancellable = definePrivateResource({ read: async () => {
   await new Promise<void>((resolve) => { releaseCancelled = resolve; });
   return "obsolete";
-});
+} });
 const cancelled = new PrivateResourceRequestScope(request(cancelledController.signal));
 const obsolete = cancelled.read(cancellable, null);
 cancelledController.abort();
@@ -125,6 +127,12 @@ cycle["cycle"] = cycle;
 await assert.rejects(refusal.read(projects as never, cycle as never), /FADENO_RESOURCE_INPUT/u);
 await assert.rejects(refusal.read(projects as never, { key: "x".repeat(70 * 1024) } as never), /FADENO_RESOURCE_INPUT_LIMIT/u);
 assert.equal(refusal.dependencies.length, 0, "refused input records no dependency or cache entry");
+await assert.rejects(refusal.read({ declaration: {}, read: () => "counterfeit" } as never, null), /FADENO_RESOURCE_DECLARATION/u);
+assert.throws(() => privateExpectedResourceError("lowercase", 404), /FADENO_RESOURCE_EXPECTED_ERROR/u);
+let proxyTrapRan = false;
+const proxy = new Proxy({}, { ownKeys() { proxyTrapRan = true; return []; } });
+await assert.rejects(refusal.read(projects as never, proxy as never), /FADENO_RESOURCE_INPUT/u);
+assert.equal(proxyTrapRan, false, "proxy refusal does not execute application reflection traps");
 
 const flowInspection = {
   operation: "resource-decision",

@@ -19,6 +19,12 @@ A resource is a server-owned application read. Resources used during a render
 are deduplicated within the request and recorded as page dependencies. A
 resource cannot be called directly from browser-zone application code.
 
+ADR 0034 fixes `defineResource({ read })` as the sole declaration and
+`context.read(resource, input)` as the sole call. Declaration-object identity
+and bounded structural input determine request-local promise deduplication.
+V1 refuses cross-request result caching. The public runtime arrives in V1-11;
+V1-10 contains only the accepted contract and private executable evidence.
+
 ## Action
 
 An action is a server-owned mutation callable by a standard HTML form. Its
@@ -66,6 +72,6 @@ decoded route parameters, and cancellation signal; layouts additionally receive
 their child node. Generated application bindings, not authored route tables,
 connect those modules to the matched-route renderer.
 
-Resource, action, request-context extension, island, and client-interaction
-signatures remain unset until their vertical slices prove them. Names fixed by
-effective ADRs remain current decisions.
+Action, request-context extensions beyond the resource read, island, and
+client-interaction signatures remain unset until their vertical slices prove
+them. Names fixed by effective ADRs remain current decisions.

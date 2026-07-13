@@ -294,6 +294,15 @@ identity, generated-artifact owner, and both source-to-artifact and
 artifact-to-source relations. Later reconstruction is not an acceptable source
 of required evidence.
 
+ADR 0034 adds resource declarations and calls to that construction boundary.
+The analyzer identifies an opaque `defineResource` declaration at its exact
+source origin and relates each admitted `context.read` call to it without
+inventing an application string ID. Unsupported or over-budget input shapes
+produce structured framework refusal before dependency generation. Later
+unsafe-`keeps` evidence refers to declaration provenance, while observed cache
+hits, authorization outcomes, failures, cancellation, and revalidation remain
+runtime records rather than static predictions.
+
 ## Inputs and ownership
 
 1. Stock TypeScript parses application source.
