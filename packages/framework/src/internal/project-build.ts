@@ -315,8 +315,8 @@ async function captureRuntimeDependencies(projectRoot: string): Promise<Readonly
   let files = 0;
   let bytes = 0;
   const paths = new Set<string>();
-  while (pending.length > 0) {
-    const next = pending.shift()!;
+  for (let pendingIndex = 0; pendingIndex < pending.length; pendingIndex += 1) {
+    const next = pending[pendingIndex]!;
     const root = next.root;
     const path = relative(projectRoot, root).split("\\").join("/");
     if (path === "" || path.startsWith("../") || paths.has(path)) fail("FADENO_BUILD_RUNTIME_CLOSURE");
