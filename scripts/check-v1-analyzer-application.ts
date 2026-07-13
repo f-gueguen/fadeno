@@ -198,6 +198,13 @@ try {
   const completePending = join(parent, "routes.pending-complete");
   cpSync(output, completePending, { recursive: true });
   const beforePendingCleanup = outputSnapshot(output);
+  const invalidPrevious = join(parent, "routes.previous-invalid");
+  mkdirSync(invalidPrevious);
+  writeFileSync(join(invalidPrevious, "partial"), "unowned\n");
+  assert.throws(() => recoveryEvidence.apply(), /FADENO_GENERATION_OUTPUT_UNOWNED/u);
+  assert.equal(existsSync(completePending), true);
+  assertSnapshot(output, beforePendingCleanup, true);
+  rmSync(invalidPrevious, { recursive: true });
   assert.equal(recoveryEvidence.apply().changed, false);
   assert.equal(existsSync(completePending), false);
   assertSnapshot(output, beforePendingCleanup, true);

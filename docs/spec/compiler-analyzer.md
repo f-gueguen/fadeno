@@ -408,10 +408,11 @@ that interval before build/watch integration can claim continuous usable state.
 An actual operation failure restores the validated previous generation when
 possible. If restore itself fails, the validated previous directory remains for
 deterministic next-run recovery. A complete new output plus a retained previous
-directory is resolved by keeping the new output and removing the old backup.
-Pending output is never promoted. Ambiguous previous generations and symlinked,
-partial, or unowned transaction debris fail closed without deleting or guessing
-ownership.
+directory is conservatively resolved by restoring the previous accepted
+generation and reapplying the current publication. Pending output is never
+promoted. Recovery validates every candidate before mutation; ambiguous previous
+generations and symlinked, partial, or unowned transaction debris fail closed
+without deleting or guessing ownership.
 
 ## Type spine
 

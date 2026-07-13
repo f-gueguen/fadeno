@@ -360,21 +360,21 @@ function recoverTransactionState(
   const pending = entries.filter((name) => name.startsWith("routes.pending-"));
   const previous = entries.filter((name) => name.startsWith("routes.previous-"));
   if (pending.length > 1 || previous.length > 1) fail("OUTPUT_RECOVERY_AMBIGUOUS");
-  for (const candidate of pending) {
-    const path = join(parent, candidate);
-    if (lstatSync(path).isSymbolicLink() || !lstatSync(path).isDirectory()) fail("OUTPUT_RECOVERY_PENDING");
-    try { assertOwnedOutput(path); } catch { fail("OUTPUT_RECOVERY_PENDING"); }
-    fileSystem.remove(path);
+  const pendingPath = pending[0] ? join(parent, pending[0]) : null;
+  const previousPath = previous[0] ? join(parent, previous[0]) : null;
+  if (pendingPath) {
+    if (lstatSync(pendingPath).isSymbolicLink() || !lstatSync(pendingPath).isDirectory()) fail("OUTPUT_RECOVERY_PENDING");
+    try { assertOwnedOutput(pendingPath); } catch { fail("OUTPUT_RECOVERY_PENDING"); }
   }
-  const candidate = previous[0];
-  if (!candidate) return;
-  const path = join(parent, candidate);
-  assertOwnedOutput(path);
+  if (previousPath) assertOwnedOutput(previousPath);
+  if (previousPath && existsSync(output)) assertOwnedOutput(output);
+
+  if (pendingPath) fileSystem.remove(pendingPath);
+  if (!previousPath) return;
   if (existsSync(output)) {
-    assertOwnedOutput(output);
     fileSystem.remove(output);
   }
-  fileSystem.rename(path, output);
+  fileSystem.rename(previousPath, output);
   assertOwnedOutput(output);
 }
 
