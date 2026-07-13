@@ -125,7 +125,9 @@ try {
   const planned = createRouteArtifactPlan(main, config);
   const repeatedPlan = createRouteArtifactPlan(main, config);
   if (existsSync(join(main, ".fadeno"))) throw new Error("FADENO_ROUTING_PLAN_WROTE_OUTPUT");
-  if (!Object.isFrozen(planned) || !Object.isFrozen(planned.files)) throw new Error("FADENO_ROUTING_PLAN_MUTABLE");
+  if (!Object.isFrozen(planned) || !Object.isFrozen(planned.sources) || !Object.isFrozen(planned.files)) {
+    throw new Error("FADENO_ROUTING_PLAN_MUTABLE");
+  }
   if (planned.sourceSha256 !== planned.manifest.generation.sourceSha256 ||
       JSON.stringify(planned.files) !== JSON.stringify(repeatedPlan.files)) {
     throw new Error("FADENO_ROUTING_PLAN_IDENTITY");

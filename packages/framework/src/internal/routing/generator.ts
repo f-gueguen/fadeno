@@ -28,6 +28,7 @@ export type RouteArtifactName = typeof OUTPUT_FILES[number];
 export type RouteArtifactPlan = Readonly<{
   manifest: RouteManifest;
   sourceSha256: string;
+  sources: Readonly<Record<string, string>>;
   files: Readonly<Record<RouteArtifactName, string>>;
 }>;
 
@@ -325,6 +326,21 @@ export function createRouteArtifactPlan(projectRoot: string, config: FadenoConfi
   if (!config.routes) fail("ROUTES_REQUIRED");
   const manifest = discoverRouteManifest(projectRoot, config.routes);
   assertRouteManifestSemantics(manifest);
+  const sourcePaths = [...new Set(manifest.routes.flatMap((route) => [
+    route.source,
+    ...route.layouts,
+    ...(route.notFound ? [route.notFound] : []),
+    ...(route.error ? [route.error] : []),
+  ]))].sort(compareText);
+  const sources = Object.freeze(Object.fromEntries(sourcePaths.map((path) => [
+    path,
+    readFileSync(join(resolve(projectRoot), path), "utf8"),
+  ])));
+  const capturedSourceSha256 = sha256(JSON.stringify({
+    root: config.routes.root,
+    files: sourcePaths.map((path) => ({ path, sha256: sha256(sources[path]!) })),
+  }));
+  if (capturedSourceSha256 !== manifest.generation.sourceSha256) fail("SOURCE_CHANGED");
   const correlated = Object.freeze({
     "app.ts": renderApplication(manifest),
     "index.d.ts": renderDeclaration(manifest),
@@ -337,7 +353,7 @@ export function createRouteArtifactPlan(projectRoot: string, config: FadenoConfi
     ...correlated,
     "owner.json": ownerDocument(manifest, correlated),
   });
-  return Object.freeze({ manifest, sourceSha256: manifest.generation.sourceSha256, files });
+  return Object.freeze({ manifest, sourceSha256: manifest.generation.sourceSha256, sources, files });
 }
 
 export function generateRoutes(
