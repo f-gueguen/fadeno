@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -150,12 +150,20 @@ assert.equal(await handoffHandle.result, "handoff-result");
 
 const closeGate = deferred();
 const drainingStarted = deferred();
+const finalFailureStarted = deferred();
+const finalFailureGate = deferred();
 const draining = coordinator.start("analysis", () => observed("draining", async () => {
   drainingStarted.resolve();
   await closeGate.promise;
   return "drained";
 }));
 await drainingStarted.promise;
+const finalFailure = coordinator.start("explanation", () => observed("final-failure", async () => {
+  finalFailureStarted.resolve();
+  await finalFailureGate.promise;
+  throw new TypeError("FADENO_TEST_FINAL_DRAIN_FAILURE");
+}));
+const finalFailureAssertion = assert.rejects(finalFailure.result, /FADENO_TEST_FINAL_DRAIN_FAILURE/u);
 const closing = coordinator.close();
 let closingSettled = false;
 void closing.then(() => { closingSettled = true; });
@@ -166,6 +174,10 @@ await Promise.resolve();
 assert.equal(closingSettled, false);
 closeGate.resolve();
 assert.equal(await draining.result, "drained");
+await finalFailureStarted.promise;
+assert.equal(closingSettled, false, "close resolved before the final admitted failure settled");
+finalFailureGate.resolve();
+await finalFailureAssertion;
 await closing;
 assert.equal(coordinator.state, "closed");
 assert.equal(active, 0);
@@ -196,13 +208,37 @@ try {
   const laterAnalysis = await laterAnalysisHandle.result;
   assert.equal(laterAnalysis.publication.publicationGeneration, 2);
 
+  const firstBurstPath = join(root, "src/routes/burst-first");
+  const middleBurstPath = join(root, "src/routes/burst-middle");
+  const finalBurstPath = join(root, "src/routes/burst-final");
+  mkdirSync(firstBurstPath, { recursive: true });
+  writeFileSync(join(firstBurstPath, "page.tsx"), "export default function Page(): string { return 'first'; }\n");
+  const projectBurstFirst = analyzer.analyze();
+  const projectBurstFirstInterrupted = interrupted(projectBurstFirst, "FADENO_ANALYZER_PROJECT_SUPERSEDED");
+  rmSync(firstBurstPath, { recursive: true });
+  mkdirSync(middleBurstPath, { recursive: true });
+  writeFileSync(join(middleBurstPath, "page.tsx"), "export default function Page(): string { return 'middle'; }\n");
+  const projectBurstMiddle = analyzer.analyze();
+  const projectBurstMiddleInterrupted = interrupted(projectBurstMiddle, "FADENO_ANALYZER_PROJECT_SUPERSEDED");
+  rmSync(middleBurstPath, { recursive: true });
+  mkdirSync(finalBurstPath, { recursive: true });
+  writeFileSync(join(finalBurstPath, "page.tsx"), "export default function Page(): string { return 'final'; }\n");
+  const projectBurstFinal = analyzer.analyze();
+  await Promise.all([projectBurstFirstInterrupted, projectBurstMiddleInterrupted]);
+  const projectBurstAnalysis = await projectBurstFinal.result;
+  const projectBurstRoutes = projectBurstAnalysis.routePlan!.manifest.routes.map(({ id }) => id);
+  assert.equal(projectBurstAnalysis.publication.publicationGeneration, 3);
+  assert.equal(projectBurstRoutes.includes("/burst-first"), false);
+  assert.equal(projectBurstRoutes.includes("/burst-middle"), false);
+  assert.equal(projectBurstRoutes.includes("/burst-final"), true);
+
   const activeObsolete = analyzer.analyze();
   await Promise.resolve();
   const activeObsoleteInterrupted = interrupted(activeObsolete, "FADENO_ANALYZER_PROJECT_SUPERSEDED");
   const activeNewest = analyzer.analyze();
   await activeObsoleteInterrupted;
   const activeNewestAnalysis = await activeNewest.result;
-  assert.equal(activeNewestAnalysis.publication.publicationGeneration, 3, "active obsolete analysis advanced publication");
+  assert.equal(activeNewestAnalysis.publication.publicationGeneration, 4, "active obsolete analysis advanced publication");
 
   const cancelledAnalysis = analyzer.analyze();
   await Promise.resolve();
@@ -210,7 +246,7 @@ try {
   cancelledAnalysis.cancel();
   await cancelledAnalysisInterrupted;
   const recoveredAnalysis = await analyzer.analyze().result;
-  assert.equal(recoveredAnalysis.publication.publicationGeneration, 4, "cancelled analysis advanced publication");
+  assert.equal(recoveredAnalysis.publication.publicationGeneration, 5, "cancelled analysis advanced publication");
 
   const drainingFirst = analyzer.analyze();
   const drainingSecondInterrupted = interrupted(drainingFirst, "FADENO_ANALYZER_PROJECT_SUPERSEDED");

@@ -221,10 +221,12 @@ accepted invalidation can disappear at the idle boundary.
 
 B7D2 also replaces per-document project synchronization with one atomic session
 reconcile. The transition validates the full desired/forgotten set and exact
-open identities against cloned state, then publishes one document snapshot and
-epoch. Former route-root files are forgotten even when they still exist, while
-duplicate aliases, stale lifetimes, symlinks, text mismatch, and unrelated open
-buffers preserve the complete prior state. Direct, structural, configuration,
+saved-revision ownership against cloned state, then publishes one document
+snapshot and epoch. Project scanning never creates or overwrites unsaved
+overlays. Former route-root files are forgotten even when they still exist,
+while duplicate aliases, stale revisions, symlinks, text mismatch, and open
+desired or forgotten buffers preserve the complete prior state. Direct,
+structural, configuration,
 deletion, rename, and burst fixtures issue only a generic private analysis
 admission after mutating authoritative project state.
 

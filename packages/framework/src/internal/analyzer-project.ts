@@ -19,7 +19,12 @@ import type { AnalyzerExplainResult } from "./analyzer-explain.ts";
 import type { AnalyzerGraphNodeDefinition } from "./analyzer-graph.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
 import { createRouteExplainContribution } from "./analyzer-route-explain.ts";
-import { AnalyzerSession, type AnalyzerDocumentSnapshot, type AnalyzerOperationResult } from "./analyzer-session.ts";
+import {
+  AnalyzerSession,
+  type AnalyzerDocumentOnlySnapshot,
+  type AnalyzerDocumentSnapshot,
+  type AnalyzerOperationResult,
+} from "./analyzer-session.ts";
 import {
   ROUTE_ARTIFACT_DESCRIPTORS,
   ROUTE_ARTIFACT_MODULE,
@@ -49,12 +54,17 @@ export interface PrivateProjectAnalysis {
 
 export type PrivateProjectAnalysisHandle = PrivateAnalyzerOperationHandle<PrivateProjectAnalysis>;
 
+export interface PrivateProjectAnalyzerOptions {
+  readonly session?: AnalyzerSession;
+}
+
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function accepted(result: AnalyzerOperationResult): void {
+function accepted(result: AnalyzerOperationResult): AnalyzerDocumentOnlySnapshot {
   if ("code" in result) throw new TypeError(result.code);
+  return result.snapshot;
 }
 
 function compareText(left: string, right: string): number {
@@ -125,15 +135,15 @@ export class PrivateProjectAnalyzer {
   readonly #root: string;
   readonly #session: AnalyzerSession;
   readonly #coordinator = new PrivateAnalyzerOperationCoordinator();
-  readonly #managedPaths = new Set<string>();
+  readonly #managedDocuments = new Map<string, number>();
   #configurationFingerprint: string | null = null;
   #configurationSourceSha256: string | null = null;
   #currentAnalysisToken: object | null = null;
   #latestAnalysisRequestId: string | null = null;
 
-  constructor(projectRoot: string) {
+  constructor(projectRoot: string, options: PrivateProjectAnalyzerOptions = {}) {
     this.#root = resolve(projectRoot);
-    this.#session = new AnalyzerSession(this.#root);
+    this.#session = options.session ?? new AnalyzerSession(this.#root);
   }
 
   analyze(): PrivateProjectAnalysisHandle {
@@ -184,7 +194,7 @@ export class PrivateProjectAnalyzer {
     }
     signal.throwIfAborted();
 
-    const documents = this.#session.currentSnapshot.documents.filter(({ path }) => this.#managedPaths.has(path));
+    const documents = this.#session.currentSnapshot.documents.filter(({ path }) => this.#managedDocuments.has(path));
     const documentByPath = new Map(documents.map((document) => [document.path, document]));
     const definitions = this.#definitions(routePlan, Object.keys(desiredSources), documentByPath);
     let diagnostics: AnalyzerDiagnosticBatch | null = null;
@@ -296,29 +306,42 @@ export class PrivateProjectAnalyzer {
 
   #synchronizeDocuments(desired: ReadonlyMap<string, string>): void {
     const currentByPath = new Map(this.#session.currentSnapshot.documents.map((document) => [document.path, document]));
-    const forgotten = [...this.#managedPaths]
-      .filter((path) => !desired.has(path))
-      .sort(compareText)
-      .map((path) => {
+    const forgotten = [...this.#managedDocuments]
+      .filter(([path]) => !desired.has(path))
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([path, savedRevision]) => {
         const current = currentByPath.get(path);
         if (!current) throw new TypeError("FADENO_ANALYZER_DOCUMENT_UNKNOWN");
-        return { document: join(this.#root, path), expectedOpen: current.open };
+        return { document: join(this.#root, path), expectedSavedRevision: savedRevision };
       });
     let changed = forgotten.length > 0;
     const documents = [...desired]
       .sort(([left], [right]) => compareText(left, right))
       .map(([path, text]) => {
         const current = currentByPath.get(path);
-        if (!current?.open || current.effective.text !== text) changed = true;
+        const expectedSavedRevision = this.#managedDocuments.get(path) ?? null;
+        if (
+          expectedSavedRevision === null || !current || current.open !== null ||
+          current.savedRevision !== expectedSavedRevision || current.effective.text !== text
+        ) changed = true;
         return {
           document: join(this.#root, path),
           text,
-          expectedOpen: current?.open ?? null,
+          expectedSavedRevision,
         };
       });
-    if (changed) accepted(this.#session.reconcile({ documents, forget: forgotten }));
-    this.#managedPaths.clear();
-    for (const path of desired.keys()) this.#managedPaths.add(path);
+    const snapshot = changed
+      ? accepted(this.#session.reconcile({ documents, forget: forgotten }))
+      : this.#session.currentSnapshot;
+    const reconciledByPath = new Map(snapshot.documents.map((document) => [document.path, document]));
+    const nextManaged = new Map<string, number>();
+    for (const path of desired.keys()) {
+      const document = reconciledByPath.get(path);
+      if (!document || document.open !== null) throw new TypeError("FADENO_ANALYZER_RECONCILE_OWNERSHIP");
+      nextManaged.set(path, document.savedRevision);
+    }
+    this.#managedDocuments.clear();
+    for (const [path, savedRevision] of nextManaged) this.#managedDocuments.set(path, savedRevision);
   }
 
   #definitions(

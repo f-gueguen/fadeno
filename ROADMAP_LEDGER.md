@@ -39,8 +39,8 @@ V1-DX-B7D2 — deterministic invalidation batches and supersession
   indiscriminately.
 - One private session reconcile validates the complete desired and forgotten
   owner set against cloned state, commits one snapshot and workspace epoch, and
-  refuses atomically. Forgetting a still-existing owner requires exact current
-  project-owned open identity; unrelated or stale open buffers are refused.
+  refuses atomically. Project scanning owns exact saved revisions and never
+  adopts or overwrites an overlay; an open desired or forgotten owner refuses.
 - Direct, structure, configuration, deletion, rename, and burst fixtures mutate
   authoritative project state then submit generic invalidation. Filesystem event
   interpretation and debounce policy remain B7D4.

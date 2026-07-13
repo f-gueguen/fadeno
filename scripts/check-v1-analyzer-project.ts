@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { PrivateProjectAnalyzer } from "../packages/framework/src/internal/analyzer-project.ts";
+import { AnalyzerSession } from "../packages/framework/src/internal/analyzer-session.ts";
 import {
   deserializeAnalyzerDiagnosticBatch,
   formatAnalyzerDiagnosticBatchHuman,
@@ -152,6 +153,41 @@ try {
   assert.equal(switchedRoot.publication.graph.removedNodes.length > 0, true);
   assert.equal(switchedRoot.publication.graph.removedNodes.every(({ reason }) => reason === "owner-disappeared"), true);
   assert.equal(switchedRoot.publication.artifacts.length, 7);
+
+  const ownershipRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-project-saved-ownership-"));
+  try {
+    cpSync(new URL("../examples/v1-app/src/", import.meta.url), join(ownershipRoot, "src"), { recursive: true });
+    writeFileSync(join(ownershipRoot, "fadeno.config.ts"), "export default { routes: { root: 'src/routes' } };\n");
+    const sharedSession = new AnalyzerSession(ownershipRoot);
+    const ownershipAnalyzer = new PrivateProjectAnalyzer(ownershipRoot, { session: sharedSession });
+    const owned = await ownershipAnalyzer.analyze().result;
+    const ownedPagePath = join(ownershipRoot, "src/routes/page.tsx");
+    const desiredOverlay = sharedSession.open(ownedPagePath, 7, "unsaved desired owner");
+    assert.equal(desiredOverlay.accepted, true);
+    if (!desiredOverlay.accepted) throw new Error("FADENO_TEST_DESIRED_OVERLAY");
+    await assert.rejects(ownershipAnalyzer.analyze().result, /FADENO_ANALYZER_DOCUMENT_OPEN/u);
+    assert.equal(sharedSession.currentPublicationSnapshot, owned.publication, "desired overlay refusal replaced publication");
+    const desiredOpen = desiredOverlay.snapshot.documents.find(({ path }) => path === "src/routes/page.tsx")!.open!;
+    assert.equal(sharedSession.close(ownedPagePath, desiredOpen.lifetime, desiredOpen.version).accepted, true);
+    const desiredRecovery = await ownershipAnalyzer.analyze().result;
+    assert.equal(desiredRecovery.publication.publicationGeneration, owned.publication.publicationGeneration + 1);
+
+    const forgottenOverlay = sharedSession.open(ownedPagePath, 8, "unsaved forgotten owner");
+    assert.equal(forgottenOverlay.accepted, true);
+    if (!forgottenOverlay.accepted) throw new Error("FADENO_TEST_FORGOTTEN_OVERLAY");
+    mkdirSync(join(ownershipRoot, "src/alternate"), { recursive: true });
+    writeFileSync(join(ownershipRoot, "src/alternate/page.tsx"), "export default function Page(): string { return 'alternate'; }\n");
+    writeFileSync(join(ownershipRoot, "fadeno.config.ts"), "export default { routes: { root: 'src/alternate' } };\n");
+    await assert.rejects(ownershipAnalyzer.analyze().result, /FADENO_ANALYZER_DOCUMENT_OPEN/u);
+    assert.equal(sharedSession.currentPublicationSnapshot, desiredRecovery.publication, "forgotten overlay refusal replaced publication");
+    const forgottenOpen = forgottenOverlay.snapshot.documents.find(({ path }) => path === "src/routes/page.tsx")!.open!;
+    assert.equal(sharedSession.close(ownedPagePath, forgottenOpen.lifetime, forgottenOpen.version).accepted, true);
+    const forgottenRecovery = await ownershipAnalyzer.analyze().result;
+    assert.equal(forgottenRecovery.routePlan?.manifest.root, "src/alternate");
+    await ownershipAnalyzer.close();
+  } finally {
+    rmSync(ownershipRoot, { recursive: true, force: true });
+  }
 
   writeFileSync(join(root, "fadeno.config.ts"), [
     'import { writeFileSync } from "node:fs";',

@@ -687,13 +687,14 @@ failed, cancelled, or been superseded.
 Project document synchronization uses one private session reconcile transition.
 It canonicalizes the complete desired and forgotten set, rejects duplicate
 aliases, validates desired text against the authoritative files, checks exact
-open lifetime and version ownership, and constructs the next document map from
-cloned state. Only after every item passes does it replace the map, advance one
-workspace epoch, and invalidate derived evidence once. A still-existing former
-route-root owner may be closed and forgotten only through its exact managed
-identity; unrelated or stale open buffers refuse the whole batch. Retained
-source text is therefore bounded to current ownership rather than cumulative
-historical route roots.
+saved-revision ownership, and constructs the next document map from cloned
+state. Project scanning owns saved records only; it never creates, adopts, or
+rewrites an unsaved overlay. Only after every item passes does reconciliation
+replace the map, advance one workspace epoch, and invalidate derived evidence
+once. A still-existing former route-root owner may be forgotten only through
+its exact managed saved revision; any open buffer on a desired or forgotten
+path refuses the whole batch. Retained source text is therefore bounded to
+current ownership rather than cumulative historical route roots.
 
 Filesystem notifications are invalidation hints, not semantic facts. B7D4 must
 coalesce contained hints, exclude owned output, and rescan through the same
@@ -739,7 +740,8 @@ their exact command and lifecycle contracts in an accepted ADR.
   handoff, pre-close drain, and no operation overlap without timing sleeps.
 - Atomic reconcile fixtures rotate across three still-existing route roots,
   prove exact current-document retention, and preserve the prior snapshot and
-  epoch across duplicate alias, symlink, stale lifetime, and open-owner refusal.
+  epoch across duplicate alias, symlink, stale revision, text mismatch, and
+  desired/forgotten open-owner refusal.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.
