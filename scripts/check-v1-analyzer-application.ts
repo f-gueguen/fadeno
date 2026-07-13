@@ -96,7 +96,13 @@ try {
   mutatePublication(initial, (publication) => { publication.artifacts[0].ownerNodeId = "route:foreign"; });
   mutatePublication(initial, (publication) => { publication.artifacts[0].value.encoding = "binary"; });
   mutatePublication(initial, (publication) => { publication.artifacts[0].value.sha256 = "0".repeat(64); });
+  mutatePublication(initial, (publication) => {
+    publication.artifacts[0].value.bytes = "";
+    publication.artifacts[0].value.sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+  });
+  mutatePublication(initial, (publication) => { publication.artifacts[0].provenance.module.transformation = "foreign"; });
   mutatePublication(initial, (publication) => { publication.artifacts[0].provenance.generatedArtifactOwnership.path = ".fadeno/foreign"; });
+  mutatePublication(initial, (publication) => { publication.artifacts[0].provenance.sourceToArtifacts[0].artifactId = "generated:foreign"; });
   mutatePublication(initial, (publication) => { publication.artifacts.pop(); });
   mutatePublication(initial, (publication) => { publication.artifacts.push(structuredClone(publication.artifacts[0])); });
 
@@ -138,6 +144,9 @@ try {
   assert.throws(() => fault.apply({ fileSystem: mutationFileSystem((operation, count) => operation === "write" && count === 1) }), /FADENO_TEST_WRITE_FAILURE/u);
   assertSnapshot(output, beforeFault, true);
   assert.equal(readdirSync(join(root, ".fadeno")).some((name) => name.startsWith("routes.pending-") || name.startsWith("routes.previous-")), false);
+
+  assert.throws(() => fault.apply({ fileSystem: mutationFileSystem((operation, count) => operation === "rename" && count === 1) }), /FADENO_TEST_RENAME_FAILURE/u);
+  assertSnapshot(output, beforeFault, true);
 
   assert.throws(() => fault.apply({ fileSystem: mutationFileSystem((operation, count) => operation === "rename" && count === 2) }), /FADENO_TEST_RENAME_FAILURE/u);
   assertSnapshot(output, beforeFault, true);
