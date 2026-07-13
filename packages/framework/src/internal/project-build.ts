@@ -583,13 +583,17 @@ function acceptStage(projectRoot: string, generation: number, expected: PrivateR
     renameSync(output, rollback);
     previous = true;
   }
+  let accepted = false;
   try {
     renameSync(stage, output);
-    const accepted = capturePrivateRuntimeIdentity(output, identityPaths(output));
-    if (accepted.sha256 !== expected.sha256) fail("FADENO_BUILD_OUTPUT_STALE");
+    const outputIdentity = capturePrivateRuntimeIdentity(output, identityPaths(output));
+    if (outputIdentity.sha256 !== expected.sha256) fail("FADENO_BUILD_OUTPUT_STALE");
     assertAcceptedOutput(output, "FADENO_BUILD_OUTPUT_STALE");
-    if (previous) rmSync(rollback, { recursive: true });
+    if (previous) renameSync(rollback, rejected);
+    accepted = true;
+    if (previous) rmSync(rejected, { recursive: true });
   } catch (error) {
+    if (accepted) throw error;
     if (existsSync(output)) renameSync(output, rejected);
     if (previous && existsSync(rollback)) renameSync(rollback, output);
     if (existsSync(rejected)) rmSync(rejected, { recursive: true });
