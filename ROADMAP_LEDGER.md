@@ -6,45 +6,38 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7D7 — packed development server lifecycle
+V1-10 — resource identity and cache contract
 
 ## Exit criteria
 
-- [x] Add only the exact public
-  `fadeno dev --project-root <path> --port <1..65535>` dispatch and one retained
-  supervisor using the accepted project authority and invalidation adapter.
-- [x] Start the initial complete generation in a fresh verified child, register
-  the route loader before application import, bind loopback at the explicit
-  port, and print readiness only after the complete lifecycle is active.
-- [x] Prove direct, transitive, configuration, deletion, rename, and burst
-  changes use authoritative rescan, supersede stale work, replace diagnostic
-  batches, clear repaired diagnostics, and preserve the last-good child.
-- [x] Implement the bounded stop-old/accept/start-new switch, startup rollback,
-  stream ownership, graceful 5,000 ms drain, repeated-signal force, and complete
-  watcher/compiler/transaction/child cleanup.
-- [ ] Extend the canonical packed application with permanent executable
-  serve/change/failure/flow/recovery/shutdown evidence and pass full repository,
-  local CI, architecture, Big-O, and fresh review gates.
+- [ ] Accept one resource identity/cache ADR that resolves DG-V1-04 without
+  implementing the V1-11 runtime or crossing the action/session gate.
+- [ ] Define exact resource declaration and call identity, equivalent/distinct
+  input rules, request-local deduplication, concurrent ownership, cancellation,
+  dependency recording, and rendering-boundary failure behavior.
+- [ ] Define error caching, authorization and representation partitioning,
+  cross-request cache opt-in or explicit V1 refusal, bounded value/key rules,
+  and conservative unsupported-value behavior.
+- [ ] Freeze correctness-first revalidation and any public `keeps` declaration
+  boundary so removing every optimization preserves correctness and unsafe
+  declarations remain development-visible refusals.
+- [ ] Add private strict-TypeScript executable success/refusal/isolation/
+  failure/flow/recovery evidence, align every canonical document, and pass full
+  repository, local CI, architecture, Big-O, and fresh review gates.
 
 ## In progress
 
-- The exact installed `fadeno dev` command, retained private supervisor,
-  authoritative watcher integration, isolated generation children, last-good
-  switching, startup rollback, and bounded shutdown behavior are implemented.
-- The canonical packed application permanently proves public readiness,
-  direct/transitive/configuration/rename/deletion/burst changes, compiler and
-  startup refusal, correction, flow, recovery, stale-artifact removal,
-  sustained runtime output, graceful close, repeated-signal force, occupied
-  address refusal, and usage refusal.
-- Focused and complete repository checks pass. Architecture and independently
-  challenged Big-O audits found no remaining architectural or asymptotic
-  blocker; one output-longevity issue found during challenge was corrected and
-  covered before completion.
-- Machine-readable command output, a stable external diagnostic schema, a
-  public analyzer API, registry identity, broader deployment addresses, and a
-  supported editor product remain gated or deferred.
-- V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
-  feedback evidence is split into one-outcome sub-slices.
+- V1-10 owns a decision and private evidence only. Public resource execution,
+  renderer integration, generated declarations, and revalidation runtime remain
+  V1-11 work after this gate resolves.
+- ADR 0020 already accepts correctness-first full revalidation and equivalent
+  request-local deduplication. V1-10 must preserve that result without
+  extrapolating cross-request caching or selective optimization safety.
+- DG-V1-05 continues to own actions, forms, sessions, origin/CSRF, replay,
+  redirects, uploads, and cookie lifecycle; this slice cannot invent them.
+- The decision evidence must include tenant/authorization isolation, expected
+  and unexpected failure behavior, cancellation, concurrency, bounded inputs,
+  conservative comparison refusal, and an unsafe-`keeps` control.
 
 ## Blockers
 
@@ -52,6 +45,11 @@ V1-DX-B7D7 — packed development server lifecycle
 
 ## Open questions
 
+- Whether V1 should refuse cross-request result caching entirely or accept one
+  narrowly partitioned explicit opt-in after the isolation evidence passes.
+- Whether equivalent resource input is a closed framework-owned structural
+  value grammar or an explicit application-owned key function with stricter
+  collision and purity obligations.
 - DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
@@ -216,3 +214,8 @@ V1-DX-B7D7 — packed development server lifecycle
   production build and generated production start with exact current-package,
   compiler, source, dependency, runtime, output, rollback, concurrency,
   redaction, and clean-consumer evidence.
+- V1-DX-B7D7 — Merge commit `90aa4fb` implements the exact packed development
+  command with authoritative rescans, fresh verified children, last-good
+  diagnostics and startup rollback, bounded output and shutdown, and permanent
+  canonical success/refusal/flow/recovery/cleanup evidence without exposing an
+  analyzer schema or editor product.
