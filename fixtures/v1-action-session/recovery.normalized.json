@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "failedRequest": {
+    "code": "PROJECT_CONFLICT",
+    "revalidation": "none",
+    "staleMutation": "absent"
+  },
+  "freshRequest": {
+    "code": "FADENO_ACTION_OK",
+    "revalidation": "complete",
+    "staleDiagnostic": "absent",
+    "staleUpload": "cleaned"
+  }
+}

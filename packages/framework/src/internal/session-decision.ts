@@ -73,7 +73,8 @@ function normalizeValues(value: unknown): Readonly<{ value: DecisionSessionValue
   const visit = (current: unknown, depth: number): DecisionSessionValue => {
     entries += 1;
     if (entries > maximumValueEntries || depth > maximumValueDepth) fail("FADENO_SESSION_VALUE_LIMIT");
-    if (current === null || typeof current === "boolean") return current;
+    if (current === null) return null;
+    if (typeof current === "boolean") return current;
     if (typeof current === "number") {
       if (!Number.isFinite(current)) fail("FADENO_SESSION_VALUE");
       return Object.is(current, -0) ? 0 : current;

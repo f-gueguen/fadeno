@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "operation": "fadeno.private.action-session-decision",
+  "cases": [
+    { "id": "native-success", "category": "success", "expected": "FADENO_ACTION_OK" },
+    { "id": "missing-field", "category": "decoder", "expected": "FADENO_ACTION_MISSING_FIELD" },
+    { "id": "malformed-field", "category": "decoder", "expected": "FADENO_ACTION_FIELD" },
+    { "id": "duplicate-field", "category": "decoder", "expected": "FADENO_ACTION_DUPLICATE_FIELD" },
+    { "id": "unexpected-field", "category": "decoder", "expected": "FADENO_ACTION_UNEXPECTED_FIELD" },
+    { "id": "oversized-body", "category": "limit", "expected": "FADENO_ACTION_BODY_LIMIT" },
+    { "id": "hostile-upload", "category": "upload", "expected": "FADENO_ACTION_FILE" },
+    { "id": "cross-origin", "category": "origin", "expected": "FADENO_ACTION_ORIGIN" },
+    { "id": "invalid-proof", "category": "csrf", "expected": "FADENO_ACTION_PROOF" },
+    { "id": "unauthorized", "category": "authorization", "expected": "FADENO_ACTION_UNAUTHORIZED" },
+    { "id": "replayed", "category": "replay", "expected": "FADENO_ACTION_REPLAY" },
+    { "id": "unsafe-redirect", "category": "redirect", "expected": "FADENO_ACTION_REDIRECT" },
+    { "id": "expected-unchanged", "category": "failure", "expected": "PROJECT_CONFLICT" },
+    { "id": "expected-changed", "category": "failure", "expected": "PROJECT_STORED_WITH_WARNING" },
+    { "id": "session-tampered", "category": "session", "expected": "invalid" },
+    { "id": "session-expired", "category": "session", "expected": "expired" },
+    { "id": "session-prior-key", "category": "session", "expected": "renew" },
+    { "id": "session-fixation", "category": "session", "expected": "rotated" },
+    { "id": "recovery", "category": "recovery", "expected": "FADENO_ACTION_OK" }
+  ]
+}

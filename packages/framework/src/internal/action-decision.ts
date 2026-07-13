@@ -422,7 +422,19 @@ export async function executeDecisionAction(input: Readonly<{
     try {
       const result = await input.run(fields);
       flow.push(Object.freeze({ phase: "mutation", decision: "completed", cause: "action-returned" }));
-      const redirect = safeRedirect(result.redirect, input.expectedOrigin);
+      let redirect: string | null;
+      try { redirect = safeRedirect(result.redirect, input.expectedOrigin); }
+      catch {
+        flow.push(Object.freeze({ phase: "completion", decision: "refused", cause: "FADENO_ACTION_REDIRECT" }));
+        return Object.freeze({
+          status: "refused",
+          code: "FADENO_ACTION_REDIRECT",
+          revalidation: "complete",
+          redirect: null,
+          fields: null,
+          flow: Object.freeze(flow),
+        });
+      }
       flow.push(Object.freeze({ phase: "completion", decision: redirect ? "redirect-303" : "render", cause: "complete-revalidation" }));
       return Object.freeze({ status: "success", code: "FADENO_ACTION_OK", revalidation: "complete", redirect, fields, flow: Object.freeze(flow) });
     } catch (error) {

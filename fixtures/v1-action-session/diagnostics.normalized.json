@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "code": "FADENO_ACTION_ORIGIN",
+      "phase": "boundary",
+      "range": null,
+      "rangeReason": "native-request-header",
+      "sensitiveValues": "redacted",
+      "correction": null
+    },
+    {
+      "code": "FADENO_ACTION_UNAUTHORIZED",
+      "phase": "authorization",
+      "range": null,
+      "rangeReason": "runtime-authorization-decision",
+      "sensitiveValues": "redacted",
+      "correction": null
+    },
+    {
+      "code": "FADENO_ACTION_REPLAY",
+      "phase": "boundary",
+      "range": null,
+      "rangeReason": "consumed-native-form-proof",
+      "sensitiveValues": "redacted",
+      "correction": {
+        "id": "fadeno.action.reload-fresh-form",
+        "safety": "review",
+        "intent": "reload-and-resubmit"
+      }
+    }
+  ]
+}

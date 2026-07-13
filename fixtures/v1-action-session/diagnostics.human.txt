@@ -1,0 +1,3 @@
+FADENO_ACTION_ORIGIN: The mutation was refused because its Origin did not exactly match the application origin.
+FADENO_ACTION_UNAUTHORIZED: The signed-in session is not allowed to perform this mutation.
+FADENO_ACTION_REPLAY: This form proof was already consumed. Reload the page and submit the fresh form.
