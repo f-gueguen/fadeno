@@ -23,8 +23,10 @@ ADR 0034 fixes `defineResource({ read })` as the sole declaration and
 `context.read(resource, input)` as the sole call. Declaration-object identity
 and a deeply frozen normalized structural input snapshot determine
 request-local promise deduplication. V1 refuses cross-request result caching.
-The public runtime arrives in V1-11; V1-10 contains only the accepted contract
-and private executable evidence.
+V1-11 implements that public runtime, typed expected resource failures, request
+cancellation and cleanup, and immutable dependency observations. The
+correctness-first revalidation owner remains private until the action container
+is accepted and implemented; no shared cache or alternate resource call exists.
 
 ## Action
 
@@ -73,6 +75,6 @@ decoded route parameters, and cancellation signal; layouts additionally receive
 their child node. Generated application bindings, not authored route tables,
 connect those modules to the matched-route renderer.
 
-Action, request-context extensions beyond the resource read, island, and
-client-interaction signatures remain unset until their vertical slices prove
-them. Names fixed by effective ADRs remain current decisions.
+Action, request-context extensions beyond the implemented resource read,
+island, and client-interaction signatures remain unset until their vertical
+slices prove them. Names fixed by effective ADRs remain current decisions.

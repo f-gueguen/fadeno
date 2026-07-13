@@ -10,17 +10,17 @@ V1-11 — request-scoped resource runtime and revalidation foundation
 
 ## Exit criteria
 
-- [ ] Export only ADR 0034's exact `defineResource({ read })`, branded
+- [x] Export only ADR 0034's exact `defineResource({ read })`, branded
   `resourceError({ code, status })`, and typed `context.read(resource, input)`
   surface without adding an action, session, shared cache, or alternate call.
-- [ ] Implement one request-owned normalized-input promise map with equivalent
+- [x] Implement one request-owned normalized-input promise map with equivalent
   concurrent deduplication, distinct-read separation, bounded refusal,
   expected/unexpected failure ownership, cancellation, and complete cleanup.
-- [ ] Record immutable resource/input dependencies during rendering and add one
+- [x] Record immutable resource/input dependencies during rendering and add one
   private correctness-first revalidation owner that reruns the complete set,
   conservatively refuses unsafe `keeps`, and remains correct with all
   optimizations removed.
-- [ ] Extend the packed canonical application and dedicated failure harness with
+- [x] Extend the packed canonical application and dedicated failure harness with
   permanent executable success, failure/refusal, normalized flow, correction
   where safe, recovery/stale-removal, authorization isolation, concurrency, and
   memory-regression evidence through public package entrypoints.
@@ -30,20 +30,17 @@ V1-11 — request-scoped resource runtime and revalidation foundation
 
 ## In progress
 
-- V1-11 begins from merged ADR 0034 and its private normalized-input/request
-  cache model. Public types and runtime behavior must have one implementation;
-  the decision model may be promoted or replaced rather than copied as a
-  second policy owner.
-- Renderer integration must create exactly one resource scope per matched
-  request, expose its typed read through every page/layout/error/not-found
-  context, preserve the existing route-boundary behavior, and release it when
-  the response lifecycle ends.
-- Revalidation in this slice is a private runtime foundation exercised directly
-  and through the canonical application. It cannot invent the DG-V1-05 action,
-  form, session, origin/CSRF, replay, redirect, upload, or cookie contracts.
-- Expected resource failures are application outcomes, not internal incidents;
-  unexpected failures retain correlated redacted observation. Renderer status
-  and boundary ownership must be proven rather than inferred from messages.
+- One implementation now owns ADR 0034's public declaration, expected failure,
+  normalized input, request promise map, renderer context, cancellation, and
+  cleanup behavior. The packed application proves the exported surface.
+- Exactly one resource scope belongs to each matched request and every
+  page/layout/error/not-found context receives its typed read. Redirect and
+  response lifecycle paths release complete request state.
+- Complete deterministic dependency revalidation remains a private foundation.
+  It does not invent the DG-V1-05 action, form, session, origin/CSRF, replay,
+  redirect, upload, or cookie contracts.
+- Expected failures select an application status/boundary without an internal
+  incident; unexpected failures retain correlated redacted observation.
 - Cross-request caching remains refused. Runtime flow evidence remains private
   and separate from static analyzer provenance; no editor product or stable
   machine schema is introduced.

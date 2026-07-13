@@ -43,6 +43,23 @@ correction, and proves an output disappears after its source owner is deleted.
 Human and normalized manifest evidence is read from `expected/`; flow and
 recovery evidence is read from the scenario's `expected/` directory.
 
+The home route now performs two concurrent reads with equivalent structural
+inputs and refuses to render unless they share one request-owned result. The
+same packed server is then called with two authorization identities to prove
+that a later request cannot reuse the earlier request's value. The
+`resource-failure` route throws the typed expected 404 from
+`src/resources/projects.ts`, while the `resource-recovery` route proves a
+memoized 503 disappears with its completed request and succeeds on the next
+request. Their human output lives in `expected/resource-*.txt`.
+
+`scenarios/resource-lifecycle/expected/` contains the normalized request-flow,
+input-refusal, expected-failure, unsafe-`keeps` correction, and recovery
+records. `pnpm check:v1-resources` derives each record from runtime behavior;
+`pnpm check:v1-running-example` derives the HTTP failure and recovery records
+from the current packed application. The primary application remains buildable
+because the deliberate failures are request-selected routes rather than
+compile-time errors.
+
 Run the packed human project-check workflow with:
 
 ```sh
