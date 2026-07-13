@@ -9,7 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 
 import type { FadenoConfig } from "../../index.ts";
 import { FadenoDiagnosticError } from "../diagnostic.ts";
@@ -359,15 +359,16 @@ function recoverTransactionState(
   output: string,
   fileSystem: RouteArtifactMutationFileSystem,
 ): void {
-  const pending = readdirSync(parent).filter((name) => name.startsWith("routes.pending-")).sort(compareText);
+  const entries = readdirSync(parent);
+  const pending = entries.filter((name) => name.startsWith("routes.pending-"));
+  const previous = entries.filter((name) => name.startsWith("routes.previous-"));
+  if (pending.length > 1 || previous.length > 1) fail("OUTPUT_RECOVERY_AMBIGUOUS");
   for (const candidate of pending) {
     const path = join(parent, candidate);
     if (lstatSync(path).isSymbolicLink() || !lstatSync(path).isDirectory()) fail("OUTPUT_RECOVERY_PENDING");
     try { assertOwnedOutput(path); } catch { fail("OUTPUT_RECOVERY_PENDING"); }
     fileSystem.remove(path);
   }
-  const previous = readdirSync(parent).filter((name) => name.startsWith("routes.previous-")).sort(compareText);
-  if (previous.length > 1) fail("OUTPUT_RECOVERY_AMBIGUOUS");
   const candidate = previous[0];
   if (!candidate) return;
   const path = join(parent, candidate);
@@ -498,8 +499,8 @@ export function generateRoutes(
   const operationFileSystem: RouteArtifactMutationFileSystem = Object.freeze({
     ...nodeMutationFileSystem,
     rename: (from, to) => {
-      const fromName = from.slice(from.lastIndexOf("/") + 1);
-      const toName = to.slice(to.lastIndexOf("/") + 1);
+      const fromName = basename(from);
+      const toName = basename(to);
       if ((operationFailure === "replace" || operationFailure === "restore") && fromName.startsWith("routes.pending-") && toName === "routes") {
         fail("INJECTED_REPLACE");
       }
@@ -507,7 +508,7 @@ export function generateRoutes(
       nodeMutationFileSystem.rename(from, to);
     },
     remove: (path) => {
-      if (operationFailure === "cleanup" && path.slice(path.lastIndexOf("/") + 1).startsWith("routes.previous-")) fail("INJECTED_CLEANUP");
+      if (operationFailure === "cleanup" && basename(path).startsWith("routes.previous-")) fail("INJECTED_CLEANUP");
       nodeMutationFileSystem.remove(path);
     },
   });

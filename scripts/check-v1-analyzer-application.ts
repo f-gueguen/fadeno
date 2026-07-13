@@ -202,6 +202,13 @@ try {
   assert.equal(existsSync(completePending), false);
   assertSnapshot(output, beforePendingCleanup, true);
 
+  cpSync(output, join(parent, "routes.pending-first"), { recursive: true });
+  cpSync(output, join(parent, "routes.pending-second"), { recursive: true });
+  assert.throws(() => recoveryEvidence.apply(), /FADENO_GENERATION_OUTPUT_RECOVERY_AMBIGUOUS/u);
+  assertSnapshot(output, beforePendingCleanup, true);
+  rmSync(join(parent, "routes.pending-first"), { recursive: true });
+  rmSync(join(parent, "routes.pending-second"), { recursive: true });
+
   const partialPending = join(parent, "routes.pending-partial");
   mkdirSync(partialPending);
   writeFileSync(join(partialPending, "partial"), "unconfirmed\n");
