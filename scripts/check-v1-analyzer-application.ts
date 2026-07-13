@@ -9,6 +9,8 @@ import {
   renameSync,
   rmSync,
   statSync,
+  symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -165,6 +167,66 @@ try {
   assertSnapshot(output, beforePostValidation, true);
   writeFileSync(postPath, postBytes);
   assert.equal(postValidation.apply().changed, true);
+
+  const staleConfiguration = await analyzer.analyze();
+  const configPath = join(root, "fadeno.config.ts");
+  const configBytes = readFileSync(configPath, "utf8");
+  writeFileSync(configPath, `// changed before apply\n${configBytes}`);
+  const beforeConfigRefusal = outputSnapshot(output);
+  assert.throws(() => staleConfiguration.apply(), /FADENO_ANALYZER_PROJECT_INPUT_CHANGED/u);
+  assertSnapshot(output, beforeConfigRefusal, true);
+  writeFileSync(configPath, configBytes);
+
+  const staleStructure = await analyzer.analyze();
+  writeRoute(root, "new-entry/page.tsx");
+  const beforeStructureRefusal = outputSnapshot(output);
+  assert.throws(() => staleStructure.apply(), /FADENO_GENERATION_SOURCE_CHANGED/u);
+  assertSnapshot(output, beforeStructureRefusal, true);
+  rmSync(join(root, "src/routes/new-entry"), { recursive: true });
+
+  const recoveryEvidence = await analyzer.analyze();
+  const parent = join(root, ".fadeno");
+  const completePending = join(parent, "routes.pending-complete");
+  cpSync(output, completePending, { recursive: true });
+  const beforePendingCleanup = outputSnapshot(output);
+  assert.equal(recoveryEvidence.apply().changed, false);
+  assert.equal(existsSync(completePending), false);
+  assertSnapshot(output, beforePendingCleanup, true);
+
+  const partialPending = join(parent, "routes.pending-partial");
+  mkdirSync(partialPending);
+  writeFileSync(join(partialPending, "partial"), "unconfirmed\n");
+  assert.throws(() => recoveryEvidence.apply(), /FADENO_GENERATION_OUTPUT_RECOVERY_PENDING/u);
+  assertSnapshot(output, beforePendingCleanup, true);
+  rmSync(partialPending, { recursive: true });
+
+  const external = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-application-external-"));
+  try {
+    const sentinel = join(external, "sentinel.txt");
+    writeFileSync(sentinel, "external-owned\n");
+    const linkedPending = join(parent, "routes.pending-linked");
+    symlinkSync(external, linkedPending);
+    assert.throws(() => recoveryEvidence.apply(), /FADENO_GENERATION_OUTPUT_RECOVERY_PENDING/u);
+    assert.equal(readFileSync(sentinel, "utf8"), "external-owned\n");
+    unlinkSync(linkedPending);
+
+    const displaced = join(parent, "routes.displaced-test");
+    renameSync(output, displaced);
+    symlinkSync(external, output);
+    assert.throws(() => recoveryEvidence.apply(), /FADENO_GENERATION_OUTPUT_TYPE/u);
+    assert.equal(readFileSync(sentinel, "utf8"), "external-owned\n");
+    unlinkSync(output);
+    renameSync(displaced, output);
+  } finally {
+    rmSync(external, { recursive: true, force: true });
+  }
+
+  cpSync(output, join(parent, "routes.previous-first"), { recursive: true });
+  cpSync(output, join(parent, "routes.previous-second"), { recursive: true });
+  assert.throws(() => recoveryEvidence.apply(), /FADENO_GENERATION_OUTPUT_RECOVERY_AMBIGUOUS/u);
+  assertSnapshot(output, beforePendingCleanup, true);
+  rmSync(join(parent, "routes.previous-first"), { recursive: true });
+  rmSync(join(parent, "routes.previous-second"), { recursive: true });
 
   const older = await analyzer.analyze();
   const newer = await analyzer.analyze();
