@@ -27,6 +27,13 @@ The core commands are `fadeno dev`, `fadeno build`, and `fadeno check`.
 deployable output belongs to `dist/`. Scaffold and additional diagnostic
 convenience commands remain A0 work.
 
+ADR 0032 fixes the first packed check invocation as
+`fadeno check --project-root <path> [--explain]`. The root is mandatory and
+explicit; semantic explanation is the only option. Complete success exits `0`,
+expected project diagnostics exit `1`, usage exits `2`, and redacted unexpected
+failure exits `3`. Human output is public now. Machine-readable command output
+remains refused while DG-A0-02 is open.
+
 Optional `.env` and `.env.local` files load in that order before the existing
 process environment, which has final precedence. The strict line grammar and
 refusals are defined by ADR 0022. Loaded values remain server-only unless a

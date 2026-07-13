@@ -28,9 +28,9 @@ V1-DX-B7B — packed public project-check workflow
   build/watch consumers remain independently reviewable and reversible.
 - B7B is one public executable consumer over the B7A private authority. It does
   not expose analyzer modules or permit command code to rediscover route facts.
-- Command argument, output, and exit semantics must be fixed at the smallest
-  accepted boundary before implementation. Machine output must be a stable
-  command projection, not serialized private analyzer transport.
+- ADR 0032 fixes `fadeno check --project-root <path> [--explain]`, human stream
+  ownership, and exit codes 0 through 3. Machine output remains refused while
+  DG-A0-02 is open; private normalized fixtures remain conformance evidence.
 - Packed workflow evidence must install the current tarball, execute its declared
   `fadeno` binary, and reject a seeded stale-package canary before any scenario
   can pass.
