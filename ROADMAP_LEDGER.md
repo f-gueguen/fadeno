@@ -6,44 +6,47 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7D0 — retained-consumer sequencing and command gate
+V1-DX-B7D1 — private retained project coordinator
 
 ## Exit criteria
 
-- [x] Decompose the former B7D implementation outcome into retained ownership,
-  batching/supersession, current-epoch compiler sequencing, watch adaptation,
-  command decision, production build, and development lifecycle slices.
-- [x] Add one explicit V1 decision gate for public build/dev entry, output,
-  compiler, server, address, diagnostic, last-good, shutdown, and exit behavior.
-- [x] Align the V1 roadmap, compiler/build specifications, traceability, and risk
-  ledger without claiming that retained consumers or public commands exist.
-- [x] Keep `fadeno check` as the only implemented command and add no watcher,
-  server, compiler orchestration, package export, analyzer schema, or editor
-  product in this planning slice.
-- [x] Pass documentation, decision, ledger, project-model, policy, full
-  repository, local CI, and fresh independent review gates.
+- [ ] Give the private project authority one FIFO owner for accepted analysis
+  and explanation work while retaining exactly one analyzer session.
+- [ ] Allocate immutable monotonic private request identities at admission so
+  success and failure remain correlated independently of publication identity.
+- [ ] Preserve immediate staleness of prior application capabilities when a
+  newer analysis is admitted, without sequencing filesystem application here.
+- [ ] Implement an explicit accepting → closing → closed lifecycle that drains
+  admitted work, absorbs operation failure, refuses later derived work, and
+  closes idempotently.
+- [ ] Prove exact non-overlap and lifecycle order through a narrow private test
+  observer, plus failure recovery, explanation freshness, application
+  staleness, package inaccessibility, full repository, local CI, architecture,
+  Big-O, and fresh independent review gates.
 
 ## In progress
 
-- Independent challenge found the former B7D row combined at least one retained
-  coordinator, change batching, compiler publication, filesystem watching,
-  production build, and development-server lifecycle with different rollback
-  and public contracts. They must remain separately reversible.
-- ADR 0022 accepts the names `fadeno build` and `fadeno dev`, but it does not fix
-  their entry module, compiler configuration, output layout, server/address,
-  diagnostic lifecycle, last-good policy, shutdown, or exact exit behavior.
-  ADR 0032 therefore continues to make `check` the only implemented subcommand.
-- Filesystem notifications are invalidation hints only. A future private watch
-  adapter must coalesce hints and rescan through the retained project authority;
-  it may not interpret event names as framework truth.
-- Framework analysis owns route/configuration facts. The stock compiler owns
-  ordinary direct and transitive module refresh. A retained coordinator must
-  sequence both without constructing a second application dependency graph.
-- B7C permits a bounded unavailable interval while replacing `.fadeno/routes`.
-  Future compiler and server consumers must be excluded from that interval and
-  may publish only results bound to the newest complete analyzer generation.
-- B7D0 is planning only. Architecture and Big-O implementation audits are not
-  applicable because no executable, dependency, runtime, or algorithm changes.
+- B7D1 changes the existing `PrivateProjectAnalyzer`, the narrow owner that
+  already retains one `AnalyzerSession`; it does not add a parallel coordinator
+  or another workspace/configuration policy.
+- Independent challenge requires analysis and derived explanation to share one
+  admission-order FIFO. Explanation admitted before a later analysis may drain;
+  an old explanation requested after later analysis admission must refuse.
+- Admitting analysis synchronously invalidates the prior B7C application token,
+  preserving the existing stale boundary. Filesystem application stays
+  synchronous and unqueued until B7D3.
+- The private request identity is allocated before work enters the FIFO and is
+  retained by its handle even when the operation rejects. Analyzer publication
+  identity remains separate and unchanged.
+- Close stops admission immediately, lets previously admitted work settle in
+  order, refuses new or derived operations, and is idempotent. No resource
+  release is claimed because the current analyzer session owns no live handle.
+- A private lifecycle observer exists only to prove start/finish order and
+  maximum concurrency without timing sleeps. It is not exported or packaged as
+  a supported hook.
+- Batching, cancellation, supersession, dirty-state ownership, and newest-work
+  selection remain B7D2. Artifact/compiler sequencing remains B7D3; watching,
+  commands, servers, public schemas, and editor products remain later work.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -191,3 +194,6 @@ V1-DX-B7D0 — retained-consumer sequencing and command gate
   route set through the contained transaction, preserves last-good output across
   diagnostics and real operation faults, centralizes route artifact identity,
   migrates canonical project integration, and adds no build/watch or public API.
+- V1-DX-B7D0 — Commit `ebb6a86` decomposes retained consumption into bounded
+  coordination, batching, compiler, watcher, decision, build, and development
+  slices and adds DG-V1-06 before public build or development implementation.
