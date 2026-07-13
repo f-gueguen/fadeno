@@ -58,9 +58,9 @@ publication, not a generic artifact list, and it cannot rediscover or rerender
 route facts. Diagnostic publications preserve the last accepted disk set.
 Directory replacement never exposes mixed generations, although portable
 backup-and-replace has a bounded interval with no route directory; retained
-consumer serialization remains V1-DX-B7D work. Actual filesystem-operation and
-restart-recovery tests cover stage, backup, replace, validation, restore, and
-cleanup failures. No command behavior changes in B7C.
+consumer serialization remains V1-DX-B7D1 through B7D3 work. Actual
+filesystem-operation and restart-recovery tests cover stage, backup, replace,
+validation, restore, and cleanup failures. No command behavior changes in B7C.
 
 ## Package boundary
 
@@ -181,15 +181,18 @@ use public package entrypoints, assert behavior, normalize unstable values, and
 source documentation snippets and expected output from executed files. A
 deliberate failure never prevents the primary application from building.
 
-Before B7 establishes the supported check/watch/build path, private analyzer
+Before the B7D6 and B7D7 packed build and development slices, private analyzer
 foundation fixtures may copy the canonical application as semantic corpus.
-Those fixtures are conformance evidence, not public analyzer examples. The
+Those fixtures are conformance evidence, not public build or development
+examples. The
 `check:v1-analyzer-package` gate rebuilds and packs the current framework,
 proves the private implementation is present, and proves package exports still
-refuse analyzer deep imports. B7 owns executing analyzer examples through the
-packed public workflow. B6's private canonical-app flow fixtures contain both
-module-rendered human output and normalized machine output from executed
-success, deliberate route refusal, and recovery operations.
+refuse analyzer deep imports. B7B executes analyzer examples through the packed
+public check workflow. B7D6 and B7D7 may add packed build and development
+examples only after DG-V1-06 is resolved. B6's private canonical-app flow
+fixtures contain both module-rendered human output and normalized machine
+output from executed success, deliberate route refusal, and recovery
+operations.
 
 The V1 lifecycle workload measures edit/save to a fresh framework diagnostic
 and edit/save to a cleared diagnostic across invalidation, generation,
