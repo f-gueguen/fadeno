@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createRequire } from "node:module";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { createServer as createNetServer } from "node:net";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium, firefox, webkit, type BrowserType } from "@playwright/test";
 
 import { renderRoute, unsafeHtml, type Handler, type RenderChild } from "../packages/framework/src/index.ts";
@@ -19,13 +19,47 @@ import { jsx, jsxs } from "../packages/framework/src/jsx-runtime.ts";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = join(root, "packages/framework");
 const exampleRoot = join(root, "examples/v1-app");
-const require = createRequire(import.meta.url);
 
 function run(command: string, arguments_: readonly string[], cwd: string): string {
   const result = spawnSync(command, arguments_, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`FADENO_V1_EXAMPLE_COMMAND:${command}:${result.status ?? result.signal}\n${result.stdout}\n${result.stderr}`);
   return `${result.stdout}${result.stderr}`;
+}
+
+function runResult(command: string, arguments_: readonly string[], cwd: string): Readonly<{
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}> {
+  const result = spawnSync(command, arguments_, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+  if (result.error) throw result.error;
+  return Object.freeze({ status: result.status, stdout: result.stdout, stderr: result.stderr });
+}
+
+function treeIdentity(root: string, directory = root, records: string[] = []): string {
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) treeIdentity(root, path, records);
+    else if (entry.isFile()) {
+      records.push(`${path.slice(root.length + 1).split("\\").join("/")}\0${createHash("sha256").update(readFileSync(path)).digest("hex")}`);
+    } else {
+      throw new Error("FADENO_V1_EXAMPLE_OUTPUT_OWNERSHIP");
+    }
+  }
+  return createHash("sha256").update(records.join("\n")).digest("hex");
+}
+
+function treeContains(root: string, needle: string, directory = root): boolean {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (treeContains(root, needle, path)) return true;
+    } else if (entry.isFile() && readFileSync(path).includes(Buffer.from(needle))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function expected(path: string): string {
@@ -89,9 +123,23 @@ async function verifyFailureAndRecovery(temporaryRoot: string): Promise<void> {
   }, null, 2)}\n`);
 }
 
+async function reservePort(): Promise<number> {
+  const server = createNetServer();
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("FADENO_V1_EXAMPLE_PORT");
+  await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  return address.port;
+}
+
 async function startServer(project: string): Promise<{ origin: string; output(): string; stop(): Promise<void> }> {
-  const child = spawn(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "dist/src/server.js"], {
+  const port = await reservePort();
+  const child = spawn(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "./dist/server/bootstrap.js"], {
     cwd: project,
+    env: { ...process.env, FADENO_PORT: String(port) },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stderr = "";
@@ -103,10 +151,12 @@ async function startServer(project: string): Promise<{ origin: string; output():
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
       output += chunk;
-      const line = output.split("\n").find((value) => value.includes('"event":"listening"'));
+      const line = output.split("\n").find((value) => value.startsWith("Fadeno production server ready at "));
       if (!line) return;
       clearTimeout(timeout);
-      try { resolve((JSON.parse(line) as { origin: string }).origin); } catch (error) { reject(error); }
+      const match = /^Fadeno production server ready at (http:\/\/127\.0\.0\.1:[0-9]+)\.$/u.exec(line);
+      if (match?.[1]) resolve(match[1]);
+      else reject(new Error("FADENO_V1_EXAMPLE_START_OUTPUT"));
     });
     child.once("exit", (code) => { clearTimeout(timeout); reject(new Error(`FADENO_V1_EXAMPLE_START_EXIT:${code}\n${stderr}`)); });
   });
@@ -271,8 +321,137 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   packageJson.dependencies["fadeno-framework-internal"] = `file:${tarball}`;
   writeFileSync(join(project, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`);
   run("pnpm", ["install", "--offline", "--ignore-scripts"], project);
-  (await new PrivateProjectAnalyzer(project).analyze().result).apply();
-  run(process.execPath, [join(dirname(require.resolve("typescript/package.json")), "bin/tsc"), "-p", "tsconfig.json"], project);
+  const secretCanary = "FADENO_BUILD_SECRET_CANARY_47c50877";
+  writeFileSync(join(project, ".env"), `APPLICATION_SECRET=${secretCanary}\n`);
+  const build = join(project, "node_modules", ".bin", "fadeno");
+  const buildArguments = ["build", "--project-root", project] as const;
+  const firstBuild = runResult(build, buildArguments, project);
+  assert.deepEqual(firstBuild, {
+    status: 0,
+    stdout: readFileSync(join(exampleRoot, "expected/build-success.txt"), "utf8"),
+    stderr: "",
+  });
+  const acceptedIdentity = treeIdentity(join(project, "dist"));
+  const acceptedManifest = readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8");
+  assert.equal(treeContains(join(project, "dist"), secretCanary), false);
+  const secondBuild = runResult(build, buildArguments, project);
+  assert.deepEqual(secondBuild, firstBuild);
+  assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
+  assert.equal(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8"), acceptedManifest);
+
+  const installedFramework = realpathSync(join(project, "node_modules", "fadeno-framework-internal"));
+  const privateBuild = await import(pathToFileURL(join(installedFramework, "dist/internal/project-build.js")).href) as {
+    runProjectBuildCommand(
+      arguments_: readonly string[],
+      context: Readonly<{ cwd: string; beforeAcceptStage(stageRoot: string): void }>,
+    ): Promise<Readonly<{ exitCode: number; stdout: string; stderr: string }>>;
+  };
+  const transactionFailure = await privateBuild.runProjectBuildCommand(buildArguments, {
+    cwd: project,
+    beforeAcceptStage(stageRoot) {
+      writeFileSync(join(stageRoot, "server/bootstrap.js"), "mutated candidate\n");
+    },
+  });
+  assert.deepEqual(transactionFailure, { exitCode: 1, stdout: "", stderr: "FADENO_BUILD_OUTPUT_STALE\n" });
+  assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
+  assert.equal(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8"), acceptedManifest);
+
+  const buildScenario = join(exampleRoot, "scenarios/build-compiler-error");
+  const scenarioSource = join(project, "src/build-scenario.ts");
+  cpSync(join(buildScenario, "before/src/build-scenario.ts"), scenarioSource);
+  const failedBuild = runResult(build, buildArguments, project);
+  assert.deepEqual(failedBuild, {
+    status: 1,
+    stdout: "",
+    stderr: readFileSync(join(exampleRoot, "expected/build-typescript-error.txt"), "utf8"),
+  });
+  assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
+  assert.equal(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8"), acceptedManifest);
+  assert.equal(readFileSync(join(buildScenario, "expected/flow.json"), "utf8"), `${JSON.stringify({
+    schemaVersion: 1,
+    scenario: "build-compiler-error",
+    decision: "refuse-compiler-diagnostic",
+    causes: ["TS2322"],
+    ownership: { acceptedOutput: "dist", candidateOutput: ".fadeno/build-stage/generation-1" },
+    skippedWork: ["dist-replacement", "production-start"],
+    observableOutcome: "last-good-build-preserved",
+  }, null, 2)}\n`);
+
+  cpSync(join(buildScenario, "after/src/build-scenario.ts"), scenarioSource);
+  const recoveredBuild = runResult(build, buildArguments, project);
+  assert.equal(recoveredBuild.status, 0, recoveredBuild.stderr);
+  assert.equal(recoveredBuild.stderr, "");
+  assert.equal(recoveredBuild.stdout.includes("TS2322"), false);
+  assert.equal(existsSync(join(project, "dist/src/build-scenario.js")), true);
+  rmSync(scenarioSource);
+  const cleanupBuild = runResult(build, buildArguments, project);
+  assert.deepEqual(cleanupBuild, firstBuild);
+  assert.equal(existsSync(join(project, "dist/src/build-scenario.js")), false);
+  assert.equal(readFileSync(join(buildScenario, "expected/recovery.json"), "utf8"), `${JSON.stringify({
+    schemaVersion: 1,
+    scenario: "build-compiler-error",
+    correction: "replace-the-invalid-value-with-a-number",
+    staleDiagnosticRemoved: true,
+    lastGoodBuildPreservedDuringFailure: true,
+    correctedArtifactPublished: true,
+    staleArtifactRemovedAfterOwnerDeletion: true,
+  }, null, 2)}\n`);
+
+  const manifest = JSON.parse(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8")) as {
+    schemaVersion: number;
+    compilerVersion: string;
+    artifacts: number;
+    files: readonly { path: string }[];
+    runtime: { schemaVersion: number; files: readonly unknown[]; sha256: string };
+  };
+  assert.equal(readFileSync(join(exampleRoot, "expected/build-manifest-normalized.json"), "utf8"), `${JSON.stringify({
+    schemaVersion: manifest.schemaVersion,
+    compilerVersion: manifest.compilerVersion,
+    artifacts: manifest.artifacts,
+    files: manifest.files.map(({ path }) => path),
+    runtime: {
+      schemaVersion: manifest.runtime.schemaVersion,
+      files: manifest.runtime.files.length > 0 ? "<verified-files>" : "<missing-files>",
+      sha256: /^[a-f0-9]{64}$/u.test(manifest.runtime.sha256) ? "<verified-sha256>" : "<invalid-sha256>",
+    },
+  }, null, 2)}\n`);
+
+  const refusalPort = await reservePort();
+  const withoutLoader = runResult(process.execPath, ["./dist/server/bootstrap.js"], project);
+  assert.notEqual(withoutLoader.status, 0);
+  assert.match(`${withoutLoader.stdout}${withoutLoader.stderr}`, /FADENO_BUILD_RUNTIME_PORT/u);
+  const invalidPort = spawnSync(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "./dist/server/bootstrap.js"], {
+    cwd: project,
+    env: { ...process.env, FADENO_PORT: "0" },
+    encoding: "utf8",
+  });
+  assert.notEqual(invalidPort.status, 0);
+  assert.match(`${invalidPort.stdout}${invalidPort.stderr}`, /FADENO_BUILD_RUNTIME_PORT/u);
+
+  const runtimeReadme = join(project, "node_modules", "fadeno-framework-internal", "README.md");
+  const runtimeReadmeBytes = readFileSync(runtimeReadme);
+  try {
+    writeFileSync(runtimeReadme, Buffer.concat([runtimeReadmeBytes, Buffer.from("\nmutation\n")]));
+    const staleRuntime = spawnSync(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "./dist/server/bootstrap.js"], {
+      cwd: project,
+      env: { ...process.env, FADENO_PORT: String(refusalPort) },
+      encoding: "utf8",
+    });
+    assert.notEqual(staleRuntime.status, 0);
+    assert.match(`${staleRuntime.stdout}${staleRuntime.stderr}`, /FADENO_BUILD_RUNTIME_IDENTITY/u);
+    assert.doesNotMatch(staleRuntime.stdout, /production server ready/u);
+  } finally {
+    writeFileSync(runtimeReadme, runtimeReadmeBytes);
+  }
+
+  const missingLoader = spawnSync(process.execPath, ["./dist/server/bootstrap.js"], {
+    cwd: project,
+    env: { ...process.env, FADENO_PORT: String(refusalPort) },
+    encoding: "utf8",
+  });
+  assert.notEqual(missingLoader.status, 0);
+  assert.match(`${missingLoader.stdout}${missingLoader.stderr}`, /ERR_UNSUPPORTED_ESM_URL_SCHEME/u);
+  assert.doesNotMatch(missingLoader.stdout, /production server ready/u);
 
   const server = await startServer(project);
   try {
@@ -316,7 +495,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     assert.match(failureBody, /The page could not be rendered/u);
     assert.doesNotMatch(failureBody, /private failure details/u);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const failureEvent = server.output().split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
+    const failureEvent = server.output().split("\n").filter((line) => line.startsWith("{")).map((line) => JSON.parse(line) as Record<string, unknown>)
       .find((event) => event["event"] === "framework-failure");
     assert.ok(failureEvent);
     const incidentId = /Incident ([a-f0-9-]+)/u.exec(failureBody)?.[1];

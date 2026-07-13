@@ -142,6 +142,8 @@ try {
     "package/dist/internal/node-http-capabilities.js",
     "package/dist/internal/node-http.d.ts",
     "package/dist/internal/node-http.js",
+    "package/dist/internal/project-build.d.ts",
+    "package/dist/internal/project-build.js",
     "package/dist/internal/project-check.d.ts",
     "package/dist/internal/project-check.js",
     "package/dist/internal/routing/artifact-contract.d.ts",
@@ -285,6 +287,7 @@ try {
   for (const [subpath, symbol] of [
     ["analyzer-explain", "AnalyzerExplainCoordinator"],
     ["analyzer-route-explain", "createRouteExplainContribution"],
+    ["project-build", "runProjectBuildCommand"],
   ] as const) {
     const internalJs = join(installedPackage, `dist/internal/${subpath}.js`);
     const internalTypes = join(installedPackage, `dist/internal/${subpath}.d.ts`);

@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node --import ./dist/.fadeno/routes/loader.js dist/src/server.js"
+    "build": "fadeno build --project-root .",
+    "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"
   },
   "dependencies": {
     "fadeno-framework-internal": "workspace:*"

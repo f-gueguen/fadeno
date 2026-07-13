@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "compilerVersion": "7.0.2",
+  "artifacts": 7,
+  "files": [
+    ".fadeno/routes/app.js",
+    ".fadeno/routes/loader.js",
+    ".fadeno/routes/virtual.js",
+    "server/bootstrap.js",
+    "src/routes/admin/dashboard/page.js",
+    "src/routes/admin/layout.js",
+    "src/routes/admin/not-found.js",
+    "src/routes/error.js",
+    "src/routes/failure/page.js",
+    "src/routes/hello/[name]/page.js",
+    "src/routes/layout.js",
+    "src/routes/moved/page.js",
+    "src/routes/not-found.js",
+    "src/routes/page.js",
+    "src/routes/raw/handler.js",
+    "src/routes/shop/catalog/page.js",
+    "src/routes/shop/not-found.js"
+  ],
+  "runtime": {
+    "schemaVersion": 1,
+    "files": "<verified-files>",
+    "sha256": "<verified-sha256>"
+  }
+}
