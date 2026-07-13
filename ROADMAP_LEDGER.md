@@ -6,43 +6,39 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7D5 — build and development lifecycle contract
+V1-DX-B7D6 — transactional production build
 
 ## Exit criteria
 
-- [x] Prove the proposed build and development contract through one private
-  packed decision harness before accepting a public command contract.
-- [x] Accept ADR 0033 to resolve the build/development decision gate with exact command grammar,
-  production entry and compiler inputs, transactional output ownership,
-  development address/readiness/watch/last-good behavior, diagnostics,
-  environment snapshots, shutdown, streams, and exit statuses.
-- [x] Require emitted compiler and runtime inputs to remain correlated with one
-  current analyzer generation, use isolated bounded development generations,
-  and refuse stale, external, mixed, or unowned output and dependencies.
-- [x] Preserve human-only command output, private analyzer and watcher
-  boundaries, and every external-schema, editor-product, registry, deployment,
-  and support gate.
-- [x] Prove private decision evidence, documentation/model consistency, full
-  repository, local CI, architecture, Big-O applicability, and fresh review
-  gates without implementing `fadeno build` or `fadeno dev`.
+- [ ] Add the exact public `fadeno build --project-root <path>` dispatch without
+  changing `fadeno check` or accepting development and machine-output options.
+- [ ] Build from one current diagnostic-free retained analyzer/compiler
+  generation into a contained stage, validate the complete runtime closure,
+  and atomically accept or restore exactly one `dist` generation.
+- [ ] Generate a deterministic manifest, route loader, and loopback-only server
+  bootstrap whose documented production invocation refuses stale or mixed
+  runtime ownership before importing application behavior.
+- [ ] Extend the canonical packed application with permanent executable build,
+  start, deliberate failure, human diagnostic, flow-inspection, rollback, and
+  recovery evidence through public package entrypoints.
+- [ ] Prove reproducible bytes, first-build cleanup, last-good preservation,
+  secret exclusion, package-boundary stability, full repository, local CI,
+  architecture, Big-O applicability, and fresh review gates.
 
 ## In progress
 
-- B7D5 is a decision-and-evidence slice. It adds no shipped build or development
-  command, server, watcher backend, package export, or analyzer schema.
-- The private packed harness closes the former evidence-ordering gap by
-  exercising the accepted bootstrap order, derived compiler configuration,
-  contained staged output, ownership and runtime identity, isolated child
-  generations, last-good recovery, environment snapshots, structured
-  same-pass diagnostics, and bounded shutdown state transitions.
-- The candidate contract keeps one mandatory explicit project root, one
-  generated production bootstrap loaded after its route hook, loopback-only
-  address ownership with explicit port selection, and one transactional
-  `dist` generation. Development uses restartable isolated generations rather
-  than retaining unbounded module instances in one process.
-- B7D6 and B7D7 remain the only owners of public build and development
-  implementation and permanent user-facing success, failure, flow, recovery,
-  start, reload, and shutdown examples.
+- B7D6 implements only ADR 0033's production build/start half. B7D7 remains the
+  sole owner of the operating-system watcher, development server, last-good
+  child switching, reload, and shutdown command behavior.
+- Build reuses the private project authority, retained compiler validation, and
+  accepted generation evidence. It does not publish those internals or create a
+  second route/configuration/diagnostic policy.
+- Human command output and the installed executable are the public behavior.
+  Machine-readable output, a stable external diagnostic schema, a public
+  analyzer API, registry identity, and broader deployment addresses remain
+  gated or deferred.
+- The canonical V1 application and its isolated scenarios own the permanent
+  public build/start/failure/flow/rollback/recovery evidence.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -208,3 +204,7 @@ V1-DX-B7D5 — build and development lifecycle contract
   admission identity, bounds path retention by count and bytes, preserves dirty
   work across refresh, and closes without adding an operating-system watcher,
   server, command, or public API.
+- V1-DX-B7D5 — Merge commit `33ec934` accepts the exact build/development
+  lifecycle contract after current packed decision evidence for compiler,
+  output, runtime, environment, loader, last-good, diagnostics, and shutdown
+  ownership, without shipping either command or a public analyzer surface.
