@@ -132,6 +132,10 @@ try {
       JSON.stringify(planned.files) !== JSON.stringify(repeatedPlan.files)) {
     throw new Error("FADENO_ROUTING_PLAN_IDENTITY");
   }
+  writeRoute(main, "orphan/layout.tsx");
+  const orphanPlan = createRouteArtifactPlan(main, config);
+  if (!Object.hasOwn(orphanPlan.sources, "src/routes/orphan/layout.tsx")) throw new Error("FADENO_ROUTING_PLAN_COMPLETE_SOURCES");
+  rmSync(join(main, "src/routes/orphan"), { recursive: true, force: true });
   const first = generateRoutes(main, config);
   if (!first.changed) throw new Error("FADENO_ROUTING_FIRST_UNCHANGED");
   const accepted = snapshot(first.output);

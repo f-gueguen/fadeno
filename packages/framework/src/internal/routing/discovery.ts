@@ -45,6 +45,11 @@ export type RouteManifest = Readonly<{
 
 export type RouteConfig = Readonly<{ root: string }>;
 
+export type RouteDiscoveryResult = Readonly<{
+  manifest: RouteManifest;
+  sources: Readonly<Record<string, string>>;
+}>;
+
 export class RouteContractError extends FadenoDiagnosticError {
   readonly code: string;
 
@@ -146,7 +151,7 @@ type InheritedRoles = Readonly<{
   error: string | null;
 }>;
 
-export function discoverRouteManifest(projectRoot: string, config: RouteConfig): RouteManifest {
+function discoverRouteInputs(projectRoot: string, config: RouteConfig): RouteDiscoveryResult {
   if (!isPlainRecord(config) || Object.keys(config).length !== 1 || typeof config["root"] !== "string") fail("CONFIG");
   const root = assertRouteRoot(projectRoot, config.root);
   const canonicalProject = realpathSync(projectRoot);
@@ -240,18 +245,31 @@ export function discoverRouteManifest(projectRoot: string, config: RouteConfig):
 
   walk(root, [], new Set(), { layouts: [], notFound: null, error: null }, false);
   routes.sort((left, right) => compareText(left.id, right.id));
-  const sourceIdentity = [...sourceFiles].sort(compareText).map((path) => ({
-    path,
-    sha256: createHash("sha256").update(readFileSync(join(canonicalProject, path))).digest("hex"),
-  }));
+  const sources = Object.freeze(Object.fromEntries([...sourceFiles].sort(compareText).map((path) => {
+    const bytes = readFileSync(join(canonicalProject, path));
+    return [path, Object.freeze({ text: bytes.toString("utf8"), sha256: createHash("sha256").update(bytes).digest("hex") })];
+  })));
+  const sourceIdentity = Object.entries(sources).map(([path, source]) => ({ path, sha256: source.sha256 }));
   const sourceSha256 = createHash("sha256").update(JSON.stringify({ root: config.root, files: sourceIdentity })).digest("hex");
-  return Object.freeze({
+  const manifest: RouteManifest = Object.freeze({
     schemaVersion: 1,
     visibility: "internal-route-manifest",
     root: config.root,
     generation: Object.freeze({ version: 1, sourceSha256 }),
     routes,
   });
+  return Object.freeze({
+    manifest,
+    sources: Object.freeze(Object.fromEntries(Object.entries(sources).map(([path, source]) => [path, source.text]))),
+  });
+}
+
+export function discoverRouteManifest(projectRoot: string, config: RouteConfig): RouteManifest {
+  return discoverRouteInputs(projectRoot, config).manifest;
+}
+
+export function discoverRouteManifestWithSources(projectRoot: string, config: RouteConfig): RouteDiscoveryResult {
+  return discoverRouteInputs(projectRoot, config);
 }
 
 export function stableRouteManifest(manifest: RouteManifest): string {
