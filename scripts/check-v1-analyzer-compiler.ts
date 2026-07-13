@@ -307,12 +307,13 @@ try {
   copyApplication(observerRoot);
   const child = join(observerRoot, "compiler-observer-child.mjs");
   writeFileSync(child, `console.log(${JSON.stringify(join(observerRoot, "src/server.ts"))});\nprocess.exit(0);\n`);
+  const observerCancellation = new AbortController();
   const request = Object.freeze({
     requestId: "observer-request",
     generation: 1,
     publicationOperationId: "observer-publication",
     artifactSourceSha256: "0".repeat(64),
-    signal: new AbortController().signal,
+    signal: observerCancellation.signal,
   });
   let spawnObserved = false;
   let closeObserved = false;
@@ -322,6 +323,7 @@ try {
     onSpawn: () => {
       spawnObserved = true;
       assert.throws(() => compiler.validate(request), /FADENO_ANALYZER_COMPILER_STATE/u);
+      observerCancellation.abort();
       throw new Error("FADENO_TEST_SPAWN_OBSERVER_FAILURE");
     },
     onClose: () => {
@@ -329,7 +331,7 @@ try {
       throw new Error("FADENO_TEST_CLOSE_OBSERVER_FAILURE");
     },
   });
-  await compiler.validate(request);
+  await assert.rejects(compiler.validate(request), /AbortError/u);
   assert.equal(spawnObserved, true);
   assert.equal(closeObserved, true);
   await compiler.close();

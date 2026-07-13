@@ -149,6 +149,15 @@ function isContained(root: string, path: string): boolean {
   return difference === "" || (!difference.startsWith("..") && !isAbsolute(difference));
 }
 
+function hasOwnedAncestor(path: string, roots: ReadonlySet<string>): boolean {
+  let current = dirname(path);
+  while (dirname(current) !== current) {
+    if (roots.has(current)) return true;
+    current = dirname(current);
+  }
+  return roots.has(current);
+}
+
 function dependencyRoots(root: string): readonly string[] {
   const directory = join(root, "node_modules");
   if (!existsSync(directory)) return Object.freeze([]);
@@ -191,18 +200,18 @@ function assertCompilerInputOwnership(
   runId: string,
   compilerInputRoot: string | null,
 ): void {
-  const dependencies = compilerInputRoot
+  const dependencies = new Set(compilerInputRoot
     ? [...dependencyRoots(root), compilerInputRoot]
-    : dependencyRoots(root);
-  const inputs = output.split(/\r?\n/gu)
+    : dependencyRoots(root));
+  const inputs = new Set(output.split(/\r?\n/gu)
     .map((line) => line.trim())
-    .filter((line) => isAbsolute(line) && existsSync(line) && lstatSync(line).isFile());
-  if (inputs.length === 0) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+    .filter((line) => isAbsolute(line) && existsSync(line) && lstatSync(line).isFile()));
+  if (inputs.size === 0) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
   for (const input of inputs) {
     const logical = resolve(input);
     const canonical = realpathSync(logical);
     const projectOwned = isContained(root, canonical);
-    const dependencyOwned = dependencies.some((dependency) => isContained(dependency, canonical));
+    const dependencyOwned = hasOwnedAncestor(canonical, dependencies);
     if (!projectOwned && !dependencyOwned) {
       throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
     }
@@ -276,9 +285,6 @@ export class PrivateCompilerValidator {
       windowsHide: true,
     });
     const pid = child.pid;
-    if (pid !== undefined) {
-      try { this.#onSpawn?.(pid); } catch { /* observation cannot control compiler ownership */ }
-    }
     let output = "";
     let outputBytes = 0;
     let outputLimited = false;
@@ -306,6 +312,9 @@ export class PrivateCompilerValidator {
     child.once("error", (error) => { processError = error; });
     const abort = (): void => terminate();
     request.signal.addEventListener("abort", abort, { once: true });
+    if (pid !== undefined) {
+      try { this.#onSpawn?.(pid); } catch { /* observation cannot control compiler ownership */ }
+    }
     const outcome = await new Promise<Readonly<{
       code: number | null;
       signal: NodeJS.Signals | null;
