@@ -9,11 +9,11 @@ import { fileURLToPath } from "node:url";
 import { chromium, firefox, webkit, type BrowserType } from "@playwright/test";
 
 import { renderRoute, unsafeHtml, type Handler, type RenderChild } from "../packages/framework/src/index.ts";
-import { FadenoDiagnosticError, formatDiagnosticHuman } from "../packages/framework/src/internal/diagnostic.ts";
+import { formatAnalyzerDiagnosticBatchHuman } from "../packages/framework/src/internal/analyzer-diagnostics.ts";
+import { PrivateProjectAnalyzer } from "../packages/framework/src/internal/analyzer-project.ts";
 import { listenNodeHttp } from "../packages/framework/src/internal/node-http.ts";
 import { createFrameworkExecutableNode } from "../packages/framework/src/internal/render-node.ts";
 import { renderDocument } from "../packages/framework/src/internal/renderer.ts";
-import { generateRoutes } from "../packages/framework/src/internal/routing/generator.ts";
 import { jsx, jsxs } from "../packages/framework/src/jsx-runtime.ts";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -32,42 +32,28 @@ function expected(path: string): string {
   return readFileSync(join(exampleRoot, "scenarios/route-role-collision/expected", path), "utf8");
 }
 
-function normalizedDiagnostic(error: FadenoDiagnosticError): string {
-  return `${JSON.stringify({
-    schemaVersion: 1,
-    id: error.id,
-    severity: error.severity,
-    summary: error.summary,
-    locations: error.sourceRanges,
-    explanation: error.explanation,
-    correction: error.correction,
-  }, null, 2)}\n`;
-}
-
-function verifyFailureAndRecovery(temporaryRoot: string): void {
+async function verifyFailureAndRecovery(temporaryRoot: string): Promise<void> {
   const scenarioRoot = join(exampleRoot, "scenarios/route-role-collision");
   const project = join(temporaryRoot, "scenario");
   mkdirSync(join(project, "src/routes"), { recursive: true });
   cpSync(join(scenarioRoot, "after/src/routes"), join(project, "src/routes"), { recursive: true });
-  generateRoutes(project, { routes: { root: "src/routes" } });
+  writeFileSync(join(project, "fadeno.config.ts"), "export default { routes: { root: 'src/routes' } };\n");
+  const analyzer = new PrivateProjectAnalyzer(project);
+  (await analyzer.analyze()).apply();
   mkdirSync(join(project, "src/routes/old"));
   writeFileSync(join(project, "src/routes/old/page.tsx"), "export default function Old(): string { return 'old'; }\n");
-  generateRoutes(project, { routes: { root: "src/routes" } });
+  (await analyzer.analyze()).apply();
   cpSync(join(scenarioRoot, "before/src/routes/handler.ts"), join(project, "src/routes/handler.ts"));
-  let diagnostic: FadenoDiagnosticError | undefined;
-  try { generateRoutes(project, { routes: { root: "src/routes" } }); } catch (error) {
-    if (error instanceof FadenoDiagnosticError) diagnostic = error;
-    else throw error;
-  }
-  assert.ok(diagnostic);
-  assert.equal(formatDiagnosticHuman(diagnostic), expected("diagnostic.txt"));
-  assert.equal(normalizedDiagnostic(diagnostic), expected("diagnostic.json"));
+  const collision = await analyzer.analyze();
+  assert.throws(() => collision.apply(), /FADENO_ANALYZER_APPLICATION_DIAGNOSTIC/u);
+  assert.equal(formatAnalyzerDiagnosticBatchHuman(collision.diagnostics), readFileSync(join(exampleRoot, "expected/check-collision.txt"), "utf8"));
   const retained = JSON.parse(readFileSync(join(project, ".fadeno/routes/manifest.json"), "utf8")) as { routes: readonly { id: string }[] };
   assert.deepEqual(retained.routes.map(({ id }) => id), ["/", "/old"]);
 
   rmSync(join(project, "src/routes/handler.ts"));
   rmSync(join(project, "src/routes/old"), { recursive: true });
-  generateRoutes(project, { routes: { root: "src/routes" } });
+  const repairedAnalysis = await analyzer.analyze();
+  repairedAnalysis.apply();
   const repaired = JSON.parse(readFileSync(join(project, ".fadeno/routes/manifest.json"), "utf8")) as { routes: readonly { id: string }[] };
   assert.deepEqual(repaired.routes.map(({ id }) => id), ["/"]);
   const applicationBytes = readFileSync(join(project, ".fadeno/routes/app.ts"), "utf8");
@@ -91,7 +77,7 @@ function verifyFailureAndRecovery(temporaryRoot: string): void {
     causes: ["page-and-handler-share-one-route-directory"],
     ownership: { route: "/", sources: ["src/routes/handler.ts", "src/routes/page.tsx"] },
     skippedWork: ["manifest-publication", "application-binding-publication"],
-    observableOutcome: diagnostic.id,
+    observableOutcome: collision.diagnostics.diagnostics.at(-1)?.code,
   }, null, 2)}\n`);
   assert.equal(expected("recovery.json"), `${JSON.stringify({
     schemaVersion: 1,
@@ -285,7 +271,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   packageJson.dependencies["fadeno-framework-internal"] = `file:${tarball}`;
   writeFileSync(join(project, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`);
   run("pnpm", ["install", "--offline", "--ignore-scripts"], project);
-  generateRoutes(project, { routes: { root: "src/routes" } });
+  (await new PrivateProjectAnalyzer(project).analyze()).apply();
   run(process.execPath, [join(dirname(require.resolve("typescript/package.json")), "bin/tsc"), "-p", "tsconfig.json"], project);
 
   const server = await startServer(project);
@@ -360,7 +346,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-running-example-"));
 try {
-  verifyFailureAndRecovery(temporaryRoot);
+  await verifyFailureAndRecovery(temporaryRoot);
   await verifyApplication(temporaryRoot);
   await verifyCspEnforcement();
   await verifyFailureObservation();
