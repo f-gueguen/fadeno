@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { watch, type FSWatcher } from "node:fs";
 import { join, resolve } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 
 import { formatAnalyzerDiagnosticBatchHuman } from "./analyzer-diagnostics.ts";
 import type { PrivateAnalyzerOperationHandle } from "./analyzer-coordinator.ts";
@@ -50,6 +51,11 @@ export interface ProjectDevCommandContext {
 }
 
 type DevelopmentRefresh = Readonly<{ generation: number }>;
+type ActiveDevelopmentRefresh = {
+  readonly controller: AbortController;
+  analyzer: PrivateAnalyzerOperationHandle<PrivateProjectRefresh> | null;
+  result: Promise<DevelopmentRefresh> | null;
+};
 
 class PrivateDevelopmentStartupError extends TypeError {
   constructor() {
@@ -85,8 +91,9 @@ class PrivateDevelopmentChild {
   readonly #writeStderr: (value: string) => void;
   #intentional = false;
   #ready = false;
-  #stdoutBuffer = "";
-  #stderrBuffer = "";
+  readonly #stdoutDecoder = new StringDecoder("utf8");
+  readonly #stderrDecoder = new StringDecoder("utf8");
+  #stdoutFragments: string[] = [];
   #outputBytes = 0;
 
   private constructor(
@@ -173,24 +180,29 @@ class PrivateDevelopmentChild {
         return;
       }
       if (target === "stderr") {
-        if (this.#ready) this.#writeStderr(chunk.toString("utf8"));
-        else this.#stderrBuffer += chunk.toString("utf8");
+        const text = this.#stderrDecoder.write(chunk);
+        if (this.#ready && text !== "") this.#writeStderr(text);
         return;
       }
-      this.#stdoutBuffer += chunk.toString("utf8");
+      const text = this.#stdoutDecoder.write(chunk);
+      let start = 0;
       for (;;) {
-        const newline = this.#stdoutBuffer.indexOf("\n");
+        const newline = text.indexOf("\n", start);
         if (newline < 0) break;
-        const line = this.#stdoutBuffer.slice(0, newline);
-        this.#stdoutBuffer = this.#stdoutBuffer.slice(newline + 1);
+        const fragment = text.slice(start, newline);
+        const line = this.#stdoutFragments.length === 0
+          ? fragment
+          : `${this.#stdoutFragments.join("")}${fragment}`;
+        this.#stdoutFragments = [];
         if (!this.#ready && line === expected) {
           this.#ready = true;
-          this.#stderrBuffer = "";
           acceptReady();
         } else if (this.#ready) {
           this.#writeStdout(`${line}\n`);
         }
+        start = newline + 1;
       }
+      if (start < text.length) this.#stdoutFragments.push(text.slice(start));
     };
     this.#child.stdout.on("data", (chunk: Buffer) => consume("stdout", chunk));
     this.#child.stderr.on("data", (chunk: Buffer) => consume("stderr", chunk));
@@ -232,7 +244,7 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
   readonly #internalFailure: (summary: string) => string;
   readonly #fatal: (error: unknown) => void;
   readonly #children = new Set<PrivateDevelopmentChild>();
-  #active: Readonly<{ controller: AbortController; analyzer: PrivateAnalyzerOperationHandle<PrivateProjectRefresh> | null }> | null = null;
+  #active: ActiveDevelopmentRefresh | null = null;
   #current: Readonly<{ child: PrivateDevelopmentChild; environment: PrivateEnvironmentSnapshot }> | null = null;
   #sequence = 0;
   #closed = false;
@@ -263,14 +275,14 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
     if (this.#closed || this.#active) throw new TypeError("FADENO_DEV_STATE");
     const controller = new AbortController();
     const sequence = ++this.#sequence;
-    let analyzerHandle: PrivateAnalyzerOperationHandle<PrivateProjectRefresh> | null = null;
-    this.#active = Object.freeze({ controller, analyzer: null });
+    const active: ActiveDevelopmentRefresh = { controller, analyzer: null, result: null };
+    this.#active = active;
     const result = this.#refresh(controller, (handle) => {
-      analyzerHandle = handle;
-      this.#active = Object.freeze({ controller, analyzer: handle });
+      active.analyzer = handle;
     }).finally(() => {
       if (this.#active?.controller === controller) this.#active = null;
     });
+    active.result = result;
     return Object.freeze({
       requestId: `development-${sequence}-${randomUUID()}`,
       sequence,
@@ -278,7 +290,7 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
       result,
       cancel: () => {
         controller.abort(new DOMException("Superseded", "AbortError"));
-        analyzerHandle?.cancel();
+        active.analyzer?.cancel();
       },
     });
   }
@@ -307,7 +319,7 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
     this.supersedeCurrent();
     const active = this.#active;
     if (active) {
-      try { await this.#waitUntilInactive(active.controller); } catch { /* closing owns the terminal state */ }
+      try { await active.result; } catch { /* closing owns the terminal state */ }
     }
     let failure: unknown = null;
     if (this.#current) {
@@ -327,10 +339,6 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
   signal(now: number): string { return this.#decision.signal(now).output; }
   tick(now: number): string { return this.#decision.tick(now).output; }
   drained(): string { return this.#decision.drained().output; }
-
-  async #waitUntilInactive(controller: AbortController): Promise<void> {
-    while (this.#active?.controller === controller) await new Promise<void>((accept) => setTimeout(accept, 0));
-  }
 
   async #refresh(
     controller: AbortController,

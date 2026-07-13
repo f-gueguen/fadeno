@@ -169,6 +169,22 @@ try {
   await responseText(origin, "Transitive generation two");
 
   const lastGood = await responseText(origin, "Transitive generation two");
+  const stablePage = readFileSync(pagePath, "utf8");
+  const startupFailureOffset = development.stderr().length;
+  writeFileSync(pagePath, `throw new Error("candidate startup refusal");\n${stablePage}`);
+  await development.waitForStderr(
+    "FADENO_DEV_STARTUP: The development server could not start or take ownership of its address.\n",
+    startupFailureOffset,
+  );
+  stdoutOffset = await development.waitForStdout(
+    "Fadeno development diagnostics published; last accepted generation remains active.\n",
+    stdoutOffset,
+  );
+  assert.equal(await responseText(origin, "Transitive generation two"), lastGood);
+  writeFileSync(pagePath, stablePage);
+  stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
+  assert.equal(await responseText(origin, "Transitive generation two"), lastGood);
+
   const compilerScenario = join(exampleRoot, "scenarios/build-compiler-error");
   const invalidSource = join(project, "src/build-scenario.ts");
   const expectedCompilerFailure = readFileSync(join(exampleRoot, "expected/build-typescript-error.txt"), "utf8");
