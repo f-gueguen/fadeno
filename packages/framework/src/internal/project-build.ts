@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   existsSync,
@@ -418,14 +418,7 @@ function runGeneration(
 ): GenerationResult {
   const stageRoot = join(projectRoot, ".fadeno", "build-stage", `generation-${generation}`);
   const child = join(dirname(fileURLToPath(import.meta.url)), "build-dev-generation-child.js");
-  const request = Object.freeze({
-    schemaVersion: 1,
-    generation,
-    projectRoot,
-    stageRoot,
-    environmentSha256: environment.sha256,
-    runtimeClosures: closures,
-  });
+  const request = generationRequest(projectRoot, stageRoot, generation, environment, closures);
   const result = spawnSync(process.execPath, [child], {
     cwd: projectRoot,
     env: environment.values,
@@ -434,17 +427,98 @@ function runGeneration(
     maxBuffer: maximumChildOutputBytes,
   });
   if (result.error || result.signal !== null || result.status !== 0) {
-    const childIdentity = /^FADENO_[A-Z0-9_]+$/u.exec(result.stderr.trim())?.[0];
-    const identity = childIdentity === "FADENO_BUILD_CHILD_ENVIRONMENT"
-      ? "FADENO_BUILD_ENVIRONMENT"
-      : childIdentity === "FADENO_BUILD_CHILD_STALE_INPUT"
-        ? "FADENO_BUILD_INPUT_STALE"
-        : childIdentity === "FADENO_BUILD_CHILD_RUNTIME_IMPORT"
-          ? "FADENO_BUILD_RUNTIME_IMPORT"
-        : childIdentity ?? "FADENO_BUILD_CHILD_INTERNAL";
-    fail(identity);
+    failGenerationChild(result.stderr.trim());
   }
   return parseGenerationResult(result.stdout.trim(), generation);
+}
+
+function generationRequest(
+  projectRoot: string,
+  stageRoot: string,
+  generation: number,
+  environment: PrivateEnvironmentSnapshot,
+  closures: readonly RuntimeClosure[],
+): Readonly<{
+  schemaVersion: 1;
+  generation: number;
+  projectRoot: string;
+  stageRoot: string;
+  environmentSha256: string;
+  runtimeClosures: readonly RuntimeClosure[];
+}> {
+  return Object.freeze({
+    schemaVersion: 1,
+    generation,
+    projectRoot,
+    stageRoot,
+    environmentSha256: environment.sha256,
+    runtimeClosures: closures,
+  });
+}
+
+function failGenerationChild(stderr: string): never {
+  const childIdentity = /^FADENO_[A-Z0-9_]+$/u.exec(stderr)?.[0];
+  const identity = childIdentity === "FADENO_BUILD_CHILD_ENVIRONMENT"
+    ? "FADENO_BUILD_ENVIRONMENT"
+    : childIdentity === "FADENO_BUILD_CHILD_STALE_INPUT"
+      ? "FADENO_BUILD_INPUT_STALE"
+      : childIdentity === "FADENO_BUILD_CHILD_RUNTIME_IMPORT"
+        ? "FADENO_BUILD_RUNTIME_IMPORT"
+      : childIdentity ?? "FADENO_BUILD_CHILD_INTERNAL";
+  fail(identity);
+}
+
+async function runGenerationAsync(
+  projectRoot: string,
+  generation: number,
+  environment: PrivateEnvironmentSnapshot,
+  closures: readonly RuntimeClosure[],
+  signal: AbortSignal,
+): Promise<GenerationResult> {
+  signal.throwIfAborted();
+  const stageRoot = join(projectRoot, ".fadeno", "build-stage", `generation-${generation}`);
+  const childPath = join(dirname(fileURLToPath(import.meta.url)), "build-dev-generation-child.js");
+  const request = JSON.stringify(generationRequest(projectRoot, stageRoot, generation, environment, closures));
+  const child = spawn(process.execPath, [childPath], {
+    cwd: projectRoot,
+    env: environment.values,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  let outputBytes = 0;
+  let outputExceeded = false;
+  const collect = (target: "stdout" | "stderr", chunk: Buffer): void => {
+    outputBytes += chunk.byteLength;
+    if (outputBytes > maximumChildOutputBytes) {
+      outputExceeded = true;
+      child.kill("SIGKILL");
+      return;
+    }
+    if (target === "stdout") stdout += chunk.toString("utf8");
+    else stderr += chunk.toString("utf8");
+  };
+  child.stdout.on("data", (chunk: Buffer) => collect("stdout", chunk));
+  child.stderr.on("data", (chunk: Buffer) => collect("stderr", chunk));
+  const abort = (): void => { child.kill("SIGKILL"); };
+  signal.addEventListener("abort", abort, { once: true });
+  const completion = new Promise<Readonly<{ code: number | null; signal: NodeJS.Signals | null }>>((resolveChild, rejectChild) => {
+    child.once("error", rejectChild);
+    child.once("exit", (code, exitSignal) => resolveChild(Object.freeze({ code, signal: exitSignal })));
+  });
+  child.stdin.end(request);
+  try {
+    const result = await completion;
+    signal.throwIfAborted();
+    if (outputExceeded || result.signal !== null || result.code !== 0) failGenerationChild(stderr.trim());
+    return parseGenerationResult(stdout.trim(), generation);
+  } finally {
+    signal.removeEventListener("abort", abort);
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGKILL");
+      try { await completion; } catch { /* the caller owns the primary failure */ }
+    }
+  }
 }
 
 function renderBootstrap(): string {
@@ -789,7 +863,12 @@ async function verifyEquivalentGeneration(
   }
 }
 
-function acceptStage(projectRoot: string, generation: number, expected: PrivateRuntimeIdentity): void {
+interface PrivateOutputAcceptance {
+  commit(): void;
+  rollback(): void;
+}
+
+function beginAcceptStage(projectRoot: string, generation: number, expected: PrivateRuntimeIdentity): PrivateOutputAcceptance {
   const state = join(projectRoot, ".fadeno", "build-stage");
   const stage = join(state, `generation-${generation}`);
   const output = join(projectRoot, "dist");
@@ -803,22 +882,37 @@ function acceptStage(projectRoot: string, generation: number, expected: PrivateR
     renameSync(output, rollback);
     previous = true;
   }
-  let accepted = false;
+  let settled = false;
   try {
     renameSync(stage, output);
     const outputIdentity = capturePrivateRuntimeIdentity(output, identityPaths(output));
     if (outputIdentity.sha256 !== expected.sha256) fail("FADENO_BUILD_OUTPUT_STALE");
     assertAcceptedOutput(output, "FADENO_BUILD_OUTPUT_STALE");
-    if (previous) renameSync(rollback, rejected);
-    accepted = true;
-    if (previous) rmSync(rejected, { recursive: true });
+    return Object.freeze({
+      commit(): void {
+        if (settled) return;
+        if (previous) renameSync(rollback, rejected);
+        settled = true;
+        if (previous) rmSync(rejected, { recursive: true });
+      },
+      rollback(): void {
+        if (settled) return;
+        if (existsSync(output)) renameSync(output, rejected);
+        if (previous) renameSync(rollback, output);
+        settled = true;
+        if (existsSync(rejected)) rmSync(rejected, { recursive: true });
+      },
+    });
   } catch (error) {
-    if (accepted) throw error;
     if (existsSync(output)) renameSync(output, rejected);
     if (previous && existsSync(rollback)) renameSync(rollback, output);
     if (existsSync(rejected)) rmSync(rejected, { recursive: true });
     throw error;
   }
+}
+
+function acceptStage(projectRoot: string, generation: number, expected: PrivateRuntimeIdentity): void {
+  beginAcceptStage(projectRoot, generation, expected).commit();
 }
 
 function formatCompilerDiagnostics(diagnostics: readonly StructuredCompilerDiagnostic[], projectRoot: string): string {
@@ -844,6 +938,128 @@ function rootFailure(error: AnalyzerRootError): string {
       ? "Project root must be one owned, non-symlink directory."
       : "Project root must be an absolute path.";
   return `${error.code}: ${summary}\n`;
+}
+
+export class PrivateProjectGenerationDiagnosticError extends TypeError {
+  readonly human: string;
+
+  constructor(human: string) {
+    super("FADENO_BUILD_DIAGNOSTIC");
+    this.name = "PrivateProjectGenerationDiagnosticError";
+    this.human = human;
+  }
+}
+
+export interface PrivateProjectOutputTransaction {
+  readonly environment: PrivateEnvironmentSnapshot;
+  commit(): void;
+  rollback(): void;
+}
+
+export interface PrivateStagedProjectGeneration {
+  accept(signal: AbortSignal): Promise<PrivateProjectOutputTransaction>;
+  discard(): void;
+}
+
+export class PrivateProjectGenerationOwner {
+  readonly #root: string;
+  readonly #processEnvironment: Readonly<Record<string, string | undefined>>;
+  readonly #releaseBuildLock: () => void;
+  #busy = false;
+  #closed = false;
+
+  constructor(projectRoot: string, processEnvironment: Readonly<Record<string, string | undefined>> = process.env) {
+    this.#root = ownedDirectory(projectRoot, "FADENO_BUILD_OUTPUT_OWNERSHIP");
+    this.#processEnvironment = processEnvironment;
+    this.#releaseBuildLock = acquireBuildLock(this.#root);
+    try {
+      recoverBuildTransaction(this.#root);
+    } catch (error) {
+      this.#releaseBuildLock();
+      throw error;
+    }
+  }
+
+  ownsProject(projectRoot: string): boolean {
+    return resolve(projectRoot) === this.#root;
+  }
+
+  async compilerDiagnostics(signal: AbortSignal): Promise<PrivateProjectGenerationDiagnosticError> {
+    this.#begin();
+    try {
+      const environment = capturePrivateEnvironment(this.#root, this.#processEnvironment);
+      const closures = runtimeClosures();
+      const generation = await runGenerationAsync(this.#root, 1, environment, closures, signal);
+      if (generation.status !== "diagnostics") fail("FADENO_BUILD_CHILD_RESULT");
+      return new PrivateProjectGenerationDiagnosticError(formatCompilerDiagnostics(generation.diagnostics, this.#root));
+    } finally {
+      try { cleanupGenerationCandidate(this.#root, 1); } finally { this.#busy = false; }
+    }
+  }
+
+  async prepare(refresh: PrivateProjectRefresh, signal: AbortSignal): Promise<PrivateStagedProjectGeneration> {
+    this.#begin();
+    try {
+      const environment = capturePrivateEnvironment(this.#root, this.#processEnvironment);
+      const closures = runtimeClosures();
+      const generation = await runGenerationAsync(this.#root, 1, environment, closures, signal);
+      if (generation.status === "diagnostics") {
+        throw new PrivateProjectGenerationDiagnosticError(formatCompilerDiagnostics(generation.diagnostics, this.#root));
+      }
+      const dependencies = await captureRuntimeDependencies(this.#root);
+      assertRuntimePackagesDeclared(generation, dependencies.closures);
+      const complete = prepareManifest(this.#root, generation, refresh, closures[0]!.identity, dependencies.closures);
+      await assertGenerationFresh(this.#root, generation, environment, this.#processEnvironment, closures);
+      await assertRuntimeDependenciesCurrent(this.#root, dependencies);
+      signal.throwIfAborted();
+      let state: "staged" | "accepted" | "settled" = "staged";
+      const release = (): void => {
+        if (state === "settled") return;
+        state = "settled";
+        this.#busy = false;
+      };
+      return Object.freeze({
+        accept: async (acceptSignal: AbortSignal): Promise<PrivateProjectOutputTransaction> => {
+          if (state !== "staged") fail("FADENO_BUILD_TRANSACTION_STATE");
+          acceptSignal.throwIfAborted();
+          await assertGenerationFresh(this.#root, generation, environment, this.#processEnvironment, closures);
+          await assertRuntimeDependenciesCurrent(this.#root, dependencies);
+          acceptSignal.throwIfAborted();
+          const transaction = beginAcceptStage(this.#root, 1, complete);
+          state = "accepted";
+          let pending = true;
+          const settle = (action: () => void): void => {
+            if (!pending) return;
+            try { action(); } finally { pending = false; release(); }
+          };
+          return Object.freeze({
+            environment,
+            commit: () => settle(transaction.commit),
+            rollback: () => settle(transaction.rollback),
+          });
+        },
+        discard: (): void => {
+          if (state !== "staged") return;
+          try { cleanupGenerationCandidate(this.#root, 1); } finally { release(); }
+        },
+      });
+    } catch (error) {
+      try { cleanupGenerationCandidate(this.#root, 1); } finally { this.#busy = false; }
+      throw error;
+    }
+  }
+
+  close(): void {
+    if (this.#closed) return;
+    if (this.#busy) fail("FADENO_BUILD_TRANSACTION_STATE");
+    this.#closed = true;
+    this.#releaseBuildLock();
+  }
+
+  #begin(): void {
+    if (this.#closed || this.#busy) fail("FADENO_BUILD_TRANSACTION_STATE");
+    this.#busy = true;
+  }
 }
 
 export async function runProjectBuildCommand(
