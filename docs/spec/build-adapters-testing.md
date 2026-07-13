@@ -202,13 +202,19 @@ reuse or revive the narrowed K0 incremental-generation claim.
 
 ## Retained build and development sequence
 
-`fadeno check` is the only implemented project command at the B7D0 boundary.
-Retained build and development consumption proceeds through separate V1
-slices: one private retained coordinator, deterministic invalidation batching
-and supersession, serialized analyzer application plus stock-compiler refresh,
-and a filesystem adapter that treats notifications only as rescan hints. None
-of those private stages implies a public production build or development
-server.
+`fadeno check` remains the only implemented project command. B7D1 gives the
+private project authority one retained FIFO coordinator and exactly one analyzer
+session. Frozen admission handles preserve monotonic request identity across
+success and failure. Analysis and explanation never overlap; admitted work
+drains through idempotent close, while new and derived work refuses as soon as
+closing starts. This private lifecycle changes no command, output directory, or
+server behavior.
+
+Later retained build and development consumption proceeds through separate V1
+slices: deterministic invalidation batching and supersession, serialized
+analyzer application plus stock-compiler refresh, and a filesystem adapter that
+treats notifications only as rescan hints. None of those private stages implies
+a public production build or development server.
 
 The retained coordinator must serialize analysis, B7C route-artifact
 application, compiler refresh, and validation around one current operation. It

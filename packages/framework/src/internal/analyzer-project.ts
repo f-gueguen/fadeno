@@ -3,6 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { loadConfigWithSource } from "./config.ts";
+import {
+  PrivateAnalyzerOperationCoordinator,
+  type PrivateAnalyzerOperationHandle,
+} from "./analyzer-coordinator.ts";
 import { normalizeAnalyzerFacetValue } from "./analyzer-facets.ts";
 import {
   ANALYZER_DIAGNOSTIC_NAMESPACE,
@@ -43,6 +47,8 @@ export interface PrivateProjectAnalysis {
   explain(detail: "semantic" | "deep"): Promise<AnalyzerExplainResult>;
 }
 
+export type PrivateProjectAnalysisHandle = PrivateAnalyzerOperationHandle<PrivateProjectAnalysis>;
+
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -61,6 +67,10 @@ function nodeSuffix(path: string): string {
 
 function applicationRefuse(code: "DIAGNOSTIC" | "PUBLICATION" | "STALE"): never {
   throw new TypeError(`FADENO_ANALYZER_APPLICATION_${code}`);
+}
+
+function projectRefuse(code: "CLOSED" | "STALE"): never {
+  throw new TypeError(`FADENO_ANALYZER_PROJECT_${code}`);
 }
 
 export function routeArtifactPlanFromPublication(
@@ -114,18 +124,32 @@ function location(document: AnalyzerDocumentSnapshot) {
 export class PrivateProjectAnalyzer {
   readonly #root: string;
   readonly #session: AnalyzerSession;
+  readonly #coordinator = new PrivateAnalyzerOperationCoordinator();
   readonly #managedPaths = new Set<string>();
   #configurationFingerprint: string | null = null;
   #configurationSourceSha256: string | null = null;
-  #applicationToken: object | null = null;
+  #currentAnalysisToken: object | null = null;
+  #latestAnalysisRequestId: string | null = null;
 
   constructor(projectRoot: string) {
     this.#root = resolve(projectRoot);
     this.#session = new AnalyzerSession(this.#root);
   }
 
-  async analyze(): Promise<PrivateProjectAnalysis> {
-    this.#applicationToken = null;
+  analyze(): PrivateProjectAnalysisHandle {
+    const handle = this.#coordinator.start("analysis", (requestId) => this.#analyze(requestId));
+    this.#currentAnalysisToken = null;
+    this.#latestAnalysisRequestId = handle.requestId;
+    return handle;
+  }
+
+  close(): Promise<void> {
+    this.#currentAnalysisToken = null;
+    this.#latestAnalysisRequestId = null;
+    return this.#coordinator.close();
+  }
+
+  async #analyze(requestId: string): Promise<PrivateProjectAnalysis> {
     const { config, source: configSource } = await loadConfigWithSource(this.#root);
     const configFingerprint = sha256(JSON.stringify(config));
     const configurationSourceSha256 = sha256(configSource);
@@ -180,34 +204,48 @@ export class PrivateProjectAnalyzer {
     }
     const publication = publicationResult.snapshot;
     const batch = diagnostics as AnalyzerDiagnosticBatch;
-    const applicationToken = Object.freeze({ operationId: publication.operationId });
-    this.#applicationToken = applicationToken;
+    const analysisToken = Object.freeze({ requestId, operationId: publication.operationId });
+    if (this.#coordinator.state === "accepting" && this.#latestAnalysisRequestId === requestId) {
+      this.#currentAnalysisToken = analysisToken;
+    }
     return Object.freeze({
       publication,
       diagnostics: batch,
       routePlan,
       apply: (options: PrivateProjectApplicationOptions = {}) => {
-        if (this.#applicationToken !== applicationToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
+        if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
+        if (this.#currentAnalysisToken !== analysisToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
         if (routePlan === null || batch.diagnostics.length > 0 || batch.corrections.length > 0 || batch.skippedWork.length > 0) {
           applicationRefuse("DIAGNOSTIC");
         }
         const publishedPlan = routeArtifactPlanFromPublication(publication, routePlan);
         const assertFresh = (): void => {
-          if (this.#applicationToken !== applicationToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
+          if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
+          if (this.#currentAnalysisToken !== analysisToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
           this.#assertInputsCurrent(desired);
           this.#assertRouteAnalysisCurrent(config, routePlan, null);
         };
         return applyRouteArtifactPlan(this.#root, publishedPlan, { ...options, assertFresh });
       },
-      explain: async (detail: "semantic" | "deep") => this.#session.startExplain({
-        detail,
-        ...(detail === "deep" ? { activateDeep: true } : {}),
-        requestedFacets: [{ namespace: "fadeno.routes.explain" }],
-        collect: ({ publication: current, budgets }) => [
-          createRouteExplainContribution(current, batch, detail, budgets),
-        ],
-      }).result,
+      explain: (detail: "semantic" | "deep") => this.#explain(analysisToken, batch, detail),
     });
+  }
+
+  async #explain(
+    analysisToken: object,
+    diagnostics: AnalyzerDiagnosticBatch,
+    detail: "semantic" | "deep",
+  ): Promise<AnalyzerExplainResult> {
+    if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
+    if (this.#currentAnalysisToken !== analysisToken) projectRefuse("STALE");
+    return this.#coordinator.start("explanation", async () => this.#session.startExplain({
+      detail,
+      ...(detail === "deep" ? { activateDeep: true } : {}),
+      requestedFacets: [{ namespace: "fadeno.routes.explain" }],
+      collect: ({ publication: current, budgets }) => [
+        createRouteExplainContribution(current, diagnostics, detail, budgets),
+      ],
+    }).result).result;
   }
 
   #assertInputsCurrent(expected: ReadonlyMap<string, string>): void {

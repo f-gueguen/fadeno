@@ -51,7 +51,7 @@ export async function executePrototype(
   processValues: Readonly<Record<string, string | undefined>> = {},
 ): Promise<string> {
   const config = await loadPrototypeConfig(root);
-  if (config.routes) (await new PrivateProjectAnalyzer(root).analyze()).apply();
+  if (config.routes) (await new PrivateProjectAnalyzer(root).analyze().result).apply();
   const environment = loadEnvironment(root, processValues);
   const manifest = `${JSON.stringify({ schemaVersion: 1, command, environment: Object.keys(environment).sort() })}\n`;
   if (command === "check") return manifest;

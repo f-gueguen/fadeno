@@ -19,6 +19,7 @@ import { dirname, join } from "node:path";
 import {
   PrivateProjectAnalyzer,
   routeArtifactPlanFromPublication,
+  type PrivateProjectAnalysis,
 } from "../packages/framework/src/internal/analyzer-project.ts";
 import { deserializeAnalyzerPublicationSnapshot, serializeAnalyzerPublicationSnapshot } from "../packages/framework/src/internal/analyzer-publication.ts";
 import type { RouteArtifactMutationFileSystem } from "../packages/framework/src/internal/routing/generator.ts";
@@ -67,7 +68,7 @@ function manifestRoutes(output: string): readonly string[] {
 }
 
 function mutatePublication(
-  analysis: Awaited<ReturnType<PrivateProjectAnalyzer["analyze"]>>,
+  analysis: PrivateProjectAnalysis,
   mutate: (publication: any) => void,
 ): void {
   const publication = structuredClone(analysis.publication);
@@ -82,7 +83,7 @@ try {
   const analyzer = new PrivateProjectAnalyzer(root);
   const output = join(root, ".fadeno/routes");
 
-  const initial = await analyzer.analyze();
+  const initial = await analyzer.analyze().result;
   assert.equal(initial.apply().changed, true);
   const initialSnapshot = outputSnapshot(output);
   assert.equal(initial.apply().changed, false);
@@ -107,7 +108,7 @@ try {
   mutatePublication(initial, (publication) => { publication.artifacts.push(structuredClone(publication.artifacts[0])); });
 
   writeRoute(root, "obsolete/page.tsx");
-  const withObsolete = await analyzer.analyze();
+  const withObsolete = await analyzer.analyze().result;
   const observed: string[] = [];
   assert.equal(withObsolete.apply({ observe: (phase) => {
     observed.push(phase);
@@ -118,18 +119,18 @@ try {
   await assert.rejects(async () => initial.apply(), /FADENO_ANALYZER_APPLICATION_STALE/u);
 
   cpSync(new URL("../examples/v1-app/scenarios/analyzer-project/handler.ts", import.meta.url), join(root, "src/routes/handler.ts"));
-  const collision = await analyzer.analyze();
+  const collision = await analyzer.analyze().result;
   const retainedCollision = outputSnapshot(output);
   assert.throws(() => collision.apply(), /FADENO_ANALYZER_APPLICATION_DIAGNOSTIC/u);
   assertSnapshot(output, retainedCollision, true);
 
   rmSync(join(root, "src/routes/handler.ts"));
   rmSync(join(root, "src/routes/obsolete"), { recursive: true });
-  const recovery = await analyzer.analyze();
+  const recovery = await analyzer.analyze().result;
   assert.equal(recovery.apply().changed, true);
   assert.equal(manifestRoutes(output).includes("/obsolete"), false);
 
-  const staleSource = await analyzer.analyze();
+  const staleSource = await analyzer.analyze().result;
   const home = join(root, "src/routes/page.tsx");
   const homeBytes = readFileSync(home, "utf8");
   writeFileSync(home, `${homeBytes}// changed before apply\n`);
@@ -139,7 +140,7 @@ try {
   writeFileSync(home, homeBytes);
 
   writeRoute(root, "fault/page.tsx");
-  const fault = await analyzer.analyze();
+  const fault = await analyzer.analyze().result;
   const beforeFault = outputSnapshot(output);
   assert.throws(() => fault.apply({ fileSystem: mutationFileSystem((operation, count) => operation === "write" && count === 1) }), /FADENO_TEST_WRITE_FAILURE/u);
   assertSnapshot(output, beforeFault, true);
@@ -158,7 +159,7 @@ try {
   assert.equal(manifestRoutes(output).includes("/fault"), true);
 
   writeRoute(root, "cleanup/page.tsx");
-  const cleanup = await analyzer.analyze();
+  const cleanup = await analyzer.analyze().result;
   assert.throws(() => cleanup.apply({ fileSystem: mutationFileSystem((operation, _count, path) => operation === "remove" && path.includes("routes.previous-")) }), /FADENO_TEST_REMOVE_FAILURE/u);
   assert.equal(existsSync(output), true);
   assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.previous-")).length, 1);
@@ -166,7 +167,7 @@ try {
   assert.equal(manifestRoutes(output).includes("/cleanup"), true);
 
   writeRoute(root, "post-validation/page.tsx");
-  const postValidation = await analyzer.analyze();
+  const postValidation = await analyzer.analyze().result;
   const beforePostValidation = outputSnapshot(output);
   const postPath = join(root, "src/routes/post-validation/page.tsx");
   const postBytes = readFileSync(postPath, "utf8");
@@ -177,7 +178,7 @@ try {
   writeFileSync(postPath, postBytes);
   assert.equal(postValidation.apply().changed, true);
 
-  const staleConfiguration = await analyzer.analyze();
+  const staleConfiguration = await analyzer.analyze().result;
   const configPath = join(root, "fadeno.config.ts");
   const configBytes = readFileSync(configPath, "utf8");
   writeFileSync(configPath, `// changed before apply\n${configBytes}`);
@@ -186,14 +187,14 @@ try {
   assertSnapshot(output, beforeConfigRefusal, true);
   writeFileSync(configPath, configBytes);
 
-  const staleStructure = await analyzer.analyze();
+  const staleStructure = await analyzer.analyze().result;
   writeRoute(root, "new-entry/page.tsx");
   const beforeStructureRefusal = outputSnapshot(output);
   assert.throws(() => staleStructure.apply(), /FADENO_GENERATION_SOURCE_CHANGED/u);
   assertSnapshot(output, beforeStructureRefusal, true);
   rmSync(join(root, "src/routes/new-entry"), { recursive: true });
 
-  const recoveryEvidence = await analyzer.analyze();
+  const recoveryEvidence = await analyzer.analyze().result;
   const parent = join(root, ".fadeno");
   const completePending = join(parent, "routes.pending-complete");
   cpSync(output, completePending, { recursive: true });
@@ -251,8 +252,8 @@ try {
   rmSync(join(parent, "routes.previous-first"), { recursive: true });
   rmSync(join(parent, "routes.previous-second"), { recursive: true });
 
-  const older = await analyzer.analyze();
-  const newer = await analyzer.analyze();
+  const older = await analyzer.analyze().result;
+  const newer = await analyzer.analyze().result;
   assert.throws(() => older.apply(), /FADENO_ANALYZER_APPLICATION_STALE/u);
   assert.equal(newer.apply().changed, false);
 } finally {
