@@ -19,7 +19,7 @@ V1-DX-B7A — real private project authority and pure route artifact plan
   inspection, and recovery from that operation without a second policy path.
 - [x] Keep package exports, command surface, analyzer schema, and editor products
   unchanged; the accepted executable boundary remains owned by B7B.
-- [ ] Pass analyzer, private-package, full repository, local CI, and independent
+- [x] Pass analyzer, private-package, full repository, local CI, and independent
   review gates.
 
 ## In progress
@@ -35,6 +35,9 @@ V1-DX-B7A — real private project authority and pure route artifact plan
   collision diagnostics and review-only correction guidance. Repair clears the
   stale evidence and restores the complete artifact set without filesystem
   publication.
+- Fresh independent review found no remaining P1/P2 issue at commit `0bd9dc0`,
+  and the exact-commit local CI gate passed before the review-ready bookkeeping
+  update.
 - The real project authority must replace manual analyzer definitions and the
   running example's direct generation path incrementally; it may not wrap or
   preserve a second discovery/diagnostic/generation policy.
