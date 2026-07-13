@@ -39,6 +39,8 @@ class ManualScheduler implements PrivateFilesystemInvalidationScheduler {
 
   now(): number { return this.#now; }
 
+  setNow(milliseconds: number): void { this.#now = milliseconds; }
+
   set(delayMs: number, callback: () => void): unknown {
     const id = ++this.#sequence;
     this.#timers.set(id, Object.freeze({ at: this.#now + delayMs, callback }));
@@ -243,6 +245,86 @@ try {
   assert.throws(() => adapter.notify({ kind: "change", path: "src/closed.ts" }), /FADENO_ANALYZER_WATCH_CLOSED/u);
   await assert.rejects(adapter.flush(), /FADENO_ANALYZER_WATCH_CLOSED/u);
   assert.equal(cycles.length, 7);
+
+  const identityScheduler = new ManualScheduler();
+  const identityTarget = new ManualRefreshTarget(schedulerRoot);
+  const identityAdapter = new PrivateFilesystemInvalidationAdapter(schedulerRoot, identityTarget, {
+    debounceMs: 25,
+    maximumDelayMs: 100,
+    maximumPendingHints: 8,
+    maximumPathBytes: 64,
+    maximumPendingBytes: 128,
+    scheduler: identityScheduler,
+  });
+  const firstIdentity = identityAdapter.notify({ kind: "change", path: "src/identity.ts" });
+  const excludedIdentity = identityAdapter.notify({ kind: "change", path: ".git/index" });
+  const refusedIdentity = identityAdapter.notify({ kind: "change", path: "../identity.ts" });
+  assert.deepEqual(
+    [firstIdentity.notificationSequence, excludedIdentity.notificationSequence, refusedIdentity.notificationSequence],
+    [1, 2, 3],
+  );
+  assert.deepEqual(
+    [firstIdentity.admissionSequence, excludedIdentity.admissionSequence, refusedIdentity.admissionSequence],
+    [1, null, null],
+  );
+  for (let index = 0; index < 10; index += 1) {
+    const duplicate = identityAdapter.notify({ kind: "change", path: "src/identity.ts" });
+    assert.equal(duplicate.notificationSequence, index + 4);
+    assert.equal(duplicate.admissionSequence, index + 2);
+  }
+  const identityFlush = identityAdapter.flush();
+  identityTarget.pending[0]!.resolve();
+  const identityCycle = await identityFlush;
+  assert.equal(identityCycle.batch.firstAdmissionSequence, 1);
+  assert.equal(identityCycle.batch.latestAdmissionSequence, 11);
+  assert.equal(identityCycle.batch.size, 11, "duplicate events must not silently truncate batch size");
+  await identityAdapter.close();
+
+  const byteScheduler = new ManualScheduler();
+  const byteTarget = new ManualRefreshTarget(schedulerRoot);
+  const byteAdapter = new PrivateFilesystemInvalidationAdapter(schedulerRoot, byteTarget, {
+    debounceMs: 25,
+    maximumDelayMs: 100,
+    maximumPendingHints: 8,
+    maximumPathBytes: 64,
+    maximumPendingBytes: 80,
+    scheduler: byteScheduler,
+  });
+  const overlong = byteAdapter.notify({ kind: "change", path: `src/${"x".repeat(61)}` });
+  assert.equal(overlong.status, "refused");
+  assert.equal(overlong.reason, "invalid-path");
+  assert.equal(overlong.admissionSequence, null);
+  const firstBounded = byteAdapter.notify({ kind: "change", path: `src/${"a".repeat(20)}.ts` });
+  const aggregateOverflow = byteAdapter.notify({ kind: "change", path: `src/${"b".repeat(20)}.ts` });
+  assert.equal(firstBounded.admissionSequence, 1);
+  assert.equal(aggregateOverflow.admissionSequence, 2);
+  assert.equal(aggregateOverflow.reason, "overflow-rescan");
+  const byteFlush = byteAdapter.flush();
+  byteTarget.pending[0]!.resolve();
+  const byteCycle = await byteFlush;
+  assert.equal(byteCycle.batch.fullWorkspace, true);
+  assert.deepEqual(byteCycle.batch.hints, []);
+  await byteAdapter.close();
+
+  const rollbackScheduler = new ManualScheduler();
+  const rollbackTarget = new ManualRefreshTarget(schedulerRoot);
+  const rollbackAdapter = new PrivateFilesystemInvalidationAdapter(schedulerRoot, rollbackTarget, {
+    debounceMs: 25,
+    maximumDelayMs: 100,
+    scheduler: rollbackScheduler,
+  });
+  rollbackScheduler.setNow(100);
+  rollbackAdapter.notify({ kind: "change", path: "src/before-clock-rollback.ts" });
+  rollbackScheduler.setNow(50);
+  rollbackAdapter.notify({ kind: "change", path: "src/after-clock-rollback.ts" });
+  rollbackScheduler.setNow(124);
+  rollbackScheduler.advance(1);
+  assert.equal(rollbackTarget.pending.length, 1, "clock rollback stranded an accepted refresh");
+  const rollbackFlush = rollbackAdapter.flush();
+  rollbackTarget.pending[0]!.resolve();
+  const rollbackCycle = await rollbackFlush;
+  assert.deepEqual(rollbackCycle.batch.hints, ["src/after-clock-rollback.ts", "src/before-clock-rollback.ts"]);
+  await rollbackAdapter.close();
 } finally {
   rmSync(schedulerRoot, { recursive: true, force: true });
   rmSync(externalRoot, { recursive: true, force: true });
@@ -301,4 +383,4 @@ try {
   rmSync(integrationRoot, { recursive: true, force: true });
 }
 
-console.log("V1 filesystem invalidation adapter passed (bounded hints, dirty work, refusal, rescan, recovery, close)");
+console.log("V1 filesystem invalidation adapter passed (bounded identity/bytes/time, dirty work, refusal, recovery, close)");

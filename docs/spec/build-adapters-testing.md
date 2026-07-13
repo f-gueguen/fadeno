@@ -288,9 +288,12 @@ stages implies a public production build or development server.
 The B7D4 private adapter normalizes named hints against the project root,
 refuses external, malformed, or symlink paths, and excludes `.fadeno` and
 repository metadata before scheduling. Rename, missing-name, alias ambiguity,
-and bounded precise-hint overflow become full-workspace rescans rather than
-semantic path operations. A bounded debounce and maximum delay coalesce idle
-bursts; notifications admitted during one B7D3 refresh form exactly one later
+and bounded precise-hint count or aggregate-byte overflow become full-workspace
+rescans rather than semantic path operations; an overlong individual path is
+refused before retention. Raw notification identity is distinct from accepted
+batch-admission identity. A bounded debounce and maximum delay coalesce idle
+bursts on a monotonic production clock; injected backward clock movement cannot
+strand accepted work. Notifications admitted during one B7D3 refresh form exactly one later
 batch. Flush and idempotent close own completion, cancellation, timer cleanup,
 project close, and observer isolation. This is disposable watcher-lifecycle
 evidence only: no operating-system watcher, server, CLI, or public contract is

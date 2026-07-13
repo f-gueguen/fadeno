@@ -1,5 +1,6 @@
 import { existsSync, lstatSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { performance } from "node:perf_hooks";
 
 import type { PrivateAnalyzerOperationHandle } from "./analyzer-coordinator.ts";
 import type { PrivateProjectRefresh, PrivateProjectRefreshHandle } from "./analyzer-project.ts";
@@ -7,6 +8,8 @@ import type { PrivateProjectRefresh, PrivateProjectRefreshHandle } from "./analy
 const defaultDebounceMs = 25;
 const defaultMaximumDelayMs = 100;
 const defaultMaximumPendingHints = 256;
+const defaultMaximumPathBytes = 16_384;
+const defaultMaximumPendingBytes = 1_048_576;
 
 export type PrivateFilesystemNotificationKind = "change" | "rename";
 
@@ -16,7 +19,8 @@ export type PrivateFilesystemNotification = Readonly<{
 }>;
 
 export type PrivateFilesystemAdmission = Readonly<{
-  sequence: number;
+  notificationSequence: number;
+  admissionSequence: number | null;
   status: "accepted" | "excluded" | "refused";
   reason:
     | "contained-change"
@@ -33,8 +37,8 @@ export type PrivateFilesystemAdmission = Readonly<{
 }>;
 
 export type PrivateFilesystemInvalidationBatch = Readonly<{
-  firstSequence: number;
-  latestSequence: number;
+  firstAdmissionSequence: number;
+  latestAdmissionSequence: number;
   size: number;
   fullWorkspace: boolean;
   hints: readonly string[];
@@ -63,6 +67,8 @@ export interface PrivateFilesystemInvalidationOptions {
   readonly debounceMs?: number;
   readonly maximumDelayMs?: number;
   readonly maximumPendingHints?: number;
+  readonly maximumPathBytes?: number;
+  readonly maximumPendingBytes?: number;
   readonly scheduler?: PrivateFilesystemInvalidationScheduler;
   readonly onCycle?: (cycle: PrivateFilesystemRefreshCycle) => void;
   readonly onFailure?: (batch: PrivateFilesystemInvalidationBatch, error: unknown) => void;
@@ -75,7 +81,7 @@ type CycleWaiter = Readonly<{
 }>;
 
 const realScheduler: PrivateFilesystemInvalidationScheduler = Object.freeze({
-  now: () => Date.now(),
+  now: () => performance.now(),
   set: (delayMs: number, callback: () => void) => setTimeout(callback, delayMs),
   clear: (timer: unknown) => clearTimeout(timer as ReturnType<typeof setTimeout>),
 });
@@ -114,6 +120,14 @@ function interruption(code: string): TypeError {
   return new TypeError(code);
 }
 
+function unaccepted(
+  notificationSequence: number,
+  status: "excluded" | "refused",
+  reason: PrivateFilesystemAdmission["reason"],
+): PrivateFilesystemAdmission {
+  return Object.freeze({ notificationSequence, admissionSequence: null, status, reason });
+}
+
 export class PrivateFilesystemInvalidationAdapter {
   readonly #root: string;
   readonly #target: PrivateFilesystemRefreshTarget;
@@ -121,6 +135,8 @@ export class PrivateFilesystemInvalidationAdapter {
   readonly #debounceMs: number;
   readonly #maximumDelayMs: number;
   readonly #maximumPendingHints: number;
+  readonly #maximumPathBytes: number;
+  readonly #maximumPendingBytes: number;
   readonly #onCycle?: PrivateFilesystemInvalidationOptions["onCycle"];
   readonly #onFailure?: PrivateFilesystemInvalidationOptions["onFailure"];
   readonly #hints = new Set<string>();
@@ -134,6 +150,7 @@ export class PrivateFilesystemInvalidationAdapter {
   #cycleSequence = 0;
   #firstPendingSequence = 0;
   #pendingSize = 0;
+  #pendingBytes = 0;
   #firstPendingAt = 0;
   #latestPendingAt = 0;
   #fullWorkspace = false;
@@ -163,6 +180,18 @@ export class PrivateFilesystemInvalidationAdapter {
       4_096,
       "FADENO_ANALYZER_WATCH_CONFIG",
     );
+    this.#maximumPathBytes = boundedInteger(
+      options.maximumPathBytes ?? defaultMaximumPathBytes,
+      16,
+      1_048_576,
+      "FADENO_ANALYZER_WATCH_CONFIG",
+    );
+    this.#maximumPendingBytes = boundedInteger(
+      options.maximumPendingBytes ?? defaultMaximumPendingBytes,
+      this.#maximumPathBytes,
+      16_777_216,
+      "FADENO_ANALYZER_WATCH_CONFIG",
+    );
     this.#scheduler = options.scheduler ?? realScheduler;
     this.#onCycle = options.onCycle;
     this.#onFailure = options.onFailure;
@@ -173,27 +202,31 @@ export class PrivateFilesystemInvalidationAdapter {
     if (this.#notificationSequence >= Number.MAX_SAFE_INTEGER) throw interruption("FADENO_ANALYZER_WATCH_OVERFLOW");
     const sequence = ++this.#notificationSequence;
     if (notification.kind !== "change" && notification.kind !== "rename") {
-      return Object.freeze({ sequence, status: "refused", reason: "invalid-path" });
+      return unaccepted(sequence, "refused", "invalid-path");
     }
     if (notification.path === null) {
       return this.#accept(sequence, "missing-name-rescan", null, null, true);
     }
-    if (notification.path.length === 0 || notification.path.includes("\0")) {
-      return Object.freeze({ sequence, status: "refused", reason: "invalid-path" });
+    if (
+      notification.path.length === 0 ||
+      notification.path.includes("\0") ||
+      Buffer.byteLength(notification.path) > this.#maximumPathBytes
+    ) {
+      return unaccepted(sequence, "refused", "invalid-path");
     }
     const absolute = resolve(this.#root, notification.path);
     if (!isContained(this.#root, absolute)) {
-      return Object.freeze({ sequence, status: "refused", reason: "external-path" });
+      return unaccepted(sequence, "refused", "external-path");
     }
     if (hasSymlinkComponent(this.#root, absolute)) {
-      return Object.freeze({ sequence, status: "refused", reason: "symlink-path" });
+      return unaccepted(sequence, "refused", "symlink-path");
     }
     const hint = relative(this.#root, absolute).split(sep).join("/") || ".";
     if (hint === ".fadeno" || hint.startsWith(".fadeno/")) {
-      return Object.freeze({ sequence, status: "excluded", reason: "owned-output" });
+      return unaccepted(sequence, "excluded", "owned-output");
     }
     if (hint === ".git" || hint.startsWith(".git/")) {
-      return Object.freeze({ sequence, status: "excluded", reason: "repository-metadata" });
+      return unaccepted(sequence, "excluded", "repository-metadata");
     }
     if (notification.kind === "rename") return this.#accept(sequence, "rename-rescan", hint, notification.path, true);
     const priorRaw = this.#rawAliases.get(hint);
@@ -201,6 +234,10 @@ export class PrivateFilesystemInvalidationAdapter {
       return this.#accept(sequence, "duplicate-alias-rescan", hint, notification.path, true);
     }
     if (this.#hints.has(hint)) return this.#accept(sequence, "duplicate-change", hint, notification.path, false);
+    const hintBytes = Buffer.byteLength(hint) + Buffer.byteLength(notification.path);
+    if (!this.#fullWorkspace && hintBytes > this.#maximumPendingBytes - this.#pendingBytes) {
+      return this.#accept(sequence, "overflow-rescan", null, null, true);
+    }
     if (!this.#fullWorkspace && this.#hints.size >= this.#maximumPendingHints) {
       return this.#accept(sequence, "overflow-rescan", null, null, true);
     }
@@ -216,7 +253,7 @@ export class PrivateFilesystemInvalidationAdapter {
       this.#accept(++this.#notificationSequence, "missing-name-rescan", null, null, true);
     }
     const targetSequence = this.#admissionSequence;
-    if (this.#lastCycle && this.#lastCycle.batch.latestSequence >= targetSequence) return Promise.resolve(this.#lastCycle);
+    if (this.#lastCycle && this.#lastCycle.batch.latestAdmissionSequence >= targetSequence) return Promise.resolve(this.#lastCycle);
     const result = new Promise<PrivateFilesystemRefreshCycle>((resolveCycle, rejectCycle) => {
       if (this.#waiters.length >= this.#maximumPendingHints) {
         rejectCycle(interruption("FADENO_ANALYZER_WATCH_OVERFLOW"));
@@ -265,18 +302,20 @@ export class PrivateFilesystemInvalidationAdapter {
       this.#firstPendingAt = now;
     }
     this.#latestPendingAt = now;
-    this.#pendingSize = Math.min(this.#pendingSize + 1, this.#maximumPendingHints + 1);
+    this.#pendingSize += 1;
     this.#reasons.add(reason);
     if (fullWorkspace) {
       this.#fullWorkspace = true;
+      this.#pendingBytes = 0;
       this.#hints.clear();
       this.#rawAliases.clear();
     } else if (!this.#fullWorkspace && hint !== null) {
       this.#hints.add(hint);
       this.#rawAliases.set(hint, this.#rawAliases.get(hint) ?? rawPath ?? hint);
+      this.#pendingBytes += Buffer.byteLength(hint) + Buffer.byteLength(rawPath ?? hint);
     }
     if (!this.#active) this.#schedule();
-    return Object.freeze({ sequence: notificationSequence, status: "accepted", reason });
+    return Object.freeze({ notificationSequence, admissionSequence: sequence, status: "accepted", reason });
   }
 
   #hasPending(): boolean {
@@ -299,8 +338,8 @@ export class PrivateFilesystemInvalidationAdapter {
   #startCycle(): void {
     if (this.#active || !this.#hasPending() || this.#state !== "accepting") return;
     const batch = Object.freeze({
-      firstSequence: this.#firstPendingSequence,
-      latestSequence: this.#admissionSequence,
+      firstAdmissionSequence: this.#firstPendingSequence,
+      latestAdmissionSequence: this.#admissionSequence,
       size: this.#pendingSize,
       fullWorkspace: this.#fullWorkspace,
       hints: Object.freeze([...this.#hints].sort(compareText)),
@@ -312,7 +351,7 @@ export class PrivateFilesystemInvalidationAdapter {
       handle = this.#target.refresh();
     } catch (error) {
       try { this.#onFailure?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
-      this.#settleWaiters(batch.latestSequence, null, error);
+      this.#settleWaiters(batch.latestAdmissionSequence, null, error);
       return;
     }
     this.#active = handle;
@@ -322,12 +361,12 @@ export class PrivateFilesystemInvalidationAdapter {
         const cycle = Object.freeze({ sequence: ++this.#cycleSequence, batch, refresh });
         this.#lastCycle = cycle;
         try { this.#onCycle?.(cycle); } catch { /* observation cannot control scheduling ownership */ }
-        this.#settleWaiters(batch.latestSequence, cycle, null);
+        this.#settleWaiters(batch.latestAdmissionSequence, cycle, null);
       },
       (error: unknown) => {
         this.#finishCycle(handle);
         try { this.#onFailure?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
-        this.#settleWaiters(batch.latestSequence, null, error);
+        this.#settleWaiters(batch.latestAdmissionSequence, null, error);
       },
     );
   }
@@ -342,10 +381,12 @@ export class PrivateFilesystemInvalidationAdapter {
     cycle: PrivateFilesystemRefreshCycle | null,
     error: unknown,
   ): void {
-    for (let index = this.#waiters.length - 1; index >= 0; index -= 1) {
-      const waiter = this.#waiters[index]!;
-      if (waiter.targetSequence > throughSequence) continue;
-      this.#waiters.splice(index, 1);
+    let completed = 0;
+    while (completed < this.#waiters.length && this.#waiters[completed]!.targetSequence <= throughSequence) {
+      completed += 1;
+    }
+    const settled = this.#waiters.splice(0, completed);
+    for (const waiter of settled) {
       if (cycle) waiter.resolve(cycle);
       else waiter.reject(error);
     }
@@ -354,6 +395,7 @@ export class PrivateFilesystemInvalidationAdapter {
   #clearPending(): void {
     this.#firstPendingSequence = 0;
     this.#pendingSize = 0;
+    this.#pendingBytes = 0;
     this.#firstPendingAt = 0;
     this.#latestPendingAt = 0;
     this.#fullWorkspace = false;
@@ -370,8 +412,8 @@ export class PrivateFilesystemInvalidationAdapter {
 
   #now(): number {
     const now = this.#scheduler.now();
-    if (!Number.isFinite(now) || now < this.#lastNow) throw new TypeError("FADENO_ANALYZER_WATCH_SCHEDULER");
-    this.#lastNow = now;
-    return now;
+    if (!Number.isFinite(now)) throw new TypeError("FADENO_ANALYZER_WATCH_SCHEDULER");
+    this.#lastNow = Math.max(this.#lastNow, now);
+    return this.#lastNow;
   }
 }
