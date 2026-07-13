@@ -58,7 +58,7 @@ export async function runProjectCheckCommand(
   const parsed = parse(arguments_, context.cwd);
   if (!parsed) return Object.freeze({ exitCode: 2 as const, stdout: "", stderr: usage });
   try {
-    const analyzeProject = context.analyzeProject ?? (async (root: string) => new PrivateProjectAnalyzer(root).analyze());
+    const analyzeProject = context.analyzeProject ?? (async (root: string) => new PrivateProjectAnalyzer(root).analyze().result);
     const analysis = await analyzeProject(parsed.root);
     const flow = parsed.explain ? await semanticFlow(analysis) : "";
     if (analysis.diagnostics.diagnostics.length > 0) {

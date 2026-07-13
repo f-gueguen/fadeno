@@ -645,10 +645,28 @@ order, stream timing, cancellation result, or browser outcome.
 ## Retained consumer sequencing
 
 V1-DX-B7D delivers retained consumption in independently reviewable stages.
-B7D1 must establish one private long-lived owner for analyzer operations with
-sequential immutable operation identity and explicit close behavior. B7D2 must
-add deterministic invalidation batching, cancellation, supersession, and
-newest-work ownership without allowing concurrent analysis or lost wakeups.
+B7D1 establishes one private long-lived project owner around exactly one
+analyzer session. Analysis admission returns a frozen private handle whose
+monotonic request identity is allocated before work starts and remains
+available when the result rejects. This coordinator identity is distinct from
+the analyzer publication identity produced inside a successful analysis.
+
+Accepted analysis and derived explanation operations execute in admission-order
+FIFO with no overlap. A failed operation settles its own result but cannot
+poison the queue or prevent later admitted work. Explanation admitted from the
+current analysis before a later analysis drains first; an old explanation
+requested after later analysis admission refuses as stale. Admitting analysis
+immediately invalidates the prior synchronous B7C application capability, even
+while the new analysis waits in the FIFO. Filesystem application itself is not
+queued or made asynchronous in B7D1.
+
+The coordinator lifecycle is `accepting` → `closing` → `closed`. Close stops
+admission synchronously, invalidates derived capabilities, drains every already
+admitted operation despite individual failure, and is idempotent. It does not
+claim resource release because the current analyzer session owns no live
+external handle. B7D2 must add deterministic invalidation batching,
+cancellation, supersession, and newest-work ownership without allowing lost
+wakeups.
 
 Filesystem notifications are invalidation hints, not semantic facts. B7D4 must
 coalesce contained hints, exclude owned output, and rescan through the same
@@ -664,8 +682,10 @@ second application dependency graph. Compiler and later server consumers must
 be excluded from B7C's bounded route-directory replacement interval, and only
 the newest complete analyzer generation may be accepted.
 
-These stages are private evidence. They add no package export, stable analyzer
-schema, editor product, production output, watcher command, or server. Public
+These stages are private evidence. The B7D1 coordinator implementation is
+included in packed internals and explicitly unavailable through package
+exports. It adds no stable analyzer schema, editor product, production output,
+watcher command, or server. Public
 `fadeno build` and `fadeno dev` remain unimplemented until DG-V1-06 resolves
 their exact command and lifecycle contracts in an accepted ADR.
 

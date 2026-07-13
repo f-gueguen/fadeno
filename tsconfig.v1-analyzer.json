@@ -9,6 +9,7 @@
   },
   "include": [
     "packages/framework/src/internal/analyzer-session.ts",
+    "packages/framework/src/internal/analyzer-coordinator.ts",
     "packages/framework/src/internal/analyzer-diagnostics.ts",
     "packages/framework/src/internal/analyzer-explain.ts",
     "packages/framework/src/internal/analyzer-route-explain.ts",
@@ -20,6 +21,7 @@
     "scripts/check-v1-analyzer-diagnostics.ts",
     "scripts/check-v1-analyzer-explain.ts",
     "scripts/check-v1-analyzer-project.ts",
+    "scripts/check-v1-analyzer-coordinator.ts",
     "scripts/check-v1-analyzer-application.ts",
     "scripts/check-v1-project-check-command.ts",
     "scripts/check-v1-analyzer-workflow.ts"

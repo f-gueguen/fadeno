@@ -39,12 +39,12 @@ async function verifyFailureAndRecovery(temporaryRoot: string): Promise<void> {
   cpSync(join(scenarioRoot, "after/src/routes"), join(project, "src/routes"), { recursive: true });
   writeFileSync(join(project, "fadeno.config.ts"), "export default { routes: { root: 'src/routes' } };\n");
   const analyzer = new PrivateProjectAnalyzer(project);
-  (await analyzer.analyze()).apply();
+  (await analyzer.analyze().result).apply();
   mkdirSync(join(project, "src/routes/old"));
   writeFileSync(join(project, "src/routes/old/page.tsx"), "export default function Old(): string { return 'old'; }\n");
-  (await analyzer.analyze()).apply();
+  (await analyzer.analyze().result).apply();
   cpSync(join(scenarioRoot, "before/src/routes/handler.ts"), join(project, "src/routes/handler.ts"));
-  const collision = await analyzer.analyze();
+  const collision = await analyzer.analyze().result;
   assert.throws(() => collision.apply(), /FADENO_ANALYZER_APPLICATION_DIAGNOSTIC/u);
   assert.equal(formatAnalyzerDiagnosticBatchHuman(collision.diagnostics), readFileSync(join(exampleRoot, "expected/check-collision.txt"), "utf8"));
   const retained = JSON.parse(readFileSync(join(project, ".fadeno/routes/manifest.json"), "utf8")) as { routes: readonly { id: string }[] };
@@ -52,7 +52,7 @@ async function verifyFailureAndRecovery(temporaryRoot: string): Promise<void> {
 
   rmSync(join(project, "src/routes/handler.ts"));
   rmSync(join(project, "src/routes/old"), { recursive: true });
-  const repairedAnalysis = await analyzer.analyze();
+  const repairedAnalysis = await analyzer.analyze().result;
   repairedAnalysis.apply();
   const repaired = JSON.parse(readFileSync(join(project, ".fadeno/routes/manifest.json"), "utf8")) as { routes: readonly { id: string }[] };
   assert.deepEqual(repaired.routes.map(({ id }) => id), ["/"]);
@@ -271,7 +271,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   packageJson.dependencies["fadeno-framework-internal"] = `file:${tarball}`;
   writeFileSync(join(project, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`);
   run("pnpm", ["install", "--offline", "--ignore-scripts"], project);
-  (await new PrivateProjectAnalyzer(project).analyze()).apply();
+  (await new PrivateProjectAnalyzer(project).analyze().result).apply();
   run(process.execPath, [join(dirname(require.resolve("typescript/package.json")), "bin/tsc"), "-p", "tsconfig.json"], project);
 
   const server = await startServer(project);
