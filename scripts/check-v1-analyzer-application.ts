@@ -22,7 +22,10 @@ import {
   type PrivateProjectAnalysis,
 } from "../packages/framework/src/internal/analyzer-project.ts";
 import { deserializeAnalyzerPublicationSnapshot, serializeAnalyzerPublicationSnapshot } from "../packages/framework/src/internal/analyzer-publication.ts";
-import type { RouteArtifactMutationFileSystem } from "../packages/framework/src/internal/routing/generator.ts";
+import {
+  beginRouteArtifactApplication,
+  type RouteArtifactMutationFileSystem,
+} from "../packages/framework/src/internal/routing/generator.ts";
 
 type OutputSnapshot = Readonly<Record<string, Readonly<{ bytes: Buffer; mtimeNs: bigint }>>>;
 
@@ -251,6 +254,44 @@ try {
   assertSnapshot(output, beforePendingCleanup, true);
   rmSync(join(parent, "routes.previous-first"), { recursive: true });
   rmSync(join(parent, "routes.previous-second"), { recursive: true });
+
+  const beforeTransaction = outputSnapshot(output);
+  writeRoute(root, "transaction/page.tsx");
+  const transactionAnalysis = await analyzer.analyze().result;
+  const transactionPlan = routeArtifactPlanFromPublication(transactionAnalysis.publication, transactionAnalysis.routePlan!);
+  const transaction = beginRouteArtifactApplication(root, transactionPlan, { assertFresh: () => undefined });
+  assert.equal(transaction.state, "pending");
+  assert.equal(manifestRoutes(output).includes("/transaction"), true);
+  assert.equal(readdirSync(parent).filter((name) => name.startsWith("routes.previous-")).length, 1);
+  transaction.rollback();
+  assert.equal(transaction.state, "rolled-back");
+  assertSnapshot(output, beforeTransaction, true);
+  assert.equal(readdirSync(parent).some((name) => name.startsWith("routes.previous-") || name.startsWith("routes.empty-")), false);
+
+  const committedTransaction = beginRouteArtifactApplication(root, transactionPlan, { assertFresh: () => undefined });
+  assert.equal(committedTransaction.commit().changed, true);
+  assert.equal(committedTransaction.state, "committed");
+  assert.equal(manifestRoutes(output).includes("/transaction"), true);
+  assert.equal(readdirSync(parent).some((name) => name.startsWith("routes.previous-") || name.startsWith("routes.empty-")), false);
+
+  const firstRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-first-transaction-"));
+  try {
+    cpSync(new URL("../examples/v1-app/src/", import.meta.url), join(firstRoot, "src"), { recursive: true });
+    writeFileSync(join(firstRoot, "fadeno.config.ts"), "export default { routes: { root: 'src/routes' } };\n");
+    const firstAnalyzer = new PrivateProjectAnalyzer(firstRoot);
+    const firstAnalysis = await firstAnalyzer.analyze().result;
+    const firstPlan = routeArtifactPlanFromPublication(firstAnalysis.publication, firstAnalysis.routePlan!);
+    const firstTransaction = beginRouteArtifactApplication(firstRoot, firstPlan, { assertFresh: () => undefined });
+    const firstParent = join(firstRoot, ".fadeno");
+    assert.equal(firstTransaction.state, "pending");
+    assert.equal(existsSync(join(firstParent, "routes")), true);
+    assert.equal(readdirSync(firstParent).filter((name) => name.startsWith("routes.empty-")).length, 1);
+    assert.equal(firstAnalysis.apply().changed, true, "restart adopted an unaccepted first generation");
+    assert.equal(readdirSync(firstParent).some((name) => name.startsWith("routes.previous-") || name.startsWith("routes.empty-")), false);
+    await firstAnalyzer.close();
+  } finally {
+    rmSync(firstRoot, { recursive: true, force: true });
+  }
 
   const older = await analyzer.analyze().result;
   const newer = await analyzer.analyze().result;
