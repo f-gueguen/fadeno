@@ -13,6 +13,7 @@ import { readRenderNode } from "./render-node.ts";
 import { readUnsafeHtml } from "./unsafe-html.ts";
 import { StreamingLifecycle } from "./streaming-lifecycle.ts";
 import { captureRequestFailureObserver, reportFrameworkFailure } from "./failure-observer.ts";
+import { readResourceError } from "./resource.ts";
 
 const encoder = new TextEncoder();
 const voidElements = new Set(["area", "br", "col", "hr", "img", "input", "link", "meta", "source", "wbr"]);
@@ -227,9 +228,12 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
         else await lifecycle.write(encoder.encode(next.value as string));
       } catch (cause) {
         terminalCause = cause;
-        terminalIncidentId ??= globalThis.crypto.randomUUID();
         await iterator?.return(undefined).catch(() => undefined);
-        await lifecycle.fail("unexpected");
+        if (readResourceError(cause)) await lifecycle.fail("expected");
+        else {
+          terminalIncidentId ??= globalThis.crypto.randomUUID();
+          await lifecycle.fail("unexpected");
+        }
       } finally {
         pulling = false;
       }

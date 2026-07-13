@@ -187,7 +187,8 @@ closedScope.close();
 releaseClosed?.();
 await assert.rejects(lateRead, (error: unknown) => classifyResourceFailure(error) === "cancelled");
 assert.equal(closedScope.closed, true);
-assert.deepEqual(closedScope.dependencies[0]?.observation, { status: "cancelled" });
+assert.deepEqual(closedScope.dependencies, [], "close releases dependency inputs and observations");
+assert.deepEqual(closedScope.flows, [], "close releases flow evidence");
 await assert.rejects(closedScope.read(closeResource, null), /FADENO_RESOURCE_SCOPE_CLOSED/u);
 
 const flowInspection = {

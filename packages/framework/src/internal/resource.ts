@@ -203,13 +203,17 @@ interface MutableResourceDependency {
   observation: ResourceObservation;
 }
 
+const dependencyEvidence = new WeakSet<object>();
+
 function freezeDependency(dependency: MutableResourceDependency): ResourceDependency {
-  return Object.freeze({
+  const frozen = Object.freeze({
     resource: dependency.resource,
     input: dependency.input,
     inputKey: dependency.inputKey,
     observation: dependency.observation,
   });
+  dependencyEvidence.add(frozen);
+  return frozen;
 }
 
 export class ResourceRequestScope {
@@ -219,8 +223,6 @@ export class ResourceRequestScope {
   readonly #flows: ResourceFlow[] = [];
   readonly #closure = new AbortController();
   readonly #signal: AbortSignal;
-  #finalDependencies: readonly ResourceDependency[] | undefined;
-  #finalFlows: readonly ResourceFlow[] | undefined;
   #closed = false;
   #reads = 0;
   #calls = 0;
@@ -232,11 +234,11 @@ export class ResourceRequestScope {
   }
 
   get dependencies(): readonly ResourceDependency[] {
-    return this.#finalDependencies ?? Object.freeze(this.#dependencies.map(freezeDependency));
+    return Object.freeze(this.#dependencies.map(freezeDependency));
   }
 
   get flows(): readonly ResourceFlow[] {
-    return this.#finalFlows ?? Object.freeze([...this.#flows]);
+    return Object.freeze([...this.#flows]);
   }
 
   get closed(): boolean { return this.#closed; }
@@ -248,8 +250,6 @@ export class ResourceRequestScope {
     for (const dependency of this.#dependencies) {
       if (dependency.observation.status === "pending") dependency.observation = Object.freeze({ status: "cancelled" });
     }
-    this.#finalDependencies = Object.freeze(this.#dependencies.map(freezeDependency));
-    this.#finalFlows = Object.freeze([...this.#flows]);
     this.#cache.clear();
     this.#dependencies.length = 0;
     this.#flows.length = 0;
@@ -363,5 +363,134 @@ export class ResourceRequestScope {
       dependencyRecorded,
       cause,
     }));
+  }
+}
+
+export type ResourceComparison = Readonly<{
+  resource: ResourceDeclaration<ResourceInput, unknown>;
+  inputKey: string;
+  decision: "unchanged" | "changed" | "refused";
+  reason: string;
+}>;
+
+export type ResourceKeepDecision = Readonly<{
+  resource: ResourceDeclaration<ResourceInput, unknown>;
+  decision: "verified" | "unsafe" | "not-active";
+  reasons: readonly string[];
+}>;
+
+export type ResourceRevalidationReport = Readonly<{
+  complete: boolean;
+  baseline: "all-active-dependencies";
+  dependencies: readonly ResourceDependency[];
+  comparisons: readonly ResourceComparison[];
+  keeps: readonly ResourceKeepDecision[];
+}>;
+
+function compareObservations(before: ResourceObservation, after: ResourceObservation): Readonly<{
+  decision: ResourceComparison["decision"];
+  reason: string;
+}> {
+  if (before.status === "value" && after.status === "value") {
+    if (before.comparisonKey === null || after.comparisonKey === null) return { decision: "refused", reason: "unsupported-value" };
+    return before.comparisonKey === after.comparisonKey
+      ? { decision: "unchanged", reason: "equivalent-value" }
+      : { decision: "changed", reason: "value-changed" };
+  }
+  if (before.status === "expected-error" && after.status === "expected-error") {
+    return before.code === after.code && before.httpStatus === after.httpStatus
+      ? { decision: "unchanged", reason: "equivalent-expected-error" }
+      : { decision: "changed", reason: "expected-error-changed" };
+  }
+  if (before.status === "pending" || before.status === "cancelled" || before.status === "unexpected-error") {
+    return { decision: "refused", reason: "invalid-baseline" };
+  }
+  if (after.status === "pending" || after.status === "cancelled" || after.status === "unexpected-error") {
+    return { decision: "refused", reason: "incomplete-revalidation" };
+  }
+  return { decision: "changed", reason: "outcome-changed" };
+}
+
+function validateRevalidationInput(
+  dependencies: readonly ResourceDependency[],
+  keeps: readonly ResourceDeclaration<ResourceInput, unknown>[],
+): void {
+  if (!Array.isArray(dependencies) || dependencies.length === 0 || dependencies.length > maximumRequestReads) {
+    throw new TypeError("FADENO_RESOURCE_REVALIDATION_INPUT");
+  }
+  const identities = new Map<object, Set<string>>();
+  for (const dependency of dependencies) {
+    if (!dependency || typeof dependency !== "object" || !dependencyEvidence.has(dependency) || !loaders.has(dependency.resource)) {
+      throw new TypeError("FADENO_RESOURCE_REVALIDATION_INPUT");
+    }
+    const normalized = normalizeInput(dependency.input);
+    if (
+      normalized.key !== dependency.inputKey ||
+      (dependency.observation.status !== "value" && dependency.observation.status !== "expected-error")
+    ) {
+      throw new TypeError("FADENO_RESOURCE_REVALIDATION_INPUT");
+    }
+    let keys = identities.get(dependency.resource);
+    if (!keys) {
+      keys = new Set();
+      identities.set(dependency.resource, keys);
+    }
+    if (keys.has(dependency.inputKey)) throw new TypeError("FADENO_RESOURCE_REVALIDATION_INPUT");
+    keys.add(dependency.inputKey);
+  }
+  if (!Array.isArray(keeps) || keeps.length > maximumRequestReads || new Set(keeps).size !== keeps.length) {
+    throw new TypeError("FADENO_RESOURCE_REVALIDATION_KEEPS");
+  }
+  for (const resource of keeps) {
+    if (!resource || typeof resource !== "object" || !loaders.has(resource)) throw new TypeError("FADENO_RESOURCE_REVALIDATION_KEEPS");
+  }
+}
+
+export async function revalidateResourceDependencies(
+  request: Request,
+  dependencies: readonly ResourceDependency[],
+  keeps: readonly ResourceDeclaration<ResourceInput, unknown>[] = [],
+): Promise<ResourceRevalidationReport> {
+  validateRevalidationInput(dependencies, keeps);
+  const scope = new ResourceRequestScope(request);
+  try {
+    for (const dependency of dependencies) {
+      if (request.signal.aborted) throw new DOMException("FADENO_RESOURCE_ABORTED", "AbortError");
+      await scope.read(dependency.resource, dependency.input).catch(() => undefined);
+      if (request.signal.aborted) throw new DOMException("FADENO_RESOURCE_ABORTED", "AbortError");
+    }
+    const refreshed = scope.dependencies;
+    if (refreshed.length !== dependencies.length) throw new TypeError("FADENO_RESOURCE_REVALIDATION_INCOMPLETE");
+    const comparisons = Object.freeze(dependencies.map((before, index): ResourceComparison => {
+      const after = refreshed[index];
+      if (!after || after.resource !== before.resource || after.inputKey !== before.inputKey) {
+        throw new TypeError("FADENO_RESOURCE_REVALIDATION_ORDER");
+      }
+      return Object.freeze({ resource: before.resource, inputKey: before.inputKey, ...compareObservations(before.observation, after.observation) });
+    }));
+    const comparisonsByResource = new Map<ResourceDeclaration<ResourceInput, unknown>, ResourceComparison[]>();
+    for (const comparison of comparisons) {
+      const owned = comparisonsByResource.get(comparison.resource);
+      if (owned) owned.push(comparison);
+      else comparisonsByResource.set(comparison.resource, [comparison]);
+    }
+    const keepDecisions = Object.freeze(keeps.map((resource): ResourceKeepDecision => {
+      const owned = comparisonsByResource.get(resource) ?? [];
+      if (owned.length === 0) return Object.freeze({ resource, decision: "not-active" as const, reasons: Object.freeze(["resource-not-active"]) });
+      const unsafe = owned.filter(({ decision }) => decision !== "unchanged");
+      return unsafe.length === 0
+        ? Object.freeze({ resource, decision: "verified" as const, reasons: Object.freeze(["all-active-inputs-unchanged"]) })
+        : Object.freeze({ resource, decision: "unsafe" as const, reasons: Object.freeze(unsafe.map(({ reason }) => reason)) });
+    }));
+    const complete = refreshed.every(({ observation }) => observation.status === "value" || observation.status === "expected-error");
+    return Object.freeze({
+      complete,
+      baseline: "all-active-dependencies" as const,
+      dependencies: refreshed,
+      comparisons,
+      keeps: keepDecisions,
+    });
+  } finally {
+    scope.close();
   }
 }

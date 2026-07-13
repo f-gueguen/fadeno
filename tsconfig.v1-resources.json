@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "packages/framework/src/index.ts",
+    "packages/framework/src/internal/resource.ts",
+    "scripts/check-v1-resources.ts"
+  ]
+}

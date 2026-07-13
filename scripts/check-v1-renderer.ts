@@ -92,6 +92,23 @@ assert.match(await body(expectedResourceFailure), /PROJECT_NOT_FOUND:404/u);
 assert.deepEqual(expectedReports, [], "expected resource failures do not become internal framework incidents");
 releaseExpectedObserver();
 
+const lateExpectedReports: FrameworkFailureReport[] = [];
+const lateExpectedRequest = new Request("https://example.test/resource-late");
+const releaseLateExpectedObserver = bindRequestFailureObserver(lateExpectedRequest, (report) => { lateExpectedReports.push(report); });
+const lateExpected = await renderRoute({
+  request: lateExpectedRequest,
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: ({ read }) => document(jsx(async () => {
+    await read(missingResource, { id: 8 });
+    return jsx("p", { children: "unreachable" });
+  }, {})),
+});
+assert.equal(lateExpected.status, 200, "an already-published head cannot change status");
+await assert.rejects(body(lateExpected), /FADENO_RENDER_STREAM_LATE_EXPECTED/u);
+assert.deepEqual(lateExpectedReports, [], "late expected resource failure terminates without an internal incident");
+releaseLateExpectedObserver();
+
 const success = await renderRoute({
   request,
   parameters: Object.freeze({ name: "Fadeno" }),
