@@ -194,6 +194,7 @@ try {
     publishConfig?: unknown;
     version?: string;
     bin?: Record<string, string>;
+    dependencies?: Record<string, string>;
     exports?: Record<string, { import?: string; types?: string }>;
   };
   const expectedExports = {
@@ -204,6 +205,7 @@ try {
   if (
     manifest.name !== packageName || manifest.version !== "0.0.0-private" || manifest.private !== true ||
     manifest.publishConfig !== undefined || JSON.stringify(manifest.bin) !== JSON.stringify({ fadeno: "./dist/cli.js" }) ||
+    JSON.stringify(manifest.dependencies) !== JSON.stringify({ typescript: "7.0.2" }) ||
     JSON.stringify(manifest.exports) !== JSON.stringify(expectedExports)
   ) {
     throw new Error("FADENO_PUBLIC_PACKAGE_MANIFEST");

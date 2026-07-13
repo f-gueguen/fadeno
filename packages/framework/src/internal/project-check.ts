@@ -31,7 +31,7 @@ function parse(arguments_: readonly string[], cwd: string): ParsedProjectCheck |
     const argument = arguments_[index];
     if (argument === "--project-root") {
       const value = arguments_[++index];
-      if (root !== null || !value || value.startsWith("-")) return null;
+      if (root !== null || !value) return null;
       root = resolve(cwd, value);
     } else if (argument === "--explain") {
       if (explain) return null;

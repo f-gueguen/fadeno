@@ -139,7 +139,8 @@ try {
     "export default { routes: { root: 'src/other-routes' } };",
     "",
   ].join("\n"));
-  await assert.rejects(() => analyzer.analyze(), /FADENO_CONFIG_SOURCE_CHANGED/u);
+  await assert.rejects(() => analyzer.analyze(), /FADENO_CONFIG_STATIC/u);
+  assert.match(readFileSync(join(root, "fadeno.config.ts"), "utf8"), /writeFileSync\(owner/u);
   assert.equal(existsSync(join(root, ".fadeno")), false);
 
   const targetConfig = join(root, "owned-config-target.ts");

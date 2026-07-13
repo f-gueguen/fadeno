@@ -48,10 +48,11 @@ function requireSuccess(command: string, arguments_: readonly string[], cwd: str
 }
 
 function packageIdentity(packageDirectory: string): PackedIdentity {
-  const manifest = JSON.parse(readFileSync(join(packageDirectory, "package.json"), "utf8")) as { bin?: unknown };
+  const manifestBytes = readFileSync(join(packageDirectory, "package.json"), "utf8");
+  const manifest = JSON.parse(manifestBytes) as { bin?: unknown };
   assert.deepEqual(manifest.bin, { fadeno: "./dist/cli.js" });
   const pending = [join(packageDirectory, "dist/cli.js")];
-  const files = new Map<string, string>();
+  const files = new Map<string, string>([["package.json", sha256(Buffer.from(manifestBytes.trimEnd()))]]);
   while (pending.length > 0) {
     const path = pending.pop()!;
     const containment = relative(packageDirectory, path);
@@ -137,6 +138,21 @@ try {
   assert.equal(`${recovery.stdout}${recovery.stderr}`.includes("FADENO_ROUTE_ROUTE_ROLE_COLLISION"), false);
   assert.equal(existsSync(join(application, ".fadeno")), false);
   assert.equal(existsSync(join(application, "dist")), false);
+
+  const mutationPath = join(application, "changed-by-check.txt");
+  writeFileSync(join(application, "fadeno.config.ts"), [
+    'import { writeFileSync } from "node:fs";',
+    'console.log("FADENO_CONFIG_SECRET_STDOUT");',
+    'process.stderr.write("FADENO_CONFIG_SECRET_STDERR\\n");',
+    'writeFileSync(new URL("./changed-by-check.txt", import.meta.url), "changed");',
+    "export default { routes: { root: 'src/routes' } };",
+    "",
+  ].join("\n"));
+  const sideEffecting = run(executable, ["check", "--project-root", "app"], consumer);
+  assert.equal(sideEffecting.status, 1);
+  assert.match(sideEffecting.stderr, /^FADENO_CONFIG_STATIC:/u);
+  assert.equal(`${sideEffecting.stdout}${sideEffecting.stderr}`.includes("CONFIG_SECRET"), false);
+  assert.equal(existsSync(mutationPath), false);
 
   for (const arguments_ of [
     ["check", "--project-root", "app", "--json"],

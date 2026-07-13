@@ -44,6 +44,16 @@ not add a package export or reimplement configuration, route, diagnostic,
 correction, explanation, or artifact policy. `check` never writes `.fadeno`,
 `dist`, or another project file.
 
+To preserve that boundary, project checking parses configuration without
+executing it. B7B accepts a default-exported plain object literal or the same
+literal wrapped once in `defineConfig`, plus only the canonical named
+`defineConfig` import. Parentheses and type-only `as` or `satisfies` wrappers do
+not add runtime behavior. Computed values, spreads, local bindings, additional
+imports/statements/exports, calls other than the outer `defineConfig`, and every
+side-effecting form are refused as configuration diagnostics. The standard
+TypeScript parser owns syntax; command code does not interpret text with regular
+expressions or execute application configuration.
+
 Human output is the only public output in B7B:
 
 - a complete framework route analysis with no diagnostic exits `0` and writes

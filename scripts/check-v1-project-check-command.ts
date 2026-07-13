@@ -41,6 +41,13 @@ try {
   assert.equal(absolute.stderr, "");
   assert.equal(existsSync(join(root, ".fadeno")), false);
 
+  const dashRoot = join(dirname(root), `-${basename(root)}`);
+  cpSync(root, dashRoot, { recursive: true });
+  try {
+    const dashLeading = await runProjectCheckCommand(["check", "--project-root", basename(dashRoot)], { cwd: dirname(root) });
+    assert.deepEqual(dashLeading, absolute);
+  } finally { rmSync(dashRoot, { recursive: true, force: true }); }
+
   const explained = await runProjectCheckCommand(["check", "--explain", "--project-root", root], { cwd: dirname(root) });
   assert.equal(explained.exitCode, 0);
   assert.match(explained.stdout, /decision: publish-static-route-plan/u);
@@ -65,6 +72,21 @@ try {
   assert.deepEqual(recovery, absolute);
   assert.equal(recovery.stdout.includes("COLLISION"), false);
   assert.equal(existsSync(join(root, ".fadeno")), false);
+
+  const mutationPath = join(root, "changed-by-check.txt");
+  writeFileSync(join(root, "fadeno.config.ts"), [
+    'import { writeFileSync } from "node:fs";',
+    'console.log("FADENO_CONFIG_SECRET_STDOUT");',
+    'process.stderr.write("FADENO_CONFIG_SECRET_STDERR\\n");',
+    'writeFileSync(new URL("./changed-by-check.txt", import.meta.url), "changed");',
+    "export default { routes: { root: 'src/routes' } };",
+    "",
+  ].join("\n"));
+  const sideEffecting = await runProjectCheckCommand(["check", "--project-root", root], { cwd: dirname(root) });
+  assert.equal(sideEffecting.exitCode, 1);
+  assert.match(sideEffecting.stderr, /^FADENO_CONFIG_STATIC:/u);
+  assert.equal(JSON.stringify(sideEffecting).includes("CONFIG_SECRET"), false);
+  assert.equal(existsSync(mutationPath), false);
 
   rmSync(join(root, "fadeno.config.ts"));
   const missingConfig = await runProjectCheckCommand(["check", "--project-root", root], { cwd: dirname(root) });
