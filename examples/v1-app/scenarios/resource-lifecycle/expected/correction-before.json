@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "scenario": "resource-keeps-correction",
+  "keeps": [
+    "tasks",
+    "permissions",
+    "stable",
+    "activity",
+    "flaky",
+    "not-active"
+  ],
+  "decisions": [
+    "unsafe",
+    "unsafe",
+    "verified",
+    "unsafe",
+    "unsafe",
+    "not-active"
+  ],
+  "complete": false,
+  "correctnessReads": 5
+}

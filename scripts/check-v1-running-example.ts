@@ -194,6 +194,7 @@ async function verifyParsedApplication(origin: string): Promise<void> {
       const response = await page.goto(origin);
       assert.equal(response?.status(), 200, `${name}: home status`);
       assert.equal(await page.locator("h1").textContent(), "First running Fadeno application", `${name}: heading`);
+      assert.equal(await page.getByText("Equivalent resource reads shared one request result.").count(), 1, `${name}: resource result`);
       assert.equal(await page.locator("nav[aria-label='Primary'] a").count(), 2, `${name}: navigation`);
       assert.equal(await page.locator("main section").count(), 1, `${name}: semantic main`);
       assert.equal(await page.locator("footer").textContent(), "Rendered by the V1 framework", `${name}: footer`);
@@ -731,7 +732,22 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     assert.match(homeBody, /<nav aria-label="Primary">/u);
     assert.match(homeBody, /First running Fadeno application/u);
     assert.match(homeBody, /href="\/hello\/Reader"/u);
+    for (const line of readFileSync(join(exampleRoot, "expected/resource-success.txt"), "utf8").trim().split("\n")) {
+      assert.match(homeBody, new RegExp(line.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+    }
     assert.match(home.headers.get("content-security-policy") ?? "", /script-src 'none'/u);
+
+    const tenantAlpha = await fetch(server.origin, { headers: { authorization: "Bearer example-tenant-alpha" } });
+    const tenantAlphaBody = await tenantAlpha.text();
+    assert.equal(tenantAlpha.status, 200);
+    assert.match(tenantAlphaBody, /Project 7 is ready for tenant-alpha\./u);
+    assert.doesNotMatch(tenantAlphaBody, /example-tenant-alpha|tenant-beta/u);
+
+    const tenantBeta = await fetch(server.origin, { headers: { authorization: "Bearer example-tenant-beta" } });
+    const tenantBetaBody = await tenantBeta.text();
+    assert.equal(tenantBeta.status, 200);
+    assert.match(tenantBetaBody, /Project 7 is ready for tenant-beta\./u);
+    assert.doesNotMatch(tenantBetaBody, /example-tenant-beta|tenant-alpha/u);
 
     const greeting = await fetch(`${server.origin}/hello/%3CReader%3E`);
     assert.equal(greeting.status, 200);
@@ -757,6 +773,53 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     const redirect = await fetch(`${server.origin}/moved`, { redirect: "manual" });
     assert.equal(redirect.status, 303);
     assert.equal(redirect.headers.get("location"), "/hello/Redirected");
+
+    const reportsBeforeExpectedFailure = server.output().split("\n").filter((line) => line.startsWith("{")).length;
+    const resourceFailure = await fetch(`${server.origin}/resource-failure`);
+    const resourceFailureBody = await resourceFailure.text();
+    assert.equal(resourceFailure.status, 404);
+    const expectedResourceFailure = readFileSync(join(exampleRoot, "expected/resource-failure.txt"), "utf8").trim().split("\n");
+    assert.equal(resourceFailureBody.includes(`>${expectedResourceFailure[0]}<`), true);
+    assert.equal(resourceFailureBody.includes(`>${expectedResourceFailure[1]}<`), true);
+    assert.equal(server.output().split("\n").filter((line) => line.startsWith("{")).length, reportsBeforeExpectedFailure);
+    const expectedResourceFailureEvidence = {
+      schemaVersion: 1,
+      scenario: "expected-resource-failure",
+      code: "PROJECT_NOT_FOUND",
+      status: resourceFailure.status,
+      boundary: "route-error-page",
+      internalIncidentReported: false,
+      redaction: "application-code-only",
+    };
+    assert.equal(
+      readFileSync(join(exampleRoot, "scenarios/resource-lifecycle/expected/expected-failure.json"), "utf8"),
+      `${JSON.stringify(expectedResourceFailureEvidence, null, 2)}\n`,
+    );
+
+    const recoveryFailure = await fetch(`${server.origin}/resource-recovery`);
+    const recoveryFailureBody = await recoveryFailure.text();
+    const expectedRecovery = readFileSync(join(exampleRoot, "expected/resource-recovery.txt"), "utf8").trim().split("\n");
+    assert.equal(recoveryFailure.status, 503);
+    assert.equal(recoveryFailureBody.includes(`>${expectedRecovery[0]}<`), true);
+    assert.equal(recoveryFailureBody.includes(`>${expectedRecovery[1]}<`), true);
+    const recoverySuccess = await fetch(`${server.origin}/resource-recovery`);
+    const recoverySuccessBody = await recoverySuccess.text();
+    assert.equal(recoverySuccess.status, 200);
+    assert.equal(recoverySuccessBody.includes(`>${expectedRecovery[2]}<`), true);
+    assert.equal(recoverySuccessBody.includes(`>${expectedRecovery[3]}<`), true);
+    assert.doesNotMatch(recoverySuccessBody, /PROJECT_TEMPORARILY_UNAVAILABLE/u);
+    assert.equal(
+      readFileSync(join(exampleRoot, "scenarios/resource-lifecycle/expected/recovery.json"), "utf8"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        scenario: "resource-request-recovery",
+        firstStatus: recoveryFailure.status,
+        secondStatus: recoverySuccess.status,
+        staleExpectedFailureRemoved: !recoverySuccessBody.includes("PROJECT_TEMPORARILY_UNAVAILABLE"),
+        staleResourceResultRemoved: true,
+        crossRequestCacheUsed: false,
+      }, null, 2)}\n`,
+    );
 
     const failure = await fetch(`${server.origin}/failure`);
     assert.equal(failure.status, 500);

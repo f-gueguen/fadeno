@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "scenario": "expected-resource-failure",
+  "code": "PROJECT_NOT_FOUND",
+  "status": 404,
+  "boundary": "route-error-page",
+  "internalIncidentReported": false,
+  "redaction": "application-code-only"
+}

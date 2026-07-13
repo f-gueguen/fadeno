@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "scenario": "resource-request-lifecycle",
+  "operation": "resource-read",
+  "causes": [
+    "loader-completed",
+    "equivalent-input",
+    "loader-completed"
+  ],
+  "ownership": {
+    "cache": "request",
+    "requestOneDependencies": 1,
+    "requestTwoDependencies": 1
+  },
+  "skippedWork": [
+    "request-one-equivalent-loader-call"
+  ],
+  "observableOutcome": "new-request-runs-a-new-loader"
+}

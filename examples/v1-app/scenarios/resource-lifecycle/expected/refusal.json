@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "scenario": "unsupported-resource-input",
+  "decision": "refuse-before-loader",
+  "cause": "unsupported-input",
+  "ownership": {
+    "cache": "none",
+    "dependencyRecorded": false
+  },
+  "skippedWork": [
+    "resource-loader",
+    "dependency-publication"
+  ],
+  "observableOutcome": "FADENO_RESOURCE_INPUT"
+}

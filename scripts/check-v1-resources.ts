@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   defineResource,
   resourceError,
   type ResourceDeclaration,
   type ResourceInput,
+  type ResourceReadContext,
 } from "../packages/framework/src/index.ts";
 import {
   revalidateResourceDependencies,
@@ -12,9 +16,76 @@ import {
   type ResourceDependency,
 } from "../packages/framework/src/internal/resource.ts";
 
+const root = fileURLToPath(new URL("../", import.meta.url));
+const resourceEvidenceRoot = join(root, "examples/v1-app/scenarios/resource-lifecycle/expected");
+
+function expected(name: string): string {
+  return readFileSync(join(resourceEvidenceRoot, name), "utf8");
+}
+
 function request(signal?: AbortSignal): Request {
   return new Request("https://example.test/projects", signal ? { signal } : undefined);
 }
+
+type LifecycleInput = Readonly<{ projectId: number; region: string }>;
+let lifecycleReads = 0;
+const lifecycle = defineResource({
+  read({ input }: ResourceReadContext<LifecycleInput>) {
+    lifecycleReads += 1;
+    return Object.freeze({ projectId: input.projectId, read: lifecycleReads });
+  },
+});
+
+const requestOne = new ResourceRequestScope(request());
+const [requestOneFirst, requestOneEquivalent] = await Promise.all([
+  requestOne.read(lifecycle, { projectId: 7, region: "north" }),
+  requestOne.read(lifecycle, { region: "north", projectId: 7 }),
+]);
+assert.equal(requestOneFirst, requestOneEquivalent);
+assert.equal(lifecycleReads, 1);
+const requestOneFlows = requestOne.flows;
+const requestOneDependencies = requestOne.dependencies.length;
+requestOne.close();
+
+const requestTwo = new ResourceRequestScope(request());
+const requestTwoValue = await requestTwo.read(lifecycle, { projectId: 7, region: "north" });
+assert.equal(requestTwoValue.read, 2);
+const requestTwoFlows = requestTwo.flows;
+const requestTwoDependencies = requestTwo.dependencies.length;
+requestTwo.close();
+assert.equal(expected("flow.json"), `${JSON.stringify({
+  schemaVersion: 1,
+  scenario: "resource-request-lifecycle",
+  operation: "resource-read",
+  causes: [...requestOneFlows, ...requestTwoFlows].map(({ cause }) => cause),
+  ownership: {
+    cache: "request",
+    requestOneDependencies,
+    requestTwoDependencies,
+  },
+  skippedWork: ["request-one-equivalent-loader-call"],
+  observableOutcome: "new-request-runs-a-new-loader",
+}, null, 2)}\n`);
+
+const refused = new ResourceRequestScope(request());
+await assert.rejects(
+  refused.read(lifecycle, { projectId: new Date(), region: "north" } as never),
+  /FADENO_RESOURCE_INPUT/u,
+);
+const refusedFlow = refused.flows.at(-1);
+assert.ok(refusedFlow);
+assert.equal(refused.dependencies.length, 0);
+assert.equal(lifecycleReads, 2);
+assert.equal(expected("refusal.json"), `${JSON.stringify({
+  schemaVersion: 1,
+  scenario: "unsupported-resource-input",
+  decision: "refuse-before-loader",
+  cause: refusedFlow.cause,
+  ownership: { cache: refusedFlow.cache, dependencyRecorded: refusedFlow.dependencyRecorded },
+  skippedWork: ["resource-loader", "dependency-publication"],
+  observableOutcome: "FADENO_RESOURCE_INPUT",
+}, null, 2)}\n`);
+refused.close();
 
 let generation = 0;
 const reads = new Map<string, number>();
@@ -83,12 +154,29 @@ assert.deepEqual(report.comparisons.map(({ decision, reason }) => ({ decision, r
   { decision: "refused", reason: "incomplete-revalidation" },
 ]);
 assert.deepEqual(Object.fromEntries(reads), { tasks: 2, permissions: 2, stable: 2, activity: 2, flaky: 2 });
+assert.equal(expected("correction-before.json"), `${JSON.stringify({
+  schemaVersion: 1,
+  scenario: "resource-keeps-correction",
+  keeps: ["tasks", "permissions", "stable", "activity", "flaky", "not-active"],
+  decisions: report.keeps.map(({ decision }) => decision),
+  complete: report.complete,
+  correctnessReads: report.dependencies.length,
+}, null, 2)}\n`);
 
 const correctedKeeps = [stable] as readonly ResourceDeclaration<ResourceInput, unknown>[];
 const corrected = await revalidateResourceDependencies(request(), baseline.slice(0, 4), correctedKeeps);
 assert.equal(corrected.complete, true);
 assert.deepEqual(corrected.keeps.map(({ decision }) => decision), ["verified"]);
 assert.equal(corrected.dependencies.length, 4, "removing unsafe keeps does not remove correctness work");
+assert.equal(expected("correction-after.json"), `${JSON.stringify({
+  schemaVersion: 1,
+  scenario: "resource-keeps-correction",
+  keeps: ["stable"],
+  decisions: corrected.keeps.map(({ decision }) => decision),
+  complete: corrected.complete,
+  correctnessReads: corrected.dependencies.length,
+  correctnessReadsRemovedByOptimization: 0,
+}, null, 2)}\n`);
 
 await assert.rejects(
   revalidateResourceDependencies(request(), [{ ...baseline[0]! }] as readonly ResourceDependency[]),
