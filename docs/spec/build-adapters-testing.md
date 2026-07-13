@@ -58,7 +58,7 @@ publication, not a generic artifact list, and it cannot rediscover or rerender
 route facts. Diagnostic publications preserve the last accepted disk set.
 Directory replacement never exposes mixed generations, although portable
 backup-and-replace has a bounded interval with no route directory; retained
-consumer application/compiler serialization remains V1-DX-B7D3 work. Actual
+consumer application/compiler serialization is implemented by V1-DX-B7D3. Actual
 filesystem-operation and restart-recovery tests cover stage, backup, replace,
 validation, restore, and cleanup failures. No command behavior changes in B7C.
 
@@ -230,20 +230,60 @@ structural, configuration,
 deletion, rename, and burst fixtures issue only a generic private analysis
 admission after mutating authoritative project state.
 
-Later retained build and development consumption proceeds through separate V1
-slices: serialized analyzer application plus stock-compiler refresh, and a
-filesystem adapter that treats notifications only as rescan hints. None of
-these private stages implies a public production build or development server.
+B7D3 gives that coordinator one private retained refresh operation. Analysis,
+provisional B7C application, validation-only stock compilation, final freshness,
+and commit or rollback execute as one queue item. The exact previous route set
+or first-generation empty state remains recoverable until acceptance. Compiler
+diagnostics, process failure, cancellation, supersession, ownership drift, and
+close all await child termination and restore the prior accepted generation. A
+rollback failure remains explicitly owned, is retried before later work or
+close, and prevents successful close if deterministic recovery still cannot
+restore the accepted state.
 
-The retained coordinator must serialize analysis, B7C route-artifact
-application, compiler refresh, and validation around one current operation. It
-must preserve the last accepted generation on diagnostic, application, or
-compiler failure and suppress obsolete results. The framework project
-authority owns route, configuration, containment, and generated-output facts;
-the stock compiler owns the ordinary application module graph. Watch adaptation
-must coalesce changes, avoid owned-output loops, retain a dirty signal for work
-arriving during an operation, and recover by deterministic rescan rather than
-interpreting notification names as truth.
+The compiler is invoked asynchronously from the installed toolchain with the
+project configuration and no emit or incremental output. A first stock-compiler
+pass discovers and content-identifies the exact resolved inputs; a second pass
+performs validation and must report the same input and ownership identities.
+Resolved local inputs must remain under the canonical project root;
+only the selected compiler package and exact installed package roots with
+matching ordinary manifests may resolve outside it. Aggregate dependency-store
+or ancestor directories never grant ownership, and every non-empty successful
+input-list record is interpreted exactly rather than whitespace-normalized.
+Project source symlinks and validators bound to another root refuse. A globally
+bounded project-owned inventory is streamed with bounded memory, actual-byte
+accounting, file-stability checks, and cancellation checks; it must remain
+unchanged across compilation and is rechecked immediately before commit. Every
+resolved compiler input is also content-identified and rechecked immediately
+before commit, including inputs below installed package roots. Device, inode,
+size, modification, and change identities prevent a changed input from being
+accepted merely because its bytes were restored before the child exited.
+Package
+discovery has global entry and manifest-byte limits, observes cancellation, and
+binds each logical installed-package entry, canonical root, package identity,
+manifest content, and manifest change identity. Compiler text is
+not exposed, and acceptance binds the coordinator generation, analyzer
+publication, provisional artifact identity, compiler version, validation
+inventory identity, and resolved-input identity. The
+framework project authority owns route, configuration, containment, and
+generated-output facts; the stock compiler owns the ordinary application module
+graph. No second application graph, `dist`, build-info, watcher, command, server,
+or public analyzer surface is introduced.
+
+Provisional, prior, empty, and non-authoritative garbage route directories have
+distinct transaction names. Authoritative replacement, acceptance, and restore
+use atomic rename before recursive cleanup. A partial cleanup can therefore
+leave only non-authoritative garbage; the retained owner and restart recovery
+retry it without treating it as a rollback generation. Unresolved rollback or
+cleanup remains owned and prevents successful analyzer close. The retained
+recovery owner is installed before restart recovery, staging, or any later
+transaction mutation, so even an early persistent failure blocks successful
+close and remains recoverable by a later process.
+
+B7D4 next adds a filesystem adapter that treats notifications only as rescan
+hints. It must coalesce changes, avoid owned-output loops, retain a dirty signal
+for work arriving during an operation, and recover by deterministic rescan
+rather than interpreting notification names as truth. None of these private
+stages implies a public production build or development server.
 
 DG-V1-06 must be resolved before either public command is implemented. Its ADR
 must define the production entry and compiler inputs, transactional output and

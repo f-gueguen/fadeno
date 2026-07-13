@@ -404,8 +404,9 @@ revalidates freshness, and cleans the backup. Exact reapplication is a zero-writ
 operation that preserves every mtime; partial per-file preservation is not
 claimed. Portable replacement has a bounded interval between the backup and
 replacement renames in which the `routes` directory is absent, but it never
-exposes a mixed file generation. B7D must serialize retained consumers across
-that interval before build/watch integration can claim continuous usable state.
+exposes a mixed file generation. B7D3 serializes analyzer application and
+compiler validation across that interval; later build and development consumers
+must use the same retained boundary before claiming continuous usable state.
 
 An actual operation failure restores the validated previous generation when
 possible. If restore itself fails, the validated previous directory remains for
@@ -703,16 +704,78 @@ coalesce contained hints, exclude owned output, and rescan through the same
 project authority used by check and tests. Rename, duplicate, missing-name, and
 overflow notifications cannot directly create or delete framework records.
 
-B7D3 must serialize the current analyzer publication, the B7C route-artifact
-application boundary, stock-compiler refresh, and validation. Framework
-analysis remains authoritative for configuration, routes, generated ownership,
-and framework diagnostics. The stock compiler remains authoritative for
-ordinary direct and transitive module refresh; the coordinator must not build a
-second application dependency graph. Compiler and later server consumers must
-be excluded from B7C's bounded route-directory replacement interval, and only
-the newest complete analyzer generation may be accepted.
+B7D3 adds one private `refresh` operation to the retained analysis queue. One
+coordinator item performs project analysis, begins a provisional B7C
+route-directory transaction, runs stock compiler validation, rechecks the live
+operation and exact analysis authority, and then either commits the generated
+set or restores the prior accepted set before the item settles. The transaction
+retains a validated previous generation, or an explicit first-generation empty
+marker, until final acceptance. Its exact provisional bytes and rollback set or
+empty marker are revalidated immediately before cleanup. A later admission, explicit cancellation,
+compiler diagnostic, process failure, application failure, or close therefore
+cannot accept the provisional route set. A rollback operation failure is retried
+and retained as project-owned unresolved state; later work must recover it, and
+close refuses instead of silently completing while an unaccepted generation is
+visible.
 
-These stages are private evidence. The B7D1/B7D2 coordinator implementation is
+Compiler validation uses the installed stock compiler asynchronously with the
+project `tsconfig.json`, `--noEmit`, pretty output disabled, and incremental
+output disabled. A first stock-compiler pass discovers and content-identifies
+the exact resolved inputs. A second pass performs ordinary validation and must
+retain the same input bytes and ownership identities. The compiler's own
+resolved input listing is checked without
+recreating its module graph: every local input must resolve inside the project,
+while only the selected compiler package and exact installed package roots with
+matching ordinary manifests are accepted outside it. An aggregate dependency
+directory, store directory, or other ancestor never grants ownership. Every
+non-empty successful input-list record is consumed exactly; whitespace is not
+trimmed into a different path. Project-owned source symlinks, external includes
+or imports, and a validator bound to another root are refused. The project root
+and configuration must remain ordinary, symlink-free owned paths. A globally
+bounded project-owned inventory, excluding dependency and repository metadata
+directories, is traversed asynchronously with cancellation checks, actual-byte
+accounting, file-stability checks, and bounded file streaming. Its digest must
+be identical before and after the compiler child and is checked again
+immediately before commit. Every exact resolved compiler input is independently
+content-identified and rechecked before commit, including installed dependency
+inputs, while the provisional transaction remains rollback-capable. Device,
+inode, size, modification, and change identities are part of both input passes
+and the final check, so a change-and-restore sequence cannot masquerade as one
+stable validation generation. Installed
+package traversal has one global raw-entry budget, bounded aggregate and
+per-manifest bytes, cancellation checks, and identities for logical entries,
+canonical roots, package names, and manifest content. Captured
+output is bounded and never transported as diagnostic prose; only compiler
+diagnostic numbers and an internal run identity survive a failure. Cancellation
+requests termination, escalates if necessary, and waits for the actual child
+close before rollback, later queue work, or analyzer close can complete.
+
+Route transaction recovery never recursively deletes an authoritative current
+or rollback generation. Atomic rename first restores or accepts one exact set;
+only then may a displaced set be treated as non-authoritative garbage. Partial
+garbage deletion is safe to retry, is distinguished from rollback identity on
+restart, and remains retained lifecycle work until cleanup succeeds. The same
+rollback backup protects an unchanged generation if its current bytes drift
+between provisional application and final acceptance. Recovery ownership is
+retained before restart recovery or staging begins; persistent failures in
+either early phase therefore refuse close until the same owner or a later
+process removes the exact transaction state. A contained ordinary pending
+directory is always non-authoritative and may be displaced and removed even
+when staging stopped before it acquired the complete artifact shape; symlink or
+non-directory pending state still refuses.
+
+An accepted compiler result binds its coordinator request and generation,
+analyzer publication operation, provisional artifact source hash, compiler
+version, validation inventory identity, and resolved-input identity. Framework
+analysis remains authoritative for configuration, routes, generated ownership,
+and framework diagnostics. The
+stock compiler remains authoritative for ordinary direct and transitive module
+refresh; Fadeno does not build a second application dependency graph. B7D4 is
+still responsible for translating filesystem notifications into contained
+admissions, and later server consumers must use the same accepted coordinator
+generation.
+
+These stages are private evidence. The B7D1 through B7D3 implementation is
 included in packed internals and explicitly unavailable through package
 exports. It adds no stable analyzer schema, editor product, production output,
 watcher command, or server. Public
@@ -744,6 +807,26 @@ their exact command and lifecycle contracts in an accepted ADR.
   prove exact current-document retention, and preserve the prior snapshot and
   epoch across duplicate alias, symlink, stale revision, text mismatch, and
   desired/forgotten open-owner refusal.
+- Retained compiler fixtures use the stock compiler over direct and ordinary
+  three-edge transitive modules, cover deletion and rename failure and recovery, preserve
+  exact prior route bytes across diagnostic/process/cancel/supersede/close and
+  first-generation refusal, reject configuration ownership and post-validation
+  ordinary-source drift, recover a transient rollback failure before settlement,
+  refuse external include/import, source-symlink and mismatched-root ownership,
+  reject exact-input whitespace ambiguity and broad dependency-root aliases,
+  recheck changed dependency content, package mapping, and manifests during
+  validation and before commit, reject change-and-restore input mutation, bound
+  globally discovered project and installed
+  package entries plus manifest bytes,
+  isolate observer re-entry/failure, detect output mutation and bounded-output
+  overflow, cancel inventory before child spawn, prove forced termination and
+  failed spawn, await every child close, and prove stock compilation leaves no
+  compiler output or transaction debris. Transaction fixtures corrupt an
+  unchanged provisional generation, partially delete displaced garbage, retain
+  failures that occur before application returns, persistently fail staging and
+  restart recovery before a transaction handle exists, refuse close while
+  recovery, rollback, or cleanup remains unresolved, and prove restart recovery
+  preserves one exact accepted generation.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.

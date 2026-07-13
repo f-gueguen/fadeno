@@ -22,7 +22,10 @@ import {
   type PrivateProjectAnalysis,
 } from "../packages/framework/src/internal/analyzer-project.ts";
 import { deserializeAnalyzerPublicationSnapshot, serializeAnalyzerPublicationSnapshot } from "../packages/framework/src/internal/analyzer-publication.ts";
-import type { RouteArtifactMutationFileSystem } from "../packages/framework/src/internal/routing/generator.ts";
+import {
+  beginRouteArtifactApplication,
+  type RouteArtifactMutationFileSystem,
+} from "../packages/framework/src/internal/routing/generator.ts";
 
 type OutputSnapshot = Readonly<Record<string, Readonly<{ bytes: Buffer; mtimeNs: bigint }>>>;
 
@@ -59,6 +62,24 @@ function mutationFileSystem(fail: (operation: "mkdir" | "write" | "rename" | "re
     writeFile: (path, bytes) => { reject("write", path); writeFileSync(path, bytes); },
     rename: (from, to) => { reject("rename", `${from}->${to}`); renameSync(from, to); },
     remove: (path) => { reject("remove", path); rmSync(path, { recursive: true, force: true }); },
+  });
+}
+
+function partialGarbageRemovalFileSystem(): RouteArtifactMutationFileSystem {
+  let failed = false;
+  return Object.freeze({
+    mkdir: (path) => mkdirSync(path),
+    writeFile: (path, bytes) => writeFileSync(path, bytes),
+    rename: (from, to) => renameSync(from, to),
+    remove: (path) => {
+      if (!failed && path.includes("routes.garbage-")) {
+        failed = true;
+        const child = readdirSync(path)[0];
+        if (child) rmSync(join(path, child), { recursive: true, force: true });
+        throw new TypeError("FADENO_TEST_PARTIAL_REMOVE_FAILURE");
+      }
+      rmSync(path, { recursive: true, force: true });
+    },
   });
 }
 
@@ -153,18 +174,26 @@ try {
   assertSnapshot(output, beforeFault, true);
 
   assert.throws(() => fault.apply({ fileSystem: mutationFileSystem((operation, count) => operation === "rename" && (count === 2 || count === 3)) }), /FADENO_TEST_RENAME_FAILURE/u);
-  assert.equal(existsSync(output), false);
-  assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.previous-")).length, 1);
+  assertSnapshot(output, beforeFault, true);
+  assert.equal(readdirSync(join(root, ".fadeno")).some((name) => name.startsWith("routes.previous-") || name.startsWith("routes.pending-")), false);
   assert.equal(fault.apply().changed, true);
   assert.equal(manifestRoutes(output).includes("/fault"), true);
 
   writeRoute(root, "cleanup/page.tsx");
   const cleanup = await analyzer.analyze().result;
-  assert.throws(() => cleanup.apply({ fileSystem: mutationFileSystem((operation, _count, path) => operation === "remove" && path.includes("routes.previous-")) }), /FADENO_TEST_REMOVE_FAILURE/u);
+  assert.equal(cleanup.apply({ fileSystem: mutationFileSystem((operation, _count, path) => operation === "remove" && path.includes("routes.garbage-")) }).changed, true);
   assert.equal(existsSync(output), true);
-  assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.previous-")).length, 1);
-  assert.equal(cleanup.apply().changed, true);
+  assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.garbage-")).length, 1);
+  assert.equal(cleanup.apply().changed, false);
   assert.equal(manifestRoutes(output).includes("/cleanup"), true);
+
+  writeRoute(root, "partial-cleanup/page.tsx");
+  const partialCleanup = await analyzer.analyze().result;
+  assert.equal(partialCleanup.apply({ fileSystem: partialGarbageRemovalFileSystem() }).changed, true);
+  assert.equal(manifestRoutes(output).includes("/partial-cleanup"), true);
+  assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.garbage-")).length, 1);
+  assert.equal(partialCleanup.apply().changed, false);
+  assert.equal(readdirSync(join(root, ".fadeno")).some((name) => name.startsWith("routes.garbage-")), false);
 
   writeRoute(root, "post-validation/page.tsx");
   const postValidation = await analyzer.analyze().result;
@@ -220,9 +249,9 @@ try {
   const partialPending = join(parent, "routes.pending-partial");
   mkdirSync(partialPending);
   writeFileSync(join(partialPending, "partial"), "unconfirmed\n");
-  assert.throws(() => recoveryEvidence.apply(), /FADENO_GENERATION_OUTPUT_RECOVERY_PENDING/u);
+  assert.equal(recoveryEvidence.apply().changed, false);
+  assert.equal(existsSync(partialPending), false);
   assertSnapshot(output, beforePendingCleanup, true);
-  rmSync(partialPending, { recursive: true });
 
   const external = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-application-external-"));
   try {
@@ -251,6 +280,44 @@ try {
   assertSnapshot(output, beforePendingCleanup, true);
   rmSync(join(parent, "routes.previous-first"), { recursive: true });
   rmSync(join(parent, "routes.previous-second"), { recursive: true });
+
+  const beforeTransaction = outputSnapshot(output);
+  writeRoute(root, "transaction/page.tsx");
+  const transactionAnalysis = await analyzer.analyze().result;
+  const transactionPlan = routeArtifactPlanFromPublication(transactionAnalysis.publication, transactionAnalysis.routePlan!);
+  const transaction = beginRouteArtifactApplication(root, transactionPlan, { assertFresh: () => undefined });
+  assert.equal(transaction.state, "pending");
+  assert.equal(manifestRoutes(output).includes("/transaction"), true);
+  assert.equal(readdirSync(parent).filter((name) => name.startsWith("routes.previous-")).length, 1);
+  transaction.rollback();
+  assert.equal(transaction.state, "rolled-back");
+  assertSnapshot(output, beforeTransaction, true);
+  assert.equal(readdirSync(parent).some((name) => name.startsWith("routes.previous-") || name.startsWith("routes.empty-")), false);
+
+  const committedTransaction = beginRouteArtifactApplication(root, transactionPlan, { assertFresh: () => undefined });
+  assert.equal(committedTransaction.commit().changed, true);
+  assert.equal(committedTransaction.state, "committed");
+  assert.equal(manifestRoutes(output).includes("/transaction"), true);
+  assert.equal(readdirSync(parent).some((name) => name.startsWith("routes.previous-") || name.startsWith("routes.empty-")), false);
+
+  const firstRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-first-transaction-"));
+  try {
+    cpSync(new URL("../examples/v1-app/src/", import.meta.url), join(firstRoot, "src"), { recursive: true });
+    writeFileSync(join(firstRoot, "fadeno.config.ts"), "export default { routes: { root: 'src/routes' } };\n");
+    const firstAnalyzer = new PrivateProjectAnalyzer(firstRoot);
+    const firstAnalysis = await firstAnalyzer.analyze().result;
+    const firstPlan = routeArtifactPlanFromPublication(firstAnalysis.publication, firstAnalysis.routePlan!);
+    const firstTransaction = beginRouteArtifactApplication(firstRoot, firstPlan, { assertFresh: () => undefined });
+    const firstParent = join(firstRoot, ".fadeno");
+    assert.equal(firstTransaction.state, "pending");
+    assert.equal(existsSync(join(firstParent, "routes")), true);
+    assert.equal(readdirSync(firstParent).filter((name) => name.startsWith("routes.empty-")).length, 1);
+    assert.equal(firstAnalysis.apply().changed, true, "restart adopted an unaccepted first generation");
+    assert.equal(readdirSync(firstParent).some((name) => name.startsWith("routes.previous-") || name.startsWith("routes.empty-")), false);
+    await firstAnalyzer.close();
+  } finally {
+    rmSync(firstRoot, { recursive: true, force: true });
+  }
 
   const older = await analyzer.analyze().result;
   const newer = await analyzer.analyze().result;

@@ -37,6 +37,16 @@ export type RouteGenerationResult = Readonly<{
   sourceSha256: string;
 }>;
 
+export type RouteArtifactApplicationTransaction = Readonly<{
+  readonly result: RouteGenerationResult;
+  readonly state: "pending" | "committed" | "rolled-back";
+  readonly cleanupPending: boolean;
+  assertPending(): void;
+  commit(): RouteGenerationResult;
+  rollback(): void;
+  cleanup(): void;
+}>;
+
 export type RouteArtifactMutationFileSystem = Readonly<{
   mkdir(path: string): void;
   writeFile(path: string, bytes: string): void;
@@ -55,6 +65,8 @@ export type RouteArtifactApplicationOptions = Readonly<{
   fileSystem?: RouteArtifactMutationFileSystem;
   afterWrite?(name: RouteArtifactName): void;
   observe?(phase: RouteArtifactApplicationPhase): void;
+  retainRecovery?(recover: () => void): void;
+  retainTransaction?(transaction: RouteArtifactApplicationTransaction): void;
 }>;
 
 const nodeMutationFileSystem: RouteArtifactMutationFileSystem = Object.freeze({
@@ -97,6 +109,34 @@ function parseManifest(bytes: string): RouteManifest {
     fail("OUTPUT_MANIFEST");
   }
   return value as RouteManifest;
+}
+
+function assertRouteArtifactDirectoryShape(output: string): void {
+  if (!existsSync(output) || lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) {
+    fail("TRANSACTION_CHANGED");
+  }
+  const names = readdirSync(output).sort(compareText);
+  if (names.length !== ROUTE_ARTIFACT_NAMES.length || names.some((name, index) => name !== [...ROUTE_ARTIFACT_NAMES].sort(compareText)[index])) {
+    fail("TRANSACTION_CHANGED");
+  }
+  for (const name of ROUTE_ARTIFACT_NAMES) {
+    const path = join(output, name);
+    if (lstatSync(path).isSymbolicLink() || !lstatSync(path).isFile()) fail("TRANSACTION_CHANGED");
+  }
+}
+
+function assertExactOwnedOutput(output: string, expected: Readonly<Record<string, string>>): void {
+  assertRouteArtifactDirectoryShape(output);
+  assertOwnedOutput(output);
+  for (const name of ROUTE_ARTIFACT_NAMES) {
+    if (readFileSync(join(output, name), "utf8") !== expected[name]) fail("TRANSACTION_CHANGED");
+  }
+}
+
+function assertEmptyMarker(path: string): void {
+  if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !lstatSync(path).isDirectory() || readdirSync(path).length > 0) {
+    fail("TRANSACTION_CHANGED");
+  }
 }
 
 function renderRuntime(manifest: RouteManifest): string {
@@ -359,23 +399,57 @@ function recoverTransactionState(
   const entries = readdirSync(parent);
   const pending = entries.filter((name) => name.startsWith("routes.pending-"));
   const previous = entries.filter((name) => name.startsWith("routes.previous-"));
-  if (pending.length > 1 || previous.length > 1) fail("OUTPUT_RECOVERY_AMBIGUOUS");
+  const empty = entries.filter((name) => name.startsWith("routes.empty-"));
+  const garbage = entries.filter((name) => name.startsWith("routes.garbage-"));
+  if (pending.length > 1 || previous.length > 1 || empty.length > 1 || garbage.length > 1 || previous.length + empty.length > 1) {
+    fail("OUTPUT_RECOVERY_AMBIGUOUS");
+  }
   const pendingPath = pending[0] ? join(parent, pending[0]) : null;
   const previousPath = previous[0] ? join(parent, previous[0]) : null;
+  const emptyPath = empty[0] ? join(parent, empty[0]) : null;
+  const garbagePath = garbage[0] ? join(parent, garbage[0]) : null;
+  if (garbagePath) {
+    if (lstatSync(garbagePath).isSymbolicLink() || !lstatSync(garbagePath).isDirectory()) fail("OUTPUT_RECOVERY_GARBAGE");
+    fileSystem.remove(garbagePath);
+    if (existsSync(garbagePath)) fail("OUTPUT_RECOVERY_GARBAGE");
+  }
   if (pendingPath) {
     if (lstatSync(pendingPath).isSymbolicLink() || !lstatSync(pendingPath).isDirectory()) fail("OUTPUT_RECOVERY_PENDING");
-    try { assertOwnedOutput(pendingPath); } catch { fail("OUTPUT_RECOVERY_PENDING"); }
   }
   if (previousPath) assertOwnedOutput(previousPath);
-  if (previousPath && existsSync(output)) assertOwnedOutput(output);
-
-  if (pendingPath) fileSystem.remove(pendingPath);
-  if (!previousPath) return;
-  if (existsSync(output)) {
-    fileSystem.remove(output);
+  if (emptyPath && (lstatSync(emptyPath).isSymbolicLink() || !lstatSync(emptyPath).isDirectory() || readdirSync(emptyPath).length > 0)) {
+    fail("OUTPUT_RECOVERY_EMPTY");
   }
-  fileSystem.rename(previousPath, output);
-  assertOwnedOutput(output);
+  if (pendingPath) {
+    const displacedPending = join(parent, `routes.garbage-${randomUUID()}`);
+    fileSystem.rename(pendingPath, displacedPending);
+    fileSystem.remove(displacedPending);
+  }
+  if (previousPath) {
+    if (existsSync(output)) {
+      const displacedOutput = join(parent, `routes.garbage-${randomUUID()}`);
+      if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) fail("OUTPUT_RECOVERY_CURRENT");
+      fileSystem.rename(output, displacedOutput);
+      fileSystem.rename(previousPath, output);
+      assertOwnedOutput(output);
+      fileSystem.remove(displacedOutput);
+      return;
+    }
+    fileSystem.rename(previousPath, output);
+    assertOwnedOutput(output);
+    return;
+  }
+  if (emptyPath) {
+    if (existsSync(output)) {
+      const displacedOutput = join(parent, `routes.garbage-${randomUUID()}`);
+      if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) fail("OUTPUT_RECOVERY_CURRENT");
+      fileSystem.rename(output, displacedOutput);
+      fileSystem.remove(emptyPath);
+      fileSystem.remove(displacedOutput);
+      return;
+    }
+    fileSystem.remove(emptyPath);
+  }
 }
 
 export function createRouteArtifactPlan(projectRoot: string, config: FadenoConfig): RouteArtifactPlan {
@@ -411,11 +485,11 @@ export function verifyRouteArtifactPlanFreshness(
   ) fail("SOURCE_CHANGED");
 }
 
-export function applyRouteArtifactPlan(
+export function beginRouteArtifactApplication(
   projectRoot: string,
   plan: RouteArtifactPlan,
   options: RouteArtifactApplicationOptions,
-): RouteGenerationResult {
+): RouteArtifactApplicationTransaction {
   const manifest = assertOwnedFiles(plan.files);
   if (manifest.generation.sourceSha256 !== plan.sourceSha256) fail("OUTPUT_IDENTITY");
   const expected: Readonly<Record<string, string>> = plan.files;
@@ -423,19 +497,86 @@ export function applyRouteArtifactPlan(
 
   const parent = join(resolve(projectRoot), ".fadeno");
   const output = join(parent, "routes");
+  const recover = (): void => {
+    if (!existsSync(parent)) return;
+    assertOutputParent(projectRoot, parent);
+    recoverTransactionState(parent, output, fileSystem);
+  };
+  options.retainRecovery?.(recover);
   options.assertFresh();
   ensureOutputParent(projectRoot, parent, fileSystem);
-  recoverTransactionState(parent, output, fileSystem);
+  recover();
   options.assertFresh();
   assertOwnedOutput(output);
-  if (existsSync(output) && Object.entries(expected).every(([name, bytes]) => readFileSync(join(output, name), "utf8") === bytes)) {
-    options.assertFresh();
-    return { changed: false, output, sourceSha256: plan.sourceSha256 };
-  }
-
-  const pending = join(parent, `routes.pending-${randomUUID()}`);
-  const previous = join(parent, `routes.previous-${randomUUID()}`);
+  const transactionId = randomUUID();
+  const pending = join(parent, `routes.pending-${transactionId}`);
+  const previous = join(parent, `routes.previous-${transactionId}`);
+  const empty = join(parent, `routes.empty-${transactionId}`);
+  const garbage = join(parent, `routes.garbage-${transactionId}`);
+  const unchanged = existsSync(output) && Object.entries(expected).every(
+    ([name, bytes]) => readFileSync(join(output, name), "utf8") === bytes,
+  );
   fileSystem.mkdir(pending);
+  let rollbackKind: "previous" | "empty" | null = null;
+  let previousFiles: Readonly<Record<string, string>> | null = null;
+  let state: RouteArtifactApplicationTransaction["state"] = "pending";
+  let cleanupPending = false;
+  const result = Object.freeze({ changed: !unchanged, output, sourceSha256: plan.sourceSha256 });
+  const assertPending = (): void => {
+    if (state !== "pending") fail("TRANSACTION_STATE");
+    assertExactOwnedOutput(output, expected);
+    if (rollbackKind === "previous" && previousFiles) assertExactOwnedOutput(previous, previousFiles);
+    else if (rollbackKind === "empty") assertEmptyMarker(empty);
+    else fail("TRANSACTION_STATE");
+  };
+  const cleanup = (): void => {
+    if (!cleanupPending) return;
+    if (!existsSync(garbage)) {
+      cleanupPending = false;
+      return;
+    }
+    if (lstatSync(garbage).isSymbolicLink() || !lstatSync(garbage).isDirectory()) fail("OUTPUT_RECOVERY_GARBAGE");
+    fileSystem.remove(garbage);
+    if (existsSync(garbage)) fail("OUTPUT_RECOVERY_GARBAGE");
+    cleanupPending = false;
+  };
+  const rollback = (): void => {
+    if (state === "committed") fail("TRANSACTION_STATE");
+    if (state === "rolled-back") {
+      cleanup();
+      return;
+    }
+    recoverTransactionState(parent, output, fileSystem);
+    if (rollbackKind === "previous" && previousFiles) assertExactOwnedOutput(output, previousFiles);
+    else if (rollbackKind === "empty" && existsSync(output)) fail("TRANSACTION_STATE");
+    state = "rolled-back";
+  };
+  const transaction: RouteArtifactApplicationTransaction = Object.freeze({
+    result,
+    get state() { return state; },
+    get cleanupPending() { return cleanupPending; },
+    assertPending,
+    commit: () => {
+      if (state === "rolled-back") fail("TRANSACTION_STATE");
+      if (state === "committed") {
+        cleanup();
+        return result;
+      }
+      options.assertFresh();
+      assertPending();
+      options.observe?.("before-cleanup");
+      options.assertFresh();
+      assertPending();
+      const marker = rollbackKind === "previous" ? previous : empty;
+      fileSystem.rename(marker, garbage);
+      state = "committed";
+      cleanupPending = true;
+      try { cleanup(); } catch { /* accepted output is durable; retained owners or restart retry garbage cleanup */ }
+      return result;
+    },
+    rollback,
+    cleanup,
+  });
   try {
     for (const name of ROUTE_ARTIFACT_NAMES) {
       assertOutputParent(projectRoot, parent);
@@ -451,35 +592,54 @@ export function applyRouteArtifactPlan(
     if (existsSync(output)) assertOwnedOutput(output);
 
     const hadOutput = existsSync(output);
-    if (hadOutput) fileSystem.rename(output, previous);
-    try {
-      options.observe?.("after-backup");
-      assertOutputParent(projectRoot, parent);
-      assertOwnedOutput(pending);
-      if (hadOutput) assertOwnedOutput(previous);
-      if (existsSync(output)) fail("OUTPUT_REPLACEMENT_STATE");
-      fileSystem.rename(pending, output);
-    } catch (error) {
-      if (hadOutput && existsSync(previous) && !existsSync(output)) {
-        try { fileSystem.rename(previous, output); } catch { /* next-run recovery retains the validated previous set */ }
-      }
-      throw error;
+    previousFiles = hadOutput
+      ? Object.freeze(Object.fromEntries(ROUTE_ARTIFACT_NAMES.map((name) => [name, readFileSync(join(output, name), "utf8")])))
+      : null;
+    rollbackKind = hadOutput ? "previous" : "empty";
+    options.retainTransaction?.(transaction);
+    if (unchanged) {
+      fileSystem.rename(pending, previous);
+    } else if (hadOutput) {
+      fileSystem.rename(output, previous);
+    } else {
+      fileSystem.mkdir(empty);
     }
     try {
+      options.observe?.("after-backup");
+      if (!unchanged) {
+        assertOutputParent(projectRoot, parent);
+        assertOwnedOutput(pending);
+        if (hadOutput) assertOwnedOutput(previous);
+        if (existsSync(output)) fail("OUTPUT_REPLACEMENT_STATE");
+        fileSystem.rename(pending, output);
+      }
       assertOwnedOutput(output);
       options.observe?.("after-replace");
       options.assertFresh();
     } catch (error) {
-      try {
-        if (existsSync(output)) fileSystem.remove(output);
-        if (hadOutput && existsSync(previous) && !existsSync(output)) fileSystem.rename(previous, output);
-      } catch { /* the validated previous set remains available to next-run recovery */ }
+      try { transaction.rollback(); } catch { /* retained owner or next-run recovery keeps exact rollback identity */ }
       throw error;
     }
-    options.observe?.("before-cleanup");
-    if (hadOutput) fileSystem.remove(previous);
-    return { changed: true, output, sourceSha256: plan.sourceSha256 };
-  } finally {
-    if (existsSync(pending)) fileSystem.remove(pending);
+    return transaction;
+  } catch (error) {
+    if (rollbackKind !== null && state === "pending") {
+      try { transaction.rollback(); } catch { /* retained owner or next-run recovery keeps exact rollback identity */ }
+    } else if (existsSync(pending)) {
+      try {
+        fileSystem.rename(pending, garbage);
+        cleanupPending = true;
+        cleanup();
+      } catch { /* next-run recovery removes non-authoritative garbage */ }
+    }
+    throw error;
   }
+}
+
+export function applyRouteArtifactPlan(
+  projectRoot: string,
+  plan: RouteArtifactPlan,
+  options: RouteArtifactApplicationOptions,
+): RouteGenerationResult {
+  const transaction = beginRouteArtifactApplication(projectRoot, plan, options);
+  return transaction.commit();
 }

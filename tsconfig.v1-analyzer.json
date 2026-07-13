@@ -23,6 +23,7 @@
     "scripts/check-v1-analyzer-project.ts",
     "scripts/check-v1-analyzer-coordinator.ts",
     "scripts/check-v1-analyzer-application.ts",
+    "scripts/check-v1-analyzer-compiler.ts",
     "scripts/check-v1-project-check-command.ts",
     "scripts/check-v1-analyzer-workflow.ts"
   ]

@@ -64,7 +64,7 @@ function generateRoutes(
       renameSync(from, to);
     },
     remove: (path) => {
-      if (operationFailure === "cleanup" && basename(path).startsWith("routes.previous-")) injected("CLEANUP");
+      if (operationFailure === "cleanup" && basename(path).startsWith("routes.garbage-")) injected("CLEANUP");
       rmSync(path, { recursive: true, force: true });
     },
   });
@@ -342,11 +342,11 @@ try {
   const changed = generateRoutes(main, config);
   if (!changed.changed || !readFileSync(join(changed.output, "index.d.ts"), "utf8").includes('Id extends "/new"')) throw new Error("FADENO_ROUTING_STALE_ADD");
   writeRoute(main, "cleanup/page.tsx");
-  expectError(() => generateRoutes(main, config, undefined, undefined, "cleanup"), "FADENO_GENERATION_INJECTED_CLEANUP");
-  if (!readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.previous-"))) {
+  if (!generateRoutes(main, config, undefined, undefined, "cleanup").changed) throw new Error("FADENO_ROUTING_CLEANUP_ACCEPTANCE");
+  if (!readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.garbage-"))) {
     throw new Error("FADENO_ROUTING_CLEANUP_PUBLICATION");
   }
-  if (!generateRoutes(main, config).changed || readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.previous-"))) {
+  if (generateRoutes(main, config).changed || readdirSync(join(main, ".fadeno")).some((name) => name.startsWith("routes.garbage-"))) {
     throw new Error("FADENO_ROUTING_CLEANUP_RECOVERY");
   }
   rmSync(join(main, "src/routes/cleanup"), { recursive: true });

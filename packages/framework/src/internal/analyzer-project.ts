@@ -7,6 +7,10 @@ import {
   PrivateAnalyzerOperationCoordinator,
   type PrivateAnalyzerOperationHandle,
 } from "./analyzer-coordinator.ts";
+import {
+  PrivateCompilerValidator,
+  type PrivateCompilerValidation,
+} from "./analyzer-compiler.ts";
 import { normalizeAnalyzerFacetValue } from "./analyzer-facets.ts";
 import {
   ANALYZER_DIAGNOSTIC_NAMESPACE,
@@ -33,16 +37,25 @@ import {
 } from "./routing/artifact-contract.ts";
 import { RouteContractError, type RouteRoleCollisionFact } from "./routing/discovery.ts";
 import {
-  applyRouteArtifactPlan,
+  beginRouteArtifactApplication,
   createRouteArtifactPlan,
   verifyRouteArtifactPlanFreshness,
+  type RouteArtifactApplicationTransaction,
   type RouteArtifactApplicationOptions,
   type RouteArtifactName,
   type RouteArtifactPlan,
   type RouteGenerationResult,
 } from "./routing/generator.ts";
 
-export type PrivateProjectApplicationOptions = Omit<RouteArtifactApplicationOptions, "assertFresh">;
+export type PrivateProjectApplicationOptions = Omit<
+  RouteArtifactApplicationOptions,
+  "assertFresh" | "retainRecovery" | "retainTransaction"
+>;
+
+type PrivateProjectInternalApplicationOptions = PrivateProjectApplicationOptions & Readonly<{
+  retainRecovery?(recover: () => void): void;
+  retainTransaction?(transaction: RouteArtifactApplicationTransaction): void;
+}>;
 
 export interface PrivateProjectAnalysis {
   readonly publication: AnalyzerPublicationSnapshot;
@@ -56,7 +69,31 @@ export type PrivateProjectAnalysisHandle = PrivateAnalyzerOperationHandle<Privat
 
 export interface PrivateProjectAnalyzerOptions {
   readonly session?: AnalyzerSession;
+  readonly compiler?: PrivateCompilerValidator;
 }
+
+export interface PrivateProjectRefreshOptions {
+  readonly application?: PrivateProjectApplicationOptions;
+  readonly beforeCommit?: () => void;
+}
+
+export type PrivateProjectRefresh = Readonly<{
+  requestId: string;
+  generation: number;
+  publication: AnalyzerPublicationSnapshot;
+  application: RouteGenerationResult;
+  compiler: PrivateCompilerValidation;
+}>;
+
+export type PrivateProjectRefreshHandle = PrivateAnalyzerOperationHandle<PrivateProjectRefresh>;
+
+const beginApplication = Symbol("beginApplication");
+const assertAnalysisFresh = Symbol("assertAnalysisFresh");
+
+type PrivateProjectInternalAnalysis = PrivateProjectAnalysis & Readonly<{
+  [beginApplication](options?: PrivateProjectInternalApplicationOptions): RouteArtifactApplicationTransaction;
+  [assertAnalysisFresh](): void;
+}>;
 
 interface PrivateProjectAnalysisToken {
   readonly requestId: string;
@@ -142,31 +179,146 @@ export class PrivateProjectAnalyzer {
   readonly #root: string;
   readonly #session: AnalyzerSession;
   readonly #coordinator = new PrivateAnalyzerOperationCoordinator();
+  #compiler: PrivateCompilerValidator | null;
+  #closePromise: Promise<void> | null = null;
+  #pendingRollback: RouteArtifactApplicationTransaction | null = null;
   readonly #managedDocuments = new Map<string, number>();
   #configurationFingerprint: string | null = null;
   #configurationSourceSha256: string | null = null;
   #currentAnalysisToken: PrivateProjectAnalysisToken | null = null;
   #latestAnalysisRequestId: string | null = null;
+  #pendingApplicationRecovery: (() => void) | null = null;
+  #pendingCleanup: RouteArtifactApplicationTransaction | null = null;
 
   constructor(projectRoot: string, options: PrivateProjectAnalyzerOptions = {}) {
     this.#root = resolve(projectRoot);
     this.#session = options.session ?? new AnalyzerSession(this.#root);
+    if (options.compiler && !options.compiler.ownsProject(this.#root)) {
+      throw new TypeError("FADENO_ANALYZER_COMPILER_CONFIG");
+    }
+    this.#compiler = options.compiler ?? null;
   }
 
   analyze(): PrivateProjectAnalysisHandle {
-    const handle = this.#coordinator.start("analysis", (requestId, { signal }) => this.#analyze(requestId, signal));
+    const handle = this.#coordinator.start("analysis", (requestId, { signal }) => {
+      this.#recoverPendingApplicationRecovery();
+      this.#recoverPendingRollback();
+      this.#recoverPendingCleanup();
+      return this.#analyze(requestId, signal);
+    });
+    this.#currentAnalysisToken = null;
+    this.#latestAnalysisRequestId = handle.requestId;
+    return handle;
+  }
+
+  refresh(options: PrivateProjectRefreshOptions = {}): PrivateProjectRefreshHandle {
+    const handle = this.#coordinator.start("analysis", async (requestId, { signal, generation }) => {
+      this.#recoverPendingApplicationRecovery();
+      this.#recoverPendingRollback();
+      this.#recoverPendingCleanup();
+      const analysis = await this.#analyze(requestId, signal);
+      signal.throwIfAborted();
+      let transaction: RouteArtifactApplicationTransaction | null = null;
+      try {
+        transaction = analysis[beginApplication]({
+          ...options.application,
+          retainRecovery: (recover) => { this.#pendingApplicationRecovery = recover; },
+          retainTransaction: (retained) => {
+            transaction = retained;
+            this.#pendingApplicationRecovery = null;
+          },
+        });
+        this.#pendingApplicationRecovery = null;
+        signal.throwIfAborted();
+        const validator = this.#compilerValidator();
+        const compiler = await validator.validate({
+          requestId,
+          generation,
+          publicationOperationId: analysis.publication.operationId,
+          artifactSourceSha256: transaction.result.sourceSha256,
+          signal,
+        });
+        signal.throwIfAborted();
+        analysis[assertAnalysisFresh]();
+        options.beforeCommit?.();
+        signal.throwIfAborted();
+        analysis[assertAnalysisFresh]();
+        await validator.assertCurrent(compiler, signal);
+        signal.throwIfAborted();
+        analysis[assertAnalysisFresh]();
+        transaction.assertPending();
+        const application = transaction.commit();
+        if (transaction.cleanupPending) this.#pendingCleanup = transaction;
+        return Object.freeze({ requestId, generation, publication: analysis.publication, application, compiler });
+      } catch (error) {
+        if (transaction?.state === "pending") {
+          try {
+            transaction.rollback();
+          } catch {
+            this.#pendingRollback = transaction;
+            this.#recoverPendingRollback();
+          }
+        }
+        if (transaction?.state === "committed" && transaction.cleanupPending) this.#pendingCleanup = transaction;
+        if (!transaction) this.#recoverPendingApplicationRecovery();
+        throw error;
+      }
+    });
     this.#currentAnalysisToken = null;
     this.#latestAnalysisRequestId = handle.requestId;
     return handle;
   }
 
   close(): Promise<void> {
+    if (this.#closePromise) return this.#closePromise;
     this.#currentAnalysisToken = null;
     this.#latestAnalysisRequestId = null;
-    return this.#coordinator.close();
+    this.#closePromise = this.#coordinator.close().then(async () => {
+      let rollbackFailure: unknown = null;
+      try { this.#recoverPendingApplicationRecovery(); } catch (error) { rollbackFailure = error; }
+      try { this.#recoverPendingRollback(); } catch (error) { rollbackFailure ??= error; }
+      try { this.#recoverPendingCleanup(); } catch (error) { rollbackFailure ??= error; }
+      await this.#compiler?.close();
+      if (rollbackFailure) throw rollbackFailure;
+    });
+    return this.#closePromise;
   }
 
-  async #analyze(requestId: string, signal: AbortSignal): Promise<PrivateProjectAnalysis> {
+  #compilerValidator(): PrivateCompilerValidator {
+    return this.#compiler ??= new PrivateCompilerValidator(this.#root);
+  }
+
+  #recoverPendingRollback(): void {
+    if (!this.#pendingRollback) return;
+    try {
+      this.#pendingRollback.rollback();
+      this.#pendingRollback = null;
+    } catch (error) {
+      throw new TypeError("FADENO_ANALYZER_APPLICATION_ROLLBACK", { cause: error });
+    }
+  }
+
+  #recoverPendingApplicationRecovery(): void {
+    if (!this.#pendingApplicationRecovery) return;
+    try {
+      this.#pendingApplicationRecovery();
+      this.#pendingApplicationRecovery = null;
+    } catch (error) {
+      throw new TypeError("FADENO_ANALYZER_APPLICATION_RECOVERY", { cause: error });
+    }
+  }
+
+  #recoverPendingCleanup(): void {
+    if (!this.#pendingCleanup) return;
+    try {
+      this.#pendingCleanup.cleanup();
+      this.#pendingCleanup = null;
+    } catch (error) {
+      throw new TypeError("FADENO_ANALYZER_APPLICATION_CLEANUP", { cause: error });
+    }
+  }
+
+  async #analyze(requestId: string, signal: AbortSignal): Promise<PrivateProjectInternalAnalysis> {
     signal.throwIfAborted();
     const { config, source: configSource } = await loadConfigWithSource(this.#root);
     signal.throwIfAborted();
@@ -245,34 +397,35 @@ export class PrivateProjectAnalyzer {
     if (!signal.aborted && this.#coordinator.state === "accepting" && this.#latestAnalysisRequestId === requestId) {
       this.#currentAnalysisToken = analysisToken;
     }
+    const assertOwned = (): void => {
+      if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
+      if (
+        this.#currentAnalysisToken !== analysisToken ||
+        this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+        this.#session.currentPublicationSnapshot !== publication
+      ) applicationRefuse("STALE");
+    };
+    const assertFresh = (): void => {
+      assertOwned();
+      this.#assertInputsCurrent(desired);
+      this.#assertRouteAnalysisCurrent(config, routePlan, null);
+    };
+    const begin = (options: PrivateProjectInternalApplicationOptions = {}): RouteArtifactApplicationTransaction => {
+      assertOwned();
+      if (routePlan === null || batch.diagnostics.length > 0 || batch.corrections.length > 0 || batch.skippedWork.length > 0) {
+        applicationRefuse("DIAGNOSTIC");
+      }
+      const publishedPlan = routeArtifactPlanFromPublication(publication, routePlan);
+      return beginRouteArtifactApplication(this.#root, publishedPlan, { ...options, assertFresh });
+    };
     return Object.freeze({
       publication,
       diagnostics: batch,
       routePlan,
-      apply: (options: PrivateProjectApplicationOptions = {}) => {
-        if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
-        if (
-          this.#currentAnalysisToken !== analysisToken ||
-          this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
-          this.#session.currentPublicationSnapshot !== publication
-        ) applicationRefuse("STALE");
-        if (routePlan === null || batch.diagnostics.length > 0 || batch.corrections.length > 0 || batch.skippedWork.length > 0) {
-          applicationRefuse("DIAGNOSTIC");
-        }
-        const publishedPlan = routeArtifactPlanFromPublication(publication, routePlan);
-        const assertFresh = (): void => {
-          if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
-          if (
-            this.#currentAnalysisToken !== analysisToken ||
-            this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
-            this.#session.currentPublicationSnapshot !== publication
-          ) applicationRefuse("STALE");
-          this.#assertInputsCurrent(desired);
-          this.#assertRouteAnalysisCurrent(config, routePlan, null);
-        };
-        return applyRouteArtifactPlan(this.#root, publishedPlan, { ...options, assertFresh });
-      },
+      apply: (options: PrivateProjectApplicationOptions = {}) => begin(options).commit(),
       explain: (detail: "semantic" | "deep") => this.#explain(analysisToken, batch, detail),
+      [beginApplication]: begin,
+      [assertAnalysisFresh]: assertFresh,
     });
   }
 
