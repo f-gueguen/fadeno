@@ -439,6 +439,8 @@ function runGeneration(
       ? "FADENO_BUILD_ENVIRONMENT"
       : childIdentity === "FADENO_BUILD_CHILD_STALE_INPUT"
         ? "FADENO_BUILD_INPUT_STALE"
+        : childIdentity === "FADENO_BUILD_CHILD_RUNTIME_IMPORT"
+          ? "FADENO_BUILD_RUNTIME_IMPORT"
         : childIdentity ?? "FADENO_BUILD_CHILD_INTERNAL";
     fail(identity);
   }

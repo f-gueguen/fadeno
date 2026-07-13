@@ -19,12 +19,17 @@ Run the verified application, failure, flow, and recovery evidence with:
 pnpm check:v1-running-example
 ```
 
-That gate runs two byte-identical builds, starts the generated production
-bootstrap, exercises the routed application, seeds the compiler failure under
-`scenarios/build-compiler-error/`, proves `dist` stays unchanged, applies the
-tracked correction, and proves an output disappears after its source owner is
-deleted. Human and normalized manifest evidence is read from `expected/`; flow
-and recovery evidence is read from the scenario's `expected/` directory.
+That gate installs the current packed framework into two clean consumers and
+requires byte-identical builds. It starts the generated production bootstrap,
+exercises the routed application, seeds the compiler failure under
+`scenarios/build-compiler-error/`, and proves an initial failure leaves no
+`dist`. Later failure, input-drift, concurrent-build, runtime-import, and
+rollback scenarios must preserve the accepted output. The gate also kills a
+builder, recovers its ownership lock, performs a production-only reinstall,
+starts successfully without development dependencies, applies the tracked
+correction, and proves an output disappears after its source owner is deleted.
+Human and normalized manifest evidence is read from `expected/`; flow and
+recovery evidence is read from the scenario's `expected/` directory.
 
 Run the packed human project-check workflow with:
 

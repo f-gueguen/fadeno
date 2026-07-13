@@ -340,6 +340,14 @@ no-check only after a clean snapshot, and rechecks source, dependency,
 environment, compiler, and framework identities. Expected diagnostics remove
 the candidate stage and preserve the accepted `dist` generation.
 
+Build ownership is exclusive per project. A concurrent live owner is refused;
+a later operation may recover only a syntactically valid lock whose recorded
+process no longer exists. A second independent generation immediately before
+acceptance must reproduce the first generation's input, compiler-dependency,
+runtime-reference, and emitted-output identities. This final check includes
+newly discovered source, environment changes, and direct or transitive external
+compiler input changes.
+
 The command adds one deterministic build-owned bootstrap and a versioned
 manifest to the complete stage. The manifest contains file and runtime hashes,
 compiler and analyzer artifact identity, and the environment fingerprint but no
@@ -351,11 +359,21 @@ verifies the exact manifest file set and the bounded installed closure of
 declared production, installed optional, and required peer dependencies, and
 only then dynamically imports the public Node adapter and generated application
 handler. Root development dependencies and unrelated installed packages do not
-enter the runtime closure.
+enter the runtime closure. Emitted application imports are scanned under
+explicit source, token, and reference limits and every external package must
+belong to that declared production graph. Non-literal dynamic imports,
+development-only imports, absolute package paths, and undeclared imports are
+refused before acceptance. A required root peer is part of the graph and must
+remain installed for production startup.
 The route loader is still a required earlier Node import.
 
 The canonical packed application is the public build example. Its gate proves
-two byte-identical builds, a compiler failure with unchanged last-good output,
+two clean packed consumers produce byte-identical builds, an initial compiler
+failure leaves no `dist`, and later compiler failures preserve last-good output.
+It also proves redacted compiler text, current and newly added source freshness,
+environment and external compiler freshness, framework-runtime freshness,
+concurrent refusal and crash recovery, declared runtime-package enforcement,
+a required root peer, production-only reinstall and start,
 an injected post-stage identity failure with actual rollback, unowned output
 and fabricated rollback refusal, correction and diagnostic clearing,
 deleted-owner artifact cleanup, secret exclusion, normalized production

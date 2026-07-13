@@ -103,6 +103,28 @@ unknown files in owned transaction roots, and unresolved rollback or cleanup
 state are refusals. Two clean builds with identical inputs produce identical
 bytes.
 
+One project-scoped ownership lock excludes concurrent build mutation. A live
+owner causes a bounded refusal; a later build verifies and removes a dead
+owner's lock before recovering the transaction. Immediately before acceptance,
+the build repeats analysis and emission in an independent stage and requires
+the complete source, environment, compiler, framework, runtime-dependency, and
+emitted-output identities to match. Newly added source and changed external
+compiler inputs are freshness inputs, not exceptions.
+
+Every package referenced by emitted application JavaScript must belong to the
+bounded installed graph rooted in declared production dependencies, installed
+optional dependencies, or required root peers. Development-only and undeclared
+runtime imports are refusals. A retained rollback manifest is accepted only
+when its structure, complete owned file set, generated bootstrap, and current
+framework runtime identity validate; upgrading the framework may therefore
+invalidate an older rollback instead of guessing compatibility.
+
+Expected compiler diagnostics expose stable codes, project-relative locations,
+and redacted text. Absolute paths, quoted literal contents, environment values,
+and control characters are not reproduced. Unresolved or fabricated
+transaction state is a redacted unexpected failure with exit `3`, not an
+ordinary project diagnostic.
+
 The V1 production start contract, from the project root, is:
 
 ```text
@@ -226,3 +248,11 @@ identities, generation freshness, diagnostic last-good preservation,
 correction recovery, runtime-closure refusal, and graceful/forced shutdown
 state transitions. B7D6 and B7D7 must add permanent public-entrypoint examples
 for every user-observable command behavior before those commands are complete.
+
+`pnpm check:v1-running-example` provides the B7D6 evidence from two clean packed
+consumers. It proves byte-identical output, first-build failure cleanup,
+structured compiler redaction, direct and newly added source freshness,
+environment/compiler/framework freshness, concurrent refusal and dead-owner
+recovery, declared-runtime import enforcement including a required root peer,
+production-only reinstall and startup, rollback refusal/recovery, and unchanged
+last-good output across every pre-acceptance refusal.

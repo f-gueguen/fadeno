@@ -34,6 +34,7 @@ const maximumDiagnosticBytes = 4 * 1024 * 1024;
 const maximumTraversalEntries = 8_192;
 const maximumTraversalPathBytes = 1024 * 1024;
 const maximumRuntimeReferences = 4_096;
+const maximumRuntimeTokens = 1_000_000;
 
 type RuntimeClosure = Readonly<{ root: string; identity: PrivateRuntimeIdentity }>;
 type GenerationRequest = Readonly<{
@@ -276,13 +277,22 @@ function outputPaths(
 
 function runtimePackageNames(stageRoot: string, paths: readonly string[]): readonly string[] {
   const packages = new Set<string>();
+  const emittedPaths = new Set(paths);
   let references = 0;
-  const record = (specifier: string): void => {
+  const record = (importer: string, specifier: string): void => {
     references += 1;
     if (references > maximumRuntimeReferences || specifier.length === 0 || specifier.includes("\0")) {
       fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
     }
-    if (specifier.startsWith("node:") || specifier === "fadeno:routes" || specifier.startsWith(".")) return;
+    if (specifier.startsWith("node:") || specifier === "fadeno:routes") return;
+    if (specifier.startsWith(".")) {
+      if (!specifier.startsWith("./") && !specifier.startsWith("../")) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      const target = resolve(dirname(join(stageRoot, importer)), specifier);
+      if (!contained(stageRoot, target)) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      const targetPath = relative(stageRoot, target).split("\\").join("/");
+      if (!emittedPaths.has(targetPath)) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      return;
+    }
     if (specifier.startsWith("/") || specifier.startsWith("file:") || specifier.startsWith("#")) {
       fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
     }
@@ -301,7 +311,7 @@ function runtimePackageNames(stageRoot: string, paths: readonly string[]): reado
     const tokens: Array<Readonly<{ kind: SyntaxKind; value: string }>> = [];
     for (let kind = scanner.scan(); kind !== SyntaxKind.EndOfFile; kind = scanner.scan()) {
       tokens.push(Object.freeze({ kind, value: scanner.getTokenValue() }));
-      if (tokens.length > maximumSourceFileBytes) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      if (tokens.length > maximumRuntimeTokens) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
     }
     for (let index = 0; index < tokens.length; index += 1) {
       const token = tokens[index];
@@ -313,10 +323,10 @@ function runtimePackageNames(stageRoot: string, paths: readonly string[]): reado
           if (value?.kind !== SyntaxKind.StringLiteral && value?.kind !== SyntaxKind.NoSubstitutionTemplateLiteral) {
             fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
           }
-          record(value.value);
+          record(path, value.value);
           continue;
         }
-        if (next?.kind === SyntaxKind.StringLiteral) { record(next.value); continue; }
+        if (next?.kind === SyntaxKind.StringLiteral) { record(path, next.value); continue; }
         let braces = 0;
         for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
           const candidate = tokens[cursor];
@@ -327,7 +337,7 @@ function runtimePackageNames(stageRoot: string, paths: readonly string[]): reado
           if (braces === 0 && candidate.kind === SyntaxKind.FromKeyword) {
             const value = tokens[cursor + 1];
             if (value?.kind !== SyntaxKind.StringLiteral) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
-            record(value.value);
+            record(path, value.value);
             break;
           }
         }
@@ -343,7 +353,7 @@ function runtimePackageNames(stageRoot: string, paths: readonly string[]): reado
           if (braces === 0 && candidate.kind === SyntaxKind.FromKeyword) {
             const value = tokens[cursor + 1];
             if (value?.kind !== SyntaxKind.StringLiteral) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
-            record(value.value);
+            record(path, value.value);
             break;
           }
         }
@@ -356,7 +366,7 @@ function runtimePackageNames(stageRoot: string, paths: readonly string[]): reado
         if (value?.kind !== SyntaxKind.StringLiteral && value?.kind !== SyntaxKind.NoSubstitutionTemplateLiteral) {
           fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
         }
-        record(value.value);
+        record(path, value.value);
       }
     }
   }
