@@ -24,7 +24,7 @@ V1-11 — request-scoped resource runtime and revalidation foundation
   permanent executable success, failure/refusal, normalized flow, correction
   where safe, recovery/stale-removal, authorization isolation, concurrency, and
   memory-regression evidence through public package entrypoints.
-- [ ] Align current specifications, traceability, risks, and public docs; pass
+- [x] Align current specifications, traceability, risks, and public docs; pass
   focused/full/local CI, architecture, Big-O, package-surface, H4 regression,
   and fresh review gates.
 
