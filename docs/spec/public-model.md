@@ -21,9 +21,10 @@ resource cannot be called directly from browser-zone application code.
 
 ADR 0034 fixes `defineResource({ read })` as the sole declaration and
 `context.read(resource, input)` as the sole call. Declaration-object identity
-and bounded structural input determine request-local promise deduplication.
-V1 refuses cross-request result caching. The public runtime arrives in V1-11;
-V1-10 contains only the accepted contract and private executable evidence.
+and a deeply frozen normalized structural input snapshot determine
+request-local promise deduplication. V1 refuses cross-request result caching.
+The public runtime arrives in V1-11; V1-10 contains only the accepted contract
+and private executable evidence.
 
 ## Action
 

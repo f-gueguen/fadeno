@@ -62,7 +62,7 @@ function ordinaryObject(value: object): boolean {
   return prototype === Object.prototype || prototype === null;
 }
 
-function encodeInput(value: unknown): string {
+function normalizeInput(value: unknown): Readonly<{ input: PrivatePlainInput; key: string }> {
   const active = new Set<object>();
   let entries = 0;
   let scalarBytes = 0;
@@ -72,19 +72,20 @@ function encodeInput(value: unknown): string {
     scalarBytes += bytes;
   }
 
-  function visit(current: unknown, depth: number): unknown {
+  function visit(current: unknown, depth: number): Readonly<{ canonical: unknown; input: PrivatePlainInput }> {
     entries += 1;
     if (entries > maximumInputEntries || depth > maximumInputDepth) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
-    if (current === null) return ["null"];
-    if (typeof current === "boolean") return ["boolean", current];
+    if (current === null) return { canonical: ["null"], input: null };
+    if (typeof current === "boolean") return { canonical: ["boolean", current], input: current };
     if (typeof current === "string") {
       if (current.length > maximumInputBytes - scalarBytes) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
       addScalarBytes(Buffer.byteLength(current, "utf8"));
-      return ["string", current];
+      return { canonical: ["string", current], input: current };
     }
     if (typeof current === "number") {
       if (!Number.isFinite(current)) throw new TypeError("FADENO_RESOURCE_INPUT");
-      return ["number", Object.is(current, -0) ? "0" : String(current)];
+      const normalized = Object.is(current, -0) ? 0 : current;
+      return { canonical: ["number", String(normalized)], input: normalized };
     }
     if (typeof current !== "object") throw new TypeError("FADENO_RESOURCE_INPUT");
     if (types.isProxy(current)) throw new TypeError("FADENO_RESOURCE_INPUT");
@@ -92,27 +93,29 @@ function encodeInput(value: unknown): string {
     active.add(current);
     try {
       if (Array.isArray(current)) {
-        if (Object.getPrototypeOf(current) !== Array.prototype || Object.getOwnPropertySymbols(current).length > 0) {
-          throw new TypeError("FADENO_RESOURCE_INPUT");
-        }
+        if (Object.getPrototypeOf(current) !== Array.prototype) throw new TypeError("FADENO_RESOURCE_INPUT");
         if (current.length > maximumInputEntries - entries) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
+        for (const name in current) {
+          if (!Object.hasOwn(current, name) || !/^(0|[1-9][0-9]*)$/u.test(name) || Number(name) >= current.length) {
+            throw new TypeError("FADENO_RESOURCE_INPUT");
+          }
+        }
+        const canonical: unknown[] = [];
+        const input: PrivatePlainInput[] = [];
         for (let index = 0; index < current.length; index += 1) {
           const descriptor = Object.getOwnPropertyDescriptor(current, String(index));
           if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw new TypeError("FADENO_RESOURCE_INPUT");
+          const item = visit(descriptor.value, depth + 1);
+          canonical.push(item.canonical);
+          input.push(item.input);
         }
-        const names = Object.getOwnPropertyNames(current);
-        if (names.some((name) => name !== "length" && !/^(0|[1-9][0-9]*)$/u.test(name))) {
-          throw new TypeError("FADENO_RESOURCE_INPUT");
-        }
-        return ["array", current.map((item) => visit(item, depth + 1))];
+        return { canonical: ["array", canonical], input: Object.freeze(input) };
       }
-      if (!ordinaryObject(current) || Object.getOwnPropertySymbols(current).length > 0) {
-        throw new TypeError("FADENO_RESOURCE_INPUT");
-      }
+      if (!ordinaryObject(current)) throw new TypeError("FADENO_RESOURCE_INPUT");
       const properties: [string, unknown][] = [];
-      const names = Object.getOwnPropertyNames(current);
-      if (names.length > maximumInputEntries - entries) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
-      for (const name of names) {
+      for (const name in current) {
+        if (!Object.hasOwn(current, name)) throw new TypeError("FADENO_RESOURCE_INPUT");
+        if (properties.length >= maximumInputEntries - entries) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
         if (name.length > maximumInputKeyBytes || name.length > maximumInputBytes - scalarBytes) {
           throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
         }
@@ -121,20 +124,26 @@ function encodeInput(value: unknown): string {
         addScalarBytes(nameBytes);
         const descriptor = Object.getOwnPropertyDescriptor(current, name);
         if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw new TypeError("FADENO_RESOURCE_INPUT");
+        properties.push([name, descriptor.value]);
       }
-      for (const name of names.sort(compareText)) {
-        const descriptor = Object.getOwnPropertyDescriptor(current, name)!;
-        properties.push([name, visit(descriptor.value, depth + 1)]);
+      properties.sort(([left], [right]) => compareText(left, right));
+      const canonical: [string, unknown][] = [];
+      const input: [string, PrivatePlainInput][] = [];
+      for (const [name, child] of properties) {
+        const item = visit(child, depth + 1);
+        canonical.push([name, item.canonical]);
+        input.push([name, item.input]);
       }
-      return ["object", properties];
+      return { canonical: ["object", canonical], input: Object.freeze(Object.fromEntries(input)) as PrivatePlainObject };
     } finally {
       active.delete(current);
     }
   }
 
-  const encoded = JSON.stringify(visit(value, 0));
+  const normalized = visit(value, 0);
+  const encoded = JSON.stringify(normalized.canonical);
   if (Buffer.byteLength(encoded, "utf8") > maximumInputBytes) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
-  return encoded;
+  return Object.freeze({ input: normalized.input, key: encoded });
 }
 
 export function definePrivateResource<Input extends PrivatePlainInput, Value>(
@@ -208,15 +217,15 @@ export class PrivateResourceRequestScope {
       this.#record("cancelled", "none", false, "request-aborted");
       throw new DOMException("FADENO_RESOURCE_ABORTED", "AbortError");
     }
-    let inputKey: string;
+    let normalized: Readonly<{ input: PrivatePlainInput; key: string }>;
     try {
-      inputKey = encodeInput(input);
+      normalized = normalizeInput(input);
     } catch (error) {
       this.#record("refused", "none", false, "unsupported-input");
       throw error;
     }
     let declarationCache = this.#cache.get(resource.declaration);
-    const existing = declarationCache?.get(inputKey);
+    const existing = declarationCache?.get(normalized.key);
     if (existing) {
       try {
         const result = await existing;
@@ -242,9 +251,9 @@ export class PrivateResourceRequestScope {
       declarationCache = new Map();
       this.#cache.set(resource.declaration, declarationCache);
     }
-    this.#dependencies.push(Object.freeze({ declaration: resource.declaration, inputKey }));
-    const promise = this.#load(resource, input);
-    declarationCache.set(inputKey, promise as Promise<Readonly<{ status: "value"; value: unknown }>>);
+    this.#dependencies.push(Object.freeze({ declaration: resource.declaration, inputKey: normalized.key }));
+    const promise = this.#load(resource, normalized.input as Input);
+    declarationCache.set(normalized.key, promise as Promise<Readonly<{ status: "value"; value: unknown }>>);
     return (await promise).value;
   }
 

@@ -64,10 +64,14 @@ declaration identity. Applications do not author durable global resource IDs.
 A new application generation constructs new runtime identities and cannot
 reuse an older generation's request state.
 
-The loader receives the exact input, standard `Request`, and request-owned
-`AbortSignal`. Ordinary storage, authorization, and representation inputs not
-present in the explicit input remain safe because V1 cache ownership never
-crosses the request.
+The framework snapshots admitted input before cache lookup. The loader receives
+that deeply frozen normalized structural snapshot, standard `Request`, and
+request-owned `AbortSignal`; it never receives the caller's mutable object
+identity. Non-enumerable and symbol properties are absent from both the key and
+the loader-visible snapshot, so hidden state cannot alter a deduplicated read.
+Ordinary storage, authorization, and representation inputs not present in the
+explicit input remain safe because V1 cache ownership never crosses the
+request.
 
 ### Equivalent input
 
@@ -78,13 +82,17 @@ Object property order is insignificant; array order is significant; `-0` and
 `0` are equivalent. Type tags make strings, numbers, booleans, arrays, and
 objects unambiguous.
 
-Cycles, sparse arrays, symbols, accessors, non-enumerable properties, custom
-prototypes, non-finite numbers, `bigint`, functions, and all other values are
-refused before a dependency, cache entry, or loader call exists. Refusal never
-invokes an accessor or application key function. The implementation bounds
-depth, visited entries, property-name bytes, total encoded-key bytes, and
-distinct reads per request. Exact limits are conformance-owned implementation
-limits and may only become more permissive before 1.0.
+Cycles, sparse arrays, enumerable accessors, enumerable non-index array
+properties, inherited enumerable properties, custom prototypes, non-finite
+numbers, `bigint`, functions, symbol values, and all other values outside the
+grammar are refused before a dependency, cache entry, or loader call exists.
+Non-enumerable and symbol-keyed properties are ignored and stripped from the
+normalized snapshot. Refusal never invokes an accessor or application key
+function. Lazy enumerable traversal stops at the entry budget before sorting;
+the implementation also bounds depth, property-name bytes, total encoded-key
+bytes, distinct reads, and total calls per request. Exact limits are
+conformance-owned implementation limits and may only become more permissive
+before 1.0.
 
 ### Request cache and concurrency
 

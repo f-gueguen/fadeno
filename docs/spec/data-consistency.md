@@ -10,9 +10,13 @@ applications do not maintain resource-name registries.
 Equivalent input is a bounded tagged structural value: `null`, boolean, finite
 number, string, dense array, or ordinary/null-prototype object with recursively
 supported enumerable own string properties. Object key order is insignificant,
-array order is significant, and `-0` equals `0`. Cycles, accessors, sparse
-arrays, symbols, custom prototypes, non-finite numbers, and other unsupported
-or over-budget values are refused without executing application code.
+array order is significant, and `-0` equals `0`. The loader receives a deeply
+frozen normalized snapshot rather than the caller's mutable object identity;
+non-enumerable and symbol-keyed properties are stripped from both key and
+snapshot. Cycles, enumerable accessors, sparse arrays, inherited enumerable
+properties, custom prototypes, non-finite numbers, symbol values, and other
+unsupported or over-budget values are refused without executing application
+code.
 
 Each request owns a fresh declaration/input map. It records a dependency and
 stores the loader promise before awaiting it, so equivalent concurrent and

@@ -148,6 +148,25 @@ const proxy = new Proxy({}, { ownKeys() { proxyTrapRan = true; return []; } });
 await assert.rejects(refusal.read(projects as never, proxy as never), /FADENO_RESOURCE_INPUT/u);
 assert.equal(proxyTrapRan, false, "proxy refusal does not execute application reflection traps");
 
+const hiddenSymbol = Symbol("hidden");
+const originalInput: Record<string | symbol, unknown> = { visible: "captured" };
+Object.defineProperty(originalInput, "hidden", { value: "not-keyed", enumerable: false });
+originalInput[hiddenSymbol] = "not-keyed";
+let releaseSnapshot: (() => void) | undefined;
+const snapshotResource = definePrivateResource({ read: async ({ input }: { input: Readonly<{ visible: string }> }) => {
+  await new Promise<void>((resolve) => { releaseSnapshot = resolve; });
+  return {
+    frozen: Object.isFrozen(input),
+    hidden: Object.hasOwn(input, "hidden"),
+    symbols: Object.getOwnPropertySymbols(input).length,
+    visible: input.visible,
+  };
+} });
+const snapshotRead = new PrivateResourceRequestScope(request()).read(snapshotResource, originalInput as never);
+originalInput["visible"] = "mutated";
+releaseSnapshot?.();
+assert.deepEqual(await snapshotRead, { frozen: true, hidden: false, symbols: 0, visible: "captured" });
+
 const boundedReads = new PrivateResourceRequestScope(request());
 const boundedResource = definePrivateResource({ read: ({ input }: { input: number }) => input });
 for (let index = 0; index < 1_024; index += 1) assert.equal(await boundedReads.read(boundedResource, index), index);
