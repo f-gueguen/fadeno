@@ -465,6 +465,16 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     return () => rmSync(addedSource);
   });
 
+  const configurationPath = join(project, "fadeno.config.ts");
+  const configurationBeforeHook = readFileSync(configurationPath);
+  await assertPostHookRefusal("FADENO_BUILD_INPUT_STALE", () => {
+    writeFileSync(configurationPath, Buffer.concat([
+      configurationBeforeHook,
+      Buffer.from("\n// post-hook configuration drift\n"),
+    ]));
+    return () => writeFileSync(configurationPath, configurationBeforeHook);
+  });
+
   const environmentPath = join(project, ".env");
   const environmentBeforeHook = readFileSync(environmentPath);
   await assertPostHookRefusal("FADENO_BUILD_ENVIRONMENT", () => {

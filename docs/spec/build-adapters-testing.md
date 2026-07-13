@@ -345,8 +345,8 @@ a later operation may recover only a syntactically valid lock whose recorded
 process no longer exists. A second independent generation immediately before
 acceptance must reproduce the first generation's input, compiler-dependency,
 runtime-reference, and emitted-output identities. This final check includes
-newly discovered source, environment changes, and direct or transitive external
-compiler input changes.
+newly discovered source, configuration and environment changes, and direct or
+transitive external compiler input changes.
 
 The command adds one deterministic build-owned bootstrap and a versioned
 manifest to the complete stage. The manifest contains file and runtime hashes,
@@ -370,10 +370,11 @@ The route loader is still a required earlier Node import.
 The canonical packed application is the public build example. Its gate proves
 two clean packed consumers produce byte-identical builds, an initial compiler
 failure leaves no `dist`, and later compiler failures preserve last-good output.
-It also proves redacted compiler text, current and newly added source freshness,
-environment and external compiler freshness, framework-runtime freshness,
-concurrent refusal and crash recovery, declared runtime-package enforcement,
-a required root peer, production-only reinstall and start,
+It also proves redacted compiler text, current and newly added source and
+configuration freshness, environment and external compiler freshness,
+framework-runtime freshness, concurrent refusal and crash recovery, declared
+runtime-package enforcement, a required root peer, production-only reinstall
+and start,
 an injected post-stage identity failure with actual rollback, unowned output
 and fabricated rollback refusal, correction and diagnostic clearing,
 deleted-owner artifact cleanup, secret exclusion, normalized production

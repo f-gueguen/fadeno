@@ -107,9 +107,9 @@ One project-scoped ownership lock excludes concurrent build mutation. A live
 owner causes a bounded refusal; a later build verifies and removes a dead
 owner's lock before recovering the transaction. Immediately before acceptance,
 the build repeats analysis and emission in an independent stage and requires
-the complete source, environment, compiler, framework, runtime-dependency, and
-emitted-output identities to match. Newly added source and changed external
-compiler inputs are freshness inputs, not exceptions.
+the complete source, configuration, environment, compiler, framework,
+runtime-dependency, and emitted-output identities to match. Newly added source
+and changed external compiler inputs are freshness inputs, not exceptions.
 
 Every package referenced by emitted application JavaScript must belong to the
 bounded installed graph rooted in declared production dependencies, installed
@@ -251,8 +251,8 @@ for every user-observable command behavior before those commands are complete.
 
 `pnpm check:v1-running-example` provides the B7D6 evidence from two clean packed
 consumers. It proves byte-identical output, first-build failure cleanup,
-structured compiler redaction, direct and newly added source freshness,
-environment/compiler/framework freshness, concurrent refusal and dead-owner
-recovery, declared-runtime import enforcement including a required root peer,
-production-only reinstall and startup, rollback refusal/recovery, and unchanged
-last-good output across every pre-acceptance refusal.
+structured compiler redaction, direct and newly added source and configuration
+freshness, environment/compiler/framework freshness, concurrent refusal and
+dead-owner recovery, declared-runtime import enforcement including a required
+root peer, production-only reinstall and startup, rollback refusal/recovery,
+and unchanged last-good output across every pre-acceptance refusal.

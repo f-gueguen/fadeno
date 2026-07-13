@@ -440,7 +440,7 @@ async function main(): Promise<void> {
   if (dependencyAfterAnalysis.sha256 !== dependencyBefore.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
   assertCompilerOwnership(analysis.programFiles, projectRoot, dependencyBefore.roots, input.runtimeClosures);
   const sourcePaths = new Set(analysis.projectFiles);
-  for (const path of ["tsconfig.json", "package.json", ".env", ".env.local"]) {
+  for (const path of ["tsconfig.json", "package.json", "fadeno.config.ts", ".env", ".env.local"]) {
     if (existsSync(join(projectRoot, path))) sourcePaths.add(path);
   }
   const ownedSourcePaths = Object.freeze([...sourcePaths].sort(compareText));
