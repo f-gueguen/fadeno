@@ -325,6 +325,12 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   writeFileSync(join(project, ".env"), `APPLICATION_SECRET=${secretCanary}\n`);
   const build = join(project, "node_modules", ".bin", "fadeno");
   const buildArguments = ["build", "--project-root", project] as const;
+  mkdirSync(join(project, "dist"));
+  writeFileSync(join(project, "dist/unowned.txt"), "not a Fadeno build\n");
+  const unownedOutput = runResult(build, buildArguments, project);
+  assert.deepEqual(unownedOutput, { status: 1, stdout: "", stderr: "FADENO_BUILD_OUTPUT_OWNERSHIP\n" });
+  assert.equal(readFileSync(join(project, "dist/unowned.txt"), "utf8"), "not a Fadeno build\n");
+  rmSync(join(project, "dist"), { recursive: true });
   const firstBuild = runResult(build, buildArguments, project);
   assert.deepEqual(firstBuild, {
     status: 0,
@@ -338,6 +344,14 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   assert.deepEqual(secondBuild, firstBuild);
   assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
   assert.equal(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8"), acceptedManifest);
+
+  const fabricatedRollback = join(project, ".fadeno/build-stage/rollback");
+  mkdirSync(fabricatedRollback, { recursive: true });
+  writeFileSync(join(fabricatedRollback, "unowned.txt"), "not an accepted rollback\n");
+  const rollbackRefusal = runResult(build, buildArguments, project);
+  assert.deepEqual(rollbackRefusal, { status: 1, stdout: "", stderr: "FADENO_BUILD_TRANSACTION_STATE\n" });
+  assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
+  rmSync(fabricatedRollback, { recursive: true });
 
   const installedFramework = realpathSync(join(project, "node_modules", "fadeno-framework-internal"));
   const privateBuild = await import(pathToFileURL(join(installedFramework, "dist/internal/project-build.js")).href) as {
@@ -403,6 +417,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     artifacts: number;
     files: readonly { path: string }[];
     runtime: { schemaVersion: number; files: readonly unknown[]; sha256: string };
+    dependencies: readonly { name: string; identity: { files: readonly unknown[]; sha256: string } }[];
   };
   assert.equal(readFileSync(join(exampleRoot, "expected/build-manifest-normalized.json"), "utf8"), `${JSON.stringify({
     schemaVersion: manifest.schemaVersion,
@@ -414,6 +429,11 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
       files: manifest.runtime.files.length > 0 ? "<verified-files>" : "<missing-files>",
       sha256: /^[a-f0-9]{64}$/u.test(manifest.runtime.sha256) ? "<verified-sha256>" : "<invalid-sha256>",
     },
+    dependencies: manifest.dependencies.map(({ name, identity }) => ({
+      name: name.startsWith("@typescript/typescript-") ? "<platform-compiler-package>" : name,
+      files: identity.files.length > 0 ? "<verified-files>" : "<missing-files>",
+      sha256: /^[a-f0-9]{64}$/u.test(identity.sha256) ? "<verified-sha256>" : "<invalid-sha256>",
+    })).sort((left, right) => left.name.localeCompare(right.name)),
   }, null, 2)}\n`);
 
   const refusalPort = await reservePort();
@@ -427,6 +447,22 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   });
   assert.notEqual(invalidPort.status, 0);
   assert.match(`${invalidPort.stdout}${invalidPort.stderr}`, /FADENO_BUILD_RUNTIME_PORT/u);
+
+  const manifestPath = join(project, "dist/.fadeno/build-manifest.json");
+  const manifestBytes = readFileSync(manifestPath);
+  try {
+    writeFileSync(manifestPath, Buffer.concat([manifestBytes, Buffer.alloc(4 * 1024 * 1024, 32)]));
+    const oversizedManifest = spawnSync(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "./dist/server/bootstrap.js"], {
+      cwd: project,
+      env: { ...process.env, FADENO_PORT: String(refusalPort) },
+      encoding: "utf8",
+    });
+    assert.notEqual(oversizedManifest.status, 0);
+    assert.match(`${oversizedManifest.stdout}${oversizedManifest.stderr}`, /FADENO_BUILD_RUNTIME_MANIFEST/u);
+    assert.doesNotMatch(oversizedManifest.stdout, /production server ready/u);
+  } finally {
+    writeFileSync(manifestPath, manifestBytes);
+  }
 
   const runtimeReadme = join(project, "node_modules", "fadeno-framework-internal", "README.md");
   const runtimeReadmeBytes = readFileSync(runtimeReadme);
@@ -442,6 +478,32 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     assert.doesNotMatch(staleRuntime.stdout, /production server ready/u);
   } finally {
     writeFileSync(runtimeReadme, runtimeReadmeBytes);
+  }
+
+  const dependencyReadme = join(project, "node_modules", "typescript", "README.md");
+  const dependencyReadmeBytes = readFileSync(dependencyReadme);
+  try {
+    writeFileSync(dependencyReadme, Buffer.concat([dependencyReadmeBytes, Buffer.from("\nmutation\n")]));
+    const staleDependency = spawnSync(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "./dist/server/bootstrap.js"], {
+      cwd: project,
+      env: { ...process.env, FADENO_PORT: String(refusalPort) },
+      encoding: "utf8",
+    });
+    assert.notEqual(staleDependency.status, 0);
+    assert.match(`${staleDependency.stdout}${staleDependency.stderr}`, /FADENO_BUILD_RUNTIME_IDENTITY/u);
+    assert.doesNotMatch(staleDependency.stdout, /production server ready/u);
+  } finally {
+    writeFileSync(dependencyReadme, dependencyReadmeBytes);
+  }
+
+  const unrelatedDevelopmentReadme = join(project, "node_modules", "@types/node/README.md");
+  const unrelatedDevelopmentBytes = readFileSync(unrelatedDevelopmentReadme);
+  try {
+    writeFileSync(unrelatedDevelopmentReadme, Buffer.concat([unrelatedDevelopmentBytes, Buffer.from("\nunrelated mutation\n")]));
+    const developmentMutationServer = await startServer(project);
+    await developmentMutationServer.stop();
+  } finally {
+    writeFileSync(unrelatedDevelopmentReadme, unrelatedDevelopmentBytes);
   }
 
   const missingLoader = spawnSync(process.execPath, ["./dist/server/bootstrap.js"], {

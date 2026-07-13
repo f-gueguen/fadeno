@@ -19,9 +19,10 @@ fadeno build --project-root ./my-project
 `check` validates current configuration and route framework semantics, reports
 human diagnostics, and plans artifacts without writing them. `build` analyzes
 and validates one current generation, emits into a contained stage, verifies a
-versioned manifest and runtime closure, and atomically replaces `dist` while
-preserving the last accepted generation on failure. Neither command has a
-machine-output mode.
+versioned manifest and the installed declared production-dependency closure,
+and atomically replaces `dist` while preserving the last accepted generation
+on failure. Unrelated development packages are not startup inputs. Neither
+command has a machine-output mode.
 
 Start an accepted build from its project root with an explicit port:
 

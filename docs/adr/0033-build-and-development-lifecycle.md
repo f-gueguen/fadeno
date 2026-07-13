@@ -112,10 +112,13 @@ FADENO_PORT=<1..65535> node --import ./dist/.fadeno/routes/loader.js ./dist/serv
 The bootstrap binds `127.0.0.1` only. Broader deployment address and trusted
 proxy behavior remain unsupported until their own operational evidence exists.
 The route loader must register before the bootstrap imports the generated route
-specifier. The bootstrap verifies the build manifest and installed runtime
-closure before dynamically importing the application handler and the selected
-adapter. Missing, stale, mixed, or changed runtime dependencies fail before
-listening. Build output is not claimed to be self-contained.
+specifier. The bootstrap verifies the build manifest and the bounded installed
+closure reached through declared production, installed optional, and required
+peer dependencies before dynamically importing the application handler and the
+selected adapter. Root development dependencies and unrelated installed
+packages are not runtime owners. Missing, stale, mixed, or changed runtime
+dependencies fail before listening. Build output is not claimed to be
+self-contained.
 
 ### Development lifecycle
 

@@ -340,18 +340,24 @@ The command adds one deterministic build-owned bootstrap and a versioned
 manifest to the complete stage. The manifest contains file and runtime hashes,
 compiler and analyzer artifact identity, and the environment fingerprint but no
 environment values, absolute roots, timestamps, or secrets. Atomic renames
-replace `dist`; a validated previous generation remains rollback authority until
+replace `dist`; only a previous generation whose bounded manifest and exact
+owned file set validate may become rollback authority, and it remains so until
 the complete candidate identity is rechecked. Startup parses the required port,
-verifies the exact manifest file set and installed runtime closure, and only then
-dynamically imports the public Node adapter and generated application handler.
+verifies the exact manifest file set and the bounded installed closure of
+declared production, installed optional, and required peer dependencies, and
+only then dynamically imports the public Node adapter and generated application
+handler. Root development dependencies and unrelated installed packages do not
+enter the runtime closure.
 The route loader is still a required earlier Node import.
 
 The canonical packed application is the public build example. Its gate proves
 two byte-identical builds, a compiler failure with unchanged last-good output,
-an injected post-stage identity failure with actual rollback, correction and
-diagnostic clearing, deleted-owner artifact cleanup, secret exclusion,
-normalized manifest evidence, missing-port, missing-loader and changed-runtime
-refusal before readiness, production start, HTTP behavior, and graceful stop.
+an injected post-stage identity failure with actual rollback, unowned output
+and fabricated rollback refusal, correction and diagnostic clearing,
+deleted-owner artifact cleanup, secret exclusion, normalized production
+dependency evidence, bounded-manifest refusal, missing-port, missing-loader and
+changed-runtime refusal before readiness, unrelated development-package
+independence, production start, HTTP behavior, and graceful stop.
 The build driver and generation child remain package-private; no machine command
 output, public analyzer schema, development watcher, or broader listener address
 is introduced.

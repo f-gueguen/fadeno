@@ -1,17 +1,20 @@
 import { spawnSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   existsSync,
   lstatSync,
   mkdirSync,
+  opendirSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   renameSync,
   rmSync,
   writeFileSync,
+  type Dirent,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { version as compilerVersion } from "typescript";
@@ -22,6 +25,7 @@ import { PrivateProjectAnalyzer, type PrivateProjectRefresh } from "./analyzer-p
 import {
   capturePrivateEnvironment,
   capturePrivateRuntimeIdentity,
+  assertPrivateRuntimeIdentity,
   parsePrivateBuildDevArguments,
   type PrivateEnvironmentSnapshot,
   type PrivateRuntimeIdentity,
@@ -56,6 +60,7 @@ type GenerationResult = Readonly<{
 }>;
 
 type RuntimeClosure = Readonly<{ root: string; identity: PrivateRuntimeIdentity }>;
+type DependencyClosure = RuntimeClosure & Readonly<{ name: string; path: string }>;
 
 export interface ProjectBuildCommandResult {
   readonly exitCode: 0 | 1 | 2 | 3;
@@ -71,6 +76,11 @@ export interface ProjectBuildCommandContext {
 }
 
 const usage = "FADENO_BUILD_USAGE: fadeno build --project-root <path>\n";
+const maximumRuntimePackages = 256;
+const maximumRuntimeFiles = 16_384;
+const maximumRuntimeBytes = 512 * 1024 * 1024;
+const maximumBuildManifestBytes = 4 * 1024 * 1024;
+const maximumPackageManifestBytes = 1024 * 1024;
 
 function fail(code: string): never { throw new TypeError(code); }
 function compareText(left: string, right: string): number { return left < right ? -1 : left > right ? 1 : 0; }
@@ -88,6 +98,27 @@ function ownedDirectory(path: string, code: string): string {
   }
 }
 
+function contained(root: string, path: string): boolean {
+  const difference = relative(root, path);
+  return difference === "" || (!difference.startsWith("..") && !isAbsolute(difference));
+}
+
+function boundedDirectoryEntries(directory: string, remaining: number, code: string): Dirent<string>[] {
+  const handle = opendirSync(directory);
+  const entries: Dirent<string>[] = [];
+  try {
+    for (;;) {
+      const entry = handle.readSync();
+      if (!entry) break;
+      entries.push(entry);
+      if (entries.length > remaining) fail(code);
+    }
+  } finally {
+    handle.closeSync();
+  }
+  return entries.sort((left, right) => compareText(left.name, right.name));
+}
+
 function identityPaths(
   root: string,
   directory = root,
@@ -95,7 +126,7 @@ function identityPaths(
   result: string[] = [],
   skipRootNodeModules = false,
 ): string[] {
-  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => compareText(left.name, right.name))) {
+  for (const entry of boundedDirectoryEntries(directory, maximumOutputFiles - budget.entries, "FADENO_BUILD_OUTPUT_LIMIT")) {
     if (skipRootNodeModules && directory === root && entry.name === "node_modules") continue;
     const path = join(directory, entry.name);
     const relativePath = relative(root, path).split("\\").join("/");
@@ -123,6 +154,147 @@ function runtimeClosures(): readonly RuntimeClosure[] {
     root,
     identity: capturePrivateRuntimeIdentity(root, identityPaths(root, root, { entries: 0, pathBytes: 0 }, [], true)),
   })));
+}
+
+async function captureRuntimeDependencies(projectRoot: string): Promise<Readonly<{
+  closures: readonly DependencyClosure[];
+  ownershipSha256: string;
+}>> {
+  const document = (root: string): Record<string, unknown> => {
+    try {
+      const path = join(root, "package.json");
+      const before = lstatSync(path);
+      if (
+        before.isSymbolicLink() || !before.isFile() || before.size > maximumPackageManifestBytes ||
+        realpathSync(path) !== path
+      ) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+      const bytes = readFileSync(path);
+      const after = lstatSync(path);
+      if (
+        after.isSymbolicLink() || !after.isFile() || bytes.byteLength !== before.size ||
+        after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size ||
+        after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs || realpathSync(path) !== path
+      ) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+      const value: unknown = JSON.parse(bytes.toString("utf8"));
+      if (!value || typeof value !== "object" || Array.isArray(value)) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+      return value as Record<string, unknown>;
+    } catch (error) {
+      if (error instanceof TypeError && error.message === "FADENO_BUILD_RUNTIME_CLOSURE") throw error;
+      fail("FADENO_BUILD_RUNTIME_CLOSURE");
+    }
+  };
+  const names = (value: unknown): readonly string[] => {
+    if (value === undefined) return Object.freeze([]);
+    if (!value || typeof value !== "object" || Array.isArray(value)) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+    const entries = Object.entries(value);
+    if (entries.length > maximumRuntimePackages) fail("FADENO_BUILD_RUNTIME_CLOSURE_LIMIT");
+    const result = entries.map(([name, requirement]) => {
+      if (
+        typeof requirement !== "string" || name.length === 0 || name.length > 214 ||
+        !/^(?:@[A-Za-z0-9_~-][A-Za-z0-9._~-]*\/)?[A-Za-z0-9_~-][A-Za-z0-9._~-]*$/u.test(name)
+      ) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+      return name;
+    }).sort(compareText);
+    if (new Set(result).size !== result.length) {
+      fail("FADENO_BUILD_RUNTIME_CLOSURE");
+    }
+    return Object.freeze(result);
+  };
+  const resolveInstalled = (importer: string, name: string, optional: boolean): string | null => {
+    let directory = importer;
+    const checked = new Set<string>();
+    for (;;) {
+      if (!contained(projectRoot, directory)) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+      const parent = dirname(directory);
+      const candidate = basename(directory) === "node_modules"
+        ? join(directory, ...name.split("/"))
+        : join(directory, "node_modules", ...name.split("/"));
+      if (!checked.has(candidate)) {
+        checked.add(candidate);
+        if (existsSync(candidate)) {
+          try {
+            const root = realpathSync(candidate);
+            if (!contained(projectRoot, root)) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+            return root;
+          } catch (error) {
+            if (error instanceof TypeError && error.message === "FADENO_BUILD_RUNTIME_CLOSURE") throw error;
+            fail("FADENO_BUILD_RUNTIME_CLOSURE");
+          }
+        }
+      }
+      if (directory === projectRoot) break;
+      if (parent === directory) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+      directory = parent;
+    }
+    if (optional) return null;
+    fail("FADENO_BUILD_RUNTIME_CLOSURE");
+  };
+  const rootDocument = document(projectRoot);
+  const pending: Array<Readonly<{ root: string; name: string }>> = [];
+  const scheduled = new Set<string>();
+  const schedule = (importer: string, name: string, optional: boolean): void => {
+    const root = resolveInstalled(importer, name, optional);
+    if (!root || scheduled.has(root)) return;
+    if (scheduled.size >= maximumRuntimePackages) fail("FADENO_BUILD_RUNTIME_CLOSURE_LIMIT");
+    scheduled.add(root);
+    pending.push(Object.freeze({ root, name }));
+  };
+  const rootOptional = new Set(names(rootDocument["optionalDependencies"]));
+  for (const name of names(rootDocument["dependencies"])) schedule(projectRoot, name, rootOptional.has(name));
+  for (const name of rootOptional) schedule(projectRoot, name, true);
+  const closures: DependencyClosure[] = [];
+  let files = 0;
+  let bytes = 0;
+  const paths = new Set<string>();
+  while (pending.length > 0) {
+    const next = pending.shift()!;
+    const root = next.root;
+    const path = relative(projectRoot, root).split("\\").join("/");
+    if (path === "" || path.startsWith("../") || paths.has(path)) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+    paths.add(path);
+    const packageDocument = document(root);
+    const name = packageDocument["name"];
+    if (name !== next.name) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+    const identity = capturePrivateRuntimeIdentity(root, identityPaths(root, root, { entries: 0, pathBytes: 0 }, [], true));
+    files += identity.files.length;
+    bytes += identity.files.reduce((total, file) => total + file.bytes, 0);
+    if (files > maximumRuntimeFiles || bytes > maximumRuntimeBytes) fail("FADENO_BUILD_RUNTIME_CLOSURE_LIMIT");
+    closures.push(Object.freeze({ root, path, name: next.name, identity }));
+    const optional = new Set(names(packageDocument["optionalDependencies"]));
+    for (const dependency of names(packageDocument["dependencies"])) {
+      schedule(root, dependency, optional.has(dependency));
+    }
+    for (const dependency of optional) schedule(root, dependency, true);
+    const peerMeta = packageDocument["peerDependenciesMeta"];
+    const peerMetaDocument = peerMeta && typeof peerMeta === "object" && !Array.isArray(peerMeta)
+      ? peerMeta as Record<string, unknown>
+      : Object.create(null) as Record<string, unknown>;
+    for (const dependency of names(packageDocument["peerDependencies"])) {
+      const metadata = peerMetaDocument[dependency];
+      const optionalPeer = metadata && typeof metadata === "object" && !Array.isArray(metadata) &&
+        (metadata as Record<string, unknown>)["optional"] === true;
+      schedule(root, dependency, optionalPeer === true);
+    }
+  }
+  if (closures.length === 0) fail("FADENO_BUILD_RUNTIME_CLOSURE");
+  closures.sort((left, right) => compareText(left.path, right.path));
+  const ownership = createHash("sha256");
+  for (const closure of closures) ownership.update(`${closure.path}\0${closure.name}\0${closure.identity.sha256}\n`);
+  return Object.freeze({ closures: Object.freeze(closures), ownershipSha256: ownership.digest("hex") });
+}
+
+async function assertRuntimeDependenciesCurrent(
+  projectRoot: string,
+  expected: Readonly<{ closures: readonly DependencyClosure[]; ownershipSha256: string }>,
+): Promise<void> {
+  const current = await captureRuntimeDependencies(projectRoot);
+  if (
+    current.ownershipSha256 !== expected.ownershipSha256 || current.closures.length !== expected.closures.length ||
+    current.closures.some((closure, index) => {
+      const prior = expected.closures[index];
+      return !prior || closure.path !== prior.path || closure.name !== prior.name || closure.identity.sha256 !== prior.identity.sha256;
+    })
+  ) fail("FADENO_BUILD_RUNTIME_CLOSURE_STALE");
 }
 
 function parseGenerationResult(output: string, generation: number): GenerationResult {
@@ -175,61 +347,83 @@ function runGeneration(
 function renderBootstrap(): string {
   return [
     'import { createHash } from "node:crypto";',
-    'import { lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";',
-    'import { dirname, join, relative } from "node:path";',
+    'import { lstatSync, opendirSync, readFileSync, realpathSync } from "node:fs";',
+    'import { dirname, isAbsolute, join, relative } from "node:path";',
     'import { fileURLToPath } from "node:url";',
     "const fail = (code) => { throw new Error(code); };",
     "const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;",
     "const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');",
+    "const readStable = (path, maximum, code, expected = null) => {",
+    "  const before = lstatSync(path);",
+    "  if (before.isSymbolicLink() || !before.isFile() || before.size > maximum || (expected !== null && before.size !== expected) || realpathSync(path) !== path) fail(code);",
+    "  const bytes = readFileSync(path);",
+    "  const after = lstatSync(path);",
+    "  if (after.isSymbolicLink() || !after.isFile() || bytes.byteLength !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs || realpathSync(path) !== path) fail(code);",
+    "  return bytes;",
+    "};",
     "const portText = process.env['FADENO_PORT'];",
     "if (!portText || !/^[1-9][0-9]{0,4}$/.test(portText)) fail('FADENO_BUILD_RUNTIME_PORT');",
     "const port = Number(portText);",
     "if (!Number.isSafeInteger(port) || port > 65535) fail('FADENO_BUILD_RUNTIME_PORT');",
     "const distRoot = realpathSync(fileURLToPath(new URL('../', import.meta.url)));",
     "const manifestPath = join(distRoot, '.fadeno/build-manifest.json');",
-    "const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));",
-    "if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest.files) || manifest.runtime?.schemaVersion !== 1) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
+    "let manifest;",
+    "try { manifest = JSON.parse(readStable(manifestPath, 4194304, 'FADENO_BUILD_RUNTIME_MANIFEST').toString('utf8')); } catch (error) { if (error?.message === 'FADENO_BUILD_RUNTIME_MANIFEST') throw error; fail('FADENO_BUILD_RUNTIME_MANIFEST'); }",
+    "if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest.files) || manifest.runtime?.schemaVersion !== 1 || !Array.isArray(manifest.dependencies)) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
     "const validPath = (path) => typeof path === 'string' && path.length > 0 && !path.startsWith('/') && !path.includes('\\\\') && path.split('/').every((part) => part !== '' && part !== '.' && part !== '..');",
-    "if (!manifest.files.every((file) => file && validPath(file.path))) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
+    "if (manifest.files.length === 0 || manifest.files.length > 4096 || !manifest.files.every((file) => file && validPath(file.path))) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
     "const manifestPaths = manifest.files.map((file) => file.path);",
     "if (JSON.stringify(manifestPaths) !== JSON.stringify([...new Set(manifestPaths)].sort(compare))) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
-    "let walkedEntries = 0;",
-    "let walkedPathBytes = 0;",
-    "const walk = (root, directory = root, paths = []) => {",
-    "  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => compare(a.name, b.name))) {",
-    "    const path = join(directory, entry.name);",
-    "    const ownedPath = relative(root, path).split('\\\\').join('/');",
-    "    walkedEntries += 1; walkedPathBytes += Buffer.byteLength(ownedPath);",
-    "    if (walkedEntries > 4096 || walkedPathBytes > 1048576) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
-    "    if (entry.isSymbolicLink()) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
-    "    if (entry.isDirectory()) walk(root, path, paths);",
-    "    else if (entry.isFile()) paths.push(ownedPath);",
-    "    else fail('FADENO_BUILD_RUNTIME_MANIFEST');",
-    "  }",
-    "  return paths;",
+    "const walk = (root, maximumEntries, skipRootNodeModules = false) => {",
+    "  let walkedEntries = 0; let walkedPathBytes = 0; const paths = [];",
+    "  const visit = (directory) => {",
+    "    const handle = opendirSync(directory); const entries = [];",
+    "    try { for (;;) { const entry = handle.readSync(); if (!entry) break; if (skipRootNodeModules && directory === root && entry.name === 'node_modules') continue; walkedEntries += 1; if (walkedEntries > maximumEntries) fail('FADENO_BUILD_RUNTIME_IDENTITY'); entries.push(entry); } } finally { handle.closeSync(); }",
+    "    entries.sort((a, b) => compare(a.name, b.name));",
+    "    for (const entry of entries) {",
+    "      const path = join(directory, entry.name); const ownedPath = relative(root, path).split('\\\\').join('/');",
+    "      walkedPathBytes += Buffer.byteLength(ownedPath); if (walkedPathBytes > 1048576) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "      if (entry.isSymbolicLink()) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "      if (entry.isDirectory()) visit(path); else if (entry.isFile()) paths.push(ownedPath); else fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "    }",
+    "  }; visit(root); return paths.sort(compare);",
     "};",
     "const expectedPaths = [...manifest.files.map((file) => file.path), '.fadeno/build-manifest.json'].sort(compare);",
-    "if (JSON.stringify(walk(distRoot)) !== JSON.stringify(expectedPaths)) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
-    "const verify = (root, identity) => {",
-    "  if (identity?.schemaVersion !== 1 || !Array.isArray(identity.files) || !/^[a-f0-9]{64}$/.test(identity.sha256)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "if (JSON.stringify(walk(distRoot, 4097)) !== JSON.stringify(expectedPaths)) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
+    "const verify = (root, identity, exact = true) => {",
+    "  if (identity?.schemaVersion !== 1 || !Array.isArray(identity.files) || identity.files.length === 0 || identity.files.length > 4096 || !/^[a-f0-9]{64}$/.test(identity.sha256)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
     "  const identityPaths = identity.files.map((file) => file?.path);",
     "  if (JSON.stringify(identityPaths) !== JSON.stringify([...new Set(identityPaths)].sort(compare))) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
-    "  const aggregate = createHash('sha256');",
+    "  const aggregate = createHash('sha256'); let total = 0;",
     "  for (const file of identity.files) {",
-    "    if (!file || !validPath(file.path) || !Number.isSafeInteger(file.bytes) || file.bytes < 0 || !/^[a-f0-9]{64}$/.test(file.sha256)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "    if (!file || !validPath(file.path) || !Number.isSafeInteger(file.bytes) || file.bytes < 0 || file.bytes > 67108864 || !/^[a-f0-9]{64}$/.test(file.sha256)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "    total += file.bytes; if (!Number.isSafeInteger(total) || total > 134217728) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
     "    const path = join(root, file.path);",
-    "    const status = lstatSync(path);",
-    "    if (status.isSymbolicLink() || !status.isFile() || realpathSync(path) !== path) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
-    "    const bytes = readFileSync(path);",
-    "    if (bytes.byteLength !== file.bytes || digest(bytes) !== file.sha256) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "    const bytes = readStable(path, 67108864, 'FADENO_BUILD_RUNTIME_IDENTITY', file.bytes);",
+    "    if (digest(bytes) !== file.sha256) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
     "    aggregate.update(`${file.path}\\0${file.bytes}\\0${file.sha256}\\n`);",
     "  }",
     "  if (aggregate.digest('hex') !== identity.sha256) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "  if (exact && JSON.stringify(walk(root, 4096, true)) !== JSON.stringify(identityPaths)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "  return { files: identity.files.length, bytes: total };",
     "};",
-    "verify(distRoot, { schemaVersion: 1, files: manifest.files, sha256: manifest.outputSha256 });",
+    "verify(distRoot, { schemaVersion: 1, files: manifest.files, sha256: manifest.outputSha256 }, false);",
     `const entry = fileURLToPath(import.meta.resolve(${JSON.stringify(packageName)}));`,
     "const runtimeRoot = realpathSync(dirname(dirname(entry)));",
     "verify(runtimeRoot, manifest.runtime);",
+    "const projectRoot = realpathSync(dirname(distRoot));",
+    "if (manifest.dependencies.length === 0 || manifest.dependencies.length > 256) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
+    "const dependencyPaths = manifest.dependencies.map((closure) => closure?.path);",
+    "if (JSON.stringify(dependencyPaths) !== JSON.stringify([...new Set(dependencyPaths)].sort(compare))) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
+    "let dependencyFiles = 0; let dependencyBytes = 0;",
+    "for (const closure of manifest.dependencies) {",
+    "  if (!closure || typeof closure.name !== 'string' || closure.name.length > 214 || !/^(?:@[A-Za-z0-9_~-][A-Za-z0-9._~-]*\\/)?[A-Za-z0-9_~-][A-Za-z0-9._~-]*$/.test(closure.name) || !validPath(closure.path)) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
+    "  const root = realpathSync(join(projectRoot, closure.path));",
+    "  const difference = relative(projectRoot, root);",
+    "  if (difference === '' || difference.startsWith('..') || isAbsolute(difference)) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
+    "  const packageIdentity = verify(root, closure.identity); dependencyFiles += packageIdentity.files; dependencyBytes += packageIdentity.bytes;",
+    "  if (dependencyFiles > 16384 || dependencyBytes > 536870912) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
+    "}",
     `const { listenNodeHttp } = await import(${JSON.stringify(`${packageName}/node`)});`,
     "const { handler } = await import('../.fadeno/routes/app.js');",
     "const server = await listenNodeHttp({",
@@ -252,6 +446,7 @@ function prepareManifest(
   generation: GenerationResult,
   refresh: PrivateProjectRefresh,
   frameworkRuntime: PrivateRuntimeIdentity,
+  dependencies: readonly DependencyClosure[],
 ): PrivateRuntimeIdentity {
   const stageRoot = join(projectRoot, ".fadeno", "build-stage", `generation-${generation.generation}`);
   const bootstrap = join(stageRoot, "server", "bootstrap.js");
@@ -273,14 +468,73 @@ function prepareManifest(
     files: output.files,
     outputSha256: output.sha256,
     runtime: frameworkRuntime,
+    dependencies: dependencies.map(({ name, path, identity }) => Object.freeze({ name, path, identity })),
   });
-  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const manifestBytes = `${JSON.stringify(manifest, null, 2)}\n`;
+  if (Buffer.byteLength(manifestBytes) > maximumBuildManifestBytes) fail("FADENO_BUILD_RUNTIME_CLOSURE_LIMIT");
+  writeFileSync(manifestPath, manifestBytes);
   return capturePrivateRuntimeIdentity(stageRoot, identityPaths(stageRoot));
 }
 
 function assertOrdinaryTree(path: string): void {
   ownedDirectory(path, "FADENO_BUILD_OUTPUT_OWNERSHIP");
   identityPaths(path);
+}
+
+function readAcceptedBuildManifest(output: string, code: string): Readonly<{
+  bytes: Buffer;
+  identity: PrivateRuntimeIdentity;
+}> {
+  try {
+    const path = join(output, ".fadeno", "build-manifest.json");
+    const before = lstatSync(path);
+    if (
+      before.isSymbolicLink() || !before.isFile() || before.size > maximumBuildManifestBytes ||
+      realpathSync(path) !== path
+    ) fail(code);
+    const bytes = readFileSync(path);
+    const after = lstatSync(path);
+    if (
+      after.isSymbolicLink() || !after.isFile() || bytes.byteLength !== before.size ||
+      after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size ||
+      after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs || realpathSync(path) !== path
+    ) fail(code);
+    const value: unknown = JSON.parse(bytes.toString("utf8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) fail(code);
+    const manifest = value as Record<string, unknown>;
+    if (
+      manifest["schemaVersion"] !== 1 || manifest["framework"] !== packageName ||
+      !Array.isArray(manifest["files"]) || typeof manifest["outputSha256"] !== "string"
+    ) fail(code);
+    const identity = Object.freeze({
+      schemaVersion: 1 as const,
+      files: manifest["files"],
+      sha256: manifest["outputSha256"],
+    }) as PrivateRuntimeIdentity;
+    return Object.freeze({ bytes, identity });
+  } catch (error) {
+    if (error instanceof TypeError && error.message === code) throw error;
+    fail(code);
+  }
+}
+
+function assertAcceptedOutput(output: string, code: string): void {
+  try {
+    ownedDirectory(output, code);
+    const manifest = readAcceptedBuildManifest(output, code);
+    if (manifest.identity.files.some(({ path }) => path === ".fadeno/build-manifest.json")) fail(code);
+    assertPrivateRuntimeIdentity(output, manifest.identity);
+    const actualPaths = identityPaths(output).sort(compareText);
+    const expectedPaths = [...manifest.identity.files.map(({ path }) => path), ".fadeno/build-manifest.json"].sort(compareText);
+    if (
+      actualPaths.length !== expectedPaths.length ||
+      actualPaths.some((path, index) => path !== expectedPaths[index]) ||
+      !readAcceptedBuildManifest(output, code).bytes.equals(manifest.bytes)
+    ) fail(code);
+  } catch (error) {
+    if (error instanceof TypeError && error.message === code) throw error;
+    fail(code);
+  }
 }
 
 function recoverBuildTransaction(projectRoot: string): void {
@@ -298,7 +552,7 @@ function recoverBuildTransaction(projectRoot: string): void {
     if (existsSync(candidate)) { assertOrdinaryTree(candidate); rmSync(candidate, { recursive: true }); }
     return;
   }
-  assertOrdinaryTree(rollback);
+  assertAcceptedOutput(rollback, "FADENO_BUILD_TRANSACTION_STATE");
   if (existsSync(output)) {
     assertOrdinaryTree(output);
     renameSync(output, rejected);
@@ -325,7 +579,7 @@ function acceptStage(projectRoot: string, generation: number, expected: PrivateR
   assertOrdinaryTree(stage);
   let previous = false;
   if (existsSync(output)) {
-    assertOrdinaryTree(output);
+    assertAcceptedOutput(output, "FADENO_BUILD_OUTPUT_OWNERSHIP");
     renameSync(output, rollback);
     previous = true;
   }
@@ -333,6 +587,7 @@ function acceptStage(projectRoot: string, generation: number, expected: PrivateR
     renameSync(stage, output);
     const accepted = capturePrivateRuntimeIdentity(output, identityPaths(output));
     if (accepted.sha256 !== expected.sha256) fail("FADENO_BUILD_OUTPUT_STALE");
+    assertAcceptedOutput(output, "FADENO_BUILD_OUTPUT_STALE");
     if (previous) rmSync(rollback, { recursive: true });
   } catch (error) {
     if (existsSync(output)) renameSync(output, rejected);
@@ -411,8 +666,11 @@ export async function runProjectBuildCommand(
     if (generation.status !== "emitted") {
       return Object.freeze({ exitCode: 1 as const, stdout: "", stderr: formatCompilerDiagnostics(generation.diagnostics, projectRoot) });
     }
-    const complete = prepareManifest(projectRoot, generation, refresh, closures[0]!.identity);
+    const dependencies = await captureRuntimeDependencies(projectRoot);
+    const complete = prepareManifest(projectRoot, generation, refresh, closures[0]!.identity, dependencies.closures);
+    await assertRuntimeDependenciesCurrent(projectRoot, dependencies);
     context.beforeAcceptStage?.(join(projectRoot, ".fadeno", "build-stage", "generation-1"));
+    await assertRuntimeDependenciesCurrent(projectRoot, dependencies);
     acceptStage(projectRoot, 1, complete);
     const fileCount = complete.files.length;
     return Object.freeze({

@@ -25,5 +25,22 @@
     "schemaVersion": 1,
     "files": "<verified-files>",
     "sha256": "<verified-sha256>"
-  }
+  },
+  "dependencies": [
+    {
+      "name": "<platform-compiler-package>",
+      "files": "<verified-files>",
+      "sha256": "<verified-sha256>"
+    },
+    {
+      "name": "fadeno-framework-internal",
+      "files": "<verified-files>",
+      "sha256": "<verified-sha256>"
+    },
+    {
+      "name": "typescript",
+      "files": "<verified-files>",
+      "sha256": "<verified-sha256>"
+    }
+  ]
 }

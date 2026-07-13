@@ -831,7 +831,11 @@ instead of accepting arbitrary external compiler inputs. A complete stage gains
 only the build-owned bootstrap and manifest before one output identity is
 atomically accepted or the prior `dist` is restored. The public surface is the
 human `fadeno build` command and documented start invocation, not an analyzer or
-build transport API.
+build transport API. Runtime activation binds only the bounded installed graph
+of declared production, installed optional, and required peer dependencies;
+unrelated development packages are excluded. A prior `dist` or rollback tree
+is authoritative only when its bounded manifest and exact owned file set
+validate.
 
 ## Conformance
 

@@ -4,10 +4,10 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  opendirSync,
   readFileSync,
   readSync,
   realpathSync,
-  readdirSync,
   rmSync,
 } from "node:fs";
 import { createRequire } from "node:module";
@@ -242,7 +242,20 @@ function outputPaths(
   budget = { entries: 0, pathBytes: 0 },
   paths: string[] = [],
 ): string[] {
-  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => compareText(left.name, right.name))) {
+  const handle = opendirSync(directory);
+  const entries = [];
+  try {
+    for (;;) {
+      const entry = handle.readSync();
+      if (!entry) break;
+      entries.push(entry);
+      if (entries.length > maximumTraversalEntries - budget.entries) fail("FADENO_BUILD_CHILD_OUTPUT_LIMIT");
+    }
+  } finally {
+    handle.closeSync();
+  }
+  entries.sort((left, right) => compareText(left.name, right.name));
+  for (const entry of entries) {
     const path = join(directory, entry.name);
     const relativePath = relative(root, path).split("\\").join("/");
     budget.entries += 1;
@@ -264,13 +277,23 @@ function assertCompilerOwnership(
   dependencyRoots: readonly string[],
   closures: readonly RuntimeClosure[],
 ): void {
+  const dependencyRootSet = new Set(dependencyRoots.map((root) => realpathSync(resolve(root))));
+  const dependencyOwns = (file: string): boolean => {
+    let directory = dirname(file);
+    for (;;) {
+      if (dependencyRootSet.has(directory)) return true;
+      const parent = dirname(directory);
+      if (parent === directory) return false;
+      directory = parent;
+    }
+  };
   const ownership = closures.map((closure) => Object.freeze({
     root: realpathSync(resolve(closure.root)),
     paths: new Set(closure.identity.files.map(({ path }) => path)),
   }));
   for (const file of programFiles) {
     if (contained(projectRoot, file)) continue;
-    if (dependencyRoots.some((root) => contained(root, file))) continue;
+    if (dependencyOwns(file)) continue;
     const owner = ownership.find(({ root }) => contained(root, file));
     const path = owner ? relative(owner.root, file).split("\\").join("/") : null;
     if (!owner || !path || !owner.paths.has(path)) fail("FADENO_BUILD_CHILD_COMPILER_INPUT");
