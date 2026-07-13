@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -86,11 +86,12 @@ function compute(id: string, artifact?: Readonly<{ id: string; path: string }>) 
 
 try {
   cpSync(canonicalSource, new URL("./", pathToFileURL(`${root}/`)), { recursive: true });
+  writeFileSync(join(root, "manifest-owner.ts"), "export {};\n");
   const paths = {
     root: join(root, "routes/layout.tsx"),
     admin: join(root, "routes/admin/layout.tsx"),
     page: join(root, "routes/admin/dashboard/page.tsx"),
-    manifest: join(root, "server.ts"),
+    manifest: join(root, "manifest-owner.ts"),
   } as const;
   const session = new AnalyzerSession(root);
   for (const path of Object.values(paths)) acceptDocument(session.open(path, 0, readFileSync(path, "utf8")));
@@ -98,7 +99,7 @@ try {
     root: "routes/layout.tsx",
     admin: "routes/admin/layout.tsx",
     page: "routes/admin/dashboard/page.tsx",
-    manifest: "server.ts",
+    manifest: "manifest-owner.ts",
   };
   const uris = Object.fromEntries(Object.entries(documentPaths).map(([key, path]) => {
     const document = session.currentSnapshot.documents.find((candidate) => candidate.path === path);

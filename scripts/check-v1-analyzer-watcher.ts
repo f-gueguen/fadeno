@@ -123,6 +123,7 @@ class ManualRefreshTarget implements PrivateFilesystemRefreshTarget {
 
 function copyApplication(root: string): void {
   cpSync(new URL("../examples/v1-app/src/", import.meta.url), join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src/watcher-owner.ts"), "export {};\n");
   cpSync(new URL("../examples/v1-app/fadeno.config.ts", import.meta.url), join(root, "fadeno.config.ts"));
   cpSync(new URL("../examples/v1-app/tsconfig.json", import.meta.url), join(root, "tsconfig.json"));
   cpSync(new URL("../examples/v1-app/package.json", import.meta.url), join(root, "package.json"));
@@ -337,7 +338,7 @@ try {
 const integrationRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-watcher-integration-"));
 try {
   copyApplication(integrationRoot);
-  const server = join(integrationRoot, "src/server.ts");
+  const server = join(integrationRoot, "src/watcher-owner.ts");
   const serverBytes = readFileSync(server, "utf8");
   const support = join(integrationRoot, "src/watcher-support");
   mkdirSync(support);

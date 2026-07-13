@@ -9,13 +9,14 @@ than becoming application vocabulary.
 
 ## Status
 
-Fadeno is in V1 implementation. Its private workspace package and Node adapter
-smoke example run from an installed tarball, but no package is published or
-production-supported. Production route discovery, transactional generation,
-application-bound typed links, and metadata-only URL matching are implemented;
-route modules and rendering are deliberately not executed yet. This checkpoint
-is therefore not the first running routed framework application. That remains
-V1-09.
+Fadeno is in V1 implementation. A private packed framework can analyze, build,
+and run the canonical routed application through generated route bindings and a
+verified loopback production bootstrap. The application, deliberate failures,
+flow inspection, rollback, stale-output recovery, and production-only startup
+run as executable repository evidence. No package is published or
+production-supported yet, and the supported development server, resources,
+actions, browser enhancement, public release identity, and final qualification
+remain later work.
 
 The four K0 kill-risk investigations are complete: structural preservation and
 incremental declaration generation were narrowed, while bounded interaction
@@ -40,6 +41,13 @@ Production route generation and matching can be replayed with:
 
 ```sh
 pnpm check:v1-routing
+```
+
+The current first running application and transactional production build can be
+replayed from a freshly packed consumer with:
+
+```sh
+pnpm check:v1-running-example
 ```
 
 ## Repository contract

@@ -66,17 +66,17 @@
     },
     {
       "id": "route:manifest",
-      "primary": "server.ts",
+      "primary": "manifest-owner.ts",
       "related": ["routes/admin/dashboard/page.tsx", "routes/admin/layout.tsx", "routes/layout.tsx"],
       "module": { "namespace": "fadeno.routes", "version": 1, "transformation": "manifest" },
       "nodeSourceToArtifact": [
-        { "source": "server.ts", "artifactId": "artifact:route-manifest" },
+        { "source": "manifest-owner.ts", "artifactId": "artifact:route-manifest" },
         { "source": "routes/admin/dashboard/page.tsx", "artifactId": "artifact:route-manifest" },
         { "source": "routes/admin/layout.tsx", "artifactId": "artifact:route-manifest" },
         { "source": "routes/layout.tsx", "artifactId": "artifact:route-manifest" }
       ],
       "nodeArtifactToSource": [
-        { "artifactId": "artifact:route-manifest", "source": "server.ts" },
+        { "artifactId": "artifact:route-manifest", "source": "manifest-owner.ts" },
         { "artifactId": "artifact:route-manifest", "source": "routes/admin/dashboard/page.tsx" },
         { "artifactId": "artifact:route-manifest", "source": "routes/admin/layout.tsx" },
         { "artifactId": "artifact:route-manifest", "source": "routes/layout.tsx" }
@@ -86,8 +86,8 @@
           "id": "artifact:route-manifest",
           "path": ".fadeno/routes.manifest.json",
           "owner": "route:manifest",
-          "sourceToArtifact": ["server.ts", "routes/admin/dashboard/page.tsx", "routes/admin/layout.tsx", "routes/layout.tsx"],
-          "artifactToSource": ["server.ts", "routes/admin/dashboard/page.tsx", "routes/admin/layout.tsx", "routes/layout.tsx"]
+          "sourceToArtifact": ["manifest-owner.ts", "routes/admin/dashboard/page.tsx", "routes/admin/layout.tsx", "routes/layout.tsx"],
+          "artifactToSource": ["manifest-owner.ts", "routes/admin/dashboard/page.tsx", "routes/admin/layout.tsx", "routes/layout.tsx"]
         }
       ]
     },
@@ -124,7 +124,7 @@
     },
     "definitionRemoved": {
       "nodes": [
-        { "nodeId": "route:manifest", "ownerUri": "server.ts", "reason": "definition-removed" }
+        { "nodeId": "route:manifest", "ownerUri": "manifest-owner.ts", "reason": "definition-removed" }
       ],
       "artifacts": [
         { "id": "artifact:route-manifest", "path": ".fadeno/routes.manifest.json", "ownerNodeId": "route:manifest" }

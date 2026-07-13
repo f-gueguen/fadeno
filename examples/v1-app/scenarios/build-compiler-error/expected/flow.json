@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "scenario": "build-compiler-error",
+  "decision": "refuse-compiler-diagnostic",
+  "causes": [
+    "TS2322"
+  ],
+  "ownership": {
+    "acceptedOutput": "dist",
+    "candidateOutput": ".fadeno/build-stage/generation-1"
+  },
+  "skippedWork": [
+    "dist-replacement",
+    "production-start"
+  ],
+  "observableOutcome": "last-good-build-preserved"
+}

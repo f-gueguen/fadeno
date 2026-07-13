@@ -4,15 +4,17 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  opendirSync,
   readFileSync,
   readSync,
   realpathSync,
-  readdirSync,
   rmSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { createScanner, SyntaxKind } from "typescript/unstable/ast";
 
 import {
   assertPrivateBuildCompilerContract,
@@ -21,6 +23,7 @@ import {
   capturePrivateRuntimeIdentity,
   type PrivateRuntimeIdentity,
 } from "./build-dev-decision.ts";
+import { capturePrivateCompilerDependencyRoots } from "./analyzer-compiler.ts";
 
 const maximumRequestBytes = 256 * 1024;
 const maximumCompilerOutputBytes = 1024 * 1024;
@@ -30,6 +33,8 @@ const maximumDiagnostics = 4_096;
 const maximumDiagnosticBytes = 4 * 1024 * 1024;
 const maximumTraversalEntries = 8_192;
 const maximumTraversalPathBytes = 1024 * 1024;
+const maximumRuntimeReferences = 4_096;
+const maximumRuntimeTokens = 1_000_000;
 
 type RuntimeClosure = Readonly<{ root: string; identity: PrivateRuntimeIdentity }>;
 type GenerationRequest = Readonly<{
@@ -241,7 +246,20 @@ function outputPaths(
   budget = { entries: 0, pathBytes: 0 },
   paths: string[] = [],
 ): string[] {
-  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => compareText(left.name, right.name))) {
+  const handle = opendirSync(directory);
+  const entries = [];
+  try {
+    for (;;) {
+      const entry = handle.readSync();
+      if (!entry) break;
+      entries.push(entry);
+      if (entries.length > maximumTraversalEntries - budget.entries) fail("FADENO_BUILD_CHILD_OUTPUT_LIMIT");
+    }
+  } finally {
+    handle.closeSync();
+  }
+  entries.sort((left, right) => compareText(left.name, right.name));
+  for (const entry of entries) {
     const path = join(directory, entry.name);
     const relativePath = relative(root, path).split("\\").join("/");
     budget.entries += 1;
@@ -257,17 +275,135 @@ function outputPaths(
   return paths;
 }
 
+function runtimePackageNames(stageRoot: string, paths: readonly string[]): readonly string[] {
+  const packages = new Set<string>();
+  const emittedPaths = new Set(paths);
+  let references = 0;
+  const record = (importer: string, specifier: string): void => {
+    references += 1;
+    if (references > maximumRuntimeReferences || specifier.length === 0 || specifier.includes("\0")) {
+      fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+    }
+    if (specifier.startsWith("node:") || specifier === "fadeno:routes") return;
+    if (specifier.startsWith(".")) {
+      if (!specifier.startsWith("./") && !specifier.startsWith("../")) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      const target = resolve(dirname(join(stageRoot, importer)), specifier);
+      if (!contained(stageRoot, target)) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      const targetPath = relative(stageRoot, target).split("\\").join("/");
+      if (!emittedPaths.has(targetPath)) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      return;
+    }
+    if (specifier.startsWith("/") || specifier.startsWith("file:") || specifier.startsWith("#")) {
+      fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+    }
+    const parts = specifier.split("/");
+    const name = specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]!;
+    if (
+      name.length === 0 || name.length > 214 ||
+      !/^(?:@[A-Za-z0-9_~-][A-Za-z0-9._~-]*\/)?[A-Za-z0-9_~-][A-Za-z0-9._~-]*$/u.test(name)
+    ) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+    packages.add(name);
+  };
+  for (const path of paths) {
+    if (!/\.(?:c|m)?js$/u.test(path)) continue;
+    const source = readStableBoundedFile(join(stageRoot, path), maximumSourceFileBytes, "FADENO_BUILD_CHILD_OUTPUT").toString("utf8");
+    const scanner = createScanner(true, undefined, source);
+    let braces = 0;
+    let tokens = 0;
+    let previousKind: SyntaxKind | null = null;
+    let pendingModule: "import" | "export" | null = null;
+    let declaration: "import" | "export" | null = null;
+    let pendingRequire = false;
+    let pendingCall: "import" | "require" | null = null;
+    let awaitingSpecifier = false;
+    const templateBases: number[] = [];
+    for (let kind = scanner.scan(); kind !== SyntaxKind.EndOfFile; kind = scanner.scan()) {
+      if (kind === SyntaxKind.CloseBraceToken && templateBases.at(-1) === braces) {
+        kind = scanner.reScanTemplateToken(false);
+      }
+      tokens += 1;
+      if (tokens > maximumRuntimeTokens) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      const topLevel = braces === 0;
+      const literal = kind === SyntaxKind.StringLiteral || kind === SyntaxKind.NoSubstitutionTemplateLiteral;
+      let handled = false;
+      if (pendingCall !== null) {
+        if (!literal) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+        record(path, scanner.getTokenValue());
+        pendingCall = null;
+        handled = true;
+      } else if (awaitingSpecifier) {
+        if (kind !== SyntaxKind.StringLiteral) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+        record(path, scanner.getTokenValue());
+        awaitingSpecifier = false;
+        declaration = null;
+        handled = true;
+      } else if (pendingModule !== null) {
+        const moduleKind = pendingModule;
+        pendingModule = null;
+        if (moduleKind === "import" && kind === SyntaxKind.OpenParenToken) pendingCall = "import";
+        else if (moduleKind === "import" && literal) record(path, scanner.getTokenValue());
+        else if (moduleKind === "import" && kind !== SyntaxKind.DotToken && topLevel) declaration = "import";
+        else if (
+          moduleKind === "export" && topLevel &&
+          (kind === SyntaxKind.AsteriskToken || kind === SyntaxKind.OpenBraceToken)
+        ) declaration = "export";
+        handled = true;
+      } else if (pendingRequire) {
+        pendingRequire = false;
+        if (kind === SyntaxKind.OpenParenToken) {
+          pendingCall = "require";
+          handled = true;
+        }
+      }
+      if (!handled) {
+        if (kind === SyntaxKind.ImportKeyword) pendingModule = "import";
+        else if (kind === SyntaxKind.ExportKeyword && topLevel) pendingModule = "export";
+        else if (
+          (kind === SyntaxKind.RequireKeyword || (kind === SyntaxKind.Identifier && scanner.getTokenValue() === "require")) &&
+          previousKind !== SyntaxKind.DotToken && previousKind !== SyntaxKind.QuestionDotToken
+        ) pendingRequire = true;
+        else if (declaration !== null && topLevel && kind === SyntaxKind.FromKeyword) awaitingSpecifier = true;
+        else if (topLevel && kind === SyntaxKind.SemicolonToken) declaration = null;
+      }
+      if (kind === SyntaxKind.OpenBraceToken) braces += 1;
+      else if (kind === SyntaxKind.CloseBraceToken) braces -= 1;
+      else if (kind === SyntaxKind.TemplateHead) templateBases.push(braces);
+      else if (kind === SyntaxKind.TemplateTail) templateBases.pop();
+      if (braces < 0) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      previousKind = kind;
+    }
+    if (
+      pendingCall !== null || awaitingSpecifier || braces !== 0 || templateBases.length !== 0
+    ) {
+      fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+    }
+  }
+  return Object.freeze([...packages].sort(compareText));
+}
+
 function assertCompilerOwnership(
   programFiles: readonly string[],
   projectRoot: string,
+  dependencyRoots: readonly string[],
   closures: readonly RuntimeClosure[],
 ): void {
+  const dependencyRootSet = new Set(dependencyRoots.map((root) => realpathSync(resolve(root))));
+  const dependencyOwns = (file: string): boolean => {
+    let directory = dirname(file);
+    for (;;) {
+      if (dependencyRootSet.has(directory)) return true;
+      const parent = dirname(directory);
+      if (parent === directory) return false;
+      directory = parent;
+    }
+  };
   const ownership = closures.map((closure) => Object.freeze({
     root: realpathSync(resolve(closure.root)),
     paths: new Set(closure.identity.files.map(({ path }) => path)),
   }));
   for (const file of programFiles) {
     if (contained(projectRoot, file)) continue;
+    if (dependencyOwns(file)) continue;
     const owner = ownership.find(({ root }) => contained(root, file));
     const path = owner ? relative(owner.root, file).split("\\").join("/") : null;
     if (!owner || !path || !owner.paths.has(path)) fail("FADENO_BUILD_CHILD_COMPILER_INPUT");
@@ -300,10 +436,19 @@ async function main(): Promise<void> {
   try { config = JSON.parse(configBytes.toString("utf8")); } catch { fail("FADENO_BUILD_CHILD_TSCONFIG"); }
   assertPrivateBuildCompilerContract(config);
   const stageRoot = prepareStage(projectRoot, input.stageRoot, input.generation);
+  const dependencyBefore = await capturePrivateCompilerDependencyRoots(
+    projectRoot,
+    `build-generation-${input.generation}`,
+  );
   const analysis = await structuredDiagnostics(projectRoot);
-  assertCompilerOwnership(analysis.programFiles, projectRoot, input.runtimeClosures);
+  const dependencyAfterAnalysis = await capturePrivateCompilerDependencyRoots(
+    projectRoot,
+    `build-generation-${input.generation}`,
+  );
+  if (dependencyAfterAnalysis.sha256 !== dependencyBefore.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
+  assertCompilerOwnership(analysis.programFiles, projectRoot, dependencyBefore.roots, input.runtimeClosures);
   const sourcePaths = new Set(analysis.projectFiles);
-  for (const path of ["tsconfig.json", "package.json", ".env", ".env.local"]) {
+  for (const path of ["tsconfig.json", "package.json", "fadeno.config.ts", ".env", ".env.local"]) {
     if (existsSync(join(projectRoot, path))) sourcePaths.add(path);
   }
   const ownedSourcePaths = Object.freeze([...sourcePaths].sort(compareText));
@@ -323,6 +468,8 @@ async function main(): Promise<void> {
       status: "diagnostics",
       environmentSha256: environment.sha256,
       inputSha256: before.sha256,
+      input: before,
+      compilerDependenciesSha256: dependencyBefore.sha256,
       diagnostics: analysis.diagnostics,
     }))}\n`);
     return;
@@ -330,9 +477,15 @@ async function main(): Promise<void> {
   emit(projectRoot, stageRoot);
   const after = capturePrivateRuntimeIdentity(projectRoot, ownedSourcePaths);
   if (after.sha256 !== before.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
+  if ((await capturePrivateCompilerDependencyRoots(
+    projectRoot,
+    `build-generation-${input.generation}`,
+  )).sha256 !== dependencyBefore.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
   for (const closure of input.runtimeClosures) assertPrivateRuntimeIdentity(closure.root, closure.identity);
   if (capturePrivateEnvironment(projectRoot, process.env).sha256 !== environment.sha256) fail("FADENO_BUILD_CHILD_ENVIRONMENT");
-  const output = capturePrivateRuntimeIdentity(stageRoot, outputPaths(stageRoot));
+  const emittedPaths = outputPaths(stageRoot);
+  const runtimePackages = runtimePackageNames(stageRoot, emittedPaths);
+  const output = capturePrivateRuntimeIdentity(stageRoot, emittedPaths);
   const operationSha256 = createHash("sha256").update(JSON.stringify({
     generation: input.generation,
     environment: environment.sha256,
@@ -346,6 +499,9 @@ async function main(): Promise<void> {
     status: "emitted",
     environmentSha256: environment.sha256,
     inputSha256: after.sha256,
+    input: after,
+    compilerDependenciesSha256: dependencyBefore.sha256,
+    runtimePackages,
     output,
     operationSha256,
     diagnostics: Object.freeze([]),

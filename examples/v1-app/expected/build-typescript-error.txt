@@ -1,0 +1,2 @@
+FADENO_BUILD_TYPESCRIPT: TypeScript reported 1 diagnostic.
+  TS2322 src/build-scenario.ts:13-31: Type <redacted-literal> is not assignable to type <redacted-literal>.

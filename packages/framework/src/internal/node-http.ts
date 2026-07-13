@@ -14,6 +14,7 @@ export interface NodeHttpServer {
 export interface ListenNodeHttpOptions {
   readonly handler: Handler;
   readonly hostname?: string;
+  readonly port?: number;
   readonly failureObserver?: FrameworkFailureObserver;
 }
 
@@ -158,11 +159,11 @@ function handleRequest(
   })();
 }
 
-function listen(server: Server, hostname: string): Promise<void> {
+function listen(server: Server, hostname: string, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const onError = (error: Error): void => reject(error);
     server.once("error", onError);
-    server.listen(0, hostname, () => {
+    server.listen(port, hostname, () => {
       server.off("error", onError);
       resolve();
     });
@@ -179,6 +180,10 @@ function close(server: Server): Promise<void> {
 export async function listenNodeHttp(options: ListenNodeHttpOptions): Promise<NodeHttpServer> {
   assertSupportedRuntime();
   const hostname = options.hostname ?? "127.0.0.1";
+  const port = options.port ?? 0;
+  if (!Number.isSafeInteger(port) || port < 0 || port > 65_535) {
+    throw new Error("FADENO_ADAPTER_PORT");
+  }
   let origin: string | undefined;
   let draining = false;
   const server = createServer({ highWaterMark: 16 * 1024 }, (request, response) => {
@@ -190,7 +195,7 @@ export async function listenNodeHttp(options: ListenNodeHttpOptions): Promise<No
       return origin;
     }, request, response);
   });
-  await listen(server, hostname);
+  await listen(server, hostname, port);
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("FADENO_ADAPTER_ADDRESS");
   const authorityHost = isIP(hostname) === 6 ? `[${hostname}]` : hostname;

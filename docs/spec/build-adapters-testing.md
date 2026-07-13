@@ -94,6 +94,10 @@ failure pages and post-publication termination share incident correlation. The
 safe projection is redacted; the original cause reaches only the server-owned
 callback. A throwing or rejecting callback cannot change transport cleanup.
 
+ADR 0033 also extends the same options with an optional numeric `port` for the
+verified production bootstrap. Omission or zero keeps the raw adapter's
+ephemeral behavior; the production bootstrap accepts only `1..65535`.
+
 ## Adapter contract
 
 1. The core accepts standard `Request` and returns standard `Response` values
@@ -188,8 +192,9 @@ examples. The
 `check:v1-analyzer-package` gate rebuilds and packs the current framework,
 proves the private implementation is present, and proves package exports still
 refuse analyzer deep imports. B7B executes analyzer examples through the packed
-public check workflow. ADR 0033 now permits B7D6 and B7D7 to add packed build
-and development examples while keeping both commands unimplemented in B7D5.
+public check workflow. ADR 0033 permits B7D6 and B7D7 to add packed build and
+development examples. B7D6 now implements the build half while development
+remains unimplemented until B7D7.
 B6's private canonical-app flow
 fixtures contain both module-rendered human output and normalized machine
 output from executed success, deliberate route refusal, and recovery
@@ -203,7 +208,8 @@ reuse or revive the narrowed K0 incremental-generation claim.
 
 ## Retained build and development sequence
 
-`fadeno check` remains the only implemented project command. B7D1 gives the
+`fadeno check` and `fadeno build` are the implemented project commands; `dev`
+remains B7D7 work. B7D1 gives the
 private project authority one retained FIFO coordinator and exactly one analyzer
 session. Frozen admission handles preserve monotonic request identity across
 success and failure. Analysis and explanation never overlap; admitted work
@@ -324,6 +330,60 @@ for expected project or startup diagnostics, `2` for usage, and `3` for
 unexpected or forced failure. B7D6 and B7D7 separately implement and document
 these contracts with executable success, failure, flow, recovery, and cleanup
 evidence.
+
+B7D6 implements the production half through the installed `fadeno` executable.
+It first obtains one diagnostic-free retained analyzer/compiler generation and
+then runs the current packed emission child against the same accepted route
+artifacts. The child captures structured stock-compiler diagnostics before any
+emit, verifies exact project and installed-package ownership, emits with
+no-check only after a clean snapshot, and rechecks source, dependency,
+environment, compiler, and framework identities. Expected diagnostics remove
+the candidate stage and preserve the accepted `dist` generation.
+
+Build ownership is exclusive per project. A concurrent live owner is refused;
+a later operation may recover only a syntactically valid lock whose recorded
+process no longer exists. A second independent generation immediately before
+acceptance must reproduce the first generation's input, compiler-dependency,
+runtime-reference, and emitted-output identities. This final check includes
+newly discovered source, configuration and environment changes, and direct or
+transitive external compiler input changes.
+
+The command adds one deterministic build-owned bootstrap and a versioned
+manifest to the complete stage. The manifest contains file and runtime hashes,
+compiler and analyzer artifact identity, and the environment fingerprint but no
+environment values, absolute roots, timestamps, or secrets. Atomic renames
+replace `dist`; only a previous generation whose bounded manifest and exact
+owned file set validate may become rollback authority, and it remains so until
+the complete candidate identity is rechecked. Startup parses the required port,
+verifies the exact manifest file set and the bounded installed closure of
+declared production, installed optional, and required peer dependencies, and
+only then dynamically imports the public Node adapter and generated application
+handler. Root development dependencies and unrelated installed packages do not
+enter the runtime closure. Emitted application imports are scanned under
+explicit source, token, and reference limits and every external package must
+belong to that declared production graph. Non-literal dynamic imports,
+development-only imports, absolute package paths, and undeclared imports are
+refused before acceptance. A required root peer is part of the graph and must
+remain installed for production startup.
+The route loader is still a required earlier Node import.
+
+The canonical packed application is the public build example. Its gate proves
+two clean packed consumers produce byte-identical builds, an initial compiler
+failure leaves no `dist`, and later compiler failures preserve last-good output.
+It also proves redacted compiler text, current and newly added source and
+configuration freshness, environment and external compiler freshness,
+framework-runtime freshness, concurrent refusal and crash recovery, declared
+runtime-package enforcement, a required root peer, production-only reinstall
+and start,
+an injected post-stage identity failure with actual rollback, unowned output
+and fabricated rollback refusal, correction and diagnostic clearing,
+deleted-owner artifact cleanup, secret exclusion, normalized production
+dependency evidence, bounded-manifest refusal, missing-port, missing-loader and
+changed-runtime refusal before readiness, unrelated development-package
+independence, production start, HTTP behavior, and graceful stop.
+The build driver and generation child remain package-private; no machine command
+output, public analyzer schema, development watcher, or broader listener address
+is introduced.
 
 ## V1 and A0 conformance
 

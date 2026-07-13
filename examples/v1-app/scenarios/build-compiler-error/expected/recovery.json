@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "scenario": "build-compiler-error",
+  "correction": "replace-the-invalid-value-with-a-number",
+  "staleDiagnosticRemoved": true,
+  "lastGoodBuildPreservedDuringFailure": true,
+  "correctedArtifactPublished": true,
+  "staleArtifactRemovedAfterOwnerDeletion": true
+}
