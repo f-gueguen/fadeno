@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "scenario": "resource-keeps-correction",
+  "keeps": [
+    "stable"
+  ],
+  "decisions": [
+    "verified"
+  ],
+  "complete": true,
+  "correctnessReads": 4,
+  "correctnessReadsRemovedByOptimization": 0
+}

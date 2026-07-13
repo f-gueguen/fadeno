@@ -8,7 +8,8 @@
     "types": ["node"]
   },
   "include": [
+    "packages/framework/src/index.ts",
     "packages/framework/src/internal/resource.ts",
-    "scripts/check-v1-resource-decision.ts"
+    "scripts/check-v1-resources.ts"
   ]
 }

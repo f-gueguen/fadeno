@@ -15,8 +15,14 @@ frozen normalized snapshot rather than the caller's mutable object identity;
 non-enumerable and symbol-keyed properties are stripped from both key and
 snapshot. Cycles, enumerable accessors, sparse arrays, inherited enumerable
 properties, custom prototypes, non-finite numbers, symbol values, and other
-unsupported or over-budget values are refused without executing application
-code.
+unsupported or over-budget values are refused without invoking loader or
+accessor code. Proxy-interposed application objects are refused, may run their
+own reflection traps during validation, and cannot customize identity;
+external decoders must produce ordinary data before calling a resource.
+The limits bound the normalized key and framework-retained data. Enumerating an
+application-created object can still cost time proportional to that original
+object's property count, and proxy traps are application execution rather than
+a security boundary; applications should construct bounded ordinary inputs.
 
 Each request owns a fresh declaration/input map. It records a dependency and
 stores the loader promise before awaiting it, so equivalent concurrent and
@@ -24,6 +30,14 @@ later reads share one value, expected failure, or unexpected failure. Distinct
 identity/input pairs execute independently. Attempted failures and cancellation
 remain dependencies; refused inputs do not. Request completion releases all
 entries, so a later request cannot observe a stale result or failure.
+
+V1-11 implements this map as part of matched-route rendering and exposes the
+same typed read capability to pages, layouts, not-found pages, and error pages.
+Redirects close it immediately; streamed responses retain it until success,
+failure, or cancellation cleanup. Expected failures select their declared HTTP
+status and route error page without an internal incident. The canonical packed
+application proves equivalent concurrent reads, distinct authorization
+requests, expected failure, response cleanup, and next-request recovery.
 
 V1 explicitly refuses shared, global, persistent, time-based, or other
 cross-request result caches. A future shared cache requires a new decision with
@@ -49,6 +63,13 @@ value, expected-error code/status, and ordering changes are detected, while
 non-cacheable, unsupported, and over-budget values refuse the optimization.
 
 The baseline remains correct when all `keeps` declarations are removed.
+
+V1-11 implements one private revalidation owner that reruns the complete
+immutable active dependency set in deterministic observation order, compares
+only bounded supported outcomes, marks unsafe or inactive declarations, and
+publishes no partial optimization result after cancellation. The action slice
+will invoke that owner only after DG-V1-05 fixes the successful-action
+container; V1-11 does not expose `keeps` or an action API by itself.
 
 ## Concurrent submissions
 

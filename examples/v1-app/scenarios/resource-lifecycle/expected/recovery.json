@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "scenario": "resource-request-recovery",
+  "firstStatus": 503,
+  "secondStatus": 200,
+  "staleExpectedFailureRemoved": true,
+  "staleResourceResultRemoved": true,
+  "crossRequestCacheUsed": false
+}

@@ -1,7 +1,7 @@
 import { createCspNonce, readCspNonce } from "./rendering-security.ts";
 
 export type StreamPhase = "uncommitted" | "head-published" | "body-started" | "completed" | "terminated" | "cancelled";
-export type RootFailureKind = "not-found" | "redirect" | "unexpected" | "timeout";
+export type RootFailureKind = "not-found" | "redirect" | "expected" | "unexpected" | "timeout";
 export type CancellationReason = "disconnect" | "explicit" | "superseded";
 
 export interface StreamHeadPlan {
@@ -189,7 +189,7 @@ export class StreamingLifecycle {
   async fail(kind: RootFailureKind): Promise<FailureDecision> {
     if (this.#phase === "uncommitted") {
       if (this.#precommitDecision) return this.#precommitDecision;
-      const status = kind === "not-found" ? 404 : kind === "redirect" ? 303 : kind === "unexpected" ? 500 : 504;
+      const status = kind === "not-found" ? 404 : kind === "redirect" ? 303 : kind === "timeout" ? 504 : 500;
       this.#precommitDecision = Object.freeze({ kind: "replace", status });
       this.#workCancellation.abort(kind);
       return this.#precommitDecision;

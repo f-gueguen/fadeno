@@ -7,6 +7,7 @@
     ".fadeno/routes/loader.js",
     ".fadeno/routes/virtual.js",
     "server/bootstrap.js",
+    "src/resources/projects.js",
     "src/routes/admin/dashboard/page.js",
     "src/routes/admin/layout.js",
     "src/routes/admin/not-found.js",
@@ -18,6 +19,8 @@
     "src/routes/not-found.js",
     "src/routes/page.js",
     "src/routes/raw/handler.js",
+    "src/routes/resource-failure/page.js",
+    "src/routes/resource-recovery/page.js",
     "src/routes/shop/catalog/page.js",
     "src/routes/shop/not-found.js"
   ],

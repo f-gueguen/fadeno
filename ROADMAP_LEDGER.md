@@ -6,44 +6,44 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-10 — resource identity and cache contract
+V1-11 — request-scoped resource runtime and revalidation foundation
 
 ## Exit criteria
 
-- [x] Accept ADR 0034 as the resource identity/cache decision without
-  implementing the V1-11 runtime or crossing the action/session gate.
-- [x] Define exact resource declaration and call identity, equivalent/distinct
-  input rules, request-local deduplication, concurrent ownership, cancellation,
-  dependency recording, and rendering-boundary failure behavior.
-- [x] Define error caching, authorization and representation partitioning,
-  cross-request cache opt-in or explicit V1 refusal, bounded value/key rules,
-  and conservative unsupported-value behavior.
-- [x] Freeze correctness-first revalidation and any public `keeps` declaration
-  boundary so removing every optimization preserves correctness and unsafe
-  declarations remain development-visible refusals.
-- [ ] Add private strict-TypeScript executable success/refusal/isolation/
-  failure/flow/recovery evidence, align every canonical document, and pass full
-  repository, local CI, architecture, Big-O, and fresh review gates.
+- [x] Export only ADR 0034's exact `defineResource({ read })`, branded
+  `resourceError({ code, status })`, and typed `context.read(resource, input)`
+  surface without adding an action, session, shared cache, or alternate call.
+- [x] Implement one request-owned normalized-input promise map with equivalent
+  concurrent deduplication, distinct-read separation, bounded refusal,
+  expected/unexpected failure ownership, cancellation, and complete cleanup.
+- [x] Record immutable resource/input dependencies during rendering and add one
+  private correctness-first revalidation owner that reruns the complete set,
+  conservatively refuses unsafe `keeps`, and remains correct with all
+  optimizations removed.
+- [x] Extend the packed canonical application and dedicated failure harness with
+  permanent executable success, failure/refusal, normalized flow, correction
+  where safe, recovery/stale-removal, authorization isolation, concurrency, and
+  memory-regression evidence through public package entrypoints.
+- [x] Align current specifications, traceability, risks, and public docs; pass
+  focused/full/local CI, architecture, Big-O, package-surface, H4 regression,
+  and fresh review gates.
 
 ## In progress
 
-- V1-10 is ready for review. ADR 0034 resolves the resource decision through
-  opaque declaration identity, deeply frozen normalized structural input,
-  request-only promise caching, branded failure behavior, request cancellation,
-  declaration-reference `keeps`, and explicit cross-request cache refusal.
-- `pnpm check:v1-resource-decision` proves equivalent/distinct and concurrent
-  reads, authorization isolation, expected/unexpected failure caching,
-  cancellation, bounded refusal, normalized flow evidence, and next-request
-  recovery. Immutable H4 evidence continues to own unsafe-`keeps` comparison.
-- Architecture review found no duplicated ownership or weak-payoff layer in the
-  bounded decision model. Independent Big-O challenge found no remaining
-  asymptotic issue after call/flow, entry, string/key, lazy-enumeration, and
-  snapshot bounds were added.
-- Public resource execution, renderer integration, generated declarations, and
-  revalidation runtime remain V1-11 work. DG-V1-05 continues to own actions,
-  forms, sessions, origin/CSRF, replay, redirects, uploads, and cookies.
-- The package contains the private evidence module but exports no resource API,
-  analyzer schema, editor product, or cross-request cache policy.
+- One implementation now owns ADR 0034's public declaration, expected failure,
+  normalized input, request promise map, renderer context, cancellation, and
+  cleanup behavior. The packed application proves the exported surface.
+- Exactly one resource scope belongs to each matched request and every
+  page/layout/error/not-found context receives its typed read. Redirect and
+  response lifecycle paths release complete request state.
+- Complete deterministic dependency revalidation remains a private foundation.
+  It does not invent the DG-V1-05 action, form, session, origin/CSRF, replay,
+  redirect, upload, or cookie contracts.
+- Expected failures select an application status/boundary without an internal
+  incident; unexpected failures retain correlated redacted observation.
+- Cross-request caching remains refused. Runtime flow evidence remains private
+  and separate from static analyzer provenance; no editor product or stable
+  machine schema is introduced.
 
 ## Blockers
 
@@ -220,3 +220,9 @@ V1-10 — resource identity and cache contract
   diagnostics and startup rollback, bounded output and shutdown, and permanent
   canonical success/refusal/flow/recovery/cleanup evidence without exposing an
   analyzer schema or editor product.
+- V1-10 — Merge commit `603e450` accepts ADR 0034, resolves the resource
+  identity/cache gate through opaque declaration identity, deeply frozen
+  normalized input, bounded request-only promise caching, failure and
+  cancellation ownership, declaration-reference `keeps`, explicit shared-cache
+  refusal, private executable evidence, and no public runtime or action/session
+  surface.

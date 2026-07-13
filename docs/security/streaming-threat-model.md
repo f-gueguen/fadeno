@@ -37,6 +37,7 @@ document would be dishonest. V1 has no client mechanism for replacing visible
 pending output, so unresolved boundaries pause their document position.
 
 V1-09 owns actual HTML parser behavior, response construction, CSP headers,
-executable markup, and adapter integration. Resource cache cleanup, action
-authorization, and authentication expiry remain with their owning later V1
-slices.
+executable markup, and adapter integration. V1-11 adds exactly-once
+request-resource cleanup to the same response lifecycle and proves expected
+resource failures before and after publication. Action authorization and
+authentication expiry remain with their owning later V1 slices.
