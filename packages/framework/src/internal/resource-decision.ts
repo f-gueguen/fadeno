@@ -112,7 +112,7 @@ function encodeInput(value: unknown): string {
       const properties: [string, unknown][] = [];
       const names = Object.getOwnPropertyNames(current);
       if (names.length > maximumInputEntries - entries) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
-      for (const name of names.sort(compareText)) {
+      for (const name of names) {
         if (name.length > maximumInputKeyBytes || name.length > maximumInputBytes - scalarBytes) {
           throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
         }
@@ -121,6 +121,9 @@ function encodeInput(value: unknown): string {
         addScalarBytes(nameBytes);
         const descriptor = Object.getOwnPropertyDescriptor(current, name);
         if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw new TypeError("FADENO_RESOURCE_INPUT");
+      }
+      for (const name of names.sort(compareText)) {
+        const descriptor = Object.getOwnPropertyDescriptor(current, name)!;
         properties.push([name, visit(descriptor.value, depth + 1)]);
       }
       return ["object", properties];
