@@ -18,7 +18,7 @@ V1-DX-B7B — packed public project-check workflow
   canonical success, deliberate collision, flow-inspection, and recovery runs.
 - [x] Keep analyzer transports private and add no filesystem publication,
   build/watch consumer, public schema, protocol, or editor product.
-- [ ] Pass analyzer-workflow, private-package, full repository, local CI, and
+- [x] Pass analyzer-workflow, private-package, full repository, local CI, and
   fresh independent review gates.
 
 ## In progress
@@ -39,6 +39,8 @@ V1-DX-B7B — packed public project-check workflow
   mutation-tests stale identity refusal; and executes stable human success,
   collision, correction, semantic flow, and recovery outputs without writing
   project artifacts.
+- Fresh independent review found no P1 or P2 issue, and the complete local
+  merge gate passed from one unchanged committed worktree.
 - The real project authority must replace manual analyzer definitions and the
   running example's direct generation path incrementally; it may not wrap or
   preserve a second discovery/diagnostic/generation policy.
