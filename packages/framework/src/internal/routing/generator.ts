@@ -13,9 +13,9 @@ import { join, relative, resolve } from "node:path";
 
 import type { FadenoConfig } from "../../index.ts";
 import { FadenoDiagnosticError } from "../diagnostic.ts";
+import { ROUTE_ARTIFACT_NAMES, type RouteArtifactName } from "./artifact-contract.ts";
 import {
   assertRouteManifestSemantics,
-  discoverRouteManifest,
   discoverRouteManifestWithSources,
   stableRouteManifest,
   type RouteManifest,
@@ -23,9 +23,7 @@ import {
 } from "./discovery.ts";
 
 const GENERATOR_VERSION = 1;
-const OUTPUT_FILES = ["app.ts", "index.d.ts", "index.js", "loader.ts", "manifest.json", "owner.json", "virtual.ts"] as const;
-
-export type RouteArtifactName = typeof OUTPUT_FILES[number];
+export type { RouteArtifactName } from "./artifact-contract.ts";
 export type RouteArtifactPlan = Readonly<{
   manifest: RouteManifest;
   sourceSha256: string;
@@ -33,13 +31,38 @@ export type RouteArtifactPlan = Readonly<{
   files: Readonly<Record<RouteArtifactName, string>>;
 }>;
 
-export type GenerationFailurePoint = "manifest" | "runtime" | "declaration" | "owner" | "beforeReplace";
-export type GenerationOperationFailure = "afterBackup" | "replace" | "restore" | "cleanup";
 export type RouteGenerationResult = Readonly<{
   changed: boolean;
   output: string;
   sourceSha256: string;
 }>;
+
+export type RouteArtifactMutationFileSystem = Readonly<{
+  mkdir(path: string): void;
+  writeFile(path: string, bytes: string): void;
+  rename(from: string, to: string): void;
+  remove(path: string): void;
+}>;
+
+export type RouteArtifactApplicationPhase =
+  | "after-stage"
+  | "after-backup"
+  | "after-replace"
+  | "before-cleanup";
+
+export type RouteArtifactApplicationOptions = Readonly<{
+  assertFresh(): void;
+  fileSystem?: RouteArtifactMutationFileSystem;
+  afterWrite?(name: RouteArtifactName): void;
+  observe?(phase: RouteArtifactApplicationPhase): void;
+}>;
+
+const nodeMutationFileSystem: RouteArtifactMutationFileSystem = Object.freeze({
+  mkdir: (path) => mkdirSync(path),
+  writeFile: (path, bytes) => writeFileSync(path, bytes),
+  rename: (from, to) => renameSync(from, to),
+  remove: (path) => rmSync(path, { recursive: true, force: true }),
+});
 
 function sha256(bytes: string | Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -65,9 +88,9 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
-function readManifest(path: string): RouteManifest {
+function parseManifest(bytes: string): RouteManifest {
   let value: unknown;
-  try { value = JSON.parse(readFileSync(path, "utf8")); } catch { fail("OUTPUT_MANIFEST"); }
+  try { value = JSON.parse(bytes); } catch { fail("OUTPUT_MANIFEST"); }
   if (!isPlainRecord(value) || !isPlainRecord(value["generation"]) || !Array.isArray(value["routes"])) fail("OUTPUT_MANIFEST");
   try { assertRouteManifestSemantics(value as RouteManifest); } catch (error) {
     if (error instanceof FadenoDiagnosticError) throw error;
@@ -264,17 +287,12 @@ function ownerDocument(manifest: RouteManifest, files: Readonly<Record<string, s
   }, null, 2)}\n`;
 }
 
-function assertOwnedOutput(output: string): void {
-  if (!existsSync(output)) return;
-  if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) fail("OUTPUT_TYPE");
-  const entries = readdirSync(output).sort(compareText);
-  if (JSON.stringify(entries) !== JSON.stringify([...OUTPUT_FILES].sort(compareText))) fail("OUTPUT_UNOWNED");
-  for (const name of OUTPUT_FILES) {
-    const status = lstatSync(join(output, name));
-    if (status.isSymbolicLink() || !status.isFile()) fail("OUTPUT_CHILD_TYPE");
+function assertOwnedFiles(files: Readonly<Record<string, string>>): RouteManifest {
+  if (JSON.stringify(Object.keys(files).sort(compareText)) !== JSON.stringify([...ROUTE_ARTIFACT_NAMES].sort(compareText))) {
+    fail("OUTPUT_UNOWNED");
   }
   let ownerValue: unknown;
-  try { ownerValue = JSON.parse(readFileSync(join(output, "owner.json"), "utf8")); } catch { fail("OUTPUT_OWNER"); }
+  try { ownerValue = JSON.parse(files["owner.json"]!); } catch { fail("OUTPUT_OWNER"); }
   if (!isPlainRecord(ownerValue)) fail("OUTPUT_OWNER");
   const owner = ownerValue as { schemaVersion?: number; owner?: string; generatorVersion?: number; sourceSha256?: string; files?: readonly unknown[] };
   if (JSON.stringify(Object.keys(owner).sort(compareText)) !== JSON.stringify(["files", "generatorVersion", "owner", "schemaVersion", "sourceSha256"]) ||
@@ -287,40 +305,77 @@ function assertOwnedOutput(output: string): void {
     if (!isPlainRecord(fileValue)) fail("OUTPUT_OWNER");
     const file = fileValue as { path?: unknown; sha256?: unknown };
     if (JSON.stringify(Object.keys(file).sort(compareText)) !== JSON.stringify(["path", "sha256"]) ||
-        typeof file.path !== "string" || typeof file.sha256 !== "string" || !OUTPUT_FILES.includes(file.path as typeof OUTPUT_FILES[number]) ||
-        sha256(readFileSync(join(output, file.path))) !== file.sha256) fail("OUTPUT_OWNER");
+        typeof file.path !== "string" || typeof file.sha256 !== "string" || !ROUTE_ARTIFACT_NAMES.includes(file.path as RouteArtifactName) ||
+        sha256(files[file.path]!) !== file.sha256) fail("OUTPUT_OWNER");
     ownerFiles.push({ path: file.path, sha256: file.sha256 });
   }
   if (JSON.stringify(ownerFiles.map(({ path }) => path).sort(compareText)) !== JSON.stringify(["app.ts", "index.d.ts", "index.js", "loader.ts", "manifest.json", "virtual.ts"])) fail("OUTPUT_OWNER");
-  const manifest = readManifest(join(output, "manifest.json"));
+  const manifest = parseManifest(files["manifest.json"]!);
   if (manifest.generation.version !== owner.generatorVersion || manifest.generation.sourceSha256 !== owner.sourceSha256) fail("OUTPUT_IDENTITY");
   const identity = `Generated by Fadeno routes v${owner.generatorVersion}; source ${owner.sourceSha256}.`;
-  if (!readFileSync(join(output, "index.js"), "utf8").includes(identity) || !readFileSync(join(output, "index.d.ts"), "utf8").includes(identity)) {
+  if (!files["index.js"]!.includes(identity) || !files["index.d.ts"]!.includes(identity)) {
     fail("OUTPUT_IDENTITY");
   }
   const applicationIdentity = `Generated by Fadeno application v${owner.generatorVersion}; source ${owner.sourceSha256}.`;
-  if (!readFileSync(join(output, "app.ts"), "utf8").includes(applicationIdentity)) fail("OUTPUT_IDENTITY");
+  if (!files["app.ts"]!.includes(applicationIdentity)) fail("OUTPUT_IDENTITY");
   const loaderIdentity = `Generated by Fadeno route loader v${owner.generatorVersion}; source ${owner.sourceSha256}.`;
-  if (!readFileSync(join(output, "loader.ts"), "utf8").includes(loaderIdentity)) fail("OUTPUT_IDENTITY");
-  if (!readFileSync(join(output, "virtual.ts"), "utf8").includes(identity)) fail("OUTPUT_IDENTITY");
+  if (!files["loader.ts"]!.includes(loaderIdentity)) fail("OUTPUT_IDENTITY");
+  if (!files["virtual.ts"]!.includes(identity)) fail("OUTPUT_IDENTITY");
+  return manifest;
+}
+
+function assertOwnedOutput(output: string): void {
+  if (!existsSync(output)) return;
+  if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) fail("OUTPUT_TYPE");
+  const entries = readdirSync(output).sort(compareText);
+  if (JSON.stringify(entries) !== JSON.stringify([...ROUTE_ARTIFACT_NAMES].sort(compareText))) fail("OUTPUT_UNOWNED");
+  const files: Record<string, string> = {};
+  for (const name of ROUTE_ARTIFACT_NAMES) {
+    const path = join(output, name);
+    const status = lstatSync(path);
+    if (status.isSymbolicLink() || !status.isFile()) fail("OUTPUT_CHILD_TYPE");
+    files[name] = readFileSync(path, "utf8");
+  }
+  assertOwnedFiles(files);
 }
 
 function assertOutputParent(projectRoot: string, parent: string): void {
   const containment = relative(resolve(projectRoot), resolve(parent));
   if (containment.startsWith("..") || containment.includes("..") || lstatSync(projectRoot).isSymbolicLink()) fail("OUTPUT_ESCAPE");
   if (existsSync(parent) && (lstatSync(parent).isSymbolicLink() || !lstatSync(parent).isDirectory())) fail("OUTPUT_PARENT");
-  if (!existsSync(parent)) mkdirSync(parent);
 }
 
-function recoverPreviousOutput(parent: string, output: string): void {
-  const previous = readdirSync(parent).filter((name) => name.startsWith("routes.previous-")).sort(compareText);
-  if (previous.length > 1) fail("OUTPUT_RECOVERY_AMBIGUOUS");
-  const candidate = previous[0];
-  if (!candidate) return;
-  const path = join(parent, candidate);
-  assertOwnedOutput(path);
-  if (existsSync(output)) rmSync(path, { recursive: true });
-  else renameSync(path, output);
+function ensureOutputParent(projectRoot: string, parent: string, fileSystem: RouteArtifactMutationFileSystem): void {
+  assertOutputParent(projectRoot, parent);
+  if (!existsSync(parent)) fileSystem.mkdir(parent);
+  assertOutputParent(projectRoot, parent);
+}
+
+function recoverTransactionState(
+  parent: string,
+  output: string,
+  fileSystem: RouteArtifactMutationFileSystem,
+): void {
+  const entries = readdirSync(parent);
+  const pending = entries.filter((name) => name.startsWith("routes.pending-"));
+  const previous = entries.filter((name) => name.startsWith("routes.previous-"));
+  if (pending.length > 1 || previous.length > 1) fail("OUTPUT_RECOVERY_AMBIGUOUS");
+  const pendingPath = pending[0] ? join(parent, pending[0]) : null;
+  const previousPath = previous[0] ? join(parent, previous[0]) : null;
+  if (pendingPath) {
+    if (lstatSync(pendingPath).isSymbolicLink() || !lstatSync(pendingPath).isDirectory()) fail("OUTPUT_RECOVERY_PENDING");
+    try { assertOwnedOutput(pendingPath); } catch { fail("OUTPUT_RECOVERY_PENDING"); }
+  }
+  if (previousPath) assertOwnedOutput(previousPath);
+  if (previousPath && existsSync(output)) assertOwnedOutput(output);
+
+  if (pendingPath) fileSystem.remove(pendingPath);
+  if (!previousPath) return;
+  if (existsSync(output)) {
+    fileSystem.remove(output);
+  }
+  fileSystem.rename(previousPath, output);
+  assertOwnedOutput(output);
 }
 
 export function createRouteArtifactPlan(projectRoot: string, config: FadenoConfig): RouteArtifactPlan {
@@ -356,84 +411,75 @@ export function verifyRouteArtifactPlanFreshness(
   ) fail("SOURCE_CHANGED");
 }
 
-export function generateRoutes(
+export function applyRouteArtifactPlan(
   projectRoot: string,
-  config: FadenoConfig,
-  failurePoint?: GenerationFailurePoint,
-  beforeSourceValidation?: () => void,
-  operationFailure?: GenerationOperationFailure,
-  afterReplaceValidation?: () => void,
+  plan: RouteArtifactPlan,
+  options: RouteArtifactApplicationOptions,
 ): RouteGenerationResult {
-  const routeConfig = config.routes;
-  if (!routeConfig) fail("ROUTES_REQUIRED");
-  const plan = createRouteArtifactPlan(projectRoot, config);
-  const { manifest } = plan;
+  const manifest = assertOwnedFiles(plan.files);
+  if (manifest.generation.sourceSha256 !== plan.sourceSha256) fail("OUTPUT_IDENTITY");
   const expected: Readonly<Record<string, string>> = plan.files;
+  const fileSystem = options.fileSystem ?? nodeMutationFileSystem;
 
   const parent = join(resolve(projectRoot), ".fadeno");
   const output = join(parent, "routes");
-  assertOutputParent(projectRoot, parent);
-  recoverPreviousOutput(parent, output);
+  options.assertFresh();
+  ensureOutputParent(projectRoot, parent, fileSystem);
+  recoverTransactionState(parent, output, fileSystem);
+  options.assertFresh();
   assertOwnedOutput(output);
   if (existsSync(output) && Object.entries(expected).every(([name, bytes]) => readFileSync(join(output, name), "utf8") === bytes)) {
-    return { changed: false, output, sourceSha256: manifest.generation.sourceSha256 };
+    options.assertFresh();
+    return { changed: false, output, sourceSha256: plan.sourceSha256 };
   }
 
   const pending = join(parent, `routes.pending-${randomUUID()}`);
   const previous = join(parent, `routes.previous-${randomUUID()}`);
-  mkdirSync(pending);
+  fileSystem.mkdir(pending);
   try {
-    for (const [name, bytes, point] of [
-      ["manifest.json", plan.files["manifest.json"], "manifest"],
-      ["app.ts", plan.files["app.ts"], "runtime"],
-      ["index.js", plan.files["index.js"], "runtime"],
-      ["loader.ts", plan.files["loader.ts"], "runtime"],
-      ["virtual.ts", plan.files["virtual.ts"], "runtime"],
-      ["index.d.ts", plan.files["index.d.ts"], "declaration"],
-      ["owner.json", plan.files["owner.json"], "owner"],
-    ] as const) {
-      writeFileSync(join(pending, name), bytes);
-      if (failurePoint === point) fail(`INJECTED_${point.toUpperCase()}`);
+    for (const name of ROUTE_ARTIFACT_NAMES) {
+      assertOutputParent(projectRoot, parent);
+      if (lstatSync(pending).isSymbolicLink() || !lstatSync(pending).isDirectory()) fail("OUTPUT_PENDING");
+      fileSystem.writeFile(join(pending, name), plan.files[name]);
+      options.afterWrite?.(name);
     }
     assertOwnedOutput(pending);
-    readManifest(join(pending, "manifest.json"));
-    beforeSourceValidation?.();
-    const finalManifest = discoverRouteManifest(projectRoot, routeConfig);
-    if (finalManifest.generation.sourceSha256 !== manifest.generation.sourceSha256) fail("SOURCE_CHANGED");
-    if (failurePoint === "beforeReplace") fail("INJECTED_BEFORE_REPLACE");
+    options.observe?.("after-stage");
+    options.assertFresh();
     assertOutputParent(projectRoot, parent);
     assertOwnedOutput(pending);
     if (existsSync(output)) assertOwnedOutput(output);
 
     const hadOutput = existsSync(output);
-    if (hadOutput) renameSync(output, previous);
+    if (hadOutput) fileSystem.rename(output, previous);
     try {
-      if (operationFailure === "afterBackup") fail("INJECTED_AFTER_BACKUP");
-      if (operationFailure === "replace" || operationFailure === "restore") fail("INJECTED_REPLACE");
-      renameSync(pending, output);
+      options.observe?.("after-backup");
+      assertOutputParent(projectRoot, parent);
+      assertOwnedOutput(pending);
+      if (hadOutput) assertOwnedOutput(previous);
+      if (existsSync(output)) fail("OUTPUT_REPLACEMENT_STATE");
+      fileSystem.rename(pending, output);
     } catch (error) {
-      if (hadOutput && existsSync(previous)) {
-        try {
-          if (operationFailure === "restore") fail("INJECTED_RESTORE");
-          renameSync(previous, output);
-        } catch {
-          if (!existsSync(output) && existsSync(previous)) renameSync(previous, output);
-        }
+      if (hadOutput && existsSync(previous) && !existsSync(output)) {
+        try { fileSystem.rename(previous, output); } catch { /* next-run recovery retains the validated previous set */ }
       }
       throw error;
     }
     try {
-      afterReplaceValidation?.();
-      const publishedManifest = discoverRouteManifest(projectRoot, routeConfig);
-      if (publishedManifest.generation.sourceSha256 !== manifest.generation.sourceSha256) fail("SOURCE_CHANGED_AFTER_REPLACE");
+      assertOwnedOutput(output);
+      options.observe?.("after-replace");
+      options.assertFresh();
     } catch (error) {
-      rmSync(output, { recursive: true, force: true });
-      if (hadOutput && existsSync(previous)) renameSync(previous, output);
+      try {
+        if (existsSync(output)) fileSystem.remove(output);
+        if (hadOutput && existsSync(previous) && !existsSync(output)) fileSystem.rename(previous, output);
+      } catch { /* the validated previous set remains available to next-run recovery */ }
       throw error;
     }
-    if (operationFailure !== "cleanup") rmSync(previous, { recursive: true, force: true });
-    return { changed: true, output, sourceSha256: manifest.generation.sourceSha256 };
+    options.observe?.("before-cleanup");
+    if (hadOutput) fileSystem.remove(previous);
+    return { changed: true, output, sourceSha256: plan.sourceSha256 };
   } finally {
-    rmSync(pending, { recursive: true, force: true });
+    if (existsSync(pending)) fileSystem.remove(pending);
   }
 }

@@ -52,6 +52,16 @@ A production build:
   precision the build cannot attribute;
 - fails on stale generated artifacts or public-contract drift.
 
+V1-DX-B7C implements only the private route-artifact application boundary used
+by later build and development consumers. It consumes one exact current analyzer
+publication, not a generic artifact list, and it cannot rediscover or rerender
+route facts. Diagnostic publications preserve the last accepted disk set.
+Directory replacement never exposes mixed generations, although portable
+backup-and-replace has a bounded interval with no route directory; retained
+consumer serialization remains V1-DX-B7D work. Actual filesystem-operation and
+restart-recovery tests cover stage, backup, replace, validation, restore, and
+cleanup failures. No command behavior changes in B7C.
+
 ## Package boundary
 
 ADR 0024 selects one logical framework package with a runtime-neutral `.`

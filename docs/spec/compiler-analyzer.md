@@ -380,6 +380,40 @@ only through `node_modules/.bin/fadeno` and leave no project output. JSON and
 other machine-output options remain usage errors; private analyzer transports
 and DG-A0-02 are unchanged.
 
+V1-DX-B7C gives the originating project analyzer the only private authority to
+apply a route publication. Disk application accepts exactly the current,
+complete, diagnostic-free set of seven `fadeno.routes` artifacts, with their
+fixed IDs, paths, owner, UTF-8 bytes, hashes, and construction provenance. A
+generic analyzer artifact or removal is never filesystem authority. In
+particular, a diagnostic publication that removes the in-memory route plan
+preserves the last accepted disk generation; repair applies a new complete set.
+
+Application rechecks the current session, operation, workspace and
+configuration epochs, document versions, configuration source, route structure,
+and source bytes through the analyzer immediately before mutation and after
+replacement. A newer analysis, transported snapshot, source/configuration edit,
+new entry, deletion, rename, or ownership change makes the older application
+authority unusable. The filesystem applicator validates and writes accepted
+bytes but never discovers routes or renders an artifact.
+
+The route directory transaction stages and validates a complete owned set,
+backs up at most one validated previous generation, replaces the directory,
+revalidates freshness, and cleans the backup. Exact reapplication is a zero-write
+operation that preserves every mtime; partial per-file preservation is not
+claimed. Portable replacement has a bounded interval between the backup and
+replacement renames in which the `routes` directory is absent, but it never
+exposes a mixed file generation. B7D must serialize retained consumers across
+that interval before build/watch integration can claim continuous usable state.
+
+An actual operation failure restores the validated previous generation when
+possible. If restore itself fails, the validated previous directory remains for
+deterministic next-run recovery. A complete new output plus a retained previous
+directory is conservatively resolved by restoring the previous accepted
+generation and reapplying the current publication. Pending output is never
+promoted. Recovery validates every candidate before mutation; ambiguous previous
+generations and symlinked, partial, or unowned transaction debris fail closed
+without deleting or guessing ownership.
+
 ## Type spine
 
 ADR 0018 establishes that stock `tsc` and the stock TypeScript language server

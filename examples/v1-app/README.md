@@ -1,8 +1,9 @@
 # V1 running application
 
 This is the canonical first running Fadeno application. Its tracked TSX routes
-are discovered into a generated application binding, compiled against a current
-packed framework, served through the public Node adapter, and exercised by the
+are analyzed once and the exact accepted route-artifact publication is applied
+transactionally before compilation against a current packed framework. The
+application is then served through the public Node adapter and exercised by the
 repository gate.
 
 Run the verified application, failure, flow, and recovery evidence with:
@@ -25,4 +26,6 @@ tracked human outputs in `expected/check-success.txt`,
 output and leave neither `.fadeno` nor `dist` behind.
 
 The deliberate route-role collision lives under `scenarios/`; it never makes
-the primary application unbuildable.
+the primary application unbuildable. Its analyzer diagnostic preserves the last
+accepted disk generation, and the recovery run proves stale route bytes are
+removed only after a repaired complete publication is accepted.
