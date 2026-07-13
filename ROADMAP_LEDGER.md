@@ -6,55 +6,41 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7D3 — serialized analyzer application and compiler validation
+V1-DX-B7D4 — contained filesystem invalidation hints
 
 ## Exit criteria
 
-- [x] Run analysis, provisional route-artifact application, validation-only
-  stock compilation, final freshness validation, and acceptance or rollback as
-  one retained coordinator operation.
-- [x] Preserve the exact last accepted route generation across compiler
-  diagnostics, cancellation, supersession, process failure, cleanup failure,
-  and first-generation or restart recovery.
-- [x] Bind compiler acceptance to the current coordinator generation, analyzer
-  publication, provisional artifact identity, and live operation signal without
-  building a second application dependency graph.
-- [x] Terminate and await every compiler child before rollback, queue progress,
-  or close completion, while producing no `dist`, build-info, cache, declaration,
-  map, or other compiler output.
-- [x] Prove real stock-compiler success, direct/transitive/delete/rename failure
-  and recovery, late stale refusal, consumer exclusion, transaction recovery,
-  package inaccessibility, full repository, local CI, architecture, Big-O, and
-  fresh independent review gates.
+- [ ] Accept filesystem notifications only as contained invalidation hints and
+  derive semantic truth by deterministic project rescan through the B7D3
+  analyzer authority.
+- [ ] Coalesce bursts with bounded debounce and maximum-delay ownership, retain
+  one dirty signal for notifications arriving during active work, and prove no
+  wakeup is lost.
+- [ ] Exclude framework-owned output and refuse ambiguous rename, missing-name,
+  duplicate-alias, symlink, external, and overflow notification state without
+  publishing a generation or creating an output loop.
+- [ ] Close idempotently by cancelling timers, draining or cancelling retained
+  work, and leaving no watcher, compiler child, transaction marker, server, or
+  public command behind.
+- [ ] Prove direct, transitive, configuration, deletion, rename, burst,
+  event-during-work, output-exclusion, refusal, recovery, package-inaccessibility,
+  full repository, local CI, architecture, Big-O, and fresh review gates.
 
 ## In progress
 
-- B7D3 adds one private retained refresh operation to the B7D2 coordinator. It
-  performs analysis, provisional B7C application, compiler validation, final
-  freshness, and commit or rollback before its coordinator item settles.
-- B7C's immediate application capability remains available to existing private
-  consumers. A new private two-phase transaction retains verified rollback
-  ownership and first-generation recovery identity until validation commits.
-- The compiler boundary invokes the installed stock compiler asynchronously in
-  one discovery pass and one validation pass, accepts exact resolved-input records only from the
-  project, selected compiler, or verified installed package roots, streams a
-  globally bounded cancellable project inventory, bounds and redacts captured
-  output, awaits actual child termination, and never emits application files.
-- Final acceptance rechecks the project inventory, the content identity of
-  every resolved compiler input including dependencies, its ordinary-file
-  identity and change metadata, and the exact
-  provisional and rollback artifact state. Rollback failure stays owned and
-  prevents successful close until deterministic recovery succeeds.
-- Route generations move between authoritative, rollback, and non-authoritative
-  garbage names only by atomic rename. Partial garbage deletion cannot damage
-  the accepted set, is retried by the retained owner and restart recovery, and
-  prevents successful close while cleanup remains unresolved. Recovery
-  ownership is retained before preexisting-marker recovery or staging begins.
-- The stock compiler owns ordinary direct and transitive module refresh. Fadeno
-  binds acceptance to operation and artifact identity but does not maintain a
-  second application dependency graph.
-- B7D3 treats explicit newer admissions as invalidation. Translating arbitrary
-  filesystem notifications into contained admissions remains B7D4.
+- B7D4 adds one private adapter around the retained B7D3 refresh operation. It
+  treats notification paths and kinds only as reasons to schedule a complete
+  authoritative rescan; it never creates, deletes, or renames semantic records
+  from notification payloads.
+- The adapter will own a bounded pending-hint set, debounce deadline, maximum
+  deadline, active dirty flag, and one latest completion handoff. Notifications
+  arriving during work schedule exactly one later rescan.
+- Canonical root and URI policy remains owned by the project analyzer. The
+  adapter adds only containment, reserved-output exclusion, ambiguity refusal,
+  and bounded scheduling; it does not construct another dependency graph.
+- The implementation and disposable fixtures remain packed private internals.
+  No operating-system watcher selection, server, CLI, public schema, or editor
+  product is introduced.
 - DG-V1-06 still gates public compiler inputs and build/development contracts.
   No `dist`, watcher, command, server, public schema, or editor product is added.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
@@ -215,3 +201,7 @@ V1-DX-B7D3 — serialized analyzer application and compiler validation
   synchronous active supersession, constant-time pending unlink, atomic saved
   reconcile and forgetting, exact document-authority freshness, bounded retained
   ownership, and no watcher, compiler, command, server, or public analyzer surface.
+- V1-DX-B7D3 — Commit `f2ab801` serializes analysis, atomic route application,
+  two-pass stock-compiler validation, exact dependency and package freshness,
+  retained rollback and cleanup, cancellation, supersession, close, and restart
+  recovery without adding build, development, watcher, server, or public API.
