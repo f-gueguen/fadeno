@@ -58,7 +58,7 @@ publication, not a generic artifact list, and it cannot rediscover or rerender
 route facts. Diagnostic publications preserve the last accepted disk set.
 Directory replacement never exposes mixed generations, although portable
 backup-and-replace has a bounded interval with no route directory; retained
-consumer serialization remains V1-DX-B7D1 through B7D3 work. Actual
+consumer application/compiler serialization remains V1-DX-B7D3 work. Actual
 filesystem-operation and restart-recovery tests cover stage, backup, replace,
 validation, restore, and cleanup failures. No command behavior changes in B7C.
 
@@ -210,11 +210,27 @@ drains through idempotent close, while new and derived work refuses as soon as
 closing starts. This private lifecycle changes no command, output directory, or
 server behavior.
 
+B7D2 extends that same coordinator with deterministic analysis batches. A
+same-turn burst records a compact first/latest/count identity, supersedes
+pending middle work, signals active obsolete work, and gives application and
+explanation authority only to the newest complete result. Cancellation,
+supersession, expected failure, and close are distinct terminal paths. A
+result-continuation handoff and close both recheck the owned drain, so no
+accepted invalidation can disappear at the idle boundary.
+
+B7D2 also replaces per-document project synchronization with one atomic session
+reconcile. The transition validates the full desired/forgotten set and exact
+open identities against cloned state, then publishes one document snapshot and
+epoch. Former route-root files are forgotten even when they still exist, while
+duplicate aliases, stale lifetimes, symlinks, text mismatch, and unrelated open
+buffers preserve the complete prior state. Direct, structural, configuration,
+deletion, rename, and burst fixtures issue only a generic private analysis
+admission after mutating authoritative project state.
+
 Later retained build and development consumption proceeds through separate V1
-slices: deterministic invalidation batching and supersession, serialized
-analyzer application plus stock-compiler refresh, and a filesystem adapter that
-treats notifications only as rescan hints. None of those private stages implies
-a public production build or development server.
+slices: serialized analyzer application plus stock-compiler refresh, and a
+filesystem adapter that treats notifications only as rescan hints. None of
+these private stages implies a public production build or development server.
 
 The retained coordinator must serialize analysis, B7C route-artifact
 application, compiler refresh, and validation around one current operation. It
