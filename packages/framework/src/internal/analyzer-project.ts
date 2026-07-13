@@ -18,16 +18,22 @@ import { createRouteExplainContribution } from "./analyzer-route-explain.ts";
 import { AnalyzerSession, type AnalyzerDocumentSnapshot, type AnalyzerOperationResult } from "./analyzer-session.ts";
 import { RouteContractError, type RouteRoleCollisionFact } from "./routing/discovery.ts";
 import {
+  applyRouteArtifactPlan,
   createRouteArtifactPlan,
   verifyRouteArtifactPlanFreshness,
+  type RouteArtifactApplicationOptions,
   type RouteArtifactName,
   type RouteArtifactPlan,
+  type RouteGenerationResult,
 } from "./routing/generator.ts";
+
+export type PrivateProjectApplicationOptions = Omit<RouteArtifactApplicationOptions, "assertFresh">;
 
 export interface PrivateProjectAnalysis {
   readonly publication: AnalyzerPublicationSnapshot;
   readonly diagnostics: AnalyzerDiagnosticBatch;
   readonly routePlan: RouteArtifactPlan | null;
+  apply(options?: PrivateProjectApplicationOptions): RouteGenerationResult;
   explain(detail: "semantic" | "deep"): Promise<AnalyzerExplainResult>;
 }
 
@@ -51,6 +57,50 @@ function artifactId(name: RouteArtifactName): string {
   return `generated:routes-${name.replaceAll(".", "-")}`;
 }
 
+function applicationRefuse(code: "DIAGNOSTIC" | "PUBLICATION" | "STALE"): never {
+  throw new TypeError(`FADENO_ANALYZER_APPLICATION_${code}`);
+}
+
+export function routeArtifactPlanFromPublication(
+  publication: AnalyzerPublicationSnapshot,
+  plan: RouteArtifactPlan,
+): RouteArtifactPlan {
+  const names = Object.keys(plan.files).sort(compareText) as RouteArtifactName[];
+  if (names.length !== 7 || publication.artifacts.length !== names.length) applicationRefuse("PUBLICATION");
+  const files: Partial<Record<RouteArtifactName, string>> = {};
+  const seenPaths = new Set<string>();
+  for (const name of names) {
+    const expectedId = artifactId(name);
+    const expectedPath = `.fadeno/routes/${name}`;
+    const artifact = publication.artifacts.find(({ id }) => id === expectedId);
+    if (!artifact || artifact.path !== expectedPath || artifact.ownerNodeId !== "route:artifact-plan" || seenPaths.has(artifact.path)) {
+      applicationRefuse("PUBLICATION");
+    }
+    seenPaths.add(artifact.path);
+    const value = artifact.value;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) applicationRefuse("PUBLICATION");
+    const record = value as Record<string, unknown>;
+    if (JSON.stringify(Object.keys(record).sort(compareText)) !== JSON.stringify(["bytes", "encoding", "sha256"]) ||
+        record["encoding"] !== "utf8" || typeof record["bytes"] !== "string" ||
+        typeof record["sha256"] !== "string" || sha256(record["bytes"]) !== record["sha256"] ||
+        record["bytes"] !== plan.files[name]) applicationRefuse("PUBLICATION");
+    const ownership = artifact.provenance.generatedArtifactOwnership;
+    if (artifact.provenance.module.namespace !== "fadeno.routes" || artifact.provenance.module.version !== 1 ||
+        artifact.provenance.module.transformation !== "artifact-plan" || ownership?.artifactId !== expectedId ||
+        ownership.ownerNodeId !== "route:artifact-plan" || ownership.path !== expectedPath ||
+        artifact.provenance.sourceToArtifacts.length === 0 || artifact.provenance.artifactToSources.length === 0 ||
+        artifact.provenance.sourceToArtifacts.some(({ artifactId: id }) => id !== expectedId) ||
+        artifact.provenance.artifactToSources.some(({ artifactId: id }) => id !== expectedId)) applicationRefuse("PUBLICATION");
+    files[name] = record["bytes"];
+  }
+  return Object.freeze({
+    manifest: plan.manifest,
+    sourceSha256: plan.sourceSha256,
+    sources: plan.sources,
+    files: Object.freeze(files as Record<RouteArtifactName, string>),
+  });
+}
+
 function location(document: AnalyzerDocumentSnapshot) {
   return Object.freeze({
     uri: document.uri,
@@ -66,6 +116,7 @@ export class PrivateProjectAnalyzer {
   readonly #managedPaths = new Set<string>();
   #configurationFingerprint: string | null = null;
   #configurationSourceSha256: string | null = null;
+  #applicationToken: object | null = null;
 
   constructor(projectRoot: string) {
     this.#root = resolve(projectRoot);
@@ -73,6 +124,7 @@ export class PrivateProjectAnalyzer {
   }
 
   async analyze(): Promise<PrivateProjectAnalysis> {
+    this.#applicationToken = null;
     const { config, source: configSource } = await loadConfigWithSource(this.#root);
     const configFingerprint = sha256(JSON.stringify(config));
     const configurationSourceSha256 = sha256(configSource);
@@ -127,10 +179,25 @@ export class PrivateProjectAnalyzer {
     }
     const publication = publicationResult.snapshot;
     const batch = diagnostics as AnalyzerDiagnosticBatch;
+    const applicationToken = Object.freeze({ operationId: publication.operationId });
+    this.#applicationToken = applicationToken;
     return Object.freeze({
       publication,
       diagnostics: batch,
       routePlan,
+      apply: (options: PrivateProjectApplicationOptions = {}) => {
+        if (this.#applicationToken !== applicationToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
+        if (routePlan === null || batch.diagnostics.length > 0 || batch.corrections.length > 0 || batch.skippedWork.length > 0) {
+          applicationRefuse("DIAGNOSTIC");
+        }
+        const publishedPlan = routeArtifactPlanFromPublication(publication, routePlan);
+        const assertFresh = (): void => {
+          if (this.#applicationToken !== applicationToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
+          this.#assertInputsCurrent(desired);
+          this.#assertRouteAnalysisCurrent(config, routePlan, null);
+        };
+        return applyRouteArtifactPlan(this.#root, publishedPlan, { ...options, assertFresh });
+      },
       explain: async (detail: "semantic" | "deep") => this.#session.startExplain({
         detail,
         ...(detail === "deep" ? { activateDeep: true } : {}),
