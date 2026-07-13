@@ -197,6 +197,34 @@ TypeScript refresh, Fadeno analysis, and final consumer-visible publication.
 Deep phase timing and profiles require an explicit flag. This workload does not
 reuse or revive the narrowed K0 incremental-generation claim.
 
+## Retained build and development sequence
+
+`fadeno check` is the only implemented project command at the B7D0 boundary.
+Retained build and development consumption proceeds through separate V1
+slices: one private retained coordinator, deterministic invalidation batching
+and supersession, serialized analyzer application plus stock-compiler refresh,
+and a filesystem adapter that treats notifications only as rescan hints. None
+of those private stages implies a public production build or development
+server.
+
+The retained coordinator must serialize analysis, B7C route-artifact
+application, compiler refresh, and validation around one current operation. It
+must preserve the last accepted generation on diagnostic, application, or
+compiler failure and suppress obsolete results. The framework project
+authority owns route, configuration, containment, and generated-output facts;
+the stock compiler owns the ordinary application module graph. Watch adaptation
+must coalesce changes, avoid owned-output loops, retain a dirty signal for work
+arriving during an operation, and recover by deterministic rescan rather than
+interpreting notification names as truth.
+
+DG-V1-06 must be resolved before either public command is implemented. Its ADR
+must define the production entry and compiler inputs, transactional output and
+start contract, development server address and readiness, watch/restart and
+last-good behavior, diagnostic publication, streams, shutdown, and exit
+statuses. Only then may separate packed-package slices implement and document
+`fadeno build` and `fadeno dev` with executable success, failure,
+flow-inspection, recovery, and cleanup evidence.
+
 ## V1 and A0 conformance
 
 - A clean checkout reaches the same build through the documented commands.

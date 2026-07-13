@@ -6,63 +6,44 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7C — analyzer-owned transactional route-artifact application
+V1-DX-B7D0 — retained-consumer sequencing and command gate
 
 ## Exit criteria
 
-- [x] Apply only the exact current, complete, diagnostic-free seven-artifact
-  route publication; analyzer removals and diagnostic publications never delete
-  the last accepted disk generation.
-- [x] Use one route-specific contained transaction with exact-plan no-op,
-  symlink and unowned-content refusal, stale replacement, and no mixed file set.
-- [x] Bind application to the originating analyzer publication and refuse older
-  analysis, changed source/configuration/structure, or transported artifacts
-  before mutation or through rollback.
-- [x] Prove actual stage, backup, replacement, validation, restore, cleanup, and
-  restart-recovery failures without promoting unconfirmed pending output.
-- [x] Route the canonical running example and project integration evidence
-  through analyze-then-apply while adding no command, build/watch consumer,
-  package export, public schema, protocol, or editor product.
-- [x] Pass routing, analyzer, workflow, private-package, running-example, full
+- [ ] Decompose the former B7D implementation outcome into retained ownership,
+  batching/supersession, current-epoch compiler sequencing, watch adaptation,
+  command decision, production build, and development lifecycle slices.
+- [ ] Add one explicit V1 decision gate for public build/dev entry, output,
+  compiler, server, address, diagnostic, last-good, shutdown, and exit behavior.
+- [ ] Align the V1 roadmap, compiler/build specifications, traceability, and risk
+  ledger without claiming that retained consumers or public commands exist.
+- [ ] Keep `fadeno check` as the only implemented command and add no watcher,
+  server, compiler orchestration, package export, analyzer schema, or editor
+  product in this planning slice.
+- [ ] Pass documentation, decision, ledger, project-model, policy, full
   repository, local CI, and fresh independent review gates.
 
 ## In progress
 
-- Independent challenge split the former B7 outcome into B7A through B7D so
-  route authority, packed check, transactional application, and retained
-  build/watch consumers remain independently reviewable and reversible.
-- B7C reuses ADR 0027's exact owned route set and directory transaction but may
-  consume bytes only from B7A's accepted analyzer publication. It may not
-  discover routes, render files, or interpret generic analyzer artifact paths.
-- A diagnostic publication's in-memory removals are causal evidence, not disk
-  deletion authority. Collision preserves the last accepted disk generation;
-  repair applies one new complete publication.
-- Portable directory replacement guarantees that observers never see a mixed
-  generation, but there is a bounded interval with no `routes` directory between
-  backup and replacement. B7D must serialize retained consumers across that
-  interval; B7C does not claim observer-continuous availability.
-- One validated previous generation may support immediate or next-run recovery.
-  Pending output is never promoted, and ambiguous, symlinked, partial, or
-  unowned transaction debris is refused rather than guessed or deleted.
-- Exact publication reapplication performs no writes and preserves mtimes.
-  Partial per-file preservation is not claimed.
-- The architecture audit found no remaining P1/P2 after the combined production
-  bypass was removed and one route-owned descriptor table became authoritative.
-  Final adversarial review found no P1/P2 after recovery validates all candidates
-  before mutation and the conservative restore/reapply policy was aligned.
-- The Big-O audit found no B7C asymptotic regression. Pre-existing superlinear
-  complete-analysis work is tracked in the risk ledger for V1-DX-C feedback
-  qualification rather than being presented as an incremental-speed claim.
-- The real project authority must replace manual analyzer definitions and the
-  running example's direct generation path incrementally; it may not wrap or
-  preserve a second discovery/diagnostic/generation policy.
-- Route artifact planning is pure. B7C alone applies an immutable accepted plan
-  to disk, and it must not rediscover route sources after analysis.
-- Low-level analyzer, renderer, security, and filesystem refusal tests retain
-  direct access to their owning units. Only project/workflow integration tests
-  must consume the shared project authority.
-- B7B uses the already accepted `fadeno` executable boundary. The runtime-neutral
-  root and Node adapter facades do not gain project tooling or analyzer APIs.
+- Independent challenge found the former B7D row combined at least one retained
+  coordinator, change batching, compiler publication, filesystem watching,
+  production build, and development-server lifecycle with different rollback
+  and public contracts. They must remain separately reversible.
+- ADR 0022 accepts the names `fadeno build` and `fadeno dev`, but it does not fix
+  their entry module, compiler configuration, output layout, server/address,
+  diagnostic lifecycle, last-good policy, shutdown, or exact exit behavior.
+  ADR 0032 therefore continues to make `check` the only implemented subcommand.
+- Filesystem notifications are invalidation hints only. A future private watch
+  adapter must coalesce hints and rescan through the retained project authority;
+  it may not interpret event names as framework truth.
+- Framework analysis owns route/configuration facts. The stock compiler owns
+  ordinary direct and transitive module refresh. A retained coordinator must
+  sequence both without constructing a second application dependency graph.
+- B7C permits a bounded unavailable interval while replacing `.fadeno/routes`.
+  Future compiler and server consumers must be excluded from that interval and
+  may publish only results bound to the newest complete analyzer generation.
+- B7D0 is planning only. Architecture and Big-O implementation audits are not
+  applicable because no executable, dependency, runtime, or algorithm changes.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -75,6 +56,8 @@ V1-DX-B7C — analyzer-owned transactional route-artifact application
 - DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
+- DG-V1-06: exact public build and development workflow contract before either
+  command is implemented.
 
 ## Completed slices
 
@@ -204,3 +187,7 @@ V1-DX-B7C — analyzer-owned transactional route-artifact application
   static non-executing configuration parsing, exact installed implementation and
   parser identity, stable success/collision/correction/flow/recovery evidence,
   and no filesystem writes, machine schema, or editor product.
+- V1-DX-B7C — Commit `47cc591` applies only one exact current analyzer-published
+  route set through the contained transaction, preserves last-good output across
+  diagnostics and real operation faults, centralizes route artifact identity,
+  migrates canonical project integration, and adds no build/watch or public API.
