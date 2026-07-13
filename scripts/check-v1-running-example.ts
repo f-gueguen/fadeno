@@ -37,6 +37,11 @@ function runResult(command: string, arguments_: readonly string[], cwd: string):
   return Object.freeze({ status: result.status, stdout: result.stdout, stderr: result.stderr });
 }
 
+function runFadeno(command: string, arguments_: readonly string[], cwd: string): ReturnType<typeof runResult> {
+  const publicBinTarget = realpathSync(join(command, "../../fadeno-framework-internal/dist/cli.js"));
+  return runResult(process.execPath, [publicBinTarget, ...arguments_], cwd);
+}
+
 function treeIdentity(root: string, directory = root, records: string[] = []): string {
   for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
     const path = join(directory, entry.name);
@@ -133,6 +138,14 @@ async function reservePort(): Promise<number> {
   if (!address || typeof address === "string") throw new Error("FADENO_V1_EXAMPLE_PORT");
   await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   return address.port;
+}
+
+async function waitForPath(path: string): Promise<void> {
+  for (let attempt = 0; attempt < 2_000; attempt += 1) {
+    if (existsSync(path)) return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`FADENO_V1_EXAMPLE_WAIT:${path}`);
 }
 
 async function startServer(project: string): Promise<{ origin: string; output(): string; stop(): Promise<void> }> {
@@ -327,11 +340,34 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   const buildArguments = ["build", "--project-root", project] as const;
   mkdirSync(join(project, "dist"));
   writeFileSync(join(project, "dist/unowned.txt"), "not a Fadeno build\n");
-  const unownedOutput = runResult(build, buildArguments, project);
+  const unownedOutput = runFadeno(build, buildArguments, project);
   assert.deepEqual(unownedOutput, { status: 1, stdout: "", stderr: "FADENO_BUILD_OUTPUT_OWNERSHIP\n" });
   assert.equal(readFileSync(join(project, "dist/unowned.txt"), "utf8"), "not a Fadeno build\n");
   rmSync(join(project, "dist"), { recursive: true });
-  const firstBuild = runResult(build, buildArguments, project);
+  const buildScenario = join(exampleRoot, "scenarios/build-compiler-error");
+  const scenarioSource = join(project, "src/build-scenario.ts");
+  cpSync(join(buildScenario, "before/src/build-scenario.ts"), scenarioSource);
+  const firstGenerationFailure = runFadeno(build, buildArguments, project);
+  assert.deepEqual(firstGenerationFailure, {
+    status: 1,
+    stdout: "",
+    stderr: readFileSync(join(exampleRoot, "expected/build-typescript-error.txt"), "utf8"),
+  });
+  assert.equal(existsSync(join(project, "dist")), false);
+  rmSync(scenarioSource);
+
+  const redactionSource = join(project, "src/redaction-diagnostic.ts");
+  writeFileSync(redactionSource, `const expected: "safe" = "${secretCanary}";\nimport ${JSON.stringify(join(temporaryRoot, "external-secret-module"))};\nvoid expected;\n`);
+  const redactedFailure = runFadeno(build, buildArguments, project);
+  assert.equal(redactedFailure.status, 1);
+  assert.match(redactedFailure.stderr, /FADENO_BUILD_TYPESCRIPT/u);
+  assert.doesNotMatch(redactedFailure.stderr, new RegExp(secretCanary, "u"));
+  assert.equal(redactedFailure.stderr.includes(temporaryRoot), false);
+  assert.doesNotMatch(redactedFailure.stderr, /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u);
+  assert.equal(existsSync(join(project, "dist")), false);
+  rmSync(redactionSource);
+
+  const firstBuild = runFadeno(build, buildArguments, project);
   assert.deepEqual(firstBuild, {
     status: 0,
     stdout: readFileSync(join(exampleRoot, "expected/build-success.txt"), "utf8"),
@@ -340,16 +376,47 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   const acceptedIdentity = treeIdentity(join(project, "dist"));
   const acceptedManifest = readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8");
   assert.equal(treeContains(join(project, "dist"), secretCanary), false);
-  const secondBuild = runResult(build, buildArguments, project);
+  const secondBuild = runFadeno(build, buildArguments, project);
   assert.deepEqual(secondBuild, firstBuild);
   assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
   assert.equal(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8"), acceptedManifest);
 
+  const cleanProject = join(temporaryRoot, "application-clean-copy");
+  cpSync(exampleRoot, cleanProject, { recursive: true, filter: (source) => !source.includes("/scenarios") && !source.includes("/.fadeno") && !source.includes("/dist") && !source.includes("/node_modules") });
+  const cleanPackageJson = JSON.parse(readFileSync(join(cleanProject, "package.json"), "utf8")) as { dependencies: Record<string, string> };
+  cleanPackageJson.dependencies["fadeno-framework-internal"] = `file:${tarball}`;
+  writeFileSync(join(cleanProject, "package.json"), `${JSON.stringify(cleanPackageJson, null, 2)}\n`);
+  writeFileSync(join(cleanProject, ".env"), `APPLICATION_SECRET=${secretCanary}\n`);
+  run("pnpm", ["install", "--offline", "--ignore-scripts"], cleanProject);
+  const cleanBuild = runFadeno(join(cleanProject, "node_modules/.bin/fadeno"), ["build", "--project-root", cleanProject], cleanProject);
+  assert.deepEqual(cleanBuild, firstBuild);
+  const cleanManifest = readFileSync(join(cleanProject, "dist/.fadeno/build-manifest.json"), "utf8");
+  const firstManifestDocument = JSON.parse(acceptedManifest) as Record<string, unknown>;
+  const cleanManifestDocument = JSON.parse(cleanManifest) as Record<string, unknown>;
+  const manifestDifferences = Object.keys(firstManifestDocument).filter((key) =>
+    JSON.stringify(firstManifestDocument[key]) !== JSON.stringify(cleanManifestDocument[key]),
+  );
+  assert.equal(
+    treeIdentity(join(cleanProject, "dist")),
+    acceptedIdentity,
+    `clean-copy output differs in manifest fields: ${manifestDifferences.join(", ")}`,
+  );
+
   const fabricatedRollback = join(project, ".fadeno/build-stage/rollback");
-  mkdirSync(fabricatedRollback, { recursive: true });
-  writeFileSync(join(fabricatedRollback, "unowned.txt"), "not an accepted rollback\n");
-  const rollbackRefusal = runResult(build, buildArguments, project);
-  assert.deepEqual(rollbackRefusal, { status: 1, stdout: "", stderr: "FADENO_BUILD_TRANSACTION_STATE\n" });
+  cpSync(join(project, "dist"), fabricatedRollback, { recursive: true });
+  const fabricatedManifestPath = join(fabricatedRollback, ".fadeno/build-manifest.json");
+  const fabricatedManifest = JSON.parse(readFileSync(fabricatedManifestPath, "utf8")) as Record<string, unknown>;
+  const dummyFileSha256 = createHash("sha256").update("").digest("hex");
+  fabricatedManifest["runtime"] = {
+    schemaVersion: 1,
+    files: [{ path: "dummy.js", bytes: 0, sha256: dummyFileSha256 }],
+    sha256: createHash("sha256").update(`${["dummy.js", "0", dummyFileSha256].join("\0")}\n`).digest("hex"),
+  };
+  writeFileSync(fabricatedManifestPath, `${JSON.stringify(fabricatedManifest, null, 2)}\n`);
+  const rollbackRefusal = runFadeno(build, buildArguments, project);
+  assert.equal(rollbackRefusal.status, 3);
+  assert.equal(rollbackRefusal.stdout, "");
+  assert.match(rollbackRefusal.stderr, /^FADENO_BUILD_INTERNAL: Production build could not complete\.\n  incident: [a-f0-9-]+\n$/u);
   assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
   rmSync(fabricatedRollback, { recursive: true });
 
@@ -370,10 +437,85 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
   assert.equal(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8"), acceptedManifest);
 
-  const buildScenario = join(exampleRoot, "scenarios/build-compiler-error");
-  const scenarioSource = join(project, "src/build-scenario.ts");
+  const assertPostHookRefusal = async (
+    expectedCode: string,
+    mutate: () => () => void,
+  ): Promise<void> => {
+    let restore: (() => void) | null = null;
+    const result = await privateBuild.runProjectBuildCommand(buildArguments, {
+      cwd: project,
+      beforeAcceptStage() { restore = mutate(); },
+    });
+    restore?.();
+    assert.deepEqual(result, { exitCode: 1, stdout: "", stderr: `${expectedCode}\n` });
+    assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
+    assert.equal(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8"), acceptedManifest);
+  };
+
+  const pagePath = join(project, "src/routes/page.tsx");
+  const pageBeforeHook = readFileSync(pagePath);
+  await assertPostHookRefusal("FADENO_BUILD_INPUT_STALE", () => {
+    writeFileSync(pagePath, Buffer.concat([pageBeforeHook, Buffer.from("\n// post-hook source drift\n")]));
+    return () => writeFileSync(pagePath, pageBeforeHook);
+  });
+
+  const addedSource = join(project, "src/post-hook-addition.ts");
+  await assertPostHookRefusal("FADENO_BUILD_INPUT_STALE", () => {
+    writeFileSync(addedSource, "export const postHookAddition = true;\n");
+    return () => rmSync(addedSource);
+  });
+
+  const environmentPath = join(project, ".env");
+  const environmentBeforeHook = readFileSync(environmentPath);
+  await assertPostHookRefusal("FADENO_BUILD_ENVIRONMENT", () => {
+    writeFileSync(environmentPath, Buffer.concat([environmentBeforeHook, Buffer.from("POST_HOOK=changed\n")]));
+    return () => writeFileSync(environmentPath, environmentBeforeHook);
+  });
+
+  const externalCompilerInput = join(project, "node_modules/@types/node/globals.d.ts");
+  const externalCompilerBeforeHook = readFileSync(externalCompilerInput);
+  await assertPostHookRefusal("FADENO_BUILD_INPUT_STALE", () => {
+    writeFileSync(externalCompilerInput, Buffer.concat([externalCompilerBeforeHook, Buffer.from("\n// external compiler drift\n")]));
+    return () => writeFileSync(externalCompilerInput, externalCompilerBeforeHook);
+  });
+
+  const frameworkRuntimePath = join(project, "node_modules/fadeno-framework-internal/README.md");
+  const frameworkRuntimeBeforeHook = readFileSync(frameworkRuntimePath);
+  await assertPostHookRefusal("FADENO_BUILD_RUNTIME_IDENTITY", () => {
+    writeFileSync(frameworkRuntimePath, Buffer.concat([frameworkRuntimeBeforeHook, Buffer.from("\npost-hook runtime drift\n")]));
+    return () => writeFileSync(frameworkRuntimePath, frameworkRuntimeBeforeHook);
+  });
+
+  const lockMarker = join(temporaryRoot, "build-lock-held");
+  const heldBuildSource = [
+    'import { existsSync, writeFileSync } from "node:fs";',
+    `import { runProjectBuildCommand } from ${JSON.stringify(pathToFileURL(join(installedFramework, "dist/internal/project-build.js")).href)};`,
+    `await runProjectBuildCommand(${JSON.stringify(buildArguments)}, {`,
+    `  cwd: ${JSON.stringify(project)},`,
+    `  beforeAcceptStage() { writeFileSync(${JSON.stringify(lockMarker)}, "held\\n"); const wait = new Int32Array(new SharedArrayBuffer(4)); while (true) Atomics.wait(wait, 0, 0, 1000); },`,
+    "});",
+  ].join("\n");
+  const heldBuild = spawn(process.execPath, ["--input-type=module", "--eval", heldBuildSource], {
+    cwd: project,
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    await waitForPath(lockMarker);
+    const concurrentBuild = runFadeno(build, buildArguments, project);
+    assert.deepEqual(concurrentBuild, { status: 1, stdout: "", stderr: "FADENO_BUILD_CONCURRENT\n" });
+    const exited = new Promise<void>((resolve) => heldBuild.once("exit", () => resolve()));
+    assert.equal(heldBuild.kill("SIGKILL"), true);
+    await exited;
+    const crashRecovery = runFadeno(build, buildArguments, project);
+    assert.deepEqual(crashRecovery, firstBuild);
+    assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
+  } finally {
+    if (heldBuild.exitCode === null && heldBuild.signalCode === null) heldBuild.kill("SIGKILL");
+  }
+
   cpSync(join(buildScenario, "before/src/build-scenario.ts"), scenarioSource);
-  const failedBuild = runResult(build, buildArguments, project);
+  const failedBuild = runFadeno(build, buildArguments, project);
   assert.deepEqual(failedBuild, {
     status: 1,
     stdout: "",
@@ -392,13 +534,13 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   }, null, 2)}\n`);
 
   cpSync(join(buildScenario, "after/src/build-scenario.ts"), scenarioSource);
-  const recoveredBuild = runResult(build, buildArguments, project);
+  const recoveredBuild = runFadeno(build, buildArguments, project);
   assert.equal(recoveredBuild.status, 0, recoveredBuild.stderr);
   assert.equal(recoveredBuild.stderr, "");
   assert.equal(recoveredBuild.stdout.includes("TS2322"), false);
   assert.equal(existsSync(join(project, "dist/src/build-scenario.js")), true);
   rmSync(scenarioSource);
-  const cleanupBuild = runResult(build, buildArguments, project);
+  const cleanupBuild = runFadeno(build, buildArguments, project);
   assert.deepEqual(cleanupBuild, firstBuild);
   assert.equal(existsSync(join(project, "dist/src/build-scenario.js")), false);
   assert.equal(readFileSync(join(buildScenario, "expected/recovery.json"), "utf8"), `${JSON.stringify({
@@ -410,6 +552,51 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     correctedArtifactPublished: true,
     staleArtifactRemovedAfterOwnerDeletion: true,
   }, null, 2)}\n`);
+
+  const runtimeFixtureName = "fadeno-runtime-fixture";
+  const runtimeFixtureRoot = join(project, "node_modules", runtimeFixtureName);
+  mkdirSync(runtimeFixtureRoot);
+  writeFileSync(join(runtimeFixtureRoot, "package.json"), `${JSON.stringify({
+    name: runtimeFixtureName,
+    version: "1.0.0",
+    type: "module",
+    exports: "./index.js",
+    types: "./index.d.ts",
+  }, null, 2)}\n`);
+  writeFileSync(join(runtimeFixtureRoot, "index.js"), "export const runtimeFixture = 'declared';\n");
+  writeFileSync(join(runtimeFixtureRoot, "index.d.ts"), "export declare const runtimeFixture: string;\n");
+  const packageBeforeRuntimeFixture = readFileSync(join(project, "package.json"));
+  const pageBeforeRuntimeFixture = readFileSync(pagePath);
+  writeFileSync(pagePath, `import { runtimeFixture } from ${JSON.stringify(runtimeFixtureName)};\nvoid runtimeFixture;\n${pageBeforeRuntimeFixture.toString("utf8")}`);
+  const developmentOnlyPackage = JSON.parse(packageBeforeRuntimeFixture.toString("utf8")) as {
+    devDependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+  };
+  developmentOnlyPackage.devDependencies ??= {};
+  developmentOnlyPackage.devDependencies[runtimeFixtureName] = "1.0.0";
+  writeFileSync(join(project, "package.json"), `${JSON.stringify(developmentOnlyPackage, null, 2)}\n`);
+  const undeclaredRuntime = runFadeno(build, buildArguments, project);
+  assert.deepEqual(undeclaredRuntime, { status: 1, stdout: "", stderr: "FADENO_BUILD_RUNTIME_IMPORT\n" });
+  assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
+
+  delete developmentOnlyPackage.devDependencies[runtimeFixtureName];
+  developmentOnlyPackage.peerDependencies = { [runtimeFixtureName]: "1.0.0" };
+  writeFileSync(join(project, "package.json"), `${JSON.stringify(developmentOnlyPackage, null, 2)}\n`);
+  const declaredPeerBuild = runFadeno(build, buildArguments, project);
+  assert.equal(declaredPeerBuild.status, 0, declaredPeerBuild.stderr);
+  const peerManifest = JSON.parse(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8")) as {
+    dependencies: readonly { name: string }[];
+  };
+  assert.equal(peerManifest.dependencies.some(({ name }) => name === runtimeFixtureName), true);
+  const peerServer = await startServer(project);
+  await peerServer.stop();
+
+  writeFileSync(join(project, "package.json"), packageBeforeRuntimeFixture);
+  writeFileSync(pagePath, pageBeforeRuntimeFixture);
+  rmSync(runtimeFixtureRoot, { recursive: true });
+  const runtimeFixtureCleanup = runFadeno(build, buildArguments, project);
+  assert.deepEqual(runtimeFixtureCleanup, firstBuild);
+  assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
 
   const manifest = JSON.parse(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8")) as {
     schemaVersion: number;
@@ -506,13 +693,17 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     writeFileSync(unrelatedDevelopmentReadme, unrelatedDevelopmentBytes);
   }
 
+  run("pnpm", ["install", "--prod", "--offline", "--ignore-scripts"], project);
+  assert.equal(existsSync(join(project, "node_modules/@types/node")), false);
+
   const missingLoader = spawnSync(process.execPath, ["./dist/server/bootstrap.js"], {
     cwd: project,
     env: { ...process.env, FADENO_PORT: String(refusalPort) },
     encoding: "utf8",
   });
   assert.notEqual(missingLoader.status, 0);
-  assert.match(`${missingLoader.stdout}${missingLoader.stderr}`, /ERR_UNSUPPORTED_ESM_URL_SCHEME/u);
+  assert.match(`${missingLoader.stdout}${missingLoader.stderr}`, /FADENO_BUILD_RUNTIME_INTERNAL/u);
+  assert.doesNotMatch(`${missingLoader.stdout}${missingLoader.stderr}`, new RegExp(project.replaceAll("/", "\\/"), "u"));
   assert.doesNotMatch(missingLoader.stdout, /production server ready/u);
 
   const server = await startServer(project);

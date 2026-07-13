@@ -109,6 +109,11 @@ The V1 production start contract, from the project root, is:
 FADENO_PORT=<1..65535> node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js
 ```
 
+This decision extends the existing public raw Node adapter options with one
+optional numeric `port`. Omission or zero retains the earlier ephemeral-port
+behavior; the generated production bootstrap supplies its already validated
+`1..65535` port. This is the same adapter startup path, not a second server API.
+
 The bootstrap binds `127.0.0.1` only. Broader deployment address and trusted
 proxy behavior remain unsupported until their own operational evidence exists.
 The route loader must register before the bootstrap imports the generated route

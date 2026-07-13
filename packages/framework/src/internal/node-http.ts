@@ -14,7 +14,6 @@ export interface NodeHttpServer {
 export interface ListenNodeHttpOptions {
   readonly handler: Handler;
   readonly hostname?: string;
-  /** Build-owned fixed listener port. The public adapter facade keeps dynamic-port ownership. */
   readonly port?: number;
   readonly failureObserver?: FrameworkFailureObserver;
 }

@@ -14,6 +14,8 @@ import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { createScanner, SyntaxKind } from "typescript/unstable/ast";
+
 import {
   assertPrivateBuildCompilerContract,
   assertPrivateRuntimeIdentity,
@@ -31,6 +33,7 @@ const maximumDiagnostics = 4_096;
 const maximumDiagnosticBytes = 4 * 1024 * 1024;
 const maximumTraversalEntries = 8_192;
 const maximumTraversalPathBytes = 1024 * 1024;
+const maximumRuntimeReferences = 4_096;
 
 type RuntimeClosure = Readonly<{ root: string; identity: PrivateRuntimeIdentity }>;
 type GenerationRequest = Readonly<{
@@ -271,6 +274,95 @@ function outputPaths(
   return paths;
 }
 
+function runtimePackageNames(stageRoot: string, paths: readonly string[]): readonly string[] {
+  const packages = new Set<string>();
+  let references = 0;
+  const record = (specifier: string): void => {
+    references += 1;
+    if (references > maximumRuntimeReferences || specifier.length === 0 || specifier.includes("\0")) {
+      fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+    }
+    if (specifier.startsWith("node:") || specifier === "fadeno:routes" || specifier.startsWith(".")) return;
+    if (specifier.startsWith("/") || specifier.startsWith("file:") || specifier.startsWith("#")) {
+      fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+    }
+    const parts = specifier.split("/");
+    const name = specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]!;
+    if (
+      name.length === 0 || name.length > 214 ||
+      !/^(?:@[A-Za-z0-9_~-][A-Za-z0-9._~-]*\/)?[A-Za-z0-9_~-][A-Za-z0-9._~-]*$/u.test(name)
+    ) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+    packages.add(name);
+  };
+  for (const path of paths) {
+    if (!/\.(?:c|m)?js$/u.test(path)) continue;
+    const source = readStableBoundedFile(join(stageRoot, path), maximumSourceFileBytes, "FADENO_BUILD_CHILD_OUTPUT").toString("utf8");
+    const scanner = createScanner(true, undefined, source);
+    const tokens: Array<Readonly<{ kind: SyntaxKind; value: string }>> = [];
+    for (let kind = scanner.scan(); kind !== SyntaxKind.EndOfFile; kind = scanner.scan()) {
+      tokens.push(Object.freeze({ kind, value: scanner.getTokenValue() }));
+      if (tokens.length > maximumSourceFileBytes) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+    }
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (token?.kind === SyntaxKind.ImportKeyword) {
+        const next = tokens[index + 1];
+        if (next?.kind === SyntaxKind.DotToken) continue;
+        if (next?.kind === SyntaxKind.OpenParenToken) {
+          const value = tokens[index + 2];
+          if (value?.kind !== SyntaxKind.StringLiteral && value?.kind !== SyntaxKind.NoSubstitutionTemplateLiteral) {
+            fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+          }
+          record(value.value);
+          continue;
+        }
+        if (next?.kind === SyntaxKind.StringLiteral) { record(next.value); continue; }
+        let braces = 0;
+        for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+          const candidate = tokens[cursor];
+          if (!candidate) break;
+          if (candidate.kind === SyntaxKind.OpenBraceToken) braces += 1;
+          if (candidate.kind === SyntaxKind.CloseBraceToken) braces -= 1;
+          if (braces === 0 && candidate.kind === SyntaxKind.SemicolonToken) break;
+          if (braces === 0 && candidate.kind === SyntaxKind.FromKeyword) {
+            const value = tokens[cursor + 1];
+            if (value?.kind !== SyntaxKind.StringLiteral) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+            record(value.value);
+            break;
+          }
+        }
+      }
+      if (token?.kind === SyntaxKind.ExportKeyword) {
+        let braces = 0;
+        for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+          const candidate = tokens[cursor];
+          if (!candidate) break;
+          if (candidate.kind === SyntaxKind.OpenBraceToken) braces += 1;
+          if (candidate.kind === SyntaxKind.CloseBraceToken) braces -= 1;
+          if (braces === 0 && candidate.kind === SyntaxKind.SemicolonToken) break;
+          if (braces === 0 && candidate.kind === SyntaxKind.FromKeyword) {
+            const value = tokens[cursor + 1];
+            if (value?.kind !== SyntaxKind.StringLiteral) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+            record(value.value);
+            break;
+          }
+        }
+      }
+      if (
+        (token?.kind === SyntaxKind.RequireKeyword || (token?.kind === SyntaxKind.Identifier && token.value === "require")) &&
+        tokens[index + 1]?.kind === SyntaxKind.OpenParenToken
+      ) {
+        const value = tokens[index + 2];
+        if (value?.kind !== SyntaxKind.StringLiteral && value?.kind !== SyntaxKind.NoSubstitutionTemplateLiteral) {
+          fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+        }
+        record(value.value);
+      }
+    }
+  }
+  return Object.freeze([...packages].sort(compareText));
+}
+
 function assertCompilerOwnership(
   programFiles: readonly string[],
   projectRoot: string,
@@ -358,6 +450,8 @@ async function main(): Promise<void> {
       status: "diagnostics",
       environmentSha256: environment.sha256,
       inputSha256: before.sha256,
+      input: before,
+      compilerDependenciesSha256: dependencyBefore.sha256,
       diagnostics: analysis.diagnostics,
     }))}\n`);
     return;
@@ -371,7 +465,9 @@ async function main(): Promise<void> {
   )).sha256 !== dependencyBefore.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
   for (const closure of input.runtimeClosures) assertPrivateRuntimeIdentity(closure.root, closure.identity);
   if (capturePrivateEnvironment(projectRoot, process.env).sha256 !== environment.sha256) fail("FADENO_BUILD_CHILD_ENVIRONMENT");
-  const output = capturePrivateRuntimeIdentity(stageRoot, outputPaths(stageRoot));
+  const emittedPaths = outputPaths(stageRoot);
+  const runtimePackages = runtimePackageNames(stageRoot, emittedPaths);
+  const output = capturePrivateRuntimeIdentity(stageRoot, emittedPaths);
   const operationSha256 = createHash("sha256").update(JSON.stringify({
     generation: input.generation,
     environment: environment.sha256,
@@ -385,6 +481,9 @@ async function main(): Promise<void> {
     status: "emitted",
     environmentSha256: environment.sha256,
     inputSha256: after.sha256,
+    input: after,
+    compilerDependenciesSha256: dependencyBefore.sha256,
+    runtimePackages,
     output,
     operationSha256,
     diagnostics: Object.freeze([]),

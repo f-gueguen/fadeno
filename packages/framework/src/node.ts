@@ -34,6 +34,8 @@ export interface NodeHttpServer {
 export interface ListenNodeHttpOptions {
   readonly handler: Handler;
   readonly hostname?: string;
+  /** Fixed listener port; omit or pass zero for an ephemeral port. */
+  readonly port?: number;
   readonly failureObserver?: FrameworkFailureObserver;
 }
 

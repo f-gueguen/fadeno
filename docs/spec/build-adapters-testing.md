@@ -94,6 +94,10 @@ failure pages and post-publication termination share incident correlation. The
 safe projection is redacted; the original cause reaches only the server-owned
 callback. A throwing or rejecting callback cannot change transport cleanup.
 
+ADR 0033 also extends the same options with an optional numeric `port` for the
+verified production bootstrap. Omission or zero keeps the raw adapter's
+ephemeral behavior; the production bootstrap accepts only `1..65535`.
+
 ## Adapter contract
 
 1. The core accepts standard `Request` and returns standard `Response` values

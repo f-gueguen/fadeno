@@ -39,14 +39,17 @@ The runtime-neutral `.` facade exports:
 The `./node` facade exports:
 
 - `listenNodeHttp(options)` — starts the raw Node HTTP adapter;
-- `ListenNodeHttpOptions` — a `Handler` and optional hostname;
+- `ListenNodeHttpOptions` — a `Handler`, optional hostname, and, as extended by
+  ADR 0033, an optional fixed port;
 - `NodeHttpServer` — the actual listener origin and idempotent asynchronous
   `close()` drain;
 - `nodeHttpCapabilities` — the capability value fixed by ADR 0023;
 - `NodeHttpCapabilities` — its closed public shape, with
   `minimumVersion: string` rather than a version-literal type.
 
-`listenNodeHttp` defaults to loopback and an ephemeral port. It accepts a
+`listenNodeHttp` defaults to loopback and an ephemeral port. ADR 0033 later
+extends the same raw adapter with an optional fixed port for its verified
+production bootstrap; omission or zero retains ephemeral ownership. It accepts a
 successful raw `Handler`, translates the request and response, and returns the
 listener's usable origin. This is adapter integration, not routing, rendering,
 the `fadeno dev` server, or a production deployment contract.
