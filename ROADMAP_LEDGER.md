@@ -6,50 +6,47 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-B7D1 — private retained project coordinator
+V1-DX-B7D2 — deterministic invalidation batches and supersession
 
 ## Exit criteria
 
-- [x] Give the private project authority one FIFO owner for accepted analysis
-  and explanation work while retaining exactly one analyzer session.
-- [x] Allocate immutable monotonic private request identities at admission so
-  success and failure remain correlated independently of publication identity.
-- [x] Preserve immediate staleness of prior application capabilities when a
-  newer analysis is admitted, without sequencing filesystem application here.
-- [x] Implement an explicit accepting → closing → closed lifecycle that drains
-  admitted work, absorbs operation failure, refuses later derived work, and
-  closes idempotently.
-- [x] Prove exact non-overlap and lifecycle order through the private
-  coordinator task boundary, plus failure recovery, explanation freshness, application
-  staleness, package inaccessibility, full repository, local CI, architecture,
-  Big-O, and fresh independent review gates.
+- [ ] Coalesce generic private invalidation admissions into deterministic
+  generations without interpreting filesystem notification names or timers.
+- [ ] Supersede active obsolete analysis at admission, preserve request
+  identity and terminal reason, and allow only the newest complete generation
+  to own application or explanation capabilities.
+- [ ] Retain every invalidation admitted during active work, failure cleanup,
+  idle handoff, or pre-close drain without a lost wakeup.
+- [ ] Reconcile current project documents and forget explicitly unmanaged
+  closed owners through one atomic session transition, including still-existing
+  files, without discarding unrelated open buffers.
+- [ ] Prove direct, structural, configuration, deletion, rename, burst,
+  refusal, recovery, close, retained-memory, package-inaccessibility, full
+  repository, local CI, architecture, Big-O, and fresh independent review gates.
 
 ## In progress
 
-- B7D1 changes the existing `PrivateProjectAnalyzer`, the narrow owner that
-  already retains one `AnalyzerSession`; it does not add a parallel coordinator
-  or another workspace/configuration policy.
-- Independent challenge requires analysis and derived explanation to share one
-  admission-order FIFO. Explanation admitted before a later analysis may drain;
-  an old explanation requested after later analysis admission must refuse.
-- Admitting analysis synchronously invalidates the prior B7C application token,
-  preserving the existing stale boundary. Filesystem application stays
-  synchronous and unqueued until B7D3.
-- The private request identity is allocated before work enters the FIFO and is
-  retained by its handle even when the operation rejects. Analyzer publication
-  identity remains separate and unchanged.
-- Close stops admission immediately, lets previously admitted work settle in
-  order, refuses new or derived operations, and is idempotent. No resource
-  release is claimed because the current analyzer session owns no live handle.
-- The coordinator's private task boundary proves start/finish order and maximum
-  concurrency without timing sleeps or a production observer hook.
-- Big-O audit found one pre-existing retained-state risk: still-existing files
-  from former route roots remain closed session documents. B7D2 now owns one
-  batch reconcile/forget transition before any retained watch/build consumer;
-  B7D1 adds no such consumer and explicit close bounds its present lifetime.
-- Batching, cancellation, supersession, dirty-state ownership, and newest-work
-  selection remain B7D2. Artifact/compiler sequencing remains B7D3; watching,
-  commands, servers, public schemas, and editor products remain later work.
+- B7D2 extends the one B7D1 project coordinator; it does not add a parallel
+  scheduler, watcher adapter, or second workspace/configuration authority.
+- Independent challenge requires admission to synchronously obsolete and
+  signal active analysis. FIFO publication supersession alone is too late
+  because it permits an obsolete generation to publish before newer work starts.
+- A monotonic admission generation owns pending dirtiness. A worker clears only
+  the generation it consumed, so work arriving during execution, rejection,
+  idle handoff, or close remains queued and reaches a terminal outcome.
+- An explanation admitted before a later analysis continues to drain in FIFO
+  order. New analysis supersedes analysis work, not every derived operation
+  indiscriminately.
+- One private session reconcile validates the complete desired and forgotten
+  owner set against cloned state, commits one snapshot and workspace epoch, and
+  refuses atomically. Forgetting a still-existing owner requires exact current
+  project-owned open identity; unrelated or stale open buffers are refused.
+- Direct, structure, configuration, deletion, rename, and burst fixtures mutate
+  authoritative project state then submit generic invalidation. Filesystem event
+  interpretation and debounce policy remain B7D4.
+- Filesystem application remains synchronous and outside the coordinator until
+  B7D3. Compiler refresh, watching, commands, servers, public schemas, and
+  editor products remain later work.
 - V1-DX-C follows the complete V1 app and precedes V1-14; its lifecycle and
   feedback evidence is split into one-outcome sub-slices.
 
@@ -200,3 +197,7 @@ V1-DX-B7D1 — private retained project coordinator
 - V1-DX-B7D0 — Commit `ebb6a86` decomposes retained consumption into bounded
   coordination, batching, compiler, watcher, decision, build, and development
   slices and adds DG-V1-06 before public build or development implementation.
+- V1-DX-B7D1 — Commit `14de5c8` gives one retained private project authority a
+  FIFO coordinator with immutable request identities, failure-absorbing drain,
+  immediate derived freshness, and explicit idempotent close without adding a
+  watcher, compiler pipeline, command, server, or public analyzer surface.
