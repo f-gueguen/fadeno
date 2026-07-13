@@ -550,6 +550,7 @@ export function createAnalyzerDiagnosticBatch(input: AnalyzerDiagnosticBatchInpu
 export function formatAnalyzerDiagnosticBatchHuman(batch: AnalyzerDiagnosticBatch): string {
   const validated = validateBatch(batch);
   const corrections = new Map(validated.corrections.map((correction) => [correction.fixId, correction]));
+  const diagnostics = new Map(validated.diagnostics.map((diagnostic) => [diagnostic.instanceId, diagnostic]));
   const lines: string[] = [];
   for (const diagnostic of validated.diagnostics) {
     lines.push(`${diagnostic.code}: ${definitions[diagnostic.code].summary(diagnostic.parameters)}`);
@@ -560,7 +561,9 @@ export function formatAnalyzerDiagnosticBatchHuman(batch: AnalyzerDiagnosticBatc
     };
     renderLocation("at", diagnostic.primaryLocation);
     for (const related of diagnostic.relatedLocations) renderLocation("related", related);
-    if (diagnostic.causedBy.length > 0) lines.push(`  caused by: ${diagnostic.causedBy.join(", ")}`);
+    if (diagnostic.causedBy.length > 0) {
+      lines.push(`  caused by: ${diagnostic.causedBy.map((instanceId) => diagnostics.get(instanceId)!.code).join(", ")}`);
+    }
     for (const fixId of diagnostic.correctionFixIds) {
       const correction = corrections.get(fixId)!;
       lines.push(`  correction: ${fixId} (${correction.safety}${correction.preferred ? ", preferred" : ""})`);
@@ -568,7 +571,9 @@ export function formatAnalyzerDiagnosticBatchHuman(batch: AnalyzerDiagnosticBatc
     if (diagnostic.internalFailure) lines.push(`  incident: ${diagnostic.internalFailure.incidentId}`);
     lines.push(`  explanation: ${diagnostic.explanationRef}`);
   }
-  for (const skipped of validated.skippedWork) lines.push(`SKIPPED ${skipped.id}: ${skipped.causedBy.join(", ")}`);
+  for (const skipped of validated.skippedWork) {
+    lines.push(`SKIPPED ${skipped.id}: ${skipped.causedBy.map((instanceId) => diagnostics.get(instanceId)!.code).join(", ")}`);
+  }
   return `${lines.join("\n")}${lines.length === 0 ? "" : "\n"}`;
 }
 

@@ -50,6 +50,21 @@ export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_TEXT"
   | "FADENO_ANALYZER_CONFIGURATION_IDENTITY";
 
+export type AnalyzerRootRefusalCode =
+  | "FADENO_ANALYZER_ROOT"
+  | "FADENO_ANALYZER_ROOT_MISSING"
+  | "FADENO_ANALYZER_ROOT_OWNERSHIP";
+
+export class AnalyzerRootError extends TypeError {
+  readonly code: AnalyzerRootRefusalCode;
+
+  constructor(code: AnalyzerRootRefusalCode) {
+    super(code);
+    this.name = "AnalyzerRootError";
+    this.code = code;
+  }
+}
+
 export interface AnalyzerTextEdit {
   readonly start: number;
   readonly end: number;
@@ -158,12 +173,12 @@ export class AnalyzerSession {
   readonly #explain: AnalyzerExplainCoordinator;
 
   constructor(projectRoot: string) {
-    if (typeof projectRoot !== "string" || !isAbsolute(projectRoot)) throw new TypeError("FADENO_ANALYZER_ROOT");
+    if (typeof projectRoot !== "string" || !isAbsolute(projectRoot)) throw new AnalyzerRootError("FADENO_ANALYZER_ROOT");
     const absolute = resolve(projectRoot);
-    if (!existsSync(absolute)) throw new TypeError("FADENO_ANALYZER_ROOT_MISSING");
+    if (!existsSync(absolute)) throw new AnalyzerRootError("FADENO_ANALYZER_ROOT_MISSING");
     const status = lstatSync(absolute);
     if (status.isSymbolicLink() || !status.isDirectory()) {
-      throw new TypeError("FADENO_ANALYZER_ROOT_OWNERSHIP");
+      throw new AnalyzerRootError("FADENO_ANALYZER_ROOT_OWNERSHIP");
     }
     this.#inputRoot = absolute;
     this.#root = realpathSync(absolute);

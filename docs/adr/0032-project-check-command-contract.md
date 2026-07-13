@@ -24,7 +24,8 @@ the private analyzer transport or crossing the external-schema gate.
 
 ## Decision
 
-The private framework package declares exactly one executable:
+The private framework package declares exactly one executable with
+`"bin": { "fadeno": "./dist/cli.js" }`:
 
 ```text
 fadeno check --project-root <path> [--explain]
@@ -45,8 +46,8 @@ correction, explanation, or artifact policy. `check` never writes `.fadeno`,
 
 Human output is the only public output in B7B:
 
-- a complete project with no diagnostic exits `0` and writes one concise success
-  report to stdout;
+- a complete framework route analysis with no diagnostic exits `0` and writes
+  one concise, narrowly scoped success report to stdout;
 - a complete project with expected configuration, ownership, route, or analyzer
   diagnostics exits `1` and writes the human diagnostic report to stderr;
 - invalid command syntax exits `2` and writes one usage report to stderr;
