@@ -126,6 +126,8 @@ try {
     "package/dist/internal/analyzer-route-explain.js",
     "package/dist/internal/analyzer-session.d.ts",
     "package/dist/internal/analyzer-session.js",
+    "package/dist/internal/analyzer-watcher.d.ts",
+    "package/dist/internal/analyzer-watcher.js",
     "package/dist/internal/config.d.ts",
     "package/dist/internal/config.js",
     "package/dist/internal/diagnostic.d.ts",
@@ -302,6 +304,12 @@ try {
   writeFileSync(join(consumer, "analyzer-compiler-deep-import.ts"), `import { PrivateCompilerValidator } from "${packageName}/internal/analyzer-compiler";\nvoid PrivateCompilerValidator;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-compiler-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-compiler")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
+  const analyzerWatcherJs = join(installedPackage, "dist/internal/analyzer-watcher.js");
+  const analyzerWatcherTypes = join(installedPackage, "dist/internal/analyzer-watcher.d.ts");
+  if (!existsSync(analyzerWatcherJs) || !existsSync(analyzerWatcherTypes)) throw new Error("FADENO_PUBLIC_PACKAGE_ANALYZER_WATCHER_INTERNAL_ABSENT");
+  writeFileSync(join(consumer, "analyzer-watcher-deep-import.ts"), `import { PrivateFilesystemInvalidationAdapter } from "${packageName}/internal/analyzer-watcher";\nvoid PrivateFilesystemInvalidationAdapter;\n`);
+  expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-watcher-deep-import.ts"], consumer, "TS2307");
+  expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-watcher")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
   writeFileSync(join(consumer, "analyzer-publication-deep-import.ts"), `import { AnalyzerPublicationCoordinator } from "${packageName}/internal/analyzer-publication";\nvoid AnalyzerPublicationCoordinator;\n`);
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-publication-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-publication")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");

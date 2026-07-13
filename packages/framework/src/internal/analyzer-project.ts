@@ -199,6 +199,10 @@ export class PrivateProjectAnalyzer {
     this.#compiler = options.compiler ?? null;
   }
 
+  ownsProject(projectRoot: string): boolean {
+    return resolve(projectRoot) === this.#root;
+  }
+
   analyze(): PrivateProjectAnalysisHandle {
     const handle = this.#coordinator.start("analysis", (requestId, { signal }) => {
       this.#recoverPendingApplicationRecovery();

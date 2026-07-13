@@ -704,6 +704,39 @@ coalesce contained hints, exclude owned output, and rescan through the same
 project authority used by check and tests. Rename, duplicate, missing-name, and
 overflow notifications cannot directly create or delete framework records.
 
+B7D4 implements that boundary as a private tool-neutral invalidation adapter.
+It accepts only `change` and `rename` notification kinds with a string path or
+an explicitly missing name. A named path is normalized against the exact
+project root, refused when external, malformed, or reached through a symlink,
+and excluded when it belongs to `.fadeno` output or repository metadata.
+Rename, missing-name, duplicate-alias, and precise-hint overflow state discard
+path-level interpretation and request a complete workspace rescan. Exact
+duplicate changes coalesce. None of these admissions creates, deletes, renames,
+or otherwise mutates an analyzer record.
+
+Accepted admissions form one immutable bounded batch containing only normalized
+hints, rescan reasons, a full-workspace flag, and accepted-admission sequence
+bounds. Raw notification identity remains separate, so excluded or refused
+notifications cannot create gaps or ambiguity in batch ownership. A
+private bounded debounce deadline moves after each admission but never beyond
+the first admission's maximum delay. Its production clock is monotonic, and an
+injected scheduler rollback is clamped to the last observed instant so accepted
+work cannot be stranded. Pending paths, reasons, completion waiters,
+and counters have explicit limits. Named paths have a per-path UTF-8 byte limit,
+and retained normalized/raw path pairs share an aggregate byte budget. Exceeding
+the aggregate budget discards precise hints and schedules a full authoritative
+rescan; exceeding the per-path limit is refused before retention. A notification
+received while refresh is active sets pending work for exactly one later batch;
+the active B7D3 refresh is never overlapped or superseded by the adapter itself.
+Completion and failure observers cannot control scheduling ownership.
+
+Flush forces pending work through the same retained `refresh` operation and
+settles only when the batch containing its target admission settles. Close is
+idempotent: it cancels the timer, refuses pending flushes, cancels and drains the
+active refresh, and closes the retained project authority. The adapter contains
+no operating-system watcher, watcher selection, server, command, public schema,
+or public package export.
+
 B7D3 adds one private `refresh` operation to the retained analysis queue. One
 coordinator item performs project analysis, begins a provisional B7C
 route-directory transaction, runs stock compiler validation, rechecks the live
@@ -827,6 +860,16 @@ their exact command and lifecycle contracts in an accepted ADR.
   restart recovery before a transaction handle exists, refuse close while
   recovery, rollback, or cleanup remains unresolved, and prove restart recovery
   preserves one exact accepted generation.
+- Filesystem invalidation fixtures use a deterministic scheduler to prove
+  debounce and maximum delay, exact duplicates, duplicate aliases, distinct
+  notification/admission identity, exact duplicate-event counts, per-path and
+  aggregate byte bounds, bounded hint overflow, clock rollback, event-during-work dirty
+  ownership, no lost wakeup, output and
+  repository exclusion, external/malformed/symlink refusal, rename and
+  missing-name full rescans, observer isolation, idempotent close, and no timer
+  or retained-work leak. A real canonical application fixture proves direct
+  change, compiler failure with last-good preservation, recovery, deletion,
+  rename, configuration epoch, and packed-private inaccessibility.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.

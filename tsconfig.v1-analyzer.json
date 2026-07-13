@@ -14,6 +14,7 @@
     "packages/framework/src/internal/analyzer-explain.ts",
     "packages/framework/src/internal/analyzer-route-explain.ts",
     "packages/framework/src/internal/analyzer-project.ts",
+    "packages/framework/src/internal/analyzer-watcher.ts",
     "packages/framework/src/internal/project-check.ts",
     "scripts/check-v1-analyzer.ts",
     "scripts/check-v1-analyzer-graph.ts",
@@ -24,6 +25,7 @@
     "scripts/check-v1-analyzer-coordinator.ts",
     "scripts/check-v1-analyzer-application.ts",
     "scripts/check-v1-analyzer-compiler.ts",
+    "scripts/check-v1-analyzer-watcher.ts",
     "scripts/check-v1-project-check-command.ts",
     "scripts/check-v1-analyzer-workflow.ts"
   ]
