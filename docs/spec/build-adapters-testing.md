@@ -271,7 +271,10 @@ distinct transaction names. Authoritative replacement, acceptance, and restore
 use atomic rename before recursive cleanup. A partial cleanup can therefore
 leave only non-authoritative garbage; the retained owner and restart recovery
 retry it without treating it as a rollback generation. Unresolved rollback or
-cleanup remains owned and prevents successful analyzer close.
+cleanup remains owned and prevents successful analyzer close. The retained
+recovery owner is installed before restart recovery, staging, or any later
+transaction mutation, so even an early persistent failure blocks successful
+close and remains recoverable by a later process.
 
 B7D4 next adds a filesystem adapter that treats notifications only as rescan
 hints. It must coalesce changes, avoid owned-output loops, retain a dirty signal

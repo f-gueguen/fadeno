@@ -99,6 +99,25 @@ function persistentPartialGarbageRemovalFailure(root: string): RouteArtifactMuta
   });
 }
 
+function persistentStagingRecoveryFailure(): RouteArtifactMutationFileSystem {
+  let writes = 0;
+  return Object.freeze({
+    mkdir: (path: string) => mkdirSync(path),
+    writeFile: (path: string, bytes: string) => {
+      writes += 1;
+      if (writes === 2) throw new Error("FADENO_TEST_STAGING_WRITE_FAILURE");
+      writeFileSync(path, bytes);
+    },
+    rename: (from: string, to: string) => {
+      if (from.includes("routes.pending-") && to.includes("routes.garbage-")) {
+        throw new Error("FADENO_TEST_STAGING_RECOVERY_FAILURE");
+      }
+      renameSync(from, to);
+    },
+    remove: (path: string) => rmSync(path, { recursive: true, force: true }),
+  });
+}
+
 function deferred<T>(): Readonly<{ promise: Promise<T>; resolve(value: T): void }> {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((accept) => { resolve = accept; });
@@ -288,6 +307,44 @@ try {
   assert.equal(readdirSync(join(retainedCleanupRoot, ".fadeno")).some((name) => /routes\.(?:pending|previous|empty|garbage)-/u.test(name)), false);
 } finally {
   rmSync(retainedCleanupRoot, { recursive: true, force: true });
+}
+
+const retainedEarlyRecoveryRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-retained-early-recovery-"));
+try {
+  copyApplication(retainedEarlyRecoveryRoot);
+  const baselineAnalyzer = new PrivateProjectAnalyzer(retainedEarlyRecoveryRoot);
+  await baselineAnalyzer.refresh().result;
+  await baselineAnalyzer.close();
+  const baseline = outputBytes(retainedEarlyRecoveryRoot);
+  mkdirSync(join(retainedEarlyRecoveryRoot, "src/routes/staging-recovery"), { recursive: true });
+  writeFileSync(join(retainedEarlyRecoveryRoot, "src/routes/staging-recovery/page.tsx"), "export default function Page(): string { return 'staging'; }\n");
+  const stagingAnalyzer = new PrivateProjectAnalyzer(retainedEarlyRecoveryRoot);
+  await assert.rejects(stagingAnalyzer.refresh({
+    application: { fileSystem: persistentStagingRecoveryFailure() },
+  }).result, /FADENO_ANALYZER_APPLICATION_RECOVERY/u);
+  assertOutput(retainedEarlyRecoveryRoot, baseline);
+  assert.equal(readdirSync(join(retainedEarlyRecoveryRoot, ".fadeno")).some((name) => name.startsWith("routes.pending-")), true);
+  await assert.rejects(stagingAnalyzer.close(), /FADENO_ANALYZER_APPLICATION_RECOVERY/u);
+
+  const stagingRecovery = new PrivateProjectAnalyzer(retainedEarlyRecoveryRoot);
+  await stagingRecovery.refresh().result;
+  await stagingRecovery.close();
+  assert.equal(readdirSync(join(retainedEarlyRecoveryRoot, ".fadeno")).some((name) => /routes\.(?:pending|previous|empty|garbage)-/u.test(name)), false);
+
+  const output = join(retainedEarlyRecoveryRoot, ".fadeno/routes");
+  const preexistingGarbage = join(retainedEarlyRecoveryRoot, ".fadeno/routes.garbage-preexisting");
+  cpSync(output, preexistingGarbage, { recursive: true });
+  const recoveryAnalyzer = new PrivateProjectAnalyzer(retainedEarlyRecoveryRoot);
+  await assert.rejects(recoveryAnalyzer.refresh({
+    application: { fileSystem: persistentPartialGarbageRemovalFailure(retainedEarlyRecoveryRoot) },
+  }).result, /FADENO_ANALYZER_APPLICATION_RECOVERY/u);
+  await assert.rejects(recoveryAnalyzer.close(), /FADENO_ANALYZER_APPLICATION_RECOVERY/u);
+  const restart = new PrivateProjectAnalyzer(retainedEarlyRecoveryRoot);
+  await restart.refresh().result;
+  await restart.close();
+  assert.equal(existsSync(preexistingGarbage), false);
+} finally {
+  rmSync(retainedEarlyRecoveryRoot, { recursive: true, force: true });
 }
 
 const firstFailureRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-first-failure-"));

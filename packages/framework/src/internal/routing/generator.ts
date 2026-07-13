@@ -65,6 +65,7 @@ export type RouteArtifactApplicationOptions = Readonly<{
   fileSystem?: RouteArtifactMutationFileSystem;
   afterWrite?(name: RouteArtifactName): void;
   observe?(phase: RouteArtifactApplicationPhase): void;
+  retainRecovery?(recover: () => void): void;
   retainTransaction?(transaction: RouteArtifactApplicationTransaction): void;
 }>;
 
@@ -414,7 +415,6 @@ function recoverTransactionState(
   }
   if (pendingPath) {
     if (lstatSync(pendingPath).isSymbolicLink() || !lstatSync(pendingPath).isDirectory()) fail("OUTPUT_RECOVERY_PENDING");
-    try { assertOwnedOutput(pendingPath); } catch { fail("OUTPUT_RECOVERY_PENDING"); }
   }
   if (previousPath) assertOwnedOutput(previousPath);
   if (emptyPath && (lstatSync(emptyPath).isSymbolicLink() || !lstatSync(emptyPath).isDirectory() || readdirSync(emptyPath).length > 0)) {
@@ -497,9 +497,15 @@ export function beginRouteArtifactApplication(
 
   const parent = join(resolve(projectRoot), ".fadeno");
   const output = join(parent, "routes");
+  const recover = (): void => {
+    if (!existsSync(parent)) return;
+    assertOutputParent(projectRoot, parent);
+    recoverTransactionState(parent, output, fileSystem);
+  };
+  options.retainRecovery?.(recover);
   options.assertFresh();
   ensureOutputParent(projectRoot, parent, fileSystem);
-  recoverTransactionState(parent, output, fileSystem);
+  recover();
   options.assertFresh();
   assertOwnedOutput(output);
   const transactionId = randomUUID();

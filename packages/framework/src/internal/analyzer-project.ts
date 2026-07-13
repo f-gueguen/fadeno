@@ -47,9 +47,13 @@ import {
   type RouteGenerationResult,
 } from "./routing/generator.ts";
 
-export type PrivateProjectApplicationOptions = Omit<RouteArtifactApplicationOptions, "assertFresh" | "retainTransaction">;
+export type PrivateProjectApplicationOptions = Omit<
+  RouteArtifactApplicationOptions,
+  "assertFresh" | "retainRecovery" | "retainTransaction"
+>;
 
 type PrivateProjectInternalApplicationOptions = PrivateProjectApplicationOptions & Readonly<{
+  retainRecovery?(recover: () => void): void;
   retainTransaction?(transaction: RouteArtifactApplicationTransaction): void;
 }>;
 
@@ -183,6 +187,7 @@ export class PrivateProjectAnalyzer {
   #configurationSourceSha256: string | null = null;
   #currentAnalysisToken: PrivateProjectAnalysisToken | null = null;
   #latestAnalysisRequestId: string | null = null;
+  #pendingApplicationRecovery: (() => void) | null = null;
   #pendingCleanup: RouteArtifactApplicationTransaction | null = null;
 
   constructor(projectRoot: string, options: PrivateProjectAnalyzerOptions = {}) {
@@ -196,6 +201,7 @@ export class PrivateProjectAnalyzer {
 
   analyze(): PrivateProjectAnalysisHandle {
     const handle = this.#coordinator.start("analysis", (requestId, { signal }) => {
+      this.#recoverPendingApplicationRecovery();
       this.#recoverPendingRollback();
       this.#recoverPendingCleanup();
       return this.#analyze(requestId, signal);
@@ -207,6 +213,7 @@ export class PrivateProjectAnalyzer {
 
   refresh(options: PrivateProjectRefreshOptions = {}): PrivateProjectRefreshHandle {
     const handle = this.#coordinator.start("analysis", async (requestId, { signal, generation }) => {
+      this.#recoverPendingApplicationRecovery();
       this.#recoverPendingRollback();
       this.#recoverPendingCleanup();
       const analysis = await this.#analyze(requestId, signal);
@@ -215,8 +222,13 @@ export class PrivateProjectAnalyzer {
       try {
         transaction = analysis[beginApplication]({
           ...options.application,
-          retainTransaction: (retained) => { transaction = retained; },
+          retainRecovery: (recover) => { this.#pendingApplicationRecovery = recover; },
+          retainTransaction: (retained) => {
+            transaction = retained;
+            this.#pendingApplicationRecovery = null;
+          },
         });
+        this.#pendingApplicationRecovery = null;
         signal.throwIfAborted();
         const validator = this.#compilerValidator();
         const compiler = await validator.validate({
@@ -248,6 +260,7 @@ export class PrivateProjectAnalyzer {
           }
         }
         if (transaction?.state === "committed" && transaction.cleanupPending) this.#pendingCleanup = transaction;
+        if (!transaction) this.#recoverPendingApplicationRecovery();
         throw error;
       }
     });
@@ -262,7 +275,8 @@ export class PrivateProjectAnalyzer {
     this.#latestAnalysisRequestId = null;
     this.#closePromise = this.#coordinator.close().then(async () => {
       let rollbackFailure: unknown = null;
-      try { this.#recoverPendingRollback(); } catch (error) { rollbackFailure = error; }
+      try { this.#recoverPendingApplicationRecovery(); } catch (error) { rollbackFailure = error; }
+      try { this.#recoverPendingRollback(); } catch (error) { rollbackFailure ??= error; }
       try { this.#recoverPendingCleanup(); } catch (error) { rollbackFailure ??= error; }
       await this.#compiler?.close();
       if (rollbackFailure) throw rollbackFailure;
@@ -281,6 +295,16 @@ export class PrivateProjectAnalyzer {
       this.#pendingRollback = null;
     } catch (error) {
       throw new TypeError("FADENO_ANALYZER_APPLICATION_ROLLBACK", { cause: error });
+    }
+  }
+
+  #recoverPendingApplicationRecovery(): void {
+    if (!this.#pendingApplicationRecovery) return;
+    try {
+      this.#pendingApplicationRecovery();
+      this.#pendingApplicationRecovery = null;
+    } catch (error) {
+      throw new TypeError("FADENO_ANALYZER_APPLICATION_RECOVERY", { cause: error });
     }
   }
 

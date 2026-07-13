@@ -753,7 +753,13 @@ only then may a displaced set be treated as non-authoritative garbage. Partial
 garbage deletion is safe to retry, is distinguished from rollback identity on
 restart, and remains retained lifecycle work until cleanup succeeds. The same
 rollback backup protects an unchanged generation if its current bytes drift
-between provisional application and final acceptance.
+between provisional application and final acceptance. Recovery ownership is
+retained before restart recovery or staging begins; persistent failures in
+either early phase therefore refuse close until the same owner or a later
+process removes the exact transaction state. A contained ordinary pending
+directory is always non-authoritative and may be displaced and removed even
+when staging stopped before it acquired the complete artifact shape; symlink or
+non-directory pending state still refuses.
 
 An accepted compiler result binds its coordinator request and generation,
 analyzer publication operation, provisional artifact source hash, compiler
@@ -813,9 +819,10 @@ their exact command and lifecycle contracts in an accepted ADR.
   failed spawn, await every child close, and prove stock compilation leaves no
   compiler output or transaction debris. Transaction fixtures corrupt an
   unchanged provisional generation, partially delete displaced garbage, retain
-  failures that occur before application returns, refuse close while rollback
-  remains unresolved, and prove restart recovery preserves one exact accepted
-  generation.
+  failures that occur before application returns, persistently fail staging and
+  restart recovery before a transaction handle exists, refuse close while
+  recovery, rollback, or cleanup remains unresolved, and prove restart recovery
+  preserves one exact accepted generation.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.

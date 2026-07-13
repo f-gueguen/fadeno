@@ -249,9 +249,9 @@ try {
   const partialPending = join(parent, "routes.pending-partial");
   mkdirSync(partialPending);
   writeFileSync(join(partialPending, "partial"), "unconfirmed\n");
-  assert.throws(() => recoveryEvidence.apply(), /FADENO_GENERATION_OUTPUT_RECOVERY_PENDING/u);
+  assert.equal(recoveryEvidence.apply().changed, false);
+  assert.equal(existsSync(partialPending), false);
   assertSnapshot(output, beforePendingCleanup, true);
-  rmSync(partialPending, { recursive: true });
 
   const external = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-application-external-"));
   try {

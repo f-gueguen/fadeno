@@ -47,7 +47,8 @@ V1-DX-B7D3 — serialized analyzer application and compiler validation
 - Route generations move between authoritative, rollback, and non-authoritative
   garbage names only by atomic rename. Partial garbage deletion cannot damage
   the accepted set, is retried by the retained owner and restart recovery, and
-  prevents successful close while cleanup remains unresolved.
+  prevents successful close while cleanup remains unresolved. Recovery
+  ownership is retained before preexisting-marker recovery or staging begins.
 - The stock compiler owns ordinary direct and transitive module refresh. Fadeno
   binds acceptance to operation and artifact identity but does not maintain a
   second application dependency graph.
