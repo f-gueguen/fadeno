@@ -23,6 +23,7 @@ import { RouteContractError, type RouteManifest } from "../packages/framework/sr
 import {
   createRouteArtifactPlan,
   generateRoutes,
+  verifyRouteArtifactPlanFreshness,
   type GenerationFailurePoint,
 } from "../packages/framework/src/internal/routing/generator.ts";
 import { matchRoutePathname } from "../packages/framework/src/internal/routing/matcher.ts";
@@ -144,6 +145,10 @@ try {
   const orphanPlan = createRouteArtifactPlan(main, config);
   if (!Object.hasOwn(orphanPlan.sources, "src/routes/orphan/layout.tsx")) throw new Error("FADENO_ROUTING_PLAN_COMPLETE_SOURCES");
   rmSync(join(main, "src/routes/orphan"), { recursive: true, force: true });
+  writeRoute(main, "late/page.tsx");
+  expectError(() => verifyRouteArtifactPlanFreshness(main, config, planned), "FADENO_GENERATION_SOURCE_CHANGED");
+  rmSync(join(main, "src/routes/late"), { recursive: true, force: true });
+  verifyRouteArtifactPlanFreshness(main, config, planned);
   const first = generateRoutes(main, config);
   if (!first.changed) throw new Error("FADENO_ROUTING_FIRST_UNCHANGED");
   const accepted = snapshot(first.output);

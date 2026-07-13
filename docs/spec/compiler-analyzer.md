@@ -339,6 +339,11 @@ root change closes sources that leave current ownership; surviving files remain
 closed session knowledge while their graph nodes are removed as definition
 changes, never fabricated filesystem deletion. Diagnostic evidence lists only
 the currently managed configuration and route sources.
+Immediately before publication, the authority revalidates the complete route
+structure and source identity, including newly added entries that were absent
+from the captured plan. A stale plan is refused. This analysis-time freshness
+check does not authorize a later filesystem applicator to rediscover or rebuild
+accepted bytes.
 
 The same publication replaces the complete diagnostic facet and artifact set.
 A page/handler ownership collision therefore publishes causal owner and route

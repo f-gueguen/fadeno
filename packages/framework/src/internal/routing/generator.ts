@@ -342,6 +342,20 @@ export function createRouteArtifactPlan(projectRoot: string, config: FadenoConfi
   return Object.freeze({ manifest, sourceSha256: manifest.generation.sourceSha256, sources, files });
 }
 
+export function verifyRouteArtifactPlanFreshness(
+  projectRoot: string,
+  config: FadenoConfig,
+  plan: RouteArtifactPlan,
+): void {
+  if (!config.routes) fail("ROUTES_REQUIRED");
+  const current = discoverRouteManifestWithSources(projectRoot, config.routes);
+  if (
+    current.manifest.generation.sourceSha256 !== plan.sourceSha256 ||
+    stableRouteManifest(current.manifest) !== stableRouteManifest(plan.manifest) ||
+    JSON.stringify(current.sources) !== JSON.stringify(plan.sources)
+  ) fail("SOURCE_CHANGED");
+}
+
 export function generateRoutes(
   projectRoot: string,
   config: FadenoConfig,

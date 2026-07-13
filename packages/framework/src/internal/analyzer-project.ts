@@ -19,6 +19,7 @@ import { AnalyzerSession, type AnalyzerDocumentSnapshot, type AnalyzerOperationR
 import { RouteContractError, type RouteRoleCollisionFact } from "./routing/discovery.ts";
 import {
   createRouteArtifactPlan,
+  verifyRouteArtifactPlanFreshness,
   type RouteArtifactName,
   type RouteArtifactPlan,
 } from "./routing/generator.ts";
@@ -95,6 +96,7 @@ export class PrivateProjectAnalyzer {
     ]);
     this.#synchronizeDocuments(desired);
     this.#assertInputsCurrent(desired);
+    this.#assertRouteAnalysisCurrent(config, routePlan, routeCollision);
     if (this.#configurationFingerprint !== configFingerprint || this.#configurationSourceSha256 !== configurationSourceSha256) {
       accepted(this.#session.reloadConfiguration(configFingerprint));
       this.#configurationFingerprint = configFingerprint;
@@ -110,6 +112,7 @@ export class PrivateProjectAnalyzer {
       requestedFacets: [{ namespace: ANALYZER_DIAGNOSTIC_NAMESPACE }],
       materialize: ({ graph }) => {
         this.#assertInputsCurrent(desired);
+        this.#assertRouteAnalysisCurrent(config, routePlan, routeCollision);
         const diagnosticInput = this.#diagnosticInput(routeCollision, documentByPath);
         diagnostics = createAnalyzerDiagnosticBatch({ graph, documents, ...diagnosticInput });
         return [{
@@ -150,6 +153,25 @@ export class PrivateProjectAnalyzer {
       if (error instanceof TypeError && error.message === "FADENO_ANALYZER_PROJECT_INPUT_CHANGED") throw error;
       throw new TypeError("FADENO_ANALYZER_PROJECT_INPUT_CHANGED");
     }
+  }
+
+  #assertRouteAnalysisCurrent(
+    config: Awaited<ReturnType<typeof loadConfigWithSource>>["config"],
+    plan: RouteArtifactPlan | null,
+    collision: RouteRoleCollisionFact | null,
+  ): void {
+    if (plan) {
+      verifyRouteArtifactPlanFreshness(this.#root, config, plan);
+      return;
+    }
+    try {
+      createRouteArtifactPlan(this.#root, config);
+    } catch (error) {
+      if (error instanceof RouteContractError && error.routeRoleCollision &&
+          JSON.stringify(error.routeRoleCollision) === JSON.stringify(collision)) return;
+      throw error;
+    }
+    throw new TypeError("FADENO_ANALYZER_PROJECT_INPUT_CHANGED");
   }
 
   #synchronizeDocuments(desired: ReadonlyMap<string, string>): void {
