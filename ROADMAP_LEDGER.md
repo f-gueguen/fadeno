@@ -10,20 +10,20 @@ V1-DX-B7C — analyzer-owned transactional route-artifact application
 
 ## Exit criteria
 
-- [ ] Apply only the exact current, complete, diagnostic-free seven-artifact
+- [x] Apply only the exact current, complete, diagnostic-free seven-artifact
   route publication; analyzer removals and diagnostic publications never delete
   the last accepted disk generation.
-- [ ] Use one route-specific contained transaction with exact-plan no-op,
+- [x] Use one route-specific contained transaction with exact-plan no-op,
   symlink and unowned-content refusal, stale replacement, and no mixed file set.
-- [ ] Bind application to the originating analyzer publication and refuse older
+- [x] Bind application to the originating analyzer publication and refuse older
   analysis, changed source/configuration/structure, or transported artifacts
   before mutation or through rollback.
-- [ ] Prove actual stage, backup, replacement, validation, restore, cleanup, and
+- [x] Prove actual stage, backup, replacement, validation, restore, cleanup, and
   restart-recovery failures without promoting unconfirmed pending output.
-- [ ] Route the canonical running example and project integration evidence
+- [x] Route the canonical running example and project integration evidence
   through analyze-then-apply while adding no command, build/watch consumer,
   package export, public schema, protocol, or editor product.
-- [ ] Pass routing, analyzer, workflow, private-package, running-example, full
+- [x] Pass routing, analyzer, workflow, private-package, running-example, full
   repository, local CI, and fresh independent review gates.
 
 ## In progress
@@ -46,6 +46,13 @@ V1-DX-B7C — analyzer-owned transactional route-artifact application
   unowned transaction debris is refused rather than guessed or deleted.
 - Exact publication reapplication performs no writes and preserves mtimes.
   Partial per-file preservation is not claimed.
+- The architecture audit found no remaining P1/P2 after the combined production
+  bypass was removed and one route-owned descriptor table became authoritative.
+  Final adversarial review found no P1/P2 after recovery validates all candidates
+  before mutation and the conservative restore/reapply policy was aligned.
+- The Big-O audit found no B7C asymptotic regression. Pre-existing superlinear
+  complete-analysis work is tracked in the risk ledger for V1-DX-C feedback
+  qualification rather than being presented as an incremental-speed claim.
 - The real project authority must replace manual analyzer definitions and the
   running example's direct generation path incrementally; it may not wrap or
   preserve a second discovery/diagnostic/generation policy.
