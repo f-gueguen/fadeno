@@ -374,6 +374,11 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     stdout: readFileSync(join(exampleRoot, "expected/build-success.txt"), "utf8"),
     stderr: "",
   });
+  assert.equal(
+    readdirSync(join(project, ".fadeno")).some((name) => name.startsWith("build-request-")),
+    false,
+    "bounded generation request files are removed after the synchronous compiler path",
+  );
   const acceptedIdentity = treeIdentity(join(project, "dist"));
   const acceptedManifest = readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8");
   assert.equal(treeContains(join(project, "dist"), secretCanary), false);

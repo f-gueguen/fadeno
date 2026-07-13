@@ -1,10 +1,13 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  closeSync,
   existsSync,
+  fstatSync,
   linkSync,
   lstatSync,
   mkdirSync,
+  openSync,
   opendirSync,
   readFileSync,
   readdirSync,
@@ -37,6 +40,7 @@ import { FadenoDiagnosticError, formatDiagnosticHuman } from "./diagnostic.ts";
 
 const packageName = "fadeno-framework-internal";
 const maximumChildOutputBytes = 8 * 1024 * 1024;
+const maximumGenerationRequestBytes = 256 * 1024;
 const maximumOutputFiles = 4_096;
 const maximumOutputPathBytes = 1024 * 1024;
 
@@ -419,13 +423,41 @@ function runGeneration(
   const stageRoot = join(projectRoot, ".fadeno", "build-stage", `generation-${generation}`);
   const child = join(dirname(fileURLToPath(import.meta.url)), "build-dev-generation-child.js");
   const request = generationRequest(projectRoot, stageRoot, generation, environment, closures);
-  const result = spawnSync(process.execPath, [child], {
-    cwd: projectRoot,
-    env: environment.values,
-    input: JSON.stringify(request),
-    encoding: "utf8",
-    maxBuffer: maximumChildOutputBytes,
-  });
+  const requestBytes = Buffer.from(JSON.stringify(request));
+  if (requestBytes.byteLength === 0 || requestBytes.byteLength > maximumGenerationRequestBytes) {
+    fail("FADENO_BUILD_CHILD_REQUEST");
+  }
+  const requestPath = join(projectRoot, ".fadeno", `build-request-${process.pid}-${randomUUID()}`);
+  writeFileSync(requestPath, requestBytes, { flag: "wx", mode: 0o600 });
+  const requestStatus = lstatSync(requestPath);
+  if (requestStatus.isSymbolicLink() || !requestStatus.isFile() || requestStatus.size !== requestBytes.byteLength) {
+    fail("FADENO_BUILD_CHILD_REQUEST");
+  }
+  let input = -1;
+  let result: SpawnSyncReturns<string>;
+  try {
+    input = openSync(requestPath, "r");
+    const opened = fstatSync(input);
+    if (
+      !opened.isFile() || opened.dev !== requestStatus.dev || opened.ino !== requestStatus.ino ||
+      opened.size !== requestStatus.size
+    ) fail("FADENO_BUILD_CHILD_REQUEST");
+    result = spawnSync(process.execPath, [child], {
+      cwd: projectRoot,
+      env: environment.values,
+      stdio: [input, "pipe", "pipe"],
+      encoding: "utf8",
+      maxBuffer: maximumChildOutputBytes,
+    });
+  } finally {
+    if (input !== -1) closeSync(input);
+    const current = lstatSync(requestPath);
+    if (
+      current.isSymbolicLink() || !current.isFile() || current.dev !== requestStatus.dev ||
+      current.ino !== requestStatus.ino || current.size !== requestStatus.size
+    ) fail("FADENO_BUILD_CHILD_REQUEST");
+    unlinkSync(requestPath);
+  }
   if (result.error || result.signal !== null || result.status !== 0) {
     failGenerationChild(result.stderr.trim());
   }

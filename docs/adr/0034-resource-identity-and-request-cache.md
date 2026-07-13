@@ -90,7 +90,10 @@ Non-enumerable and symbol-keyed properties are ignored and stripped from the
 normalized snapshot. Refusal never invokes an accessor or application key
 function. Lazy enumerable traversal stops at the entry budget before sorting;
 the implementation also bounds depth, property-name bytes, total encoded-key
-bytes, distinct reads, and total calls per request. Exact limits are
+bytes, distinct reads, and total calls per request. These limits bound
+framework-retained normalization; the host may still enumerate an
+application-created object's complete property list before the loop refuses it.
+Exact limits are
 conformance-owned implementation limits and may only become more permissive
 before 1.0.
 
