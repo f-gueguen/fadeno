@@ -48,7 +48,10 @@ export type AnalyzerRefusalCode =
   | "FADENO_ANALYZER_CLOSE_VERSION"
   | "FADENO_ANALYZER_EDIT_RANGE"
   | "FADENO_ANALYZER_TEXT"
-  | "FADENO_ANALYZER_CONFIGURATION_IDENTITY";
+  | "FADENO_ANALYZER_CONFIGURATION_IDENTITY"
+  | "FADENO_ANALYZER_RECONCILE_INPUT"
+  | "FADENO_ANALYZER_RECONCILE_DUPLICATE"
+  | "FADENO_ANALYZER_RECONCILE_OWNERSHIP";
 
 export type AnalyzerRootRefusalCode =
   | "FADENO_ANALYZER_ROOT"
@@ -71,6 +74,22 @@ export interface AnalyzerTextEdit {
   readonly text: string;
 }
 
+export interface AnalyzerReconcileDocument {
+  readonly document: string;
+  readonly text: string;
+  readonly expectedSavedRevision: number | null;
+}
+
+export interface AnalyzerReconcileForget {
+  readonly document: string;
+  readonly expectedSavedRevision: number;
+}
+
+export interface AnalyzerReconcileRequest {
+  readonly documents: readonly AnalyzerReconcileDocument[];
+  readonly forget: readonly AnalyzerReconcileForget[];
+}
+
 export interface AnalyzerDocumentSnapshot {
   readonly path: string;
   readonly uri: string;
@@ -90,7 +109,7 @@ export interface AnalyzerDocumentOnlySnapshot {
   readonly schemaVersion: 1;
   readonly sessionId: string;
   readonly operationId: string;
-  readonly operation: "initialize" | "save" | "open" | "change" | "replace" | "close" | "remove" | "configuration";
+  readonly operation: "initialize" | "save" | "open" | "change" | "replace" | "close" | "remove" | "reconcile" | "configuration";
   readonly workspaceEpoch: number;
   readonly requestedFacets: readonly [];
   readonly documentVersions: readonly AnalyzerDocumentVersion[];
@@ -162,7 +181,7 @@ export class AnalyzerSession {
   readonly #root: string;
   readonly #rootUri: string;
   readonly #sessionId = randomUUID();
-  readonly #documents = new Map<string, DocumentState>();
+  #documents = new Map<string, DocumentState>();
   #epoch = 0;
   #operationSequence = 0;
   #snapshot: AnalyzerDocumentOnlySnapshot;
@@ -347,6 +366,90 @@ export class AnalyzerSession {
     });
   }
 
+  reconcile(request: AnalyzerReconcileRequest): AnalyzerOperationResult {
+    const operationId = `${this.#sessionId}:operation-${++this.#operationSequence}`;
+    let owner: string | undefined;
+    try {
+      if (!request || !Array.isArray(request.documents) || !Array.isArray(request.forget)) {
+        refuse("FADENO_ANALYZER_RECONCILE_INPUT");
+      }
+      const seen = new Set<string>();
+      const documents = request.documents.map((document) => {
+        if (!document || typeof document !== "object") refuse("FADENO_ANALYZER_RECONCILE_INPUT");
+        const canonicalOwner = this.#canonicalOwner(document.document);
+        owner = canonicalOwner;
+        if (seen.has(canonicalOwner)) refuse("FADENO_ANALYZER_RECONCILE_DUPLICATE");
+        seen.add(canonicalOwner);
+        assertText(document.text);
+        this.#assertExpectedSavedRevision(document.expectedSavedRevision, true);
+        let ownedText: string;
+        try { ownedText = this.#readOwnedFile(canonicalOwner); } catch (error) {
+          if (error instanceof Refusal && error.code === "FADENO_ANALYZER_DOCUMENT_ENCODING") throw error;
+          refuse("FADENO_ANALYZER_SAVED_MISMATCH");
+        }
+        if (ownedText !== document.text) refuse("FADENO_ANALYZER_SAVED_MISMATCH");
+        return { ...document, owner: canonicalOwner };
+      });
+      const forget = request.forget.map((document) => {
+        if (!document || typeof document !== "object") refuse("FADENO_ANALYZER_RECONCILE_INPUT");
+        const canonicalOwner = this.#canonicalOwner(document.document);
+        owner = canonicalOwner;
+        if (seen.has(canonicalOwner)) refuse("FADENO_ANALYZER_RECONCILE_DUPLICATE");
+        seen.add(canonicalOwner);
+        this.#assertExpectedSavedRevision(document.expectedSavedRevision, false);
+        return { ...document, owner: canonicalOwner };
+      });
+      const next = new Map([...this.#documents].map(([key, state]) => [key, { ...state }]));
+
+      for (const document of documents.sort((left, right) => compareText(left.owner, right.owner))) {
+        const documentOwner = document.owner;
+        owner = documentOwner;
+        let state = next.get(documentOwner);
+        if (document.expectedSavedRevision === null) {
+          if (state?.overlayVersion !== undefined) refuse("FADENO_ANALYZER_DOCUMENT_OPEN");
+          if (state) refuse("FADENO_ANALYZER_RECONCILE_OWNERSHIP");
+          state = { owner: documentOwner, savedRevision: 0, nextLifetime: 0 };
+        } else {
+          if (!state) refuse("FADENO_ANALYZER_DOCUMENT_UNKNOWN");
+          if (state.overlayVersion !== undefined) refuse("FADENO_ANALYZER_DOCUMENT_OPEN");
+          if (state.savedRevision !== document.expectedSavedRevision) refuse("FADENO_ANALYZER_RECONCILE_OWNERSHIP");
+        }
+        if (state.savedText !== document.text) {
+          state.savedText = document.text;
+          state.savedRevision += 1;
+        }
+        next.set(documentOwner, state);
+      }
+      for (const document of forget.sort((left, right) => compareText(left.owner, right.owner))) {
+        const documentOwner = document.owner;
+        owner = documentOwner;
+        const state = next.get(documentOwner);
+        if (!state) refuse("FADENO_ANALYZER_DOCUMENT_UNKNOWN");
+        if (state.overlayVersion !== undefined) refuse("FADENO_ANALYZER_DOCUMENT_OPEN");
+        if (state.savedRevision !== document.expectedSavedRevision) refuse("FADENO_ANALYZER_RECONCILE_OWNERSHIP");
+        next.delete(documentOwner);
+      }
+
+      this.#documents = next;
+      this.#epoch += 1;
+      this.#snapshot = this.#createSnapshot(operationId, "reconcile");
+      this.#publication.invalidate();
+      this.#explain.invalidate();
+      return frozen({ accepted: true as const, operationId, snapshot: this.#snapshot });
+    } catch (error) {
+      if (!(error instanceof Refusal)) throw error;
+      const state = owner === undefined ? undefined : this.#documents.get(owner);
+      return frozen({
+        accepted: false as const,
+        operationId,
+        code: error.code,
+        currentEpoch: this.#epoch,
+        currentDocumentVersion: state?.overlayVersion ?? null,
+        currentLifetime: state?.overlayLifetime ?? null,
+      });
+    }
+  }
+
   #operate(
     operation: Exclude<AnalyzerDocumentOnlySnapshot["operation"], "initialize">,
     document: string,
@@ -384,6 +487,11 @@ export class AnalyzerSession {
     }
     if (lifetime !== state.overlayLifetime) refuse("FADENO_ANALYZER_LIFETIME");
     return state;
+  }
+
+  #assertExpectedSavedRevision(value: number | null, allowNull: boolean): void {
+    if (allowNull && value === null) return;
+    if (!Number.isSafeInteger(value) || (value as number) < 0) refuse("FADENO_ANALYZER_RECONCILE_INPUT");
   }
 
   #initialState(owner: string): DocumentState {

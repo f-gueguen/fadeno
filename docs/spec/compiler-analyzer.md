@@ -335,10 +335,12 @@ creates or modifies `.fadeno`; filesystem application remains V1-DX-B7C.
 The configuration value fingerprint and exact validated configuration-source
 identity are tracked separately. A source-only configuration edit advances the
 configuration epoch even when normalization produces the same value. A route
-root change closes sources that leave current ownership; surviving files remain
-closed session knowledge while their graph nodes are removed as definition
-changes, never fabricated filesystem deletion. Diagnostic evidence lists only
-the currently managed configuration and route sources.
+root change forgets sources that leave project ownership, including
+still-existing former-root files, while preserving unrelated session documents
+and unsaved overlays. Their graph nodes are removed as definition changes,
+never fabricated filesystem deletion. Diagnostic locations name only the
+currently managed configuration and route sources, while the private batch
+identity retains the complete session document authority needed for freshness.
 Immediately before publication, the authority revalidates the complete route
 structure and source identity, including newly added entries that were absent
 from the captured plan. A stale plan is refused. This analysis-time freshness
@@ -664,12 +666,37 @@ The coordinator lifecycle is `accepting` → `closing` → `closed`. Close stops
 admission synchronously, invalidates derived capabilities, drains every already
 admitted operation despite individual failure, and is idempotent. It does not
 claim resource release because the current analyzer session owns no live
-external handle. B7D2 must add deterministic invalidation batching,
-cancellation, supersession, newest-work ownership, and one batch reconcile/
-forget transition for closed document owners that leave current project
-management. This transition must bound retained source text to current
-ownership even when an old route-root file still exists, without allowing lost
-wakeups or treating filesystem notification names as truth.
+external handle.
+
+B7D2 assigns every analysis admission a monotonic generation. Pending analysis
+admissions collapse into one deterministic batch identified by its first and
+latest request identities and admission count. A newer admission synchronously
+supersedes a pending analysis and signals an active analysis before returning;
+only the newest complete generation can regain application or explanation
+ownership. Superseded or cancelled pending entries unlink from the FIFO in
+constant time; the retained batch summary does not copy every request identity.
+Explicit cancellation has a distinct terminal identity. An already
+admitted explanation remains ordered before a later analysis and is not
+cancelled merely because analysis became dirty.
+
+The one coordinator still executes operations without overlap. Its drain owns
+accepted queue work through result-continuation handoff, failure cleanup, and
+close. Work admitted while the drain is active is either consumed by that drain
+or schedules the next drain before idle is observable. Close refuses new
+admission synchronously and waits until every earlier admission has published,
+failed, cancelled, or been superseded.
+
+Project document synchronization uses one private session reconcile transition.
+It canonicalizes the complete desired and forgotten set, rejects duplicate
+aliases, validates desired text against the authoritative files, checks exact
+saved-revision ownership, and constructs the next document map from cloned
+state. Project scanning owns saved records only; it never creates, adopts, or
+rewrites an unsaved overlay. Only after every item passes does reconciliation
+replace the map, advance one workspace epoch, and invalidate derived evidence
+once. A still-existing former route-root owner may be forgotten only through
+its exact managed saved revision; any open buffer on a desired or forgotten
+path refuses the whole batch. Retained source text is therefore bounded to
+current ownership rather than cumulative historical route roots.
 
 Filesystem notifications are invalidation hints, not semantic facts. B7D4 must
 coalesce contained hints, exclude owned output, and rescan through the same
@@ -685,7 +712,7 @@ second application dependency graph. Compiler and later server consumers must
 be excluded from B7C's bounded route-directory replacement interval, and only
 the newest complete analyzer generation may be accepted.
 
-These stages are private evidence. The B7D1 coordinator implementation is
+These stages are private evidence. The B7D1/B7D2 coordinator implementation is
 included in packed internals and explicitly unavailable through package
 exports. It adds no stable analyzer schema, editor product, production output,
 watcher command, or server. Public
@@ -710,6 +737,13 @@ their exact command and lifecycle contracts in an accepted ADR.
   mappings, and deletions as one epoch, including error repair and recovery.
 - Cancellation and supersession fixtures prove obsolete results are not
   published.
+- Retained-consumer fixtures prove same-turn bursts, active supersession,
+  explicit cancellation, exact terminal identity, failure recovery, result
+  handoff, pre-close drain, and no operation overlap without timing sleeps.
+- Atomic reconcile fixtures rotate across three still-existing route roots,
+  prove exact current-document retention, and preserve the prior snapshot and
+  epoch across duplicate alias, symlink, stale revision, text mismatch, and
+  desired/forgotten open-owner refusal.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.

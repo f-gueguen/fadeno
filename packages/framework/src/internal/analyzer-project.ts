@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { loadConfigWithSource } from "./config.ts";
@@ -19,7 +19,12 @@ import type { AnalyzerExplainResult } from "./analyzer-explain.ts";
 import type { AnalyzerGraphNodeDefinition } from "./analyzer-graph.ts";
 import type { AnalyzerPublicationSnapshot } from "./analyzer-publication.ts";
 import { createRouteExplainContribution } from "./analyzer-route-explain.ts";
-import { AnalyzerSession, type AnalyzerDocumentSnapshot, type AnalyzerOperationResult } from "./analyzer-session.ts";
+import {
+  AnalyzerSession,
+  type AnalyzerDocumentOnlySnapshot,
+  type AnalyzerDocumentSnapshot,
+  type AnalyzerOperationResult,
+} from "./analyzer-session.ts";
 import {
   ROUTE_ARTIFACT_DESCRIPTORS,
   ROUTE_ARTIFACT_MODULE,
@@ -49,12 +54,24 @@ export interface PrivateProjectAnalysis {
 
 export type PrivateProjectAnalysisHandle = PrivateAnalyzerOperationHandle<PrivateProjectAnalysis>;
 
+export interface PrivateProjectAnalyzerOptions {
+  readonly session?: AnalyzerSession;
+}
+
+interface PrivateProjectAnalysisToken {
+  readonly requestId: string;
+  readonly operationId: string;
+  readonly documentSnapshot: AnalyzerDocumentOnlySnapshot;
+  readonly publication: AnalyzerPublicationSnapshot;
+}
+
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function accepted(result: AnalyzerOperationResult): void {
+function accepted(result: AnalyzerOperationResult): AnalyzerDocumentOnlySnapshot {
   if ("code" in result) throw new TypeError(result.code);
+  return result.snapshot;
 }
 
 function compareText(left: string, right: string): number {
@@ -125,19 +142,19 @@ export class PrivateProjectAnalyzer {
   readonly #root: string;
   readonly #session: AnalyzerSession;
   readonly #coordinator = new PrivateAnalyzerOperationCoordinator();
-  readonly #managedPaths = new Set<string>();
+  readonly #managedDocuments = new Map<string, number>();
   #configurationFingerprint: string | null = null;
   #configurationSourceSha256: string | null = null;
-  #currentAnalysisToken: object | null = null;
+  #currentAnalysisToken: PrivateProjectAnalysisToken | null = null;
   #latestAnalysisRequestId: string | null = null;
 
-  constructor(projectRoot: string) {
+  constructor(projectRoot: string, options: PrivateProjectAnalyzerOptions = {}) {
     this.#root = resolve(projectRoot);
-    this.#session = new AnalyzerSession(this.#root);
+    this.#session = options.session ?? new AnalyzerSession(this.#root);
   }
 
   analyze(): PrivateProjectAnalysisHandle {
-    const handle = this.#coordinator.start("analysis", (requestId) => this.#analyze(requestId));
+    const handle = this.#coordinator.start("analysis", (requestId, { signal }) => this.#analyze(requestId, signal));
     this.#currentAnalysisToken = null;
     this.#latestAnalysisRequestId = handle.requestId;
     return handle;
@@ -149,8 +166,10 @@ export class PrivateProjectAnalyzer {
     return this.#coordinator.close();
   }
 
-  async #analyze(requestId: string): Promise<PrivateProjectAnalysis> {
+  async #analyze(requestId: string, signal: AbortSignal): Promise<PrivateProjectAnalysis> {
+    signal.throwIfAborted();
     const { config, source: configSource } = await loadConfigWithSource(this.#root);
+    signal.throwIfAborted();
     const configFingerprint = sha256(JSON.stringify(config));
     const configurationSourceSha256 = sha256(configSource);
     let routePlan: RouteArtifactPlan | null = null;
@@ -171,6 +190,7 @@ export class PrivateProjectAnalyzer {
       ["fadeno.config.ts", configSource],
       ...Object.entries(desiredSources),
     ]);
+    signal.throwIfAborted();
     this.#synchronizeDocuments(desired);
     this.#assertInputsCurrent(desired);
     this.#assertRouteAnalysisCurrent(config, routePlan, routeCollision);
@@ -179,33 +199,50 @@ export class PrivateProjectAnalyzer {
       this.#configurationFingerprint = configFingerprint;
       this.#configurationSourceSha256 = configurationSourceSha256;
     }
+    signal.throwIfAborted();
 
-    const documents = this.#session.currentSnapshot.documents.filter(({ path }) => this.#managedPaths.has(path));
+    const sessionDocuments = this.#session.currentSnapshot.documents;
+    const documents = sessionDocuments.filter(({ path }) => this.#managedDocuments.has(path));
     const documentByPath = new Map(documents.map((document) => [document.path, document]));
     const definitions = this.#definitions(routePlan, Object.keys(desiredSources), documentByPath);
     let diagnostics: AnalyzerDiagnosticBatch | null = null;
-    const publicationResult = await this.#session.startPublication({
+    const publicationHandle = this.#session.startPublication({
       definitions,
       requestedFacets: [{ namespace: ANALYZER_DIAGNOSTIC_NAMESPACE }],
       materialize: ({ graph }) => {
         this.#assertInputsCurrent(desired);
         this.#assertRouteAnalysisCurrent(config, routePlan, routeCollision);
         const diagnosticInput = this.#diagnosticInput(routeCollision, documentByPath);
-        diagnostics = createAnalyzerDiagnosticBatch({ graph, documents, ...diagnosticInput });
+        diagnostics = createAnalyzerDiagnosticBatch({ graph, documents: sessionDocuments, ...diagnosticInput });
         return [{
           namespace: ANALYZER_DIAGNOSTIC_NAMESPACE,
           version: 1,
           value: normalizeAnalyzerFacetValue(diagnostics),
         }];
       },
-    }).result;
+    });
+    const cancelPublication = (): void => publicationHandle.cancel();
+    if (signal.aborted) publicationHandle.cancel();
+    else signal.addEventListener("abort", cancelPublication, { once: true });
+    let publicationResult;
+    try {
+      publicationResult = await publicationHandle.result;
+    } finally {
+      signal.removeEventListener("abort", cancelPublication);
+    }
+    signal.throwIfAborted();
     if (publicationResult.status !== "published" || diagnostics === null) {
-      throw new TypeError("FADENO_ANALYZER_PROJECT_PUBLICATION");
+      throw new TypeError(`FADENO_ANALYZER_PROJECT_${publicationResult.status.toUpperCase()}`);
     }
     const publication = publicationResult.snapshot;
     const batch = diagnostics as AnalyzerDiagnosticBatch;
-    const analysisToken = Object.freeze({ requestId, operationId: publication.operationId });
-    if (this.#coordinator.state === "accepting" && this.#latestAnalysisRequestId === requestId) {
+    const analysisToken: PrivateProjectAnalysisToken = Object.freeze({
+      requestId,
+      operationId: publication.operationId,
+      documentSnapshot: this.#session.currentSnapshot,
+      publication,
+    });
+    if (!signal.aborted && this.#coordinator.state === "accepting" && this.#latestAnalysisRequestId === requestId) {
       this.#currentAnalysisToken = analysisToken;
     }
     return Object.freeze({
@@ -214,14 +251,22 @@ export class PrivateProjectAnalyzer {
       routePlan,
       apply: (options: PrivateProjectApplicationOptions = {}) => {
         if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
-        if (this.#currentAnalysisToken !== analysisToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
+        if (
+          this.#currentAnalysisToken !== analysisToken ||
+          this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+          this.#session.currentPublicationSnapshot !== publication
+        ) applicationRefuse("STALE");
         if (routePlan === null || batch.diagnostics.length > 0 || batch.corrections.length > 0 || batch.skippedWork.length > 0) {
           applicationRefuse("DIAGNOSTIC");
         }
         const publishedPlan = routeArtifactPlanFromPublication(publication, routePlan);
         const assertFresh = (): void => {
           if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
-          if (this.#currentAnalysisToken !== analysisToken || this.#session.currentPublicationSnapshot !== publication) applicationRefuse("STALE");
+          if (
+            this.#currentAnalysisToken !== analysisToken ||
+            this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+            this.#session.currentPublicationSnapshot !== publication
+          ) applicationRefuse("STALE");
           this.#assertInputsCurrent(desired);
           this.#assertRouteAnalysisCurrent(config, routePlan, null);
         };
@@ -232,20 +277,35 @@ export class PrivateProjectAnalyzer {
   }
 
   async #explain(
-    analysisToken: object,
+    analysisToken: PrivateProjectAnalysisToken,
     diagnostics: AnalyzerDiagnosticBatch,
     detail: "semantic" | "deep",
   ): Promise<AnalyzerExplainResult> {
     if (this.#coordinator.state !== "accepting") projectRefuse("CLOSED");
-    if (this.#currentAnalysisToken !== analysisToken) projectRefuse("STALE");
-    return this.#coordinator.start("explanation", async () => this.#session.startExplain({
-      detail,
-      ...(detail === "deep" ? { activateDeep: true } : {}),
-      requestedFacets: [{ namespace: "fadeno.routes.explain" }],
-      collect: ({ publication: current, budgets }) => [
-        createRouteExplainContribution(current, diagnostics, detail, budgets),
-      ],
-    }).result).result;
+    if (
+      this.#currentAnalysisToken !== analysisToken ||
+      this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+      this.#session.currentPublicationSnapshot !== analysisToken.publication
+    ) projectRefuse("STALE");
+    return this.#coordinator.start("explanation", async () => {
+      if (
+        this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+        this.#session.currentPublicationSnapshot !== analysisToken.publication
+      ) projectRefuse("STALE");
+      const result = await this.#session.startExplain({
+        detail,
+        ...(detail === "deep" ? { activateDeep: true } : {}),
+        requestedFacets: [{ namespace: "fadeno.routes.explain" }],
+        collect: ({ publication: current, budgets }) => [
+          createRouteExplainContribution(current, diagnostics, detail, budgets),
+        ],
+      }).result;
+      if (
+        this.#session.currentSnapshot !== analysisToken.documentSnapshot ||
+        this.#session.currentPublicationSnapshot !== analysisToken.publication
+      ) projectRefuse("STALE");
+      return result;
+    }).result;
   }
 
   #assertInputsCurrent(expected: ReadonlyMap<string, string>): void {
@@ -281,22 +341,43 @@ export class PrivateProjectAnalyzer {
   }
 
   #synchronizeDocuments(desired: ReadonlyMap<string, string>): void {
-    for (const path of [...this.#managedPaths].sort(compareText)) {
-      if (desired.has(path)) continue;
-      const current = this.#session.currentSnapshot.documents.find((document) => document.path === path);
-      if (current?.open) accepted(this.#session.close(join(this.#root, path), current.open.lifetime, current.open.version));
-      if (!existsSync(join(this.#root, path))) accepted(this.#session.remove(join(this.#root, path)));
-      this.#managedPaths.delete(path);
+    const currentByPath = new Map(this.#session.currentSnapshot.documents.map((document) => [document.path, document]));
+    const forgotten = [...this.#managedDocuments]
+      .filter(([path]) => !desired.has(path))
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([path, savedRevision]) => {
+        const current = currentByPath.get(path);
+        if (!current) throw new TypeError("FADENO_ANALYZER_DOCUMENT_UNKNOWN");
+        return { document: join(this.#root, path), expectedSavedRevision: savedRevision };
+      });
+    let changed = forgotten.length > 0;
+    const documents = [...desired]
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([path, text]) => {
+        const current = currentByPath.get(path);
+        const expectedSavedRevision = this.#managedDocuments.get(path) ?? null;
+        if (
+          expectedSavedRevision === null || !current || current.open !== null ||
+          current.savedRevision !== expectedSavedRevision || current.effective.text !== text
+        ) changed = true;
+        return {
+          document: join(this.#root, path),
+          text,
+          expectedSavedRevision,
+        };
+      });
+    const snapshot = changed
+      ? accepted(this.#session.reconcile({ documents, forget: forgotten }))
+      : this.#session.currentSnapshot;
+    const reconciledByPath = new Map(snapshot.documents.map((document) => [document.path, document]));
+    const nextManaged = new Map<string, number>();
+    for (const path of desired.keys()) {
+      const document = reconciledByPath.get(path);
+      if (!document || document.open !== null) throw new TypeError("FADENO_ANALYZER_RECONCILE_OWNERSHIP");
+      nextManaged.set(path, document.savedRevision);
     }
-    for (const [path, text] of [...desired].sort(([left], [right]) => compareText(left, right))) {
-      const absolute = join(this.#root, path);
-      const current = this.#session.currentSnapshot.documents.find((document) => document.path === path);
-      if (!current?.open) accepted(this.#session.open(absolute, 0, text));
-      else if (current.effective.text !== text) {
-        accepted(this.#session.replace(absolute, current.open.lifetime, current.open.version + 1, text));
-      }
-      this.#managedPaths.add(path);
-    }
+    this.#managedDocuments.clear();
+    for (const [path, savedRevision] of nextManaged) this.#managedDocuments.set(path, savedRevision);
   }
 
   #definitions(
