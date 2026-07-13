@@ -243,14 +243,19 @@ restore the accepted state.
 The compiler is invoked asynchronously from the installed toolchain with the
 project configuration, resolved input listing, and no emit or incremental
 output. Resolved local inputs must remain under the canonical project root;
-only the selected compiler and roots owned through the installed dependency
-directory may resolve outside it. Project source symlinks and validators bound
-to another root refuse. A bounded
-project-owned inventory is streamed with bounded memory and cancellation checks,
-must remain unchanged across compilation, and is rechecked immediately before
-commit. Compiler text is not exposed, and acceptance binds the coordinator
-generation, analyzer publication, provisional artifact identity, compiler
-version, and validation inventory identity. The
+only the selected compiler package and exact installed package roots with
+matching ordinary manifests may resolve outside it. Aggregate dependency-store
+or ancestor directories never grant ownership, and every non-empty successful
+input-list record is interpreted exactly rather than whitespace-normalized.
+Project source symlinks and validators bound to another root refuse. A globally
+bounded project-owned inventory is streamed with bounded memory, actual-byte
+accounting, file-stability checks, and cancellation checks; it must remain
+unchanged across compilation and is rechecked immediately before commit. Every
+resolved compiler input is also content-identified and rechecked immediately
+before commit, including inputs below installed package roots. Compiler text is
+not exposed, and acceptance binds the coordinator generation, analyzer
+publication, provisional artifact identity, compiler version, validation
+inventory identity, and resolved-input identity. The
 framework project authority owns route, configuration, containment, and
 generated-output facts; the stock compiler owns the ordinary application module
 graph. No second application graph, `dist`, build-info, watcher, command, server,

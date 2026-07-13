@@ -42,6 +42,16 @@ async function compilerFailure(handle: PrivateProjectRefreshHandle): Promise<Pri
   throw new Error("FADENO_TEST_COMPILER_ACCEPTED");
 }
 
+async function validationFailure(result: Promise<unknown>): Promise<PrivateCompilerValidationError> {
+  try {
+    await result;
+  } catch (error) {
+    assert.equal(error instanceof PrivateCompilerValidationError, true);
+    return error as PrivateCompilerValidationError;
+  }
+  throw new Error("FADENO_TEST_COMPILER_VALIDATION_ACCEPTED");
+}
+
 function assertNoCompilerOutput(root: string): void {
   assert.equal(existsSync(join(root, "dist")), false);
   assert.equal(readdirSync(root).some((name) => name.endsWith(".tsbuildinfo")), false);
@@ -300,6 +310,109 @@ try {
   rmSync(ownershipRoot, { recursive: true, force: true });
   rmSync(outsideOwnershipRoot, { recursive: true, force: true });
   rmSync(foreignProjectRoot, { recursive: true, force: true });
+}
+
+const dependencyFreshnessRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-dependency-freshness-"));
+try {
+  copyApplication(dependencyFreshnessRoot);
+  rmSync(join(dependencyFreshnessRoot, "node_modules"), { recursive: true, force: true });
+  cpSync(new URL("../examples/v1-app/node_modules/", import.meta.url), join(dependencyFreshnessRoot, "node_modules"), {
+    recursive: true,
+    dereference: true,
+  });
+  const dependency = join(dependencyFreshnessRoot, "node_modules/fadeno-test-dependency");
+  mkdirSync(dependency);
+  writeFileSync(join(dependency, "package.json"), '{"name":"fadeno-test-dependency","type":"module","types":"index.d.ts"}\n');
+  const declaration = join(dependency, "index.d.ts");
+  writeFileSync(declaration, "export declare const dependencyValue: string;\n");
+  const server = join(dependencyFreshnessRoot, "src/server.ts");
+  const serverBytes = readFileSync(server, "utf8");
+  writeFileSync(server, "import { dependencyValue } from 'fadeno-test-dependency';\nconst dependencyText: string = dependencyValue;\nvoid dependencyText;\n" + serverBytes);
+  const analyzer = new PrivateProjectAnalyzer(dependencyFreshnessRoot);
+  await analyzer.refresh().result;
+  const baseline = outputBytes(dependencyFreshnessRoot);
+  mkdirSync(join(dependencyFreshnessRoot, "src/routes/dependency-drift"), { recursive: true });
+  writeFileSync(join(dependencyFreshnessRoot, "src/routes/dependency-drift/page.tsx"), "export default function Page(): string { return 'dependency'; }\n");
+  const drift = analyzer.refresh({ beforeCommit: () => {
+    writeFileSync(declaration, "export declare const dependencyValue: number;\n");
+  } });
+  const driftFailure = await compilerFailure(drift);
+  assert.equal(driftFailure.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(dependencyFreshnessRoot, baseline);
+  writeFileSync(declaration, "export declare const dependencyValue: string;\n");
+  await analyzer.refresh().result;
+  await analyzer.close();
+} finally {
+  rmSync(dependencyFreshnessRoot, { recursive: true, force: true });
+}
+
+const inputProtocolRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-input-protocol-"));
+const inputProtocolOutside = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-input-protocol-outside-"));
+try {
+  mkdirSync(join(inputProtocolRoot, "src"));
+  writeFileSync(join(inputProtocolRoot, "package.json"), '{"type":"module"}\n');
+  writeFileSync(join(inputProtocolRoot, "src/index.ts"), "export const local: string = 'local';\n");
+  const outsideWithSpace = join(inputProtocolOutside, "outside.ts ");
+  writeFileSync(join(inputProtocolOutside, "package.json"), '{"type":"module"}\n');
+  writeFileSync(outsideWithSpace, "export const outside: string = 'outside';\n");
+  writeFileSync(join(inputProtocolRoot, "tsconfig.json"), JSON.stringify({
+    compilerOptions: {
+      target: "ES2022",
+      module: "NodeNext",
+      moduleResolution: "NodeNext",
+      rootDir: resolve("/"),
+      strict: true,
+      types: [],
+    },
+    include: ["src/**/*.ts", relative(inputProtocolRoot, outsideWithSpace)],
+  }));
+  const inputProtocolChild = join(inputProtocolOutside, "emit-input.mjs");
+  writeFileSync(inputProtocolChild, `process.stdout.write(${JSON.stringify(`${outsideWithSpace}\n`)});\n`);
+  const inputProtocolCommand = Object.freeze({
+    executable: process.execPath,
+    argumentsPrefix: Object.freeze([inputProtocolChild]),
+  });
+  const whitespaceCompiler = new PrivateCompilerValidator(inputProtocolRoot, { command: inputProtocolCommand });
+  const request = {
+    requestId: "input-protocol-request",
+    generation: 1,
+    publicationOperationId: "input-protocol-publication",
+    artifactSourceSha256: "0".repeat(64),
+    signal: new AbortController().signal,
+  } as const;
+  const whitespaceFailure = await validationFailure(whitespaceCompiler.validate(request));
+  assert.equal(whitespaceFailure.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  await whitespaceCompiler.close();
+
+  symlinkSync(resolve("/"), join(inputProtocolRoot, "node_modules"));
+  const broadDependencyCompiler = new PrivateCompilerValidator(inputProtocolRoot, { command: inputProtocolCommand });
+  const broadFailure = await validationFailure(broadDependencyCompiler.validate(request));
+  assert.equal(broadFailure.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  await broadDependencyCompiler.close();
+} finally {
+  rmSync(inputProtocolRoot, { recursive: true, force: true });
+  rmSync(inputProtocolOutside, { recursive: true, force: true });
+}
+
+const inventoryLimitRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-inventory-limit-"));
+try {
+  writeFileSync(join(inventoryLimitRoot, "tsconfig.json"), "{}\n");
+  const overflow = join(inventoryLimitRoot, "overflow");
+  mkdirSync(overflow);
+  for (let index = 0; index <= 20_000; index += 1) writeFileSync(join(overflow, String(index)), "");
+  let spawned = false;
+  const compiler = new PrivateCompilerValidator(inventoryLimitRoot, { onSpawn: () => { spawned = true; } });
+  await assert.rejects(compiler.validate({
+    requestId: "inventory-limit-request",
+    generation: 1,
+    publicationOperationId: "inventory-limit-publication",
+    artifactSourceSha256: "0".repeat(64),
+    signal: new AbortController().signal,
+  }), /FADENO_ANALYZER_COMPILER_INVENTORY/u);
+  assert.equal(spawned, false);
+  await compiler.close();
+} finally {
+  rmSync(inventoryLimitRoot, { recursive: true, force: true });
 }
 
 const observerRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-observer-"));
