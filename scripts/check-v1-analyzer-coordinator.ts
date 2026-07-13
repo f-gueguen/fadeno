@@ -101,8 +101,6 @@ try {
     firstAnalysisHandle.result,
     secondAnalysisHandle.result,
   ]);
-  assert.equal(firstAnalysis.requestId, firstAnalysisHandle.requestId);
-  assert.equal(secondAnalysis.requestId, secondAnalysisHandle.requestId);
   assert.equal(firstAnalysis.publication.sessionId, secondAnalysis.publication.sessionId);
   assert.notEqual(firstAnalysis.publication.operationId, secondAnalysis.publication.operationId);
   assert.throws(() => firstAnalysis.apply(), /FADENO_ANALYZER_APPLICATION_STALE/u);
@@ -115,7 +113,6 @@ try {
   const explanation = await admittedExplanation;
   assert.equal(explanation.status, "complete");
   const thirdAnalysis = await thirdAnalysisHandle.result;
-  assert.equal(thirdAnalysis.requestId, thirdAnalysisHandle.requestId);
 
   const drainingFirst = analyzer.analyze();
   const drainingSecond = analyzer.analyze();

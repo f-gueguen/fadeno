@@ -21,6 +21,18 @@ try {
     throw new Error("FADENO_TOOLCHAIN_REPRODUCIBILITY");
   }
 
+  const routed = join(root, "routed");
+  mkdirSync(join(routed, "src/routes"), { recursive: true });
+  writeFileSync(join(routed, "fadeno.config.ts"), "export default { routes: { root: 'src/routes' } };\n");
+  writeFileSync(join(routed, "src/routes/page.tsx"), "export default function Page(): string { return 'routed'; }\n");
+  await executePrototype(routed, "check");
+  const routedManifest = JSON.parse(readFileSync(join(routed, ".fadeno/routes/manifest.json"), "utf8")) as {
+    routes: readonly { id: string }[];
+  };
+  if (JSON.stringify(routedManifest.routes.map(({ id }) => id)) !== JSON.stringify(["/"])) {
+    throw new Error("FADENO_TOOLCHAIN_ROUTED_ANALYZER");
+  }
+
   for (const source of ["A=1\nA=2\n", "export A=1\n", "A=${B}\n", "A='broken\n", "1A=value\n"]) {
     let rejected = false;
     try { parseEnvironmentFile(source); } catch { rejected = true; }

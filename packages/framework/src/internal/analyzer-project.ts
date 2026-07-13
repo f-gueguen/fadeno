@@ -40,7 +40,6 @@ import {
 export type PrivateProjectApplicationOptions = Omit<RouteArtifactApplicationOptions, "assertFresh">;
 
 export interface PrivateProjectAnalysis {
-  readonly requestId: string;
   readonly publication: AnalyzerPublicationSnapshot;
   readonly diagnostics: AnalyzerDiagnosticBatch;
   readonly routePlan: RouteArtifactPlan | null;
@@ -210,7 +209,6 @@ export class PrivateProjectAnalyzer {
       this.#currentAnalysisToken = analysisToken;
     }
     return Object.freeze({
-      requestId,
       publication,
       diagnostics: batch,
       routePlan,

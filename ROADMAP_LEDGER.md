@@ -19,8 +19,8 @@ V1-DX-B7D1 — private retained project coordinator
 - [ ] Implement an explicit accepting → closing → closed lifecycle that drains
   admitted work, absorbs operation failure, refuses later derived work, and
   closes idempotently.
-- [ ] Prove exact non-overlap and lifecycle order through a narrow private test
-  observer, plus failure recovery, explanation freshness, application
+- [ ] Prove exact non-overlap and lifecycle order through the private
+  coordinator task boundary, plus failure recovery, explanation freshness, application
   staleness, package inaccessibility, full repository, local CI, architecture,
   Big-O, and fresh independent review gates.
 
@@ -41,9 +41,12 @@ V1-DX-B7D1 — private retained project coordinator
 - Close stops admission immediately, lets previously admitted work settle in
   order, refuses new or derived operations, and is idempotent. No resource
   release is claimed because the current analyzer session owns no live handle.
-- A private lifecycle observer exists only to prove start/finish order and
-  maximum concurrency without timing sleeps. It is not exported or packaged as
-  a supported hook.
+- The coordinator's private task boundary proves start/finish order and maximum
+  concurrency without timing sleeps or a production observer hook.
+- Big-O audit found one pre-existing retained-state risk: still-existing files
+  from former route roots remain closed session documents. B7D2 now owns one
+  batch reconcile/forget transition before any retained watch/build consumer;
+  B7D1 adds no such consumer and explicit close bounds its present lifetime.
 - Batching, cancellation, supersession, dirty-state ownership, and newest-work
   selection remain B7D2. Artifact/compiler sequencing remains B7D3; watching,
   commands, servers, public schemas, and editor products remain later work.

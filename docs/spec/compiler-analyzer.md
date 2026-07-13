@@ -665,8 +665,11 @@ admission synchronously, invalidates derived capabilities, drains every already
 admitted operation despite individual failure, and is idempotent. It does not
 claim resource release because the current analyzer session owns no live
 external handle. B7D2 must add deterministic invalidation batching,
-cancellation, supersession, and newest-work ownership without allowing lost
-wakeups.
+cancellation, supersession, newest-work ownership, and one batch reconcile/
+forget transition for closed document owners that leave current project
+management. This transition must bound retained source text to current
+ownership even when an old route-root file still exists, without allowing lost
+wakeups or treating filesystem notification names as truth.
 
 Filesystem notifications are invalidation hints, not semantic facts. B7D4 must
 coalesce contained hints, exclude owned output, and rescan through the same
