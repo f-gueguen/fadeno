@@ -97,6 +97,17 @@ try {
   );
   assert.equal(existsSync(join(root, ".fadeno")), false);
   assert.equal(readFileSync(join(root, "fadeno.config.ts"), "utf8"), "export default { routes: { root: 'src/routes' } };\n");
+
+  writeFileSync(join(root, "fadeno.config.ts"), [
+    'import { writeFileSync } from "node:fs";',
+    "const owner = new URL(import.meta.url);",
+    'owner.search = "";',
+    'writeFileSync(owner, "export default { routes: { root: \'src/routes\' } };\\n");',
+    "export default { routes: { root: 'src/other-routes' } };",
+    "",
+  ].join("\n"));
+  await assert.rejects(() => analyzer.analyze(), /FADENO_ANALYZER_PROJECT_CONFIGURATION_CHANGED/u);
+  assert.equal(existsSync(join(root, ".fadeno")), false);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

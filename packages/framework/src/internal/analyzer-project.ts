@@ -76,7 +76,12 @@ export class PrivateProjectAnalyzer {
   }
 
   async analyze(): Promise<PrivateProjectAnalysis> {
+    const configPath = join(this.#root, "fadeno.config.ts");
+    const configSource = readFileSync(configPath, "utf8");
     const config = await loadConfig(this.#root);
+    if (readFileSync(configPath, "utf8") !== configSource) {
+      throw new TypeError("FADENO_ANALYZER_PROJECT_CONFIGURATION_CHANGED");
+    }
     const configFingerprint = sha256(JSON.stringify(config));
     let routePlan: RouteArtifactPlan | null = null;
     let routeFailure: FadenoDiagnosticError | null = null;
@@ -91,10 +96,11 @@ export class PrivateProjectAnalyzer {
       (routeFailure?.locations ?? []).map((path) => [path, readFileSync(join(this.#root, path), "utf8")]),
     ));
     const desired = new Map<string, string>([
-      ["fadeno.config.ts", readFileSync(join(this.#root, "fadeno.config.ts"), "utf8")],
+      ["fadeno.config.ts", configSource],
       ...Object.entries(desiredSources),
     ]);
     this.#synchronizeDocuments(desired);
+    this.#assertInputsCurrent(desired);
     if (this.#configurationFingerprint !== configFingerprint) {
       accepted(this.#session.reloadConfiguration(configFingerprint));
       this.#configurationFingerprint = configFingerprint;
@@ -108,6 +114,7 @@ export class PrivateProjectAnalyzer {
       definitions,
       requestedFacets: [{ namespace: ANALYZER_DIAGNOSTIC_NAMESPACE }],
       materialize: ({ graph }) => {
+        this.#assertInputsCurrent(desired);
         const diagnosticInput = this.#diagnosticInput(routeFailure, config.routes?.root, documentByPath);
         diagnostics = createAnalyzerDiagnosticBatch({ graph, documents, ...diagnosticInput });
         return [{
@@ -135,6 +142,19 @@ export class PrivateProjectAnalyzer {
         ],
       }).result,
     });
+  }
+
+  #assertInputsCurrent(expected: ReadonlyMap<string, string>): void {
+    try {
+      for (const [path, text] of expected) {
+        if (readFileSync(join(this.#root, path), "utf8") !== text) {
+          throw new TypeError("FADENO_ANALYZER_PROJECT_INPUT_CHANGED");
+        }
+      }
+    } catch (error) {
+      if (error instanceof TypeError && error.message === "FADENO_ANALYZER_PROJECT_INPUT_CHANGED") throw error;
+      throw new TypeError("FADENO_ANALYZER_PROJECT_INPUT_CHANGED");
+    }
   }
 
   #synchronizeDocuments(desired: ReadonlyMap<string, string>): void {
