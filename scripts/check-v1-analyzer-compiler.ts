@@ -15,6 +15,7 @@ import type { RouteArtifactMutationFileSystem } from "../packages/framework/src/
 
 function copyApplication(root: string): void {
   cpSync(new URL("../examples/v1-app/src/", import.meta.url), join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src/compiler-owner.ts"), "export {};\n");
   cpSync(new URL("../examples/v1-app/fadeno.config.ts", import.meta.url), join(root, "fadeno.config.ts"));
   cpSync(new URL("../examples/v1-app/tsconfig.json", import.meta.url), join(root, "tsconfig.json"));
   cpSync(new URL("../examples/v1-app/package.json", import.meta.url), join(root, "package.json"));
@@ -144,7 +145,7 @@ try {
   assertNoCompilerOutput(root);
   const firstOutput = outputBytes(root);
 
-  const directPath = join(root, "src/server.ts");
+  const directPath = join(root, "src/compiler-owner.ts");
   const directBytes = readFileSync(directPath, "utf8");
   writeFileSync(directPath, `${directBytes}\n// FADENO_TEST_PRIVATE_COMPILER_SENTINEL\nconst compilerFailure: string = 1;\n`);
   const directFailure = await compilerFailure(analyzer.refresh());
@@ -350,7 +351,7 @@ try {
 const firstFailureRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-first-failure-"));
 try {
   copyApplication(firstFailureRoot);
-  const server = join(firstFailureRoot, "src/server.ts");
+  const server = join(firstFailureRoot, "src/compiler-owner.ts");
   writeFileSync(server, `${readFileSync(server, "utf8")}\nconst firstFailure: string = 1;\n`);
   const analyzer = new PrivateProjectAnalyzer(firstFailureRoot);
   await compilerFailure(analyzer.refresh());
@@ -412,7 +413,7 @@ try {
   assertOutput(ownershipRoot, baseline);
   writeFileSync(configPath, configBytes);
 
-  const serverPath = join(ownershipRoot, "src/server.ts");
+  const serverPath = join(ownershipRoot, "src/compiler-owner.ts");
   const serverBytes = readFileSync(serverPath, "utf8");
   const linkedInput = join(ownershipRoot, "src/external-linked.ts");
   symlinkSync(outsidePath, linkedInput);
@@ -470,7 +471,7 @@ try {
   writeFileSync(declaration, "export declare const dependencyValue: string;\n");
   writeFileSync(join(dependencyB, "index.d.ts"), "export declare const dependencyValue: string;\n");
   symlinkSync(dependencyA, dependency);
-  const server = join(dependencyFreshnessRoot, "src/server.ts");
+  const server = join(dependencyFreshnessRoot, "src/compiler-owner.ts");
   const serverBytes = readFileSync(server, "utf8");
   writeFileSync(server, "import { dependencyValue } from 'fadeno-test-dependency';\nconst dependencyText: string = dependencyValue;\nvoid dependencyText;\n" + serverBytes);
   const analyzer = new PrivateProjectAnalyzer(dependencyFreshnessRoot);
@@ -673,7 +674,7 @@ const observerRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-observer-"))
 try {
   copyApplication(observerRoot);
   const child = join(observerRoot, "compiler-observer-child.mjs");
-  writeFileSync(child, `console.log(${JSON.stringify(join(observerRoot, "src/server.ts"))});\nsetInterval(() => undefined, 1_000);\n`);
+  writeFileSync(child, `console.log(${JSON.stringify(join(observerRoot, "src/compiler-owner.ts"))});\nsetInterval(() => undefined, 1_000);\n`);
   const observerCancellation = new AbortController();
   const request = Object.freeze({
     requestId: "observer-request",
@@ -755,7 +756,7 @@ try {
   await baselineAnalyzer.refresh().result;
   await baselineAnalyzer.close();
   const baseline = outputBytes(negativeChildRoot);
-  const ownedInput = join(negativeChildRoot, "src/server.ts");
+  const ownedInput = join(negativeChildRoot, "src/compiler-owner.ts");
 
   mkdirSync(join(negativeChildRoot, "src/routes/output-mutation"), { recursive: true });
   writeFileSync(join(negativeChildRoot, "src/routes/output-mutation/page.tsx"), "export default function Page(): string { return 'output'; }\n");
@@ -864,7 +865,7 @@ try {
   const compiler = new PrivateCompilerValidator(lifecycleRoot, {
     command: Object.freeze({
       executable: process.execPath,
-      argumentsPrefix: Object.freeze([childScript, counter, release, join(lifecycleRoot, "src/server.ts")]),
+      argumentsPrefix: Object.freeze([childScript, counter, release, join(lifecycleRoot, "src/compiler-owner.ts")]),
     }),
     onSpawn: (pid) => {
       if (spawned.length > 0) assert.equal(closed.includes(spawned.at(-1)!), true, "new compiler started before old close");
