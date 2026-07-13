@@ -5,6 +5,7 @@ const maximumInputEntries = 4_096;
 const maximumInputKeyBytes = 1_024;
 const maximumInputBytes = 64 * 1_024;
 const maximumRequestReads = 1_024;
+const maximumRequestCalls = 4_096;
 
 interface PrivatePlainObject {
   readonly [key: string]: PrivatePlainInput;
@@ -64,13 +65,23 @@ function ordinaryObject(value: object): boolean {
 function encodeInput(value: unknown): string {
   const active = new Set<object>();
   let entries = 0;
+  let scalarBytes = 0;
+
+  function addScalarBytes(bytes: number): void {
+    if (bytes > maximumInputBytes - scalarBytes) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
+    scalarBytes += bytes;
+  }
 
   function visit(current: unknown, depth: number): unknown {
     entries += 1;
     if (entries > maximumInputEntries || depth > maximumInputDepth) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
     if (current === null) return ["null"];
     if (typeof current === "boolean") return ["boolean", current];
-    if (typeof current === "string") return ["string", current];
+    if (typeof current === "string") {
+      if (current.length > maximumInputBytes - scalarBytes) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
+      addScalarBytes(Buffer.byteLength(current, "utf8"));
+      return ["string", current];
+    }
     if (typeof current === "number") {
       if (!Number.isFinite(current)) throw new TypeError("FADENO_RESOURCE_INPUT");
       return ["number", Object.is(current, -0) ? "0" : String(current)];
@@ -84,6 +95,7 @@ function encodeInput(value: unknown): string {
         if (Object.getPrototypeOf(current) !== Array.prototype || Object.getOwnPropertySymbols(current).length > 0) {
           throw new TypeError("FADENO_RESOURCE_INPUT");
         }
+        if (current.length > maximumInputEntries - entries) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
         for (let index = 0; index < current.length; index += 1) {
           const descriptor = Object.getOwnPropertyDescriptor(current, String(index));
           if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw new TypeError("FADENO_RESOURCE_INPUT");
@@ -98,8 +110,15 @@ function encodeInput(value: unknown): string {
         throw new TypeError("FADENO_RESOURCE_INPUT");
       }
       const properties: [string, unknown][] = [];
-      for (const name of Object.getOwnPropertyNames(current).sort(compareText)) {
-        if (Buffer.byteLength(name, "utf8") > maximumInputKeyBytes) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
+      const names = Object.getOwnPropertyNames(current);
+      if (names.length > maximumInputEntries - entries) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
+      for (const name of names.sort(compareText)) {
+        if (name.length > maximumInputKeyBytes || name.length > maximumInputBytes - scalarBytes) {
+          throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
+        }
+        const nameBytes = Buffer.byteLength(name, "utf8");
+        if (nameBytes > maximumInputKeyBytes) throw new TypeError("FADENO_RESOURCE_INPUT_LIMIT");
+        addScalarBytes(nameBytes);
         const descriptor = Object.getOwnPropertyDescriptor(current, name);
         if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw new TypeError("FADENO_RESOURCE_INPUT");
         properties.push([name, visit(descriptor.value, depth + 1)]);
@@ -157,6 +176,7 @@ export class PrivateResourceRequestScope {
   readonly #dependencies: PrivateResourceDependency[] = [];
   readonly #flows: PrivateResourceFlow[] = [];
   #reads = 0;
+  #calls = 0;
 
   constructor(request: Request) {
     if (!(request instanceof Request)) throw new TypeError("FADENO_RESOURCE_REQUEST");
@@ -175,6 +195,8 @@ export class PrivateResourceRequestScope {
     resource: PrivateResourceDeclaration<Input, Value>,
     input: Input,
   ): Promise<Value> {
+    this.#calls += 1;
+    if (this.#calls > maximumRequestCalls) throw new TypeError("FADENO_RESOURCE_CALL_LIMIT");
     if (!resource || typeof resource !== "object" || !declarations.has(resource)) {
       this.#record("refused", "none", false, "invalid-declaration");
       throw new TypeError("FADENO_RESOURCE_DECLARATION");

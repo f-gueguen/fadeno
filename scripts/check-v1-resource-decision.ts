@@ -126,13 +126,38 @@ const cycle: Record<string, unknown> = {};
 cycle["cycle"] = cycle;
 await assert.rejects(refusal.read(projects as never, cycle as never), /FADENO_RESOURCE_INPUT/u);
 await assert.rejects(refusal.read(projects as never, { key: "x".repeat(70 * 1024) } as never), /FADENO_RESOURCE_INPUT_LIMIT/u);
+await assert.rejects(refusal.read(projects as never, "x".repeat(70 * 1024) as never), /FADENO_RESOURCE_INPUT_LIMIT/u);
+await assert.rejects(refusal.read(projects as never, { ["k".repeat(1_025)]: true } as never), /FADENO_RESOURCE_INPUT_LIMIT/u);
+await assert.rejects(refusal.read(projects as never, new Array(4_097).fill(null) as never), /FADENO_RESOURCE_INPUT_LIMIT/u);
+await assert.rejects(refusal.read(projects as never, Object.fromEntries(
+  Array.from({ length: 4_097 }, (_, index) => [`key-${index}`, null]),
+) as never), /FADENO_RESOURCE_INPUT_LIMIT/u);
 assert.equal(refusal.dependencies.length, 0, "refused input records no dependency or cache entry");
 await assert.rejects(refusal.read({ declaration: {}, read: () => "counterfeit" } as never, null), /FADENO_RESOURCE_DECLARATION/u);
 assert.throws(() => privateExpectedResourceError("lowercase", 404), /FADENO_RESOURCE_EXPECTED_ERROR/u);
+assert.throws(() => definePrivateResource({ read: () => "value", extra: true } as never), /FADENO_RESOURCE_DECLARATION/u);
+let declarationGetterRan = false;
+const declarationAccessor = Object.defineProperty({}, "read", {
+  enumerable: true,
+  get() { declarationGetterRan = true; return () => "value"; },
+});
+assert.throws(() => definePrivateResource(declarationAccessor as never), /FADENO_RESOURCE_DECLARATION/u);
+assert.equal(declarationGetterRan, false, "declaration refusal does not invoke an accessor");
 let proxyTrapRan = false;
 const proxy = new Proxy({}, { ownKeys() { proxyTrapRan = true; return []; } });
 await assert.rejects(refusal.read(projects as never, proxy as never), /FADENO_RESOURCE_INPUT/u);
 assert.equal(proxyTrapRan, false, "proxy refusal does not execute application reflection traps");
+
+const boundedReads = new PrivateResourceRequestScope(request());
+const boundedResource = definePrivateResource({ read: ({ input }: { input: number }) => input });
+for (let index = 0; index < 1_024; index += 1) assert.equal(await boundedReads.read(boundedResource, index), index);
+await assert.rejects(boundedReads.read(boundedResource, 1_024), /FADENO_RESOURCE_READ_LIMIT/u);
+assert.equal(boundedReads.dependencies.length, 1_024);
+
+const boundedCalls = new PrivateResourceRequestScope(request());
+for (let index = 0; index < 4_096; index += 1) assert.equal(await boundedCalls.read(boundedResource, 0), 0);
+await assert.rejects(boundedCalls.read(boundedResource, 0), /FADENO_RESOURCE_CALL_LIMIT/u);
+assert.equal(boundedCalls.flows.length, 4_096, "flow evidence cannot grow past the admitted call budget");
 
 const flowInspection = {
   operation: "resource-decision",
