@@ -642,6 +642,33 @@ through stable operation or artifact identity only when the observed evidence
 exists. Static analysis never reports an observed authorization result, request
 order, stream timing, cancellation result, or browser outcome.
 
+## Retained consumer sequencing
+
+V1-DX-B7D delivers retained consumption in independently reviewable stages.
+B7D1 must establish one private long-lived owner for analyzer operations with
+sequential immutable operation identity and explicit close behavior. B7D2 must
+add deterministic invalidation batching, cancellation, supersession, and
+newest-work ownership without allowing concurrent analysis or lost wakeups.
+
+Filesystem notifications are invalidation hints, not semantic facts. B7D4 must
+coalesce contained hints, exclude owned output, and rescan through the same
+project authority used by check and tests. Rename, duplicate, missing-name, and
+overflow notifications cannot directly create or delete framework records.
+
+B7D3 must serialize the current analyzer publication, the B7C route-artifact
+application boundary, stock-compiler refresh, and validation. Framework
+analysis remains authoritative for configuration, routes, generated ownership,
+and framework diagnostics. The stock compiler remains authoritative for
+ordinary direct and transitive module refresh; the coordinator must not build a
+second application dependency graph. Compiler and later server consumers must
+be excluded from B7C's bounded route-directory replacement interval, and only
+the newest complete analyzer generation may be accepted.
+
+These stages are private evidence. They add no package export, stable analyzer
+schema, editor product, production output, watcher command, or server. Public
+`fadeno build` and `fadeno dev` remain unimplemented until DG-V1-06 resolves
+their exact command and lifecycle contracts in an accepted ADR.
+
 ## Conformance
 
 - Positive and negative zone, import, capture, serialization, route, link,

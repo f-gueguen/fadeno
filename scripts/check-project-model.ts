@@ -308,6 +308,7 @@ const requiredV1Features = new Set([
   "TYPE-01", "SEC-01", "BUILD-01", "ADP-01", "TEST-01", "DX-01", "CLI-01", "DOC-01", "ACCESS-01", "PERF-01",
 ]);
 for (const feature of setDifference(requiredV1Features, v1Features)) errors.push(`docs/roadmap/v1.md: missing V1 feature ${feature}`);
+for (const match of v1.matchAll(/\b(DG-V1-\d{2})\b/g)) v1Gates.add(match[1]);
 for (const gate of gateIds.filter((id) => id.startsWith("DG-V1-"))) {
   if (!v1Gates.has(gate)) errors.push(`docs/roadmap/v1.md: missing gate ${gate}`);
 }
@@ -394,9 +395,16 @@ const expectedV1DxB = [
   { id: "V1-DX-B7A", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B6" },
   { id: "V1-DX-B7B", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B7A" },
   { id: "V1-DX-B7C", features: ["BUILD-01", "TEST-01", "DX-01"], dependency: "V1-DX-B7B" },
-  { id: "V1-DX-B7D", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependency: "V1-DX-B7C" },
+  { id: "V1-DX-B7D0", features: ["GOV-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-B7C"], commands: ["pnpm check", "pnpm ci:local"] },
+  { id: "V1-DX-B7D1", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-B7D0"], commands: ["pnpm check:v1-analyzer"] },
+  { id: "V1-DX-B7D2", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-B7D1"], commands: ["pnpm check:v1-analyzer"] },
+  { id: "V1-DX-B7D3", features: ["TYPE-01", "BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-B7D2", "V1-DX-B7C"], commands: ["pnpm check:v1-analyzer"] },
+  { id: "V1-DX-B7D4", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-B7D3"], commands: ["pnpm check:v1-analyzer"] },
+  { id: "V1-DX-B7D5", features: ["GOV-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-B7D3", "DG-V1-06"], commands: ["pnpm check", "pnpm ci:local"] },
+  { id: "V1-DX-B7D6", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-B7D5"], commands: ["pnpm check:v1-analyzer", "pnpm ci:local"] },
+  { id: "V1-DX-B7D7", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-B7D4", "V1-DX-B7D5", "V1-DX-B7D6"], commands: ["pnpm check:v1-analyzer", "pnpm ci:local"] },
 ] as const;
-const v1DxBRows = tableRows(v1, /^\| V1-DX-B\d+[A-Z]? \|/);
+const v1DxBRows = tableRows(v1, /^\| V1-DX-B[0-9A-Z]+ \|/);
 const v1DxBIds = v1DxBRows.map((cells) => cells[0]);
 const expectedV1DxBIds = expectedV1DxB.map((entry) => entry.id);
 if (JSON.stringify(v1DxBIds) !== JSON.stringify(expectedV1DxBIds)) {
@@ -414,9 +422,15 @@ for (const [index, expected] of expectedV1DxB.entries()) {
   if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
     errors.push(`docs/roadmap/v1.md: ${expected.id} feature ownership differs from the accepted plan`);
   }
-  if (!cells[3].includes(expected.dependency)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing dependency ${expected.dependency}`);
+  const dependencies = "dependencies" in expected ? expected.dependencies : [expected.dependency];
+  for (const dependency of dependencies) {
+    if (!cells[3].includes(dependency)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing dependency ${dependency}`);
+  }
   if (!cells[4]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no required artifacts`);
-  if (!cells[5].includes("`pnpm check:v1-analyzer`")) errors.push(`docs/roadmap/v1.md: ${expected.id} missing analyzer validation`);
+  const commands = "commands" in expected ? expected.commands : ["pnpm check:v1-analyzer"];
+  for (const command of commands) {
+    if (!cells[5].includes(`\`${command}\``)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing validation command ${command}`);
+  }
   if (!cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no example boundary`);
 }
 

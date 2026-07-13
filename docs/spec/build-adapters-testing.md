@@ -58,9 +58,9 @@ publication, not a generic artifact list, and it cannot rediscover or rerender
 route facts. Diagnostic publications preserve the last accepted disk set.
 Directory replacement never exposes mixed generations, although portable
 backup-and-replace has a bounded interval with no route directory; retained
-consumer serialization remains V1-DX-B7D work. Actual filesystem-operation and
-restart-recovery tests cover stage, backup, replace, validation, restore, and
-cleanup failures. No command behavior changes in B7C.
+consumer serialization remains V1-DX-B7D1 through B7D3 work. Actual
+filesystem-operation and restart-recovery tests cover stage, backup, replace,
+validation, restore, and cleanup failures. No command behavior changes in B7C.
 
 ## Package boundary
 
@@ -181,21 +181,52 @@ use public package entrypoints, assert behavior, normalize unstable values, and
 source documentation snippets and expected output from executed files. A
 deliberate failure never prevents the primary application from building.
 
-Before B7 establishes the supported check/watch/build path, private analyzer
+Before the B7D6 and B7D7 packed build and development slices, private analyzer
 foundation fixtures may copy the canonical application as semantic corpus.
-Those fixtures are conformance evidence, not public analyzer examples. The
+Those fixtures are conformance evidence, not public build or development
+examples. The
 `check:v1-analyzer-package` gate rebuilds and packs the current framework,
 proves the private implementation is present, and proves package exports still
-refuse analyzer deep imports. B7 owns executing analyzer examples through the
-packed public workflow. B6's private canonical-app flow fixtures contain both
-module-rendered human output and normalized machine output from executed
-success, deliberate route refusal, and recovery operations.
+refuse analyzer deep imports. B7B executes analyzer examples through the packed
+public check workflow. B7D6 and B7D7 may add packed build and development
+examples only after DG-V1-06 is resolved. B6's private canonical-app flow
+fixtures contain both module-rendered human output and normalized machine
+output from executed success, deliberate route refusal, and recovery
+operations.
 
 The V1 lifecycle workload measures edit/save to a fresh framework diagnostic
 and edit/save to a cleared diagnostic across invalidation, generation,
 TypeScript refresh, Fadeno analysis, and final consumer-visible publication.
 Deep phase timing and profiles require an explicit flag. This workload does not
 reuse or revive the narrowed K0 incremental-generation claim.
+
+## Retained build and development sequence
+
+`fadeno check` is the only implemented project command at the B7D0 boundary.
+Retained build and development consumption proceeds through separate V1
+slices: one private retained coordinator, deterministic invalidation batching
+and supersession, serialized analyzer application plus stock-compiler refresh,
+and a filesystem adapter that treats notifications only as rescan hints. None
+of those private stages implies a public production build or development
+server.
+
+The retained coordinator must serialize analysis, B7C route-artifact
+application, compiler refresh, and validation around one current operation. It
+must preserve the last accepted generation on diagnostic, application, or
+compiler failure and suppress obsolete results. The framework project
+authority owns route, configuration, containment, and generated-output facts;
+the stock compiler owns the ordinary application module graph. Watch adaptation
+must coalesce changes, avoid owned-output loops, retain a dirty signal for work
+arriving during an operation, and recover by deterministic rescan rather than
+interpreting notification names as truth.
+
+DG-V1-06 must be resolved before either public command is implemented. Its ADR
+must define the production entry and compiler inputs, transactional output and
+start contract, development server address and readiness, watch/restart and
+last-good behavior, diagnostic publication, streams, shutdown, and exit
+statuses. Only then may separate packed-package slices implement and document
+`fadeno build` and `fadeno dev` with executable success, failure,
+flow-inspection, recovery, and cleanup evidence.
 
 ## V1 and A0 conformance
 
