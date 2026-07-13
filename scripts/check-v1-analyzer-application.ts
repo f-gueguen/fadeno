@@ -65,6 +65,24 @@ function mutationFileSystem(fail: (operation: "mkdir" | "write" | "rename" | "re
   });
 }
 
+function partialGarbageRemovalFileSystem(): RouteArtifactMutationFileSystem {
+  let failed = false;
+  return Object.freeze({
+    mkdir: (path) => mkdirSync(path),
+    writeFile: (path, bytes) => writeFileSync(path, bytes),
+    rename: (from, to) => renameSync(from, to),
+    remove: (path) => {
+      if (!failed && path.includes("routes.garbage-")) {
+        failed = true;
+        const child = readdirSync(path)[0];
+        if (child) rmSync(join(path, child), { recursive: true, force: true });
+        throw new TypeError("FADENO_TEST_PARTIAL_REMOVE_FAILURE");
+      }
+      rmSync(path, { recursive: true, force: true });
+    },
+  });
+}
+
 function manifestRoutes(output: string): readonly string[] {
   const manifest = JSON.parse(readFileSync(join(output, "manifest.json"), "utf8")) as { routes: readonly { id: string }[] };
   return manifest.routes.map(({ id }) => id);
@@ -156,18 +174,26 @@ try {
   assertSnapshot(output, beforeFault, true);
 
   assert.throws(() => fault.apply({ fileSystem: mutationFileSystem((operation, count) => operation === "rename" && (count === 2 || count === 3)) }), /FADENO_TEST_RENAME_FAILURE/u);
-  assert.equal(existsSync(output), false);
-  assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.previous-")).length, 1);
+  assertSnapshot(output, beforeFault, true);
+  assert.equal(readdirSync(join(root, ".fadeno")).some((name) => name.startsWith("routes.previous-") || name.startsWith("routes.pending-")), false);
   assert.equal(fault.apply().changed, true);
   assert.equal(manifestRoutes(output).includes("/fault"), true);
 
   writeRoute(root, "cleanup/page.tsx");
   const cleanup = await analyzer.analyze().result;
-  assert.throws(() => cleanup.apply({ fileSystem: mutationFileSystem((operation, _count, path) => operation === "remove" && path.includes("routes.previous-")) }), /FADENO_TEST_REMOVE_FAILURE/u);
+  assert.equal(cleanup.apply({ fileSystem: mutationFileSystem((operation, _count, path) => operation === "remove" && path.includes("routes.garbage-")) }).changed, true);
   assert.equal(existsSync(output), true);
-  assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.previous-")).length, 1);
-  assert.equal(cleanup.apply().changed, true);
+  assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.garbage-")).length, 1);
+  assert.equal(cleanup.apply().changed, false);
   assert.equal(manifestRoutes(output).includes("/cleanup"), true);
+
+  writeRoute(root, "partial-cleanup/page.tsx");
+  const partialCleanup = await analyzer.analyze().result;
+  assert.equal(partialCleanup.apply({ fileSystem: partialGarbageRemovalFileSystem() }).changed, true);
+  assert.equal(manifestRoutes(output).includes("/partial-cleanup"), true);
+  assert.equal(readdirSync(join(root, ".fadeno")).filter((name) => name.startsWith("routes.garbage-")).length, 1);
+  assert.equal(partialCleanup.apply().changed, false);
+  assert.equal(readdirSync(join(root, ".fadeno")).some((name) => name.startsWith("routes.garbage-")), false);
 
   writeRoute(root, "post-validation/page.tsx");
   const postValidation = await analyzer.analyze().result;

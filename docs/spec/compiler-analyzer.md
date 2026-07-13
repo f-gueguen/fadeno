@@ -720,7 +720,10 @@ visible.
 
 Compiler validation uses the installed stock compiler asynchronously with the
 project `tsconfig.json`, `--noEmit`, pretty output disabled, and incremental
-output disabled. The compiler's own resolved input listing is checked without
+output disabled. A first stock-compiler pass discovers and content-identifies
+the exact resolved inputs. A second pass performs ordinary validation and must
+retain the same input bytes and ownership identities. The compiler's own
+resolved input listing is checked without
 recreating its module graph: every local input must resolve inside the project,
 while only the selected compiler package and exact installed package roots with
 matching ordinary manifests are accepted outside it. An aggregate dependency
@@ -735,11 +738,22 @@ accounting, file-stability checks, and bounded file streaming. Its digest must
 be identical before and after the compiler child and is checked again
 immediately before commit. Every exact resolved compiler input is independently
 content-identified and rechecked before commit, including installed dependency
-inputs, while the provisional transaction remains rollback-capable. Captured
+inputs, while the provisional transaction remains rollback-capable. Installed
+package traversal has one global raw-entry budget, bounded aggregate and
+per-manifest bytes, cancellation checks, and identities for logical entries,
+canonical roots, package names, and manifest content. Captured
 output is bounded and never transported as diagnostic prose; only compiler
 diagnostic numbers and an internal run identity survive a failure. Cancellation
 requests termination, escalates if necessary, and waits for the actual child
 close before rollback, later queue work, or analyzer close can complete.
+
+Route transaction recovery never recursively deletes an authoritative current
+or rollback generation. Atomic rename first restores or accepts one exact set;
+only then may a displaced set be treated as non-authoritative garbage. Partial
+garbage deletion is safe to retry, is distinguished from rollback identity on
+restart, and remains retained lifecycle work until cleanup succeeds. The same
+rollback backup protects an unchanged generation if its current bytes drift
+between provisional application and final acceptance.
 
 An accepted compiler result binds its coordinator request and generation,
 analyzer publication operation, provisional artifact source hash, compiler
@@ -791,12 +805,17 @@ their exact command and lifecycle contracts in an accepted ADR.
   ordinary-source drift, recover a transient rollback failure before settlement,
   refuse external include/import, source-symlink and mismatched-root ownership,
   reject exact-input whitespace ambiguity and broad dependency-root aliases,
-  recheck changed dependency content before commit, bound globally discovered
-  inventory entries before child spawn,
+  recheck changed dependency content, package mapping, and manifests during
+  validation and before commit, bound globally discovered project and installed
+  package entries plus manifest bytes,
   isolate observer re-entry/failure, detect output mutation and bounded-output
   overflow, cancel inventory before child spawn, prove forced termination and
   failed spawn, await every child close, and prove stock compilation leaves no
-  compiler output or transaction debris.
+  compiler output or transaction debris. Transaction fixtures corrupt an
+  unchanged provisional generation, partially delete displaced garbage, retain
+  failures that occur before application returns, refuse close while rollback
+  remains unresolved, and prove restart recovery preserves one exact accepted
+  generation.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.

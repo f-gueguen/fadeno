@@ -47,7 +47,11 @@ import {
   type RouteGenerationResult,
 } from "./routing/generator.ts";
 
-export type PrivateProjectApplicationOptions = Omit<RouteArtifactApplicationOptions, "assertFresh">;
+export type PrivateProjectApplicationOptions = Omit<RouteArtifactApplicationOptions, "assertFresh" | "retainTransaction">;
+
+type PrivateProjectInternalApplicationOptions = PrivateProjectApplicationOptions & Readonly<{
+  retainTransaction?(transaction: RouteArtifactApplicationTransaction): void;
+}>;
 
 export interface PrivateProjectAnalysis {
   readonly publication: AnalyzerPublicationSnapshot;
@@ -83,7 +87,7 @@ const beginApplication = Symbol("beginApplication");
 const assertAnalysisFresh = Symbol("assertAnalysisFresh");
 
 type PrivateProjectInternalAnalysis = PrivateProjectAnalysis & Readonly<{
-  [beginApplication](options?: PrivateProjectApplicationOptions): RouteArtifactApplicationTransaction;
+  [beginApplication](options?: PrivateProjectInternalApplicationOptions): RouteArtifactApplicationTransaction;
   [assertAnalysisFresh](): void;
 }>;
 
@@ -179,6 +183,7 @@ export class PrivateProjectAnalyzer {
   #configurationSourceSha256: string | null = null;
   #currentAnalysisToken: PrivateProjectAnalysisToken | null = null;
   #latestAnalysisRequestId: string | null = null;
+  #pendingCleanup: RouteArtifactApplicationTransaction | null = null;
 
   constructor(projectRoot: string, options: PrivateProjectAnalyzerOptions = {}) {
     this.#root = resolve(projectRoot);
@@ -192,6 +197,7 @@ export class PrivateProjectAnalyzer {
   analyze(): PrivateProjectAnalysisHandle {
     const handle = this.#coordinator.start("analysis", (requestId, { signal }) => {
       this.#recoverPendingRollback();
+      this.#recoverPendingCleanup();
       return this.#analyze(requestId, signal);
     });
     this.#currentAnalysisToken = null;
@@ -202,11 +208,15 @@ export class PrivateProjectAnalyzer {
   refresh(options: PrivateProjectRefreshOptions = {}): PrivateProjectRefreshHandle {
     const handle = this.#coordinator.start("analysis", async (requestId, { signal, generation }) => {
       this.#recoverPendingRollback();
+      this.#recoverPendingCleanup();
       const analysis = await this.#analyze(requestId, signal);
       signal.throwIfAborted();
       let transaction: RouteArtifactApplicationTransaction | null = null;
       try {
-        transaction = analysis[beginApplication](options.application);
+        transaction = analysis[beginApplication]({
+          ...options.application,
+          retainTransaction: (retained) => { transaction = retained; },
+        });
         signal.throwIfAborted();
         const validator = this.#compilerValidator();
         const compiler = await validator.validate({
@@ -226,6 +236,7 @@ export class PrivateProjectAnalyzer {
         analysis[assertAnalysisFresh]();
         transaction.assertPending();
         const application = transaction.commit();
+        if (transaction.cleanupPending) this.#pendingCleanup = transaction;
         return Object.freeze({ requestId, generation, publication: analysis.publication, application, compiler });
       } catch (error) {
         if (transaction?.state === "pending") {
@@ -236,6 +247,7 @@ export class PrivateProjectAnalyzer {
             this.#recoverPendingRollback();
           }
         }
+        if (transaction?.state === "committed" && transaction.cleanupPending) this.#pendingCleanup = transaction;
         throw error;
       }
     });
@@ -251,6 +263,7 @@ export class PrivateProjectAnalyzer {
     this.#closePromise = this.#coordinator.close().then(async () => {
       let rollbackFailure: unknown = null;
       try { this.#recoverPendingRollback(); } catch (error) { rollbackFailure = error; }
+      try { this.#recoverPendingCleanup(); } catch (error) { rollbackFailure ??= error; }
       await this.#compiler?.close();
       if (rollbackFailure) throw rollbackFailure;
     });
@@ -268,6 +281,16 @@ export class PrivateProjectAnalyzer {
       this.#pendingRollback = null;
     } catch (error) {
       throw new TypeError("FADENO_ANALYZER_APPLICATION_ROLLBACK", { cause: error });
+    }
+  }
+
+  #recoverPendingCleanup(): void {
+    if (!this.#pendingCleanup) return;
+    try {
+      this.#pendingCleanup.cleanup();
+      this.#pendingCleanup = null;
+    } catch (error) {
+      throw new TypeError("FADENO_ANALYZER_APPLICATION_CLEANUP", { cause: error });
     }
   }
 
@@ -363,7 +386,7 @@ export class PrivateProjectAnalyzer {
       this.#assertInputsCurrent(desired);
       this.#assertRouteAnalysisCurrent(config, routePlan, null);
     };
-    const begin = (options: PrivateProjectApplicationOptions = {}): RouteArtifactApplicationTransaction => {
+    const begin = (options: PrivateProjectInternalApplicationOptions = {}): RouteArtifactApplicationTransaction => {
       assertOwned();
       if (routePlan === null || batch.diagnostics.length > 0 || batch.corrections.length > 0 || batch.skippedWork.length > 0) {
         applicationRefuse("DIAGNOSTIC");

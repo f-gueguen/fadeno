@@ -241,8 +241,10 @@ close, and prevents successful close if deterministic recovery still cannot
 restore the accepted state.
 
 The compiler is invoked asynchronously from the installed toolchain with the
-project configuration, resolved input listing, and no emit or incremental
-output. Resolved local inputs must remain under the canonical project root;
+project configuration and no emit or incremental output. A first stock-compiler
+pass discovers and content-identifies the exact resolved inputs; a second pass
+performs validation and must report the same input and ownership identities.
+Resolved local inputs must remain under the canonical project root;
 only the selected compiler package and exact installed package roots with
 matching ordinary manifests may resolve outside it. Aggregate dependency-store
 or ancestor directories never grant ownership, and every non-empty successful
@@ -252,7 +254,10 @@ bounded project-owned inventory is streamed with bounded memory, actual-byte
 accounting, file-stability checks, and cancellation checks; it must remain
 unchanged across compilation and is rechecked immediately before commit. Every
 resolved compiler input is also content-identified and rechecked immediately
-before commit, including inputs below installed package roots. Compiler text is
+before commit, including inputs below installed package roots. Package
+discovery has global entry and manifest-byte limits, observes cancellation, and
+binds each logical installed-package entry, canonical root, package identity,
+and manifest content. Compiler text is
 not exposed, and acceptance binds the coordinator generation, analyzer
 publication, provisional artifact identity, compiler version, validation
 inventory identity, and resolved-input identity. The
@@ -260,6 +265,13 @@ framework project authority owns route, configuration, containment, and
 generated-output facts; the stock compiler owns the ordinary application module
 graph. No second application graph, `dist`, build-info, watcher, command, server,
 or public analyzer surface is introduced.
+
+Provisional, prior, empty, and non-authoritative garbage route directories have
+distinct transaction names. Authoritative replacement, acceptance, and restore
+use atomic rename before recursive cleanup. A partial cleanup can therefore
+leave only non-authoritative garbage; the retained owner and restart recovery
+retry it without treating it as a rollback generation. Unresolved rollback or
+cleanup remains owned and prevents successful analyzer close.
 
 B7D4 next adds a filesystem adapter that treats notifications only as rescan
 hints. It must coalesce changes, avoid owned-output loops, retain a dirty signal

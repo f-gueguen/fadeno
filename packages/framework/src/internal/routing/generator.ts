@@ -40,9 +40,11 @@ export type RouteGenerationResult = Readonly<{
 export type RouteArtifactApplicationTransaction = Readonly<{
   readonly result: RouteGenerationResult;
   readonly state: "pending" | "committed" | "rolled-back";
+  readonly cleanupPending: boolean;
   assertPending(): void;
   commit(): RouteGenerationResult;
   rollback(): void;
+  cleanup(): void;
 }>;
 
 export type RouteArtifactMutationFileSystem = Readonly<{
@@ -63,6 +65,7 @@ export type RouteArtifactApplicationOptions = Readonly<{
   fileSystem?: RouteArtifactMutationFileSystem;
   afterWrite?(name: RouteArtifactName): void;
   observe?(phase: RouteArtifactApplicationPhase): void;
+  retainTransaction?(transaction: RouteArtifactApplicationTransaction): void;
 }>;
 
 const nodeMutationFileSystem: RouteArtifactMutationFileSystem = Object.freeze({
@@ -396,12 +399,19 @@ function recoverTransactionState(
   const pending = entries.filter((name) => name.startsWith("routes.pending-"));
   const previous = entries.filter((name) => name.startsWith("routes.previous-"));
   const empty = entries.filter((name) => name.startsWith("routes.empty-"));
-  if (pending.length > 1 || previous.length > 1 || empty.length > 1 || previous.length + empty.length > 1) {
+  const garbage = entries.filter((name) => name.startsWith("routes.garbage-"));
+  if (pending.length > 1 || previous.length > 1 || empty.length > 1 || garbage.length > 1 || previous.length + empty.length > 1) {
     fail("OUTPUT_RECOVERY_AMBIGUOUS");
   }
   const pendingPath = pending[0] ? join(parent, pending[0]) : null;
   const previousPath = previous[0] ? join(parent, previous[0]) : null;
   const emptyPath = empty[0] ? join(parent, empty[0]) : null;
+  const garbagePath = garbage[0] ? join(parent, garbage[0]) : null;
+  if (garbagePath) {
+    if (lstatSync(garbagePath).isSymbolicLink() || !lstatSync(garbagePath).isDirectory()) fail("OUTPUT_RECOVERY_GARBAGE");
+    fileSystem.remove(garbagePath);
+    if (existsSync(garbagePath)) fail("OUTPUT_RECOVERY_GARBAGE");
+  }
   if (pendingPath) {
     if (lstatSync(pendingPath).isSymbolicLink() || !lstatSync(pendingPath).isDirectory()) fail("OUTPUT_RECOVERY_PENDING");
     try { assertOwnedOutput(pendingPath); } catch { fail("OUTPUT_RECOVERY_PENDING"); }
@@ -410,18 +420,34 @@ function recoverTransactionState(
   if (emptyPath && (lstatSync(emptyPath).isSymbolicLink() || !lstatSync(emptyPath).isDirectory() || readdirSync(emptyPath).length > 0)) {
     fail("OUTPUT_RECOVERY_EMPTY");
   }
-  if (previousPath && existsSync(output)) assertOwnedOutput(output);
-  if (emptyPath && existsSync(output)) assertOwnedOutput(output);
-
-  if (pendingPath) fileSystem.remove(pendingPath);
+  if (pendingPath) {
+    const displacedPending = join(parent, `routes.garbage-${randomUUID()}`);
+    fileSystem.rename(pendingPath, displacedPending);
+    fileSystem.remove(displacedPending);
+  }
   if (previousPath) {
-    if (existsSync(output)) fileSystem.remove(output);
+    if (existsSync(output)) {
+      const displacedOutput = join(parent, `routes.garbage-${randomUUID()}`);
+      if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) fail("OUTPUT_RECOVERY_CURRENT");
+      fileSystem.rename(output, displacedOutput);
+      fileSystem.rename(previousPath, output);
+      assertOwnedOutput(output);
+      fileSystem.remove(displacedOutput);
+      return;
+    }
     fileSystem.rename(previousPath, output);
     assertOwnedOutput(output);
     return;
   }
   if (emptyPath) {
-    if (existsSync(output)) fileSystem.remove(output);
+    if (existsSync(output)) {
+      const displacedOutput = join(parent, `routes.garbage-${randomUUID()}`);
+      if (lstatSync(output).isSymbolicLink() || !lstatSync(output).isDirectory()) fail("OUTPUT_RECOVERY_CURRENT");
+      fileSystem.rename(output, displacedOutput);
+      fileSystem.remove(emptyPath);
+      fileSystem.remove(displacedOutput);
+      return;
+    }
     fileSystem.remove(emptyPath);
   }
 }
@@ -476,40 +502,75 @@ export function beginRouteArtifactApplication(
   recoverTransactionState(parent, output, fileSystem);
   options.assertFresh();
   assertOwnedOutput(output);
-  if (existsSync(output) && Object.entries(expected).every(([name, bytes]) => readFileSync(join(output, name), "utf8") === bytes)) {
-    options.assertFresh();
-    const result = Object.freeze({ changed: false, output, sourceSha256: plan.sourceSha256 });
-    let state: RouteArtifactApplicationTransaction["state"] = "pending";
-    const assertPending = (): void => {
-      if (state !== "pending") fail("TRANSACTION_STATE");
-      assertExactOwnedOutput(output, expected);
-    };
-    return Object.freeze({
-      result,
-      get state() { return state; },
-      assertPending,
-      commit: () => {
-        if (state === "rolled-back") fail("TRANSACTION_STATE");
-        if (state === "pending") {
-          options.assertFresh();
-          assertPending();
-        }
-        state = "committed";
-        return result;
-      },
-      rollback: () => {
-        if (state === "committed") fail("TRANSACTION_STATE");
-        state = "rolled-back";
-      },
-    });
-  }
-
   const transactionId = randomUUID();
   const pending = join(parent, `routes.pending-${transactionId}`);
   const previous = join(parent, `routes.previous-${transactionId}`);
   const empty = join(parent, `routes.empty-${transactionId}`);
+  const garbage = join(parent, `routes.garbage-${transactionId}`);
+  const unchanged = existsSync(output) && Object.entries(expected).every(
+    ([name, bytes]) => readFileSync(join(output, name), "utf8") === bytes,
+  );
   fileSystem.mkdir(pending);
   let rollbackKind: "previous" | "empty" | null = null;
+  let previousFiles: Readonly<Record<string, string>> | null = null;
+  let state: RouteArtifactApplicationTransaction["state"] = "pending";
+  let cleanupPending = false;
+  const result = Object.freeze({ changed: !unchanged, output, sourceSha256: plan.sourceSha256 });
+  const assertPending = (): void => {
+    if (state !== "pending") fail("TRANSACTION_STATE");
+    assertExactOwnedOutput(output, expected);
+    if (rollbackKind === "previous" && previousFiles) assertExactOwnedOutput(previous, previousFiles);
+    else if (rollbackKind === "empty") assertEmptyMarker(empty);
+    else fail("TRANSACTION_STATE");
+  };
+  const cleanup = (): void => {
+    if (!cleanupPending) return;
+    if (!existsSync(garbage)) {
+      cleanupPending = false;
+      return;
+    }
+    if (lstatSync(garbage).isSymbolicLink() || !lstatSync(garbage).isDirectory()) fail("OUTPUT_RECOVERY_GARBAGE");
+    fileSystem.remove(garbage);
+    if (existsSync(garbage)) fail("OUTPUT_RECOVERY_GARBAGE");
+    cleanupPending = false;
+  };
+  const rollback = (): void => {
+    if (state === "committed") fail("TRANSACTION_STATE");
+    if (state === "rolled-back") {
+      cleanup();
+      return;
+    }
+    recoverTransactionState(parent, output, fileSystem);
+    if (rollbackKind === "previous" && previousFiles) assertExactOwnedOutput(output, previousFiles);
+    else if (rollbackKind === "empty" && existsSync(output)) fail("TRANSACTION_STATE");
+    state = "rolled-back";
+  };
+  const transaction: RouteArtifactApplicationTransaction = Object.freeze({
+    result,
+    get state() { return state; },
+    get cleanupPending() { return cleanupPending; },
+    assertPending,
+    commit: () => {
+      if (state === "rolled-back") fail("TRANSACTION_STATE");
+      if (state === "committed") {
+        cleanup();
+        return result;
+      }
+      options.assertFresh();
+      assertPending();
+      options.observe?.("before-cleanup");
+      options.assertFresh();
+      assertPending();
+      const marker = rollbackKind === "previous" ? previous : empty;
+      fileSystem.rename(marker, garbage);
+      state = "committed";
+      cleanupPending = true;
+      try { cleanup(); } catch { /* accepted output is durable; retained owners or restart retry garbage cleanup */ }
+      return result;
+    },
+    rollback,
+    cleanup,
+  });
   try {
     for (const name of ROUTE_ARTIFACT_NAMES) {
       assertOutputParent(projectRoot, parent);
@@ -525,89 +586,46 @@ export function beginRouteArtifactApplication(
     if (existsSync(output)) assertOwnedOutput(output);
 
     const hadOutput = existsSync(output);
-    const previousFiles = hadOutput
+    previousFiles = hadOutput
       ? Object.freeze(Object.fromEntries(ROUTE_ARTIFACT_NAMES.map((name) => [name, readFileSync(join(output, name), "utf8")])))
       : null;
-    if (hadOutput) {
+    rollbackKind = hadOutput ? "previous" : "empty";
+    options.retainTransaction?.(transaction);
+    if (unchanged) {
+      fileSystem.rename(pending, previous);
+    } else if (hadOutput) {
       fileSystem.rename(output, previous);
-      rollbackKind = "previous";
     } else {
       fileSystem.mkdir(empty);
-      rollbackKind = "empty";
     }
     try {
       options.observe?.("after-backup");
-      assertOutputParent(projectRoot, parent);
-      assertOwnedOutput(pending);
-      if (hadOutput) assertOwnedOutput(previous);
-      if (existsSync(output)) fail("OUTPUT_REPLACEMENT_STATE");
-      fileSystem.rename(pending, output);
-    } catch (error) {
-      if (hadOutput && existsSync(previous) && !existsSync(output)) {
-        try { fileSystem.rename(previous, output); } catch { /* next-run recovery retains the validated previous set */ }
+      if (!unchanged) {
+        assertOutputParent(projectRoot, parent);
+        assertOwnedOutput(pending);
+        if (hadOutput) assertOwnedOutput(previous);
+        if (existsSync(output)) fail("OUTPUT_REPLACEMENT_STATE");
+        fileSystem.rename(pending, output);
       }
-      if (!hadOutput && existsSync(empty)) {
-        try { fileSystem.remove(empty); } catch { /* next-run recovery retains the empty rollback marker */ }
-      }
-      throw error;
-    }
-    try {
       assertOwnedOutput(output);
       options.observe?.("after-replace");
       options.assertFresh();
     } catch (error) {
-      try {
-        if (existsSync(output)) fileSystem.remove(output);
-        if (hadOutput && existsSync(previous) && !existsSync(output)) fileSystem.rename(previous, output);
-        if (!hadOutput && existsSync(empty)) fileSystem.remove(empty);
-      } catch { /* the validated previous set remains available to next-run recovery */ }
+      try { transaction.rollback(); } catch { /* retained owner or next-run recovery keeps exact rollback identity */ }
       throw error;
     }
-    const result = Object.freeze({ changed: true, output, sourceSha256: plan.sourceSha256 });
-    let state: RouteArtifactApplicationTransaction["state"] = "pending";
-    const assertPending = (): void => {
-      if (state !== "pending") fail("TRANSACTION_STATE");
-      assertExactOwnedOutput(output, expected);
-      if (rollbackKind === "previous" && previousFiles) assertExactOwnedOutput(previous, previousFiles);
-      else if (rollbackKind === "empty") assertEmptyMarker(empty);
-      else fail("TRANSACTION_STATE");
-    };
-    const rollback = (): void => {
-      if (state === "committed") fail("TRANSACTION_STATE");
-      if (state === "rolled-back") return;
-      if (existsSync(output)) assertRouteArtifactDirectoryShape(output);
-      if (rollbackKind === "previous" && previousFiles) assertExactOwnedOutput(previous, previousFiles);
-      else if (rollbackKind === "empty") assertEmptyMarker(empty);
-      else fail("TRANSACTION_STATE");
-      if (existsSync(output)) fileSystem.remove(output);
-      if (rollbackKind === "previous" && existsSync(previous)) {
-        fileSystem.rename(previous, output);
-        assertOwnedOutput(output);
-      }
-      if (rollbackKind === "empty" && existsSync(empty)) fileSystem.remove(empty);
-      state = "rolled-back";
-    };
-    return Object.freeze({
-      result,
-      get state() { return state; },
-      assertPending,
-      commit: () => {
-        if (state === "rolled-back") fail("TRANSACTION_STATE");
-        if (state === "committed") return result;
-        options.assertFresh();
-        assertPending();
-        options.observe?.("before-cleanup");
-        options.assertFresh();
-        assertPending();
-        if (rollbackKind === "previous") fileSystem.remove(previous);
-        if (rollbackKind === "empty") fileSystem.remove(empty);
-        state = "committed";
-        return result;
-      },
-      rollback,
-    });
-  } finally {
-    if (existsSync(pending)) fileSystem.remove(pending);
+    return transaction;
+  } catch (error) {
+    if (rollbackKind !== null && state === "pending") {
+      try { transaction.rollback(); } catch { /* retained owner or next-run recovery keeps exact rollback identity */ }
+    } else if (existsSync(pending)) {
+      try {
+        fileSystem.rename(pending, garbage);
+        cleanupPending = true;
+        cleanup();
+      } catch { /* next-run recovery removes non-authoritative garbage */ }
+    }
+    throw error;
   }
 }
 

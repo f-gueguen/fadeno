@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
@@ -36,7 +36,7 @@ async function compilerFailure(handle: PrivateProjectRefreshHandle): Promise<Pri
   try {
     await handle.result;
   } catch (error) {
-    assert.equal(error instanceof PrivateCompilerValidationError, true);
+    assert.equal(error instanceof PrivateCompilerValidationError, true, error instanceof Error ? `${error.name}: ${error.message}; cause=${String(error.cause)}` : String(error));
     return error as PrivateCompilerValidationError;
   }
   throw new Error("FADENO_TEST_COMPILER_ACCEPTED");
@@ -62,16 +62,37 @@ function assertNoCompilerOutput(root: string): void {
 }
 
 function oneTimeRollbackFailure(root: string): RouteArtifactMutationFileSystem {
-  const output = join(root, ".fadeno/routes");
+  const parent = join(root, ".fadeno");
   let refused = false;
   return Object.freeze({
     mkdir: (path: string) => mkdirSync(path),
     writeFile: (path: string, bytes: string) => writeFileSync(path, bytes),
     rename: (from: string, to: string) => renameSync(from, to),
     remove: (path: string) => {
-      if (!refused && path === output) {
+      if (!refused && dirname(path) === parent && path.includes("routes.garbage-")) {
         refused = true;
         throw new Error("FADENO_TEST_ROLLBACK_REMOVE_FAILURE");
+      }
+      rmSync(path, { recursive: true, force: true });
+    },
+  });
+}
+
+function persistentPartialGarbageRemovalFailure(root: string): RouteArtifactMutationFileSystem {
+  const parent = join(root, ".fadeno");
+  let partiallyRemoved = false;
+  return Object.freeze({
+    mkdir: (path: string) => mkdirSync(path),
+    writeFile: (path: string, bytes: string) => writeFileSync(path, bytes),
+    rename: (from: string, to: string) => renameSync(from, to),
+    remove: (path: string) => {
+      if (dirname(path) === parent && path.includes("routes.garbage-")) {
+        if (!partiallyRemoved) {
+          partiallyRemoved = true;
+          const child = readdirSync(path)[0];
+          if (child) rmSync(join(path, child), { recursive: true, force: true });
+        }
+        throw new Error("FADENO_TEST_PERSISTENT_PARTIAL_ROLLBACK_FAILURE");
       }
       rmSync(path, { recursive: true, force: true });
     },
@@ -189,6 +210,15 @@ try {
   assertNoCompilerOutput(root);
   await analyzer.refresh().result;
 
+  const beforeUnchangedArtifactDrift = outputBytes(root);
+  const unchangedArtifactDrift = analyzer.refresh({ beforeCommit: () => {
+    writeFileSync(join(root, ".fadeno/routes/index.d.ts"), "// corrupted unchanged artifact\n");
+  } });
+  const unchangedArtifactFailure = await compilerFailure(unchangedArtifactDrift);
+  assert.equal(unchangedArtifactFailure.code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(root, beforeUnchangedArtifactDrift);
+  await analyzer.refresh().result;
+
   const beforeRollbackFailure = outputBytes(root);
   mkdirSync(join(root, "src/routes/rollback-failure"), { recursive: true });
   writeFileSync(join(root, "src/routes/rollback-failure/page.tsx"), "export default function Page(): string { return 'rollback'; }\n");
@@ -208,6 +238,56 @@ try {
   await analyzer.close();
 } finally {
   rmSync(root, { recursive: true, force: true });
+}
+
+const retainedRollbackRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-retained-rollback-"));
+try {
+  copyApplication(retainedRollbackRoot);
+  const baselineAnalyzer = new PrivateProjectAnalyzer(retainedRollbackRoot);
+  await baselineAnalyzer.refresh().result;
+  await baselineAnalyzer.close();
+  const baseline = outputBytes(retainedRollbackRoot);
+  mkdirSync(join(retainedRollbackRoot, "src/routes/retained-rollback"), { recursive: true });
+  writeFileSync(join(retainedRollbackRoot, "src/routes/retained-rollback/page.tsx"), "export default function Page(): string { return 'retained'; }\n");
+  const analyzer = new PrivateProjectAnalyzer(retainedRollbackRoot);
+  await assert.rejects(analyzer.refresh({
+    application: {
+      fileSystem: persistentPartialGarbageRemovalFailure(retainedRollbackRoot),
+      observe: (phase) => { if (phase === "after-replace") throw new Error("FADENO_TEST_AFTER_REPLACE_FAILURE"); },
+    },
+  }).result, /FADENO_ANALYZER_APPLICATION_ROLLBACK/u);
+  assertOutput(retainedRollbackRoot, baseline);
+  assert.equal(readdirSync(join(retainedRollbackRoot, ".fadeno")).some((name) => name.startsWith("routes.garbage-")), true);
+  await assert.rejects(analyzer.close(), /FADENO_ANALYZER_APPLICATION_ROLLBACK/u);
+
+  const recovery = new PrivateProjectAnalyzer(retainedRollbackRoot);
+  await recovery.refresh().result;
+  await recovery.close();
+  assert.equal(readdirSync(join(retainedRollbackRoot, ".fadeno")).some((name) => /routes\.(?:pending|previous|empty|garbage)-/u.test(name)), false);
+} finally {
+  rmSync(retainedRollbackRoot, { recursive: true, force: true });
+}
+
+const retainedCleanupRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-retained-cleanup-"));
+try {
+  copyApplication(retainedCleanupRoot);
+  const analyzer = new PrivateProjectAnalyzer(retainedCleanupRoot);
+  await analyzer.refresh().result;
+  mkdirSync(join(retainedCleanupRoot, "src/routes/retained-cleanup"), { recursive: true });
+  writeFileSync(join(retainedCleanupRoot, "src/routes/retained-cleanup/page.tsx"), "export default function Page(): string { return 'cleanup'; }\n");
+  const accepted = await analyzer.refresh({
+    application: { fileSystem: persistentPartialGarbageRemovalFailure(retainedCleanupRoot) },
+  }).result;
+  assert.equal(accepted.application.changed, true);
+  assert.equal(readdirSync(join(retainedCleanupRoot, ".fadeno")).some((name) => name.startsWith("routes.garbage-")), true);
+  await assert.rejects(analyzer.close(), /FADENO_ANALYZER_APPLICATION_CLEANUP/u);
+
+  const recovery = new PrivateProjectAnalyzer(retainedCleanupRoot);
+  assert.equal((await recovery.refresh().result).application.changed, false);
+  await recovery.close();
+  assert.equal(readdirSync(join(retainedCleanupRoot, ".fadeno")).some((name) => /routes\.(?:pending|previous|empty|garbage)-/u.test(name)), false);
+} finally {
+  rmSync(retainedCleanupRoot, { recursive: true, force: true });
 }
 
 const firstFailureRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-first-failure-"));
@@ -321,10 +401,18 @@ try {
     dereference: true,
   });
   const dependency = join(dependencyFreshnessRoot, "node_modules/fadeno-test-dependency");
-  mkdirSync(dependency);
-  writeFileSync(join(dependency, "package.json"), '{"name":"fadeno-test-dependency","type":"module","types":"index.d.ts"}\n');
-  const declaration = join(dependency, "index.d.ts");
+  const dependencyStore = join(dependencyFreshnessRoot, "dependency-store");
+  const dependencyA = join(dependencyStore, "a");
+  const dependencyB = join(dependencyStore, "b");
+  mkdirSync(dependencyA, { recursive: true });
+  mkdirSync(dependencyB, { recursive: true });
+  const dependencyManifest = '{"name":"fadeno-test-dependency","type":"module","types":"index.d.ts"}\n';
+  writeFileSync(join(dependencyA, "package.json"), dependencyManifest);
+  writeFileSync(join(dependencyB, "package.json"), dependencyManifest);
+  const declaration = join(dependencyA, "index.d.ts");
   writeFileSync(declaration, "export declare const dependencyValue: string;\n");
+  writeFileSync(join(dependencyB, "index.d.ts"), "export declare const dependencyValue: string;\n");
+  symlinkSync(dependencyA, dependency);
   const server = join(dependencyFreshnessRoot, "src/server.ts");
   const serverBytes = readFileSync(server, "utf8");
   writeFileSync(server, "import { dependencyValue } from 'fadeno-test-dependency';\nconst dependencyText: string = dependencyValue;\nvoid dependencyText;\n" + serverBytes);
@@ -340,6 +428,30 @@ try {
   assert.equal(driftFailure.code, "FADENO_ANALYZER_COMPILER_INPUT");
   assertOutput(dependencyFreshnessRoot, baseline);
   writeFileSync(declaration, "export declare const dependencyValue: string;\n");
+  await analyzer.refresh().result;
+
+  const beforeRetarget = outputBytes(dependencyFreshnessRoot);
+  mkdirSync(join(dependencyFreshnessRoot, "src/routes/dependency-retarget"), { recursive: true });
+  writeFileSync(join(dependencyFreshnessRoot, "src/routes/dependency-retarget/page.tsx"), "export default function Page(): string { return 'retarget'; }\n");
+  const retarget = analyzer.refresh({ beforeCommit: () => {
+    unlinkSync(dependency);
+    symlinkSync(dependencyB, dependency);
+  } });
+  assert.equal((await compilerFailure(retarget)).code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(dependencyFreshnessRoot, beforeRetarget);
+  unlinkSync(dependency);
+  symlinkSync(dependencyA, dependency);
+  await analyzer.refresh().result;
+
+  const beforeManifestDrift = outputBytes(dependencyFreshnessRoot);
+  mkdirSync(join(dependencyFreshnessRoot, "src/routes/dependency-manifest"), { recursive: true });
+  writeFileSync(join(dependencyFreshnessRoot, "src/routes/dependency-manifest/page.tsx"), "export default function Page(): string { return 'manifest'; }\n");
+  const manifestDrift = analyzer.refresh({ beforeCommit: () => {
+    writeFileSync(join(dependencyA, "package.json"), '{"name":"fadeno-test-dependency","type":"module","types":"index.d.ts","private":true}\n');
+  } });
+  assert.equal((await compilerFailure(manifestDrift)).code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assertOutput(dependencyFreshnessRoot, beforeManifestDrift);
+  writeFileSync(join(dependencyA, "package.json"), dependencyManifest);
   await analyzer.refresh().result;
   await analyzer.close();
 } finally {
@@ -367,7 +479,7 @@ try {
     include: ["src/**/*.ts", relative(inputProtocolRoot, outsideWithSpace)],
   }));
   const inputProtocolChild = join(inputProtocolOutside, "emit-input.mjs");
-  writeFileSync(inputProtocolChild, `process.stdout.write(${JSON.stringify(`${outsideWithSpace}\n`)});\n`);
+  writeFileSync(inputProtocolChild, `process.stdout.write(${JSON.stringify(`${join(inputProtocolRoot, "src/index.ts")}\n${outsideWithSpace}\n`)});\n`);
   const inputProtocolCommand = Object.freeze({
     executable: process.execPath,
     argumentsPrefix: Object.freeze([inputProtocolChild]),
@@ -415,11 +527,94 @@ try {
   rmSync(inventoryLimitRoot, { recursive: true, force: true });
 }
 
+const dependencyLimitRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-dependency-limit-"));
+try {
+  mkdirSync(join(dependencyLimitRoot, "src"));
+  mkdirSync(join(dependencyLimitRoot, "node_modules"));
+  writeFileSync(join(dependencyLimitRoot, "src/index.ts"), "export const value: string = 'value';\n");
+  writeFileSync(join(dependencyLimitRoot, "tsconfig.json"), JSON.stringify({
+    compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, types: [] },
+    include: ["src/**/*.ts"],
+  }));
+  for (let index = 0; index <= 20_000; index += 1) writeFileSync(join(dependencyLimitRoot, "node_modules", `.entry-${index}`), "");
+  const entryLimitCompiler = new PrivateCompilerValidator(dependencyLimitRoot);
+  assert.equal((await validationFailure(entryLimitCompiler.validate({
+    requestId: "dependency-entry-limit-request",
+    generation: 1,
+    publicationOperationId: "dependency-entry-limit-publication",
+    artifactSourceSha256: "0".repeat(64),
+    signal: new AbortController().signal,
+  }))).code, "FADENO_ANALYZER_COMPILER_INPUT");
+  await entryLimitCompiler.close();
+
+  rmSync(join(dependencyLimitRoot, "node_modules"), { recursive: true, force: true });
+  const oversizedPackage = join(dependencyLimitRoot, "node_modules/oversized");
+  mkdirSync(oversizedPackage, { recursive: true });
+  writeFileSync(join(oversizedPackage, "package.json"), " ".repeat(1_048_577));
+  const manifestLimitCompiler = new PrivateCompilerValidator(dependencyLimitRoot);
+  assert.equal((await validationFailure(manifestLimitCompiler.validate({
+    requestId: "dependency-manifest-limit-request",
+    generation: 1,
+    publicationOperationId: "dependency-manifest-limit-publication",
+    artifactSourceSha256: "0".repeat(64),
+    signal: new AbortController().signal,
+  }))).code, "FADENO_ANALYZER_COMPILER_INPUT");
+  await manifestLimitCompiler.close();
+} finally {
+  rmSync(dependencyLimitRoot, { recursive: true, force: true });
+}
+
+const duringValidationRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-during-validation-"));
+const duringValidationControl = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-during-validation-control-"));
+try {
+  mkdirSync(join(duringValidationRoot, "src"));
+  const dependency = join(duringValidationRoot, "node_modules/fadeno-during-validation");
+  mkdirSync(dependency, { recursive: true });
+  writeFileSync(join(duringValidationRoot, "src/index.ts"), "import { value } from 'fadeno-during-validation';\nvoid value;\n");
+  writeFileSync(join(duringValidationRoot, "tsconfig.json"), JSON.stringify({
+    compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, types: [] },
+    include: ["src/**/*.ts"],
+  }));
+  writeFileSync(join(dependency, "package.json"), '{"name":"fadeno-during-validation","type":"module","types":"index.d.ts"}\n');
+  const declaration = join(dependency, "index.d.ts");
+  writeFileSync(declaration, "export declare const value: string;\n");
+  const counter = join(duringValidationControl, "counter.txt");
+  const child = join(duringValidationControl, "compiler.mjs");
+  writeFileSync(child, [
+    'import { existsSync, readFileSync, writeFileSync } from "node:fs";',
+    'const [counter, projectInput, dependencyInput] = process.argv.slice(2);',
+    'const run = existsSync(counter) ? Number(readFileSync(counter, "utf8")) + 1 : 1;',
+    'writeFileSync(counter, String(run));',
+    'readFileSync(dependencyInput);',
+    'if (run === 2) writeFileSync(dependencyInput, "export declare const value: number;\\n");',
+    'process.stdout.write(`${projectInput}\\n${dependencyInput}\\n`);',
+    "",
+  ].join("\n"));
+  const compiler = new PrivateCompilerValidator(duringValidationRoot, {
+    command: Object.freeze({
+      executable: process.execPath,
+      argumentsPrefix: Object.freeze([child, counter, join(duringValidationRoot, "src/index.ts"), declaration]),
+    }),
+  });
+  assert.equal((await validationFailure(compiler.validate({
+    requestId: "during-validation-request",
+    generation: 1,
+    publicationOperationId: "during-validation-publication",
+    artifactSourceSha256: "0".repeat(64),
+    signal: new AbortController().signal,
+  }))).code, "FADENO_ANALYZER_COMPILER_INPUT");
+  assert.equal(readFileSync(counter, "utf8"), "2");
+  await compiler.close();
+} finally {
+  rmSync(duringValidationRoot, { recursive: true, force: true });
+  rmSync(duringValidationControl, { recursive: true, force: true });
+}
+
 const observerRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-compiler-observer-"));
 try {
   copyApplication(observerRoot);
   const child = join(observerRoot, "compiler-observer-child.mjs");
-  writeFileSync(child, `console.log(${JSON.stringify(join(observerRoot, "src/server.ts"))});\nprocess.exit(0);\n`);
+  writeFileSync(child, `console.log(${JSON.stringify(join(observerRoot, "src/server.ts"))});\nsetInterval(() => undefined, 1_000);\n`);
   const observerCancellation = new AbortController();
   const request = Object.freeze({
     requestId: "observer-request",
@@ -599,9 +794,9 @@ try {
     'console.log(ownedInput);',
     'const run = existsSync(counter) ? Number(readFileSync(counter, "utf8")) + 1 : 1;',
     'writeFileSync(counter, String(run));',
-    'if (run % 2 === 0) process.exit(0);',
-    'if (run === 5) { const timer = setInterval(() => { if (existsSync(release)) { clearInterval(timer); process.exit(0); } }, 5); }',
-    'else setInterval(() => undefined, 1_000);',
+    'if (run === 1 || run === 4) setInterval(() => undefined, 1_000);',
+    'else if (run === 7) { const timer = setInterval(() => { if (existsSync(release)) { clearInterval(timer); process.exit(0); } }, 5); }',
+    'else process.exit(0);',
     "",
   ].join("\n"));
   const spawned: number[] = [];
@@ -644,7 +839,7 @@ try {
   nextSpawn = deferred<number>();
   const cancelled = analyzer.refresh();
   await nextSpawn.promise;
-  await waitForCounter(counter, 3);
+  await waitForCounter(counter, 4);
   cancelled.cancel();
   await assert.rejects(cancelled.result, /FADENO_ANALYZER_PROJECT_CANCELLED/u);
   assertOutput(lifecycleRoot, beforeCancellation);
@@ -658,7 +853,7 @@ try {
   nextSpawn = deferred<number>();
   const closingRefresh = analyzer.refresh();
   await nextSpawn.promise;
-  await waitForCounter(counter, 5);
+  await waitForCounter(counter, 7);
   let closeSettled = false;
   const closing = analyzer.close().then(() => { closeSettled = true; });
   await Promise.resolve();

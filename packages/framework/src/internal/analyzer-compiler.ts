@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { createReadStream, existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { createReadStream, existsSync, lstatSync, realpathSync } from "node:fs";
 import { lstat, opendir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
@@ -10,6 +10,8 @@ import { version as typescriptVersion } from "typescript";
 const maximumCompilerOutputBytes = 4_194_304;
 const maximumInventoryEntries = 20_000;
 const maximumInventoryBytes = 268_435_456;
+const maximumDependencyManifestBytes = 1_048_576;
+const maximumDependencyManifestTotalBytes = 16_777_216;
 
 export type PrivateCompilerCommand = Readonly<{
   executable: string;
@@ -31,6 +33,17 @@ type PrivateCompilerInputIdentity = Readonly<{
   path: string;
   size: number;
   sha256: string;
+}>;
+
+type PrivateDependencyRoots = Readonly<{
+  roots: readonly string[];
+  sha256: string;
+}>;
+
+type PrivateCompilerInputSnapshot = Readonly<{
+  inputs: readonly PrivateCompilerInputIdentity[];
+  sha256: string;
+  ownershipSha256: string;
 }>;
 
 export type PrivateCompilerValidationRequest = Readonly<{
@@ -192,9 +205,9 @@ function hasOwnedAncestor(path: string, roots: ReadonlySet<string>): boolean {
   return roots.has(current);
 }
 
-function dependencyRoots(root: string, runId: string): readonly string[] {
+async function dependencyRoots(root: string, runId: string, signal?: AbortSignal): Promise<PrivateDependencyRoots> {
   const directory = join(root, "node_modules");
-  if (!existsSync(directory)) return Object.freeze([]);
+  if (!existsSync(directory)) return Object.freeze({ roots: Object.freeze([]), sha256: createHash("sha256").digest("hex") });
   const canonicalDirectory = realpathSync(directory);
   if (!lstatSync(canonicalDirectory).isDirectory() || basename(canonicalDirectory) !== "node_modules") {
     throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
@@ -202,7 +215,22 @@ function dependencyRoots(root: string, runId: string): readonly string[] {
   const roots = new Set<string>();
   const pending = [directory];
   const visitedDirectories = new Set<string>();
+  const identities: string[] = [];
   let packages = 0;
+  let discoveredEntries = 0;
+  let manifestBytes = 0;
+  const directoryNames = async (path: string): Promise<readonly string[]> => {
+    const names: string[] = [];
+    for await (const entry of await opendir(path)) {
+      signal?.throwIfAborted();
+      discoveredEntries += 1;
+      if (discoveredEntries > maximumInventoryEntries) {
+        throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+      }
+      names.push(entry.name);
+    }
+    return Object.freeze(names);
+  };
   const enqueueNearestDependencyDirectory = (packageRoot: string): void => {
     let current = dirname(packageRoot);
     while (dirname(current) !== current) {
@@ -213,18 +241,40 @@ function dependencyRoots(root: string, runId: string): readonly string[] {
       current = dirname(current);
     }
   };
-  const addPackage = (path: string, expectedName: string): void => {
+  const addPackage = async (path: string, expectedName: string): Promise<void> => {
+    signal?.throwIfAborted();
     if (!existsSync(path)) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
     const canonical = realpathSync(path);
     const manifest = join(canonical, "package.json");
-    if (!lstatSync(canonical).isDirectory() || !existsSync(manifest) || lstatSync(manifest).isSymbolicLink() || !lstatSync(manifest).isFile()) {
+    if (!lstatSync(canonical).isDirectory() || !existsSync(manifest)) {
       throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
     }
+    const manifestStatus = await lstat(manifest);
+    if (manifestStatus.isSymbolicLink() || !manifestStatus.isFile() || manifestStatus.size > maximumDependencyManifestBytes || manifestStatus.size > maximumDependencyManifestTotalBytes - manifestBytes) {
+      throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+    }
+    const chunks: Buffer[] = [];
+    let actualBytes = 0;
+    for await (const chunk of createReadStream(manifest, { signal })) {
+      signal?.throwIfAborted();
+      actualBytes += (chunk as Buffer).byteLength;
+      if (actualBytes > manifestStatus.size || actualBytes > maximumDependencyManifestBytes || actualBytes > maximumDependencyManifestTotalBytes - manifestBytes) {
+        throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+      }
+      chunks.push(chunk as Buffer);
+    }
+    const afterManifest = await lstat(manifest);
+    if (actualBytes !== manifestStatus.size || !afterManifest.isFile() || afterManifest.size !== manifestStatus.size || afterManifest.dev !== manifestStatus.dev || afterManifest.ino !== manifestStatus.ino || afterManifest.mtimeMs !== manifestStatus.mtimeMs) {
+      throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+    }
+    manifestBytes += actualBytes;
+    const manifestBytesValue = Buffer.concat(chunks, actualBytes);
     let name: unknown;
-    try { name = (JSON.parse(readFileSync(manifest, "utf8")) as { name?: unknown }).name; } catch {
+    try { name = (JSON.parse(manifestBytesValue.toString("utf8")) as { name?: unknown }).name; } catch {
       throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
     }
     if (name !== expectedName) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+    identities.push(`${resolve(path)}\0${canonical}\0${expectedName}\0${createHash("sha256").update(manifestBytesValue).digest("hex")}`);
     if (roots.has(canonical)) return;
     roots.add(canonical);
     packages += 1;
@@ -234,6 +284,7 @@ function dependencyRoots(root: string, runId: string): readonly string[] {
     enqueueNearestDependencyDirectory(canonical);
   };
   while (pending.length > 0) {
+    signal?.throwIfAborted();
     const current = pending.pop()!;
     const canonical = realpathSync(current);
     if (visitedDirectories.has(canonical)) continue;
@@ -241,22 +292,24 @@ function dependencyRoots(root: string, runId: string): readonly string[] {
       throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
     }
     visitedDirectories.add(canonical);
-    for (const name of readdirSync(current).sort(compareText)) {
+    for (const name of await directoryNames(current)) {
       if (name === ".bin" || name.startsWith(".")) continue;
       const path = join(current, name);
       if (name.startsWith("@")) {
         const scope = realpathSync(path);
         if (!lstatSync(scope).isDirectory()) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
-        for (const packageName of readdirSync(path).sort(compareText)) {
+        for (const packageName of await directoryNames(path)) {
           if (packageName.startsWith(".")) continue;
-          addPackage(join(path, packageName), `${name}/${packageName}`);
+          await addPackage(join(path, packageName), `${name}/${packageName}`);
         }
       } else {
-        addPackage(path, name);
+        await addPackage(path, name);
       }
     }
   }
-  return Object.freeze([...roots]);
+  const hash = createHash("sha256");
+  for (const identity of identities.sort(compareText)) hash.update(`${identity}\n`);
+  return Object.freeze({ roots: Object.freeze([...roots]), sha256: hash.digest("hex") });
 }
 
 async function compilerInputIdentity(
@@ -291,10 +344,11 @@ async function compilerInputSnapshot(
   runId: string,
   compilerInputRoot: string | null,
   signal?: AbortSignal,
-): Promise<Readonly<{ inputs: readonly PrivateCompilerInputIdentity[]; sha256: string }>> {
+): Promise<PrivateCompilerInputSnapshot> {
+  const installed = await dependencyRoots(root, runId, signal);
   const dependencies = new Set(compilerInputRoot
-    ? [...dependencyRoots(root, runId), compilerInputRoot]
-    : dependencyRoots(root, runId));
+    ? [...installed.roots, compilerInputRoot]
+    : installed.roots);
   const paths = new Set<string>();
   for (const line of output.split(/\r?\n/gu)) {
     if (line === "") continue;
@@ -322,19 +376,34 @@ async function compilerInputSnapshot(
     bytes += input.size;
     inputs.push(input);
   }
-  return Object.freeze({ inputs: Object.freeze(inputs), sha256: inputIdentitySha256(inputs) });
+  return Object.freeze({
+    inputs: Object.freeze(inputs),
+    sha256: inputIdentitySha256(inputs),
+    ownershipSha256: installed.sha256,
+  });
 }
 
 async function refreshCompilerInputSnapshot(
+  root: string,
   expected: readonly PrivateCompilerInputIdentity[],
+  expectedOwnershipSha256: string,
+  compilerInputRoot: string | null,
   runId: string,
   signal: AbortSignal,
 ): Promise<string> {
+  const installed = await dependencyRoots(root, runId, signal);
+  if (installed.sha256 !== expectedOwnershipSha256) {
+    throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+  }
+  const dependencies = new Set(compilerInputRoot ? [...installed.roots, compilerInputRoot] : installed.roots);
   const inputs: PrivateCompilerInputIdentity[] = [];
   let bytes = 0;
   for (const prior of expected) {
     signal.throwIfAborted();
     if (!existsSync(prior.path)) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+    if (!isContained(root, prior.path) && !hasOwnedAncestor(prior.path, dependencies)) {
+      throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+    }
     const input = await compilerInputIdentity(prior.path, maximumInventoryBytes - bytes, runId, signal);
     bytes += input.size;
     inputs.push(input);
@@ -354,7 +423,7 @@ export class PrivateCompilerValidator {
     abort: AbortController;
     result: Promise<PrivateCompilerValidation>;
   }> | null = null;
-  readonly #validatedInputs = new WeakMap<PrivateCompilerValidation, readonly PrivateCompilerInputIdentity[]>();
+  readonly #validatedInputs = new WeakMap<PrivateCompilerValidation, PrivateCompilerInputSnapshot>();
 
   constructor(projectRoot: string, options: PrivateCompilerValidatorOptions = {}) {
     this.#root = ownedRoot(projectRoot);
@@ -390,7 +459,14 @@ export class PrivateCompilerValidator {
       throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", validation.runId);
     }
     const inputs = this.#validatedInputs.get(validation);
-    if (!inputs || await refreshCompilerInputSnapshot(inputs, validation.runId, signal) !== validation.inputSha256) {
+    if (!inputs || await refreshCompilerInputSnapshot(
+      this.#root,
+      inputs.inputs,
+      inputs.ownershipSha256,
+      this.#compilerInputRoot,
+      validation.runId,
+      signal,
+    ) !== validation.inputSha256) {
       throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", validation.runId);
     }
   }
@@ -401,6 +477,47 @@ export class PrivateCompilerValidator {
   ): Promise<PrivateCompilerValidation> {
     const before = await projectInventory(this.#root, request.signal, runId);
     request.signal.throwIfAborted();
+    const discoveryOutput = await this.#runCompilerChild(request.signal, runId, true);
+    const baselineInputs = await compilerInputSnapshot(
+      this.#root,
+      discoveryOutput,
+      runId,
+      this.#compilerInputRoot,
+      request.signal,
+    );
+    request.signal.throwIfAborted();
+    const validationOutput = await this.#runCompilerChild(request.signal, runId, false);
+    const validatedInputs = await compilerInputSnapshot(
+      this.#root,
+      validationOutput,
+      runId,
+      this.#compilerInputRoot,
+      request.signal,
+    );
+    if (
+      validatedInputs.sha256 !== baselineInputs.sha256 ||
+      validatedInputs.ownershipSha256 !== baselineInputs.ownershipSha256
+    ) {
+      throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_INPUT", runId);
+    }
+    const after = await projectInventory(this.#root, undefined, runId);
+    if (after !== before) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_OUTPUT", runId);
+    request.signal.throwIfAborted();
+    const validation: PrivateCompilerValidation = Object.freeze({
+      runId,
+      requestId: request.requestId,
+      generation: request.generation,
+      publicationOperationId: request.publicationOperationId,
+      artifactSourceSha256: request.artifactSourceSha256,
+      compilerVersion: typescriptVersion,
+      inventorySha256: after,
+      inputSha256: validatedInputs.sha256,
+    });
+    this.#validatedInputs.set(validation, validatedInputs);
+    return validation;
+  }
+
+  async #runCompilerChild(signal: AbortSignal, runId: string, discovery: boolean): Promise<string> {
     const config = join(this.#root, "tsconfig.json");
     const child = spawn(this.#command.executable, [
       ...this.#command.argumentsPrefix,
@@ -408,7 +525,7 @@ export class PrivateCompilerValidator {
       "--noEmit",
       "--pretty", "false",
       "--incremental", "false",
-      "--listFiles",
+      discovery ? "--listFilesOnly" : "--listFiles",
     ], {
       cwd: this.#root,
       stdio: ["ignore", "pipe", "pipe"],
@@ -441,7 +558,7 @@ export class PrivateCompilerValidator {
     child.stderr?.on("data", capture);
     child.once("error", (error) => { processError = error; });
     const abort = (): void => terminate();
-    request.signal.addEventListener("abort", abort, { once: true });
+    signal.addEventListener("abort", abort, { once: true });
     if (pid !== undefined) {
       try { this.#onSpawn?.(pid); } catch { /* observation cannot control compiler ownership */ }
     }
@@ -452,13 +569,11 @@ export class PrivateCompilerValidator {
       child.once("close", (code, signal) => accept(Object.freeze({ code, signal })));
     });
     if (terminationTimer) clearTimeout(terminationTimer);
-    request.signal.removeEventListener("abort", abort);
+    signal.removeEventListener("abort", abort);
     if (pid !== undefined) {
       try { this.#onClose?.(pid, outcome.code, outcome.signal); } catch { /* observation cannot alter settlement */ }
     }
-    const after = await projectInventory(this.#root, undefined, runId);
-    if (after !== before) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_OUTPUT", runId);
-    request.signal.throwIfAborted();
+    signal.throwIfAborted();
     if (outputLimited) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_OUTPUT_LIMIT", runId);
     if (processError) throw new PrivateCompilerValidationError("FADENO_ANALYZER_COMPILER_PROCESS", runId);
     const codes = diagnosticCodes(output);
@@ -469,25 +584,7 @@ export class PrivateCompilerValidator {
         codes,
       );
     }
-    const inputSnapshot = await compilerInputSnapshot(
-      this.#root,
-      output,
-      runId,
-      this.#compilerInputRoot,
-      request.signal,
-    );
-    const validation: PrivateCompilerValidation = Object.freeze({
-      runId,
-      requestId: request.requestId,
-      generation: request.generation,
-      publicationOperationId: request.publicationOperationId,
-      artifactSourceSha256: request.artifactSourceSha256,
-      compilerVersion: typescriptVersion,
-      inventorySha256: after,
-      inputSha256: inputSnapshot.sha256,
-    });
-    this.#validatedInputs.set(validation, inputSnapshot.inputs);
-    return validation;
+    return output;
   }
 
   close(): Promise<void> {
