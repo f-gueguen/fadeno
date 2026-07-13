@@ -229,6 +229,7 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
   readonly #decision: PrivateDevelopmentDecisionModel;
   readonly #writeStdout: (value: string) => void;
   readonly #writeStderr: (value: string) => void;
+  readonly #internalFailure: (summary: string) => string;
   readonly #fatal: (error: unknown) => void;
   readonly #children = new Set<PrivateDevelopmentChild>();
   #active: Readonly<{ controller: AbortController; analyzer: PrivateAnalyzerOperationHandle<PrivateProjectRefresh> | null }> | null = null;
@@ -242,12 +243,14 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
     processEnvironment: Readonly<Record<string, string | undefined>>,
     writeStdout: (value: string) => void,
     writeStderr: (value: string) => void,
+    internalFailure: (summary: string) => string,
     fatal: (error: unknown) => void,
   ) {
     this.#root = resolve(projectRoot);
     this.#port = port;
     this.#writeStdout = writeStdout;
     this.#writeStderr = writeStderr;
+    this.#internalFailure = internalFailure;
     this.#fatal = fatal;
     this.#analyzer = new PrivateProjectAnalyzer(this.#root);
     this.#generationOwner = new PrivateProjectGenerationOwner(this.#root, processEnvironment);
@@ -294,7 +297,7 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
     }
     if (!isInterruption(error)) {
       const human = expectedFailure(error);
-      this.#writeStderr(human ?? "FADENO_DEV_INTERNAL: Development refresh failed.\n");
+      this.#writeStderr(human ?? this.#internalFailure("Development refresh failed."));
     }
   }
 
@@ -429,6 +432,8 @@ export async function runProjectDevCommand(
   if (!parsed || parsed.command !== "dev") return Object.freeze({ exitCode: 2 as const, stdout: "", stderr: usage });
   const writeStdout = context.writeStdout ?? (() => undefined);
   const writeStderr = context.writeStderr ?? (() => undefined);
+  const internalFailure = (summary: string): string =>
+    `FADENO_DEV_INTERNAL: ${summary}\n  incident: ${context.createIncidentId?.() ?? randomUUID()}\n`;
   let target: PrivateDevelopmentTarget | null = null;
   let adapter: PrivateFilesystemInvalidationAdapter<DevelopmentRefresh> | null = null;
   let watcher: FSWatcher | null = null;
@@ -465,7 +470,10 @@ export async function runProjectDevCommand(
         if (drained !== "") writeStdout(drained);
         terminalResolve(0);
       }
-    }, () => force("Fadeno development shutdown forced.\n"));
+    }, (error) => {
+      writeStderr(expectedFailure(error) ?? internalFailure("Development shutdown failed."));
+      force("Fadeno development shutdown forced.\n");
+    });
   };
   const onSignal = (): void => beginShutdown(false);
 
@@ -476,8 +484,9 @@ export async function runProjectDevCommand(
       context.processEnvironment ?? process.env,
       writeStdout,
       writeStderr,
+      internalFailure,
       (error) => {
-        writeStderr(expectedFailure(error) ?? "FADENO_DEV_INTERNAL: Development server could not continue.\n");
+        writeStderr(expectedFailure(error) ?? internalFailure("Development server could not continue."));
         beginShutdown(true);
       },
     );
@@ -493,12 +502,12 @@ export async function runProjectDevCommand(
         });
         if (admission?.status === "accepted") target?.supersedeCurrent();
       } catch (error) {
-        writeStderr(expectedFailure(error) ?? "FADENO_DEV_INTERNAL: Development watcher failed.\n");
+        writeStderr(expectedFailure(error) ?? internalFailure("Development watcher failed."));
         beginShutdown(true);
       }
     });
     watcher.on("error", (error) => {
-      writeStderr(expectedFailure(error) ?? "FADENO_DEV_INTERNAL: Development watcher failed.\n");
+      writeStderr(expectedFailure(error) ?? internalFailure("Development watcher failed."));
       beginShutdown(true);
     });
     process.on("SIGINT", onSignal);
@@ -511,7 +520,7 @@ export async function runProjectDevCommand(
       return Object.freeze({
         exitCode: human === null ? 3 as const : 1 as const,
         stdout: "",
-        stderr: human ?? `FADENO_DEV_INTERNAL: Development server could not start.\n  incident: ${context.createIncidentId?.() ?? randomUUID()}\n`,
+        stderr: human ?? internalFailure("Development server could not start."),
       });
     }
     return Object.freeze({ exitCode: await terminal, stdout: "", stderr: "" });
@@ -520,7 +529,7 @@ export async function runProjectDevCommand(
     return Object.freeze({
       exitCode: human === null ? 3 as const : 1 as const,
       stdout: "",
-      stderr: human ?? `FADENO_DEV_INTERNAL: Development server could not start.\n  incident: ${context.createIncidentId?.() ?? randomUUID()}\n`,
+      stderr: human ?? internalFailure("Development server could not start."),
     });
   } finally {
     process.off("SIGINT", onSignal);

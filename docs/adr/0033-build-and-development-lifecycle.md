@@ -256,3 +256,11 @@ freshness, environment/compiler/framework freshness, concurrent refusal and
 dead-owner recovery, declared-runtime import enforcement including a required
 root peer, production-only reinstall and startup, rollback refusal/recovery,
 and unchanged last-good output across every pre-acceptance refusal.
+
+`pnpm check:v1-development` provides the B7D7 evidence through the installed
+public executable and canonical application. It proves initial readiness,
+direct and transitive changes, configuration epochs, rename/deletion and burst
+rescans, exact compiler diagnostics with last-good serving, repair and stale
+artifact removal, normalized flow and recovery records, graceful shutdown,
+active-stream repeated-signal force, occupied-address refusal, and usage
+refusal. The supervisor and analyzer remain private package internals.

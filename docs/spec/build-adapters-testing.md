@@ -193,8 +193,8 @@ examples. The
 proves the private implementation is present, and proves package exports still
 refuse analyzer deep imports. B7B executes analyzer examples through the packed
 public check workflow. ADR 0033 permits B7D6 and B7D7 to add packed build and
-development examples. B7D6 now implements the build half while development
-remains unimplemented until B7D7.
+development examples. B7D6 implements the build half and B7D7 implements the
+retained development half through the installed public executable.
 B6's private canonical-app flow
 fixtures contain both module-rendered human output and normalized machine
 output from executed success, deliberate route refusal, and recovery
@@ -208,8 +208,8 @@ reuse or revive the narrowed K0 incremental-generation claim.
 
 ## Retained build and development sequence
 
-`fadeno check` and `fadeno build` are the implemented project commands; `dev`
-remains B7D7 work. B7D1 gives the
+`fadeno check`, `fadeno build`, and the exact explicit-root/explicit-port
+`fadeno dev` form are implemented project commands. B7D1 gives the
 private project authority one retained FIFO coordinator and exactly one analyzer
 session. Frozen admission handles preserve monotonic request identity across
 success and failure. Analysis and explanation never overlap; admitted work
@@ -384,6 +384,37 @@ independence, production start, HTTP behavior, and graceful stop.
 The build driver and generation child remain package-private; no machine command
 output, public analyzer schema, development watcher, or broader listener address
 is introduced.
+
+B7D7 implements the development half through the same installed `fadeno`
+executable and shared accepted-generation owner. One retained supervisor owns
+the recursive operating-system watcher, B7D4 adapter, private project analyzer,
+generation transaction, and isolated child processes. Notifications never
+select semantic work: `.fadeno`, `dist`, and repository metadata are excluded,
+while every accepted direct, transitive, configuration, rename, deletion, or
+burst hint causes authoritative current-workspace analysis.
+
+The initial diagnostic-free generation is staged, accepted, verified, and
+started with the generated loader registered before the bootstrap. Only that
+child imports application modules, receives the frozen generation environment,
+and binds `127.0.0.1` at the explicit port. Later clean work drains the prior
+child, atomically accepts one candidate output, and starts a fresh child. A
+diagnostic leaves the prior child and `dist` active; repair replaces the whole
+diagnostic observation with a clean-generation notice. Cancellation and
+supersession terminate the generation child and prevent candidate acceptance.
+If candidate startup fails after output acceptance, the output transaction
+restores the prior generation and the prior child is restarted before later
+work is admitted.
+
+The first termination signal closes watcher admission and begins complete
+analyzer, compiler, transaction, server, and child drain. A 5,000 ms deadline
+or repeated signal force-terminates owned children and exits `3`; graceful
+completion exits `0`. An occupied address is one stable expected startup
+refusal with exit `1`, and malformed command input is usage exit `2`. The
+packed canonical scenario proves last-good compiler refusal and repair, stale
+artifact deletion, direct/transitive/configuration/rename/burst behavior,
+graceful shutdown, active-stream repeated-signal force, address refusal, and
+normalized flow/recovery evidence. It introduces no public watcher API,
+machine output, analyzer schema, editor product, or broader listener address.
 
 ## V1 and A0 conformance
 

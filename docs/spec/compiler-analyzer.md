@@ -810,10 +810,10 @@ generation.
 
 These stages are private evidence. The B7D1 through B7D3 implementation is
 included in packed internals and explicitly unavailable through package
-exports. It adds no stable analyzer schema, editor product, production output,
-watcher command, or server. ADR 0033 accepts the exact build and development
-lifecycle. B7D6 now implements build while development remains B7D7 work. Its
-private packed evidence uses one structured stock-compiler snapshot, permits
+exports. It adds no stable analyzer schema or editor product. ADR 0033 accepts
+the exact build and development lifecycle. B7D6 implements build and B7D7
+implements development through private retained consumers. Their private
+packed evidence uses one structured stock-compiler snapshot, permits
 emission only after a clean batch, and performs a separate no-check stock
 emission into a contained stage. Source, environment, framework runtime,
 compiler API, compiler binary, generated ownership, and output identities are
@@ -836,6 +836,26 @@ of declared production, installed optional, and required peer dependencies;
 unrelated development packages are excluded. A prior `dist` or rollback tree
 is authoritative only when its bounded manifest and exact owned file set
 validate.
+
+B7D7's private development supervisor implements the filesystem refresh target
+without duplicating analyzer policy. Each operation requests the same retained
+project refresh, captures structured compiler failure while provisional route
+ownership is current, and asks the shared generation owner for one staged
+candidate. The B7D4 adapter owns debounce, full-rescan ambiguity, dirty work,
+and active cancellation; accepted notifications never become a second module
+dependency graph. `.fadeno`, `dist`, and repository metadata cannot trigger an
+output loop.
+
+Only one complete current candidate may enter the bounded child switch. The
+supervisor never imports application modules; a fresh child registers the
+generated loader, verifies the accepted manifest and runtime closure, and then
+imports the generated handler. Diagnostics and superseded work retain the
+prior child and output. Repair publishes a complete clean generation, deletion
+removes its former output, and a failed post-accept startup rolls output back
+before restarting the previous child. Graceful or forced close owns watcher,
+analyzer, compiler, transaction, server, and child settlement. This adds the
+human `fadeno dev` command but no public analyzer API, stable machine schema,
+or editor product.
 
 ## Conformance
 
@@ -898,6 +918,12 @@ validate.
   diagnostics, contained clean emission, loader-before-bootstrap refusal and
   success, distinct child identities, last-good failure, diagnostic repair,
   stale runtime refusal, and graceful/deadline/repeated-signal shutdown states.
+- The packed development fixture uses the canonical application and installed
+  executable to prove initial readiness, direct/transitive/configuration/
+  rename/deletion/burst refresh, last-good compiler diagnostics, repair and
+  stale-artifact removal, complete normalized flow/recovery evidence, graceful
+  shutdown, active-stream repeated-signal force, occupied-address refusal, and
+  usage refusal.
 - Construction-time provenance, exact and explicitly unknown ranges, causal
   diagnostics, actionable children, and correction application have positive
   and refusal fixtures.
