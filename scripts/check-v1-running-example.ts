@@ -597,7 +597,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   delete developmentOnlyPackage.devDependencies[runtimeFixtureName];
   developmentOnlyPackage.peerDependencies = { [runtimeFixtureName]: "1.0.0" };
   writeFileSync(join(project, "package.json"), `${JSON.stringify(developmentOnlyPackage, null, 2)}\n`);
-  writeFileSync(pagePath, `import { runtimeFixture } from ${JSON.stringify(runtimeFixtureName)};\nvoid runtimeFixture;\n${pageBeforeRuntimeFixture.toString("utf8")}`);
+  writeFileSync(pagePath, `import { runtimeFixture } from ${JSON.stringify(runtimeFixtureName)};\nconst keywordProperty = { import: 1 };\nvoid runtimeFixture;\nvoid keywordProperty;\n${pageBeforeRuntimeFixture.toString("utf8")}`);
   const declaredPeerBuild = runFadeno(build, buildArguments, project);
   assert.equal(declaredPeerBuild.status, 0, declaredPeerBuild.stderr);
   const peerManifest = JSON.parse(readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8")) as {

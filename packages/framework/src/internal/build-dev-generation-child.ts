@@ -308,66 +308,74 @@ function runtimePackageNames(stageRoot: string, paths: readonly string[]): reado
     if (!/\.(?:c|m)?js$/u.test(path)) continue;
     const source = readStableBoundedFile(join(stageRoot, path), maximumSourceFileBytes, "FADENO_BUILD_CHILD_OUTPUT").toString("utf8");
     const scanner = createScanner(true, undefined, source);
-    const tokens: Array<Readonly<{ kind: SyntaxKind; value: string }>> = [];
+    let braces = 0;
+    let tokens = 0;
+    let previousKind: SyntaxKind | null = null;
+    let pendingModule: "import" | "export" | null = null;
+    let declaration: "import" | "export" | null = null;
+    let pendingRequire = false;
+    let pendingCall: "import" | "require" | null = null;
+    let awaitingSpecifier = false;
+    const templateBases: number[] = [];
     for (let kind = scanner.scan(); kind !== SyntaxKind.EndOfFile; kind = scanner.scan()) {
-      tokens.push(Object.freeze({ kind, value: scanner.getTokenValue() }));
-      if (tokens.length > maximumRuntimeTokens) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      if (kind === SyntaxKind.CloseBraceToken && templateBases.at(-1) === braces) {
+        kind = scanner.reScanTemplateToken(false);
+      }
+      tokens += 1;
+      if (tokens > maximumRuntimeTokens) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      const topLevel = braces === 0;
+      const literal = kind === SyntaxKind.StringLiteral || kind === SyntaxKind.NoSubstitutionTemplateLiteral;
+      let handled = false;
+      if (pendingCall !== null) {
+        if (!literal) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+        record(path, scanner.getTokenValue());
+        pendingCall = null;
+        handled = true;
+      } else if (awaitingSpecifier) {
+        if (kind !== SyntaxKind.StringLiteral) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+        record(path, scanner.getTokenValue());
+        awaitingSpecifier = false;
+        declaration = null;
+        handled = true;
+      } else if (pendingModule !== null) {
+        const moduleKind = pendingModule;
+        pendingModule = null;
+        if (moduleKind === "import" && kind === SyntaxKind.OpenParenToken) pendingCall = "import";
+        else if (moduleKind === "import" && literal) record(path, scanner.getTokenValue());
+        else if (moduleKind === "import" && kind !== SyntaxKind.DotToken && topLevel) declaration = "import";
+        else if (
+          moduleKind === "export" && topLevel &&
+          (kind === SyntaxKind.AsteriskToken || kind === SyntaxKind.OpenBraceToken)
+        ) declaration = "export";
+        handled = true;
+      } else if (pendingRequire) {
+        pendingRequire = false;
+        if (kind === SyntaxKind.OpenParenToken) {
+          pendingCall = "require";
+          handled = true;
+        }
+      }
+      if (!handled) {
+        if (kind === SyntaxKind.ImportKeyword) pendingModule = "import";
+        else if (kind === SyntaxKind.ExportKeyword && topLevel) pendingModule = "export";
+        else if (
+          (kind === SyntaxKind.RequireKeyword || (kind === SyntaxKind.Identifier && scanner.getTokenValue() === "require")) &&
+          previousKind !== SyntaxKind.DotToken && previousKind !== SyntaxKind.QuestionDotToken
+        ) pendingRequire = true;
+        else if (declaration !== null && topLevel && kind === SyntaxKind.FromKeyword) awaitingSpecifier = true;
+        else if (topLevel && kind === SyntaxKind.SemicolonToken) declaration = null;
+      }
+      if (kind === SyntaxKind.OpenBraceToken) braces += 1;
+      else if (kind === SyntaxKind.CloseBraceToken) braces -= 1;
+      else if (kind === SyntaxKind.TemplateHead) templateBases.push(braces);
+      else if (kind === SyntaxKind.TemplateTail) templateBases.pop();
+      if (braces < 0) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
+      previousKind = kind;
     }
-    for (let index = 0; index < tokens.length; index += 1) {
-      const token = tokens[index];
-      if (token?.kind === SyntaxKind.ImportKeyword) {
-        const next = tokens[index + 1];
-        if (next?.kind === SyntaxKind.DotToken) continue;
-        if (next?.kind === SyntaxKind.OpenParenToken) {
-          const value = tokens[index + 2];
-          if (value?.kind !== SyntaxKind.StringLiteral && value?.kind !== SyntaxKind.NoSubstitutionTemplateLiteral) {
-            fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
-          }
-          record(path, value.value);
-          continue;
-        }
-        if (next?.kind === SyntaxKind.StringLiteral) { record(path, next.value); continue; }
-        let braces = 0;
-        for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-          const candidate = tokens[cursor];
-          if (!candidate) break;
-          if (candidate.kind === SyntaxKind.OpenBraceToken) braces += 1;
-          if (candidate.kind === SyntaxKind.CloseBraceToken) braces -= 1;
-          if (braces === 0 && candidate.kind === SyntaxKind.SemicolonToken) break;
-          if (braces === 0 && candidate.kind === SyntaxKind.FromKeyword) {
-            const value = tokens[cursor + 1];
-            if (value?.kind !== SyntaxKind.StringLiteral) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
-            record(path, value.value);
-            break;
-          }
-        }
-      }
-      if (token?.kind === SyntaxKind.ExportKeyword) {
-        let braces = 0;
-        for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-          const candidate = tokens[cursor];
-          if (!candidate) break;
-          if (candidate.kind === SyntaxKind.OpenBraceToken) braces += 1;
-          if (candidate.kind === SyntaxKind.CloseBraceToken) braces -= 1;
-          if (braces === 0 && candidate.kind === SyntaxKind.SemicolonToken) break;
-          if (braces === 0 && candidate.kind === SyntaxKind.FromKeyword) {
-            const value = tokens[cursor + 1];
-            if (value?.kind !== SyntaxKind.StringLiteral) fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
-            record(path, value.value);
-            break;
-          }
-        }
-      }
-      if (
-        (token?.kind === SyntaxKind.RequireKeyword || (token?.kind === SyntaxKind.Identifier && token.value === "require")) &&
-        tokens[index + 1]?.kind === SyntaxKind.OpenParenToken
-      ) {
-        const value = tokens[index + 2];
-        if (value?.kind !== SyntaxKind.StringLiteral && value?.kind !== SyntaxKind.NoSubstitutionTemplateLiteral) {
-          fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
-        }
-        record(path, value.value);
-      }
+    if (
+      pendingCall !== null || awaitingSpecifier || braces !== 0 || templateBases.length !== 0
+    ) {
+      fail("FADENO_BUILD_CHILD_RUNTIME_IMPORT");
     }
   }
   return Object.freeze([...packages].sort(compareText));

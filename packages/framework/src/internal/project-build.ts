@@ -455,6 +455,7 @@ function renderBootstrap(): string {
     'import { fileURLToPath } from "node:url";',
     "const fail = (code) => { throw new Error(code); };",
     "const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;",
+    "const hasKeys = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) && JSON.stringify(Object.keys(value).sort(compare)) === JSON.stringify(keys);",
     "const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');",
     "const readStable = (path, maximum, code, expected = null) => {",
     "  const before = lstatSync(path);",
@@ -473,7 +474,12 @@ function renderBootstrap(): string {
     "const manifestPath = join(distRoot, '.fadeno/build-manifest.json');",
     "let manifest;",
     "try { manifest = JSON.parse(readStable(manifestPath, 4194304, 'FADENO_BUILD_RUNTIME_MANIFEST').toString('utf8')); } catch (error) { if (error?.message === 'FADENO_BUILD_RUNTIME_MANIFEST') throw error; fail('FADENO_BUILD_RUNTIME_MANIFEST'); }",
-    "if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest.files) || manifest.runtime?.schemaVersion !== 1 || !Array.isArray(manifest.dependencies)) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
+    `const manifestKeys = ${JSON.stringify([
+      "artifactSourceSha256", "artifacts", "compilerVersion", "dependencies", "environmentSha256", "files",
+      "framework", "generationSha256", "inputSha256", "outputSha256", "runtime", "schemaVersion",
+    ])};`,
+    `if (!hasKeys(manifest, manifestKeys) || manifest.schemaVersion !== 1 || manifest.framework !== ${JSON.stringify(packageName)} || manifest.compilerVersion !== ${JSON.stringify(compilerVersion)} || !Number.isSafeInteger(manifest.artifacts) || manifest.artifacts < 0 || manifest.artifacts > 4096 || !Array.isArray(manifest.files) || !Array.isArray(manifest.dependencies)) fail('FADENO_BUILD_RUNTIME_MANIFEST');`,
+    "for (const name of ['environmentSha256', 'inputSha256', 'generationSha256', 'artifactSourceSha256', 'outputSha256']) if (typeof manifest[name] !== 'string' || !/^[a-f0-9]{64}$/.test(manifest[name])) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
     "const validPath = (path) => typeof path === 'string' && path.length > 0 && !path.startsWith('/') && !path.includes('\\\\') && path.split('/').every((part) => part !== '' && part !== '.' && part !== '..');",
     "if (manifest.files.length === 0 || manifest.files.length > 4096 || !manifest.files.every((file) => file && validPath(file.path))) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
     "const manifestPaths = manifest.files.map((file) => file.path);",
@@ -495,12 +501,12 @@ function renderBootstrap(): string {
     "const expectedPaths = [...manifest.files.map((file) => file.path), '.fadeno/build-manifest.json'].sort(compare);",
     "if (JSON.stringify(walk(distRoot, 4097)) !== JSON.stringify(expectedPaths)) fail('FADENO_BUILD_RUNTIME_MANIFEST');",
     "const verify = (root, identity, exact = true) => {",
-    "  if (identity?.schemaVersion !== 1 || !Array.isArray(identity.files) || identity.files.length === 0 || identity.files.length > 4096 || !/^[a-f0-9]{64}$/.test(identity.sha256)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "  if (!hasKeys(identity, ['files', 'schemaVersion', 'sha256']) || identity.schemaVersion !== 1 || !Array.isArray(identity.files) || identity.files.length === 0 || identity.files.length > 4096 || !/^[a-f0-9]{64}$/.test(identity.sha256)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
     "  const identityPaths = identity.files.map((file) => file?.path);",
     "  if (JSON.stringify(identityPaths) !== JSON.stringify([...new Set(identityPaths)].sort(compare))) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
     "  const aggregate = createHash('sha256'); let total = 0;",
     "  for (const file of identity.files) {",
-    "    if (!file || !validPath(file.path) || !Number.isSafeInteger(file.bytes) || file.bytes < 0 || file.bytes > 67108864 || !/^[a-f0-9]{64}$/.test(file.sha256)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
+    "    if (!hasKeys(file, ['bytes', 'path', 'sha256']) || !validPath(file.path) || !Number.isSafeInteger(file.bytes) || file.bytes < 0 || file.bytes > 67108864 || !/^[a-f0-9]{64}$/.test(file.sha256)) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
     "    total += file.bytes; if (!Number.isSafeInteger(total) || total > 134217728) fail('FADENO_BUILD_RUNTIME_IDENTITY');",
     "    const path = join(root, file.path);",
     "    const bytes = readStable(path, 67108864, 'FADENO_BUILD_RUNTIME_IDENTITY', file.bytes);",
@@ -521,7 +527,7 @@ function renderBootstrap(): string {
     "if (JSON.stringify(dependencyPaths) !== JSON.stringify([...new Set(dependencyPaths)].sort(compare))) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
     "let dependencyFiles = 0; let dependencyBytes = 0;",
     "for (const closure of manifest.dependencies) {",
-    "  if (!closure || typeof closure.name !== 'string' || closure.name.length > 214 || !/^(?:@[A-Za-z0-9_~-][A-Za-z0-9._~-]*\\/)?[A-Za-z0-9_~-][A-Za-z0-9._~-]*$/.test(closure.name) || !validPath(closure.path)) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
+    "  if (!hasKeys(closure, ['identity', 'name', 'path']) || typeof closure.name !== 'string' || closure.name.length > 214 || !/^(?:@[A-Za-z0-9_~-][A-Za-z0-9._~-]*\\/)?[A-Za-z0-9_~-][A-Za-z0-9._~-]*$/.test(closure.name) || !validPath(closure.path)) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
     "  const root = realpathSync(join(projectRoot, closure.path));",
     "  const difference = relative(projectRoot, root);",
     "  if (difference === '' || difference.startsWith('..') || isAbsolute(difference)) fail('FADENO_BUILD_RUNTIME_CLOSURE');",
@@ -536,11 +542,11 @@ function renderBootstrap(): string {
     "    process.stdout.write(`${JSON.stringify({ event: 'framework-failure', ...report })}\\n`);",
     "  },",
     "});",
-    "process.stdout.write(`Fadeno production server ready at ${server.origin}.\\n`);",
     "let stopping = false;",
     "const stop = async () => { if (stopping) return; stopping = true; await server.close(); };",
     "process.once('SIGTERM', () => { void stop(); });",
     "process.once('SIGINT', () => { void stop(); });",
+    "process.stdout.write(`Fadeno production server ready at ${server.origin}.\\n`);",
     "} catch (error) {",
     "  const code = error instanceof Error && /^FADENO_[A-Z0-9_]+$/.test(error.message) ? error.message : 'FADENO_BUILD_RUNTIME_INTERNAL';",
     "  process.stderr.write(`${code}\\n`); process.exitCode = 1;",
@@ -598,6 +604,7 @@ function assertIdentityStructure(value: unknown, code: string): PrivateRuntimeId
   if (!value || typeof value !== "object" || Array.isArray(value)) fail(code);
   const identity = value as Partial<PrivateRuntimeIdentity>;
   if (
+    JSON.stringify(Object.keys(identity).sort(compareText)) !== JSON.stringify(["files", "schemaVersion", "sha256"]) ||
     identity.schemaVersion !== 1 || !Array.isArray(identity.files) || identity.files.length === 0 ||
     identity.files.length > maximumOutputFiles || typeof identity.sha256 !== "string" ||
     !/^[a-f0-9]{64}$/u.test(identity.sha256)
@@ -607,7 +614,8 @@ function assertIdentityStructure(value: unknown, code: string): PrivateRuntimeId
   let previousPath: string | null = null;
   for (const file of identity.files) {
     if (
-      !file || !validManifestPath(file.path) || !Number.isSafeInteger(file.bytes) || file.bytes < 0 ||
+      !file || JSON.stringify(Object.keys(file).sort(compareText)) !== JSON.stringify(["bytes", "path", "sha256"]) ||
+      !validManifestPath(file.path) || !Number.isSafeInteger(file.bytes) || file.bytes < 0 ||
       file.bytes > 64 * 1024 * 1024 || !/^[a-f0-9]{64}$/u.test(file.sha256) ||
       (previousPath !== null && compareText(previousPath, file.path) >= 0)
     ) fail(code);
@@ -664,6 +672,7 @@ function readAcceptedBuildManifest(output: string, code: string): Readonly<{
       if (!value || typeof value !== "object" || Array.isArray(value)) fail(code);
       const dependency = value as Record<string, unknown>;
       if (
+        JSON.stringify(Object.keys(dependency).sort(compareText)) !== JSON.stringify(["identity", "name", "path"]) ||
         typeof dependency["name"] !== "string" || dependency["name"].length > 214 ||
         !/^(?:@[A-Za-z0-9_~-][A-Za-z0-9._~-]*\/)?[A-Za-z0-9_~-][A-Za-z0-9._~-]*$/u.test(dependency["name"]) ||
         !validManifestPath(dependency["path"]) ||
