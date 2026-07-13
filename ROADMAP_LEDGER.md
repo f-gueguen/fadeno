@@ -10,17 +10,17 @@ V1-DX-B7D2 — deterministic invalidation batches and supersession
 
 ## Exit criteria
 
-- [ ] Coalesce generic private invalidation admissions into deterministic
+- [x] Coalesce generic private invalidation admissions into deterministic
   generations without interpreting filesystem notification names or timers.
-- [ ] Supersede active obsolete analysis at admission, preserve request
+- [x] Supersede active obsolete analysis at admission, preserve request
   identity and terminal reason, and allow only the newest complete generation
   to own application or explanation capabilities.
-- [ ] Retain every invalidation admitted during active work, failure cleanup,
+- [x] Retain every invalidation admitted during active work, failure cleanup,
   idle handoff, or pre-close drain without a lost wakeup.
-- [ ] Reconcile current project documents and forget explicitly unmanaged
+- [x] Reconcile current project documents and forget explicitly unmanaged
   closed owners through one atomic session transition, including still-existing
   files, without discarding unrelated open buffers.
-- [ ] Prove direct, structural, configuration, deletion, rename, burst,
+- [x] Prove direct, structural, configuration, deletion, rename, burst,
   refusal, recovery, close, retained-memory, package-inaccessibility, full
   repository, local CI, architecture, Big-O, and fresh independent review gates.
 
