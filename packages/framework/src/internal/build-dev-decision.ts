@@ -205,12 +205,30 @@ export function capturePrivateRuntimeIdentity(
 }
 
 export function assertPrivateRuntimeIdentity(packageRoot: string, expected: PrivateRuntimeIdentity): void {
-  const actual = capturePrivateRuntimeIdentity(packageRoot, expected.files.map(({ path }) => path));
-  if (actual.sha256 !== expected.sha256) throw new TypeError("FADENO_BUILD_RUNTIME_IDENTITY");
+  if (
+    expected?.schemaVersion !== 1 || !Array.isArray(expected.files) || expected.files.length === 0 ||
+    typeof expected.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(expected.sha256)
+  ) throw new TypeError("FADENO_BUILD_RUNTIME_IDENTITY");
+  const paths: string[] = [];
+  for (const file of expected.files) {
+    if (
+      !file || typeof file.path !== "string" || !Number.isSafeInteger(file.bytes) || file.bytes < 0 ||
+      typeof file.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(file.sha256)
+    ) throw new TypeError("FADENO_BUILD_RUNTIME_IDENTITY");
+    paths.push(file.path);
+  }
+  const actual = capturePrivateRuntimeIdentity(packageRoot, paths);
+  if (
+    actual.sha256 !== expected.sha256 || actual.files.length !== expected.files.length ||
+    actual.files.some((file, index) => {
+      const wanted = expected.files[index];
+      return !wanted || file.path !== wanted.path || file.bytes !== wanted.bytes || file.sha256 !== wanted.sha256;
+    })
+  ) throw new TypeError("FADENO_BUILD_RUNTIME_IDENTITY");
 }
 
 export function parsePrivateEnvironmentFile(source: string): Readonly<Record<string, string>> {
-  const values: Record<string, string> = {};
+  const values: Record<string, string> = Object.create(null) as Record<string, string>;
   for (const [index, raw] of source.split(/\r?\n/u).entries()) {
     const line = raw.trim();
     if (line === "" || line.startsWith("#")) continue;
@@ -235,7 +253,7 @@ export function capturePrivateEnvironment(
   processValues: Readonly<Record<string, string | undefined>>,
 ): PrivateEnvironmentSnapshot {
   const root = ownedOrdinaryDirectory(projectRoot, "FADENO_BUILD_ENV");
-  const values: Record<string, string> = {};
+  const values: Record<string, string> = Object.create(null) as Record<string, string>;
   for (const name of [".env", ".env.local"]) {
     const path = resolve(root, name);
     if (existsSync(path)) {
@@ -246,6 +264,7 @@ export function capturePrivateEnvironment(
   }
   for (const [name, value] of Object.entries(processValues)) {
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) throw new TypeError("FADENO_BUILD_ENV");
+    if (value !== undefined && typeof value !== "string") throw new TypeError("FADENO_BUILD_ENV");
     if (value !== undefined) values[name] = value;
   }
   const ordered = Object.fromEntries(Object.entries(values).sort(([left], [right]) => compareText(left, right)));
@@ -279,7 +298,10 @@ export class PrivateDevelopmentDecisionModel {
   }
 
   prepare(generation: number): PrivateDevelopmentTransition {
-    if (this.#state !== "ready" || this.#acceptedGeneration === null || generation <= this.#acceptedGeneration) {
+    if (
+      this.#state !== "ready" || this.#acceptedGeneration === null || !Number.isSafeInteger(generation) ||
+      generation <= this.#acceptedGeneration
+    ) {
       throw new TypeError("FADENO_DEV_STATE");
     }
     this.#state = "preparing";
@@ -309,7 +331,7 @@ export class PrivateDevelopmentDecisionModel {
   }
 
   signal(now: number): PrivateDevelopmentTransition {
-    if (!Number.isFinite(now)) throw new TypeError("FADENO_DEV_STATE");
+    if (!Number.isFinite(now) || now < 0 || now > Number.MAX_SAFE_INTEGER) throw new TypeError("FADENO_DEV_STATE");
     if (this.#state === "stopping") {
       this.#state = "forced";
       this.#exitCode = 3;
@@ -323,6 +345,7 @@ export class PrivateDevelopmentDecisionModel {
   }
 
   tick(now: number): PrivateDevelopmentTransition {
+    if (!Number.isFinite(now) || now < 0 || now > Number.MAX_SAFE_INTEGER) throw new TypeError("FADENO_DEV_STATE");
     if (this.#state === "stopping" && this.#shutdownAt !== null && now >= this.#shutdownAt) {
       this.#state = "forced";
       this.#exitCode = 3;

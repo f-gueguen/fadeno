@@ -5,6 +5,7 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readSync,
   realpathSync,
   readdirSync,
   rmSync,
@@ -12,8 +13,6 @@ import {
 import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-
-import { API } from "typescript/unstable/sync";
 
 import {
   assertPrivateBuildCompilerContract,
@@ -25,6 +24,12 @@ import {
 
 const maximumRequestBytes = 256 * 1024;
 const maximumCompilerOutputBytes = 1024 * 1024;
+const maximumCompilerFiles = 4_096;
+const maximumSourceFileBytes = 64 * 1024 * 1024;
+const maximumDiagnostics = 4_096;
+const maximumDiagnosticBytes = 4 * 1024 * 1024;
+const maximumTraversalEntries = 8_192;
+const maximumTraversalPathBytes = 1024 * 1024;
 
 type RuntimeClosure = Readonly<{ root: string; identity: PrivateRuntimeIdentity }>;
 type GenerationRequest = Readonly<{
@@ -59,8 +64,18 @@ function plain(value: unknown): Record<string, unknown> | null {
 }
 
 function request(): GenerationRequest {
-  const bytes = readFileSync(0);
-  if (bytes.byteLength === 0 || bytes.byteLength > maximumRequestBytes) fail("FADENO_BUILD_CHILD_REQUEST");
+  const chunks: Buffer[] = [];
+  let requestBytes = 0;
+  for (;;) {
+    const chunk = Buffer.allocUnsafe(Math.min(64 * 1024, maximumRequestBytes + 1 - requestBytes));
+    const count = readSync(0, chunk, 0, chunk.byteLength, null);
+    if (count === 0) break;
+    requestBytes += count;
+    if (requestBytes > maximumRequestBytes) fail("FADENO_BUILD_CHILD_REQUEST");
+    chunks.push(chunk.subarray(0, count));
+  }
+  if (requestBytes === 0) fail("FADENO_BUILD_CHILD_REQUEST");
+  const bytes = Buffer.concat(chunks, requestBytes);
   let value: unknown;
   try { value = JSON.parse(bytes.toString("utf8")); } catch { fail("FADENO_BUILD_CHILD_REQUEST"); }
   const root = plain(value);
@@ -130,21 +145,25 @@ function prepareStage(projectRoot: string, requestedStage: string, generation: n
   return stage;
 }
 
-function projectInputPaths(projectRoot: string, directory = projectRoot): readonly string[] {
-  const paths: string[] = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => compareText(left.name, right.name))) {
-    const path = join(directory, entry.name);
-    const relativePath = relative(projectRoot, path).split("\\").join("/");
-    if (relativePath === "dist" || relativePath === "node_modules" || relativePath === ".fadeno/build-stage") continue;
-    if (entry.isSymbolicLink()) fail("FADENO_BUILD_CHILD_INPUT");
-    if (entry.isDirectory()) paths.push(...projectInputPaths(projectRoot, path));
-    else if (entry.isFile()) paths.push(relativePath);
-    else fail("FADENO_BUILD_CHILD_INPUT");
-  }
-  return Object.freeze(paths);
+function readStableBoundedFile(path: string, maximumBytes: number, code: string): Buffer {
+  const before = lstatSync(path);
+  if (before.isSymbolicLink() || !before.isFile() || before.size > maximumBytes) fail(code);
+  const bytes = readFileSync(path);
+  const after = lstatSync(path);
+  if (
+    bytes.byteLength !== before.size || after.isSymbolicLink() || !after.isFile() ||
+    after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size ||
+    after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs
+  ) fail(code);
+  return bytes;
 }
 
-function structuredDiagnostics(projectRoot: string): readonly StructuredDiagnostic[] {
+async function structuredDiagnostics(projectRoot: string): Promise<Readonly<{
+  diagnostics: readonly StructuredDiagnostic[];
+  programFiles: readonly string[];
+  projectFiles: readonly string[];
+}>> {
+  const { API } = await import("typescript/unstable/sync");
   const api = new API({ cwd: projectRoot });
   const config = join(projectRoot, "tsconfig.json");
   const snapshot = api.updateSnapshot({ openProjects: [{ uri: pathToFileURL(config).href }] });
@@ -152,12 +171,16 @@ function structuredDiagnostics(projectRoot: string): readonly StructuredDiagnost
     const projects = snapshot.getProjects();
     if (projects.length !== 1) fail("FADENO_BUILD_CHILD_COMPILER");
     const program = projects[0]!.program;
-    const raw = [
-      ...program.getConfigFileParsingDiagnostics(),
-      ...program.getGlobalDiagnostics(),
-      ...program.getSyntacticDiagnostics(),
-      ...program.getSemanticDiagnostics(),
-    ] as readonly Readonly<{
+    const groups = [
+      program.getConfigFileParsingDiagnostics(),
+      program.getGlobalDiagnostics(),
+      program.getSyntacticDiagnostics(),
+      program.getSemanticDiagnostics(),
+    ];
+    if (groups.reduce((count, group) => count + group.length, 0) > maximumDiagnostics) {
+      fail("FADENO_BUILD_CHILD_DIAGNOSTIC_LIMIT");
+    }
+    const raw = groups.flat() as readonly Readonly<{
       code: number;
       category: number;
       fileName?: string;
@@ -165,7 +188,10 @@ function structuredDiagnostics(projectRoot: string): readonly StructuredDiagnost
       end?: number;
       text: string;
     }>[];
+    let diagnosticBytes = 0;
     const diagnostics = raw.map((diagnostic): StructuredDiagnostic => {
+      diagnosticBytes += Buffer.byteLength(diagnostic.text);
+      if (diagnosticBytes > maximumDiagnosticBytes) fail("FADENO_BUILD_CHILD_DIAGNOSTIC_LIMIT");
       const canonical = diagnostic.fileName && existsSync(diagnostic.fileName) ? realpathSync(diagnostic.fileName) : null;
       return Object.freeze({
         code: diagnostic.code,
@@ -181,23 +207,71 @@ function structuredDiagnostics(projectRoot: string): readonly StructuredDiagnost
     }).sort((left, right) =>
       compareText(left.file ?? "", right.file ?? "") || (left.start ?? -1) - (right.start ?? -1) || left.code - right.code
     );
-    return Object.freeze(diagnostics);
+    const programFileNames = program.getSourceFileNames();
+    if (programFileNames.length === 0 || programFileNames.length > maximumCompilerFiles) {
+      fail("FADENO_BUILD_CHILD_COMPILER_INPUT_LIMIT");
+    }
+    const programFiles = programFileNames.map((path) => realpathSync(path)).sort(compareText);
+    const projectFiles: string[] = [];
+    for (const path of programFiles) {
+      if (!contained(projectRoot, path)) continue;
+      const relativePath = relative(projectRoot, path).split("\\").join("/");
+      if (relativePath.startsWith("dist/") || relativePath.startsWith(".fadeno/build-stage/")) {
+        fail("FADENO_BUILD_CHILD_COMPILER_INPUT");
+      }
+      const source = program.getSourceFile(path);
+      const current = readStableBoundedFile(path, maximumSourceFileBytes, "FADENO_BUILD_CHILD_INPUT").toString("utf8");
+      if (!source || source.text !== current) fail("FADENO_BUILD_CHILD_STALE_INPUT");
+      projectFiles.push(relativePath);
+    }
+    return Object.freeze({
+      diagnostics: Object.freeze(diagnostics),
+      programFiles: Object.freeze(programFiles),
+      projectFiles: Object.freeze(projectFiles),
+    });
   } finally {
     snapshot.dispose();
     api.close();
   }
 }
 
-function outputPaths(root: string, directory = root): string[] {
-  const paths: string[] = [];
+function outputPaths(
+  root: string,
+  directory = root,
+  budget = { entries: 0, pathBytes: 0 },
+  paths: string[] = [],
+): string[] {
   for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => compareText(left.name, right.name))) {
     const path = join(directory, entry.name);
+    const relativePath = relative(root, path).split("\\").join("/");
+    budget.entries += 1;
+    budget.pathBytes += Buffer.byteLength(relativePath);
+    if (budget.entries > maximumTraversalEntries || budget.pathBytes > maximumTraversalPathBytes) {
+      fail("FADENO_BUILD_CHILD_OUTPUT_LIMIT");
+    }
     if (entry.isSymbolicLink()) fail("FADENO_BUILD_CHILD_OUTPUT");
-    if (entry.isDirectory()) paths.push(...outputPaths(root, path));
-    else if (entry.isFile()) paths.push(relative(root, path).split("\\").join("/"));
+    if (entry.isDirectory()) outputPaths(root, path, budget, paths);
+    else if (entry.isFile()) paths.push(relativePath);
     else fail("FADENO_BUILD_CHILD_OUTPUT");
   }
   return paths;
+}
+
+function assertCompilerOwnership(
+  programFiles: readonly string[],
+  projectRoot: string,
+  closures: readonly RuntimeClosure[],
+): void {
+  const ownership = closures.map((closure) => Object.freeze({
+    root: realpathSync(resolve(closure.root)),
+    paths: new Set(closure.identity.files.map(({ path }) => path)),
+  }));
+  for (const file of programFiles) {
+    if (contained(projectRoot, file)) continue;
+    const owner = ownership.find(({ root }) => contained(root, file));
+    const path = owner ? relative(owner.root, file).split("\\").join("/") : null;
+    if (!owner || !path || !owner.paths.has(path)) fail("FADENO_BUILD_CHILD_COMPILER_INPUT");
+  }
 }
 
 function emit(projectRoot: string, stageRoot: string): void {
@@ -213,27 +287,31 @@ function emit(projectRoot: string, stageRoot: string): void {
   if (result.error || result.status !== 0 || result.signal !== null) fail("FADENO_BUILD_CHILD_EMIT");
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const input = request();
   const projectRoot = ownedRoot(input.projectRoot, "FADENO_BUILD_CHILD_PROJECT");
   if (resolve(input.projectRoot) !== projectRoot) fail("FADENO_BUILD_CHILD_PROJECT");
   for (const closure of input.runtimeClosures) assertPrivateRuntimeIdentity(closure.root, closure.identity);
   const environment = capturePrivateEnvironment(projectRoot, process.env);
   if (environment.sha256 !== input.environmentSha256) fail("FADENO_BUILD_CHILD_ENVIRONMENT");
-  const configBytes = readFileSync(join(projectRoot, "tsconfig.json"));
-  if (configBytes.byteLength > maximumRequestBytes) fail("FADENO_BUILD_CHILD_TSCONFIG");
+  const configPath = join(projectRoot, "tsconfig.json");
+  const configBytes = readStableBoundedFile(configPath, maximumRequestBytes, "FADENO_BUILD_CHILD_TSCONFIG");
   let config: unknown;
   try { config = JSON.parse(configBytes.toString("utf8")); } catch { fail("FADENO_BUILD_CHILD_TSCONFIG"); }
   assertPrivateBuildCompilerContract(config);
   const stageRoot = prepareStage(projectRoot, input.stageRoot, input.generation);
-  const sourcePaths = projectInputPaths(projectRoot);
-  const before = capturePrivateRuntimeIdentity(projectRoot, sourcePaths);
-  const diagnostics = structuredDiagnostics(projectRoot);
-  const afterAnalysis = capturePrivateRuntimeIdentity(projectRoot, sourcePaths);
-  if (afterAnalysis.sha256 !== before.sha256 || !readFileSync(join(projectRoot, "tsconfig.json")).equals(configBytes)) {
+  const analysis = await structuredDiagnostics(projectRoot);
+  assertCompilerOwnership(analysis.programFiles, projectRoot, input.runtimeClosures);
+  const sourcePaths = new Set(analysis.projectFiles);
+  for (const path of ["tsconfig.json", "package.json", ".env", ".env.local"]) {
+    if (existsSync(join(projectRoot, path))) sourcePaths.add(path);
+  }
+  const ownedSourcePaths = Object.freeze([...sourcePaths].sort(compareText));
+  const before = capturePrivateRuntimeIdentity(projectRoot, ownedSourcePaths);
+  if (!readStableBoundedFile(configPath, maximumRequestBytes, "FADENO_BUILD_CHILD_TSCONFIG").equals(configBytes)) {
     fail("FADENO_BUILD_CHILD_STALE_INPUT");
   }
-  if (diagnostics.length > 0) {
+  if (analysis.diagnostics.length > 0) {
     for (const closure of input.runtimeClosures) assertPrivateRuntimeIdentity(closure.root, closure.identity);
     if (capturePrivateEnvironment(projectRoot, process.env).sha256 !== environment.sha256) {
       fail("FADENO_BUILD_CHILD_ENVIRONMENT");
@@ -245,12 +323,12 @@ function main(): void {
       status: "diagnostics",
       environmentSha256: environment.sha256,
       inputSha256: before.sha256,
-      diagnostics,
+      diagnostics: analysis.diagnostics,
     }))}\n`);
     return;
   }
   emit(projectRoot, stageRoot);
-  const after = capturePrivateRuntimeIdentity(projectRoot, sourcePaths);
+  const after = capturePrivateRuntimeIdentity(projectRoot, ownedSourcePaths);
   if (after.sha256 !== before.sha256) fail("FADENO_BUILD_CHILD_STALE_INPUT");
   for (const closure of input.runtimeClosures) assertPrivateRuntimeIdentity(closure.root, closure.identity);
   if (capturePrivateEnvironment(projectRoot, process.env).sha256 !== environment.sha256) fail("FADENO_BUILD_CHILD_ENVIRONMENT");
@@ -274,7 +352,7 @@ function main(): void {
   }))}\n`);
 }
 
-try { main(); } catch (error) {
+try { await main(); } catch (error) {
   const identity = error instanceof Error && /^FADENO_/u.test(error.message) ? error.message : "FADENO_BUILD_CHILD_INTERNAL";
   process.stderr.write(`${identity}\n`);
   process.exitCode = 3;

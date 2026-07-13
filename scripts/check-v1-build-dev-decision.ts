@@ -92,6 +92,15 @@ try {
   assert.equal(identity.schemaVersion, 1);
   assert.deepEqual(identity.files.map(({ path }) => path), ["dist/runtime.js", "package.json"]);
   assert.doesNotThrow(() => { assertPrivateRuntimeIdentity(packageRoot, identity); });
+  assert.throws(() => {
+    assertPrivateRuntimeIdentity(packageRoot, { ...identity, schemaVersion: 2 } as never);
+  }, /FADENO_BUILD_RUNTIME_IDENTITY/u);
+  assert.throws(() => {
+    assertPrivateRuntimeIdentity(packageRoot, {
+      ...identity,
+      files: [{ ...identity.files[0]!, bytes: identity.files[0]!.bytes + 1 }, ...identity.files.slice(1)],
+    });
+  }, /FADENO_BUILD_RUNTIME_IDENTITY/u);
   writeFileSync(join(packageRoot, "dist/runtime.js"), "export const generation = 2;\n");
   assert.throws(() => { assertPrivateRuntimeIdentity(packageRoot, identity); }, /FADENO_BUILD_RUNTIME_IDENTITY/u);
   assert.throws(() => { capturePrivateRuntimeIdentity(packageRoot, ["package.json", "package.json"]); }, /FADENO_BUILD_RUNTIME_IDENTITY/u);
@@ -123,7 +132,9 @@ try {
     "VALUE='unterminated\n",
     "9VALUE=bad\n",
   ]) assert.throws(() => { parsePrivateEnvironmentFile(invalid); }, /FADENO_BUILD_ENV/u);
+  assert.equal(parsePrivateEnvironmentFile("__proto__=plain-data\n")["__proto__"], "plain-data");
   assert.throws(() => { capturePrivateEnvironment(projectRoot, { "BAD-NAME": "bad" }); }, /FADENO_BUILD_ENV/u);
+  assert.throws(() => { capturePrivateEnvironment(projectRoot, { INVALID_VALUE: 1 } as never); }, /FADENO_BUILD_ENV/u);
   rmSync(join(projectRoot, ".env.local"));
   symlinkSync(join(externalRoot, "file.js"), join(projectRoot, ".env.local"));
   assert.throws(() => { capturePrivateEnvironment(projectRoot, {}); }, /FADENO_BUILD_ENV/u);
@@ -145,6 +156,7 @@ try {
     output: "Fadeno development diagnostics cleared; new generation active.\n",
   });
   assert.throws(() => { recovery.prepare(3); }, /FADENO_DEV_STATE/u);
+  assert.throws(() => { recovery.prepare(Number.NaN); }, /FADENO_DEV_STATE/u);
 
   const graceful = new PrivateDevelopmentDecisionModel(100, 4_173);
   graceful.ready(1);
@@ -170,6 +182,7 @@ try {
     state: "forced", acceptedGeneration: 1, candidateGeneration: null, exitCode: 3,
     output: "Fadeno development shutdown forced.\n",
   });
+  assert.throws(() => { new PrivateDevelopmentDecisionModel(100, 4_173).tick(Number.NaN); }, /FADENO_DEV_STATE/u);
   assert.throws(() => { new PrivateDevelopmentDecisionModel(100, 0); }, /FADENO_DEV_ADDRESS/u);
 } finally {
   rmSync(temporaryRoot, { recursive: true, force: true });
