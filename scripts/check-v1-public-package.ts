@@ -293,10 +293,12 @@ try {
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-diagnostics-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-diagnostics")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
   for (const [subpath, symbol] of [
+    ["action-decision", "createDecisionAction"],
     ["analyzer-explain", "AnalyzerExplainCoordinator"],
     ["analyzer-route-explain", "createRouteExplainContribution"],
     ["project-build", "runProjectBuildCommand"],
     ["project-dev", "runProjectDevCommand"],
+    ["session-decision", "createDecisionSession"],
   ] as const) {
     const internalJs = join(installedPackage, `dist/internal/${subpath}.js`);
     const internalTypes = join(installedPackage, `dist/internal/${subpath}.d.ts`);

@@ -48,7 +48,9 @@ Every partial or complete upload has framework-owned exactly-once cleanup.
    changed server state.
 6. A proof is HMAC-SHA-256 bound to action, route, generation, session identity,
    session CSRF secret, issue time, and a 24-byte nonce. It lives at most 15
-   minutes and is atomically consumed once before authorization.
+   minutes and is atomically consumed once before authorization. Its non-secret
+   key ID permits an accepted prior session key to verify a still-fresh form;
+   the HMAC key is purpose-separated with HKDF-SHA-256.
 7. Replay retention is expiry-aware and bounded to 4,096 process entries and
    64 per session. The initial action server is single-process; multi-process
    mutation serving is unsupported until an atomic shared owner is accepted.

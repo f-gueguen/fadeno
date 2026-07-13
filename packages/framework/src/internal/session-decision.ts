@@ -1,4 +1,5 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { isProxy } from "node:util/types";
 
 const cookieName = "__Host-fadeno-session";
 const envelopeVersion = "v1";
@@ -10,6 +11,7 @@ const maximumValueDepth = 16;
 const maximumValueEntries = 256;
 const sessionLifetimeMilliseconds = 12 * 60 * 60 * 1_000;
 const encoder = new TextEncoder();
+const actionProofPurpose = Buffer.from("fadeno:action-proof:v1", "utf8");
 
 export type DecisionSessionValue =
   | null
@@ -31,6 +33,7 @@ export const decisionSessionLimits = Object.freeze({
 type KeyState = Readonly<{ id: string; bytes: Buffer }>;
 type KeyringState = Readonly<{ active: KeyState; byId: ReadonlyMap<string, KeyState> }>;
 const keyrings = new WeakMap<object, KeyringState>();
+const sessionOwners = new WeakMap<object, DecisionSessionKeyring>();
 
 export interface DecisionSessionKeyring { readonly decisionSessionKeyring: unique symbol }
 
@@ -59,6 +62,7 @@ function decodeBase64url(value: string, code: string): Buffer {
 }
 
 function plainObject(value: object): boolean {
+  if (isProxy(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
@@ -84,7 +88,7 @@ function normalizeValues(value: unknown): Readonly<{ value: DecisionSessionValue
       addBytes(encoder.encode(current).byteLength);
       return current;
     }
-    if (typeof current !== "object" || active.has(current)) fail("FADENO_SESSION_VALUE");
+    if (typeof current !== "object" || isProxy(current) || active.has(current)) fail("FADENO_SESSION_VALUE");
     active.add(current);
     try {
       if (Array.isArray(current)) {
@@ -95,13 +99,26 @@ function normalizeValues(value: unknown): Readonly<{ value: DecisionSessionValue
           if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) fail("FADENO_SESSION_VALUE");
           result.push(visit(descriptor.value, depth + 1));
         }
-        if (Object.keys(current).length !== current.length) fail("FADENO_SESSION_VALUE");
+        let ownKeys = 0;
+        for (const name in current) {
+          if (!Object.hasOwn(current, name)) continue;
+          ownKeys += 1;
+          if (ownKeys > current.length || !/^(0|[1-9][0-9]*)$/u.test(name) || Number(name) >= current.length) {
+            fail("FADENO_SESSION_VALUE");
+          }
+        }
+        if (ownKeys !== current.length) fail("FADENO_SESSION_VALUE");
         return Object.freeze(result);
       }
       if (!plainObject(current)) fail("FADENO_SESSION_VALUE");
       const result: Record<string, DecisionSessionValue> = Object.create(null) as Record<string, DecisionSessionValue>;
-      const names = Object.keys(current).sort(compareText);
-      if (names.length > maximumValueEntries - entries) fail("FADENO_SESSION_VALUE_LIMIT");
+      const names: string[] = [];
+      for (const name in current) {
+        if (!Object.hasOwn(current, name)) continue;
+        names.push(name);
+        if (names.length > maximumValueEntries - entries) fail("FADENO_SESSION_VALUE_LIMIT");
+      }
+      names.sort(compareText);
       for (const name of names) {
         addBytes(encoder.encode(name).byteLength);
         const descriptor = Object.getOwnPropertyDescriptor(current, name);
@@ -116,7 +133,6 @@ function normalizeValues(value: unknown): Readonly<{ value: DecisionSessionValue
   const normalized = visit(value, 0);
   const json = JSON.stringify(normalized);
   if (encoder.encode(json).byteLength > maximumValueBytes) fail("FADENO_SESSION_VALUE_LIMIT");
-  try { structuredClone(value); } catch { fail("FADENO_SESSION_VALUE"); }
   return Object.freeze({ value: normalized, json });
 }
 
@@ -143,7 +159,7 @@ function keyringState(keyring: DecisionSessionKeyring): KeyringState {
 }
 
 function snapshot(values: unknown, now: number, identity?: Readonly<{ sessionId: string; csrfSecret: string; createdAt: number }>): DecisionSessionSnapshot {
-  if (!Number.isSafeInteger(now) || now < 0) fail("FADENO_SESSION_TIME");
+  if (!Number.isSafeInteger(now) || now < 0 || now > Number.MAX_SAFE_INTEGER - sessionLifetimeMilliseconds) fail("FADENO_SESSION_TIME");
   const normalized = normalizeValues(values);
   return Object.freeze({
     sessionId: identity?.sessionId ?? base64url(randomBytes(32)),
@@ -180,6 +196,7 @@ export function createDecisionSession(
   now: number,
 ): Readonly<{ envelope: string; snapshot: DecisionSessionSnapshot }> {
   const created = snapshot(values, now);
+  sessionOwners.set(created, keyring);
   return Object.freeze({ envelope: seal(keyring, created), snapshot: created });
 }
 
@@ -231,6 +248,7 @@ export function openDecisionSession(
     if (plaintext.byteLength > maximumValueBytes + 1_024) fail("FADENO_SESSION_COOKIE_LIMIT");
     const opened = parseSnapshot(JSON.parse(plaintext.toString("utf8")) as unknown);
     if (now >= opened.expiresAt) return Object.freeze({ status: "expired", snapshot: null, clearCookie: true });
+    sessionOwners.set(opened, keyring);
     return Object.freeze({
       status: key.id === state.active.id ? "valid" : "renew",
       snapshot: opened,
@@ -248,15 +266,51 @@ export function renewDecisionSession(
   now: number,
   mode: "retain-identity" | "privilege-change",
 ): Readonly<{ envelope: string; snapshot: DecisionSessionSnapshot }> {
+  if (sessionOwners.get(current) !== keyring || (mode !== "retain-identity" && mode !== "privilege-change")) {
+    fail("FADENO_SESSION_SNAPSHOT");
+  }
   if (now >= current.expiresAt) fail("FADENO_SESSION_EXPIRED");
   const next = mode === "privilege-change"
     ? snapshot(values, now)
     : snapshot(values, now, current);
+  sessionOwners.set(next, keyring);
   return Object.freeze({ envelope: seal(keyring, next), snapshot: next });
 }
 
+export function assertDecisionSessionSnapshot(value: unknown): asserts value is DecisionSessionSnapshot {
+  if (!value || typeof value !== "object" || !sessionOwners.has(value)) fail("FADENO_SESSION_SNAPSHOT");
+}
+
+export function assertDecisionSessionOwner(value: unknown, keyring: DecisionSessionKeyring): asserts value is DecisionSessionSnapshot {
+  if (!value || typeof value !== "object" || sessionOwners.get(value) !== keyring) fail("FADENO_SESSION_SNAPSHOT");
+}
+
+function actionProofKey(key: KeyState): Buffer {
+  return Buffer.from(hkdfSync("sha256", key.bytes, Buffer.alloc(0), actionProofPurpose, 32));
+}
+
+export function signDecisionActionProof(keyring: DecisionSessionKeyring, message: string): Readonly<{ keyId: string; signature: Buffer }> {
+  const active = keyringState(keyring).active;
+  return Object.freeze({ keyId: active.id, signature: createHmac("sha256", actionProofKey(active)).update(message).digest() });
+}
+
+export function verifyDecisionActionProof(
+  keyring: DecisionSessionKeyring,
+  keyId: string,
+  message: string,
+  signature: Uint8Array,
+): boolean {
+  const key = keyringState(keyring).byId.get(keyId);
+  if (!key || !(signature instanceof Uint8Array) || signature.byteLength !== 32) return false;
+  const expected = createHmac("sha256", actionProofKey(key)).update(message).digest();
+  return timingSafeEqual(Buffer.from(signature), expected);
+}
+
 export function formatDecisionSessionCookie(envelope: string, now: number, expiresAt: number): string {
-  if (typeof envelope !== "string" || Buffer.byteLength(`${cookieName}=${envelope}`) > maximumCookieBytes || expiresAt <= now) {
+  if (
+    typeof envelope !== "string" || Buffer.byteLength(`${cookieName}=${envelope}`) > maximumCookieBytes ||
+    !Number.isSafeInteger(now) || !Number.isSafeInteger(expiresAt) || now < 0 || expiresAt <= now
+  ) {
     fail("FADENO_SESSION_COOKIE");
   }
   const maximumAge = Math.floor((expiresAt - now) / 1_000);

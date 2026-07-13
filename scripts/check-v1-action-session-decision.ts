@@ -26,6 +26,7 @@ import {
   formatDecisionSessionDeletionCookie,
   openDecisionSession,
   renewDecisionSession,
+  type DecisionSessionKeyring,
   type DecisionSessionSnapshot,
 } from "../packages/framework/src/internal/session-decision.ts";
 
@@ -47,7 +48,6 @@ assert.equal(new Set(corpus.cases.map(({ id }) => id)).size, corpus.cases.length
 const now = 1_000_000;
 const oldKey = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
 const activeKey = Uint8Array.from({ length: 32 }, (_, index) => 255 - index);
-const proofKey = Uint8Array.from({ length: 32 }, (_, index) => index + 101);
 const oldKeyring = createDecisionSessionKeyring([{ id: "old", key: oldKey }]);
 const keyring = createDecisionSessionKeyring([{ id: "active", key: activeKey }, { id: "old", key: oldKey }]);
 const created = createDecisionSession(oldKeyring, { accountId: 7, role: "editor" }, now);
@@ -63,14 +63,20 @@ const action = createDecisionAction({
 });
 
 let nonceCounter = 0;
-function proof(target = action, owner = session, generation = "generation-1", routeId = "route:projects/edit"): string {
+function proof(
+  target = action,
+  owner = session,
+  generation = "generation-1",
+  routeId = "route:projects/edit",
+  signingKeyring: DecisionSessionKeyring = oldKeyring,
+): string {
   nonceCounter += 1;
   return issueDecisionActionProof({
     action: target,
     routeId,
     generation,
     session: owner,
-    proofKey,
+    keyring: signingKeyring,
     now,
     nonce: new Uint8Array(24).fill(nonceCounter),
   });
@@ -86,6 +92,7 @@ type ExecuteOverrides = Partial<Readonly<{
   expectedRouteId: string;
   generation: string;
   submittedProof: string;
+  keyring: DecisionSessionKeyring;
   owner: DecisionSessionSnapshot;
   replay: DecisionReplayLedger;
   contentLength: number;
@@ -107,6 +114,7 @@ async function execute(overrides: ExecuteOverrides = {}): Promise<DecisionAction
   const owner = overrides.owner ?? session;
   const routeId = overrides.routeId ?? "route:projects/edit";
   const generation = overrides.generation ?? "generation-1";
+  const selectedKeyring = overrides.keyring ?? oldKeyring;
   return executeDecisionAction({
     action: selectedAction,
     method: overrides.method ?? "POST",
@@ -116,8 +124,8 @@ async function execute(overrides: ExecuteOverrides = {}): Promise<DecisionAction
     routeId,
     expectedRouteId: overrides.expectedRouteId ?? "route:projects/edit",
     generation,
-    proof: overrides.submittedProof ?? proof(selectedAction, owner, generation, routeId),
-    proofKey,
+    proof: overrides.submittedProof ?? proof(selectedAction, owner, generation, routeId, selectedKeyring),
+    keyring: selectedKeyring,
     session: owner,
     replay: overrides.replay ?? new DecisionReplayLedger(),
     contentLength: overrides.contentLength ?? 1_024,
@@ -196,6 +204,7 @@ assert.equal(boundaryAuthorizationCalls, 0);
 assert.equal(boundaryMutationCalls, 0);
 record("cross-origin", crossOrigin.code);
 record("invalid-proof", (await execute({ submittedProof: "v1.invalid" })).code);
+assert.equal((await execute({ submittedProof: "x".repeat(10_000) })).code, "FADENO_ACTION_PROOF");
 record("expired-proof", (await execute({ submittedProof: proof(), time: now + decisionActionLimits.proofLifetimeMilliseconds + 1 })).code);
 record("wrong-route", (await execute({ expectedRouteId: "route:projects/other" })).code);
 record("stale-generation", (await execute({ generation: "generation-2", submittedProof: proof(action, session, "generation-1") })).code);
@@ -212,6 +221,7 @@ const authorizationFailure = await execute({
 assert.equal(authorizationFailureMutations, 0);
 assert.equal(JSON.stringify(authorizationFailure).includes("credential backend"), false);
 record("authorization-failure", authorizationFailure.code);
+assert.equal((await execute({ authorize: (() => "yes") as never })).code, "FADENO_ACTION_INTERNAL");
 
 const replayLedger = new DecisionReplayLedger();
 const replayProof = proof();
@@ -227,15 +237,25 @@ assert.equal((await execute({ replay: boundedReplay })).code, "FADENO_ACTION_REP
 const unsafeRedirect = await execute({ run: () => ({ redirect: "https://attacker.test/steal" }) });
 assert.equal(unsafeRedirect.revalidation, "complete", "unsafe completion after mutation still refreshes server truth");
 record("unsafe-redirect", unsafeRedirect.code);
+assert.equal((await execute({ run: (() => ({ redirect: 7 })) as never })).code, "FADENO_ACTION_INTERNAL");
 
 const expectedUnchanged = await execute({ run: () => { throw decisionActionFailure({ code: "PROJECT_CONFLICT", fieldErrors: { title: "Already exists" } }); } });
 assert.equal(expectedUnchanged.revalidation, "none");
-assert.deepEqual(expectedUnchanged.expectedFailure, { code: "PROJECT_CONFLICT", changed: false, fieldErrors: { title: "Already exists" }, formErrors: [] });
+assert.deepEqual(
+  expectedUnchanged.expectedFailure && { ...expectedUnchanged.expectedFailure, fieldErrors: { ...expectedUnchanged.expectedFailure.fieldErrors } },
+  { code: "PROJECT_CONFLICT", changed: false, fieldErrors: { title: "Already exists" }, formErrors: [] },
+);
 record("expected-unchanged", expectedUnchanged.code);
 const expectedChanged = await execute({ run: () => { throw decisionActionFailure({ code: "PROJECT_STORED_WITH_WARNING", changed: true, formErrors: ["Notification failed"] }); } });
 assert.equal(expectedChanged.revalidation, "complete");
-assert.deepEqual(expectedChanged.expectedFailure, { code: "PROJECT_STORED_WITH_WARNING", changed: true, fieldErrors: {}, formErrors: ["Notification failed"] });
+assert.deepEqual(
+  expectedChanged.expectedFailure && { ...expectedChanged.expectedFailure, fieldErrors: { ...expectedChanged.expectedFailure.fieldErrors } },
+  { code: "PROJECT_STORED_WITH_WARNING", changed: true, fieldErrors: {}, formErrors: ["Notification failed"] },
+);
 record("expected-changed", expectedChanged.code);
+assert.equal((await execute({ run: () => { throw decisionActionFailure({ code: "PROJECT_UNKNOWN_FIELD", fieldErrors: { unknown: "No owner" } }); } })).code, "FADENO_ACTION_INTERNAL");
+assert.throws(() => decisionActionFailure({ code: "PROJECT_INVALID", changed: "yes" } as never), /FADENO_ACTION_EXPECTED_FAILURE/u);
+assert.throws(() => decisionActionFailure({ code: "PROJECT_INVALID", formErrors: ["x".repeat(1_025)] }), /FADENO_ACTION_EXPECTED_FAILURE/u);
 
 const tamperedEnvelope = `${created.envelope.slice(0, -1)}${created.envelope.endsWith("A") ? "B" : "A"}`;
 const tampered = openDecisionSession(oldKeyring, tamperedEnvelope, now);
@@ -251,15 +271,21 @@ assert.ok(prior.snapshot);
 const renewedKey = renewDecisionSession(keyring, prior.snapshot, prior.snapshot.values, now + 1, "retain-identity");
 assert.equal(renewedKey.snapshot.sessionId, session.sessionId);
 assert.equal(openDecisionSession(keyring, renewedKey.envelope, now + 1).status, "valid");
+assert.equal((await execute({
+  owner: prior.snapshot,
+  keyring,
+  submittedProof: proof(action, session, "generation-1", "route:projects/edit", oldKeyring),
+})).status, "success", "an accepted prior session key verifies an unexpired form proof");
 
-const privileged = renewDecisionSession(keyring, session, { accountId: 7, role: "administrator" }, now + 1, "privilege-change");
+const privileged = renewDecisionSession(keyring, prior.snapshot, { accountId: 7, role: "administrator" }, now + 1, "privilege-change");
 assert.notEqual(privileged.snapshot.sessionId, session.sessionId);
 assert.notEqual(privileged.snapshot.csrfSecret, session.csrfSecret);
 assert.equal(privileged.snapshot.createdAt, now + 1);
 record("session-fixation", "rotated");
+assert.equal((await execute({ owner: privileged.snapshot, keyring, submittedProof: proof(action, session) })).code, "FADENO_ACTION_PROOF");
 
 const other = createDecisionSession(keyring, { accountId: 8 }, now).snapshot;
-record("invalid-proof", (await execute({ owner: other, submittedProof: proof(action, session) })).code);
+record("invalid-proof", (await execute({ owner: other, keyring, submittedProof: proof(action, session) })).code);
 
 let recoveryAttempt = 0;
 const recoveryFailure = await execute({ run: () => {
@@ -281,8 +307,14 @@ assert.match(formatDecisionSessionCookie(created.envelope, now, session.expiresA
 assert.equal(formatDecisionSessionDeletionCookie(), "__Host-fadeno-session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax");
 assert.throws(() => createDecisionSessionKeyring([]), /FADENO_SESSION_KEYS/u);
 assert.throws(() => createDecisionAction({ title: Object.freeze({ kind: "text", required: true, maximumBytes: 12 }) as never }), /FADENO_ACTION_DECLARATION/u);
+assert.throws(() => decisionFileField({ acceptedTypes: [`text/${"x".repeat(128)}`] }), /FADENO_ACTION_DECLARATION/u);
 assert.throws(() => createDecisionSessionKeyring([{ id: "short", key: new Uint8Array(31) }]), /FADENO_SESSION_KEYS/u);
+const activeOnly = createDecisionSessionKeyring([{ id: "active", key: activeKey }]);
+assert.equal(openDecisionSession(activeOnly, created.envelope, now).status, "invalid", "unknown key IDs fail closed");
+assert.throws(() => renewDecisionSession(keyring, session, session.values, now + 1, "retain-identity"), /FADENO_SESSION_SNAPSHOT/u);
+assert.throws(() => renewDecisionSession(keyring, { ...session } as never, session.values, now + 1, "retain-identity"), /FADENO_SESSION_SNAPSHOT/u);
 assert.throws(() => createDecisionSession(keyring, { secret: "x".repeat(decisionSessionLimits.maximumValueBytes + 1) }, now), /FADENO_SESSION_VALUE_LIMIT/u);
+assert.throws(() => createDecisionSession(keyring, {}, Number.MAX_SAFE_INTEGER), /FADENO_SESSION_TIME/u);
 const cyclic: Record<string, unknown> = {};
 cyclic["cycle"] = cyclic;
 assert.throws(() => createDecisionSession(keyring, cyclic as never, now), /FADENO_SESSION_VALUE/u);
@@ -290,6 +322,9 @@ let getterRan = false;
 const accessor = Object.defineProperty({}, "secret", { enumerable: true, get() { getterRan = true; return "exposed"; } });
 assert.throws(() => createDecisionSession(keyring, accessor, now), /FADENO_SESSION_VALUE/u);
 assert.equal(getterRan, false);
+const wideSession: Record<string, null> = {};
+for (let index = 0; index < decisionSessionLimits.maximumValueEntries + 10; index += 1) wideSession[`key-${index}`] = null;
+assert.throws(() => createDecisionSession(keyring, wideSession, now), /FADENO_SESSION_VALUE_LIMIT/u);
 
 const expectedHuman = [
   "FADENO_ACTION_ORIGIN: The mutation was refused because its Origin did not exactly match the application origin.",

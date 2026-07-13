@@ -45,7 +45,7 @@ values in an error.
 | Open redirect | Action completion accepts only normalized exact-origin HTTPS status 303; unsafe completion is refused and revalidated | native success and `unsafe-redirect` |
 | Stale resources after mutation | Success and changed/unknown failure perform complete revalidation; unchanged expected failure explicitly does not | expected changed/unchanged and recovery fixtures |
 | Session disclosure or forgery | AES-256-GCM with random nonce and authenticated cookie/version/key metadata; values never appear in evidence | round trip, tamper, serialization/redaction checks |
-| Key rotation logout or downgrade | Active key encrypts; bounded prior keys decrypt then reseal; unknown key fails closed | `session-prior-key`, invalid-key checks |
+| Key rotation logout or downgrade | Active key encrypts/signs; bounded prior keys decrypt then reseal and verify only still-fresh keyed proofs; removed or unknown key fails closed | `session-prior-key`, prior-key proof, invalid-key checks |
 | Session fixation | Fresh 32-byte session and CSRF identities plus required privilege-change rotation | `session-fixation` |
 | Indefinite credential lifetime | Twelve-hour absolute expiry; ordinary renewal cannot extend it; expiry clears the cookie | `session-expired`, retained-identity assertions |
 | Cookie scope widening | `__Host-` name, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`, bounded pair | cookie and deletion assertions |
@@ -69,9 +69,10 @@ newer terminal outcome owns the request.
 ## Limits and denial of service
 
 All framework-retained request state is bounded by ADR 0035. Replay admission
-removes expired entries and scans at most 4,096 live entries per accepted
-attempt; this is a deliberate bounded correctness-first V1 cost, not a
-throughput claim. Parsing and cryptography still consume CPU and memory up to
+is constant-time until a ledger or session reaches its cap; expiry cleanup then
+scans at most 4,096 live entries, and an earliest-expiry guard prevents repeated
+full scans while nothing can expire. This is a bounded correctness-first V1
+cost, not a throughput claim. Parsing and cryptography still consume CPU and memory up to
 the accepted body/file/time limits. The adapter must apply request and
 connection limits before an attacker can accumulate unbounded simultaneous
 bodies. V1-13 performance evidence measures the complete native action path.

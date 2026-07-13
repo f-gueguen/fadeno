@@ -111,10 +111,12 @@ single replay consume point, and exactly-once cleanup.
 Each rendered form proof is an authenticated private v1 envelope bound to the
 opaque action identity, applicable route, application generation, 32-byte
 session identity, 32-byte session CSRF secret, issue time, and a fresh 24-byte
-nonce. HMAC-SHA-256 uses a purpose-separated key derived from the active
-session key. The proof carries no session secret. Proofs live for at most 15
-minutes and never beyond session expiry. Wrong action, route, generation,
-session, signature, encoding, or time fails closed.
+nonce. HMAC-SHA-256 uses an HKDF-SHA-256 purpose-separated key derived from the
+active session key. The proof carries the non-secret key ID so an accepted
+prior key can verify a form rendered immediately before rotation; removed and
+unknown key IDs fail closed. The proof carries no session secret. Proofs live
+for at most 15 minutes and never beyond session expiry. Wrong action, route,
+generation, session, signature, encoding, key, or time fails closed.
 
 An accepted proof is consumed once before authorization. The initial runtime
 keeps an expiry-aware process-local ledger bounded to 4,096 live entries and 64
@@ -273,5 +275,5 @@ success, method/media/route/generation/proof refusal, missing/malformed/
 duplicate/unexpected fields, aggregate and duration limits, hostile upload
 cleanup, exact origin, cross-session isolation, denial, authorization failure,
 bounded replay, safe and unsafe redirects, changed/unchanged expected failure,
-tamper, expiry, active/prior key rotation, fixation resistance, redaction,
+tamper, expiry, active/prior session and proof-key rotation, fixation resistance, redaction,
 serialization, flow inspection, and fresh-request recovery.

@@ -1,6 +1,12 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
-import type { DecisionSessionSnapshot } from "./session-decision.js";
+import {
+  assertDecisionSessionOwner,
+  signDecisionActionProof,
+  verifyDecisionActionProof,
+  type DecisionSessionKeyring,
+  type DecisionSessionSnapshot,
+} from "./session-decision.ts";
 
 const encoder = new TextEncoder();
 const proofVersion = "v1";
@@ -15,6 +21,9 @@ const maximumFileNameBytes = 256;
 const maximumBoundaryDurationMilliseconds = 5_000;
 const maximumReplayEntries = 4_096;
 const maximumSessionReplayEntries = 64;
+const maximumFailureTextBytes = 1_024;
+const maximumFailureBytes = 16 * 1_024;
+const maximumFormErrors = 16;
 
 export const decisionActionLimits = Object.freeze({
   proofLifetimeMilliseconds,
@@ -107,10 +116,6 @@ function boundedPositiveInteger(value: unknown, maximum: number): number {
   return value as number;
 }
 function base64url(bytes: Uint8Array): string { return Buffer.from(bytes).toString("base64url"); }
-function proofKey(key: Uint8Array): Buffer {
-  if (!(key instanceof Uint8Array) || key.byteLength !== 32) fail("FADENO_ACTION_PROOF_KEY");
-  return Buffer.from(key);
-}
 function state(action: DecisionAction): ActionState {
   const found = actions.get(action);
   if (!found) fail("FADENO_ACTION_DECLARATION");
@@ -158,7 +163,7 @@ export function decisionFileField(options: Readonly<{ required?: boolean; maximu
   const acceptedTypes = options.acceptedTypes ?? [];
   if (
     typeof required !== "boolean" || !Array.isArray(acceptedTypes) || acceptedTypes.length > 16 ||
-    acceptedTypes.some((value) => typeof value !== "string" || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/u.test(value))
+    acceptedTypes.some((value) => typeof value !== "string" || value.length > 127 || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/u.test(value))
   ) fail("FADENO_ACTION_DECLARATION");
   const field = Object.freeze({
     kind: "file",
@@ -199,10 +204,11 @@ export function issueDecisionActionProof(input: Readonly<{
   routeId: string;
   generation: string;
   session: DecisionSessionSnapshot;
-  proofKey: Uint8Array;
+  keyring: DecisionSessionKeyring;
   now: number;
   nonce?: Uint8Array;
 }>): string {
+  assertDecisionSessionOwner(input.session, input.keyring);
   if (!Number.isSafeInteger(input.now) || input.now < 0 || input.now >= input.session.expiresAt) fail("FADENO_ACTION_PROOF");
   if (
     !input.routeId || !input.generation || input.routeId.includes("\0") || input.generation.includes("\0") ||
@@ -213,10 +219,11 @@ export function issueDecisionActionProof(input: Readonly<{
   const nonceBytes = input.nonce ?? randomBytes(24);
   if (!(nonceBytes instanceof Uint8Array) || nonceBytes.byteLength !== 24) fail("FADENO_ACTION_PROOF");
   const nonce = base64url(nonceBytes);
-  const signature = createHmac("sha256", proofKey(input.proofKey))
-    .update(proofMessage(state(input.action), input.routeId, input.generation, input.session, input.now, nonce))
-    .digest();
-  return [proofVersion, String(input.now), nonce, base64url(signature)].join(".");
+  const signed = signDecisionActionProof(
+    input.keyring,
+    proofMessage(state(input.action), input.routeId, input.generation, input.session, input.now, nonce),
+  );
+  return [proofVersion, signed.keyId, String(input.now), nonce, base64url(signed.signature)].join(".");
 }
 
 function validateProof(input: Readonly<{
@@ -225,23 +232,32 @@ function validateProof(input: Readonly<{
   routeId: string;
   generation: string;
   session: DecisionSessionSnapshot;
-  proofKey: Uint8Array;
+  keyring: DecisionSessionKeyring;
   now: number;
 }>): Readonly<{ replayId: string; expiresAt: number }> {
+  if (typeof input.proof !== "string" || input.proof.length > 320) fail("FADENO_ACTION_PROOF");
   const parts = input.proof.split(".");
-  if (parts.length !== 4 || parts[0] !== proofVersion || !/^(0|[1-9][0-9]*)$/u.test(parts[1]!) || !/^[A-Za-z0-9_-]{32}$/u.test(parts[2]!)) {
+  if (
+    parts.length !== 5 || parts[0] !== proofVersion || !/^[A-Za-z0-9_-]{1,32}$/u.test(parts[1]!) ||
+    !/^(0|[1-9][0-9]*)$/u.test(parts[2]!) || !/^[A-Za-z0-9_-]{32}$/u.test(parts[3]!)
+  ) {
     fail("FADENO_ACTION_PROOF");
   }
-  const issuedAt = Number(parts[1]);
-  if (!Number.isSafeInteger(issuedAt) || issuedAt > input.now || input.now - issuedAt > proofLifetimeMilliseconds || input.now >= input.session.expiresAt) {
+  const issuedAt = Number(parts[2]);
+  if (!Number.isSafeInteger(issuedAt) || issuedAt > input.now || input.now - issuedAt >= proofLifetimeMilliseconds || input.now >= input.session.expiresAt) {
     fail("FADENO_ACTION_PROOF_EXPIRED");
   }
-  const expected = createHmac("sha256", proofKey(input.proofKey))
-    .update(proofMessage(input.action, input.routeId, input.generation, input.session, issuedAt, parts[2]!))
-    .digest();
   let actual: Buffer;
-  try { actual = Buffer.from(parts[3]!, "base64url"); } catch { fail("FADENO_ACTION_PROOF"); }
-  if (actual.byteLength !== expected.byteLength || !timingSafeEqual(actual, expected) || base64url(actual) !== parts[3]) {
+  try { actual = Buffer.from(parts[4]!, "base64url"); } catch { fail("FADENO_ACTION_PROOF"); }
+  if (
+    base64url(actual) !== parts[4] ||
+    !verifyDecisionActionProof(
+      input.keyring,
+      parts[1]!,
+      proofMessage(input.action, input.routeId, input.generation, input.session, issuedAt, parts[3]!),
+      actual,
+    )
+  ) {
     fail("FADENO_ACTION_PROOF");
   }
   return Object.freeze({
@@ -253,30 +269,50 @@ function validateProof(input: Readonly<{
 export class DecisionReplayLedger {
   readonly #entries = new Map<string, Readonly<{ sessionId: string; expiresAt: number }>>();
   readonly #perSession = new Map<string, number>();
+  #nextExpiry = Number.POSITIVE_INFINITY;
 
-  consume(replayId: string, sessionId: string, expiresAt: number, now: number): void {
+  #prune(now: number): void {
+    if (now < this.#nextExpiry) return;
+    let nextExpiry = Number.POSITIVE_INFINITY;
     for (const [id, entry] of this.#entries) {
-      if (entry.expiresAt > now) continue;
+      if (entry.expiresAt > now) {
+        nextExpiry = Math.min(nextExpiry, entry.expiresAt);
+        continue;
+      }
       this.#entries.delete(id);
       const remaining = (this.#perSession.get(entry.sessionId) ?? 1) - 1;
       if (remaining === 0) this.#perSession.delete(entry.sessionId);
       else this.#perSession.set(entry.sessionId, remaining);
     }
+    this.#nextExpiry = nextExpiry;
+  }
+
+  consume(replayId: string, sessionId: string, expiresAt: number, now: number): void {
     if (this.#entries.has(replayId)) fail("FADENO_ACTION_REPLAY");
+    if (this.#entries.size >= maximumReplayEntries || (this.#perSession.get(sessionId) ?? 0) >= maximumSessionReplayEntries) {
+      this.#prune(now);
+    }
     if (this.#entries.size >= maximumReplayEntries || (this.#perSession.get(sessionId) ?? 0) >= maximumSessionReplayEntries) {
       fail("FADENO_ACTION_REPLAY_LIMIT");
     }
     this.#entries.set(replayId, Object.freeze({ sessionId, expiresAt }));
     this.#perSession.set(sessionId, (this.#perSession.get(sessionId) ?? 0) + 1);
+    this.#nextExpiry = Math.min(this.#nextExpiry, expiresAt);
   }
 
   get size(): number { return this.#entries.size; }
 }
 
-function cleanupUploads(parts: readonly DecisionSubmissionPart[]): void {
-  for (const part of parts) {
-    if (part.kind !== "file") continue;
-    try { part.upload.cleanup(); } catch { /* cleanup failures cannot expose or accept refused input */ }
+function cleanupUploads(parts: unknown): void {
+  if (!Array.isArray(parts)) return;
+  for (const candidate of parts as readonly unknown[]) {
+    try {
+      if (!plainObject(candidate) || ownData(candidate, "kind") !== "file") continue;
+      const upload = ownData(candidate, "upload");
+      if (!plainObject(upload)) continue;
+      const cleanup = ownData(upload, "cleanup");
+      if (typeof cleanup === "function") cleanup();
+    } catch { /* cleanup failure or hostile shape cannot expose or accept refused input */ }
   }
 }
 
@@ -375,18 +411,46 @@ export function decisionActionFailure(input: Readonly<{
   fieldErrors?: Readonly<Record<string, string>>;
   formErrors?: readonly string[];
 }>): Error {
-  if (!plainObject(input) || !/^[A-Z][A-Z0-9_]{1,63}$/u.test(input.code)) fail("FADENO_ACTION_EXPECTED_FAILURE");
+  if (
+    !plainObject(input) || Object.keys(input).some((name) => !["code", "changed", "fieldErrors", "formErrors"].includes(name)) ||
+    !/^[A-Z][A-Z0-9_]{1,63}$/u.test(input.code) || (input.changed !== undefined && typeof input.changed !== "boolean")
+  ) fail("FADENO_ACTION_EXPECTED_FAILURE");
   const fieldErrors = input.fieldErrors ?? {};
   const formErrors = input.formErrors ?? [];
-  if (!plainObject(fieldErrors) || !Array.isArray(formErrors) || Object.values(fieldErrors).some((value) => typeof value !== "string") || formErrors.some((value) => typeof value !== "string")) {
+  if (!plainObject(fieldErrors) || !Array.isArray(formErrors) || formErrors.length > maximumFormErrors || Object.getPrototypeOf(formErrors) !== Array.prototype) {
     fail("FADENO_ACTION_EXPECTED_FAILURE");
   }
+  let bytes = 0;
+  const normalizedFields: Record<string, string> = Object.create(null) as Record<string, string>;
+  const fieldNames = Object.keys(fieldErrors).sort(compareText);
+  if (fieldNames.length > maximumParts) fail("FADENO_ACTION_EXPECTED_FAILURE");
+  for (const name of fieldNames) {
+    const value = ownData(fieldErrors, name);
+    const nextBytes = encoder.encode(name).byteLength + (typeof value === "string" ? encoder.encode(value).byteLength : maximumFailureBytes + 1);
+    if (
+      !/^[A-Za-z][A-Za-z0-9_-]*$/u.test(name) || typeof value !== "string" ||
+      encoder.encode(value).byteLength > maximumFailureTextBytes || nextBytes > maximumFailureBytes - bytes
+    ) fail("FADENO_ACTION_EXPECTED_FAILURE");
+    bytes += nextBytes;
+    normalizedFields[name] = value;
+  }
+  const normalizedForms: string[] = [];
+  for (let index = 0; index < formErrors.length; index += 1) {
+    const value = ownData(formErrors, String(index));
+    const valueBytes = typeof value === "string" ? encoder.encode(value).byteLength : maximumFailureBytes + 1;
+    if (typeof value !== "string" || valueBytes > maximumFailureTextBytes || valueBytes > maximumFailureBytes - bytes) {
+      fail("FADENO_ACTION_EXPECTED_FAILURE");
+    }
+    bytes += valueBytes;
+    normalizedForms.push(value);
+  }
+  if (Object.keys(formErrors).length !== formErrors.length) fail("FADENO_ACTION_EXPECTED_FAILURE");
   const error = new Error(input.code);
   expectedFailures.set(error, Object.freeze({
     code: input.code,
     changed: input.changed ?? false,
-    fieldErrors: Object.freeze({ ...fieldErrors }),
-    formErrors: Object.freeze([...formErrors]),
+    fieldErrors: Object.freeze(normalizedFields),
+    formErrors: Object.freeze(normalizedForms),
   }));
   return error;
 }
@@ -406,7 +470,7 @@ export async function executeDecisionAction(input: Readonly<{
   expectedRouteId: string;
   generation: string;
   proof: string;
-  proofKey: Uint8Array;
+  keyring: DecisionSessionKeyring;
   session: DecisionSessionSnapshot;
   replay: DecisionReplayLedger;
   contentLength: number | null;
@@ -414,7 +478,7 @@ export async function executeDecisionAction(input: Readonly<{
   parts: readonly DecisionSubmissionPart[];
   now: number;
   authorize: (fields: Readonly<Record<string, unknown>>) => boolean | Promise<boolean>;
-  run: (fields: Readonly<Record<string, unknown>>) => Readonly<{ redirect?: string }> | Promise<Readonly<{ redirect?: string }>>;
+  run: (fields: Readonly<Record<string, unknown>>) => void | Readonly<{ redirect?: string }> | Promise<void | Readonly<{ redirect?: string }>>;
 }>): Promise<DecisionActionOutcome> {
   const flow: DecisionActionFlow[] = [];
   let fields: Readonly<Record<string, unknown>> | null = null;
@@ -428,6 +492,7 @@ export async function executeDecisionAction(input: Readonly<{
       ) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
       if (input.expectedOrigin !== new URL(input.expectedOrigin).origin || input.origin !== input.expectedOrigin) fail("FADENO_ACTION_ORIGIN");
       if (input.routeId !== input.expectedRouteId) fail("FADENO_ACTION_ROUTE");
+      assertDecisionSessionOwner(input.session, input.keyring);
       const action = state(input.action);
       fields = decodeFields(action, input.parts, input.contentLength);
       const proof = validateProof({
@@ -436,7 +501,7 @@ export async function executeDecisionAction(input: Readonly<{
         routeId: input.routeId,
         generation: input.generation,
         session: input.session,
-        proofKey: input.proofKey,
+        keyring: input.keyring,
         now: input.now,
       });
       input.replay.consume(proof.replayId, input.session.sessionId, proof.expiresAt, input.now);
@@ -451,6 +516,10 @@ export async function executeDecisionAction(input: Readonly<{
       flow.push(Object.freeze({ phase: "authorization", decision: "unexpected-failure", cause: "redacted-internal-failure" }));
       return Object.freeze({ status: "unexpected-failure", code: "FADENO_ACTION_INTERNAL", revalidation: "none", redirect: null, fields: null, expectedFailure: null, flow: Object.freeze(flow) });
     }
+    if (typeof authorized !== "boolean") {
+      flow.push(Object.freeze({ phase: "authorization", decision: "unexpected-failure", cause: "invalid-authorization-result" }));
+      return Object.freeze({ status: "unexpected-failure", code: "FADENO_ACTION_INTERNAL", revalidation: "none", redirect: null, fields: null, expectedFailure: null, flow: Object.freeze(flow) });
+    }
     if (!authorized) {
       flow.push(Object.freeze({ phase: "authorization", decision: "refused", cause: "application-authorization" }));
       return Object.freeze({ status: "unauthorized", code: "FADENO_ACTION_UNAUTHORIZED", revalidation: "none", redirect: null, fields: null, expectedFailure: null, flow: Object.freeze(flow) });
@@ -460,8 +529,14 @@ export async function executeDecisionAction(input: Readonly<{
     try {
       const result = await input.run(fields);
       flow.push(Object.freeze({ phase: "mutation", decision: "completed", cause: "action-returned" }));
+      if (
+        result !== undefined &&
+        (!plainObject(result) || Object.keys(result).some((name) => name !== "redirect") ||
+          (Object.hasOwn(result, "redirect") && typeof ownData(result, "redirect") !== "string"))
+      ) fail("FADENO_ACTION_RESULT");
+      const completion = result as Readonly<{ redirect?: string }> | undefined;
       let redirect: string | null;
-      try { redirect = safeRedirect(result.redirect, input.expectedOrigin); }
+      try { redirect = safeRedirect(completion?.redirect, input.expectedOrigin); }
       catch {
         flow.push(Object.freeze({ phase: "completion", decision: "refused", cause: "FADENO_ACTION_REDIRECT" }));
         return Object.freeze({
@@ -478,7 +553,7 @@ export async function executeDecisionAction(input: Readonly<{
       return Object.freeze({ status: "success", code: "FADENO_ACTION_OK", revalidation: "complete", redirect, fields, expectedFailure: null, flow: Object.freeze(flow) });
     } catch (error) {
       const expected = error && typeof error === "object" ? expectedFailures.get(error) : undefined;
-      if (expected) {
+      if (expected && Object.keys(expected.fieldErrors).every((name) => Object.hasOwn(state(input.action).fields, name))) {
         flow.push(Object.freeze({ phase: "mutation", decision: "expected-failure", cause: expected.code }));
         return Object.freeze({
           status: "expected-failure",
