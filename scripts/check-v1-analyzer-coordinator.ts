@@ -61,14 +61,19 @@ assert.equal(failed.sequence, 3);
 assert.equal(recovered.sequence, 4);
 
 const closeGate = deferred();
+const finalGate = deferred();
 const draining = coordinator.start("analysis", () => observed("draining", async () => {
   await closeGate.promise;
   return "drained";
 }));
-const rejectedWhileDraining = coordinator.start("explanation", () => observed("rejected", () => {
+const rejectedWhileDraining = coordinator.start("explanation", () => observed("rejected", async () => {
+  await finalGate.promise;
   throw new TypeError("FADENO_TEST_DRAINED_FAILURE");
 }));
 const closing = coordinator.close();
+let closingSettled = false;
+void closing.then(() => { closingSettled = true; });
+const rejectedAssertion = assert.rejects(rejectedWhileDraining.result, /FADENO_TEST_DRAINED_FAILURE/u);
 assert.equal(coordinator.state, "closing");
 assert.equal(coordinator.close(), closing);
 assert.throws(
@@ -79,8 +84,14 @@ await Promise.resolve();
 assert.equal(trace.at(-1), "start:draining");
 closeGate.resolve();
 assert.equal(await draining.result, "drained");
-await assert.rejects(rejectedWhileDraining.result, /FADENO_TEST_DRAINED_FAILURE/u);
+await Promise.resolve();
+assert.equal(trace.at(-1), "start:rejected");
+assert.equal(closingSettled, false);
+assert.equal(coordinator.state, "closing");
+finalGate.resolve();
+await rejectedAssertion;
 await closing;
+assert.equal(closingSettled, true);
 assert.equal(coordinator.state, "closed");
 assert.equal(active, 0);
 assert.equal(maximumActive, 1);
