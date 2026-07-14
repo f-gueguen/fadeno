@@ -10,24 +10,24 @@ V1-13 — authenticated no-JavaScript CRUD vertical slice
 
 ## Exit criteria
 
-- [ ] Export the sole typed action declaration, field descriptor, expected
+- [x] Export the sole typed action declaration, field descriptor, expected
   failure, redirect, and request-scoped session capabilities selected by ADR
   0035 without exporting the private decision schema or adding a second
   mutation path.
-- [ ] Integrate bounded native POST decoding, exact HTTPS origin, generated
+- [x] Integrate bounded native POST decoding, exact HTTPS origin, generated
   route/action/field/proof identity, atomic replay consumption, mandatory
   authorization, upload cleanup, protected session publication, and redacted
   failures before any application mutation can run.
-- [ ] Integrate successful, changed, and unexpected mutation outcomes with
+- [x] Integrate successful, changed, and unexpected mutation outcomes with
   complete resource revalidation; preserve safe expected-failure fields; and
   render or issue only normalized same-origin 303 completion.
-- [ ] Extend the packed canonical application into authenticated CRUD whose
+- [x] Extend the packed canonical application into authenticated CRUD whose
   read, create, validation, update, upload, redirect, session rotation, and
   delete paths work with browser JavaScript disabled.
-- [ ] Retain executable success, deliberate refusal/failure, human and
+- [x] Retain executable success, deliberate refusal/failure, human and
   normalized diagnostics, correction, flow inspection, recovery, stale-state
   removal, security, type, accessibility, adapter, and packed-package evidence.
-- [ ] Align current specifications, scope, traceability, risks, examples, and
+- [x] Align current specifications, scope, traceability, risks, examples, and
   rollback intent; pass focused, full, exact local, architecture, security,
   package-surface, and fresh review gates.
 
@@ -42,9 +42,23 @@ V1-13 — authenticated no-JavaScript CRUD vertical slice
 - The runtime remains single-process for action replay and protected sessions.
   No enhanced submission protocol, shared replay/session owner, public
   analyzer schema, editor product, or post-R1 opportunity enters this slice.
-- Public behavior is incomplete until the packed application proves the whole
-  JavaScript-disabled workflow and all permanent success, refusal, flow, and
-  recovery artifacts execute through public package entrypoints.
+- Public behavior is proven through the packed application's complete
+  JavaScript-disabled workflow and permanent success, refusal, flow, and
+  recovery artifacts executed through public package entrypoints.
+- Exact implementation head `cde5c6a` completes the typed declarations,
+  bounded native adapter boundary, protected session publication, complete
+  revalidation, redacted incidents, packed HTTPS CRUD application, and
+  normalized executable evidence. Chromium, Firefox, and WebKit execute the
+  workflow with JavaScript disabled.
+- The architecture audit centralized action limits and preserved the standalone
+  adapter boundary. The asymptotic audit found only linear work over explicitly
+  capped actions, bodies, parts, files, session values, replay entries, and flow
+  records; no broader performance claim is introduced. The adversarial review
+  added pre-parser part bounds, authorization/replay evidence, rotated-session
+  failure recovery, and redacted unexpected-action reporting.
+- V1-13 exports no private decision schema, adds no public analyzer or editor
+  product, retains one process-local replay/session owner, and does not add the
+  deferred enhanced submission protocol.
 
 ## Blockers
 
