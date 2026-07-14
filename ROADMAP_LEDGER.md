@@ -10,23 +10,23 @@ V1-DX-C0 — analyzer lifecycle and feedback qualification decomposition
 
 ## Exit criteria
 
-- [ ] Decompose V1-DX-C into independently reversible project-lifecycle,
+- [x] Decompose V1-DX-C into independently reversible project-lifecycle,
   document/diagnostic, saved-project freshness, interruption, workload-contract,
   and retained-result slices before implementation begins.
-- [ ] Enforce the exact slice order, features, dependencies, commands, and
+- [x] Enforce the exact slice order, features, dependencies, commands, and
   evidence/compatibility boundaries through project-model and policy mutation
   checks.
-- [ ] Align the V1 plan, analyzer/build specifications, traceability, risks,
+- [x] Align the V1 plan, analyzer/build specifications, traceability, risks,
   deferrals, and current execution ledger without claiming lifecycle evidence
   or feedback results exist.
-- [ ] Keep the disposable lifecycle consumer package-owned and private; add no
+- [x] Keep the disposable lifecycle consumer package-owned and private; add no
   public export, command, generic transport, machine schema, editor metadata,
   or supported editor product.
-- [ ] State the future measurement validity contract before results: exact
+- [x] State the future measurement validity contract before results: exact
   current packed bytes, accepted replacement events, stale-output controls,
   monotonic timing, environment, warmups, repetitions, raw attempts, and no
   retry-selected result.
-- [ ] Pass documentation, ledger, project-model, policy, full repository,
+- [x] Pass documentation, ledger, project-model, policy, full repository,
   exact local CI, and fresh independent review gates.
 
 ## In progress
@@ -53,6 +53,11 @@ V1-DX-C0 — analyzer lifecycle and feedback qualification decomposition
 - The disposable private lifecycle consumer may be included in current packed
   internals only. Public examples remain separate, deep imports remain refused,
   and DG-A0-02 plus the supported-editor deferral remain unchanged.
+- Exact planning head `5090d15` enforces the complete C0-C5B contracts and adds
+  hostile mutations for dependency-prefix spoofing, public schema/editor creep,
+  and omission of the ordered position-dependent edit batch. Fresh final review
+  found no remaining P1/P2 after C1/C2 and both specifications also required
+  exact line-ending preservation and analyzer-text equivalence.
 
 ## Blockers
 
