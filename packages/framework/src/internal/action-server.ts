@@ -276,21 +276,18 @@ function safeLocation(value: string, canonicalOrigin: string): string {
   if (url.origin !== canonicalOrigin || url.username || url.password || url.hash) fail("FADENO_ACTION_ROUTE");
   return `${url.pathname}${url.search}`;
 }
-function routeBinding(routeId: string, returnLocation: string): string {
+function routeBinding(routeId: string, returnLocation: string, index: number): string {
   if (typeof routeId !== "string" || routeId.length === 0 || routeId.includes("\0") || encoder.encode(routeId).byteLength > 256) {
     fail("FADENO_ACTION_ROUTE");
   }
-  return JSON.stringify([routeId, returnLocation]);
+  if (!Number.isSafeInteger(index) || index < 0 || index > maximumFormIndex) fail("FADENO_ACTION_ROUTE");
+  return JSON.stringify([routeId, returnLocation, index]);
 }
 function formIndex(value: string): number {
   if (!/^(?:0|[1-9][0-9]{0,3})$/u.test(value)) fail("FADENO_ACTION_ROUTE");
   const index = Number(value);
   if (index > maximumFormIndex) fail("FADENO_ACTION_ROUTE");
   return index;
-}
-function formBinding(routeId: string, returnLocation: string, index: number): string {
-  if (!Number.isSafeInteger(index) || index < 0 || index > maximumFormIndex) fail("FADENO_ACTION_ROUTE");
-  return JSON.stringify([routeBinding(routeId, returnLocation), index]);
 }
 function actionPath(id: string, routeId: string, returnLocation: string, index: number): string {
   const query = new URLSearchParams({ route: routeId, return: returnLocation, form: String(index) });
@@ -529,13 +526,16 @@ export class ActionServerRuntime {
     invoke: Invoke,
     failureObserver?: FrameworkFailureObserver,
   ): Promise<Response> {
-    if (
-      request.method === "POST" &&
-      new URL(request.url).pathname.startsWith(actionPrefix) &&
-      request.headers.get("origin") !== this.#canonicalOrigin
-    ) {
-      this.#record("FADENO_ACTION_ORIGIN", "refused", "none", null, "native-boundary-refused");
-      return safePage("Action refused", "Action refused", "FADENO_ACTION_ORIGIN", 400);
+    if (new URL(request.url).pathname.startsWith(actionPrefix)) {
+      const preflightCode = request.method !== "POST"
+        ? "FADENO_ACTION_METHOD"
+        : request.headers.get("origin") !== this.#canonicalOrigin
+          ? "FADENO_ACTION_ORIGIN"
+          : null;
+      if (preflightCode) {
+        this.#record(preflightCode, "refused", "none", null, "native-boundary-refused");
+        return safePage("Action refused", "Action refused", preflightCode, responseStatus(preflightCode, "refused"));
+      }
     }
     const now = this.#now();
     const session = ServerSession.open(this.#keyring, request, now);
@@ -567,7 +567,7 @@ export class ActionServerRuntime {
         const location = safeLocation(returnLocation, this.#canonicalOrigin);
         const index = nextFormIndex;
         nextFormIndex += 1;
-        const binding = formBinding(routeId, location, index);
+        const binding = routeBinding(routeId, location, index);
         return Object.freeze({
           actionUrl: actionPath(actionState.id, routeId, location, index),
           encoding: Object.values(actionState.descriptors).some(({ kind }) => kind === "file")
@@ -628,7 +628,7 @@ export class ActionServerRuntime {
     try {
       returnLocation = safeLocation(rawReturn, this.#canonicalOrigin);
       submittedFormIndex = formIndex(rawFormIndex);
-      binding = formBinding(routeId, returnLocation, submittedFormIndex);
+      binding = routeBinding(routeId, returnLocation, submittedFormIndex);
     } catch {
       this.#record("FADENO_ACTION_ROUTE", "refused", "none", null, "invalid-generated-endpoint");
       return safePage("Action refused", "Action refused", "FADENO_ACTION_ROUTE", 400);

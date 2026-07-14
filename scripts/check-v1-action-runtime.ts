@@ -215,6 +215,11 @@ try {
   const initialCookie = cookie(initial);
   const initialForm = form(await initial.text());
 
+  const wrongMethod = await fetch(`${server.origin}${initialForm.action}`, { redirect: "manual" });
+  assert.equal(wrongMethod.status, 400);
+  assert.match(await wrongMethod.text(), /FADENO_ACTION_METHOD/u);
+  assert.equal(wrongMethod.headers.getSetCookie().length, 0);
+
   const excessiveParts = new URLSearchParams({ __fadeno_proof: initialForm.proof });
   for (let index = 0; index < 129; index += 1) excessiveParts.append(`extra-${index}`, "");
   const excessive = await fetch(`${server.origin}${initialForm.action}`, {
@@ -324,6 +329,24 @@ try {
   assert.ok(currentForm.categoryName);
   assert.ok(currentForm.intentName);
   assert.ok(currentForm.passcodeName);
+  const wrongFormUrl = new URL(currentForm.action, server.origin);
+  wrongFormUrl.searchParams.set("form", "0");
+  const wrongForm = await fetch(wrongFormUrl, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      cookie: authenticatedCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: new URLSearchParams({
+      __fadeno_proof: currentForm.proof,
+      [currentForm.titleName]: "Wrong form instance",
+    }),
+  });
+  assert.equal(wrongForm.status, 400);
+  assert.match(await wrongForm.text(), /FADENO_ACTION_PROOF/u);
+  assert.equal(title, "Saved project");
   const invalid = await fetch(`${server.origin}${currentForm.action}`, {
     method: "POST",
     redirect: "manual",

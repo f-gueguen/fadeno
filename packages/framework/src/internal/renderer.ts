@@ -236,7 +236,10 @@ async function* renderChild(
     }
     if (payload.element === "input") {
       if (properties["type"] === "checkbox" && typeof submitted === "boolean") next["checked"] = submitted;
-      else if (!["file", "password"].includes(String(properties["type"] ?? "text")) && (typeof submitted === "string" || typeof submitted === "number")) next["value"] = submitted;
+      else if (
+        !["file", "password"].includes(String(properties["type"] ?? "text").toLowerCase()) &&
+        (typeof submitted === "string" || typeof submitted === "number")
+      ) next["value"] = submitted;
     } else if (payload.element === "textarea" && typeof submitted === "string") children = submitted;
     else if (payload.element === "select" && (typeof submitted === "string" || typeof submitted === "number")) {
       childForm = Object.freeze({ ...form, selectedValue: submitted });
