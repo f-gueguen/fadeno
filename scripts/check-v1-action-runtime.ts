@@ -20,6 +20,7 @@ const previousKeys = process.env["FADENO_SESSION_KEYS"];
 process.env["FADENO_SESSION_KEYS"] = `active:${key}`;
 
 let title = "Initial project";
+const internalReports: Array<Readonly<{ incidentId: string; code: string; cause: unknown }>> = [];
 
 const saveProject = defineAction({
   fields: { title: textField({ maximumBytes: 128 }) },
@@ -27,6 +28,7 @@ const saveProject = defineAction({
     return request.headers.get("authorization") === "Bearer owner" || session.has("viewer");
   },
   run({ input, session }) {
+    if (input.title === "explode") throw new Error("private action failure detail");
     if (input.title === "changed failure") {
       session.set("last-title", "changed-before-recovery");
       session.rotate();
@@ -109,6 +111,7 @@ const server = await listenNodeHttp({
   port: 0,
   canonicalOrigin,
   applicationGeneration,
+  failureObserver(report) { internalReports.push(report); },
 });
 
 try {
@@ -212,6 +215,32 @@ try {
   assert.equal(recovered.status, 303);
   assert.equal(title, "Recovered project");
 
+  const internalResponse = await fetch(`${server.origin}/projects`, { headers: { cookie: changedCookie } });
+  const internalForm = form(await internalResponse.text());
+  const internal = await fetch(`${server.origin}${internalForm.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      cookie: changedCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: new URLSearchParams({
+      __fadeno_proof: internalForm.proof,
+      [internalForm.titleName]: "explode",
+    }),
+  });
+  assert.equal(internal.status, 500);
+  const internalHtml = await internal.text();
+  assert.doesNotMatch(internalHtml, /private action failure detail/u);
+  const incidentId = /Incident ([a-f0-9-]+)/u.exec(internalHtml)?.[1];
+  assert.ok(incidentId);
+  assert.equal(internalReports.length, 1);
+  assert.equal(internalReports[0]?.incidentId, incidentId);
+  assert.equal(internalReports[0]?.code, "FADENO_ACTION_INTERNAL");
+  assert.equal((internalReports[0]?.cause as Error).message, "private action failure detail");
+  assert.equal(title, "Recovered project");
+
   const refreshedResponse = await fetch(`${server.origin}/projects`, { headers: { cookie: changedCookie } });
   const refreshed = form(await refreshedResponse.text());
   const crossOrigin = await fetch(`${server.origin}${refreshed.action}`, {
@@ -236,4 +265,4 @@ try {
   else process.env["FADENO_SESSION_KEYS"] = previousKeys;
 }
 
-console.log("V1 action runtime passed (native form, protected session, replay, changed failure, origin)");
+console.log("V1 action runtime passed (native form, session, replay, recovery, redacted incident, origin)");

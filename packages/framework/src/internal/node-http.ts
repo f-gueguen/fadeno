@@ -158,7 +158,7 @@ function handleRequest(
         try { return await handler(nextRequest); } finally { releaseObserver(); }
       };
       const webResponse = actionRuntime
-        ? await actionRuntime.serve(webRequest, invoke)
+        ? await actionRuntime.serve(webRequest, invoke, failureObserver)
         : await invoke(webRequest);
       await writeWebResponse(webResponse, response);
     } catch (error: unknown) {

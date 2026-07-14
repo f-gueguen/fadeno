@@ -34,6 +34,7 @@ import {
   type DecisionActionOutcome,
   type DecisionSubmissionPart,
 } from "./action-decision.ts";
+import { reportFrameworkFailure, type FrameworkFailureObserver } from "./failure-observer.ts";
 import { readRedirectOutcome } from "./render-route.ts";
 import {
   createDecisionSession,
@@ -465,10 +466,14 @@ export class ActionServerRuntime {
 
   get flows(): readonly RuntimeFlow[] { return Object.freeze([...this.#flows]); }
 
-  async serve(request: Request, invoke: Invoke): Promise<Response> {
+  async serve(
+    request: Request,
+    invoke: Invoke,
+    failureObserver?: FrameworkFailureObserver,
+  ): Promise<Response> {
     const now = Date.now();
     const session = ServerSession.open(this.#keyring, request, now);
-    const response = await this.#invokeBound(request, invoke, session, null, true);
+    const response = await this.#invokeBound(request, invoke, session, null, true, failureObserver);
     return withCookie(response, session.cookie(Date.now()));
   }
 
@@ -478,6 +483,7 @@ export class ActionServerRuntime {
     session: ServerSession,
     failure: ActionRenderFailure | null,
     intercept: boolean,
+    failureObserver?: FrameworkFailureObserver,
   ): Promise<Response> {
     const context: ActionRequestContext = Object.freeze({
       session: session.view,
@@ -523,14 +529,19 @@ export class ActionServerRuntime {
     const release = bindActionRequestContext(request, context);
     try {
       return intercept && new URL(request.url).pathname.startsWith(actionPrefix)
-        ? await this.#handleAction(request, invoke, session)
+        ? await this.#handleAction(request, invoke, session, failureObserver)
         : await invoke(request);
     } finally {
       release();
     }
   }
 
-  async #handleAction(request: Request, invoke: Invoke, session: ServerSession): Promise<Response> {
+  async #handleAction(
+    request: Request,
+    invoke: Invoke,
+    session: ServerSession,
+    failureObserver?: FrameworkFailureObserver,
+  ): Promise<Response> {
     const startedAt = Date.now();
     const url = new URL(request.url);
     const id = url.pathname.slice(actionPrefix.length);
@@ -573,6 +584,7 @@ export class ActionServerRuntime {
       return value;
     };
     let outcome: DecisionActionOutcome;
+    let internalCause: unknown;
     try {
       outcome = await executeDecisionAction({
         action: runtime.decision,
@@ -591,12 +603,19 @@ export class ActionServerRuntime {
         boundaryDurationMilliseconds: Date.now() - startedAt,
         parts: parsed.parts,
         now: startedAt,
-        authorize: async (decoded) => runtime.state.authorize(Object.freeze({
-          request,
-          session: session.view,
-          input: translated(decoded),
-          signal: request.signal,
-        })) as boolean | Promise<boolean>,
+        authorize: async (decoded) => {
+          try {
+            return await runtime.state.authorize(Object.freeze({
+              request,
+              session: session.view,
+              input: translated(decoded),
+              signal: request.signal,
+            })) as boolean;
+          } catch (cause) {
+            internalCause = cause;
+            throw cause;
+          }
+        },
         run: async (decoded) => {
           try {
             const result = await runtime.state.run(Object.freeze({
@@ -606,11 +625,15 @@ export class ActionServerRuntime {
               signal: request.signal,
             }));
             const redirect = readRedirectOutcome(result);
-            if (result !== undefined && (!redirect || redirect.status !== 303)) return Object.freeze({ invalid: true }) as never;
+            if (result !== undefined && (!redirect || redirect.status !== 303)) {
+              internalCause = new TypeError("FADENO_ACTION_RESULT");
+              return Object.freeze({ invalid: true }) as never;
+            }
             return redirect ? Object.freeze({ redirect: redirect.location }) : undefined;
           } catch (error) {
             const expected = readActionError(error);
             if (expected) throw decisionActionFailure(expected);
+            internalCause = error;
             throw error;
           }
         },
@@ -632,6 +655,18 @@ export class ActionServerRuntime {
     } else if (outcome.status === "success" || (outcome.status === "expected-failure" && outcome.expectedFailure?.changed)) {
       session.acceptMutation(Date.now());
     } else session.discardMutation();
+    let incidentId: string | null = null;
+    if (outcome.status === "unexpected-failure") {
+      incidentId = globalThis.crypto.randomUUID();
+      reportFrameworkFailure(
+        failureObserver,
+        request,
+        incidentId,
+        "pre-publication",
+        "FADENO_ACTION_INTERNAL",
+        internalCause ?? new Error("FADENO_ACTION_INTERNAL"),
+      );
+    }
     this.#record(outcome.code, outcome.status, outcome.revalidation, routeId, outcome.flow.at(-1)?.decision ?? outcome.status);
 
     const failure = outcome.status === "expected-failure" && outcome.expectedFailure && outcome.fields
@@ -649,10 +684,10 @@ export class ActionServerRuntime {
       signal: request.signal,
     });
     if (outcome.status === "expected-failure") {
-      return this.#invokeBound(pageRequest, invoke, session, failure, false);
+      return this.#invokeBound(pageRequest, invoke, session, failure, false, failureObserver);
     }
     if (outcome.revalidation === "complete") {
-      const revalidated = await this.#invokeBound(pageRequest, invoke, session, null, false);
+      const revalidated = await this.#invokeBound(pageRequest, invoke, session, null, false, failureObserver);
       if (outcome.status === "success" && outcome.redirect === null) return revalidated;
       if (revalidated.status >= 400) return revalidated;
       await consume(revalidated);
@@ -663,7 +698,7 @@ export class ActionServerRuntime {
     return safePage(
       outcome.status === "unexpected-failure" ? "Action failed" : "Action refused",
       outcome.status === "unexpected-failure" ? "Action failed" : "Action refused",
-      outcome.code,
+      incidentId === null ? outcome.code : `Incident ${incidentId}`,
       responseStatus(outcome.code, outcome.status),
     );
   }
