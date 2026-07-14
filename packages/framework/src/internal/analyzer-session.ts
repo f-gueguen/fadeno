@@ -78,6 +78,7 @@ export interface AnalyzerReconcileDocument {
   readonly document: string;
   readonly text: string;
   readonly expectedSavedRevision: number | null;
+  readonly preserveOverlay?: true;
 }
 
 export interface AnalyzerReconcileForget {
@@ -136,6 +137,20 @@ export type AnalyzerRefused = Readonly<{
 }>;
 
 export type AnalyzerOperationResult = AnalyzerAccepted | AnalyzerRefused;
+
+export type AnalyzerDocumentIdentityResult = Readonly<{
+  accepted: true;
+  path: string;
+  uri: string;
+  currentEpoch: number;
+  document: AnalyzerDocumentSnapshot | null;
+}> | Readonly<{
+  accepted: false;
+  code: AnalyzerRefusalCode;
+  currentEpoch: number;
+  currentDocumentVersion: number | null;
+  currentLifetime: number | null;
+}>;
 
 interface DocumentState {
   readonly owner: string;
@@ -230,6 +245,31 @@ export class AnalyzerSession {
 
   get currentSnapshot(): AnalyzerDocumentOnlySnapshot {
     return this.#snapshot;
+  }
+
+  identify(document: string): AnalyzerDocumentIdentityResult {
+    let owner: string | undefined;
+    try {
+      owner = this.#canonicalOwner(document);
+      const path = relative(this.#root, owner).split(sep).join("/");
+      return frozen({
+        accepted: true as const,
+        path,
+        uri: pathToFileURL(owner).href,
+        currentEpoch: this.#epoch,
+        document: this.#snapshot.documents.find((candidate) => candidate.path === path) ?? null,
+      });
+    } catch (error) {
+      if (!(error instanceof Refusal)) throw error;
+      const state = owner === undefined ? undefined : this.#documents.get(owner);
+      return frozen({
+        accepted: false as const,
+        code: error.code,
+        currentEpoch: this.#epoch,
+        currentDocumentVersion: state?.overlayVersion ?? null,
+        currentLifetime: state?.overlayLifetime ?? null,
+      });
+    }
   }
 
   snapshotFacets(
@@ -376,6 +416,9 @@ export class AnalyzerSession {
       const seen = new Set<string>();
       const documents = request.documents.map((document) => {
         if (!document || typeof document !== "object") refuse("FADENO_ANALYZER_RECONCILE_INPUT");
+        if (document.preserveOverlay !== undefined && document.preserveOverlay !== true) {
+          refuse("FADENO_ANALYZER_RECONCILE_INPUT");
+        }
         const canonicalOwner = this.#canonicalOwner(document.document);
         owner = canonicalOwner;
         if (seen.has(canonicalOwner)) refuse("FADENO_ANALYZER_RECONCILE_DUPLICATE");
@@ -411,7 +454,9 @@ export class AnalyzerSession {
           state = { owner: documentOwner, savedRevision: 0, nextLifetime: 0 };
         } else {
           if (!state) refuse("FADENO_ANALYZER_DOCUMENT_UNKNOWN");
-          if (state.overlayVersion !== undefined) refuse("FADENO_ANALYZER_DOCUMENT_OPEN");
+          if (state.overlayVersion !== undefined && document.preserveOverlay !== true) {
+            refuse("FADENO_ANALYZER_DOCUMENT_OPEN");
+          }
           if (state.savedRevision !== document.expectedSavedRevision) refuse("FADENO_ANALYZER_RECONCILE_OWNERSHIP");
         }
         if (state.savedText !== document.text) {

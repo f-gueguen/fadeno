@@ -20,6 +20,7 @@ import {
   stableRouteManifest,
   type RouteManifest,
   type RouteSegment,
+  type RouteSourceOverrides,
 } from "./discovery.ts";
 
 const GENERATOR_VERSION = 1;
@@ -453,9 +454,13 @@ function recoverTransactionState(
   }
 }
 
-export function createRouteArtifactPlan(projectRoot: string, config: FadenoConfig): RouteArtifactPlan {
+export function createRouteArtifactPlan(
+  projectRoot: string,
+  config: FadenoConfig,
+  sourceOverrides?: RouteSourceOverrides,
+): RouteArtifactPlan {
   if (!config.routes) fail("ROUTES_REQUIRED");
-  const { manifest, sources } = discoverRouteManifestWithSources(projectRoot, config.routes);
+  const { manifest, sources } = discoverRouteManifestWithSources(projectRoot, config.routes, sourceOverrides);
   assertRouteManifestSemantics(manifest);
   const correlated = Object.freeze({
     "app.ts": renderApplication(manifest),
@@ -476,9 +481,10 @@ export function verifyRouteArtifactPlanFreshness(
   projectRoot: string,
   config: FadenoConfig,
   plan: RouteArtifactPlan,
+  sourceOverrides?: RouteSourceOverrides,
 ): void {
   if (!config.routes) fail("ROUTES_REQUIRED");
-  const current = discoverRouteManifestWithSources(projectRoot, config.routes);
+  const current = discoverRouteManifestWithSources(projectRoot, config.routes, sourceOverrides);
   if (
     current.manifest.generation.sourceSha256 !== plan.sourceSha256 ||
     stableRouteManifest(current.manifest) !== stableRouteManifest(plan.manifest) ||
