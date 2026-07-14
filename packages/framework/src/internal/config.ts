@@ -134,7 +134,7 @@ function staticConfiguration(projectRoot: string, configPath: string, source: st
   const api = new API({
     cwd: projectRoot,
     fs: {
-      readFile: (fileName) => resolve(fileName) === configPath ? source : undefined,
+      readFile: (fileName) => resolve(projectRoot, fileName) === configPath ? source : undefined,
     },
   });
   const snapshot = api.updateSnapshot({ openFiles: [configPath] });

@@ -90,6 +90,7 @@ export type PrivateProjectDocumentOperation =
   | (PrivateProjectDocumentBase & Readonly<{ kind: "close"; lifetime: number; version: number }>);
 
 export type PrivateProjectDocumentRefusalCode = AnalyzerRefusalCode
+  | "FADENO_ANALYZER_PROJECT_DOCUMENT_OPERATION"
   | "FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED"
   | "FADENO_ANALYZER_WORKSPACE_ROOTS";
 
@@ -107,6 +108,8 @@ export interface PrivateProjectDocumentEvent {
   readonly documentOperationId: string;
   readonly requestId: string;
   readonly operation: PrivateProjectDocumentOperation["kind"];
+  readonly documentVersion: number | null;
+  readonly documentLifetime: number | null;
   readonly workspaceEpoch: number;
   readonly document: AnalyzerDocumentSnapshot;
   readonly documentSnapshot: AnalyzerDocumentOnlySnapshot;
@@ -395,6 +398,9 @@ export class PrivateProjectAnalyzer {
         typeof operation.workspaceRoots[0] !== "string" || !this.ownsProject(operation.workspaceRoots[0])) {
       return refuse("FADENO_ANALYZER_WORKSPACE_ROOTS");
     }
+    if (!(["open", "change", "replace", "save", "close"] as readonly unknown[]).includes(operation.kind)) {
+      return refuse("FADENO_ANALYZER_PROJECT_DOCUMENT_OPERATION");
+    }
     const identity = this.#session.identify(operation.document);
     if (!identity.accepted) {
       return refuse(identity.code, identity.currentDocumentVersion, identity.currentLifetime);
@@ -446,6 +452,12 @@ export class PrivateProjectAnalyzer {
 
     const documentOperationId = transition.operationId;
     const transitionSnapshot = transition.snapshot;
+    const documentVersion = operation.kind === "save"
+      ? transitioned.open?.version ?? null
+      : operation.version;
+    const documentLifetime = operation.kind === "open" || operation.kind === "save"
+      ? transitioned.open?.lifetime ?? null
+      : operation.lifetime;
     const handle = this.#coordinator.start("analysis", async (requestId, { signal }) => {
       this.#recoverPendingApplicationRecovery();
       this.#recoverPendingRollback();
@@ -461,6 +473,8 @@ export class PrivateProjectAnalyzer {
         documentOperationId,
         requestId,
         operation: operation.kind,
+        documentVersion,
+        documentLifetime,
         workspaceEpoch: documentSnapshot.workspaceEpoch,
         document,
         documentSnapshot,
@@ -755,10 +769,6 @@ export class PrivateProjectAnalyzer {
       if (currentByPath.get(path)?.effective.text !== text) {
         throw new TypeError("FADENO_ANALYZER_PROJECT_INPUT_CHANGED");
       }
-    }
-    const currentConfig = loadConfigFromSource(this.#root, capture.configSource).config;
-    if (JSON.stringify(currentConfig) !== JSON.stringify(capture.config)) {
-      throw new TypeError("FADENO_ANALYZER_PROJECT_INPUT_CHANGED");
     }
     if (capture.routePlan) {
       verifyRouteArtifactPlanFreshness(this.#root, capture.config, capture.routePlan, capture.sourceOverrides);

@@ -63,13 +63,21 @@ try {
   assert.equal(initialized.diagnostics.diagnostics.length, 0);
   const initialPublication = initialized.publication;
 
-  const opened = await accepted(analyzer.document(open([root], configPath, 1, savedConfig)));
+  const openResult = analyzer.document(open([root], configPath, 1, savedConfig));
+  const opened = await accepted(openResult);
+  assert.equal(openResult.accepted, true);
+  if (!openResult.accepted) throw new Error("FADENO_TEST_OPEN_REFUSED");
+  assert.equal(opened.operationId, openResult.operationId);
+  assert.equal(opened.documentOperationId, openResult.documentOperationId);
+  assert.equal(opened.documentOperationId, openResult.transitionSnapshot.operationId);
   assert.equal(opened.operation, "open");
   assert.equal(opened.input, "overlay");
   assert.equal(opened.document.effective.source, "overlay");
   assert.equal(opened.document.effective.text, savedConfig);
   assert.equal(opened.document.open?.version, 1);
   assert.equal(opened.document.open?.lifetime, 1);
+  assert.equal(opened.documentVersion, 1);
+  assert.equal(opened.documentLifetime, 1);
   assert.equal(opened.publication.workspaceEpoch, opened.workspaceEpoch);
   assert.deepEqual(opened.requestedFacets, [
     { namespace: "fadeno.diagnostics" },
@@ -213,6 +221,8 @@ try {
   }));
   assert.equal(closed.input, "saved");
   assert.equal(closed.document.open, null);
+  assert.equal(closed.documentVersion, 4);
+  assert.equal(closed.documentLifetime, 1);
   assert.equal(closed.document.effective.source, "saved");
   assert.equal(closed.document.effective.text, savedBacking);
 
@@ -230,6 +240,11 @@ try {
     assert.equal(reopened.publication, refusalPublication);
     assert.equal(reopened.documentSnapshot.workspaceEpoch, refusalEpoch);
   };
+  assertStableRefusal({
+    kind: "unknown",
+    workspaceRoots: [root],
+    document: configPath,
+  } as unknown as PrivateProjectDocumentOperation, "FADENO_ANALYZER_PROJECT_DOCUMENT_OPERATION");
   assertStableRefusal(open([root, join(root, "second")], configPath, 1, savedBacking), "FADENO_ANALYZER_WORKSPACE_ROOTS");
   assertStableRefusal(open([join(root, "other-root")], configPath, 1, savedBacking), "FADENO_ANALYZER_WORKSPACE_ROOTS");
   assertStableRefusal(open([root], "https://fadeno.invalid/config.ts", 1, savedBacking), "FADENO_ANALYZER_DOCUMENT_SCHEME");
