@@ -106,6 +106,8 @@ try {
     "package/dist/index.js",
     "package/dist/jsx-runtime.d.ts",
     "package/dist/jsx-runtime.js",
+    "package/dist/internal/action-decision.d.ts",
+    "package/dist/internal/action-decision.js",
     "package/dist/internal/analyzer-compiler.d.ts",
     "package/dist/internal/analyzer-compiler.js",
     "package/dist/internal/analyzer-coordinator.d.ts",
@@ -166,6 +168,8 @@ try {
     "package/dist/internal/renderer.js",
     "package/dist/internal/resource.d.ts",
     "package/dist/internal/resource.js",
+    "package/dist/internal/session-decision.d.ts",
+    "package/dist/internal/session-decision.js",
     "package/dist/internal/streaming-lifecycle.d.ts",
     "package/dist/internal/streaming-lifecycle.js",
     "package/dist/internal/unsafe-html.d.ts",
@@ -289,10 +293,12 @@ try {
   expectFailure(process.execPath, [tsc, "--ignoreConfig", "--noEmit", "--strict", "--module", "NodeNext", "--moduleResolution", "NodeNext", "analyzer-diagnostics-deep-import.ts"], consumer, "TS2307");
   expectFailure(process.execPath, ["--input-type=module", "--eval", `await import("${packageName}/internal/analyzer-diagnostics")`], consumer, "ERR_PACKAGE_PATH_NOT_EXPORTED");
   for (const [subpath, symbol] of [
+    ["action-decision", "createDecisionAction"],
     ["analyzer-explain", "AnalyzerExplainCoordinator"],
     ["analyzer-route-explain", "createRouteExplainContribution"],
     ["project-build", "runProjectBuildCommand"],
     ["project-dev", "runProjectDevCommand"],
+    ["session-decision", "createDecisionSession"],
   ] as const) {
     const internalJs = join(installedPackage, `dist/internal/${subpath}.js`);
     const internalTypes = join(installedPackage, `dist/internal/${subpath}.d.ts`);

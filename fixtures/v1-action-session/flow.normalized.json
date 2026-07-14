@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "operation": "native-action",
+  "ownership": {
+    "request": "native-post",
+    "proof": "framework-bound-to-action-route-session-generation",
+    "authorization": "application-callback",
+    "mutation": "action-callback",
+    "resourceFreshness": "framework-complete-revalidation",
+    "uploadCleanup": "framework-finally"
+  },
+  "success": [
+    { "phase": "boundary", "decision": "accepted", "cause": "complete-native-request" },
+    { "phase": "authorization", "decision": "accepted", "cause": "application-authorization" },
+    { "phase": "mutation", "decision": "completed", "cause": "action-returned" },
+    { "phase": "completion", "decision": "redirect-303", "cause": "complete-revalidation" }
+  ],
+  "refusal": [
+    { "phase": "boundary", "decision": "refused", "cause": "FADENO_ACTION_ORIGIN" }
+  ],
+  "skipped": ["application-authorization", "application-mutation", "resource-revalidation"],
+  "observableOutcome": "same-origin-303-after-complete-revalidation"
+}

@@ -56,9 +56,9 @@ After a successful action, every resource used by the active page revalidates.
 The next server-derived output is computed from those results.
 
 An action may declare `keeps` as opaque resource declaration references for
-resources that it cannot affect for any input. The later action container stays
-owned by DG-V1-05. Development verification detects unsafe declarations before
-using the optimization. H4 accepts conservative resource-result comparison:
+resources that it cannot affect for any input. ADR 0035 places that metadata on
+the sole `defineAction` container. Development verification detects unsafe
+declarations before using the optimization. H4 accepts conservative resource-result comparison:
 value, expected-error code/status, and ordering changes are detected, while
 non-cacheable, unsupported, and over-budget values refuse the optimization.
 
@@ -67,9 +67,9 @@ The baseline remains correct when all `keeps` declarations are removed.
 V1-11 implements one private revalidation owner that reruns the complete
 immutable active dependency set in deterministic observation order, compares
 only bounded supported outcomes, marks unsafe or inactive declarations, and
-publishes no partial optimization result after cancellation. The action slice
-will invoke that owner only after DG-V1-05 fixes the successful-action
-container; V1-11 does not expose `keeps` or an action API by itself.
+publishes no partial optimization result after cancellation. V1-13 will invoke
+that owner through ADR 0035's successful-action container; V1-11 does not
+expose `keeps` or an action API by itself.
 
 ## Concurrent submissions
 

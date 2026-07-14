@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "packages/framework/src/internal/action-decision.ts",
+    "packages/framework/src/internal/session-decision.ts",
+    "scripts/check-v1-action-session-decision.ts"
+  ]
+}

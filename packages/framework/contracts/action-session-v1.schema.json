@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fadeno.invalid/private/action-session-v1.schema.json",
+  "title": "Private V1 action and session decision corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operation", "cases"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "operation": { "const": "fadeno.private.action-session-decision" },
+    "cases": {
+      "type": "array",
+      "minItems": 26,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "expected"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" },
+          "category": { "enum": ["success", "decoder", "limit", "upload", "origin", "csrf", "authorization", "replay", "redirect", "failure", "session", "recovery"] },
+          "expected": { "type": "string", "minLength": 1, "maxLength": 64 }
+        }
+      }
+    }
+  }
+}

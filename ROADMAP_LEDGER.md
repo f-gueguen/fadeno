@@ -6,44 +6,48 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-11 — request-scoped resource runtime and revalidation foundation
+V1-12 — native form, action, session, replay, redirect, and upload contract
 
 ## Exit criteria
 
-- [x] Export only ADR 0034's exact `defineResource({ read })`, branded
-  `resourceError({ code, status })`, and typed `context.read(resource, input)`
-  surface without adding an action, session, shared cache, or alternate call.
-- [x] Implement one request-owned normalized-input promise map with equivalent
-  concurrent deduplication, distinct-read separation, bounded refusal,
-  expected/unexpected failure ownership, cancellation, and complete cleanup.
-- [x] Record immutable resource/input dependencies during rendering and add one
-  private correctness-first revalidation owner that reruns the complete set,
-  conservatively refuses unsafe `keeps`, and remains correct with all
-  optimizations removed.
-- [x] Extend the packed canonical application and dedicated failure harness with
-  permanent executable success, failure/refusal, normalized flow, correction
-  where safe, recovery/stale-removal, authorization isolation, concurrency, and
-  memory-regression evidence through public package entrypoints.
-- [x] Align current specifications, traceability, risks, and public docs; pass
-  focused/full/local CI, architecture, Big-O, package-surface, H4 regression,
+- [x] Accept one form/action/session ADR that resolves the former action/session gate with exact
+  declaration identity, native request, field decoder, expected failure,
+  authorization, origin/CSRF, replay, redirect, revalidation, upload, cookie,
+  session, rotation, expiry, and limit ownership without exporting a runtime.
+- [x] Build one private strict-TypeScript decision model and versioned threat
+  corpus for successful native submission plus malformed, duplicate,
+  unexpected, oversized, hostile, cross-origin, unauthorized, replayed,
+  redirected, uploaded, tampered, expired, rotated, and fixation attempts.
+- [x] Prove bounded field/file decoding, secret-safe diagnostics, deterministic
+  correction/flow/recovery evidence, explicit partial-upload cleanup, and no
+  application mutation before the complete request boundary is accepted.
+- [x] Prove authenticated confidential session envelopes, active/prior key
+  rotation, privilege-change renewal, deletion and expiry, cookie defaults,
+  cross-user isolation, and fail-closed unknown-key/tamper behavior.
+- [x] Align specifications, scope, traceability, risks, security text, and the
+  V1 plan; pass focused/full/local CI, architecture, security, package-surface,
   and fresh review gates.
 
 ## In progress
 
-- One implementation now owns ADR 0034's public declaration, expected failure,
-  normalized input, request promise map, renderer context, cancellation, and
-  cleanup behavior. The packed application proves the exported surface.
-- Exactly one resource scope belongs to each matched request and every
-  page/layout/error/not-found context receives its typed read. Redirect and
-  response lifecycle paths release complete request state.
-- Complete deterministic dependency revalidation remains a private foundation.
-  It does not invent the DG-V1-05 action, form, session, origin/CSRF, replay,
-  redirect, upload, or cookie contracts.
-- Expected failures select an application status/boundary without an internal
-  incident; unexpected failures retain correlated redacted observation.
-- Cross-request caching remains refused. Runtime flow evidence remains private
-  and separate from static analyzer provenance; no editor product or stable
-  machine schema is introduced.
+- V1-12 is ready for merge review on the latest clean branch head. ADR 0035 selects
+  the native action/session contract from the private model and threat corpus;
+  focused, documentation, model, policy, package, architecture, security,
+  Big-O, full, and exact local gates pass.
+- The accepted contract retains one opaque action declaration, generated native
+  POST/field/proof identity, complete bounded boundary acceptance before
+  authorization or mutation, single-process replay, complete revalidation,
+  same-origin 303, exactly-once upload cleanup, and protected request sessions.
+- No action, form helper, session capability, cookie writer, upload parser,
+  enhanced protocol, or package export exists in V1-12. V1-13 owns the first
+  public implementation and packed authenticated CRUD application.
+- All V1-12 runtime records and schemas remain private decision evidence; no
+  external schema, editor product, shared replay/session owner, or
+  multi-process action support is introduced.
+- Audit hardening binds action proofs to purpose-separated active/prior session
+  keys, binds snapshots to their keyring, bounds proof/failure/session/replay
+  work, refuses invalid callback results structurally, and proves packed deep
+  imports remain unavailable.
 
 ## Blockers
 
@@ -226,3 +230,9 @@ V1-11 — request-scoped resource runtime and revalidation foundation
   cancellation ownership, declaration-reference `keeps`, explicit shared-cache
   refusal, private executable evidence, and no public runtime or action/session
   surface.
+- V1-11 — Merge commit `7b25772` implements the typed request-scoped resource
+  runtime, bounded normalized-input promise ownership, renderer lifecycle,
+  expected failure propagation, prompt cancellation, immutable dependencies,
+  complete private revalidation, unsafe-`keeps` correction, packed
+  success/failure/isolation/recovery examples, and no action, session, shared
+  cache, editor product, or stable machine schema.
