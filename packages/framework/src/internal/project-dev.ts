@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { watch, type FSWatcher } from "node:fs";
 import { join, resolve } from "node:path";
 import { StringDecoder } from "node:string_decoder";
@@ -103,6 +103,7 @@ class PrivateDevelopmentChild {
     projectRoot: string,
     port: number,
     environment: PrivateEnvironmentSnapshot,
+    developmentSessionKeys: string,
     writeStdout: (value: string) => void,
     writeStderr: (value: string) => void,
   ) {
@@ -114,7 +115,12 @@ class PrivateDevelopmentChild {
       join(projectRoot, "dist", "server", "bootstrap.js"),
     ], {
       cwd: projectRoot,
-      env: { ...environment.values, FADENO_PORT: String(port) },
+      env: {
+        ...environment.values,
+        FADENO_PORT: String(port),
+        FADENO_ORIGIN: environment.values["FADENO_ORIGIN"] ?? `https://127.0.0.1:${port}`,
+        FADENO_SESSION_KEYS: environment.values["FADENO_SESSION_KEYS"] ?? developmentSessionKeys,
+      },
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.#child.stdin.end();
@@ -128,12 +134,20 @@ class PrivateDevelopmentChild {
     projectRoot: string,
     port: number,
     environment: PrivateEnvironmentSnapshot,
+    developmentSessionKeys: string,
     writeStdout: (value: string) => void,
     writeStderr: (value: string) => void,
     signal: AbortSignal,
   ): Promise<PrivateDevelopmentChild> {
     signal.throwIfAborted();
-    const instance = new PrivateDevelopmentChild(projectRoot, port, environment, writeStdout, writeStderr);
+    const instance = new PrivateDevelopmentChild(
+      projectRoot,
+      port,
+      environment,
+      developmentSessionKeys,
+      writeStdout,
+      writeStderr,
+    );
     await instance.#waitForReady(port, signal);
     return instance;
   }
@@ -273,6 +287,7 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
   readonly #internalFailure: (summary: string) => string;
   readonly #fatal: (error: unknown) => void;
   readonly #children = new Set<PrivateDevelopmentChild>();
+  readonly #developmentSessionKeys = `development:${randomBytes(32).toString("base64url")}`;
   #active: ActiveDevelopmentRefresh | null = null;
   #current: Readonly<{ child: PrivateDevelopmentChild; environment: PrivateEnvironmentSnapshot }> | null = null;
   #sequence = 0;
@@ -419,6 +434,7 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
         this.#root,
         this.#port,
         output.environment,
+        this.#developmentSessionKeys,
         this.#writeStdout,
         this.#writeStderr,
         signal,
@@ -443,6 +459,7 @@ class PrivateDevelopmentTarget implements PrivateFilesystemRefreshTarget<Develop
             this.#root,
             this.#port,
             previous.environment,
+            this.#developmentSessionKeys,
             this.#writeStdout,
             this.#writeStderr,
             new AbortController().signal,

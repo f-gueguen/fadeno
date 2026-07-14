@@ -62,8 +62,9 @@ retried as a second mutation attempt. Denial and authorization failure skip
 mutation. Upload cleanup runs for every outcome.
 
 The private model receives already framed parts plus declared/observed parser
-evidence; V1-13 places a bounded streaming parser in front of the same
-decision. Parser refusal may occur earlier but cannot publish a partial field,
+evidence; V1-13 places a bounded streaming body reader and capped
+framing/parser boundary in front of the same decision. Parser refusal may occur
+earlier but cannot publish a partial field,
 retain a partial upload, invoke application code, or consume a proof after a
 newer terminal outcome owns the request.
 

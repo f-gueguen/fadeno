@@ -22,6 +22,14 @@ The demonstrated development workflow is:
 pnpm dev
 ```
 
+The built-in development listener remains the loopback HTTP contract fixed by
+ADR 0033. It supplies an ephemeral process-owned session key so applications
+that declare actions can start and render. Native mutation submission remains
+fail-closed on that listener because ADR 0035 requires an exact HTTPS origin;
+the packed HTTPS CRUD qualification is the current action workflow. V1-14 owns
+the independently usable development guidance rather than weakening this
+security boundary.
+
 It prints `Fadeno development server ready at http://127.0.0.1:4173.` only
 after a complete verified generation is accepting requests. The permanent
 `development-lifecycle` scenario is executed by `pnpm check:v1-development`
