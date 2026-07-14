@@ -5,6 +5,7 @@ import { Readable } from "node:stream";
 import type { Handler } from "../index.js";
 import { bindRequestFailureObserver, type FrameworkFailureObserver } from "./failure-observer.ts";
 import { nodeHttpCapabilities } from "./node-http-capabilities.ts";
+import { createActionServerRuntime, type ActionServerRuntime } from "./action-server.ts";
 
 export interface NodeHttpServer {
   readonly origin: string;
@@ -15,6 +16,8 @@ export interface ListenNodeHttpOptions {
   readonly handler: Handler;
   readonly hostname?: string;
   readonly port?: number;
+  readonly canonicalOrigin?: string;
+  readonly applicationGeneration?: string;
   readonly failureObserver?: FrameworkFailureObserver;
 }
 
@@ -133,8 +136,9 @@ async function writeWebResponse(response: Response, target: ServerResponse): Pro
 
 function handleRequest(
   handler: Handler,
+  actionRuntime: ActionServerRuntime | null,
   failureObserver: FrameworkFailureObserver | undefined,
-  origin: () => string,
+  requestOrigin: () => string,
   request: IncomingMessage,
   response: ServerResponse,
 ): void {
@@ -148,10 +152,14 @@ function handleRequest(
 
   void (async () => {
     try {
-      const webRequest = toWebRequest(request, origin(), cancellation.signal);
-      const releaseObserver = bindRequestFailureObserver(webRequest, failureObserver);
-      let webResponse: Response;
-      try { webResponse = await handler(webRequest); } finally { releaseObserver(); }
+      const webRequest = toWebRequest(request, requestOrigin(), cancellation.signal);
+      const invoke = async (nextRequest: Request): Promise<Response> => {
+        const releaseObserver = bindRequestFailureObserver(nextRequest, failureObserver);
+        try { return await handler(nextRequest); } finally { releaseObserver(); }
+      };
+      const webResponse = actionRuntime
+        ? await actionRuntime.serve(webRequest, invoke)
+        : await invoke(webRequest);
       await writeWebResponse(webResponse, response);
     } catch (error: unknown) {
       response.destroy(error instanceof Error ? error : new Error(String(error)));
@@ -185,14 +193,20 @@ export async function listenNodeHttp(options: ListenNodeHttpOptions): Promise<No
     throw new Error("FADENO_ADAPTER_PORT");
   }
   let origin: string | undefined;
+  const sessionKeys = process.env["FADENO_SESSION_KEYS"];
+  const actionRuntime = createActionServerRuntime({
+    ...(options.canonicalOrigin === undefined ? {} : { canonicalOrigin: options.canonicalOrigin }),
+    ...(options.applicationGeneration === undefined ? {} : { applicationGeneration: options.applicationGeneration }),
+    ...(sessionKeys === undefined ? {} : { sessionKeys }),
+  });
   let draining = false;
   const server = createServer({ highWaterMark: 16 * 1024 }, (request, response) => {
     response.once("finish", () => {
       if (draining) server.closeIdleConnections();
     });
-    handleRequest(options.handler, options.failureObserver, () => {
+    handleRequest(options.handler, actionRuntime, options.failureObserver, () => {
       if (!origin) throw new Error("FADENO_ADAPTER_NOT_LISTENING");
-      return origin;
+      return options.canonicalOrigin ?? origin;
     }, request, response);
   });
   await listen(server, hostname, port);

@@ -15,6 +15,7 @@ import { createElementNode } from "./render-node.ts";
 import { renderDocument } from "./renderer.ts";
 import { captureRequestFailureObserver, reportFrameworkFailure } from "./failure-observer.ts";
 import { readResourceError, ResourceRequestScope } from "./resource.ts";
+import { captureActionRequestContext } from "./action-request.ts";
 
 type OutcomePayload = Readonly<{ kind: "not-found" }> | Readonly<{ kind: "redirect"; location: string; status: 303 | 307 | 308 }>;
 const outcomes = new WeakMap<object, OutcomePayload>();
@@ -34,6 +35,11 @@ export function createRedirectOutcome(location: string, status: 303 | 307 | 308)
     throw new TypeError("FADENO_RENDER_REDIRECT_LOCATION");
   }
   return outcome({ kind: "redirect", location, status }) as RedirectOutcome;
+}
+
+export function readRedirectOutcome(value: unknown): Readonly<{ location: string; status: 303 | 307 | 308 }> | undefined {
+  const payload = typeof value === "object" && value !== null ? outcomes.get(value) : undefined;
+  return payload?.kind === "redirect" ? Object.freeze({ location: payload.location, status: payload.status }) : undefined;
 }
 
 function safeDocument(title: string, heading: string, detail: string): RenderChild {
@@ -99,11 +105,16 @@ async function renderFailure(
 
 export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Response> {
   const failureObserver = captureRequestFailureObserver(input.request);
+  const actionContext = captureActionRequestContext(input.request);
   const resources = new ResourceRequestScope(input.request, "omit");
   const context: PageContext<Record<string, string | readonly string[]>> = Object.freeze({
     request: input.request,
     parameters: input.parameters,
     signal: input.request.signal,
+    session: actionContext?.session ?? Object.freeze({
+      get: () => undefined,
+      has: () => false,
+    }),
     read: <Input extends ResourceInput, Value>(resource: ResourceDeclaration<Input, Value>, resourceInput: Input) =>
       resources.read(resource, resourceInput),
   });
@@ -121,6 +132,16 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
     }
     return renderDocument(await composeLayouts(input.layouts, context, pageResult as RenderChild), {
       request: input.request,
+      ...(actionContext && input.routeId && input.generation
+        ? {
+            action: Object.freeze({
+              context: actionContext,
+              routeId: input.routeId,
+              generation: input.generation,
+              returnLocation: `${new URL(input.request.url).pathname}${new URL(input.request.url).search}`,
+            }),
+          }
+        : {}),
       cleanup: () => resources.close(),
     });
   } catch (cause) {

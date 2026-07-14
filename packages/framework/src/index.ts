@@ -168,6 +168,7 @@ export interface PageContext<Parameters extends Readonly<Record<string, string |
   readonly request: Request;
   readonly parameters: Parameters;
   readonly signal: AbortSignal;
+  readonly session: SessionView;
   readonly read: <Input extends ResourceInput, Value>(resource: ResourceDeclaration<Input, Value>, input: Input) => Promise<Value>;
 }
 
@@ -197,6 +198,10 @@ export interface MatchedRouteRender {
   readonly layouts: readonly Layout[];
   readonly notFound?: NotFoundPage;
   readonly error?: ErrorPage;
+  /** Generated route identity used by the action runtime. Application code does not author this value. */
+  readonly routeId?: string;
+  /** Generated application identity used by the action runtime. Application code does not author this value. */
+  readonly generation?: string;
 }
 
 export interface BoundaryProps {

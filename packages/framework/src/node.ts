@@ -36,6 +36,10 @@ export interface ListenNodeHttpOptions {
   readonly hostname?: string;
   /** Fixed listener port; omit or pass zero for an ephemeral port. */
   readonly port?: number;
+  /** Exact external HTTPS origin used for generated action endpoints and origin checks. */
+  readonly canonicalOrigin?: string;
+  /** Exact generated application identity; required when the application declares actions. */
+  readonly applicationGeneration?: string;
   readonly failureObserver?: FrameworkFailureObserver;
 }
 
