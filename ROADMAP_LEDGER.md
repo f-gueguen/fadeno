@@ -10,29 +10,30 @@ V1-12 — native form, action, session, replay, redirect, and upload contract
 
 ## Exit criteria
 
-- [ ] Accept one form/action/session ADR that resolves the former action/session gate with exact
+- [x] Accept one form/action/session ADR that resolves the former action/session gate with exact
   declaration identity, native request, field decoder, expected failure,
   authorization, origin/CSRF, replay, redirect, revalidation, upload, cookie,
   session, rotation, expiry, and limit ownership without exporting a runtime.
-- [ ] Build one private strict-TypeScript decision model and versioned threat
+- [x] Build one private strict-TypeScript decision model and versioned threat
   corpus for successful native submission plus malformed, duplicate,
   unexpected, oversized, hostile, cross-origin, unauthorized, replayed,
   redirected, uploaded, tampered, expired, rotated, and fixation attempts.
-- [ ] Prove bounded field/file decoding, secret-safe diagnostics, deterministic
+- [x] Prove bounded field/file decoding, secret-safe diagnostics, deterministic
   correction/flow/recovery evidence, explicit partial-upload cleanup, and no
   application mutation before the complete request boundary is accepted.
-- [ ] Prove authenticated confidential session envelopes, active/prior key
+- [x] Prove authenticated confidential session envelopes, active/prior key
   rotation, privilege-change renewal, deletion and expiry, cookie defaults,
   cross-user isolation, and fail-closed unknown-key/tamper behavior.
-- [ ] Align specifications, scope, traceability, risks, security text, and the
+- [x] Align specifications, scope, traceability, risks, security text, and the
   V1 plan; pass focused/full/local CI, architecture, security, package-surface,
   and fresh review gates.
 
 ## In progress
 
-- ADR 0035 now selects the native action/session contract from the private
-  model and threat corpus. The remaining V1-12 work is alignment, full/local
-  validation, independent architecture/security review, and merge review.
+- V1-12 is ready for merge review at clean commit `33c5fd1`. ADR 0035 selects
+  the native action/session contract from the private model and threat corpus;
+  focused, documentation, model, policy, package, architecture, security,
+  Big-O, full, and exact local gates pass.
 - The accepted contract retains one opaque action declaration, generated native
   POST/field/proof identity, complete bounded boundary acceptance before
   authorization or mutation, single-process replay, complete revalidation,
@@ -43,6 +44,10 @@ V1-12 — native form, action, session, replay, redirect, and upload contract
 - All V1-12 runtime records and schemas remain private decision evidence; no
   external schema, editor product, shared replay/session owner, or
   multi-process action support is introduced.
+- Audit hardening binds action proofs to purpose-separated active/prior session
+  keys, binds snapshots to their keyring, bounds proof/failure/session/replay
+  work, refuses invalid callback results structurally, and proves packed deep
+  imports remain unavailable.
 
 ## Blockers
 
