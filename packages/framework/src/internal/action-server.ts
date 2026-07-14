@@ -34,6 +34,7 @@ import {
   type DecisionActionOutcome,
   type DecisionSubmissionPart,
 } from "./action-decision.ts";
+import { actionLimits } from "./action-limits.ts";
 import { reportFrameworkFailure, type FrameworkFailureObserver } from "./failure-observer.ts";
 import { readRedirectOutcome } from "./render-route.ts";
 import {
@@ -51,8 +52,7 @@ import {
 
 const actionPrefix = "/.fadeno/actions/v1/";
 const proofField = "__fadeno_proof";
-const maximumBodyBytes = 8 * 1_024 * 1_024;
-const maximumBoundaryMilliseconds = 5_000;
+const { maximumBodyBytes, maximumBoundaryDurationMilliseconds } = actionLimits;
 const maximumLocationBytes = 2_048;
 const maximumCookieHeaderBytes = 16 * 1_024;
 const maximumSessionKeyBytes = 128;
@@ -289,7 +289,7 @@ async function readBody(request: Request, startedAt: number): Promise<Uint8Array
   let bytes = 0;
   try {
     for (;;) {
-      const remaining = maximumBoundaryMilliseconds - (Date.now() - startedAt);
+      const remaining = maximumBoundaryDurationMilliseconds - (Date.now() - startedAt);
       if (remaining <= 0) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
       let timeout: ReturnType<typeof setTimeout> | undefined;
       const next = await Promise.race([
@@ -333,7 +333,7 @@ async function parseBody(request: Request, state: ActionState, startedAt: number
       headers: { "content-type": request.headers.get("content-type") ?? "" },
       body: body.slice().buffer as ArrayBuffer,
     }).formData();
-    if (Date.now() - startedAt > maximumBoundaryMilliseconds) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
+    if (Date.now() - startedAt > maximumBoundaryDurationMilliseconds) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
     for (const entry of parsed) values.push(entry);
   } else fail("FADENO_ACTION_MEDIA_TYPE");
   let proof: string | undefined;
@@ -353,7 +353,7 @@ async function parseBody(request: Request, state: ActionState, startedAt: number
       }
       if (value.name === "" && value.size === 0) continue;
       let bytes = new Uint8Array(await value.arrayBuffer());
-      if (Date.now() - startedAt > maximumBoundaryMilliseconds) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
+      if (Date.now() - startedAt > maximumBoundaryDurationMilliseconds) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
       let cleaned = false;
       const cleanup = (): void => {
         if (cleaned) return;

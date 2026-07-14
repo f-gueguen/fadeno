@@ -110,6 +110,8 @@ try {
     "package/dist/internal/action.js",
     "package/dist/internal/action-decision.d.ts",
     "package/dist/internal/action-decision.js",
+    "package/dist/internal/action-limits.d.ts",
+    "package/dist/internal/action-limits.js",
     "package/dist/internal/action-request.d.ts",
     "package/dist/internal/action-request.js",
     "package/dist/internal/action-server.d.ts",

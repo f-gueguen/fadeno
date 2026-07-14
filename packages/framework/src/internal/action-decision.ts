@@ -7,23 +7,26 @@ import {
   type DecisionSessionKeyring,
   type DecisionSessionSnapshot,
 } from "./session-decision.ts";
+import { actionLimits } from "./action-limits.ts";
 
 const encoder = new TextEncoder();
 const proofVersion = "v1";
-const proofLifetimeMilliseconds = 15 * 60 * 1_000;
-const maximumBodyBytes = 8 * 1_024 * 1_024;
-const maximumFileBytes = 5 * 1_024 * 1_024;
-const maximumFieldBytes = 64 * 1_024;
-const maximumParts = 128;
-const maximumFiles = 8;
-const maximumFieldNameBytes = 128;
-const maximumFileNameBytes = 256;
-const maximumBoundaryDurationMilliseconds = 5_000;
-const maximumReplayEntries = 4_096;
-const maximumSessionReplayEntries = 64;
-const maximumFailureTextBytes = 1_024;
-const maximumFailureBytes = 16 * 1_024;
-const maximumFormErrors = 16;
+const {
+  maximumBodyBytes,
+  maximumBoundaryDurationMilliseconds,
+  maximumFailureBytes,
+  maximumFailureTextBytes,
+  maximumFieldBytes,
+  maximumFieldNameBytes,
+  maximumFileBytes,
+  maximumFileNameBytes,
+  maximumFiles,
+  maximumFormErrors,
+  maximumParts,
+  maximumReplayEntries,
+  maximumSessionReplayEntries,
+  proofLifetimeMilliseconds,
+} = actionLimits;
 
 export const decisionActionLimits = Object.freeze({
   proofLifetimeMilliseconds,

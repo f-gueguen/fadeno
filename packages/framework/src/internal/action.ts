@@ -9,16 +9,19 @@ import type {
   ResourceDeclaration,
   ResourceInput,
 } from "../index.ts";
+import { actionLimits } from "./action-limits.ts";
 
 const encoder = new TextEncoder();
-const maximumFieldBytes = 64 * 1_024;
-const maximumFileBytes = 5 * 1_024 * 1_024;
-const maximumParts = 128;
-const maximumFieldNameBytes = 128;
-const maximumFailureTextBytes = 1_024;
-const maximumFailureBytes = 16 * 1_024;
-const maximumFormErrors = 16;
-const maximumActions = 4_096;
+const {
+  maximumActions,
+  maximumFailureBytes,
+  maximumFailureTextBytes,
+  maximumFieldBytes,
+  maximumFieldNameBytes,
+  maximumFileBytes,
+  maximumFormErrors,
+  maximumParts,
+} = actionLimits;
 
 export type ActionFieldState = Readonly<
   | { kind: "text"; required: boolean; maximumBytes: number }

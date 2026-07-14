@@ -1,0 +1,17 @@
+export const actionLimits = Object.freeze({
+  proofLifetimeMilliseconds: 15 * 60 * 1_000,
+  maximumBodyBytes: 8 * 1_024 * 1_024,
+  maximumFileBytes: 5 * 1_024 * 1_024,
+  maximumFieldBytes: 64 * 1_024,
+  maximumParts: 128,
+  maximumFiles: 8,
+  maximumFieldNameBytes: 128,
+  maximumFileNameBytes: 256,
+  maximumBoundaryDurationMilliseconds: 5_000,
+  maximumReplayEntries: 4_096,
+  maximumSessionReplayEntries: 64,
+  maximumFailureTextBytes: 1_024,
+  maximumFailureBytes: 16 * 1_024,
+  maximumFormErrors: 16,
+  maximumActions: 4_096,
+});
