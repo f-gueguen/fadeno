@@ -434,6 +434,43 @@ for (const [index, expected] of expectedV1DxB.entries()) {
   if (!cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no example boundary`);
 }
 
+const expectedV1DxC = [
+  { id: "V1-DX-C0", features: ["GOV-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01", "PERF-01"], dependencies: ["V1-13", "V1-DX-B7D7"], commands: ["pnpm check:docs", "pnpm check:ledgers", "pnpm check:model", "pnpm check:policies", "pnpm check", "pnpm ci:local"] },
+  { id: "V1-DX-C1", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-C0"], commands: ["pnpm check:v1-analyzer", "pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-package", "pnpm ci:local"] },
+  { id: "V1-DX-C2", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-C1"], commands: ["pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-package", "pnpm ci:local"] },
+  { id: "V1-DX-C3", features: ["TYPE-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-C2"], commands: ["pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-workflow", "pnpm check:v1-analyzer-package", "pnpm ci:local"] },
+  { id: "V1-DX-C4", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-C3"], commands: ["pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-package", "pnpm ci:local"] },
+  { id: "V1-DX-C5A", features: ["GOV-01", "TEST-01", "DX-01", "DOC-01", "PERF-01"], dependencies: ["V1-DX-C4"], commands: ["pnpm check:v1-analyzer-feedback", "pnpm check:model", "pnpm check", "pnpm ci:local"] },
+  { id: "V1-DX-C5B", features: ["TEST-01", "DX-01", "DOC-01", "PERF-01"], dependencies: ["V1-DX-C5A"], commands: ["pnpm check:v1-analyzer-feedback", "pnpm check:v1-analyzer-lifecycle", "pnpm ci:local"] },
+] as const;
+const v1DxCRows = tableRows(v1, /^\| V1-DX-C[0-9A-Z]+ \|/);
+const v1DxCIds = v1DxCRows.map((cells) => cells[0]);
+const expectedV1DxCIds = expectedV1DxC.map((entry) => entry.id);
+if (JSON.stringify(v1DxCIds) !== JSON.stringify(expectedV1DxCIds)) {
+  errors.push(`docs/roadmap/v1.md: expected ordered V1-DX-C sub-slices ${expectedV1DxCIds.join(", ")}`);
+}
+for (const duplicate of duplicates(v1DxCIds)) errors.push(`docs/roadmap/v1.md: duplicate V1-DX-C sub-slice ${duplicate}`);
+for (const [index, expected] of expectedV1DxC.entries()) {
+  const cells = v1DxCRows[index];
+  if (!cells || cells[0] !== expected.id) continue;
+  if (cells.length !== 7) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} must have exactly 7 columns`);
+    continue;
+  }
+  const features = [...cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)].map((match) => match[1]);
+  if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} feature ownership differs from the accepted plan`);
+  }
+  for (const dependency of expected.dependencies) {
+    if (!cells[3].includes(dependency)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing dependency ${dependency}`);
+  }
+  if (!cells[4]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no required artifacts`);
+  for (const command of expected.commands) {
+    if (!cells[5].includes(`\`${command}\``)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing validation command ${command}`);
+  }
+  if (!cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no evidence boundary`);
+}
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],

@@ -184,9 +184,47 @@ expectPolicyFailure("broken V1-DX-B dependency", "check-project-model.ts", "V1-D
   writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-B5 \|.*$/m, (line) => line.replace("V1-DX-B4", "V1-DX-B3")));
 });
 
+expectPolicyFailure("deleted V1-DX-C sub-slice", "check-project-model.ts", "expected ordered V1-DX-C sub-slices", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-C3 \|.*\n/m, ""));
+});
+
+expectPolicyFailure("reordered V1-DX-C sub-slices", "check-project-model.ts", "expected ordered V1-DX-C sub-slices", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8");
+  const row2 = content.match(/^\| V1-DX-C2 \|.*$/m)?.[0] ?? "";
+  const row3 = content.match(/^\| V1-DX-C3 \|.*$/m)?.[0] ?? "";
+  writeFileSync(path, content.replace(row2, "__V1_DX_C2__").replace(row3, row2).replace("__V1_DX_C2__", row3));
+});
+
+expectPolicyFailure("broken V1-DX-C dependency", "check-project-model.ts", "V1-DX-C4 missing dependency V1-DX-C3", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-C4 \|.*$/m, (line) => line.replace("V1-DX-C3", "V1-DX-C2")));
+});
+
+expectPolicyFailure("wrong V1-DX-C feature ownership", "check-project-model.ts", "V1-DX-C5A feature ownership differs", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-C5A \|.*$/m, (line) => line.replace("GOV-01, ", "")));
+});
+
+expectPolicyFailure("missing V1-DX-C validation command", "check-project-model.ts", "V1-DX-C5B missing validation command pnpm check:v1-analyzer-feedback", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-C5B \|.*$/m, (line) => line.replace("`pnpm check:v1-analyzer-feedback`; ", "")));
+});
+
+expectPolicyFailure("empty V1-DX-C evidence boundary", "check-project-model.ts", "V1-DX-C2 has no evidence boundary", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-C2 \|.*$/m, (line) => {
+    const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
+    cells[6] = "";
+    return `| ${cells.join(" | ")} |`;
+  });
+  writeFileSync(path, content);
+});
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
 
-console.log("policy mutation tests passed (18 expected failures detected)");
+console.log("policy mutation tests passed (24 expected failures detected)");
