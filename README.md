@@ -11,12 +11,14 @@ than becoming application vocabulary.
 
 Fadeno is in V1 implementation. A private packed framework can analyze, build,
 and run the canonical routed application through generated route bindings and a
-verified loopback production bootstrap. The application, deliberate failures,
-flow inspection, rollback, stale-output recovery, and production-only startup
-run as executable repository evidence. No package is published or
-production-supported yet, and the supported development server, resources,
-actions, browser enhancement, public release identity, and final qualification
-remain later work.
+verified production bootstrap. The application includes request-owned
+resources and an authenticated native-form CRUD workflow with protected
+sessions, validation, upload, redirects, replay refusal, and complete
+revalidation. Deliberate failures, flow inspection, rollback, stale-output
+recovery, three-browser JavaScript-disabled operation, and production-only
+startup run as executable repository evidence. No package is published or
+production-supported yet; browser enhancement, public release identity, and
+final V1 qualification remain later work.
 
 The four K0 kill-risk investigations are complete: structural preservation and
 incremental declaration generation were narrowed, while bounded interaction
@@ -49,6 +51,9 @@ replayed from a freshly packed consumer with:
 ```sh
 pnpm check:v1-running-example
 ```
+
+That check also drives the packed authenticated CRUD example over HTTPS in
+Chromium, Firefox, and WebKit with browser JavaScript disabled.
 
 ## Repository contract
 

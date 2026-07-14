@@ -67,9 +67,10 @@ The baseline remains correct when all `keeps` declarations are removed.
 V1-11 implements one private revalidation owner that reruns the complete
 immutable active dependency set in deterministic observation order, compares
 only bounded supported outcomes, marks unsafe or inactive declarations, and
-publishes no partial optimization result after cancellation. V1-13 will invoke
-that owner through ADR 0035's successful-action container; V1-11 does not
-expose `keeps` or an action API by itself.
+publishes no partial optimization result after cancellation. V1-13 invokes
+complete revalidation through ADR 0035's accepted-action container. Public
+`keeps` declarations remain optimization intent only; the current runtime does
+not skip a resource without verified complete-freshness evidence.
 
 ## Concurrent submissions
 

@@ -42,8 +42,10 @@ set is text, integer, checkbox, and file. Exact-origin proof, replay, complete
 decoding, and limits finish before the mandatory application authorization;
 only accepted authorized input reaches mutation. Expected failure is one typed
 `actionError`, redirects are same-origin 303, and successful or possibly
-changed state enters complete revalidation. V1-12 proves this privately;
-V1-13 owns the first public implementation.
+changed state enters complete revalidation. V1-12 proves the private decision
+model. V1-13 implements the first public single-process runtime and exercises
+it through the packed JavaScript-disabled application; the decision schema and
+replay owner remain private.
 
 ## Island
 
@@ -90,7 +92,7 @@ decoded route parameters, and cancellation signal; layouts additionally receive
 their child node. Generated application bindings, not authored route tables,
 connect those modules to the matched-route renderer.
 
-The action and session names above are selected but remain unimplemented until
-V1-13. Island and client-interaction signatures remain unset until their
-vertical slices prove them. Names fixed by effective ADRs remain current
-decisions.
+The action and session names above are implemented for V1's native
+single-process path. Island and client-interaction signatures remain unset
+until their vertical slices prove them. Names fixed by effective ADRs remain
+current decisions.

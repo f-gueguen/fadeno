@@ -6,8 +6,9 @@ identity.
 
 The runtime-neutral `.` facade exports the standard Web `Handler` type,
 configuration, rendering and route outcomes, and the request-scoped resource
-surface. The `./node` facade exports the raw Node HTTP adapter contract for the
-V1 integration smoke. The package executable owns project analysis,
+and action/session surfaces. The `./node` facade exports the Node HTTP adapter
+contract, including the production bootstrap's exact HTTPS origin and generated
+application identity inputs. The package executable owns project analysis,
 transactional production build, and retained development paths:
 
 ```sh
@@ -25,10 +26,15 @@ and atomically replaces `dist` while preserving the last accepted generation
 on failure. Unrelated development packages are not startup inputs. Neither
 command has a machine-output mode.
 
-Start an accepted build from its project root with an explicit port:
+Start an accepted build from its project root with an explicit port. An
+application that declares actions also provides its canonical HTTPS origin and
+active-first protected-session keyring:
 
 ```sh
-FADENO_PORT=3000 node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js
+FADENO_PORT=3000 \
+FADENO_ORIGIN=https://app.example \
+FADENO_SESSION_KEYS='active:<32-byte-base64url-key>' \
+node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js
 ```
 
 Pages declare a server-owned read with `defineResource({ read })` and consume it
@@ -48,8 +54,25 @@ documentation: `examples/v1-app/src/resources/projects.ts`,
 scenario. `pnpm check:v1-running-example` and `pnpm check:v1-resources` execute
 those files and compare their normalized evidence.
 
+Native mutations use one `defineAction({ fields, authorize, run, keeps? })`
+declaration. Forms receive generated action, field, and proof identities; the
+runtime completely decodes and bounds POST input before mandatory application
+authorization. `actionError` renders recoverable field/form failures, accepted
+actions completely re-run the current page resources before rendering or a
+same-origin 303, and `PageContext.session` exposes the protected read view.
+Mutation callbacks alone receive buffered session writes and identity rotation.
+Production action serving requires exact `FADENO_ORIGIN` and active-first
+`FADENO_SESSION_KEYS` configuration. The initial replay/session owner is one
+process only.
+
+The permanent packed action example is
+`examples/v1-app/src/routes/projects/page.tsx` with declarations and storage in
+`examples/v1-app/src/projects.ts`. `pnpm check:v1-running-example` executes its
+sign-in, validation, upload, create, read, update, replay-refusal, delete, and
+stale-state recovery paths in all three browsers with JavaScript disabled.
+
 Private package internals discover and match route metadata, generate one
 transactional application-bound `fadeno:routes` module, render matched routes,
 and coordinate compiler/build freshness. Those modules are not package exports.
-Actions, sessions, publication support, and a supported analyzer or editor
-schema remain later work.
+Publication support and a supported analyzer or editor schema remain later
+work. The analyzer and action decision schemas remain private package internals.

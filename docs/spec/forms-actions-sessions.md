@@ -1,7 +1,9 @@
 # Forms, actions, redirects, cookies, and sessions
 
 This specification defines the secure native-form path selected by ADR 0035.
-V1-12 contains private decision evidence only; V1-13 owns the public runtime.
+V1-12 contains the private decision evidence; V1-13 implements the public
+single-process runtime and packed JavaScript-disabled workflow without exposing
+that decision schema.
 
 ## Form contract
 
@@ -113,3 +115,7 @@ tamper, malformed values, and expiry fail closed and clear the cookie.
 - Logs and diagnostics prove that secret and sensitive values are redacted.
 - The V1-12 normalized success, refusal, correction, flow, and recovery files
   are private evidence, not a supported wire schema or public runtime output.
+- The V1-13 packed application permanently executes sign-in, validation,
+  upload, create, read, update, delete, replay refusal, session rotation,
+  complete revalidation, and stale-output recovery over HTTPS in all three
+  qualified browsers with JavaScript disabled.

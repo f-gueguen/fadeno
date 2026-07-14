@@ -10,7 +10,10 @@ After installing the packed framework, the demonstrated production workflow is:
 
 ```sh
 pnpm build
-FADENO_PORT=3000 pnpm start
+FADENO_PORT=3000 \
+FADENO_ORIGIN=https://app.example \
+FADENO_SESSION_KEYS='active:<32-byte-base64url-key>' \
+pnpm start
 ```
 
 The demonstrated development workflow is:
@@ -42,6 +45,17 @@ starts successfully without development dependencies, applies the tracked
 correction, and proves an output disappears after its source owner is deleted.
 Human and normalized manifest evidence is read from `expected/`; flow and
 recovery evidence is read from the scenario's `expected/` directory.
+
+The `/projects` route is the authenticated CRUD example. Its public
+declarations live in `src/projects.ts`; the route uses ordinary typed TSX forms
+and receives only a read-only session view. The packed example signs in,
+rotates the protected session, refuses invalid sign-in and project input,
+uploads a bounded text file, creates, reads, updates, and deletes a project,
+refuses a replayed proof, and proves complete revalidation removes stale errors
+and stale project output. Chromium, Firefox, and WebKit execute that workflow
+over HTTPS with JavaScript disabled. Human failure output lives in
+`expected/action-failure.txt`; normalized diagnostic, correction, flow, and
+recovery records live under `scenarios/action-lifecycle/expected/`.
 
 The home route now performs two concurrent reads with equivalent structural
 inputs and refuses to render unless they share one request-owned result. The

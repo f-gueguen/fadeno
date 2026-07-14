@@ -8,6 +8,7 @@ requires evidence, an accepted ADR, and a roadmap gate.
 | Partial prerendering | Streaming page and cache semantics pass conformance and a real application demonstrates the need |
 | Pluggable context providers | Request context works across two adapters and an external provider cannot fit the public composition model |
 | Multi-value field convenience types | The baseline form decoder and real applications establish required semantics |
+| Multi-process action replay and session ownership | A demonstrated deployment requires scale beyond one process and an accepted atomic shared owner preserves proof consumption, rotation, expiry, and failure semantics |
 | Additional runtime adapters | The server conformance suite exists and a maintainer or design partner owns the adapter |
 | Component-library bridges | Islands are stable and a demonstrated application needs the bridge |
 | Live resource transport | Ordinary resources, actions, ordering, and browser-state preservation pass conformance |

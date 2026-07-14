@@ -1,8 +1,9 @@
 # Native action and protected session threat model
 
 This threat model accompanies ADR 0035 and the private V1-12 decision corpus.
-It selects the boundary V1-13 must implement; it does not claim that public
-actions or sessions already exist.
+It selects the boundary implemented by V1-13's public native action and
+protected-session path. The schema and replay/session decision machinery remain
+private, and this document does not extend support beyond one process.
 
 ## Assets and actors
 
@@ -61,7 +62,7 @@ retried as a second mutation attempt. Denial and authorization failure skip
 mutation. Upload cleanup runs for every outcome.
 
 The private model receives already framed parts plus declared/observed parser
-evidence; V1-13 must place a bounded streaming parser in front of the same
+evidence; V1-13 places a bounded streaming parser in front of the same
 decision. Parser refusal may occur earlier but cannot publish a partial field,
 retain a partial upload, invoke application code, or consume a proof after a
 newer terminal outcome owns the request.
@@ -96,7 +97,6 @@ bodies. V1-13 performance evidence measures the complete native action path.
 - AES-GCM key material remains present in server process memory. V1 does not
   select hardware key custody or distributed key delivery.
 
-Before public alpha, V1-13 must integrate the real parser, adapter, renderer,
-resources, and packed no-JavaScript CRUD application, and the complete external
-decoder surface must receive fuzzing. Before stable release, independent
-security review must remediate all known critical and high-severity findings.
+Before public alpha, the complete external decoder surface must receive
+fuzzing. Before stable release, independent security review must remediate all
+known critical and high-severity findings.
