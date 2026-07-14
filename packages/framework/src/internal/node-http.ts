@@ -3,9 +3,12 @@ import { isIP } from "node:net";
 import { Readable } from "node:stream";
 
 import type { Handler } from "../index.js";
+import {
+  createInstalledActionServerRuntime,
+  type InstalledActionServerRuntime,
+} from "./action-server-hook.ts";
 import { bindRequestFailureObserver, type FrameworkFailureObserver } from "./failure-observer.ts";
 import { nodeHttpCapabilities } from "./node-http-capabilities.ts";
-import { createActionServerRuntime, type ActionServerRuntime } from "./action-server.ts";
 
 export interface NodeHttpServer {
   readonly origin: string;
@@ -136,7 +139,7 @@ async function writeWebResponse(response: Response, target: ServerResponse): Pro
 
 function handleRequest(
   handler: Handler,
-  actionRuntime: ActionServerRuntime | null,
+  actionRuntime: InstalledActionServerRuntime | null,
   failureObserver: FrameworkFailureObserver | undefined,
   requestOrigin: () => string,
   request: IncomingMessage,
@@ -194,7 +197,7 @@ export async function listenNodeHttp(options: ListenNodeHttpOptions): Promise<No
   }
   let origin: string | undefined;
   const sessionKeys = process.env["FADENO_SESSION_KEYS"];
-  const actionRuntime = createActionServerRuntime({
+  const actionRuntime = createInstalledActionServerRuntime({
     ...(options.canonicalOrigin === undefined ? {} : { canonicalOrigin: options.canonicalOrigin }),
     ...(options.applicationGeneration === undefined ? {} : { applicationGeneration: options.applicationGeneration }),
     ...(sessionKeys === undefined ? {} : { sessionKeys }),

@@ -35,6 +35,7 @@ import {
   type DecisionSubmissionPart,
 } from "./action-decision.ts";
 import { actionLimits } from "./action-limits.ts";
+import { installActionServerRuntimeFactory } from "./action-server-hook.ts";
 import { reportFrameworkFailure, type FrameworkFailureObserver } from "./failure-observer.ts";
 import { readRedirectOutcome } from "./render-route.ts";
 import {
@@ -768,3 +769,7 @@ export function createActionServerRuntime(options: Readonly<{
 }
 
 export type ActionServerInvoke = (request: Request, handler: Handler) => Promise<Response>;
+
+export function registerActionServerRuntime(): void {
+  installActionServerRuntimeFactory(createActionServerRuntime);
+}

@@ -1,6 +1,9 @@
 import type { Handler } from "./index.js";
+import { registerActionServerRuntime } from "./internal/action-server.ts";
 import { nodeHttpCapabilities as internalNodeHttpCapabilities } from "./internal/node-http-capabilities.ts";
 import { listenNodeHttp as listenNodeHttpInternal } from "./internal/node-http.ts";
+
+registerActionServerRuntime();
 
 export interface FrameworkFailureReport {
   readonly incidentId: string;

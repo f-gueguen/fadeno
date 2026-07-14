@@ -116,6 +116,8 @@ try {
     "package/dist/internal/action-request.js",
     "package/dist/internal/action-server.d.ts",
     "package/dist/internal/action-server.js",
+    "package/dist/internal/action-server-hook.d.ts",
+    "package/dist/internal/action-server-hook.js",
     "package/dist/internal/analyzer-compiler.d.ts",
     "package/dist/internal/analyzer-compiler.js",
     "package/dist/internal/analyzer-coordinator.d.ts",

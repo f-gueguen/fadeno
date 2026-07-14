@@ -42,4 +42,3 @@ export function bindActionRequestContext(request: Request, context: ActionReques
 export function captureActionRequestContext(request: Request): ActionRequestContext | undefined {
   return contexts.get(request);
 }
-
