@@ -2,6 +2,14 @@ import { createUnsafeHtml } from "./internal/unsafe-html.ts";
 import { createBoundaryNode } from "./internal/render-node.ts";
 import { createNotFoundOutcome, createRedirectOutcome, renderMatchedRoute } from "./internal/render-route.ts";
 import { createResourceDeclaration, createResourceError } from "./internal/resource.ts";
+import {
+  createActionDeclaration,
+  createActionError,
+  createCheckboxField,
+  createFileField,
+  createIntegerField,
+  createTextField,
+} from "./internal/action.ts";
 
 export interface ResourceInputObject {
   readonly [key: string]: ResourceInput;
@@ -41,6 +49,100 @@ export function defineResource<Input extends ResourceInput, Value>(
 
 export function resourceError(options: Readonly<{ code: string; status: ResourceStatus }>): ResourceError {
   return createResourceError(options);
+}
+
+declare const actionFieldBrand: unique symbol;
+declare const actionFieldTokenBrand: unique symbol;
+declare const actionDeclarationBrand: unique symbol;
+declare const actionErrorBrand: unique symbol;
+
+export interface ActionUpload {
+  readonly originalName: string;
+  readonly contentType: string;
+  readonly size: number;
+  bytes(): Uint8Array;
+}
+
+export interface ActionField<Value> { readonly [actionFieldBrand]: Value }
+export interface ActionFieldToken<Value> { readonly [actionFieldTokenBrand]: Value }
+export type ActionInput<Fields extends Readonly<Record<string, ActionField<unknown>>>> = Readonly<{
+  [Name in keyof Fields]: Fields[Name] extends ActionField<infer Value> ? Value : never;
+}>;
+
+export interface SessionValueObject { readonly [key: string]: SessionValue }
+export type SessionValue = null | boolean | number | string | readonly SessionValue[] | SessionValueObject;
+
+export interface SessionView {
+  get(key: string): SessionValue | undefined;
+  has(key: string): boolean;
+}
+
+export interface Session extends SessionView {
+  set(key: string, value: SessionValue): void;
+  delete(key: string): void;
+  clear(): void;
+  rotate(): void;
+}
+
+export interface ActionAuthorizationContext<Input extends Readonly<Record<string, unknown>>> {
+  readonly request: Request;
+  readonly session: SessionView;
+  readonly input: Input;
+  readonly signal: AbortSignal;
+}
+
+export interface ActionRunContext<Input extends Readonly<Record<string, unknown>>> {
+  readonly request: Request;
+  readonly session: Session;
+  readonly input: Input;
+  readonly signal: AbortSignal;
+}
+
+export interface ActionOptions<Fields extends Readonly<Record<string, ActionField<unknown>>>> {
+  readonly fields: Fields;
+  readonly authorize: (context: ActionAuthorizationContext<ActionInput<Fields>>) => boolean | Promise<boolean>;
+  readonly run: (context: ActionRunContext<ActionInput<Fields>>) => void | RedirectOutcome | Promise<void | RedirectOutcome>;
+  readonly keeps?: readonly ResourceDeclaration<ResourceInput, unknown>[];
+}
+
+export interface ActionDeclaration<Input extends Readonly<Record<string, unknown>>> {
+  readonly [actionDeclarationBrand]: Input;
+  readonly fields: Readonly<{ [Name in keyof Input]: ActionFieldToken<Input[Name]> }>;
+}
+
+export interface ActionError extends Error { readonly [actionErrorBrand]: true }
+
+export function textField(options: Readonly<{ required?: boolean; maximumBytes?: number }> = {}): ActionField<string | null> {
+  return createTextField(options);
+}
+
+export function integerField(options: Readonly<{ required?: boolean; minimum?: number; maximum?: number }> = {}): ActionField<number | null> {
+  return createIntegerField(options);
+}
+
+export function checkboxField(): ActionField<boolean> { return createCheckboxField(); }
+
+export function fileField(options: Readonly<{
+  required?: boolean;
+  maximumBytes?: number;
+  acceptedTypes?: readonly string[];
+}> = {}): ActionField<ActionUpload | null> {
+  return createFileField(options);
+}
+
+export function defineAction<const Fields extends Readonly<Record<string, ActionField<unknown>>>>(
+  options: ActionOptions<Fields>,
+): ActionDeclaration<ActionInput<Fields>> {
+  return createActionDeclaration(options);
+}
+
+export function actionError(input: Readonly<{
+  code: string;
+  changed?: boolean;
+  fieldErrors?: Readonly<Record<string, string>>;
+  formErrors?: readonly string[];
+}>): ActionError {
+  return createActionError(input);
 }
 
 export type Handler = (request: Request) => Response | Promise<Response>;
