@@ -57,6 +57,7 @@ const { maximumBodyBytes, maximumBoundaryDurationMilliseconds, maximumParts } = 
 const maximumLocationBytes = 2_048;
 const maximumCookieHeaderBytes = 16 * 1_024;
 const maximumSessionKeyBytes = 128;
+const maximumFormIndex = 4_095;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -199,8 +200,20 @@ class ServerSession {
   get snapshot(): DecisionSessionSnapshot { return this.#publication?.snapshot ?? this.#initial; }
   get dirty(): boolean { return this.#dirty; }
 
-  acceptMutation(now: number): void {
-    if (!this.#dirty) return;
+  acceptMutation(now: number): boolean {
+    if (now >= this.#initial.expiresAt) {
+      const created = createDecisionSession(
+        this.#keyring,
+        Object.freeze(Object.create(null) as Record<string, never>),
+        now,
+      );
+      this.#current = Object.freeze(Object.create(null) as Record<string, never>);
+      this.#dirty = false;
+      this.#rotated = false;
+      this.#publication = Object.freeze(created);
+      return false;
+    }
+    if (!this.#dirty) return true;
     const renewed = renewDecisionSession(
       this.#keyring,
       this.#initial,
@@ -209,6 +222,7 @@ class ServerSession {
       this.#rotated ? "privilege-change" : "retain-identity",
     );
     this.#publication = Object.freeze(renewed);
+    return true;
   }
 
   discardMutation(): void {
@@ -268,8 +282,18 @@ function routeBinding(routeId: string, returnLocation: string): string {
   }
   return JSON.stringify([routeId, returnLocation]);
 }
-function actionPath(id: string, routeId: string, returnLocation: string): string {
-  const query = new URLSearchParams({ route: routeId, return: returnLocation });
+function formIndex(value: string): number {
+  if (!/^(?:0|[1-9][0-9]{0,3})$/u.test(value)) fail("FADENO_ACTION_ROUTE");
+  const index = Number(value);
+  if (index > maximumFormIndex) fail("FADENO_ACTION_ROUTE");
+  return index;
+}
+function formBinding(routeId: string, returnLocation: string, index: number): string {
+  if (!Number.isSafeInteger(index) || index < 0 || index > maximumFormIndex) fail("FADENO_ACTION_ROUTE");
+  return JSON.stringify([routeBinding(routeId, returnLocation), index]);
+}
+function actionPath(id: string, routeId: string, returnLocation: string, index: number): string {
+  const query = new URLSearchParams({ route: routeId, return: returnLocation, form: String(index) });
   return `${actionPrefix}${id}?${query}`;
 }
 function mediaType(request: Request): string {
@@ -377,7 +401,8 @@ async function parseBody(request: Request, state: ActionState, startedAt: number
         proof = value;
         continue;
       }
-      const logicalName = state.logicalNames.get(generatedName) ?? generatedName;
+      const logicalName = state.logicalNames.get(generatedName);
+      if (logicalName === undefined) fail("FADENO_ACTION_UNEXPECTED_FIELD");
       if (typeof value === "string") {
         parts.push(Object.freeze({ kind: "field", name: logicalName, value }));
         continue;
@@ -479,8 +504,9 @@ export class ActionServerRuntime {
   readonly #actions = new Map<string, RuntimeAction>();
   readonly #replay = new DecisionReplayLedger();
   readonly #flows: RuntimeFlow[] = [];
+  readonly #now: () => number;
 
-  constructor(options: Readonly<{ canonicalOrigin: string; generation: string; sessionKeys: string }>) {
+  constructor(options: Readonly<{ canonicalOrigin: string; generation: string; sessionKeys: string; now?: () => number }>) {
     const origin = new URL(options.canonicalOrigin);
     if (origin.protocol !== "https:" || origin.origin !== options.canonicalOrigin || origin.username || origin.password) {
       fail("FADENO_ACTION_ORIGIN");
@@ -491,6 +517,7 @@ export class ActionServerRuntime {
     this.#canonicalOrigin = options.canonicalOrigin;
     this.#generation = options.generation;
     this.#keyring = parseKeyring(options.sessionKeys);
+    this.#now = options.now ?? Date.now;
     for (const state of registeredActionStates()) this.#actions.set(state.id, Object.freeze({ state, decision: decisionAction(state) }));
     if (this.#actions.size === 0) fail("FADENO_ACTION_DECLARATION");
   }
@@ -502,10 +529,18 @@ export class ActionServerRuntime {
     invoke: Invoke,
     failureObserver?: FrameworkFailureObserver,
   ): Promise<Response> {
-    const now = Date.now();
+    if (
+      request.method === "POST" &&
+      new URL(request.url).pathname.startsWith(actionPrefix) &&
+      request.headers.get("origin") !== this.#canonicalOrigin
+    ) {
+      this.#record("FADENO_ACTION_ORIGIN", "refused", "none", null, "native-boundary-refused");
+      return safePage("Action refused", "Action refused", "FADENO_ACTION_ORIGIN", 400);
+    }
+    const now = this.#now();
     const session = ServerSession.open(this.#keyring, request, now);
     const response = await this.#invokeBound(request, invoke, session, null, true, failureObserver);
-    return withCookie(response, session.cookie(Date.now()));
+    return withCookie(response, session.cookie(this.#now()));
   }
 
   async #invokeBound(
@@ -516,6 +551,7 @@ export class ActionServerRuntime {
     intercept: boolean,
     failureObserver?: FrameworkFailureObserver,
   ): Promise<Response> {
+    let nextFormIndex = 0;
     const context: ActionRequestContext = Object.freeze({
       session: session.view,
       applicationGeneration: this.#generation,
@@ -529,9 +565,11 @@ export class ActionServerRuntime {
         if (!runtime || runtime.state.declaration !== declaration) fail("FADENO_ACTION_DECLARATION");
         const actionState = runtime.state;
         const location = safeLocation(returnLocation, this.#canonicalOrigin);
-        const binding = routeBinding(routeId, location);
+        const index = nextFormIndex;
+        nextFormIndex += 1;
+        const binding = formBinding(routeId, location, index);
         return Object.freeze({
-          actionUrl: actionPath(actionState.id, routeId, location),
+          actionUrl: actionPath(actionState.id, routeId, location, index),
           encoding: Object.values(actionState.descriptors).some(({ kind }) => kind === "file")
             ? "multipart/form-data"
             : "application/x-www-form-urlencoded",
@@ -541,10 +579,10 @@ export class ActionServerRuntime {
             generation: this.#generation,
             session: session.snapshot,
             keyring: this.#keyring,
-            now: Date.now(),
+            now: this.#now(),
           }),
           generatedNames: actionState.generatedNames,
-          failure: failure?.action === declaration ? failure : null,
+          failure: failure?.action === declaration && failure.formIndex === index ? failure : null,
         });
       },
       fieldName: (token: ActionFieldToken<unknown>) => {
@@ -573,21 +611,24 @@ export class ActionServerRuntime {
     session: ServerSession,
     failureObserver?: FrameworkFailureObserver,
   ): Promise<Response> {
-    const startedAt = Date.now();
+    const startedAt = this.#now();
     const url = new URL(request.url);
     const id = url.pathname.slice(actionPrefix.length);
     const runtime = this.#actions.get(id);
     const routeId = url.searchParams.get("route");
     const rawReturn = url.searchParams.get("return");
-    if (!runtime || !routeId || !rawReturn || url.searchParams.size !== 2) {
+    const rawFormIndex = url.searchParams.get("form");
+    if (!runtime || !routeId || !rawReturn || rawFormIndex === null || url.searchParams.size !== 3) {
       this.#record("FADENO_ACTION_ROUTE", "refused", "none", null, "unknown-generated-endpoint");
       return safePage("Action refused", "Action refused", "FADENO_ACTION_ROUTE", 404);
     }
     let returnLocation: string;
     let binding: string;
+    let submittedFormIndex: number;
     try {
       returnLocation = safeLocation(rawReturn, this.#canonicalOrigin);
-      binding = routeBinding(routeId, returnLocation);
+      submittedFormIndex = formIndex(rawFormIndex);
+      binding = formBinding(routeId, returnLocation, submittedFormIndex);
     } catch {
       this.#record("FADENO_ACTION_ROUTE", "refused", "none", null, "invalid-generated-endpoint");
       return safePage("Action refused", "Action refused", "FADENO_ACTION_ROUTE", 400);
@@ -631,7 +672,7 @@ export class ActionServerRuntime {
         session: session.snapshot,
         replay: this.#replay,
         contentLength: parsed.bytes,
-        boundaryDurationMilliseconds: Date.now() - startedAt,
+        boundaryDurationMilliseconds: this.#now() - startedAt,
         parts: parsed.parts,
         now: startedAt,
         authorize: async (decoded) => {
@@ -684,7 +725,18 @@ export class ActionServerRuntime {
         flow: Object.freeze([...outcome.flow, Object.freeze({ phase: "completion", decision: "unexpected-failure", cause: "uncommitted-session-mutation" })]),
       });
     } else if (outcome.status === "success" || (outcome.status === "expected-failure" && outcome.expectedFailure?.changed)) {
-      session.acceptMutation(Date.now());
+      if (!session.acceptMutation(this.#now())) {
+        internalCause = new TypeError("FADENO_SESSION_EXPIRED");
+        outcome = Object.freeze({
+          status: "unexpected-failure",
+          code: "FADENO_ACTION_INTERNAL",
+          revalidation: "complete",
+          redirect: null,
+          fields: null,
+          expectedFailure: null,
+          flow: Object.freeze([...outcome.flow, Object.freeze({ phase: "completion", decision: "unexpected-failure", cause: "session-expired-at-completion" })]),
+        });
+      }
     } else session.discardMutation();
     let incidentId: string | null = null;
     if (outcome.status === "unexpected-failure") {
@@ -703,6 +755,7 @@ export class ActionServerRuntime {
     const failure = outcome.status === "expected-failure" && outcome.expectedFailure && outcome.fields
       ? Object.freeze({
           action: runtime.state.declaration,
+          formIndex: submittedFormIndex,
           fields: outcome.fields,
           fieldErrors: outcome.expectedFailure.fieldErrors,
           formErrors: outcome.expectedFailure.formErrors,

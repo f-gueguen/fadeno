@@ -25,7 +25,13 @@ const save = defineAction({
     brief: fileField({ required: false, maximumBytes: 1_024, acceptedTypes: ["text/plain"] }),
   },
   authorize({ input, session }) {
+    const title: string = input.title;
+    const priority: number = input.priority;
+    const brief: ActionUpload | null = input.brief;
     assert.equal(typeof input.title, "string");
+    void title;
+    void priority;
+    void brief;
     return session.has("viewer");
   },
   run({ input, session }) {
@@ -35,6 +41,16 @@ const save = defineAction({
     return redirect("/projects");
   },
 });
+
+function assertActionRedirectTypes(): void {
+  defineAction({
+    fields: { title: textField() },
+    authorize: () => true,
+    // @ts-expect-error native action callbacks may only return same-origin 303 redirects
+    run: () => redirect("/projects", 307),
+  });
+}
+void assertActionRedirectTypes;
 
 const state = readActionState(save);
 assert.ok(state);

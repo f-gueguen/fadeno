@@ -6,6 +6,7 @@ import type {
 
 export type ActionRenderFailure = Readonly<{
   action: ActionDeclaration<Record<string, unknown>>;
+  formIndex: number;
   fields: Readonly<Record<string, unknown>>;
   fieldErrors: Readonly<Record<string, string>>;
   formErrors: readonly string[];

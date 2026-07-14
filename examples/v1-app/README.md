@@ -59,9 +59,10 @@ declarations live in `src/projects.ts`; the route uses ordinary typed TSX forms
 and receives only a read-only session view. The packed example signs in,
 rotates the protected session, refuses invalid sign-in and project input,
 uploads a bounded text file, creates, reads, updates, and deletes a project,
-refuses a replayed proof, and proves complete revalidation removes stale errors
-and stale project output. Chromium, Firefox, and WebKit execute that workflow
-over HTTPS with JavaScript disabled. Human failure output lives in
+refuses a replayed proof, keeps a refused password out of returned HTML, scopes
+repeated-row validation to the submitted form, and proves complete revalidation
+removes stale errors and stale project output. Chromium, Firefox, and WebKit
+execute that workflow over HTTPS with JavaScript disabled. Human failure output lives in
 `expected/action-failure.txt`; normalized diagnostic, correction, flow, and
 recovery records live under `scenarios/action-lifecycle/expected/`.
 

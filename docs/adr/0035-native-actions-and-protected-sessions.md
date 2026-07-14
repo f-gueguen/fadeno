@@ -68,6 +68,13 @@ emits the generated same-origin endpoint, `method="post"`, accepted encoding,
 field names, and hidden proof. A GET form remains typed navigation and cannot
 accept an action declaration.
 
+Required descriptors expose non-null callback values; only descriptors
+declared with `required: false` include `null`. Opaque field tokens are accepted
+consistently on input, textarea, select, and submit-button names. The generated
+endpoint carries a bounded rendered-form index, and the proof covers that
+index so an expected failure is restored only to the submitted instance when
+one declaration appears multiple times.
+
 V1 has exactly four single-value descriptors: `textField`, `integerField`,
 `checkboxField`, and `fileField`. Text and integer are required unless declared
 otherwise; an absent checkbox is `false`; optional absent fields are `null`.
@@ -117,6 +124,7 @@ prior key can verify a form rendered immediately before rotation; removed and
 unknown key IDs fail closed. The proof carries no session secret. Proofs live
 for at most 15 minutes and never beyond session expiry. Wrong action, route,
 generation, session, signature, encoding, key, or time fails closed.
+Authored logical field names are not an alternate accepted encoding.
 
 An accepted proof is consumed once before authorization. The initial runtime
 keeps an expiry-aware process-local ledger bounded to 4,096 live entries and 64
@@ -198,6 +206,13 @@ new session ID and CSRF secret and resets absolute lifetime; applications must
 call it on login, logout replacement, account change, or any authentication
 privilege change. Ordinary value renewal retains identity and original expiry.
 Deletion emits the same attributes with `Max-Age=0`.
+
+Exact-origin refusal occurs before a missing-cookie action request can mint a
+session. If a previously accepted action crosses absolute expiry while its
+callback completes, the buffered session mutation is discarded, the outcome
+becomes a redacted deterministic failure, and complete revalidation uses a
+fresh anonymous session. Session renewal cannot escape as an unhandled adapter
+failure after application mutation.
 
 The cookie remains a bearer credential. HTTPS, host-only scope, `HttpOnly`,
 short absolute lifetime, rotation, same-origin proof, and deletion reduce but

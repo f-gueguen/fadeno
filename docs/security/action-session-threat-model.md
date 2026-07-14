@@ -35,7 +35,7 @@ values in an error.
 
 | Threat | Control | Executable evidence |
 | --- | --- | --- |
-| Cross-site mutation | Exact HTTPS `Origin` equality, no `Referer` fallback, session-bound HMAC proof | `cross-origin`, `invalid-proof`, cross-session proof |
+| Cross-site mutation or logout | Exact HTTPS `Origin` equality before missing-cookie session publication, no `Referer` fallback, session- and form-instance-bound HMAC proof | `cross-origin`, cookie-less cross-origin, `invalid-proof`, cross-session proof |
 | Stale or misrouted form | Proof binds action, route, application generation, session, issue time, and nonce | `wrong-route`, `stale-generation`, `expired-proof` |
 | Captured request replay | Atomic consume before authorization; no unexpired eviction; bounded global/session ledgers | `replayed` and replay-limit checks |
 | Decoder smuggling | Closed single-value descriptors; missing, malformed, duplicate, unexpected, counterfeit, and unsupported values fail closed | decoder corpus cases and counterfeit descriptor check |
@@ -49,6 +49,7 @@ values in an error.
 | Key rotation logout or downgrade | Active key encrypts/signs; bounded prior keys decrypt then reseal and verify only still-fresh keyed proofs; removed or unknown key fails closed | `session-prior-key`, prior-key proof, invalid-key checks |
 | Session fixation | Fresh 32-byte session and CSRF identities plus required privilege-change rotation | `session-fixation` |
 | Indefinite credential lifetime | Twelve-hour absolute expiry; ordinary renewal cannot extend it; expiry clears the cookie | `session-expired`, retained-identity assertions |
+| Expiry during accepted callback completion | Buffered session mutation is discarded; a redacted deterministic failure revalidates through a fresh anonymous session instead of throwing past the adapter | action-runtime completion-expiry fixture |
 | Cookie scope widening | `__Host-` name, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`, bounded pair | cookie and deletion assertions |
 | Secret leakage through errors | Typed codes and phases select behavior; callback messages, submitted fields, file bytes, cookies, proofs, and keys are structurally absent | human/machine/flow fixtures and authorization-failure redaction |
 

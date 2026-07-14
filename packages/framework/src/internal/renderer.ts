@@ -37,7 +37,23 @@ export interface RenderDocumentOptions {
 type ActiveActionForm = Readonly<{
   declaration: ActionDeclaration<Record<string, unknown>>;
   rendering: ActionFormRendering;
+  selectedValue?: string | number;
 }>;
+
+function optionValue(properties: Readonly<Record<string, unknown>>, children: RenderChild): string | undefined {
+  const explicit = properties["value"];
+  if (typeof explicit === "string" || (typeof explicit === "number" && Number.isFinite(explicit))) return String(explicit);
+  if (typeof children === "string" || (typeof children === "number" && Number.isFinite(children))) return String(children);
+  if (Array.isArray(children)) {
+    let value = "";
+    for (const child of children) {
+      if (typeof child === "string" || (typeof child === "number" && Number.isFinite(child))) value += String(child);
+      else if (child !== null && child !== undefined && child !== false && child !== true) return undefined;
+    }
+    return value;
+  }
+  return undefined;
+}
 
 function childContext(element: string): TextContext {
   return classifySink(element) as TextContext;
@@ -206,7 +222,7 @@ async function* renderChild(
     }
   } else if (properties["name"] !== undefined && readActionFieldToken(properties["name"])) {
     const field = readActionFieldToken(properties["name"]);
-    if (!field || !form || field.action !== form.declaration || !["input", "textarea", "select"].includes(payload.element)) {
+    if (!field || !form || field.action !== form.declaration || !["button", "input", "textarea", "select"].includes(payload.element)) {
       throw new TypeError("FADENO_ACTION_FIELD_TOKEN");
     }
     const generatedName = action?.context.fieldName(properties["name"] as never);
@@ -220,9 +236,15 @@ async function* renderChild(
     }
     if (payload.element === "input") {
       if (properties["type"] === "checkbox" && typeof submitted === "boolean") next["checked"] = submitted;
-      else if (properties["type"] !== "file" && (typeof submitted === "string" || typeof submitted === "number")) next["value"] = submitted;
+      else if (!["file", "password"].includes(String(properties["type"] ?? "text")) && (typeof submitted === "string" || typeof submitted === "number")) next["value"] = submitted;
     } else if (payload.element === "textarea" && typeof submitted === "string") children = submitted;
+    else if (payload.element === "select" && (typeof submitted === "string" || typeof submitted === "number")) {
+      childForm = Object.freeze({ ...form, selectedValue: submitted });
+    }
     properties = Object.freeze(next);
+  } else if (payload.element === "option" && form?.selectedValue !== undefined) {
+    const value = optionValue(properties, children);
+    if (value !== undefined) properties = Object.freeze({ ...properties, selected: value === String(form.selectedValue) });
   }
   const attributes = renderAttributes(payload.element, properties);
   yield `<${payload.element}${attributes}>`;

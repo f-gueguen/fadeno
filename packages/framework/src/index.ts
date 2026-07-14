@@ -55,6 +55,7 @@ declare const actionFieldBrand: unique symbol;
 declare const actionFieldTokenBrand: unique symbol;
 declare const actionDeclarationBrand: unique symbol;
 declare const actionErrorBrand: unique symbol;
+declare const actionRedirectOutcomeBrand: unique symbol;
 
 export interface ActionUpload {
   readonly originalName: string;
@@ -101,7 +102,7 @@ export interface ActionRunContext<Input extends Readonly<Record<string, unknown>
 export interface ActionOptions<Fields extends Readonly<Record<string, ActionField<unknown>>>> {
   readonly fields: Fields;
   readonly authorize: (context: ActionAuthorizationContext<ActionInput<Fields>>) => boolean | Promise<boolean>;
-  readonly run: (context: ActionRunContext<ActionInput<Fields>>) => void | RedirectOutcome | Promise<void | RedirectOutcome>;
+  readonly run: (context: ActionRunContext<ActionInput<Fields>>) => void | ActionRedirectOutcome | Promise<void | ActionRedirectOutcome>;
   readonly keeps?: readonly ResourceDeclaration<ResourceInput, unknown>[];
 }
 
@@ -112,22 +113,26 @@ export interface ActionDeclaration<Input extends Readonly<Record<string, unknown
 
 export interface ActionError extends Error { readonly [actionErrorBrand]: true }
 
-export function textField(options: Readonly<{ required?: boolean; maximumBytes?: number }> = {}): ActionField<string | null> {
-  return createTextField(options);
+export function textField<const Required extends boolean = true>(
+  options: Readonly<{ required?: Required; maximumBytes?: number }> = {},
+): ActionField<Required extends false ? string | null : string> {
+  return createTextField(options) as ActionField<Required extends false ? string | null : string>;
 }
 
-export function integerField(options: Readonly<{ required?: boolean; minimum?: number; maximum?: number }> = {}): ActionField<number | null> {
-  return createIntegerField(options);
+export function integerField<const Required extends boolean = true>(
+  options: Readonly<{ required?: Required; minimum?: number; maximum?: number }> = {},
+): ActionField<Required extends false ? number | null : number> {
+  return createIntegerField(options) as ActionField<Required extends false ? number | null : number>;
 }
 
 export function checkboxField(): ActionField<boolean> { return createCheckboxField(); }
 
-export function fileField(options: Readonly<{
-  required?: boolean;
+export function fileField<const Required extends boolean = true>(options: Readonly<{
+  required?: Required;
   maximumBytes?: number;
   acceptedTypes?: readonly string[];
-}> = {}): ActionField<ActionUpload | null> {
-  return createFileField(options);
+}> = {}): ActionField<Required extends false ? ActionUpload | null : ActionUpload> {
+  return createFileField(options) as ActionField<Required extends false ? ActionUpload | null : ActionUpload>;
 }
 
 export function defineAction<const Fields extends Readonly<Record<string, ActionField<unknown>>>>(
@@ -153,6 +158,7 @@ declare const routeOutcomeBrand: unique symbol;
 export interface RenderNode { readonly [renderNodeBrand]: true; }
 export interface RouteOutcome { readonly [routeOutcomeBrand]: true; }
 export interface RedirectOutcome extends RouteOutcome {}
+export interface ActionRedirectOutcome extends RedirectOutcome { readonly [actionRedirectOutcomeBrand]: true }
 
 export type RenderChild =
   | RenderNode
@@ -218,8 +224,10 @@ export function notFound(): RouteOutcome {
   return createNotFoundOutcome();
 }
 
+export function redirect(location: string, status?: 303): ActionRedirectOutcome;
+export function redirect(location: string, status: 307 | 308): RedirectOutcome;
 export function redirect(location: string, status: 303 | 307 | 308 = 303): RedirectOutcome {
-  return createRedirectOutcome(location, status);
+  return createRedirectOutcome(location, status) as RedirectOutcome;
 }
 
 export function renderRoute(input: MatchedRouteRender): Promise<Response> {

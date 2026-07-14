@@ -395,6 +395,8 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         assert.equal(refusedSignIn?.status(), 200, `${browserName}: sign-in correction status`);
         assert.equal(await page.getByRole("alert").getByText("Sign-in was refused.").count(), 1);
         assert.equal(await page.getByText("Use the example owner passcode.").count(), 1);
+        assert.equal(await page.getByLabel("Example owner passcode").getAttribute("value"), null, `${browserName}: password not restored`);
+        assert.doesNotMatch(await page.content(), /incorrect/u, `${browserName}: refused credential not reflected`);
 
         await page.getByLabel("Example owner passcode").fill("example-owner");
         const [acceptedSignIn] = await Promise.all([
@@ -468,7 +470,20 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         assert.equal(await page.getByText("Browser project", { exact: true }).count(), 0, `${browserName}: stale read removed`);
 
         createdItem = page.locator("#project-list > li").filter({ hasText: "Updated browser project" });
-        const deleteForm = createdItem.locator("form").filter({ has: page.getByRole("button", { name: "Delete project" }) });
+        let deleteForm = createdItem.locator("form").filter({ has: page.getByRole("button", { name: "Delete project" }) });
+        const [invalidDelete] = await Promise.all([
+          page.waitForNavigation(),
+          deleteForm.getByRole("button", { name: "Delete project" }).click(),
+        ]);
+        assert.equal(invalidDelete?.status(), 200, `${browserName}: delete validation status`);
+        assert.equal(await page.getByRole("alert").getByText("The project was not deleted.").count(), 1);
+        createdItem = page.locator("#project-list > li").filter({ hasText: "Updated browser project" });
+        const firstItem = page.locator("#project-list > li").filter({ hasText: "First project" });
+        assert.equal(await createdItem.getByLabel("Confirm deletion").getAttribute("aria-invalid"), "true");
+        assert.equal(await firstItem.getByLabel("Confirm deletion").getAttribute("aria-invalid"), null, `${browserName}: failure scoped to submitted row`);
+        assert.equal(await page.locator("#project-list > li").count(), 2, `${browserName}: refused delete has no mutation`);
+
+        deleteForm = createdItem.locator("form").filter({ has: page.getByRole("button", { name: "Delete project" }) });
         await deleteForm.getByLabel("Confirm deletion").check();
         const [deleted] = await Promise.all([
           page.waitForNavigation(),
