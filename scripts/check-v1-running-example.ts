@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { request as requestHttp } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 import { createServer as createNetServer } from "node:net";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -148,11 +150,21 @@ async function waitForPath(path: string): Promise<void> {
   throw new Error(`FADENO_V1_EXAMPLE_WAIT:${path}`);
 }
 
-async function startServer(project: string): Promise<{ origin: string; output(): string; stop(): Promise<void> }> {
+const exampleSessionKeys = `example:${Buffer.alloc(32, 19).toString("base64url")}`;
+
+async function startServer(
+  project: string,
+  canonicalOrigin = "https://app.example",
+): Promise<{ origin: string; output(): string; stop(): Promise<void> }> {
   const port = await reservePort();
   const child = spawn(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "./dist/server/bootstrap.js"], {
     cwd: project,
-    env: { ...process.env, FADENO_PORT: String(port) },
+    env: {
+      ...process.env,
+      FADENO_PORT: String(port),
+      FADENO_ORIGIN: canonicalOrigin,
+      FADENO_SESSION_KEYS: exampleSessionKeys,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stderr = "";
@@ -181,6 +193,42 @@ async function startServer(project: string): Promise<{ origin: string; output():
       child.kill("SIGTERM");
     }),
   };
+}
+
+async function startSecureServer(project: string): Promise<{
+  origin: string;
+  output(): string;
+  stop(): Promise<void>;
+}> {
+  const port = await reservePort();
+  const origin = `https://127.0.0.1:${port}`;
+  const backend = await startServer(project, origin);
+  const proxy = createHttpsServer({
+    key: readFileSync(join(root, "scripts/fixtures/v1-example-tls-key.pem")),
+    cert: readFileSync(join(root, "scripts/fixtures/v1-example-tls-cert.pem")),
+  }, (request, response) => {
+    const upstream = requestHttp(new URL(request.url ?? "/", backend.origin), {
+      method: request.method,
+      headers: request.headers,
+    }, (upstreamResponse) => {
+      response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
+      upstreamResponse.pipe(response);
+    });
+    upstream.once("error", (error) => response.destroy(error));
+    request.pipe(upstream);
+  });
+  await new Promise<void>((resolve, reject) => {
+    proxy.once("error", reject);
+    proxy.listen(port, "127.0.0.1", resolve);
+  });
+  return Object.freeze({
+    origin,
+    output: backend.output,
+    async stop() {
+      await new Promise<void>((resolve, reject) => proxy.close((error) => error ? reject(error) : resolve()));
+      await backend.stop();
+    },
+  });
 }
 
 const browserTypes = { chromium, firefox, webkit } satisfies Readonly<Record<string, BrowserType>>;
@@ -319,6 +367,165 @@ async function verifyFailureObservation(): Promise<void> {
     assert.notEqual(reports[0]?.incidentId, reports[1]?.incidentId);
   } finally {
     await server.close();
+  }
+}
+
+async function verifyAuthenticatedCrud(project: string): Promise<void> {
+  const server = await startSecureServer(project);
+  try {
+    for (const [browserName, browserType] of Object.entries(browserTypes)) {
+      const browser = await browserType.launch({ headless: true });
+      try {
+        const context = await browser.newContext({ javaScriptEnabled: false, ignoreHTTPSErrors: true });
+        const page = await context.newPage();
+        const initial = await page.goto(`${server.origin}/projects`);
+        assert.equal(initial?.status(), 200, `${browserName}: initial projects status`);
+        assert.equal(await page.locator("script").count(), 0, `${browserName}: CRUD script count`);
+        assert.equal(await page.getByText("Sign in before changing projects.").count(), 1, `${browserName}: signed-out view`);
+        const anonymousCookie = (await context.cookies(server.origin)).find(({ name }) => name === "__Host-fadeno-session");
+        assert.ok(anonymousCookie, `${browserName}: anonymous protected session`);
+        assert.equal(anonymousCookie.httpOnly, true, `${browserName}: session is HttpOnly`);
+        assert.equal(anonymousCookie.secure, true, `${browserName}: session is Secure`);
+
+        await page.getByLabel("Example owner passcode").fill("incorrect");
+        const [refusedSignIn] = await Promise.all([
+          page.waitForNavigation(),
+          page.getByRole("button", { name: "Sign in" }).click(),
+        ]);
+        assert.equal(refusedSignIn?.status(), 200, `${browserName}: sign-in correction status`);
+        assert.equal(await page.getByRole("alert").getByText("Sign-in was refused.").count(), 1);
+        assert.equal(await page.getByText("Use the example owner passcode.").count(), 1);
+
+        await page.getByLabel("Example owner passcode").fill("example-owner");
+        const [acceptedSignIn] = await Promise.all([
+          page.waitForNavigation(),
+          page.getByRole("button", { name: "Sign in" }).click(),
+        ]);
+        assert.equal(acceptedSignIn?.status(), 200, `${browserName}: sign-in redirect target`);
+        assert.equal(page.url(), `${server.origin}/projects`);
+        assert.equal(await page.getByText("Signed in as the example owner.").count(), 1);
+        assert.equal(await page.getByText("Sign-in was refused.").count(), 0, `${browserName}: stale sign-in failure removed`);
+        const ownerCookie = (await context.cookies(server.origin)).find(({ name }) => name === "__Host-fadeno-session");
+        assert.ok(ownerCookie, `${browserName}: owner protected session`);
+        assert.notEqual(ownerCookie.value, anonymousCookie.value, `${browserName}: authentication rotates the session`);
+
+        await page.getByLabel("Title", { exact: true }).fill("   ");
+        const [invalidCreate] = await Promise.all([
+          page.waitForNavigation(),
+          page.getByRole("button", { name: "Create project" }).click(),
+        ]);
+        assert.equal(invalidCreate?.status(), 200, `${browserName}: create validation status`);
+        const humanFailure = readFileSync(join(exampleRoot, "expected/action-failure.txt"), "utf8").trim().split("\n");
+        assert.equal(await page.getByRole("alert").getByText(humanFailure[0] ?? "missing").count(), 1);
+        assert.equal(await page.getByText(humanFailure[1] ?? "missing").count(), 1);
+        assert.equal(await page.getByLabel("Title", { exact: true }).getAttribute("aria-invalid"), "true");
+        assert.equal(await page.locator("#project-list > li").count(), 1, `${browserName}: invalid create has no mutation`);
+
+        const createForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Create project" }) });
+        const action = await createForm.getAttribute("action");
+        const proof = await createForm.locator('input[name="__fadeno_proof"]').getAttribute("value");
+        const titleName = await createForm.getByLabel("Title", { exact: true }).getAttribute("name");
+        const attachmentName = await createForm.getByLabel("Text attachment").getAttribute("name");
+        assert.ok(action && proof && titleName && attachmentName);
+        await createForm.getByLabel("Title", { exact: true }).fill("Browser project");
+        await createForm.getByLabel("Text attachment").setInputFiles({
+          name: "notes.txt",
+          mimeType: "text/plain",
+          buffer: Buffer.from("hello world"),
+        });
+        const [created] = await Promise.all([
+          page.waitForNavigation(),
+          createForm.getByRole("button", { name: "Create project" }).click(),
+        ]);
+        assert.equal(created?.status(), 200, `${browserName}: create redirect target`);
+        assert.equal(await page.getByText("The project was not created.").count(), 0, `${browserName}: stale create failure removed`);
+        assert.equal(await page.getByText("Browser project", { exact: true }).count(), 1);
+        assert.equal(await page.getByText("notes.txt (11 bytes)", { exact: true }).count(), 1);
+        assert.equal(await page.locator("#project-list > li").count(), 2);
+
+        const replay = await context.request.post(new URL(action, server.origin).href, {
+          headers: { origin: server.origin },
+          multipart: {
+            __fadeno_proof: proof,
+            [titleName]: "Browser project",
+            [attachmentName]: { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello world") },
+          },
+        });
+        assert.equal(replay.status(), 409, `${browserName}: consumed proof replay`);
+        assert.match(await replay.text(), /FADENO_ACTION_REPLAY/u);
+        await page.reload();
+        assert.equal(await page.locator("#project-list > li").count(), 2, `${browserName}: replay did not duplicate mutation`);
+
+        let createdItem = page.locator("#project-list > li").filter({ hasText: "Browser project" });
+        const updateForm = createdItem.locator("form").filter({ has: page.getByRole("button", { name: "Update project" }) });
+        await updateForm.getByLabel("New title").fill("Updated browser project");
+        const [updated] = await Promise.all([
+          page.waitForNavigation(),
+          updateForm.getByRole("button", { name: "Update project" }).click(),
+        ]);
+        assert.equal(updated?.status(), 200, `${browserName}: update redirect target`);
+        assert.equal(await page.getByText("Updated browser project", { exact: true }).count(), 1);
+        assert.equal(await page.getByText("Browser project", { exact: true }).count(), 0, `${browserName}: stale read removed`);
+
+        createdItem = page.locator("#project-list > li").filter({ hasText: "Updated browser project" });
+        const deleteForm = createdItem.locator("form").filter({ has: page.getByRole("button", { name: "Delete project" }) });
+        await deleteForm.getByLabel("Confirm deletion").check();
+        const [deleted] = await Promise.all([
+          page.waitForNavigation(),
+          deleteForm.getByRole("button", { name: "Delete project" }).click(),
+        ]);
+        assert.equal(deleted?.status(), 200, `${browserName}: delete redirect target`);
+        assert.equal(await page.locator("#project-list > li").count(), 1);
+        assert.equal(await page.getByText("Updated browser project", { exact: true }).count(), 0, `${browserName}: deleted result removed`);
+
+        const expectedDirectory = join(exampleRoot, "scenarios/action-lifecycle/expected");
+        assert.equal(readFileSync(join(expectedDirectory, "diagnostic.json"), "utf8"), `${JSON.stringify({
+          schemaVersion: 1,
+          scenario: "authenticated-crud-validation",
+          code: "PROJECT_TITLE_REQUIRED",
+          status: invalidCreate?.status(),
+          field: "title",
+          formError: humanFailure[0],
+          fieldError: humanFailure[1],
+          safeSubmittedValuePreserved: true,
+        }, null, 2)}\n`);
+        assert.equal(readFileSync(join(expectedDirectory, "correction-before.json"), "utf8"), `${JSON.stringify({
+          schemaVersion: 1,
+          scenario: "authenticated-sign-in",
+          submittedPasscode: "<redacted-invalid-value>",
+          result: "SIGN_IN_REFUSED",
+        }, null, 2)}\n`);
+        assert.equal(readFileSync(join(expectedDirectory, "correction-after.json"), "utf8"), `${JSON.stringify({
+          schemaVersion: 1,
+          scenario: "authenticated-sign-in",
+          submittedPasscode: "<redacted-corrected-value>",
+          result: "authenticated-session-rotated",
+        }, null, 2)}\n`);
+        assert.equal(readFileSync(join(expectedDirectory, "flow.json"), "utf8"), `${JSON.stringify({
+          schemaVersion: 1,
+          scenario: "authenticated-crud",
+          decisions: ["authenticate", "validate", "create", "refuse-replay", "update", "delete"],
+          causes: ["generated-proof", "owner-session", "complete-revalidation"],
+          ownership: { route: "/projects", resource: "projectCollection", actions: ["signIn", "createProject", "updateProject", "deleteProject"] },
+          skippedWork: ["replayed-mutation", "client-javascript"],
+          observableOutcome: "created-updated-deleted",
+        }, null, 2)}\n`);
+        assert.equal(readFileSync(join(expectedDirectory, "recovery.json"), "utf8"), `${JSON.stringify({
+          schemaVersion: 1,
+          scenario: "authenticated-crud-recovery",
+          staleSignInFailureRemoved: true,
+          staleCreateFailureRemoved: true,
+          staleProjectReadRemovedAfterUpdate: true,
+          deletedProjectRemovedAfterRevalidation: true,
+          replayCreatedNoDuplicate: true,
+        }, null, 2)}\n`);
+        await context.close();
+      } finally {
+        await browser.close();
+      }
+    }
+  } finally {
+    await server.stop();
   }
 }
 
@@ -858,6 +1065,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   } finally {
     await server.stop();
   }
+  await verifyAuthenticatedCrud(project);
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-running-example-"));
