@@ -313,7 +313,7 @@ export function formatDecisionSessionCookie(envelope: string, now: number, expir
   ) {
     fail("FADENO_SESSION_COOKIE");
   }
-  const maximumAge = Math.floor((expiresAt - now) / 1_000);
+  const maximumAge = Math.ceil((expiresAt - now) / 1_000);
   return `${cookieName}=${envelope}; Path=/; Max-Age=${maximumAge}; Secure; HttpOnly; SameSite=Lax`;
 }
 

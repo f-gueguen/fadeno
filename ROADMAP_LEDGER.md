@@ -30,7 +30,7 @@ V1-12 — native form, action, session, replay, redirect, and upload contract
 
 ## In progress
 
-- V1-12 is ready for merge review at clean commit `33c5fd1`. ADR 0035 selects
+- V1-12 is ready for merge review on the latest clean branch head. ADR 0035 selects
   the native action/session contract from the private model and threat corpus;
   focused, documentation, model, policy, package, architecture, security,
   Big-O, full, and exact local gates pass.

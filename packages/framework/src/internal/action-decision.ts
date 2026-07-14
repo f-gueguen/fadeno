@@ -405,6 +405,27 @@ function safeRedirect(destination: string | undefined, expectedOrigin: string): 
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+function expectedFailureFields(
+  action: ActionState,
+  decoded: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const retained: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (const [name, descriptor] of Object.entries(action.fields)) {
+    const value = decoded[name];
+    if (descriptor.kind !== "file" || value === null) {
+      retained[name] = value;
+      continue;
+    }
+    const file = value as Readonly<{ originalName: string; contentType: string; bytes: Uint8Array }>;
+    retained[name] = Object.freeze({
+      originalName: file.originalName,
+      contentType: file.contentType,
+      size: file.bytes.byteLength,
+    });
+  }
+  return Object.freeze(retained);
+}
+
 export function decisionActionFailure(input: Readonly<{
   code: string;
   changed?: boolean;
@@ -490,7 +511,11 @@ export async function executeDecisionAction(input: Readonly<{
         !Number.isSafeInteger(input.boundaryDurationMilliseconds) || input.boundaryDurationMilliseconds < 0 ||
         input.boundaryDurationMilliseconds > maximumBoundaryDurationMilliseconds
       ) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
-      if (input.expectedOrigin !== new URL(input.expectedOrigin).origin || input.origin !== input.expectedOrigin) fail("FADENO_ACTION_ORIGIN");
+      const expectedOrigin = new URL(input.expectedOrigin);
+      if (
+        expectedOrigin.protocol !== "https:" || input.expectedOrigin !== expectedOrigin.origin ||
+        input.origin !== input.expectedOrigin
+      ) fail("FADENO_ACTION_ORIGIN");
       if (input.routeId !== input.expectedRouteId) fail("FADENO_ACTION_ROUTE");
       assertDecisionSessionOwner(input.session, input.keyring);
       const action = state(input.action);
@@ -560,7 +585,7 @@ export async function executeDecisionAction(input: Readonly<{
           code: expected.code,
           revalidation: expected.changed ? "complete" : "none",
           redirect: null,
-          fields,
+          fields: expectedFailureFields(state(input.action), fields),
           expectedFailure: expected,
           flow: Object.freeze(flow),
         });

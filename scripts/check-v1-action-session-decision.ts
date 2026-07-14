@@ -203,6 +203,7 @@ const crossOrigin = await execute({
 assert.equal(boundaryAuthorizationCalls, 0);
 assert.equal(boundaryMutationCalls, 0);
 record("cross-origin", crossOrigin.code);
+assert.equal((await execute({ origin: "http://example.test", expectedOrigin: "http://example.test" })).code, "FADENO_ACTION_ORIGIN");
 record("invalid-proof", (await execute({ submittedProof: "v1.invalid" })).code);
 assert.equal((await execute({ submittedProof: "x".repeat(10_000) })).code, "FADENO_ACTION_PROOF");
 record("expired-proof", (await execute({ submittedProof: proof(), time: now + decisionActionLimits.proofLifetimeMilliseconds + 1 })).code);
@@ -246,6 +247,32 @@ assert.deepEqual(
   { code: "PROJECT_CONFLICT", changed: false, fieldErrors: { title: "Already exists" }, formErrors: [] },
 );
 record("expected-unchanged", expectedUnchanged.code);
+let expectedUploadCleanups = 0;
+const expectedUploadFailure = await execute({
+  mediaType: "multipart/form-data",
+  parts: [
+    ...normalParts(),
+    {
+      kind: "file",
+      name: "brief",
+      upload: {
+        originalName: "brief.txt",
+        contentType: "text/plain",
+        bytes: new TextEncoder().encode("must not survive expected failure"),
+        cleanup: () => { expectedUploadCleanups += 1; },
+      },
+    },
+  ],
+  run: () => { throw decisionActionFailure({ code: "PROJECT_UPLOAD_REJECTED" }); },
+});
+assert.equal(expectedUploadCleanups, 1);
+assert.deepEqual(expectedUploadFailure.fields?.["brief"], {
+  originalName: "brief.txt",
+  contentType: "text/plain",
+  size: 33,
+});
+assert.equal(JSON.stringify(expectedUploadFailure).includes("must not survive"), false);
+assert.equal("bytes" in (expectedUploadFailure.fields?.["brief"] as object), false);
 const expectedChanged = await execute({ run: () => { throw decisionActionFailure({ code: "PROJECT_STORED_WITH_WARNING", changed: true, formErrors: ["Notification failed"] }); } });
 assert.equal(expectedChanged.revalidation, "complete");
 assert.deepEqual(
@@ -304,6 +331,7 @@ for (const fixture of corpus.cases) assert.equal(observed.get(fixture.id), fixtu
 assert.deepEqual([...observed.keys()].sort(), corpus.cases.map(({ id }) => id).sort(), "every corpus case executes");
 
 assert.match(formatDecisionSessionCookie(created.envelope, now, session.expiresAt), /^__Host-fadeno-session=.*; Path=\/; Max-Age=43200; Secure; HttpOnly; SameSite=Lax$/u);
+assert.match(formatDecisionSessionCookie(created.envelope, now, now + 1), /; Max-Age=1; Secure;/u);
 assert.equal(formatDecisionSessionDeletionCookie(), "__Host-fadeno-session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax");
 assert.throws(() => createDecisionSessionKeyring([]), /FADENO_SESSION_KEYS/u);
 assert.throws(() => createDecisionAction({ title: Object.freeze({ kind: "text", required: true, maximumBytes: 12 }) as never }), /FADENO_ACTION_DECLARATION/u);
