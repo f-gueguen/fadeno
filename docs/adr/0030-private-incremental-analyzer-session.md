@@ -115,8 +115,9 @@ evidence exists.
 The analyzer core is established before later compiler-managed action and
 context declarations become fixed. The first running V1 application then
 becomes the canonical success, failure, correction, flow-inspection, and
-recovery corpus. Before V1 exit, a disposable private client proves the complete
-editor lifecycle and the full edit-to-visible and edit-to-cleared feedback loop.
+recovery corpus. Before V1 exit, a disposable private lifecycle consumer proves
+the complete document and project lifecycle and the full edit-to-visible and
+edit-to-cleared feedback loop.
 Independent usability evidence is required before A0 selects any supported
 editor product.
 

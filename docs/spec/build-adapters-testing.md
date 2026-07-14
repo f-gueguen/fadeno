@@ -202,7 +202,8 @@ operations.
 
 The V1 lifecycle workload measures edit/save to a fresh framework diagnostic
 and edit/save to a cleared diagnostic across invalidation, generation,
-TypeScript refresh, Fadeno analysis, and final consumer-visible publication.
+TypeScript refresh, Fadeno analysis, and final accepted consumer-visible
+replacement. Reading internal current state is not a publication observation.
 Deep phase timing and profiles require an explicit flag. This workload does not
 reuse or revive the narrowed K0 incremental-generation claim.
 
@@ -416,6 +417,43 @@ graceful shutdown, active-stream repeated-signal force, address refusal, and
 normalized flow/recovery evidence. It introduces no public watcher API,
 machine output, analyzer schema, editor product, or broader listener address.
 
+## V1-DX-C evidence stages
+
+V1-DX-C is delivered as planning, integration, qualification, interruption,
+and measurement stages rather than one harness PR. C0 enforces the sequence.
+C1 integrates saved and overlay document lifecycles with the same private
+project authority used by check, build, development, tests, and filesystem
+rescans. C2 installs a current package tarball and qualifies open, one ordered
+position-dependent unsaved edit batch, line-ending and analyzer-text
+equivalence, diagnose/correct/repair/close/reopen behavior through a disposable
+private lifecycle consumer. C3 qualifies saved direct and three-level transitive
+changes, configuration reload, rename/deletion, and generated declaration and
+manifest replacement/removal. C4 qualifies cancellation, supersession,
+obsolete-result suppression, close during work, and cleanup with deterministic
+barriers rather than sleeps.
+
+The package-owned lifecycle runner is conformance infrastructure, not a public
+entrypoint. It may be present in packed internals only while export and deep
+import tests keep it inaccessible. It defines no command, generic transport,
+editor metadata, supported editor product, or stable machine schema. Public
+examples continue to execute separately through declared public entrypoints.
+
+C5A freezes the feedback workload and verifier before retaining results. The
+contract names exact canonical mutations and the save boundary; source commit,
+tarball, runtime, compiler, and environment identities; a stale-output canary;
+the monotonic start and final accepted-event endpoints; warmups, repetitions,
+raw attempt records, refusal controls, and completeness rules. Default runs
+collect only end-to-end timing. An explicit flag enables bounded phase detail
+and profiles. Attempts are not retried or selected until a favorable value
+appears.
+
+C5B retains and independently verifies edit-to-fresh and edit-to-cleared raw
+evidence. Correctness, freshness, identity, cleanup, or completeness failure
+invalidates the attempt and blocks qualification. No accepted latency budget
+exists at this boundary, so timing values are baseline evidence only. Any
+threshold, optimization claim, or renewed incremental bound requires a later
+separately accepted slice.
+
 ## V1 and A0 conformance
 
 - A clean checkout reaches the same build through the documented commands.
@@ -430,9 +468,11 @@ machine output, analyzer schema, editor product, or broader listener address.
 - Analyzer package and lifecycle checks rebuild and install the current packed
   framework before executing consumers; stale distribution output cannot
   satisfy conformance.
-- The disposable lifecycle client initializes one root, opens valid source,
+- The disposable private lifecycle consumer initializes one root, opens valid source,
   introduces and repairs invalid source, verifies diagnostic identity, range,
-  related locations, version and correction, applies sequential edits, changes
+  related locations, version and correction, applies one declared-order
+  position-dependent edit batch with exact line-ending and analyzer-text
+  equivalence, changes
   direct and transitive dependencies, regenerates artifacts, reloads
   configuration, cancels or supersedes expensive work, rejects obsolete
   publication, closes and reopens documents, and verifies cleanup.

@@ -434,6 +434,99 @@ for (const [index, expected] of expectedV1DxB.entries()) {
   if (!cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no example boundary`);
 }
 
+const expectedV1DxC = [
+  { id: "V1-DX-C0", features: ["GOV-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01", "PERF-01"], dependencies: ["V1-13", "V1-DX-B7D7"], commands: ["pnpm check:docs", "pnpm check:ledgers", "pnpm check:model", "pnpm check:policies", "pnpm check", "pnpm ci:local"] },
+  { id: "V1-DX-C1", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-C0"], commands: ["pnpm check:v1-analyzer", "pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-package", "pnpm ci:local"] },
+  { id: "V1-DX-C2", features: ["BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-C1"], commands: ["pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-package", "pnpm ci:local"] },
+  { id: "V1-DX-C3", features: ["TYPE-01", "BUILD-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-DX-C2"], commands: ["pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-workflow", "pnpm check:v1-analyzer-package", "pnpm ci:local"] },
+  { id: "V1-DX-C4", features: ["BUILD-01", "TEST-01", "DX-01"], dependencies: ["V1-DX-C3"], commands: ["pnpm check:v1-analyzer-lifecycle", "pnpm check:v1-analyzer-package", "pnpm ci:local"] },
+  { id: "V1-DX-C5A", features: ["GOV-01", "TEST-01", "DX-01", "DOC-01", "PERF-01"], dependencies: ["V1-DX-C4"], commands: ["pnpm check:v1-analyzer-feedback", "pnpm check:model", "pnpm check", "pnpm ci:local"] },
+  { id: "V1-DX-C5B", features: ["TEST-01", "DX-01", "DOC-01", "PERF-01"], dependencies: ["V1-DX-C5A"], commands: ["pnpm check:v1-analyzer-feedback", "pnpm check:v1-analyzer-lifecycle", "pnpm ci:local"] },
+] as const;
+const expectedV1DxCContracts = new Map<string, readonly [string, string, string, string, string]>([
+  ["V1-DX-C0", [
+    "Decompose and enforce complete lifecycle and feedback qualification",
+    "V1-13, V1-DX-B7D7",
+    "Aligned roadmap, specifications, traceability, risks, ledger, project-model checks, and policy mutation tests; no implementation",
+    "`pnpm check:docs`; `pnpm check:ledgers`; `pnpm check:model`; `pnpm check:policies`; `pnpm check`; `pnpm ci:local`",
+    "Planning only; examples are not applicable because behavior does not change; no package, command, analyzer schema, protocol, or editor product",
+  ]],
+  ["V1-DX-C1", [
+    "Integrate versioned document lifecycles with the private project analyzer authority",
+    "V1-DX-C0",
+    "One overlay-aware project operation boundary for open/change/replace/save/close/reopen; one declared-order position-dependent edit batch; exact saved/overlay ownership, line endings, and analyzer-text equivalence; immutable consumer events; version, URI, containment, symlink, and multi-root refusals",
+    "`pnpm check:v1-analyzer`; `pnpm check:v1-analyzer-lifecycle`; `pnpm check:v1-analyzer-package`; `pnpm ci:local`",
+    "Private integration fixtures only; no packed consumer, export, command, generic transport, schema, or editor product",
+  ]],
+  ["V1-DX-C2", [
+    "Qualify the packed document and diagnostic lifecycle",
+    "V1-DX-C1",
+    "Current-tarball disposable private lifecycle consumer; initialize/open; one ordered position-dependent unsaved edit batch; line-ending and analyzer-text equivalence; full-replacement structured diagnostics and correction; repair; close/reopen; cleanup; stale-package canary",
+    "`pnpm check:v1-analyzer-lifecycle`; `pnpm check:v1-analyzer-package`; `pnpm ci:local`",
+    "Permanent packed canonical success, failure, correction, flow, and recovery evidence; public examples remain separate; no export, command, editor metadata, or stable machine schema",
+  ]],
+  ["V1-DX-C3", [
+    "Qualify complete saved-project freshness at the consumer boundary",
+    "V1-DX-C2",
+    "Direct and three-level transitive changes; configuration epoch; rename/deletion; declaration and manifest regeneration; atomic diagnostic/artifact replacement and removal; accepted full-replacement consumer events",
+    "`pnpm check:v1-analyzer-lifecycle`; `pnpm check:v1-analyzer-workflow`; `pnpm check:v1-analyzer-package`; `pnpm ci:local`",
+    "Packed success, refusal, flow, and stale-artifact recovery evidence; stock TypeScript remains authoritative for ordinary TypeScript refresh",
+  ]],
+  ["V1-DX-C4", [
+    "Qualify cancellation, supersession, and lifecycle cleanup",
+    "V1-DX-C3",
+    "Deterministic barriers for active cancellation, supersession, obsolete-result suppression, close during work, and zero retained operation/artifact ownership",
+    "`pnpm check:v1-analyzer-lifecycle`; `pnpm check:v1-analyzer-package`; `pnpm ci:local`",
+    "Packed interruption and recovery evidence; no timing sleeps, public protocol, or editor product",
+  ]],
+  ["V1-DX-C5A", [
+    "Freeze the complete feedback workload and independent verifier before measurement",
+    "V1-DX-C4",
+    "Exact canonical mutations and save boundary; phase and accepted-event definitions; source/tarball identities; environment, monotonic clock, warmups, repetitions, raw schema, validity/refusal controls, stale-output canary, and explicit deep-timing flag",
+    "`pnpm check:v1-analyzer-feedback`; `pnpm check:model`; `pnpm check`; `pnpm ci:local`",
+    "Contract and dry-run evidence only; no retained timing result, budget, optimization, or performance claim",
+  ]],
+  ["V1-DX-C5B", [
+    "Collect and verify complete edit-to-fresh and edit-to-cleared baseline evidence",
+    "V1-DX-C5A",
+    "Retained raw attempts and independent verification for invalidation, generation, TypeScript refresh, Fadeno analysis, and accepted consumer-visible replacement; updated risks and execution ledger",
+    "`pnpm check:v1-analyzer-feedback`; `pnpm check:v1-analyzer-lifecycle`; `pnpm ci:local`",
+    "Correctness and freshness failures block; timing values establish baseline evidence only and no incremental bound or public performance claim",
+  ]],
+]);
+const v1DxCRows = tableRows(v1, /^\| V1-DX-C[0-9A-Z]+ \|/);
+const v1DxCIds = v1DxCRows.map((cells) => cells[0]);
+const expectedV1DxCIds = expectedV1DxC.map((entry) => entry.id);
+if (JSON.stringify(v1DxCIds) !== JSON.stringify(expectedV1DxCIds)) {
+  errors.push(`docs/roadmap/v1.md: expected ordered V1-DX-C sub-slices ${expectedV1DxCIds.join(", ")}`);
+}
+for (const duplicate of duplicates(v1DxCIds)) errors.push(`docs/roadmap/v1.md: duplicate V1-DX-C sub-slice ${duplicate}`);
+for (const [index, expected] of expectedV1DxC.entries()) {
+  const cells = v1DxCRows[index];
+  if (!cells || cells[0] !== expected.id) continue;
+  if (cells.length !== 7) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} must have exactly 7 columns`);
+    continue;
+  }
+  const features = [...cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)].map((match) => match[1]);
+  if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} feature ownership differs from the accepted plan`);
+  }
+  for (const dependency of expected.dependencies) {
+    if (!cells[3].includes(dependency)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing dependency ${dependency}`);
+  }
+  if (!cells[4]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no required artifacts`);
+  for (const command of expected.commands) {
+    if (!cells[5].includes(`\`${command}\``)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing validation command ${command}`);
+  }
+  if (!cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} has no evidence boundary`);
+  const contract = expectedV1DxCContracts.get(expected.id);
+  const actualContract = [cells[1], cells[3], cells[4], cells[5], cells[6]];
+  if (!contract || JSON.stringify(actualContract) !== JSON.stringify(contract)) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} exact contract differs from the accepted plan`);
+  }
+}
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],
