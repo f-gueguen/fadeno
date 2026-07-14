@@ -331,7 +331,10 @@ function assertBoundedPartFraming(type: string, contentType: string, body: Uint8
   }
   const match = /(?:^|;)\s*boundary=(?:"([^"\r\n]{1,70})"|([^;\s]{1,70}))/iu.exec(contentType);
   const boundary = match?.[1] ?? match?.[2];
-  if (!boundary) return;
+  if (
+    !boundary ||
+    !/^[A-Za-z0-9'()+_,./:=?-](?:[A-Za-z0-9'()+_,./:=? -]{0,68}[A-Za-z0-9'()+_,./:=?-])?$/u.test(boundary)
+  ) fail("FADENO_ACTION_MEDIA_TYPE");
   const marker = encoder.encode(`--${boundary}`);
   let delimiters = 0;
   for (let index = 0; index <= body.byteLength - marker.byteLength; index += 1) {

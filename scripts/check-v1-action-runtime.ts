@@ -137,11 +137,44 @@ try {
   assert.match(await excessive.text(), /FADENO_ACTION_BODY_LIMIT/u);
   assert.equal(title, "Initial project");
 
-  const acceptedBody = new URLSearchParams({
+  const deniedBody = new URLSearchParams({
     __fadeno_proof: initialForm.proof,
-    [initialForm.titleName]: "Saved project",
+    [initialForm.titleName]: "Denied project",
   }).toString();
-  const accepted = await fetch(`${server.origin}${initialForm.action}`, {
+  const denied = await fetch(`${server.origin}${initialForm.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      cookie: initialCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: deniedBody,
+  });
+  assert.equal(denied.status, 403);
+  assert.match(await denied.text(), /FADENO_ACTION_UNAUTHORIZED/u);
+  assert.equal(title, "Initial project");
+  const deniedReplay = await fetch(`${server.origin}${initialForm.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      authorization: "Bearer owner",
+      cookie: initialCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: deniedBody,
+  });
+  assert.equal(deniedReplay.status, 409);
+
+  const acceptedFormResponse = await fetch(`${server.origin}/projects`, { headers: { cookie: initialCookie } });
+  const acceptedForm = form(await acceptedFormResponse.text());
+
+  const acceptedBody = new URLSearchParams({
+    __fadeno_proof: acceptedForm.proof,
+    [acceptedForm.titleName]: "Saved project",
+  }).toString();
+  const accepted = await fetch(`${server.origin}${acceptedForm.action}`, {
     method: "POST",
     redirect: "manual",
     headers: {
@@ -157,7 +190,7 @@ try {
   const authenticatedCookie = cookie(accepted);
   assert.notEqual(authenticatedCookie, initialCookie);
 
-  const replay = await fetch(`${server.origin}${initialForm.action}`, {
+  const replay = await fetch(`${server.origin}${acceptedForm.action}`, {
     method: "POST",
     redirect: "manual",
     headers: {
