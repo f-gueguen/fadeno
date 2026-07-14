@@ -50,6 +50,8 @@ export type RouteDiscoveryResult = Readonly<{
   sources: Readonly<Record<string, string>>;
 }>;
 
+export type RouteSourceOverrides = Readonly<Record<string, string>>;
+
 export type RouteRoleCollisionFact = Readonly<{
   route: string;
   owners: readonly Readonly<{ role: "handler" | "page"; path: string }>[];
@@ -158,7 +160,11 @@ type InheritedRoles = Readonly<{
   error: string | null;
 }>;
 
-function discoverRouteInputs(projectRoot: string, config: RouteConfig): RouteDiscoveryResult {
+function discoverRouteInputs(
+  projectRoot: string,
+  config: RouteConfig,
+  sourceOverrides: RouteSourceOverrides = Object.freeze({}),
+): RouteDiscoveryResult {
   if (!isPlainRecord(config) || Object.keys(config).length !== 1 || typeof config["root"] !== "string") fail("CONFIG");
   const root = assertRouteRoot(projectRoot, config.root);
   const canonicalProject = realpathSync(projectRoot);
@@ -257,6 +263,9 @@ function discoverRouteInputs(projectRoot: string, config: RouteConfig): RouteDis
   };
 
   walk(root, [], new Set(), { layouts: [], notFound: null, error: null }, false);
+  for (const [path, text] of Object.entries(sourceOverrides)) {
+    if (!sourceFiles.has(path) || typeof text !== "string") fail("SOURCE_OVERRIDE", [path]);
+  }
   routes.sort((left, right) => compareText(left.id, right.id));
   const immutableRoutes = Object.freeze(routes.map((route) => Object.freeze({
     ...route,
@@ -265,7 +274,8 @@ function discoverRouteInputs(projectRoot: string, config: RouteConfig): RouteDis
     layouts: Object.freeze([...route.layouts]),
   })));
   const sources = Object.freeze(Object.fromEntries([...sourceFiles].sort(compareText).map((path) => {
-    const bytes = readFileSync(join(canonicalProject, path));
+    const override = sourceOverrides[path];
+    const bytes = override === undefined ? readFileSync(join(canonicalProject, path)) : Buffer.from(override, "utf8");
     return [path, Object.freeze({ text: bytes.toString("utf8"), sha256: createHash("sha256").update(bytes).digest("hex") })];
   })));
   const sourceIdentity = Object.entries(sources).map(([path, source]) => ({ path, sha256: source.sha256 }));
@@ -287,8 +297,12 @@ export function discoverRouteManifest(projectRoot: string, config: RouteConfig):
   return discoverRouteInputs(projectRoot, config).manifest;
 }
 
-export function discoverRouteManifestWithSources(projectRoot: string, config: RouteConfig): RouteDiscoveryResult {
-  return discoverRouteInputs(projectRoot, config);
+export function discoverRouteManifestWithSources(
+  projectRoot: string,
+  config: RouteConfig,
+  sourceOverrides?: RouteSourceOverrides,
+): RouteDiscoveryResult {
+  return discoverRouteInputs(projectRoot, config, sourceOverrides);
 }
 
 export function stableRouteManifest(manifest: RouteManifest): string {

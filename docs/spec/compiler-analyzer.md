@@ -887,6 +887,25 @@ inputs, completeness, and requested facets. Invalid versions, divergent saved
 text, non-owned or symlinked paths, and multi-root input refuse atomically. It
 does not define a generic transport or stable schema.
 
+C1 limits overlays to the configuration file and existing route source files
+already owned by the latest accepted project analysis. Missing or new route
+roles, virtual directories, and unrelated contained files refuse before the
+session changes. Configuration overlays are parsed by the installed stock
+TypeScript parser. Route discovery continues to validate the real filesystem
+structure, containment, entry roles, and symlink policy; only the exact source
+bytes of an existing owned route file may come from its overlay. One immutable
+input capture supplies configuration, route identities and hashes, graph facts,
+diagnostics, provenance, and generated artifact bytes. An overlay-derived
+analysis is analysis-only: refresh and artifact application refuse until every
+managed input is saved and the saved generation is reanalyzed.
+
+The project checks workspace ownership before asking the document session to
+transition. A refused transition neither changes the workspace epoch nor enters
+semantic recomputation. An accepted transition is then recomputed as one unit;
+the complete ordered edit array is never expanded into per-edit project work.
+The private result retains no event history and does not clone the immutable
+session or publication snapshots.
+
 C2 installs the current tarball and drives that boundary, including one ordered
 position-dependent unsaved edit batch and line-ending/text equivalence, through
 a disposable package-owned lifecycle consumer. Diagnostic batches are full replacements.

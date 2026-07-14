@@ -131,7 +131,12 @@ function configurationFromSourceFile(file: ts.SourceFile): FadenoConfig {
 }
 
 function staticConfiguration(projectRoot: string, configPath: string, source: string): FadenoConfig {
-  const api = new API({ cwd: projectRoot });
+  const api = new API({
+    cwd: projectRoot,
+    fs: {
+      readFile: (fileName) => resolve(projectRoot, fileName) === configPath ? source : undefined,
+    },
+  });
   const snapshot = api.updateSnapshot({ openFiles: [configPath] });
   try {
     const project = snapshot.getDefaultProjectForFile(configPath);
@@ -145,17 +150,32 @@ function staticConfiguration(projectRoot: string, configPath: string, source: st
   }
 }
 
-export async function loadConfigWithSource(projectRoot: string): Promise<LoadedConfig> {
+function configPathForProject(projectRoot: string): string {
   if (!existsSync(projectRoot) || lstatSync(projectRoot).isSymbolicLink() || !lstatSync(projectRoot).isDirectory()) {
     fail("PROJECT_ROOT");
   }
   const configPath = resolve(projectRoot, "fadeno.config.ts");
   if (!existsSync(configPath)) fail("MISSING");
   if (lstatSync(configPath).isSymbolicLink() || !lstatSync(configPath).isFile()) fail("FILE");
-  const source = readFileSync(configPath, "utf8");
-  const config = staticConfiguration(projectRoot, configPath, source);
+  return configPath;
+}
+
+export function loadConfigFromSource(projectRoot: string, source: string): LoadedConfig {
+  if (typeof source !== "string") fail("SOURCE_CHANGED");
+  const configPath = configPathForProject(projectRoot);
+  return Object.freeze({ config: staticConfiguration(projectRoot, configPath, source), source });
+}
+
+export function readConfigSource(projectRoot: string): string {
+  return readFileSync(configPathForProject(projectRoot), "utf8");
+}
+
+export async function loadConfigWithSource(projectRoot: string): Promise<LoadedConfig> {
+  const configPath = configPathForProject(projectRoot);
+  const source = readConfigSource(projectRoot);
+  const loaded = loadConfigFromSource(projectRoot, source);
   if (readFileSync(configPath, "utf8") !== source) fail("SOURCE_CHANGED");
-  return Object.freeze({ config, source });
+  return loaded;
 }
 
 export async function loadConfig(projectRoot: string): Promise<FadenoConfig> {

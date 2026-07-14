@@ -6,58 +6,39 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-C0 — analyzer lifecycle and feedback qualification decomposition
+V1-DX-C2 — packed document and diagnostic lifecycle qualification
 
 ## Exit criteria
 
-- [x] Decompose V1-DX-C into independently reversible project-lifecycle,
-  document/diagnostic, saved-project freshness, interruption, workload-contract,
-  and retained-result slices before implementation begins.
-- [x] Enforce the exact slice order, features, dependencies, commands, and
-  evidence/compatibility boundaries through project-model and policy mutation
-  checks.
-- [x] Align the V1 plan, analyzer/build specifications, traceability, risks,
-  deferrals, and current execution ledger without claiming lifecycle evidence
-  or feedback results exist.
-- [x] Keep the disposable lifecycle consumer package-owned and private; add no
-  public export, command, generic transport, machine schema, editor metadata,
-  or supported editor product.
-- [x] State the future measurement validity contract before results: exact
-  current packed bytes, accepted replacement events, stale-output controls,
-  monotonic timing, environment, warmups, repetitions, raw attempts, and no
-  retry-selected result.
-- [x] Pass documentation, ledger, project-model, policy, full repository,
-  exact local CI, and fresh independent review gates.
+- [ ] Install the current framework tarball into a disposable private consumer
+  and reject stale or mismatched package bytes before lifecycle qualification.
+- [ ] Qualify initialize, open, one declared-order position-dependent unsaved
+  edit batch, full replacement, repair, close, reopen, and cleanup through the
+  packed consumer boundary.
+- [ ] Preserve exact line endings and analyzer-text equivalence, and observe
+  structured diagnostics, related evidence, and correction intent from accepted
+  immutable consumer events.
+- [ ] Add permanent normalized canonical success, failure, correction, flow,
+  recovery, and cleanup artifacts that assert behavior rather than only printing
+  output.
+- [ ] Pass lifecycle, package, exact local CI, architecture, Big-O, and fresh
+  independent review gates without adding an export, command, editor metadata,
+  stable machine schema, or supported editor product.
 
 ## In progress
 
-- V1-DX-C0 begins from clean `main` after V1-13 merged as `a36c5e9`. The
-  post-R1 opportunity roadmap starts only after R1 and does not alter this V1
-  sequence.
-- Independent challenge found that the retained project authority currently
-  rejects managed open documents. A disposable lifecycle consumer cannot prove
-  unsaved buffers by bypassing that authority or pretending an overlay was
-  saved, so C1 first adds one private overlay-aware project operation boundary.
-- Document diagnostics, saved-project recomputation, interruption, and feedback
-  measurement have different rollback and evidence boundaries. C2 through C5B
-  keep them separate and require consumer receipt of accepted full-replacement
-  events rather than inspection of internal analyzer state.
-- C5A freezes the workload and verifier before C5B collects any retained result.
-  With no accepted budget, timing is baseline evidence only. Correctness and
-  freshness failures block; observed timings establish no incremental bound or
-  public performance claim.
-- C0 changes planning and enforcement only. Executable examples are not
-  applicable because no behavior changes. Architecture and Big-O implementation
-  audits are likewise not applicable; their next required boundaries are C1
-  and C5A/C5B respectively.
-- The disposable private lifecycle consumer may be included in current packed
-  internals only. Public examples remain separate, deep imports remain refused,
-  and DG-A0-02 plus the supported-editor deferral remain unchanged.
-- Exact planning head `5090d15` enforces the complete C0-C5B contracts and adds
-  hostile mutations for dependency-prefix spoofing, public schema/editor creep,
-  and omission of the ordered position-dependent edit batch. Fresh final review
-  found no remaining P1/P2 after C1/C2 and both specifications also required
-  exact line-ending preservation and analyzer-text equivalence.
+- V1-DX-C1 completed at implementation commit `0aecd81`: one private project
+  authority now owns bounded saved/overlay document transitions and publishes
+  only analysis bound to the exact accepted ownership generation.
+- C1 deliberately leaves packed installation, consumer delivery, normalized
+  transported artifacts, and stale-package refusal to C2. Direct private tests
+  are implementation evidence, not yet consumer lifecycle qualification.
+- C2 must consume current packed bytes while keeping the canonical public
+  application buildable. Deliberate lifecycle failures remain isolated private
+  scenarios and must recover without stale diagnostics or artifacts.
+- The analyzer remains private and tool-neutral. C2 does not add a command,
+  generic protocol, package export, editor metadata, stable external schema, or
+  supported editor product.
 
 ## Blockers
 
@@ -258,3 +239,13 @@ V1-DX-C0 — analyzer lifecycle and feedback qualification decomposition
   and the packed three-browser JavaScript-disabled authenticated CRUD workflow
   without an enhanced protocol, shared owner, analyzer schema, or editor
   product.
+- V1-DX-C0 — Merge commit `a6c5295` decomposes the remaining private analyzer
+  lifecycle and complete feedback-loop qualification into bounded C1-C5B
+  milestones with aligned specifications, traceability, risks, policy checks,
+  and no implementation or public product surface.
+- V1-DX-C1 — Implementation commit `0aecd81` integrates open, ordered change,
+  replacement, save, close, and reopen with the private project authority;
+  derives one coherent saved-or-overlay input generation; rejects unsupported
+  ownership; suppresses changed generations before publication; and retains
+  permanent direct success, refusal, flow, and recovery evidence without a
+  packed consumer, public schema, command, or editor product.
