@@ -866,6 +866,48 @@ analyzer, compiler, transaction, server, and child settlement. This adds the
 human `fadeno dev` command but no public analyzer API, stable machine schema,
 or editor product.
 
+## V1 lifecycle qualification sequence
+
+V1-DX-C qualifies the existing private authority before V1 exit. C1 first
+adds one project-owned document-lifecycle boundary because the retained project
+analyzer currently owns saved rescans and deliberately refuses managed open
+documents. A lifecycle consumer must not bypass project configuration, route,
+diagnostic, correction, provenance, or publication policy by constructing a
+separate raw analyzer session. Nor may it write an unsaved buffer to disk and
+claim overlay equivalence.
+
+The private boundary accepts versioned open, sequential change, full
+replacement, save, close, and reopen operations while preserving distinct
+filesystem backing and overlay ownership. It emits immutable consumer events
+bound to the operation, document lifetime/version, workspace epoch, ownership
+inputs, completeness, and requested facets. Invalid versions, divergent saved
+text, non-owned or symlinked paths, and multi-root input refuse atomically. It
+does not define a generic transport or stable schema.
+
+C2 installs the current tarball and drives that boundary through a disposable
+package-owned lifecycle consumer. Diagnostic batches are full replacements.
+The consumer must receive the accepted replacement event containing stable
+codes, structured parameters, exact ranges or explicit null-range reasons,
+related locations, document identity, corrections, completeness, redaction,
+and explanation references. Inspecting a session's current internal snapshot
+does not prove publication. Repair must deliver a later empty or corrected
+replacement that removes stale diagnostic instances; close/reopen must prove a
+new lifetime and cleanup.
+
+C3 separately qualifies saved direct and three-level transitive changes,
+configuration epochs, rename/deletion, and atomic declaration/manifest
+replacement or removal at that same event boundary. Stock TypeScript remains
+authoritative for ordinary TypeScript inputs and results. C4 separately uses
+deterministic barriers, never timing sleeps, to qualify active cancellation,
+supersession, obsolete-event suppression, close during work, and zero retained
+operation and artifact ownership.
+
+The disposable consumer and private machine fixtures are packed conformance
+evidence only. They add no package export, public command, generic protocol,
+editor metadata, supported editor product, or compatibility-controlled schema.
+Deep imports remain refused and DG-A0-02 remains open. Public examples continue
+to use public entrypoints and are not documentation for this private consumer.
+
 ## Conformance
 
 - Positive and negative zone, import, capture, serialization, route, link,
@@ -943,10 +985,11 @@ or editor product.
   correction, flow-inspection, and recovery scenarios from a current packed
   package through public entrypoints. Outputs normalize unstable values and
   documentation is sourced from verified files.
-- Before V1 exit, a disposable private client proves the full open/edit/
+- Before V1 exit, a disposable private lifecycle consumer proves the full open/edit/
   diagnose/regenerate/reload/repair/supersede/close lifecycle and cleanup.
 - Feedback evidence measures edit/save to fresh and cleared consumer-visible
   state, including invalidation, generation, TypeScript refresh, Fadeno
-  analysis, and publication. It makes no incremental bound claim.
+  analysis, and accepted full-replacement publication. Internal-state
+  inspection is insufficient. It makes no incremental bound claim.
 - Public API and analyzer schema snapshots are added only when those surfaces
   become externally supported, not for the private V1 session.

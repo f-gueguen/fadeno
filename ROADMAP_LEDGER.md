@@ -6,64 +6,53 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-13 — authenticated no-JavaScript CRUD vertical slice
+V1-DX-C0 — analyzer lifecycle and feedback qualification decomposition
 
 ## Exit criteria
 
-- [x] Export the sole typed action declaration, field descriptor, expected
-  failure, redirect, and request-scoped session capabilities selected by ADR
-  0035 without exporting the private decision schema or adding a second
-  mutation path.
-- [x] Integrate bounded native POST decoding, exact HTTPS origin, generated
-  route/action/field/proof identity, atomic replay consumption, mandatory
-  authorization, upload cleanup, protected session publication, and redacted
-  failures before any application mutation can run.
-- [x] Integrate successful, changed, and unexpected mutation outcomes with
-  complete resource revalidation; preserve safe expected-failure fields; and
-  render or issue only normalized same-origin 303 completion.
-- [x] Extend the packed canonical application into authenticated CRUD whose
-  read, create, validation, update, upload, redirect, session rotation, and
-  delete paths work with browser JavaScript disabled.
-- [x] Retain executable success, deliberate refusal/failure, human and
-  normalized diagnostics, correction, flow inspection, recovery, stale-state
-  removal, security, type, accessibility, adapter, and packed-package evidence.
-- [x] Align current specifications, scope, traceability, risks, examples, and
-  rollback intent; pass focused, full, exact local, architecture, security,
-  package-surface, and fresh review gates.
+- [ ] Decompose V1-DX-C into independently reversible project-lifecycle,
+  document/diagnostic, saved-project freshness, interruption, workload-contract,
+  and retained-result slices before implementation begins.
+- [ ] Enforce the exact slice order, features, dependencies, commands, and
+  evidence/compatibility boundaries through project-model and policy mutation
+  checks.
+- [ ] Align the V1 plan, analyzer/build specifications, traceability, risks,
+  deferrals, and current execution ledger without claiming lifecycle evidence
+  or feedback results exist.
+- [ ] Keep the disposable lifecycle consumer package-owned and private; add no
+  public export, command, generic transport, machine schema, editor metadata,
+  or supported editor product.
+- [ ] State the future measurement validity contract before results: exact
+  current packed bytes, accepted replacement events, stale-output controls,
+  monotonic timing, environment, warmups, repetitions, raw attempts, and no
+  retry-selected result.
+- [ ] Pass documentation, ledger, project-model, policy, full repository,
+  exact local CI, and fresh independent review gates.
 
 ## In progress
 
-- V1-13 is active from clean `main` after V1-12 and the post-R1 opportunity
-  proposal merged. The proposal begins only after R1 and does not change the
-  current delivery sequence or V1 contract.
-- ADR 0035, the current forms/actions/sessions specification, the V1-12 private
-  decision model, and the canonical packed application are the implementation
-  authorities for the first public authenticated CRUD path.
-- The runtime remains single-process for action replay and protected sessions.
-  No enhanced submission protocol, shared replay/session owner, public
-  analyzer schema, editor product, or post-R1 opportunity enters this slice.
-- Public behavior is proven through the packed application's complete
-  JavaScript-disabled workflow and permanent success, refusal, flow, and
-  recovery artifacts executed through public package entrypoints.
-- Exact implementation head `ce795c2` completes the typed declarations,
-  bounded native adapter boundary, protected session publication, complete
-  revalidation, redacted incidents, packed HTTPS CRUD application, and
-  normalized executable evidence. It additionally proves non-null required
-  inputs, 303-only action completion, form-instance-bound validation,
-  sensitive-field non-reflection, opaque POST names, fallback action context,
-  refusal without cookie minting, deterministic completion-time expiry,
-  fixed-size long-return bindings, canonical checkbox values, multi-select
-  refusal, tampered-session deletion, and specific unsafe-redirect refusal.
-  Chromium, Firefox, and WebKit execute the workflow with JavaScript disabled.
-- The architecture audit centralized action limits and preserved the standalone
-  adapter boundary. The asymptotic audit found only linear work over explicitly
-  capped actions, bodies, parts, files, session values, replay entries, and flow
-  records; no broader performance claim is introduced. The adversarial review
-  added pre-parser part bounds, authorization/replay evidence, rotated-session
-  failure recovery, and redacted unexpected-action reporting.
-- V1-13 exports no private decision schema, adds no public analyzer or editor
-  product, retains one process-local replay/session owner, and does not add the
-  deferred enhanced submission protocol.
+- V1-DX-C0 begins from clean `main` after V1-13 merged as `a36c5e9`. The
+  post-R1 opportunity roadmap starts only after R1 and does not alter this V1
+  sequence.
+- Independent challenge found that the retained project authority currently
+  rejects managed open documents. A disposable lifecycle consumer cannot prove
+  unsaved buffers by bypassing that authority or pretending an overlay was
+  saved, so C1 first adds one private overlay-aware project operation boundary.
+- Document diagnostics, saved-project recomputation, interruption, and feedback
+  measurement have different rollback and evidence boundaries. C2 through C5B
+  keep them separate and require consumer receipt of accepted full-replacement
+  events rather than inspection of internal analyzer state.
+- C5A freezes the workload and verifier before C5B collects any retained result.
+  With no accepted budget, timing is baseline evidence only. Correctness and
+  freshness failures block; observed timings establish no incremental bound or
+  public performance claim.
+- C0 changes planning and enforcement only. Executable examples are not
+  applicable because no behavior changes. Architecture and Big-O implementation
+  audits are likewise not applicable; their next required boundaries are C1
+  and C5A/C5B respectively.
+- The disposable private lifecycle consumer may be included in current packed
+  internals only. Public examples remain separate, deep imports remain refused,
+  and DG-A0-02 plus the supported-editor deferral remain unchanged.
 
 ## Blockers
 
@@ -258,3 +247,9 @@ V1-13 — authenticated no-JavaScript CRUD vertical slice
   rotation, complete revalidation decision, redacted success/refusal/flow/
   recovery evidence, and no public runtime, editor product, external schema,
   or multi-process action support.
+- V1-13 — Merge commit `a36c5e9` implements the sole typed native action and
+  protected-session runtime, bounded exact-origin POST boundary, authorization,
+  replay and upload cleanup, complete resource revalidation, redacted failures,
+  and the packed three-browser JavaScript-disabled authenticated CRUD workflow
+  without an enhanced protocol, shared owner, analyzer schema, or editor
+  product.
