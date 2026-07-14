@@ -57,7 +57,7 @@ const page: Page = async ({ read, session }) => {
             <form action={deleteProject}>
               <input name={deleteProject.fields.projectId} type="hidden" value={project.id} />
               <label>
-                <input name={deleteProject.fields.confirmed} type="checkbox" />
+                <input name={deleteProject.fields.confirmed} type="checkbox" value="authored-value-is-normalized" />
                 Confirm deletion
               </label>
               <button type="submit">Delete project</button>

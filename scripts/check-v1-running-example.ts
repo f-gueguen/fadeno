@@ -471,6 +471,7 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
 
         createdItem = page.locator("#project-list > li").filter({ hasText: "Updated browser project" });
         let deleteForm = createdItem.locator("form").filter({ has: page.getByRole("button", { name: "Delete project" }) });
+        assert.equal(await deleteForm.getByLabel("Confirm deletion").getAttribute("value"), "on", `${browserName}: checkbox wire value normalized`);
         const [invalidDelete] = await Promise.all([
           page.waitForNavigation(),
           deleteForm.getByRole("button", { name: "Delete project" }).click(),

@@ -37,6 +37,7 @@ values in an error.
 | --- | --- | --- |
 | Cross-site mutation or logout | Exact HTTPS `Origin` equality before missing-cookie session publication, no `Referer` fallback, session- and form-instance-bound HMAC proof | `cross-origin`, cookie-less cross-origin, `invalid-proof`, cross-session proof |
 | Stale or misrouted form | Proof binds action, route, application generation, session, issue time, and nonce | `wrong-route`, `stale-generation`, `expired-proof` |
+| Form identity or long return-location confusion | Proof signs a fixed SHA-256 digest over route, full accepted return location, and bounded form index | long-return render and form-index tamper fixtures |
 | Captured request replay | Atomic consume before authorization; no unexpired eviction; bounded global/session ledgers | `replayed` and replay-limit checks |
 | Decoder smuggling | Closed single-value descriptors; missing, malformed, duplicate, unexpected, counterfeit, and unsupported values fail closed | decoder corpus cases and counterfeit descriptor check |
 | Body/file exhaustion | Declared and observed aggregate bytes, part/file counts, per-field/file/name/type/depth and processing limits | `oversized-body`, `boundary-timeout`, `hostile-upload` |
@@ -51,6 +52,7 @@ values in an error.
 | Indefinite credential lifetime | Twelve-hour absolute expiry; ordinary renewal cannot extend it; expiry clears the cookie | `session-expired`, retained-identity assertions |
 | Expiry during accepted callback completion | Buffered session mutation is discarded; a redacted deterministic failure revalidates through a fresh anonymous session instead of throwing past the adapter | action-runtime completion-expiry fixture |
 | Cookie scope widening | `__Host-` name, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`, bounded pair | cookie and deletion assertions |
+| Tampered credential replacement | Invalid and expired cookies short-circuit application rendering and emit only the deletion cookie | action-runtime tampered-cookie fixture |
 | Secret leakage through errors | Typed codes and phases select behavior; callback messages, submitted fields, file bytes, cookies, proofs, and keys are structurally absent | human/machine/flow fixtures and authorization-failure redaction |
 
 ## Boundary ordering and mutation invariant

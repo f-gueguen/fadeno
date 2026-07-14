@@ -75,6 +75,12 @@ endpoint carries a bounded rendered-form index, and the proof covers that
 index so an expected failure is restored only to the submitted instance when
 one declaration appears multiple times.
 
+The proof stores a fixed-size SHA-256 digest over route identity, the complete
+accepted return location, and form index rather than placing a potentially long
+return URL in the proof's bounded route field. Checkbox controls normalize to
+the decoder's canonical `on` value, and action field tokens refuse `multiple`
+selects while multi-value descriptors remain deferred.
+
 V1 has exactly four single-value descriptors: `textField`, `integerField`,
 `checkboxField`, and `fileField`. Text and integer are required unless declared
 otherwise; an absent checkbox is `false`; optional absent fields are `null`.
@@ -169,7 +175,8 @@ must use status 303 and resolve to the exact HTTPS application origin; the
 response uses a normalized path/query/fragment, not an external allow-list.
 Without an explicit redirect the framework renders current server truth; a
 fresh native GET may own that render. Unsafe redirect data after mutation is
-refused and still performs complete revalidation. Unexpected mutation failure
+refused with its specific action-redirect identity, discards buffered session
+writes, and still performs complete revalidation. Unexpected mutation failure
 uses a redacted incident identity and conservatively performs complete
 revalidation because partial state change is unknown.
 
@@ -206,6 +213,10 @@ new session ID and CSRF secret and resets absolute lifetime; applications must
 call it on login, logout replacement, account change, or any authentication
 privilege change. Ordinary value renewal retains identity and original expiry.
 Deletion emits the same attributes with `Max-Age=0`.
+
+An invalid or expired incoming cookie is not replaced on the refusal response;
+the runtime emits only that deletion cookie and application rendering does not
+run under a throwaway identity.
 
 Exact-origin refusal occurs before a missing-cookie action request can mint a
 session. If a previously accepted action crosses absolute expiry while its

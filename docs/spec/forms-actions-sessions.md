@@ -31,9 +31,13 @@ V1 descriptor set. `<form action={declaration}>` and
 do not author endpoints, proof fields, action IDs, or raw field names. Input,
 textarea, select, and submit-button names use the same token translation; raw
 logical names at the POST boundary are refused rather than treated as a second
-wire format. Each rendered action URL carries a bounded form-instance index
-that is covered by the proof, so repeated forms for one declaration cannot
-share validation state.
+wire format. Each rendered action URL carries a bounded form-instance index.
+The proof covers a SHA-256 binding digest over that index, route identity, and
+the complete accepted return location, so repeated forms cannot share
+validation state and long accepted query strings do not overflow the proof's
+route-identity field. Action checkboxes always emit the decoder's canonical
+`on` value regardless of an authored value. A multiple select cannot use an
+action field token because V1 descriptors are single-value.
 
 The exact limits are 8 MiB aggregate body bytes, 5 MiB per file, eight files,
 128 parts, 64 KiB per scalar field, 128 UTF-8 bytes per field name, 256 UTF-8
@@ -107,7 +111,9 @@ Its AES-256-GCM v1 envelope authenticates cookie metadata and encrypts session
 identity, CSRF secret, timestamps, and at most 2 KiB of normalized values.
 Sessions have 12-hour absolute expiry. The active key encrypts; up to three
 prior keys decrypt and trigger resealing without extending expiry. Unknown key,
-tamper, malformed values, and expiry fail closed and clear the cookie.
+tamper, malformed values, and expiry fail closed and clear the cookie. An
+expired, malformed, or tampered cookie produces one deterministic refusal with
+only the deletion cookie; it is not replaced during that request.
 An action POST rejected by the exact-origin check does not open or publish a
 replacement session. If an accepted callback reaches absolute session expiry
 before completion, the runtime reports a deterministic redacted failure,
@@ -119,7 +125,8 @@ session; renewal never throws past the response boundary.
 - The authenticated CRUD workflow submits, validates, fails, redirects, and
   succeeds with JavaScript disabled.
 - Decoder fixtures cover missing, malformed, duplicate, unexpected, oversized,
-  and hostile fields and files.
+  and hostile fields and files, canonical checkbox values, and multiple-select
+  refusal.
 - Security fixtures cover cross-origin requests, missing/invalid CSRF proof,
   unauthorized actions, replay, unsafe redirects, session fixation, rotation,
   tampering, expiry, and cross-user isolation.

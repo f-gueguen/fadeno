@@ -3,10 +3,17 @@
   "compilerOptions": {
     "noEmit": true,
     "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "fadeno-framework-internal",
+    "paths": {
+      "fadeno-framework-internal": ["./packages/framework/src/index.ts"],
+      "fadeno-framework-internal/*": ["./packages/framework/src/*"]
+    },
     "types": ["node"]
   },
   "include": [
     "packages/framework/src/**/*.ts",
-    "scripts/check-v1-actions.ts"
+    "scripts/check-v1-actions.ts",
+    "scripts/check-v1-action-jsx.tsx"
   ]
 }

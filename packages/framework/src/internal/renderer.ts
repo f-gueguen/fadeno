@@ -227,6 +227,15 @@ async function* renderChild(
     }
     const generatedName = action?.context.fieldName(properties["name"] as never);
     if (!generatedName) throw new TypeError("FADENO_ACTION_RUNTIME");
+    const descriptor = readActionState(form.declaration)?.descriptors[field.logicalName];
+    if (!descriptor) throw new TypeError("FADENO_ACTION_FIELD_TOKEN");
+    const inputType = String(properties["type"] ?? "text").toLowerCase();
+    if (payload.element === "select" && properties["multiple"] === true) {
+      throw new TypeError("FADENO_ACTION_MULTI_VALUE_UNSUPPORTED");
+    }
+    if (descriptor.kind === "checkbox" && (payload.element !== "input" || inputType !== "checkbox")) {
+      throw new TypeError("FADENO_ACTION_FIELD_CONTROL");
+    }
     const submitted = form.rendering.failure?.fields[field.logicalName];
     fieldError = form.rendering.failure?.fieldErrors[field.logicalName];
     const next: Record<string, unknown> = { ...properties, name: generatedName };
@@ -235,9 +244,12 @@ async function* renderChild(
       next["aria-describedby"] = `fadeno-error-${generatedName}`;
     }
     if (payload.element === "input") {
-      if (properties["type"] === "checkbox" && typeof submitted === "boolean") next["checked"] = submitted;
+      if (descriptor.kind === "checkbox") {
+        next["value"] = "on";
+        if (typeof submitted === "boolean") next["checked"] = submitted;
+      }
       else if (
-        !["file", "password"].includes(String(properties["type"] ?? "text").toLowerCase()) &&
+        !["file", "password"].includes(inputType) &&
         (typeof submitted === "string" || typeof submitted === "number")
       ) next["value"] = submitted;
     } else if (payload.element === "textarea" && typeof submitted === "string") children = submitted;

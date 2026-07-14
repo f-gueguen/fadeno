@@ -57,6 +57,10 @@ const saveProject = defineAction({
         formErrors: ["The project was not saved."],
       });
     }
+    if (input.title === "unsafe redirect") {
+      session.set("last-title", "must-be-discarded");
+      return redirect("https://attacker.example/projects");
+    }
     title = input.title;
     session.set("viewer", "owner");
     session.set("last-title", input.title);
@@ -215,6 +219,20 @@ try {
   const initialCookie = cookie(initial);
   const initialForm = form(await initial.text());
 
+  const longReturn = `/projects?filter=${"x".repeat(1_800)}`;
+  const longReturnResponse = await fetch(`${server.origin}${longReturn}`, { headers: { cookie: initialCookie } });
+  assert.equal(longReturnResponse.status, 200);
+  const longReturnForm = form(await longReturnResponse.text());
+  assert.equal(new URL(longReturnForm.action, server.origin).searchParams.get("return"), longReturn);
+
+  const tamperedCookie = `${initialCookie.slice(0, -1)}${initialCookie.endsWith("A") ? "B" : "A"}`;
+  const tamperedSession = await fetch(`${server.origin}/projects`, { headers: { cookie: tamperedCookie } });
+  assert.equal(tamperedSession.status, 401);
+  assert.match(await tamperedSession.text(), /FADENO_SESSION_INVALID/u);
+  assert.deepEqual(tamperedSession.headers.getSetCookie(), [
+    "__Host-fadeno-session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
+  ]);
+
   const wrongMethod = await fetch(`${server.origin}${initialForm.action}`, { redirect: "manual" });
   assert.equal(wrongMethod.status, 400);
   assert.match(await wrongMethod.text(), /FADENO_ACTION_METHOD/u);
@@ -322,9 +340,30 @@ try {
   assert.equal(replay.status, 409);
   assert.match(await replay.text(), /FADENO_ACTION_REPLAY/u);
 
+  const unsafeRedirectPage = await fetch(`${server.origin}/projects`, { headers: { cookie: authenticatedCookie } });
+  const unsafeRedirectForm = form(await unsafeRedirectPage.text());
+  const unsafeRedirect = await fetch(`${server.origin}${unsafeRedirectForm.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      cookie: authenticatedCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: new URLSearchParams({
+      __fadeno_proof: unsafeRedirectForm.proof,
+      [unsafeRedirectForm.titleName]: "unsafe redirect",
+    }),
+  });
+  assert.equal(unsafeRedirect.status, 400);
+  assert.match(await unsafeRedirect.text(), /FADENO_ACTION_REDIRECT/u);
+  assert.equal(internalReports.length, 0);
+  assert.equal(title, "Saved project");
+
   const current = await fetch(`${server.origin}/projects`, { headers: { cookie: authenticatedCookie } });
   assert.equal(current.status, 200);
   const currentHtml = await current.text();
+  assert.match(currentHtml, /<p id="session-title">Saved project<\/p>/u);
   const currentForm = secondaryForm(currentHtml);
   assert.ok(currentForm.categoryName);
   assert.ok(currentForm.intentName);

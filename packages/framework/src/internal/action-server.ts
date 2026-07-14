@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type {
   ActionDeclaration,
   ActionFieldToken,
@@ -150,7 +152,7 @@ class ServerSession {
       return new ServerSession(keyring, opened.status, opened.snapshot, null);
     }
     const created = createDecisionSession(keyring, Object.freeze(Object.create(null) as Record<string, never>), now);
-    return new ServerSession(keyring, opened.status, created.snapshot, created.envelope);
+    return new ServerSession(keyring, opened.status, created.snapshot, opened.status === "missing" ? created.envelope : null);
   }
 
   readonly view: SessionView = Object.freeze({
@@ -199,6 +201,7 @@ class ServerSession {
 
   get snapshot(): DecisionSessionSnapshot { return this.#publication?.snapshot ?? this.#initial; }
   get dirty(): boolean { return this.#dirty; }
+  get requiresClear(): boolean { return this.#opened === "expired" || this.#opened === "invalid"; }
 
   acceptMutation(now: number): boolean {
     if (now >= this.#initial.expiresAt) {
@@ -281,7 +284,7 @@ function routeBinding(routeId: string, returnLocation: string, index: number): s
     fail("FADENO_ACTION_ROUTE");
   }
   if (!Number.isSafeInteger(index) || index < 0 || index > maximumFormIndex) fail("FADENO_ACTION_ROUTE");
-  return JSON.stringify([routeId, returnLocation, index]);
+  return createHash("sha256").update(JSON.stringify([routeId, returnLocation, index])).digest("base64url");
 }
 function formIndex(value: string): number {
   if (!/^(?:0|[1-9][0-9]{0,3})$/u.test(value)) fail("FADENO_ACTION_ROUTE");
@@ -539,6 +542,12 @@ export class ActionServerRuntime {
     }
     const now = this.#now();
     const session = ServerSession.open(this.#keyring, request, now);
+    if (session.requiresClear) {
+      return withCookie(
+        safePage("Session refused", "Session refused", "FADENO_SESSION_INVALID", 401),
+        session.cookie(now),
+      );
+    }
     const response = await this.#invokeBound(request, invoke, session, null, true, failureObserver);
     return withCookie(response, session.cookie(this.#now()));
   }
@@ -713,7 +722,9 @@ export class ActionServerRuntime {
     } finally {
       closeUploads(openedUploads);
     }
-    if (session.dirty && !(outcome.status === "success" || (outcome.status === "expected-failure" && outcome.expectedFailure?.changed))) {
+    if (session.dirty && outcome.status === "refused" && outcome.code === "FADENO_ACTION_REDIRECT") {
+      session.discardMutation();
+    } else if (session.dirty && !(outcome.status === "success" || (outcome.status === "expected-failure" && outcome.expectedFailure?.changed))) {
       session.discardMutation();
       outcome = Object.freeze({
         status: "unexpected-failure",

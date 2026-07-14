@@ -70,6 +70,10 @@ type Link = WithChildren & Readonly<{ href?: string; download?: OrdinaryValue; h
 type Form = WithChildren & Readonly<{ action?: string | ActionDeclaration<Record<string, unknown>>; autocomplete?: OrdinaryValue; enctype?: OrdinaryValue; method?: OrdinaryValue; name?: OrdinaryValue; target?: OrdinaryValue; novalidate?: boolean }>;
 type FieldName = OrdinaryValue | ActionFieldToken<unknown>;
 type Input = Void & Readonly<{ name?: FieldName; type?: OrdinaryValue; value?: OrdinaryValue; accept?: OrdinaryValue; placeholder?: OrdinaryValue; required?: boolean; disabled?: boolean; readonly?: boolean; checked?: boolean; autofocus?: boolean }>;
+type SelectBase = WithChildren & Readonly<{ required?: boolean; disabled?: boolean }>;
+type Select =
+  | (SelectBase & Readonly<{ name?: OrdinaryValue; multiple?: boolean }>)
+  | (SelectBase & Readonly<{ name: ActionFieldToken<unknown>; multiple?: false }>);
 
 export namespace JSX {
   export type Element = RenderChild;
@@ -88,7 +92,7 @@ export namespace JSX {
     var: WithChildren; sub: WithChildren; sup: WithChildren; a: Link;
     form: Form; label: WithChildren & Readonly<{ for?: OrdinaryValue }>;
     button: WithChildren & Readonly<{ type?: OrdinaryValue; name?: FieldName; value?: OrdinaryValue; disabled?: boolean }>;
-    select: WithChildren & Readonly<{ name?: FieldName; required?: boolean; disabled?: boolean; multiple?: boolean }>;
+    select: Select;
     option: WithChildren & Readonly<{ value?: OrdinaryValue; selected?: boolean; disabled?: boolean }>;
     textarea: WithChildren & Readonly<{ name?: FieldName; placeholder?: OrdinaryValue; required?: boolean; disabled?: boolean; readonly?: boolean }>;
     details: WithChildren & Readonly<{ open?: boolean }>; summary: WithChildren;
