@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "scenario": "authenticated-crud-recovery",
+  "staleSignInFailureRemoved": true,
+  "staleCreateFailureRemoved": true,
+  "staleProjectReadRemovedAfterUpdate": true,
+  "deletedProjectRemovedAfterRevalidation": true,
+  "replayCreatedNoDuplicate": true
+}

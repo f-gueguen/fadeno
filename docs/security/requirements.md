@@ -44,7 +44,10 @@ replay owner, same-origin 303 redirect, upload cleanup, encrypted host-only
 session cookie, key rotation, absolute expiry, and privilege-change rotation.
 The companion [action/session threat model](action-session-threat-model.md)
 records residual bearer-cookie and unsupported multi-process risk. V1-13 must
-integrate those controls before exporting the action/session runtime.
+preserve those controls in the exported action/session surface. The current
+packed runtime integrates the exact-origin proof, replay, upload cleanup,
+protected cookie, rotation, redirect, and complete-revalidation path while
+retaining the explicit single-process limit.
 
 ## Evidence gate
 

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "scenario": "authenticated-crud",
+  "decisions": [
+    "authenticate",
+    "validate",
+    "create",
+    "refuse-replay",
+    "update",
+    "delete"
+  ],
+  "causes": [
+    "generated-proof",
+    "owner-session",
+    "complete-revalidation"
+  ],
+  "ownership": {
+    "route": "/projects",
+    "resource": "projectCollection",
+    "actions": [
+      "signIn",
+      "createProject",
+      "updateProject",
+      "deleteProject"
+    ]
+  },
+  "skippedWork": [
+    "replayed-mutation",
+    "client-javascript"
+  ],
+  "observableOutcome": "created-updated-deleted"
+}

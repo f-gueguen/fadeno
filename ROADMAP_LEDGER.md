@@ -6,48 +6,64 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-12 — native form, action, session, replay, redirect, and upload contract
+V1-13 — authenticated no-JavaScript CRUD vertical slice
 
 ## Exit criteria
 
-- [x] Accept one form/action/session ADR that resolves the former action/session gate with exact
-  declaration identity, native request, field decoder, expected failure,
-  authorization, origin/CSRF, replay, redirect, revalidation, upload, cookie,
-  session, rotation, expiry, and limit ownership without exporting a runtime.
-- [x] Build one private strict-TypeScript decision model and versioned threat
-  corpus for successful native submission plus malformed, duplicate,
-  unexpected, oversized, hostile, cross-origin, unauthorized, replayed,
-  redirected, uploaded, tampered, expired, rotated, and fixation attempts.
-- [x] Prove bounded field/file decoding, secret-safe diagnostics, deterministic
-  correction/flow/recovery evidence, explicit partial-upload cleanup, and no
-  application mutation before the complete request boundary is accepted.
-- [x] Prove authenticated confidential session envelopes, active/prior key
-  rotation, privilege-change renewal, deletion and expiry, cookie defaults,
-  cross-user isolation, and fail-closed unknown-key/tamper behavior.
-- [x] Align specifications, scope, traceability, risks, security text, and the
-  V1 plan; pass focused/full/local CI, architecture, security, package-surface,
-  and fresh review gates.
+- [x] Export the sole typed action declaration, field descriptor, expected
+  failure, redirect, and request-scoped session capabilities selected by ADR
+  0035 without exporting the private decision schema or adding a second
+  mutation path.
+- [x] Integrate bounded native POST decoding, exact HTTPS origin, generated
+  route/action/field/proof identity, atomic replay consumption, mandatory
+  authorization, upload cleanup, protected session publication, and redacted
+  failures before any application mutation can run.
+- [x] Integrate successful, changed, and unexpected mutation outcomes with
+  complete resource revalidation; preserve safe expected-failure fields; and
+  render or issue only normalized same-origin 303 completion.
+- [x] Extend the packed canonical application into authenticated CRUD whose
+  read, create, validation, update, upload, redirect, session rotation, and
+  delete paths work with browser JavaScript disabled.
+- [x] Retain executable success, deliberate refusal/failure, human and
+  normalized diagnostics, correction, flow inspection, recovery, stale-state
+  removal, security, type, accessibility, adapter, and packed-package evidence.
+- [x] Align current specifications, scope, traceability, risks, examples, and
+  rollback intent; pass focused, full, exact local, architecture, security,
+  package-surface, and fresh review gates.
 
 ## In progress
 
-- V1-12 is ready for merge review on the latest clean branch head. ADR 0035 selects
-  the native action/session contract from the private model and threat corpus;
-  focused, documentation, model, policy, package, architecture, security,
-  Big-O, full, and exact local gates pass.
-- The accepted contract retains one opaque action declaration, generated native
-  POST/field/proof identity, complete bounded boundary acceptance before
-  authorization or mutation, single-process replay, complete revalidation,
-  same-origin 303, exactly-once upload cleanup, and protected request sessions.
-- No action, form helper, session capability, cookie writer, upload parser,
-  enhanced protocol, or package export exists in V1-12. V1-13 owns the first
-  public implementation and packed authenticated CRUD application.
-- All V1-12 runtime records and schemas remain private decision evidence; no
-  external schema, editor product, shared replay/session owner, or
-  multi-process action support is introduced.
-- Audit hardening binds action proofs to purpose-separated active/prior session
-  keys, binds snapshots to their keyring, bounds proof/failure/session/replay
-  work, refuses invalid callback results structurally, and proves packed deep
-  imports remain unavailable.
+- V1-13 is active from clean `main` after V1-12 and the post-R1 opportunity
+  proposal merged. The proposal begins only after R1 and does not change the
+  current delivery sequence or V1 contract.
+- ADR 0035, the current forms/actions/sessions specification, the V1-12 private
+  decision model, and the canonical packed application are the implementation
+  authorities for the first public authenticated CRUD path.
+- The runtime remains single-process for action replay and protected sessions.
+  No enhanced submission protocol, shared replay/session owner, public
+  analyzer schema, editor product, or post-R1 opportunity enters this slice.
+- Public behavior is proven through the packed application's complete
+  JavaScript-disabled workflow and permanent success, refusal, flow, and
+  recovery artifacts executed through public package entrypoints.
+- Exact implementation head `ce795c2` completes the typed declarations,
+  bounded native adapter boundary, protected session publication, complete
+  revalidation, redacted incidents, packed HTTPS CRUD application, and
+  normalized executable evidence. It additionally proves non-null required
+  inputs, 303-only action completion, form-instance-bound validation,
+  sensitive-field non-reflection, opaque POST names, fallback action context,
+  refusal without cookie minting, deterministic completion-time expiry,
+  fixed-size long-return bindings, canonical checkbox values, multi-select
+  refusal, tampered-session deletion, and specific unsafe-redirect refusal.
+  Chromium, Firefox, and WebKit execute the workflow with JavaScript disabled.
+- The architecture audit centralized action limits and preserved the standalone
+  adapter boundary. The asymptotic audit found only linear work over explicitly
+  capped actions, bodies, parts, files, session values, replay entries, and flow
+  records; no broader performance claim is introduced. The adversarial review
+  added pre-parser part bounds, authorization/replay evidence, rotated-session
+  failure recovery, and redacted unexpected-action reporting.
+- V1-13 exports no private decision schema, adds no public analyzer or editor
+  product, retains one process-local replay/session owner, and does not add the
+  deferred enhanced submission protocol.
 
 ## Blockers
 
@@ -236,3 +252,9 @@ V1-12 — native form, action, session, replay, redirect, and upload contract
   complete private revalidation, unsafe-`keeps` correction, packed
   success/failure/isolation/recovery examples, and no action, session, shared
   cache, editor product, or stable machine schema.
+- V1-12 — Merge commit `82abb0f` accepts ADR 0035 and its private strict-TypeScript
+  action/session decision model, bounded native request and upload contract,
+  purpose-separated proof and replay ownership, protected session envelope and
+  rotation, complete revalidation decision, redacted success/refusal/flow/
+  recovery evidence, and no public runtime, editor product, external schema,
+  or multi-process action support.

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "scenario": "authenticated-crud-validation",
+  "code": "PROJECT_TITLE_REQUIRED",
+  "status": 200,
+  "field": "title",
+  "formError": "The project was not created.",
+  "fieldError": "Enter a project title.",
+  "safeSubmittedValuePreserved": true
+}

@@ -1,4 +1,4 @@
-import type { RenderChild, RenderNode } from "./index.js";
+import type { ActionDeclaration, ActionFieldToken, RenderChild, RenderNode } from "./index.js";
 import { classifySink } from "./internal/rendering-security.ts";
 import { createAsyncNode, createElementNode, createFragmentNode } from "./internal/render-node.ts";
 
@@ -67,8 +67,13 @@ type GlobalAttributes = Readonly<{
 type WithChildren = GlobalAttributes & Readonly<{ children?: RenderChild }>;
 type Void = GlobalAttributes & Readonly<{ children?: never }>;
 type Link = WithChildren & Readonly<{ href?: string; download?: OrdinaryValue; hreflang?: OrdinaryValue; target?: OrdinaryValue; type?: OrdinaryValue }>;
-type Form = WithChildren & Readonly<{ action?: string; autocomplete?: OrdinaryValue; enctype?: OrdinaryValue; method?: OrdinaryValue; name?: OrdinaryValue; target?: OrdinaryValue; novalidate?: boolean }>;
-type Input = Void & Readonly<{ name?: OrdinaryValue; type?: OrdinaryValue; value?: OrdinaryValue; placeholder?: OrdinaryValue; required?: boolean; disabled?: boolean; readonly?: boolean; checked?: boolean; autofocus?: boolean }>;
+type Form = WithChildren & Readonly<{ action?: string | ActionDeclaration<Record<string, unknown>>; autocomplete?: OrdinaryValue; enctype?: OrdinaryValue; method?: OrdinaryValue; name?: OrdinaryValue; target?: OrdinaryValue; novalidate?: boolean }>;
+type FieldName = OrdinaryValue | ActionFieldToken<unknown>;
+type Input = Void & Readonly<{ name?: FieldName; type?: OrdinaryValue; value?: OrdinaryValue; accept?: OrdinaryValue; placeholder?: OrdinaryValue; required?: boolean; disabled?: boolean; readonly?: boolean; checked?: boolean; autofocus?: boolean }>;
+type SelectBase = WithChildren & Readonly<{ required?: boolean; disabled?: boolean }>;
+type Select =
+  | (SelectBase & Readonly<{ name?: OrdinaryValue; multiple?: boolean }>)
+  | (SelectBase & Readonly<{ name: ActionFieldToken<unknown>; multiple?: false }>);
 
 export namespace JSX {
   export type Element = RenderChild;
@@ -86,10 +91,10 @@ export namespace JSX {
     b: WithChildren; i: WithChildren; u: WithChildren; kbd: WithChildren; samp: WithChildren;
     var: WithChildren; sub: WithChildren; sup: WithChildren; a: Link;
     form: Form; label: WithChildren & Readonly<{ for?: OrdinaryValue }>;
-    button: WithChildren & Readonly<{ type?: OrdinaryValue; name?: OrdinaryValue; value?: OrdinaryValue; disabled?: boolean }>;
-    select: WithChildren & Readonly<{ name?: OrdinaryValue; required?: boolean; disabled?: boolean; multiple?: boolean }>;
+    button: WithChildren & Readonly<{ type?: OrdinaryValue; name?: FieldName; value?: OrdinaryValue; disabled?: boolean }>;
+    select: Select;
     option: WithChildren & Readonly<{ value?: OrdinaryValue; selected?: boolean; disabled?: boolean }>;
-    textarea: WithChildren & Readonly<{ name?: OrdinaryValue; placeholder?: OrdinaryValue; required?: boolean; disabled?: boolean; readonly?: boolean }>;
+    textarea: WithChildren & Readonly<{ name?: FieldName; placeholder?: OrdinaryValue; required?: boolean; disabled?: boolean; readonly?: boolean }>;
     details: WithChildren & Readonly<{ open?: boolean }>; summary: WithChildren;
     table: WithChildren; caption: WithChildren; colgroup: WithChildren; thead: WithChildren;
     tbody: WithChildren; tfoot: WithChildren; tr: WithChildren; th: WithChildren; td: WithChildren;

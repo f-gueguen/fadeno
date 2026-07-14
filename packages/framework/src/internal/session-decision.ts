@@ -136,6 +136,10 @@ function normalizeValues(value: unknown): Readonly<{ value: DecisionSessionValue
   return Object.freeze({ value: normalized, json });
 }
 
+export function normalizeDecisionSessionValues(value: unknown): DecisionSessionValue {
+  return normalizeValues(value).value;
+}
+
 export function createDecisionSessionKeyring(
   keys: readonly Readonly<{ id: string; key: Uint8Array }>[],
 ): DecisionSessionKeyring {

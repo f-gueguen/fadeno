@@ -1,8 +1,9 @@
 # Native action and protected session threat model
 
 This threat model accompanies ADR 0035 and the private V1-12 decision corpus.
-It selects the boundary V1-13 must implement; it does not claim that public
-actions or sessions already exist.
+It selects the boundary implemented by V1-13's public native action and
+protected-session path. The schema and replay/session decision machinery remain
+private, and this document does not extend support beyond one process.
 
 ## Assets and actors
 
@@ -34,8 +35,9 @@ values in an error.
 
 | Threat | Control | Executable evidence |
 | --- | --- | --- |
-| Cross-site mutation | Exact HTTPS `Origin` equality, no `Referer` fallback, session-bound HMAC proof | `cross-origin`, `invalid-proof`, cross-session proof |
+| Cross-site mutation or logout | Exact HTTPS `Origin` equality before missing-cookie session publication, no `Referer` fallback, session- and form-instance-bound HMAC proof | `cross-origin`, cookie-less cross-origin, `invalid-proof`, cross-session proof |
 | Stale or misrouted form | Proof binds action, route, application generation, session, issue time, and nonce | `wrong-route`, `stale-generation`, `expired-proof` |
+| Form identity or long return-location confusion | Proof signs a fixed SHA-256 digest over route, full accepted return location, and bounded form index | long-return render and form-index tamper fixtures |
 | Captured request replay | Atomic consume before authorization; no unexpired eviction; bounded global/session ledgers | `replayed` and replay-limit checks |
 | Decoder smuggling | Closed single-value descriptors; missing, malformed, duplicate, unexpected, counterfeit, and unsupported values fail closed | decoder corpus cases and counterfeit descriptor check |
 | Body/file exhaustion | Declared and observed aggregate bytes, part/file counts, per-field/file/name/type/depth and processing limits | `oversized-body`, `boundary-timeout`, `hostile-upload` |
@@ -48,7 +50,9 @@ values in an error.
 | Key rotation logout or downgrade | Active key encrypts/signs; bounded prior keys decrypt then reseal and verify only still-fresh keyed proofs; removed or unknown key fails closed | `session-prior-key`, prior-key proof, invalid-key checks |
 | Session fixation | Fresh 32-byte session and CSRF identities plus required privilege-change rotation | `session-fixation` |
 | Indefinite credential lifetime | Twelve-hour absolute expiry; ordinary renewal cannot extend it; expiry clears the cookie | `session-expired`, retained-identity assertions |
+| Expiry during accepted callback completion | Buffered session mutation is discarded; a redacted deterministic failure revalidates through a fresh anonymous session instead of throwing past the adapter | action-runtime completion-expiry fixture |
 | Cookie scope widening | `__Host-` name, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`, bounded pair | cookie and deletion assertions |
+| Tampered credential replacement | Invalid and expired cookies short-circuit application rendering and emit only the deletion cookie | action-runtime tampered-cookie fixture |
 | Secret leakage through errors | Typed codes and phases select behavior; callback messages, submitted fields, file bytes, cookies, proofs, and keys are structurally absent | human/machine/flow fixtures and authorization-failure redaction |
 
 ## Boundary ordering and mutation invariant
@@ -61,8 +65,9 @@ retried as a second mutation attempt. Denial and authorization failure skip
 mutation. Upload cleanup runs for every outcome.
 
 The private model receives already framed parts plus declared/observed parser
-evidence; V1-13 must place a bounded streaming parser in front of the same
-decision. Parser refusal may occur earlier but cannot publish a partial field,
+evidence; V1-13 places a bounded streaming body reader and capped
+framing/parser boundary in front of the same decision. Parser refusal may occur
+earlier but cannot publish a partial field,
 retain a partial upload, invoke application code, or consume a proof after a
 newer terminal outcome owns the request.
 
@@ -96,7 +101,6 @@ bodies. V1-13 performance evidence measures the complete native action path.
 - AES-GCM key material remains present in server process memory. V1 does not
   select hardware key custody or distributed key delivery.
 
-Before public alpha, V1-13 must integrate the real parser, adapter, renderer,
-resources, and packed no-JavaScript CRUD application, and the complete external
-decoder surface must receive fuzzing. Before stable release, independent
-security review must remediate all known critical and high-severity findings.
+Before public alpha, the complete external decoder surface must receive
+fuzzing. Before stable release, independent security review must remediate all
+known critical and high-severity findings.

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "scenario": "authenticated-sign-in",
+  "submittedPasscode": "<redacted-invalid-value>",
+  "result": "SIGN_IN_REFUSED"
+}

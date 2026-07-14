@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "scenario": "authenticated-sign-in",
+  "submittedPasscode": "<redacted-corrected-value>",
+  "result": "authenticated-session-rotated"
+}
