@@ -45,11 +45,14 @@ V1-13 — authenticated no-JavaScript CRUD vertical slice
 - Public behavior is proven through the packed application's complete
   JavaScript-disabled workflow and permanent success, refusal, flow, and
   recovery artifacts executed through public package entrypoints.
-- Exact implementation head `cde5c6a` completes the typed declarations,
+- Exact implementation head `50e2a84` completes the typed declarations,
   bounded native adapter boundary, protected session publication, complete
   revalidation, redacted incidents, packed HTTPS CRUD application, and
-  normalized executable evidence. Chromium, Firefox, and WebKit execute the
-  workflow with JavaScript disabled.
+  normalized executable evidence. It additionally proves non-null required
+  inputs, 303-only action completion, form-instance-bound validation,
+  sensitive-field non-reflection, opaque POST names, fallback action context,
+  refusal without cookie minting, and deterministic completion-time expiry.
+  Chromium, Firefox, and WebKit execute the workflow with JavaScript disabled.
 - The architecture audit centralized action limits and preserved the standalone
   adapter boundary. The asymptotic audit found only linear work over explicitly
   capped actions, bodies, parts, files, session values, replay entries, and flow
