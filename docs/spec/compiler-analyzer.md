@@ -876,16 +876,20 @@ diagnostic, correction, provenance, or publication policy by constructing a
 separate raw analyzer session. Nor may it write an unsaved buffer to disk and
 claim overlay equivalence.
 
-The private boundary accepts versioned open, sequential change, full
+The private boundary accepts versioned open, one declared-order
+position-dependent edit batch whose later ranges address earlier results, full
 replacement, save, close, and reopen operations while preserving distinct
-filesystem backing and overlay ownership. It emits immutable consumer events
+filesystem backing and overlay ownership. Line endings remain exact and every
+accepted transition proves analyzer-text equivalence to its declared owner. It
+emits immutable consumer events
 bound to the operation, document lifetime/version, workspace epoch, ownership
 inputs, completeness, and requested facets. Invalid versions, divergent saved
 text, non-owned or symlinked paths, and multi-root input refuse atomically. It
 does not define a generic transport or stable schema.
 
-C2 installs the current tarball and drives that boundary through a disposable
-package-owned lifecycle consumer. Diagnostic batches are full replacements.
+C2 installs the current tarball and drives that boundary, including one ordered
+position-dependent unsaved edit batch and line-ending/text equivalence, through
+a disposable package-owned lifecycle consumer. Diagnostic batches are full replacements.
 The consumer must receive the accepted replacement event containing stable
 codes, structured parameters, exact ranges or explicit null-range reasons,
 related locations, document identity, corrections, completeness, redaction,

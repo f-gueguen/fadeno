@@ -423,9 +423,10 @@ V1-DX-C is delivered as planning, integration, qualification, interruption,
 and measurement stages rather than one harness PR. C0 enforces the sequence.
 C1 integrates saved and overlay document lifecycles with the same private
 project authority used by check, build, development, tests, and filesystem
-rescans. C2 installs a current package tarball and qualifies open/edit/
-diagnose/correct/repair/close/reopen behavior through a disposable private
-lifecycle consumer. C3 qualifies saved direct and three-level transitive
+rescans. C2 installs a current package tarball and qualifies open, one ordered
+position-dependent unsaved edit batch, line-ending and analyzer-text
+equivalence, diagnose/correct/repair/close/reopen behavior through a disposable
+private lifecycle consumer. C3 qualifies saved direct and three-level transitive
 changes, configuration reload, rename/deletion, and generated declaration and
 manifest replacement/removal. C4 qualifies cancellation, supersession,
 obsolete-result suppression, close during work, and cleanup with deterministic
@@ -469,7 +470,9 @@ separately accepted slice.
   satisfy conformance.
 - The disposable private lifecycle consumer initializes one root, opens valid source,
   introduces and repairs invalid source, verifies diagnostic identity, range,
-  related locations, version and correction, applies sequential edits, changes
+  related locations, version and correction, applies one declared-order
+  position-dependent edit batch with exact line-ending and analyzer-text
+  equivalence, changes
   direct and transitive dependencies, regenerates artifacts, reloads
   configuration, cancels or supersedes expensive work, rejects obsolete
   publication, closes and reopens documents, and verifies cleanup.

@@ -222,9 +222,29 @@ expectPolicyFailure("empty V1-DX-C evidence boundary", "check-project-model.ts",
   writeFileSync(path, content);
 });
 
+expectPolicyFailure("prefix-spoofed V1-DX-C dependency", "check-project-model.ts", "V1-DX-C4 exact contract differs", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-C4 \|.*$/m, (line) => line.replace("V1-DX-C3", "V1-DX-C30")));
+});
+
+expectPolicyFailure("public V1-DX-C schema creep", "check-project-model.ts", "V1-DX-C2 exact contract differs", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  const content = readFileSync(path, "utf8").replace(/^\| V1-DX-C2 \|.*$/m, (line) => {
+    const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
+    cells[6] = "Ship a public analyzer schema and supported editor product";
+    return `| ${cells.join(" | ")} |`;
+  });
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("missing packed ordered edit batch", "check-project-model.ts", "V1-DX-C2 exact contract differs", (copy) => {
+  const path = join(copy, "docs/roadmap/v1.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| V1-DX-C2 \|.*$/m, (line) => line.replace("one ordered position-dependent unsaved edit batch; ", "sequential unsaved edits; ")));
+});
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
 
-console.log("policy mutation tests passed (24 expected failures detected)");
+console.log("policy mutation tests passed (27 expected failures detected)");
