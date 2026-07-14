@@ -408,6 +408,9 @@ export class PrivateProjectAnalyzer {
     const existing = identity.document;
     const currentVersion = existing?.open?.version ?? null;
     const currentLifetime = existing?.open?.lifetime ?? null;
+    if (identity.backing === "missing" && operation.kind !== "close" && operation.kind !== "save") {
+      return refuse("FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED", currentVersion, currentLifetime);
+    }
     if (operation.kind === "open") {
       if (!this.#managedDocuments.has(identity.path)) {
         return refuse("FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED", currentVersion, currentLifetime);

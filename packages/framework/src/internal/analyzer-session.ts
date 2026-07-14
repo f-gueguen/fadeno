@@ -142,6 +142,7 @@ export type AnalyzerDocumentIdentityResult = Readonly<{
   accepted: true;
   path: string;
   uri: string;
+  backing: "file" | "missing";
   currentEpoch: number;
   document: AnalyzerDocumentSnapshot | null;
 }> | Readonly<{
@@ -256,6 +257,7 @@ export class AnalyzerSession {
         accepted: true as const,
         path,
         uri: pathToFileURL(owner).href,
+        backing: existsSync(owner) ? "file" as const : "missing" as const,
         currentEpoch: this.#epoch,
         document: this.#snapshot.documents.find((candidate) => candidate.path === path) ?? null,
       });

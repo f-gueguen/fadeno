@@ -274,11 +274,31 @@ try {
     version: 0,
   }));
   assert.equal(secondClose.input, "saved");
+  assert.equal(
+    secondClose.publication.publicationGeneration,
+    reopened.publication.publicationGeneration + 1,
+    "refused operations published an intermediate generation",
+  );
+
+  const disappearedPath = join(root, "src/routes/moved/page.tsx");
+  const disappearedSource = readFileSync(disappearedPath, "utf8");
+  rmSync(disappearedPath);
+  refused(
+    analyzer.document(open([root], disappearedPath, 1, disappearedSource)),
+    "FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED",
+    secondClose.documentSnapshot.workspaceEpoch,
+  );
+  writeFileSync(disappearedPath, disappearedSource);
 
   const pagePath = join(root, "src/routes/page.tsx");
   const savedPage = readFileSync(pagePath, "utf8");
   const overlayPage = `\uFEFF// route overlay café 😀\r\n${savedPage.replaceAll("\n", "\r\n")}`;
   const pageOpened = await accepted(analyzer.document(open([root], pagePath, 9, overlayPage)));
+  assert.equal(
+    pageOpened.publication.publicationGeneration,
+    secondClose.publication.publicationGeneration + 1,
+    "missing-backing refusal published an intermediate generation",
+  );
   assert.equal(pageOpened.input, "overlay");
   assert.equal(pageOpened.document.effective.text, overlayPage);
   assert.equal(pageOpened.routePlan?.sources["src/routes/page.tsx"], overlayPage);
