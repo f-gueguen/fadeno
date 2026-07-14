@@ -123,8 +123,8 @@ class ServerSession {
   #current: Readonly<Record<string, DecisionSessionValue>>;
   #dirty = false;
   #rotated = false;
-  #accepted = false;
   #initialEnvelope: string | null;
+  #publication: Readonly<{ snapshot: DecisionSessionSnapshot; envelope: string }> | null = null;
 
   private constructor(
     keyring: DecisionSessionKeyring,
@@ -194,32 +194,35 @@ class ServerSession {
     },
   });
 
-  get snapshot(): DecisionSessionSnapshot { return this.#initial; }
+  get snapshot(): DecisionSessionSnapshot { return this.#publication?.snapshot ?? this.#initial; }
   get dirty(): boolean { return this.#dirty; }
 
-  acceptMutation(): void { this.#accepted = true; }
+  acceptMutation(now: number): void {
+    if (!this.#dirty) return;
+    const renewed = renewDecisionSession(
+      this.#keyring,
+      this.#initial,
+      this.#current,
+      now,
+      this.#rotated ? "privilege-change" : "retain-identity",
+    );
+    this.#publication = Object.freeze(renewed);
+  }
 
   discardMutation(): void {
     this.#current = objectValues(this.#initial.values) ?? Object.freeze(Object.create(null) as Record<string, never>);
     this.#dirty = false;
     this.#rotated = false;
-    this.#accepted = false;
+    this.#publication = null;
   }
 
   cookie(now: number): string | null {
+    if (this.#publication) {
+      return formatDecisionSessionCookie(this.#publication.envelope, now, this.#publication.snapshot.expiresAt);
+    }
     let envelope = this.#initialEnvelope;
     let snapshot = this.#initial;
-    if (this.#accepted && this.#dirty) {
-      const renewed = renewDecisionSession(
-        this.#keyring,
-        this.#initial,
-        this.#current,
-        now,
-        this.#rotated ? "privilege-change" : "retain-identity",
-      );
-      envelope = renewed.envelope;
-      snapshot = renewed.snapshot;
-    } else if (this.#opened === "renew") {
+    if (this.#opened === "renew") {
       const renewed = renewDecisionSession(this.#keyring, this.#initial, this.#current, now, "retain-identity");
       envelope = renewed.envelope;
       snapshot = renewed.snapshot;
@@ -627,7 +630,7 @@ export class ActionServerRuntime {
         flow: Object.freeze([...outcome.flow, Object.freeze({ phase: "completion", decision: "unexpected-failure", cause: "uncommitted-session-mutation" })]),
       });
     } else if (outcome.status === "success" || (outcome.status === "expected-failure" && outcome.expectedFailure?.changed)) {
-      session.acceptMutation();
+      session.acceptMutation(Date.now());
     } else session.discardMutation();
     this.#record(outcome.code, outcome.status, outcome.revalidation, routeId, outcome.flow.at(-1)?.decision ?? outcome.status);
 

@@ -27,6 +27,15 @@ const saveProject = defineAction({
     return request.headers.get("authorization") === "Bearer owner" || session.has("viewer");
   },
   run({ input, session }) {
+    if (input.title === "changed failure") {
+      session.set("last-title", "changed-before-recovery");
+      session.rotate();
+      throw actionError({
+        code: "PROJECT_CHANGED_FAILURE",
+        changed: true,
+        formErrors: ["The project changed but needs another submission."],
+      });
+    }
     if (input.title === null || input.title.trim() === "") {
       throw actionError({
         code: "PROJECT_TITLE_REQUIRED",
@@ -167,12 +176,49 @@ try {
   assert.match(invalidHtml, /value=""/u);
   assert.equal(title, "Saved project");
 
-  const refreshed = form(invalidHtml);
-  const crossOrigin = await fetch(`${server.origin}${refreshed.action}`, {
+  const changedForm = form(invalidHtml);
+  const changed = await fetch(`${server.origin}${changedForm.action}`, {
     method: "POST",
     redirect: "manual",
     headers: {
       cookie: authenticatedCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: new URLSearchParams({
+      __fadeno_proof: changedForm.proof,
+      [changedForm.titleName]: "changed failure",
+    }),
+  });
+  assert.equal(changed.status, 200);
+  const changedCookie = cookie(changed);
+  assert.notEqual(changedCookie, authenticatedCookie);
+  const changedHtml = await changed.text();
+  assert.match(changedHtml, /The project changed but needs another submission\./u);
+  const recoveredForm = form(changedHtml);
+  const recovered = await fetch(`${server.origin}${recoveredForm.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      cookie: changedCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: new URLSearchParams({
+      __fadeno_proof: recoveredForm.proof,
+      [recoveredForm.titleName]: "Recovered project",
+    }),
+  });
+  assert.equal(recovered.status, 303);
+  assert.equal(title, "Recovered project");
+
+  const refreshedResponse = await fetch(`${server.origin}/projects`, { headers: { cookie: changedCookie } });
+  const refreshed = form(await refreshedResponse.text());
+  const crossOrigin = await fetch(`${server.origin}${refreshed.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      cookie: changedCookie,
       "content-type": "application/x-www-form-urlencoded",
       origin: "https://attacker.example",
     },
@@ -183,11 +229,11 @@ try {
   });
   assert.equal(crossOrigin.status, 400);
   assert.match(await crossOrigin.text(), /FADENO_ACTION_ORIGIN/u);
-  assert.equal(title, "Saved project");
+  assert.equal(title, "Recovered project");
 } finally {
   await server.close();
   if (previousKeys === undefined) delete process.env["FADENO_SESSION_KEYS"];
   else process.env["FADENO_SESSION_KEYS"] = previousKeys;
 }
 
-console.log("V1 action runtime passed (native form, protected session, replay, failure, origin)");
+console.log("V1 action runtime passed (native form, protected session, replay, changed failure, origin)");
