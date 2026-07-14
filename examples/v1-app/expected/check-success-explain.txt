@@ -1,7 +1,8 @@
-Fadeno framework route analysis completed: 9 routes, 7 artifacts planned, no files written.
+Fadeno framework route analysis completed: 10 routes, 7 artifacts planned, no files written.
 Static route explanation (semantic)
 decision: publish-static-route-plan
 ownership: route:artifact-plan <- fadeno.config.ts
+ownership: route:source-b4a931517b21610a <- src/routes/hello/[name]/page.tsx
 ownership: route:source-b9e092793de6d346 <- src/routes/resource-recovery/page.tsx
 ownership: route:source-d4741478948be28a <- src/routes/moved/page.tsx
 ownership: route:source-d51ad92c575c7bdc <- src/routes/layout.tsx
@@ -11,10 +12,10 @@ ownership: route:source-f1806cd4fd7161a3 <- src/routes/admin/not-found.tsx
 ownership: route:source-f8a05307220176a4 <- src/routes/raw/handler.ts
 ownership: route:source-248962a6f01626db <- src/routes/shop/not-found.tsx
 ownership: route:source-2ae546934b1dae08 <- src/routes/not-found.tsx
+ownership: route:source-3777bf8adafcc6c2 <- src/routes/projects/page.tsx
 ownership: route:source-4ac6bc1befe32929 <- src/routes/failure/page.tsx
 ownership: route:source-9806a64989663e40 <- src/routes/resource-failure/page.tsx
 ownership: route:source-a1758cf464cd9361 <- src/routes/shop/catalog/page.tsx
 ownership: route:source-a424b929d58c0a11 <- src/routes/admin/dashboard/page.tsx
 ownership: route:source-a9be90f679cf3603 <- src/routes/page.tsx
-ownership: route:source-b4a931517b21610a <- src/routes/hello/[name]/page.tsx
 outcome: static-ready
