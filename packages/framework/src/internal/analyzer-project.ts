@@ -193,6 +193,14 @@ interface PrivateProjectInputCapture {
 
 type ManagedDocument = Readonly<{ savedRevision: number; savedText: string }>;
 
+interface RequiredDocumentGeneration {
+  readonly path: string;
+  readonly transitionSnapshot: AnalyzerDocumentOnlySnapshot;
+  readonly effectiveText: string;
+  readonly savedText: string;
+  readonly active: boolean;
+}
+
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -278,6 +286,7 @@ export class PrivateProjectAnalyzer {
   #closePromise: Promise<void> | null = null;
   #pendingRollback: RouteArtifactApplicationTransaction | null = null;
   readonly #managedDocuments = new Map<string, ManagedDocument>();
+  readonly #activeDocuments = new Set<string>();
   readonly #lifecycleDocuments = new Set<string>();
   #documentOperationSequence = 0;
   #configurationFingerprint: string | null = null;
@@ -402,7 +411,7 @@ export class PrivateProjectAnalyzer {
       return refuse("FADENO_ANALYZER_PROJECT_DOCUMENT_OPERATION");
     }
     const identity = this.#session.identify(operation.document);
-    if (!identity.accepted) {
+    if ("code" in identity) {
       return refuse(identity.code, identity.currentDocumentVersion, identity.currentLifetime);
     }
     const existing = identity.document;
@@ -412,11 +421,11 @@ export class PrivateProjectAnalyzer {
       return refuse("FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED", currentVersion, currentLifetime);
     }
     if (operation.kind === "open") {
-      if (!this.#managedDocuments.has(identity.path)) {
+      if (!this.#activeDocuments.has(identity.path)) {
         return refuse("FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED", currentVersion, currentLifetime);
       }
     } else if (!this.#lifecycleDocuments.has(identity.path) ||
-        (operation.kind !== "close" && !this.#managedDocuments.has(identity.path))) {
+        (operation.kind !== "close" && !this.#activeDocuments.has(identity.path))) {
       return refuse("FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED", currentVersion, currentLifetime);
     }
 
@@ -438,7 +447,7 @@ export class PrivateProjectAnalyzer {
         transition = this.#session.close(operation.document, operation.lifetime, operation.version);
         break;
     }
-    if (!transition.accepted) {
+    if ("code" in transition) {
       return refuse(transition.code, transition.currentDocumentVersion, transition.currentLifetime);
     }
     if (operation.kind === "open") this.#lifecycleDocuments.add(identity.path);
@@ -455,6 +464,15 @@ export class PrivateProjectAnalyzer {
 
     const documentOperationId = transition.operationId;
     const transitionSnapshot = transition.snapshot;
+    const requiredManaged = this.#managedDocuments.get(identity.path);
+    if (!requiredManaged) throw new TypeError("FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED");
+    const requiredGeneration: RequiredDocumentGeneration = Object.freeze({
+      path: identity.path,
+      transitionSnapshot,
+      effectiveText: transitioned.effective.text,
+      savedText: requiredManaged.savedText,
+      active: this.#activeDocuments.has(identity.path),
+    });
     const documentVersion = operation.kind === "save"
       ? transitioned.open?.version ?? null
       : operation.version;
@@ -465,11 +483,10 @@ export class PrivateProjectAnalyzer {
       this.#recoverPendingApplicationRecovery();
       this.#recoverPendingRollback();
       this.#recoverPendingCleanup();
-      const analysis = await this.#analyze(requestId, signal);
+      const analysis = await this.#analyze(requestId, signal, requiredGeneration);
       signal.throwIfAborted();
       const documentSnapshot = this.#session.currentSnapshot;
-      const document = documentSnapshot.documents.find(({ path }) => path === identity.path);
-      if (!document) throw new TypeError("FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED");
+      const document = documentSnapshot.documents.find(({ path }) => path === identity.path) ?? transitioned;
       const publication = analysis.publication;
       return Object.freeze({
         operationId,
@@ -551,9 +568,12 @@ export class PrivateProjectAnalyzer {
     }
   }
 
-  #captureInputs(signal: AbortSignal): PrivateProjectInputCapture {
+  #captureInputs(signal: AbortSignal, required?: RequiredDocumentGeneration): PrivateProjectInputCapture {
     signal.throwIfAborted();
     const initialSnapshot = this.#session.currentSnapshot;
+    if (required && initialSnapshot !== required.transitionSnapshot) {
+      throw new TypeError("FADENO_ANALYZER_PROJECT_INPUT_CHANGED");
+    }
     const initialByPath = new Map(initialSnapshot.documents.map((document) => [document.path, document]));
     if (initialSnapshot.documents.some((document) =>
       document.open && this.#managedDocuments.has(document.path) && !this.#lifecycleDocuments.has(document.path))) {
@@ -603,6 +623,15 @@ export class PrivateProjectAnalyzer {
       savedInputs.set(path, readFileSync(join(this.#root, path), "utf8"));
       effectiveInputs.set(path, effectiveSources[path]!);
     }
+    if (required?.active) {
+      if (!effectiveInputs.has(required.path)) {
+        throw new TypeError("FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED");
+      }
+      if (savedInputs.get(required.path) !== required.savedText ||
+          effectiveInputs.get(required.path) !== required.effectiveText) {
+        throw new TypeError("FADENO_ANALYZER_PROJECT_INPUT_CHANGED");
+      }
+    }
 
     signal.throwIfAborted();
     this.#synchronizeDocuments(savedInputs);
@@ -639,13 +668,17 @@ export class PrivateProjectAnalyzer {
     return capture;
   }
 
-  async #analyze(requestId: string, signal: AbortSignal): Promise<PrivateProjectInternalAnalysis> {
-    const capture = this.#captureInputs(signal);
+  async #analyze(
+    requestId: string,
+    signal: AbortSignal,
+    required?: RequiredDocumentGeneration,
+  ): Promise<PrivateProjectInternalAnalysis> {
+    const capture = this.#captureInputs(signal, required);
     const { routePlan, routeCollision } = capture;
     signal.throwIfAborted();
 
     const sessionDocuments = capture.documentSnapshot.documents;
-    const documents = sessionDocuments.filter(({ path }) => this.#managedDocuments.has(path));
+    const documents = sessionDocuments.filter(({ path }) => this.#activeDocuments.has(path));
     const documentByPath = new Map(documents.map((document) => [document.path, document]));
     const sourcePaths = Object.keys(capture.effectiveInputs).filter((path) => path !== "fadeno.config.ts");
     const definitions = this.#definitions(routePlan, sourcePaths, documentByPath);
@@ -789,6 +822,8 @@ export class PrivateProjectAnalyzer {
 
   #synchronizeDocuments(desired: ReadonlyMap<string, string>): void {
     const currentByPath = new Map(this.#session.currentSnapshot.documents.map((document) => [document.path, document]));
+    const retainedOpen = [...this.#managedDocuments]
+      .filter(([path]) => !desired.has(path) && currentByPath.get(path)?.open !== null);
     const forgotten = [...this.#managedDocuments]
       .filter(([path]) => !desired.has(path) && currentByPath.get(path)?.open === null)
       .sort(([left], [right]) => compareText(left, right))
@@ -828,8 +863,11 @@ export class PrivateProjectAnalyzer {
       if (!document) throw new TypeError("FADENO_ANALYZER_RECONCILE_OWNERSHIP");
       nextManaged.set(path, Object.freeze({ savedRevision: document.savedRevision, savedText }));
     }
+    for (const [path, managed] of retainedOpen) nextManaged.set(path, managed);
     this.#managedDocuments.clear();
     for (const [path, managed] of nextManaged) this.#managedDocuments.set(path, managed);
+    this.#activeDocuments.clear();
+    for (const path of desired.keys()) this.#activeDocuments.add(path);
   }
 
   #definitions(

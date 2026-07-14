@@ -280,23 +280,70 @@ try {
     "refused operations published an intermediate generation",
   );
 
+  const pagePath = join(root, "src/routes/page.tsx");
+  const savedPage = readFileSync(pagePath, "utf8");
+  const retiredOverlay = `// retired route overlay\n${savedPage}`;
+  const retainedOpen = await accepted(analyzer.document(open([root], pagePath, 7, retiredOverlay)));
+  mkdirSync(join(root, "src/alternate"), { recursive: true });
+  writeFileSync(join(root, "src/alternate/page.tsx"), "export default function Alternate(): string { return 'alternate'; }\n");
+  const alternateConfig = "export default { routes: { root: 'src/alternate' } };\n";
+  writeFileSync(configPath, alternateConfig);
+  const switchedWhileOpen = await analyzer.analyze().result;
+  assert.equal(switchedWhileOpen.routePlan?.manifest.root, "src/alternate");
+  assert.equal(switchedWhileOpen.input, "saved");
+  refused(analyzer.document({
+    kind: "change",
+    workspaceRoots: [root],
+    document: pagePath,
+    lifetime: retainedOpen.documentLifetime!,
+    version: 8,
+    edits: [],
+  }), "FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED", switchedWhileOpen.publication.workspaceEpoch);
+  const retiredClose = await accepted(analyzer.document({
+    kind: "close",
+    workspaceRoots: [root],
+    document: pagePath,
+    lifetime: retainedOpen.documentLifetime!,
+    version: retainedOpen.documentVersion!,
+  }));
+  assert.equal(retiredClose.documentSnapshot.documents.some(({ path }) => path === "src/routes/page.tsx"), false);
+  writeFileSync(configPath, savedBacking);
+  const retentionRecovery = await analyzer.analyze().result;
+  assert.equal(retentionRecovery.routePlan?.manifest.root, "src/routes");
+
   const disappearedPath = join(root, "src/routes/moved/page.tsx");
   const disappearedSource = readFileSync(disappearedPath, "utf8");
   rmSync(disappearedPath);
   refused(
     analyzer.document(open([root], disappearedPath, 1, disappearedSource)),
     "FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED",
-    secondClose.documentSnapshot.workspaceEpoch,
+    retentionRecovery.publication.workspaceEpoch,
   );
   writeFileSync(disappearedPath, disappearedSource);
 
-  const pagePath = join(root, "src/routes/page.tsx");
-  const savedPage = readFileSync(pagePath, "utf8");
   const overlayPage = `\uFEFF// route overlay café 😀\r\n${savedPage.replaceAll("\n", "\r\n")}`;
+  const deletedBeforeEvent = analyzer.document(open([root], pagePath, 8, overlayPage));
+  assert.equal(deletedBeforeEvent.accepted, true);
+  if (!deletedBeforeEvent.accepted) throw new Error("FADENO_TEST_DELETED_OPEN_REFUSED");
+  rmSync(pagePath);
+  await assert.rejects(deletedBeforeEvent.event.result, /FADENO_ANALYZER_PROJECT_DOCUMENT_UNMANAGED/u);
+  writeFileSync(pagePath, savedPage);
+  const deletionCleanup = await accepted(analyzer.document({
+    kind: "close",
+    workspaceRoots: [root],
+    document: pagePath,
+    lifetime: 1,
+    version: 8,
+  }));
+  assert.equal(
+    deletionCleanup.publication.publicationGeneration,
+    retentionRecovery.publication.publicationGeneration + 1,
+    "ownership-lost event published an intermediate generation",
+  );
   const pageOpened = await accepted(analyzer.document(open([root], pagePath, 9, overlayPage)));
   assert.equal(
     pageOpened.publication.publicationGeneration,
-    secondClose.publication.publicationGeneration + 1,
+    deletionCleanup.publication.publicationGeneration + 1,
     "missing-backing refusal published an intermediate generation",
   );
   assert.equal(pageOpened.input, "overlay");
@@ -309,7 +356,7 @@ try {
     kind: "close",
     workspaceRoots: [root],
     document: pagePath,
-    lifetime: 1,
+    lifetime: 2,
     version: 9,
   }));
   assert.equal(pageClosed.input, "saved");
