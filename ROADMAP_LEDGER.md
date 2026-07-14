@@ -6,48 +6,39 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-C1 — private project-owned document lifecycle integration
+V1-DX-C2 — packed document and diagnostic lifecycle qualification
 
 ## Exit criteria
 
-- [ ] Add one private project-owned operation boundary for open, ordered change,
-  replace, save, close, and reopen without exposing the raw analyzer session.
-- [ ] Derive configuration, route hashes, diagnostics, provenance, and artifacts
-  from one immutable saved-or-overlay input generation, and prohibit applying an
-  overlay-derived generation to disk.
-- [ ] Accept only the already-managed configuration and existing route sources;
-  atomically refuse missing/new route files, unrelated files, virtual
-  directories, divergent saves, invalid versions, symlinks, containment escape,
-  and multi-root or mismatched-root ownership.
-- [ ] Preserve exact text and line endings, one declared-order
-  position-dependent edit batch, saved backing under an open overlay, immutable
-  accepted replacement events, and prior-event immutability.
-- [ ] Add permanent direct private integration fixtures and pass analyzer,
-  lifecycle, package, exact local CI, architecture, Big-O, and fresh independent
-  review gates.
+- [ ] Install the current framework tarball into a disposable private consumer
+  and reject stale or mismatched package bytes before lifecycle qualification.
+- [ ] Qualify initialize, open, one declared-order position-dependent unsaved
+  edit batch, full replacement, repair, close, reopen, and cleanup through the
+  packed consumer boundary.
+- [ ] Preserve exact line endings and analyzer-text equivalence, and observe
+  structured diagnostics, related evidence, and correction intent from accepted
+  immutable consumer events.
+- [ ] Add permanent normalized canonical success, failure, correction, flow,
+  recovery, and cleanup artifacts that assert behavior rather than only printing
+  output.
+- [ ] Pass lifecycle, package, exact local CI, architecture, Big-O, and fresh
+  independent review gates without adding an export, command, editor metadata,
+  stable machine schema, or supported editor product.
 
 ## In progress
 
-- V1-DX-C1 begins from clean `main` after C0 merged as `a6c5295`.
-- Fresh challenge rejected a pass-through wrapper: disk configuration and route
-  discovery cannot be mixed with overlay document evidence. C1 therefore owns
-  one coherent input capture and keeps build, development, refresh, and artifact
-  application saved-only.
-- The bounded overlay target set is the already-managed configuration file and
-  existing discovered route sources. New or missing role files and unrelated
-  contained files remain explicit refusals; C1 introduces no generic virtual
-  filesystem.
-- Refused document transitions do not enter semantic recomputation or supersede
-  accepted work. Accepted transitions may supersede obsolete semantic work, but
-  the document transition itself remains accepted and versioned.
-- Big-O review accepts one full project recomputation per whole edit batch. C1
-  adds no per-edit publication, snapshot clone, event history, or performance
-  claim; the existing ordered-edit copying and full-state costs remain C5
-  measurement inputs.
-- C2 retains ownership of the current-tarball disposable consumer and normalized
-  success, diagnostic, correction, flow, and recovery artifacts. No public
-  export, command, schema, protocol, editor metadata, or supported editor product
-  is introduced in C1.
+- V1-DX-C1 completed at implementation commit `0aecd81`: one private project
+  authority now owns bounded saved/overlay document transitions and publishes
+  only analysis bound to the exact accepted ownership generation.
+- C1 deliberately leaves packed installation, consumer delivery, normalized
+  transported artifacts, and stale-package refusal to C2. Direct private tests
+  are implementation evidence, not yet consumer lifecycle qualification.
+- C2 must consume current packed bytes while keeping the canonical public
+  application buildable. Deliberate lifecycle failures remain isolated private
+  scenarios and must recover without stale diagnostics or artifacts.
+- The analyzer remains private and tool-neutral. C2 does not add a command,
+  generic protocol, package export, editor metadata, stable external schema, or
+  supported editor product.
 
 ## Blockers
 
@@ -248,3 +239,13 @@ V1-DX-C1 — private project-owned document lifecycle integration
   and the packed three-browser JavaScript-disabled authenticated CRUD workflow
   without an enhanced protocol, shared owner, analyzer schema, or editor
   product.
+- V1-DX-C0 — Merge commit `a6c5295` decomposes the remaining private analyzer
+  lifecycle and complete feedback-loop qualification into bounded C1-C5B
+  milestones with aligned specifications, traceability, risks, policy checks,
+  and no implementation or public product surface.
+- V1-DX-C1 — Implementation commit `0aecd81` integrates open, ordered change,
+  replacement, save, close, and reopen with the private project authority;
+  derives one coherent saved-or-overlay input generation; rejects unsupported
+  ownership; suppresses changed generations before publication; and retains
+  permanent direct success, refusal, flow, and recovery evidence without a
+  packed consumer, public schema, command, or editor product.
