@@ -120,6 +120,23 @@ try {
   const initialCookie = cookie(initial);
   const initialForm = form(await initial.text());
 
+  const excessiveParts = new URLSearchParams({ __fadeno_proof: initialForm.proof });
+  for (let index = 0; index < 129; index += 1) excessiveParts.append(`extra-${index}`, "");
+  const excessive = await fetch(`${server.origin}${initialForm.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      authorization: "Bearer owner",
+      cookie: initialCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: excessiveParts.toString(),
+  });
+  assert.equal(excessive.status, 413);
+  assert.match(await excessive.text(), /FADENO_ACTION_BODY_LIMIT/u);
+  assert.equal(title, "Initial project");
+
   const acceptedBody = new URLSearchParams({
     __fadeno_proof: initialForm.proof,
     [initialForm.titleName]: "Saved project",

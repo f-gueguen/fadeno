@@ -52,7 +52,7 @@ import {
 
 const actionPrefix = "/.fadeno/actions/v1/";
 const proofField = "__fadeno_proof";
-const { maximumBodyBytes, maximumBoundaryDurationMilliseconds } = actionLimits;
+const { maximumBodyBytes, maximumBoundaryDurationMilliseconds, maximumParts } = actionLimits;
 const maximumLocationBytes = 2_048;
 const maximumCookieHeaderBytes = 16 * 1_024;
 const maximumSessionKeyBytes = 128;
@@ -319,18 +319,45 @@ async function readBody(request: Request, startedAt: number): Promise<Uint8Array
 
 type ParsedBody = Readonly<{ proof: string; parts: readonly DecisionSubmissionPart[]; bytes: number }>;
 
+function assertBoundedPartFraming(type: string, contentType: string, body: Uint8Array): void {
+  if (body.byteLength === 0) return;
+  const maximumFramedParts = maximumParts + 1; // Application fields plus the framework proof.
+  if (type === "application/x-www-form-urlencoded") {
+    let parts = 1;
+    for (const byte of body) {
+      if (byte === 0x26 && (parts += 1) > maximumFramedParts) fail("FADENO_ACTION_BODY_LIMIT");
+    }
+    return;
+  }
+  const match = /(?:^|;)\s*boundary=(?:"([^"\r\n]{1,70})"|([^;\s]{1,70}))/iu.exec(contentType);
+  const boundary = match?.[1] ?? match?.[2];
+  if (!boundary) return;
+  const marker = encoder.encode(`--${boundary}`);
+  let delimiters = 0;
+  for (let index = 0; index <= body.byteLength - marker.byteLength; index += 1) {
+    if (index !== 0 && (index < 2 || body[index - 2] !== 0x0d || body[index - 1] !== 0x0a)) continue;
+    let equal = true;
+    for (let offset = 0; offset < marker.byteLength; offset += 1) {
+      if (body[index + offset] !== marker[offset]) { equal = false; break; }
+    }
+    if (equal && (delimiters += 1) > maximumFramedParts + 1) fail("FADENO_ACTION_BODY_LIMIT");
+  }
+}
+
 async function parseBody(request: Request, state: ActionState, startedAt: number): Promise<ParsedBody> {
   const declared = declaredLength(request);
   const body = await readBody(request, startedAt);
   if (declared !== null && body.byteLength > declared) fail("FADENO_ACTION_CONTENT_LENGTH");
   const type = mediaType(request);
+  const contentType = request.headers.get("content-type") ?? "";
+  assertBoundedPartFraming(type, contentType, body);
   const values: [string, string | File][] = [];
   if (type === "application/x-www-form-urlencoded") {
     for (const entry of new URLSearchParams(decoder.decode(body))) values.push(entry);
   } else if (type === "multipart/form-data") {
     const parsed = await new Request(request.url, {
       method: "POST",
-      headers: { "content-type": request.headers.get("content-type") ?? "" },
+      headers: { "content-type": contentType },
       body: body.slice().buffer as ArrayBuffer,
     }).formData();
     if (Date.now() - startedAt > maximumBoundaryDurationMilliseconds) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
