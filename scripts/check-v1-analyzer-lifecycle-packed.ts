@@ -111,6 +111,12 @@ function normalizeLocation(location: AnalyzerDiagnosticBatch["diagnostics"][numb
 
 function normalizeBatch(batch: AnalyzerDiagnosticBatch) {
   const normalizeInstance = (value: string): string => diagnosticSuffix(value, batch.identity.operationId);
+  const pathsByUri = new Map(batch.identity.documents.map(({ uri, path }) => [uri, path]));
+  const pathForUri = (uri: string): string => {
+    const path = pathsByUri.get(uri);
+    if (path === undefined) throw new TypeError(`FADENO_PACKED_LIFECYCLE_DIAGNOSTIC_URI:${uri}`);
+    return path;
+  };
   return {
     namespace: batch.namespace,
     version: batch.version,
@@ -119,7 +125,7 @@ function normalizeBatch(batch: AnalyzerDiagnosticBatch) {
       configurationEpoch: batch.identity.configurationEpoch,
       operationId: operationSuffix(batch.identity.operationId),
       documentVersions: batch.identity.documentVersions.map(({ uri, version, lifetime }) => ({
-        path: batch.identity.documents.find((document) => document.uri === uri)?.path,
+        path: pathForUri(uri),
         version,
         lifetime,
       })),
@@ -163,13 +169,13 @@ function normalizeBatch(batch: AnalyzerDiagnosticBatch) {
   };
 }
 
-function uriPath(event: PrivateProjectDocumentEvent, uri: string): string {
-  const document = event.documentSnapshot.documents.find((candidate) => candidate.uri === uri);
-  if (!document) throw new TypeError(`FADENO_PACKED_LIFECYCLE_URI:${uri}`);
-  return document.path;
-}
-
 function normalizeArtifacts(event: PrivateProjectDocumentEvent) {
+  const pathsByUri = new Map(event.documentSnapshot.documents.map(({ uri, path }) => [uri, path]));
+  const pathForUri = (uri: string): string => {
+    const path = pathsByUri.get(uri);
+    if (path === undefined) throw new TypeError(`FADENO_PACKED_LIFECYCLE_URI:${uri}`);
+    return path;
+  };
   const artifacts = event.publication.artifacts.map((artifact) => ({
     id: artifact.id,
     path: artifact.path,
@@ -177,7 +183,7 @@ function normalizeArtifacts(event: PrivateProjectDocumentEvent) {
     module: artifact.provenance.module,
     generatedOwnership: artifact.provenance.generatedArtifactOwnership,
     primaryOrigin: {
-      path: uriPath(event, artifact.provenance.primaryOrigin.uri),
+      path: pathForUri(artifact.provenance.primaryOrigin.uri),
       range: artifact.provenance.primaryOrigin.range,
     },
     relationCounts: {
@@ -193,16 +199,16 @@ function normalizeArtifacts(event: PrivateProjectDocumentEvent) {
     representativeRelations: {
       artifactId: representative.id,
       relatedOrigins: representative.provenance.relatedOrigins.map((origin) => ({
-      path: uriPath(event, origin.uri),
-      range: origin.range,
+        path: pathForUri(origin.uri),
+        range: origin.range,
       })),
       sourceToArtifacts: representative.provenance.sourceToArtifacts.map(({ sourceUri, artifactId }) => ({
-        sourcePath: uriPath(event, sourceUri),
+        sourcePath: pathForUri(sourceUri),
         artifactId,
       })),
       artifactToSources: representative.provenance.artifactToSources.map(({ artifactId, sourceUri }) => ({
         artifactId,
-        sourcePath: uriPath(event, sourceUri),
+        sourcePath: pathForUri(sourceUri),
       })),
     },
   };
