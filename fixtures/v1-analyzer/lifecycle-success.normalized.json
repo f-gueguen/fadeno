@@ -16,7 +16,7 @@
         "lifetime": 1
       },
       "effectiveSource": "overlay",
-      "effectiveText": "/* overlay */// café 😀\r\nexport default { routes: { root: 'src/routes' } };\r\n"
+      "effectiveText": "/* overlay */// café 😀\r\nexport default { routes: { root: \"src/routes\" } };\r\n"
     },
     "publication": {
       "analyzerVersion": 1,
@@ -624,4 +624,3 @@
     "truncated": false
   }
 }
-

@@ -387,9 +387,11 @@ try {
 
   const prefix = "/* overlay */";
   const afterFirstEdit = `${prefix}${savedConfig}`;
-  const routeStart = afterFirstEdit.indexOf("src/routes");
+  const routeLiteral = "'src/routes'";
+  const routeStart = afterFirstEdit.indexOf(routeLiteral);
   assert.notEqual(routeStart, -1);
-  const changedText = afterFirstEdit;
+  const changedText = `${afterFirstEdit.slice(0, routeStart)}"src/routes"${afterFirstEdit.slice(routeStart + routeLiteral.length)}`;
+  assert.notEqual(changedText, afterFirstEdit);
   const changed = await receive(analyzer.document({
     kind: "change",
     workspaceRoots: [application],
@@ -398,11 +400,12 @@ try {
     version: 2,
     edits: [
       { start: 0, end: 0, text: prefix },
-      { start: routeStart, end: routeStart + "src/routes".length, text: "src/routes" },
+      { start: routeStart, end: routeStart + routeLiteral.length, text: '"src/routes"' },
     ],
   }));
   assert.equal(changed.publication.publicationGeneration, open.publication.publicationGeneration + 1);
   assert.equal(changed.document.effective.text, changedText);
+  assert.equal(changed.document.effective.text.includes('root: "src/routes"'), true);
   assert.equal(changed.document.effective.text.includes("\r\n"), true);
   assert.equal(changed.document.effective.text.includes("café 😀"), true);
   assert.equal(changed.diagnostics.diagnostics.length, 0);
