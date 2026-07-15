@@ -36,6 +36,17 @@ V1-DX-C2 — packed document and diagnostic lifecycle qualification
 - C2 must consume current packed bytes while keeping the canonical public
   application buildable. Deliberate lifecycle failures remain isolated private
   scenarios and must recover without stale diagnostics or artifacts.
+- Fresh challenge requires a separate packed test-only harness. It must verify
+  the installed analyzer and parser identities, exercise a stale analyzer-byte
+  canary before importing any installed module, and derive every permanent
+  projection from accepted document-event delivery rather than current session
+  inspection or a second analyzer policy.
+- The collision correction is review-only and contains no edits. C2 records
+  that intent and treats a later valid full replacement as recovery; saved
+  rename/deletion freshness remains C3, while cancellation and zero-retention
+  qualification remain C4.
+- C2 cleanup is bounded to close/reopen lifetime evidence, no generated disk
+  output, a settled analyzer close, and removal of the disposable consumer.
 - The analyzer remains private and tool-neutral. C2 does not add a command,
   generic protocol, package export, editor metadata, stable external schema, or
   supported editor product.
