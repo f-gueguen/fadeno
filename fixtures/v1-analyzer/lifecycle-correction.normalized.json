@@ -1,0 +1,18 @@
+[
+  {
+    "fixId": "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION",
+    "parameters": {
+      "route": "/"
+    },
+    "safety": "review",
+    "preferred": false,
+    "diagnosticInstanceIds": [
+      "diagnostic-1",
+      "diagnostic-2",
+      "diagnostic-3"
+    ],
+    "edits": [],
+    "applicabilityMatchesBatch": true
+  }
+]
+

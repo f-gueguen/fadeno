@@ -1,0 +1,173 @@
+{
+  "namespace": "fadeno.diagnostics",
+  "version": 1,
+  "identity": {
+    "workspaceEpoch": 8,
+    "configurationEpoch": 3,
+    "operationId": "operation-12",
+    "documentVersions": [
+      {
+        "path": "fadeno.config.ts",
+        "version": 3,
+        "lifetime": 1
+      }
+    ],
+    "documents": [
+      {
+        "path": "fadeno.config.ts",
+        "length": 77
+      },
+      {
+        "path": "src/collision/handler.ts",
+        "length": 82
+      },
+      {
+        "path": "src/collision/page.tsx",
+        "length": 60
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "instanceId": "diagnostic-1",
+      "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "severity": "error",
+      "module": {
+        "namespace": "fadeno.routes",
+        "version": 1
+      },
+      "phase": "discovery",
+      "parameters": {
+        "role": "handler",
+        "route": "/"
+      },
+      "primaryLocation": {
+        "path": "src/collision/handler.ts",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/collision/page.tsx",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ],
+      "causedBy": [],
+      "correctionFixIds": [
+        "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+      ],
+      "internalFailure": null,
+      "redaction": {
+        "state": "none",
+        "fields": []
+      },
+      "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+    },
+    {
+      "instanceId": "diagnostic-2",
+      "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "severity": "error",
+      "module": {
+        "namespace": "fadeno.routes",
+        "version": 1
+      },
+      "phase": "discovery",
+      "parameters": {
+        "role": "page",
+        "route": "/"
+      },
+      "primaryLocation": {
+        "path": "src/collision/page.tsx",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/collision/handler.ts",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ],
+      "causedBy": [],
+      "correctionFixIds": [
+        "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+      ],
+      "internalFailure": null,
+      "redaction": {
+        "state": "none",
+        "fields": []
+      },
+      "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+    },
+    {
+      "instanceId": "diagnostic-3",
+      "code": "FADENO_ROUTE_ROUTE_ROLE_COLLISION",
+      "severity": "error",
+      "module": {
+        "namespace": "fadeno.routes",
+        "version": 1
+      },
+      "phase": "discovery",
+      "parameters": {
+        "route": "/"
+      },
+      "primaryLocation": {
+        "path": "src/collision/handler.ts",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/collision/page.tsx",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ],
+      "causedBy": [
+        "diagnostic-1",
+        "diagnostic-2"
+      ],
+      "correctionFixIds": [
+        "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+      ],
+      "internalFailure": null,
+      "redaction": {
+        "state": "none",
+        "fields": []
+      },
+      "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+    }
+  ],
+  "corrections": [
+    {
+      "fixId": "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION",
+      "parameters": {
+        "route": "/"
+      },
+      "safety": "review",
+      "preferred": false,
+      "diagnosticInstanceIds": [
+        "diagnostic-1",
+        "diagnostic-2",
+        "diagnostic-3"
+      ],
+      "edits": [],
+      "applicabilityMatchesBatch": true
+    }
+  ],
+  "skippedWork": [
+    {
+      "id": "manifest-publication",
+      "causedBy": [
+        "diagnostic-3"
+      ]
+    }
+  ],
+  "completeness": "complete",
+  "redaction": {
+    "state": "none"
+  },
+  "truncated": false
+}
+

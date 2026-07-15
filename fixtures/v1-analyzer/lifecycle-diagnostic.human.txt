@@ -1,0 +1,17 @@
+FADENO_ROUTE_ROUTE_ROLE_OWNER: Handler ownership conflicts at route /.
+  at src/collision/handler.ts (range unavailable: filesystem-entry)
+  related src/collision/page.tsx (range unavailable: filesystem-entry)
+  correction: FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION (review)
+  explanation: https://fadeno.dev/diagnostics/routes/route-role-collision
+FADENO_ROUTE_ROUTE_ROLE_OWNER: Page ownership conflicts at route /.
+  at src/collision/page.tsx (range unavailable: filesystem-entry)
+  related src/collision/handler.ts (range unavailable: filesystem-entry)
+  correction: FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION (review)
+  explanation: https://fadeno.dev/diagnostics/routes/route-role-collision
+FADENO_ROUTE_ROUTE_ROLE_COLLISION: Route / has conflicting owners.
+  at src/collision/handler.ts (range unavailable: filesystem-entry)
+  related src/collision/page.tsx (range unavailable: filesystem-entry)
+  caused by: FADENO_ROUTE_ROUTE_ROLE_OWNER, FADENO_ROUTE_ROUTE_ROLE_OWNER
+  correction: FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION (review)
+  explanation: https://fadeno.dev/diagnostics/routes/route-role-collision
+SKIPPED manifest-publication: FADENO_ROUTE_ROUTE_ROLE_COLLISION

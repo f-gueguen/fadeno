@@ -1,0 +1,235 @@
+{
+  "firstClose": {
+    "operationId": "fadeno-project-document-5",
+    "documentOperationId": "operation-17",
+    "requestId": "request-6",
+    "operation": "close",
+    "documentVersion": 4,
+    "documentLifetime": 1,
+    "workspaceEpoch": 12,
+    "input": "saved",
+    "document": {
+      "path": "fadeno.config.ts",
+      "savedRevision": 1,
+      "open": null,
+      "effectiveSource": "saved",
+      "effectiveText": "// café 😀\r\nexport default { routes: { root: 'src/routes' } };\r\n"
+    },
+    "publication": {
+      "analyzerVersion": 1,
+      "schemaVersion": 4,
+      "operationId": "operation-18",
+      "operation": "publish",
+      "workspaceEpoch": 12,
+      "configurationEpoch": 4,
+      "generation": 6,
+      "requestedFacets": [
+        {
+          "namespace": "fadeno.diagnostics"
+        },
+        {
+          "namespace": "fadeno.graph"
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "generated:routes-app-ts",
+          "path": ".fadeno/routes/app.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-d-ts",
+          "path": ".fadeno/routes/index.d.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-js",
+          "path": ".fadeno/routes/index.js",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-loader-ts",
+          "path": ".fadeno/routes/loader.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-manifest-json",
+          "path": ".fadeno/routes/manifest.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-owner-json",
+          "path": ".fadeno/routes/owner.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-virtual-ts",
+          "path": ".fadeno/routes/virtual.ts",
+          "ownerNodeId": "route:artifact-plan"
+        }
+      ],
+      "removedArtifacts": [],
+      "completeness": "complete",
+      "interruption": null,
+      "truncated": false
+    }
+  },
+  "reopen": {
+    "operationId": "fadeno-project-document-6",
+    "documentOperationId": "operation-19",
+    "requestId": "request-7",
+    "operation": "open",
+    "documentVersion": 0,
+    "documentLifetime": 2,
+    "workspaceEpoch": 13,
+    "input": "overlay",
+    "document": {
+      "path": "fadeno.config.ts",
+      "savedRevision": 1,
+      "open": {
+        "version": 0,
+        "lifetime": 2
+      },
+      "effectiveSource": "overlay",
+      "effectiveText": "// café 😀\r\nexport default { routes: { root: 'src/routes' } };\r\n"
+    },
+    "publication": {
+      "analyzerVersion": 1,
+      "schemaVersion": 4,
+      "operationId": "operation-20",
+      "operation": "publish",
+      "workspaceEpoch": 13,
+      "configurationEpoch": 4,
+      "generation": 7,
+      "requestedFacets": [
+        {
+          "namespace": "fadeno.diagnostics"
+        },
+        {
+          "namespace": "fadeno.graph"
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "generated:routes-app-ts",
+          "path": ".fadeno/routes/app.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-d-ts",
+          "path": ".fadeno/routes/index.d.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-js",
+          "path": ".fadeno/routes/index.js",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-loader-ts",
+          "path": ".fadeno/routes/loader.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-manifest-json",
+          "path": ".fadeno/routes/manifest.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-owner-json",
+          "path": ".fadeno/routes/owner.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-virtual-ts",
+          "path": ".fadeno/routes/virtual.ts",
+          "ownerNodeId": "route:artifact-plan"
+        }
+      ],
+      "removedArtifacts": [],
+      "completeness": "complete",
+      "interruption": null,
+      "truncated": false
+    }
+  },
+  "finalClose": {
+    "operationId": "fadeno-project-document-7",
+    "documentOperationId": "operation-21",
+    "requestId": "request-8",
+    "operation": "close",
+    "documentVersion": 0,
+    "documentLifetime": 2,
+    "workspaceEpoch": 14,
+    "input": "saved",
+    "document": {
+      "path": "fadeno.config.ts",
+      "savedRevision": 1,
+      "open": null,
+      "effectiveSource": "saved",
+      "effectiveText": "// café 😀\r\nexport default { routes: { root: 'src/routes' } };\r\n"
+    },
+    "publication": {
+      "analyzerVersion": 1,
+      "schemaVersion": 4,
+      "operationId": "operation-22",
+      "operation": "publish",
+      "workspaceEpoch": 14,
+      "configurationEpoch": 4,
+      "generation": 8,
+      "requestedFacets": [
+        {
+          "namespace": "fadeno.diagnostics"
+        },
+        {
+          "namespace": "fadeno.graph"
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "generated:routes-app-ts",
+          "path": ".fadeno/routes/app.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-d-ts",
+          "path": ".fadeno/routes/index.d.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-js",
+          "path": ".fadeno/routes/index.js",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-loader-ts",
+          "path": ".fadeno/routes/loader.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-manifest-json",
+          "path": ".fadeno/routes/manifest.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-owner-json",
+          "path": ".fadeno/routes/owner.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-virtual-ts",
+          "path": ".fadeno/routes/virtual.ts",
+          "ownerNodeId": "route:artifact-plan"
+        }
+      ],
+      "removedArtifacts": [],
+      "completeness": "complete",
+      "interruption": null,
+      "truncated": false
+    }
+  },
+  "analyzerClosed": true,
+  "generatedDirectoryExists": false,
+  "distributionDirectoryExists": false,
+  "disposableConsumerRemoved": true
+}
+
