@@ -292,6 +292,12 @@ let projections: Readonly<Record<string, unknown>> | null = null;
 let diagnosticHuman = "";
 let analyzerClosed = false;
 try {
+  const packageDistribution = join(packageRoot, "dist");
+  const staleBuildEntry = join(packageDistribution, "stale-build-entry.js");
+  mkdirSync(packageDistribution, { recursive: true });
+  writeFileSync(staleBuildEntry, "throw new Error('stale package output');\n");
+  rmSync(packageDistribution, { recursive: true, force: true });
+  assert.equal(existsSync(staleBuildEntry), false);
   run("pnpm", ["--filter", packageName, "build"], root);
   const builtParserDirectories = parserDirectories(packageRoot);
   const builtParserIdentity = Object.freeze({
