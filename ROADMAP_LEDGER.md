@@ -17,19 +17,28 @@ V1-14 — make V1 independently usable and documented
 - [x] Pass clean-machine install, check, build, development, start, and example
   replay without private guidance; audit package, readme, links, snippets, and
   public surface.
-- [ ] Pass `pnpm ci:local` and every affected example, documentation, package,
+- [x] Pass `pnpm ci:local` and every affected example, documentation, package,
   security, accessibility, architecture, Big-O, and independent review gate.
 
 ## Active sub-slice
 
-V1-14C — prove the documented install, check, build, development, production
-start, failure, correction, and recovery workflow from one newly prepared
-current-packed consumer. Audit package contents, readmes, links, snippets, and
-the export-derived public-surface reference in the same gate.
+V1-14D — qualify V1 exit without adding a package, command, analyzer schema, or
+editor product. Add one checked V1 exit manifest over canonical feature/gate/
+evidence ownership; extend the packed application with native keyboard and
+error-association evidence; audit the accepted security, package, architecture,
+and Big-O boundaries; then pass the clean commit-bound local and independent
+review gates. External-user evidence remains an A0 input and is not fabricated.
 
 ## In progress
 
-- V1-14B now generates the API reference from exact emitted declaration bytes
+- V1-14D must make the V1 exit claim mechanically reconstructable from tracked
+  evidence while preserving every A0, V2, V3, B0, and R1 non-goal.
+- V1-14D now derives all 15 V1-gated features from canonical scope, requires
+  their gates to be exact root-check members, validates contained tracked
+  evidence, qualifies the three-engine JavaScript-disabled semantic/keyboard/
+  error-association baseline, records six bounded audits and residual risks,
+  and fail-closes every unsupported release, tooling, and performance claim.
+- V1-14B generates the API reference from exact emitted declaration bytes
   and the package export allowlist, and generates tutorials, diagnostics,
   correction, flow, recovery, and migration guidance from V1-14A authority.
 - V1-14C makes `pnpm check` part of the canonical application command surface
@@ -68,6 +77,13 @@ the export-derived public-surface reference in the same gate.
   after a demonstrated supported consumer.
 
 ## Completed slices
+
+- V1-14C — Merge commit `c305ec7` adds the canonical `pnpm check` script and
+  one current-packed single-consumer gate for frozen installation, public
+  entrypoints, check/build success and refusal, correction, stale diagnostic/
+  artifact removal, development and production HTTP service, production-only
+  installation, graceful shutdown, package/readme audit, and zero retained
+  operation ownership.
 
 - V1-DX-C5B — Result `20260717T090059Z-4d57a69-a4` records every declared
   warmup and sample with explicit

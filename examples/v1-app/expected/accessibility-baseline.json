@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "scenario": "native-accessibility-baseline",
+  "browserEngines": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "javaScriptEnabled": false,
+  "checks": [
+    "semantic-landmarks",
+    "keyboard-link-activation",
+    "label-association",
+    "validation-error-association",
+    "keyboard-checkbox-activation"
+  ],
+  "deferred": [
+    "assistive-technology-review-before-stable-release"
+  ]
+}

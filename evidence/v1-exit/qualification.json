@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "milestone": "V1",
+  "status": "qualified-private",
+  "canonicalApplication": "examples/v1-app",
+  "claims": {
+    "packagePublishable": false,
+    "productionSupported": false,
+    "publicAnalyzerSchema": false,
+    "supportedEditorProduct": false,
+    "incrementalPerformanceBound": false,
+    "independentHumanUsabilityEvidence": false
+  },
+  "features": [
+    {
+      "id": "WEB-01",
+      "gates": ["check:v1-route-contract", "check:v1-routing", "check:v1-running-example"],
+      "evidence": ["examples/v1-app/expected/build-manifest-normalized.json", "examples/v1-app/scenarios/route-role-collision/expected/flow.json"]
+    },
+    {
+      "id": "WEB-02",
+      "gates": ["check:v1-rendering-security", "check:v1-renderer", "check:v1-running-example"],
+      "evidence": ["examples/v1-app/expected/failure-report.json", "examples/v1-app/src/routes/layout.tsx"]
+    },
+    {
+      "id": "WEB-03",
+      "gates": ["check:v1-streaming-lifecycle", "check:v1-renderer", "check:v1-running-example"],
+      "evidence": ["examples/v1-app/expected/failure-report.json", "examples/v1-app/scenarios/development-lifecycle/expected/flow.json"]
+    },
+    {
+      "id": "DATA-01",
+      "gates": ["check:v1-resource-decision", "check:v1-resources", "check:v1-running-example"],
+      "evidence": ["examples/v1-app/scenarios/resource-lifecycle/expected/flow.json", "examples/v1-app/scenarios/resource-lifecycle/expected/recovery.json"]
+    },
+    {
+      "id": "DATA-02",
+      "gates": ["check:v1-action-session-decision", "check:v1-actions", "check:v1-action-runtime", "check:v1-running-example"],
+      "evidence": ["examples/v1-app/scenarios/action-lifecycle/expected/diagnostic.json", "examples/v1-app/scenarios/action-lifecycle/expected/flow.json"]
+    },
+    {
+      "id": "DATA-03",
+      "gates": ["check:revalidation-qualification-evidence", "check:v1-resources", "check:v1-action-runtime", "check:v1-running-example"],
+      "evidence": ["examples/v1-app/scenarios/resource-lifecycle/expected/refusal.json", "examples/v1-app/scenarios/action-lifecycle/expected/recovery.json"]
+    },
+    {
+      "id": "STATE-01",
+      "gates": ["check:v1-action-session-decision", "check:v1-action-runtime", "check:v1-running-example"],
+      "evidence": ["examples/v1-app/scenarios/action-lifecycle/expected/correction-after.json", "examples/v1-app/scenarios/action-lifecycle/expected/recovery.json"]
+    },
+    {
+      "id": "TYPE-01",
+      "gates": ["check:type-spine-qualification-evidence", "check:v1-route-contract", "check:v1-routing"],
+      "evidence": ["examples/v1-app/expected/build-manifest-normalized.json", "examples/v1-app/scenarios/build-compiler-error/expected/recovery.json"]
+    },
+    {
+      "id": "SEC-01",
+      "gates": ["check:v1-rendering-security", "check:v1-action-session-decision", "check:v1-action-runtime", "check:v1-running-example"],
+      "evidence": ["examples/v1-app/expected/failure-report.json", "examples/v1-app/scenarios/action-lifecycle/expected/diagnostic.json"]
+    },
+    {
+      "id": "BUILD-01",
+      "gates": ["check:v1-toolchain", "check:v1-development", "check:v1-independent-workflow"],
+      "evidence": ["examples/v1-app/expected/independent-workflow.txt", "examples/v1-app/scenarios/development-lifecycle/expected/recovery.json"]
+    },
+    {
+      "id": "ADP-01",
+      "gates": ["check:v1-adapter", "check:v1-package-boundary", "check:v1-analyzer-package"],
+      "evidence": ["examples/adapter-smoke/README.md", "examples/adapter-smoke/src/index.ts"]
+    },
+    {
+      "id": "TEST-01",
+      "gates": ["check:v1-running-example", "check:v1-analyzer-lifecycle", "check:v1-independent-workflow"],
+      "evidence": ["examples/v1-app/documentation-source.json", "examples/v1-app/expected/independent-workflow.txt"]
+    },
+    {
+      "id": "DX-01",
+      "gates": ["check:v1-analyzer", "check:v1-analyzer-lifecycle", "check:v1-analyzer-feedback", "check:v1-analyzer-workflow"],
+      "evidence": ["examples/v1-app/expected/check-collision-explain.txt", "examples/v1-app/scenarios/development-lifecycle/expected/recovery.json"]
+    },
+    {
+      "id": "DOC-01",
+      "gates": ["check:docs", "check:v1-documentation-source", "check:v1-documentation", "check:v1-independent-workflow"],
+      "evidence": ["docs/guides/getting-started.md", "examples/v1-app/documentation-source.json"]
+    },
+    {
+      "id": "ACCESS-01",
+      "gates": ["check:v1-running-example"],
+      "evidence": ["examples/v1-app/expected/accessibility-baseline.json"]
+    }
+  ],
+  "audits": [
+    {
+      "id": "security",
+      "outcome": "qualified-v1-boundaries",
+      "gates": ["check:v1-rendering-security", "check:v1-action-session-decision", "check:v1-action-runtime", "check:v1-running-example"],
+      "residual": ["single-process-action-owner", "independent-security-review-before-stable-release"]
+    },
+    {
+      "id": "accessibility",
+      "outcome": "qualified-native-baseline",
+      "gates": ["check:v1-running-example"],
+      "residual": ["manual-keyboard-and-assistive-technology-review-before-stable-release"]
+    },
+    {
+      "id": "architecture",
+      "outcome": "qualified-private-boundaries",
+      "gates": ["check:v1-package-boundary", "check:v1-analyzer-package", "check:v1-independent-workflow"],
+      "residual": ["single-private-package-until-A0-owner-decision"]
+    },
+    {
+      "id": "big-o",
+      "outcome": "qualified-without-new-bound",
+      "gates": ["check:type-spine-qualification-evidence", "check:revalidation-qualification-evidence", "check:v1-analyzer-feedback"],
+      "residual": ["correctness-first-full-state-analyzer-work-remains-unbounded"]
+    },
+    {
+      "id": "independent-workflow",
+      "outcome": "qualified-synthetic-consumer",
+      "gates": ["check:v1-independent-workflow"],
+      "residual": ["external-user-evidence-before-A0-tool-selection"]
+    },
+    {
+      "id": "documentation",
+      "outcome": "qualified-generated-authority",
+      "gates": ["check:docs", "check:v1-documentation-source", "check:v1-documentation"],
+      "residual": ["immutable-versioned-release-documentation-after-publication"]
+    }
+  ]
+}
