@@ -6,7 +6,7 @@ type JsonRecord = Record<string, unknown>;
 export type V1ExitContext = Readonly<{
   v1Features: ReadonlySet<string>;
   scripts: Readonly<Record<string, string>>;
-  rootCheck: string;
+  rootGates: ReadonlySet<string>;
   trackedEvidence: ReadonlySet<string>;
   packagePrivate: boolean;
   packageVersion: string;
@@ -65,6 +65,10 @@ export function createV1ExitContext(root: string, tracked: ReadonlySet<string>):
   const workspace = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as JsonRecord;
   const scriptsValue = isRecord(workspace["scripts"]) ? workspace["scripts"] : {};
   const scripts = Object.fromEntries(Object.entries(scriptsValue).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  const rootGates = new Set((scripts["check"] ?? "").split("&&").flatMap((command) => {
+    const match = /^pnpm ([^ ]+)$/u.exec(command.trim());
+    return match?.[1] ? [match[1]] : [];
+  }));
   const frameworkPackage = JSON.parse(readFileSync(join(root, "packages/framework/package.json"), "utf8")) as JsonRecord;
   const trackedEvidence = new Set<string>();
   const canonicalRoot = realpathSync(root);
@@ -79,7 +83,7 @@ export function createV1ExitContext(root: string, tracked: ReadonlySet<string>):
   return Object.freeze({
     v1Features,
     scripts,
-    rootCheck: scripts["check"] ?? "",
+    rootGates,
     trackedEvidence,
     packagePrivate: frameworkPackage["private"] === true,
     packageVersion: typeof frameworkPackage["version"] === "string" ? frameworkPackage["version"] : "",
@@ -100,7 +104,7 @@ function validateGates(value: unknown, label: string, context: V1ExitContext, er
     if (seen.has(gate)) errors.push(`V1 exit ${label} duplicate gate: ${gate}`);
     seen.add(gate);
     if (!Object.hasOwn(context.scripts, gate)) errors.push(`V1 exit ${label} unknown gate: ${gate}`);
-    if (!context.rootCheck.includes(`pnpm ${gate}`)) errors.push(`V1 exit ${label} gate is outside root check: ${gate}`);
+    if (!context.rootGates.has(gate)) errors.push(`V1 exit ${label} gate is outside root check: ${gate}`);
   }
 }
 
