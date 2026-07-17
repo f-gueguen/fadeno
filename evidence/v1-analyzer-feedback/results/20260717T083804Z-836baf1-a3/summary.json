@@ -1,0 +1,103 @@
+{
+  "schema": "fadeno.private.feedback-summary",
+  "version": 1,
+  "resultId": "20260717T083804Z-836baf1-a3",
+  "sourceCommit": "836baf15a58271532425316691584eb48175ffcd",
+  "conclusion": "baseline-only-no-budget",
+  "warmupsPerWorkload": 2,
+  "samplesPerWorkload": 5,
+  "workloads": [
+    {
+      "id": "diagnostic-replacement",
+      "endToEnd": {
+        "completed": 5,
+        "skipped": 0,
+        "skipReasons": [],
+        "minimumNs": "49113500",
+        "medianNs": "49992958",
+        "p95Ns": "60895375"
+      },
+      "phases": {
+        "invalidation": {
+          "completed": 5,
+          "skipped": 0,
+          "skipReasons": [],
+          "minimumNs": "490666",
+          "medianNs": "510708",
+          "p95Ns": "587750"
+        },
+        "fadeno-analysis-and-generation": {
+          "completed": 5,
+          "skipped": 0,
+          "skipReasons": [],
+          "minimumNs": "48602792",
+          "medianNs": "49405208",
+          "p95Ns": "60404709"
+        },
+        "typescript-refresh": {
+          "completed": 0,
+          "skipped": 5,
+          "skipReasons": [
+            "framework-diagnostic"
+          ],
+          "minimumNs": null,
+          "medianNs": null,
+          "p95Ns": null
+        },
+        "accepted-consumer-replacement": {
+          "completed": 5,
+          "skipped": 0,
+          "skipReasons": [],
+          "minimumNs": "0",
+          "medianNs": "0",
+          "p95Ns": "0"
+        }
+      }
+    },
+    {
+      "id": "cleared-replacement",
+      "endToEnd": {
+        "completed": 5,
+        "skipped": 0,
+        "skipReasons": [],
+        "minimumNs": "451193209",
+        "medianNs": "453158333",
+        "p95Ns": "475358625"
+      },
+      "phases": {
+        "invalidation": {
+          "completed": 5,
+          "skipped": 0,
+          "skipReasons": [],
+          "minimumNs": "64333",
+          "medianNs": "72792",
+          "p95Ns": "93375"
+        },
+        "fadeno-analysis-and-generation": {
+          "completed": 5,
+          "skipped": 0,
+          "skipReasons": [],
+          "minimumNs": "142515959",
+          "medianNs": "144214667",
+          "p95Ns": "160498000"
+        },
+        "typescript-refresh": {
+          "completed": 5,
+          "skipped": 0,
+          "skipReasons": [],
+          "minimumNs": "217311500",
+          "medianNs": "221999458",
+          "p95Ns": "225152875"
+        },
+        "accepted-consumer-replacement": {
+          "completed": 5,
+          "skipped": 0,
+          "skipReasons": [],
+          "minimumNs": "85907042",
+          "medianNs": "91773000",
+          "p95Ns": "95598583"
+        }
+      }
+    }
+  ]
+}

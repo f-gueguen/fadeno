@@ -1,0 +1,1410 @@
+{
+  "schema": "fadeno.private.feedback-run",
+  "version": 1,
+  "contractSha256": "4d845b85d054205b3a7845d3610111a20bf1bc11d2db94e7da1c56ce8b86b3f9",
+  "mode": "measurement",
+  "deepTiming": true,
+  "identity": {
+    "sourceCommit": "836baf15a58271532425316691584eb48175ffcd",
+    "sourceTreeSha256": "929fa4c219ee60b1441b9a8293e8f3ea78d6f20be2d5ce13874dad02d6474b10",
+    "tarballSha256": "ea47db6aef08238896bd53785176fead0e178e365f54acfff008fe3e5d7dac78",
+    "installedPackageTreeSha256": "3c0d3a2133a9e66dad684ffc9dfa0ca826828e226da2011d660a1dde69d80ca1",
+    "runtimeVersion": "v24.18.0",
+    "runtimeExecutableSha256": "ee6fb0e015284d83a91e8ec5213f43a157f8a392b58555301682892ba928c04a",
+    "compilerVersion": "7.0.2",
+    "compilerPackageSha256": "cf0ee56bb9e394483f67855e92006084bbe1e80b0b1f92b2c363dc8d7897c54b",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "environmentSha256": "ba14cdd5265f39f52a148d4ba42d311b28034cb4be82fefa78019fb151e6f7b6"
+  },
+  "clock": {
+    "kind": "monotonic",
+    "source": "process.hrtime.bigint",
+    "unit": "ns",
+    "start": "after-save-before-notification",
+    "end": "matching-final-accepted-consumer-event"
+  },
+  "attempts": [
+    {
+      "attemptId": "warmup-1-diagnostic-replacement",
+      "stage": "warmup",
+      "repetition": 1,
+      "workloadId": "diagnostic-replacement",
+      "startNs": "183391825213333",
+      "acceptedNs": "183391874412375",
+      "elapsedNs": "49199042",
+      "acceptedEvent": {
+        "kind": "diagnostic-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-5",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-5",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-5",
+        "workspaceEpoch": 3,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+        ],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [],
+        "removedArtifactPaths": [
+          ".fadeno/routes/app.ts",
+          ".fadeno/routes/index.d.ts",
+          ".fadeno/routes/index.js",
+          ".fadeno/routes/loader.ts",
+          ".fadeno/routes/manifest.json",
+          ".fadeno/routes/owner.json",
+          ".fadeno/routes/virtual.ts"
+        ],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "81310620fadc874f6e6a9860d40ba6e62802703282ad9a09fd1760583a82065a",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "549500",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "48649542",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "skipped",
+          "elapsedNs": "0",
+          "reason": "framework-diagnostic"
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "0",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "warmup-1-cleared-replacement",
+      "stage": "warmup",
+      "repetition": 1,
+      "workloadId": "cleared-replacement",
+      "startNs": "183391875484291",
+      "acceptedNs": "183392357044333",
+      "elapsedNs": "481560042",
+      "acceptedEvent": {
+        "kind": "success-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-7",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-7",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-7",
+        "workspaceEpoch": 4,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "removedArtifactPaths": [],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "a891c31e155077e10cdb833eca0763213422dc99dbfe8f5ad70007d14add61c7",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "74292",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "152628792",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "completed",
+          "elapsedNs": "233079375",
+          "reason": null
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "95777583",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "warmup-2-diagnostic-replacement",
+      "stage": "warmup",
+      "repetition": 2,
+      "workloadId": "diagnostic-replacement",
+      "startNs": "183392358375916",
+      "acceptedNs": "183392409966208",
+      "elapsedNs": "51590292",
+      "acceptedEvent": {
+        "kind": "diagnostic-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-9",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-9",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-9",
+        "workspaceEpoch": 5,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+        ],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [],
+        "removedArtifactPaths": [
+          ".fadeno/routes/app.ts",
+          ".fadeno/routes/index.d.ts",
+          ".fadeno/routes/index.js",
+          ".fadeno/routes/loader.ts",
+          ".fadeno/routes/manifest.json",
+          ".fadeno/routes/owner.json",
+          ".fadeno/routes/virtual.ts"
+        ],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "e021a1732dab742ffd26f8b840925c2e32e308fd3f6950606c3fd71e8e226e9d",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "534417",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "51055875",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "skipped",
+          "elapsedNs": "0",
+          "reason": "framework-diagnostic"
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "0",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "warmup-2-cleared-replacement",
+      "stage": "warmup",
+      "repetition": 2,
+      "workloadId": "cleared-replacement",
+      "startNs": "183392410595125",
+      "acceptedNs": "183392867577166",
+      "elapsedNs": "456982041",
+      "acceptedEvent": {
+        "kind": "success-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-11",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-11",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-11",
+        "workspaceEpoch": 6,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "removedArtifactPaths": [],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "d82cabdba15891c45e6cb27ab59c4d04281ecd38c601f97ce4d68afa03637ebf",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "86250",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "146958375",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "completed",
+          "elapsedNs": "212538083",
+          "reason": null
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "97399333",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-1-diagnostic-replacement",
+      "stage": "sample",
+      "repetition": 1,
+      "workloadId": "diagnostic-replacement",
+      "startNs": "183392868926750",
+      "acceptedNs": "183392918814333",
+      "elapsedNs": "49887583",
+      "acceptedEvent": {
+        "kind": "diagnostic-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-13",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-13",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-13",
+        "workspaceEpoch": 7,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+        ],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [],
+        "removedArtifactPaths": [
+          ".fadeno/routes/app.ts",
+          ".fadeno/routes/index.d.ts",
+          ".fadeno/routes/index.js",
+          ".fadeno/routes/loader.ts",
+          ".fadeno/routes/manifest.json",
+          ".fadeno/routes/owner.json",
+          ".fadeno/routes/virtual.ts"
+        ],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "1a4ac825f232b75f7e588285c052ffdca1ec15c33fb1219ab2b1537b1e6d38cf",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "492416",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "49395167",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "skipped",
+          "elapsedNs": "0",
+          "reason": "framework-diagnostic"
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "0",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-1-cleared-replacement",
+      "stage": "sample",
+      "repetition": 1,
+      "workloadId": "cleared-replacement",
+      "startNs": "183392919436166",
+      "acceptedNs": "183393371833375",
+      "elapsedNs": "452397209",
+      "acceptedEvent": {
+        "kind": "success-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-15",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-15",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-15",
+        "workspaceEpoch": 8,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "removedArtifactPaths": [],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "8b139df2ee02f7d390ff7a320e2d2539b64808dd80aec7e50e24e85d2d23f986",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "72792",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "144214667",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "completed",
+          "elapsedNs": "221999458",
+          "reason": null
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "86110292",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-2-diagnostic-replacement",
+      "stage": "sample",
+      "repetition": 2,
+      "workloadId": "diagnostic-replacement",
+      "startNs": "183393373408125",
+      "acceptedNs": "183393423582958",
+      "elapsedNs": "50174833",
+      "acceptedEvent": {
+        "kind": "diagnostic-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-17",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-17",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-17",
+        "workspaceEpoch": 9,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+        ],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [],
+        "removedArtifactPaths": [
+          ".fadeno/routes/app.ts",
+          ".fadeno/routes/index.d.ts",
+          ".fadeno/routes/index.js",
+          ".fadeno/routes/loader.ts",
+          ".fadeno/routes/manifest.json",
+          ".fadeno/routes/owner.json",
+          ".fadeno/routes/virtual.ts"
+        ],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "cb56ca21016bb22f1f5d9f89d2fe400d03f38fdd9a35f8d6f6928cd44d70416a",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "553041",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "49621792",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "skipped",
+          "elapsedNs": "0",
+          "reason": "framework-diagnostic"
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "0",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-2-cleared-replacement",
+      "stage": "sample",
+      "repetition": 2,
+      "workloadId": "cleared-replacement",
+      "startNs": "183393424253333",
+      "acceptedNs": "183393887585083",
+      "elapsedNs": "463331750",
+      "acceptedEvent": {
+        "kind": "success-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-19",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-19",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-19",
+        "workspaceEpoch": 10,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "removedArtifactPaths": [],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "0c5574c3616e365e3fa2a6cb07d83b8cbc19532d7b1906680372029890e0d176",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "64333",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "142515959",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "completed",
+          "elapsedNs": "225152875",
+          "reason": null
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "95598583",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-3-diagnostic-replacement",
+      "stage": "sample",
+      "repetition": 3,
+      "workloadId": "diagnostic-replacement",
+      "startNs": "183393889054958",
+      "acceptedNs": "183393939047916",
+      "elapsedNs": "49992958",
+      "acceptedEvent": {
+        "kind": "diagnostic-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-21",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-21",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-21",
+        "workspaceEpoch": 11,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+        ],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [],
+        "removedArtifactPaths": [
+          ".fadeno/routes/app.ts",
+          ".fadeno/routes/index.d.ts",
+          ".fadeno/routes/index.js",
+          ".fadeno/routes/loader.ts",
+          ".fadeno/routes/manifest.json",
+          ".fadeno/routes/owner.json",
+          ".fadeno/routes/virtual.ts"
+        ],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "7eb7e621a3cb8095b407b860de338f064f95ccaf751815da04267468d03d8629",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "587750",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "49405208",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "skipped",
+          "elapsedNs": "0",
+          "reason": "framework-diagnostic"
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "0",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-3-cleared-replacement",
+      "stage": "sample",
+      "repetition": 3,
+      "workloadId": "cleared-replacement",
+      "startNs": "183393939817333",
+      "acceptedNs": "183394392975666",
+      "elapsedNs": "453158333",
+      "acceptedEvent": {
+        "kind": "success-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-23",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-23",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-23",
+        "workspaceEpoch": 12,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "removedArtifactPaths": [],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "2c542c1a785b7347eac0d1b2454664b1190052faceb6fa7d35a7f04d5a7b4d5a",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "93375",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "143980458",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "completed",
+          "elapsedNs": "217311500",
+          "reason": null
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "91773000",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-4-diagnostic-replacement",
+      "stage": "sample",
+      "repetition": 4,
+      "workloadId": "diagnostic-replacement",
+      "startNs": "183394394226958",
+      "acceptedNs": "183394443340458",
+      "elapsedNs": "49113500",
+      "acceptedEvent": {
+        "kind": "diagnostic-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-25",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-25",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-25",
+        "workspaceEpoch": 13,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+        ],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [],
+        "removedArtifactPaths": [
+          ".fadeno/routes/app.ts",
+          ".fadeno/routes/index.d.ts",
+          ".fadeno/routes/index.js",
+          ".fadeno/routes/loader.ts",
+          ".fadeno/routes/manifest.json",
+          ".fadeno/routes/owner.json",
+          ".fadeno/routes/virtual.ts"
+        ],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "e85fbb00b19f605eda3292dbe144072fba403f6b9608217134104cd2e5f59590",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "510708",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "48602792",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "skipped",
+          "elapsedNs": "0",
+          "reason": "framework-diagnostic"
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "0",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-4-cleared-replacement",
+      "stage": "sample",
+      "repetition": 4,
+      "workloadId": "cleared-replacement",
+      "startNs": "183394444010916",
+      "acceptedNs": "183394895204125",
+      "elapsedNs": "451193209",
+      "acceptedEvent": {
+        "kind": "success-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-27",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-27",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-27",
+        "workspaceEpoch": 14,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "removedArtifactPaths": [],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "689374d00fdc5b90add60ac549c316ba40800721ea207a7731fe0f68007ee787",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "71042",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "144430042",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "completed",
+          "elapsedNs": "220785083",
+          "reason": null
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "85907042",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-5-diagnostic-replacement",
+      "stage": "sample",
+      "repetition": 5,
+      "workloadId": "diagnostic-replacement",
+      "startNs": "183394896467750",
+      "acceptedNs": "183394957363125",
+      "elapsedNs": "60895375",
+      "acceptedEvent": {
+        "kind": "diagnostic-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-29",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-29",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-29",
+        "workspaceEpoch": 15,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+        ],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [],
+        "removedArtifactPaths": [
+          ".fadeno/routes/app.ts",
+          ".fadeno/routes/index.d.ts",
+          ".fadeno/routes/index.js",
+          ".fadeno/routes/loader.ts",
+          ".fadeno/routes/manifest.json",
+          ".fadeno/routes/owner.json",
+          ".fadeno/routes/virtual.ts"
+        ],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "6e8617c676dd6a9d98ddb32fb9e424749d788ddeea3e2a40ca609d69d491c5cf",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "490666",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "60404709",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "skipped",
+          "elapsedNs": "0",
+          "reason": "framework-diagnostic"
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "0",
+          "reason": null
+        }
+      }
+    },
+    {
+      "attemptId": "sample-5-cleared-replacement",
+      "stage": "sample",
+      "repetition": 5,
+      "workloadId": "cleared-replacement",
+      "startNs": "183394958093958",
+      "acceptedNs": "183395433452583",
+      "elapsedNs": "475358625",
+      "acceptedEvent": {
+        "kind": "success-replacement",
+        "operationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-31",
+        "diagnosticOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-31",
+        "publicationOperationId": "8b824c16-99c5-46a7-a60a-8d55cc38680a:operation-31",
+        "workspaceEpoch": 16,
+        "configurationEpoch": 1,
+        "diagnosticCodes": [],
+        "diagnosticCompleteness": "complete",
+        "diagnosticTruncated": false,
+        "publicationArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "removedArtifactPaths": [],
+        "diskArtifacts": [
+          {
+            "path": ".fadeno/routes/app.ts",
+            "sha256": "ab1106a5ba14eea2ed3c228583c337d285acb185900c83d8cd28eb14d8fba815"
+          },
+          {
+            "path": ".fadeno/routes/index.d.ts",
+            "sha256": "89859869018343ce6d024a60f131a11dfd41bb2aed4501cd3160540293b8666e"
+          },
+          {
+            "path": ".fadeno/routes/index.js",
+            "sha256": "f741fed37f67da05a7ef185fd7790de74b9d7a80459f8e88be363c263bbe9008"
+          },
+          {
+            "path": ".fadeno/routes/loader.ts",
+            "sha256": "4122e9e57e0603ecd93193f1f516ccd396757e26c6a5d33ad2c292ccaffa20fa"
+          },
+          {
+            "path": ".fadeno/routes/manifest.json",
+            "sha256": "36f10bb169466f047c792a8b7bc7ad818de463d903228ad49e39df308c8195e7"
+          },
+          {
+            "path": ".fadeno/routes/owner.json",
+            "sha256": "a89ded8488accd5e23348b763795d144c56e2a3b86340c5bfda663cd246d9bf6"
+          },
+          {
+            "path": ".fadeno/routes/virtual.ts",
+            "sha256": "5baf1267594abb82fae7608d1b573385ec53ff39c5998d8e9bd187f2cab69105"
+          }
+        ],
+        "publicationSha256": "7364a54cb597dee06771d835962ca7629bae8fe5f8298075a238ff1ca57cd2d7",
+        "diskSha256": "51b3c6831c2f38b9475f3e7b283467d1bedb9edf687269146e07c3c491a23f1d"
+      },
+      "phaseTiming": {
+        "invalidation": {
+          "status": "completed",
+          "elapsedNs": "77667",
+          "reason": null
+        },
+        "fadeno-analysis-and-generation": {
+          "status": "completed",
+          "elapsedNs": "160498000",
+          "reason": null
+        },
+        "typescript-refresh": {
+          "status": "completed",
+          "elapsedNs": "222117041",
+          "reason": null
+        },
+        "accepted-consumer-replacement": {
+          "status": "completed",
+          "elapsedNs": "92665917",
+          "reason": null
+        }
+      }
+    }
+  ],
+  "validity": {
+    "exact-identities": true,
+    "stale-output-canary": true,
+    "expected-final-event": true,
+    "complete-replacement": true,
+    "monotonic-endpoints": true,
+    "zero-private-ownership": true
+  },
+  "cleanup": {
+    "activeOperations": 0,
+    "compilerValidations": 0,
+    "coordinatorActiveOperations": 0,
+    "coordinatorDrainWorkers": 0,
+    "coordinatorPendingAnalysisOperations": 0,
+    "coordinatorQueuedOperations": 0,
+    "currentAnalysisTokens": 0,
+    "latestAnalysisRequests": 0,
+    "observers": 0,
+    "pendingApplicationRecoveries": 0,
+    "pendingBytes": 0,
+    "pendingCleanups": 0,
+    "pendingHints": 0,
+    "pendingNotifications": 0,
+    "pendingRollbacks": 0,
+    "retainedCycles": 0,
+    "timers": 0,
+    "waiters": 0
+  },
+  "complete": true,
+  "selection": "all-attempts-no-retry"
+}
