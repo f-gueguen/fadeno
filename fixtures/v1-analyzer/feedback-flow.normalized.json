@@ -1,0 +1,54 @@
+{
+  "boundary": "saved-mutation-to-final-accepted-consumer-event",
+  "causes": [
+    {
+      "id": "diagnostic-replacement",
+      "acceptedEvent": "diagnostic-replacement",
+      "diagnosticCodes": [
+        "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+      ]
+    },
+    {
+      "id": "cleared-replacement",
+      "acceptedEvent": "success-replacement",
+      "diagnosticCodes": []
+    }
+  ],
+  "phases": [
+    {
+      "id": "invalidation",
+      "owner": "filesystem-invalidation-adapter",
+      "diagnostic": "completed",
+      "cleared": "completed"
+    },
+    {
+      "id": "fadeno-analysis-and-generation",
+      "owner": "private-analyzer",
+      "diagnostic": "completed",
+      "cleared": "completed"
+    },
+    {
+      "id": "typescript-refresh",
+      "owner": "stock-compiler",
+      "diagnostic": "skipped-framework-diagnostic",
+      "cleared": "completed"
+    },
+    {
+      "id": "accepted-consumer-replacement",
+      "owner": "private-consumer",
+      "diagnostic": "diagnostic-replacement",
+      "cleared": "success-replacement"
+    }
+  ],
+  "observableOutcome": {
+    "diagnosticCodes": [
+      "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+    ],
+    "clearedDiagnosticCodes": [],
+    "timingRetained": false
+  }
+}

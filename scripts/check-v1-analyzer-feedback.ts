@@ -14,6 +14,7 @@ import { sha256, verifyFeedbackContract, verifyFeedbackRun } from "./lib/v1-anal
 type AnalyzerProjectModule = typeof import("../packages/framework/src/internal/analyzer-project.ts");
 type AnalyzerCompilerModule = typeof import("../packages/framework/src/internal/analyzer-compiler.ts");
 type AnalyzerWatcherModule = typeof import("../packages/framework/src/internal/analyzer-watcher.ts");
+type AnalyzerDiagnosticsModule = typeof import("../packages/framework/src/internal/analyzer-diagnostics.ts");
 type FileIdentity = readonly Readonly<{ path: string; sha256: string }>[];
 
 type PendingAttempt = {
@@ -44,6 +45,15 @@ if (arguments_.length > 1 || (arguments_.length === 1 && arguments_[0] !== "--de
   throw new TypeError("FADENO_FEEDBACK_ARGUMENTS");
 }
 const deepTiming = arguments_[0] === "--deep-timing";
+
+function assertJsonFixture(name: string, actual: unknown): void {
+  const expected = JSON.parse(readFileSync(join(root, "fixtures/v1-analyzer", name), "utf8")) as unknown;
+  assert.deepEqual(actual, expected, name);
+}
+
+function assertTextFixture(name: string, actual: string): void {
+  assert.equal(actual, readFileSync(join(root, "fixtures/v1-analyzer", name), "utf8"), name);
+}
 
 function run(command: string, args: readonly string[], cwd: string): string {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
@@ -208,9 +218,11 @@ try {
 
   const analyzerPath = join(installedPackage, "dist/internal/analyzer-project.js");
   const compilerPath = join(installedPackage, "dist/internal/analyzer-compiler.js");
+  const diagnosticsPath = join(installedPackage, "dist/internal/analyzer-diagnostics.js");
   const analyzerModule = await import(pathToFileURL(analyzerPath).href) as AnalyzerProjectModule;
   const compilerModule = await import(pathToFileURL(compilerPath).href) as AnalyzerCompilerModule;
   const watcherModule = await import(pathToFileURL(watcherPath).href) as AnalyzerWatcherModule;
+  const diagnosticsModule = await import(pathToFileURL(diagnosticsPath).href) as AnalyzerDiagnosticsModule;
 
   let pending: PendingAttempt | null = null;
   const compiler = new compilerModule.PrivateCompilerValidator(application, deepTiming ? {
@@ -264,6 +276,7 @@ try {
   assert.equal(initial.refresh.diagnostics.diagnostics.length, 0);
   const initialDiskSha256 = outputSha256(application);
   const captured: any[] = [];
+  let humanDiagnostic = "";
   const rounds = contract.schedule.warmups + contract.schedule.repetitions;
   for (let round = 0; round < rounds; round += 1) {
     for (const workloadId of contract.schedule.order) {
@@ -289,6 +302,9 @@ try {
       assert.equal(diagnostics.identity.operationId, publication.operationId);
       const workload = contract.workloads.find(({ id }) => id === workloadId)!;
       assert.deepEqual(diagnostics.diagnostics.map(({ code }) => code), workload.diagnosticCodes);
+      if (workloadId === "diagnostic-replacement" && humanDiagnostic.length === 0) {
+        humanDiagnostic = diagnosticsModule.formatAnalyzerDiagnosticBatchHuman(diagnostics);
+      }
       assert.equal(observation.diskSha256, initialDiskSha256);
       const stage = round < contract.schedule.warmups ? "warmup" : "sample";
       const repetition = stage === "warmup" ? round + 1 : round - contract.schedule.warmups + 1;
@@ -330,32 +346,104 @@ try {
   const attempts = captured.map((attempt) => Object.freeze({ ...attempt, validity, cleanup }));
   const source = sourceIdentity();
   const compilerIdentity_ = compilerIdentity(installedPackage);
+  const identity = Object.freeze({
+    sourceCommit: source.commit,
+    sourceTreeSha256: source.treeSha256,
+    tarballSha256,
+    installedPackageTreeSha256,
+    runtimeVersion: process.version,
+    runtimeExecutableSha256: sha256(readFileSync(process.execPath)),
+    compilerVersion: compilerIdentity_.version,
+    compilerPackageSha256: compilerIdentity_.sha256,
+    platform: process.platform,
+    architecture: process.arch,
+    environmentSha256: environmentSha256(),
+  });
   const raw = Object.freeze({
     schema: "fadeno.private.feedback-run",
     version: 1,
     contractSha256,
     mode: "dry-run",
     deepTiming,
-    identity: Object.freeze({
-      sourceCommit: source.commit,
-      sourceTreeSha256: source.treeSha256,
-      tarballSha256,
-      installedPackageTreeSha256,
-      runtimeVersion: process.version,
-      runtimeExecutableSha256: sha256(readFileSync(process.execPath)),
-      compilerVersion: compilerIdentity_.version,
-      compilerPackageSha256: compilerIdentity_.sha256,
-      platform: process.platform,
-      architecture: process.arch,
-      environmentSha256: environmentSha256(),
-    }),
+    identity,
     clock: contract.clock,
     attempts: Object.freeze(attempts),
     complete: true,
     selection: "all-attempts-no-retry",
   });
-  const verified = verifyFeedbackRun(raw, contract, contractSha256);
+  const verified = verifyFeedbackRun(raw, contract, contractSha256, identity);
   assert.deepEqual(verified, { mode: "dry-run", attempts: 14, deepTiming });
+  if (!deepTiming) {
+    const projection = {
+      schema: raw.schema,
+      version: raw.version,
+      contractSha256: "<sha256>",
+      mode: raw.mode,
+      deepTiming: raw.deepTiming,
+      identity: Object.fromEntries(Object.keys(raw.identity).map((key) => [key, `<${key}>`])),
+      clock: raw.clock,
+      attemptIds: raw.attempts.map((attempt) => attempt.attemptId),
+      timing: { startNs: "<ns>", acceptedNs: "<ns>", elapsedNs: "<ns>", retained: false },
+      observedWorkloads: contract.workloads.map((workload) => ({
+        id: workload.id,
+        attempts: raw.attempts.filter((attempt) => attempt.workloadId === workload.id).length,
+        acceptedEvent: workload.acceptedEvent,
+        diagnosticCodes: workload.diagnosticCodes,
+      })),
+      validity: validity,
+      finalCleanup: cleanup,
+      complete: raw.complete,
+      selection: raw.selection,
+    };
+    const firstDiagnostic = raw.attempts.find(({ workloadId }) => workloadId === "diagnostic-replacement")!;
+    const firstClear = raw.attempts.find(({ workloadId }) => workloadId === "cleared-replacement")!;
+    const flow = {
+      boundary: "saved-mutation-to-final-accepted-consumer-event",
+      causes: contract.workloads.map(({ id, acceptedEvent, diagnosticCodes }) => ({ id, acceptedEvent, diagnosticCodes })),
+      phases: [
+        { id: "invalidation", owner: "filesystem-invalidation-adapter", diagnostic: "completed", cleared: "completed" },
+        { id: "fadeno-analysis-and-generation", owner: "private-analyzer", diagnostic: "completed", cleared: "completed" },
+        { id: "typescript-refresh", owner: "stock-compiler", diagnostic: "skipped-framework-diagnostic", cleared: "completed" },
+        { id: "accepted-consumer-replacement", owner: "private-consumer", diagnostic: firstDiagnostic.acceptedEvent.kind, cleared: firstClear.acceptedEvent.kind },
+      ],
+      observableOutcome: {
+        diagnosticCodes: firstDiagnostic.acceptedEvent.diagnosticCodes,
+        clearedDiagnosticCodes: firstClear.acceptedEvent.diagnosticCodes,
+        timingRetained: false,
+      },
+    };
+    const recovery = {
+      pairs: raw.attempts.length / 2,
+      diagnosticReplacementObserved: raw.attempts.filter(({ acceptedEvent }) => acceptedEvent.kind === "diagnostic-replacement").length,
+      emptyReplacementObserved: raw.attempts.filter(({ acceptedEvent }) => acceptedEvent.kind === "success-replacement").length,
+      staleDiagnosticsRemoved: raw.attempts.every((attempt, index) => index % 2 === 0 || attempt.acceptedEvent.diagnosticCodes.length === 0),
+      lastGoodDiskPreserved: raw.attempts.every((attempt) => attempt.acceptedEvent.diskSha256 === firstDiagnostic.acceptedEvent.diskSha256),
+      stalePackageCanaryRestored: true,
+      finalCleanup: cleanup,
+    };
+    const refusal = (mutate: (copy: any) => void): string => {
+      const copy = structuredClone(raw);
+      mutate(copy);
+      let code = "";
+      assert.throws(() => verifyFeedbackRun(copy, contract, contractSha256, identity), (error: unknown) => {
+        code = error instanceof Error ? error.message : "unknown";
+        return true;
+      });
+      return code;
+    };
+    const refusals = {
+      stalePackage: refusal((copy) => { copy.identity.installedPackageTreeSha256 = "0".repeat(64); }),
+      missingAttempt: refusal((copy) => { copy.attempts.pop(); }),
+      missingFinalEvent: refusal((copy) => { copy.attempts[0].acceptedEvent.kind = "success-replacement"; }),
+      incompleteCleanup: refusal((copy) => { copy.attempts[0].cleanup.activeOperations = 1; }),
+      retrySelection: refusal((copy) => { copy.selection = "best-attempt"; }),
+    };
+    assertJsonFixture("feedback-dry-run.normalized.json", projection);
+    assertJsonFixture("feedback-flow.normalized.json", flow);
+    assertJsonFixture("feedback-recovery.normalized.json", recovery);
+    assertJsonFixture("feedback-refusal.normalized.json", refusals);
+    assertTextFixture("feedback-diagnostic.human.txt", humanDiagnostic);
+  }
   console.log(`V1 analyzer feedback dry run passed (${verified.attempts} ordered attempts, current package, no retained timing result${deepTiming ? ", explicit phase detail" : ""})`);
 } finally {
   rmSync(join(packageRoot, "dist"), { recursive: true, force: true });

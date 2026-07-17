@@ -177,6 +177,7 @@ export function verifyFeedbackRun(
   value: unknown,
   contract: FeedbackContract,
   expectedContractSha256: string,
+  expectedIdentity: unknown,
 ): VerifiedFeedbackRun {
   const run = record(value, "FADENO_FEEDBACK_RUN_OBJECT");
   exactKeys(run, ["schema", "version", "contractSha256", "mode", "deepTiming", "identity", "clock", "attempts", "complete", "selection"], "FADENO_FEEDBACK_RUN_KEYS");
@@ -197,6 +198,7 @@ export function verifyFeedbackRun(
   for (const key of ["runtimeVersion", "compilerVersion", "platform", "architecture"] as const) {
     if (typeof identity[key] !== "string" || identity[key].length === 0) throw new TypeError("FADENO_FEEDBACK_RUN_IDENTITY_VALUE");
   }
+  same(identity, expectedIdentity, "FADENO_FEEDBACK_RUN_IDENTITY_MISMATCH");
   same(run["clock"], contract.clock, "FADENO_FEEDBACK_RUN_CLOCK");
 
   if (!Array.isArray(run["attempts"])) throw new TypeError("FADENO_FEEDBACK_RUN_ATTEMPTS");

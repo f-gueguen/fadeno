@@ -83,12 +83,12 @@ const valid = {
   complete: true,
   selection: "all-attempts-no-retry",
 };
-assert.deepEqual(verifyFeedbackRun(valid, contract, sha256(contractBytes)), { mode: "dry-run", attempts: 14, deepTiming: false });
+assert.deepEqual(verifyFeedbackRun(valid, contract, sha256(contractBytes), identity), { mode: "dry-run", attempts: 14, deepTiming: false });
 
 const refuses = (mutate: (copy: any) => void, code: RegExp): void => {
   const copy = structuredClone(valid);
   mutate(copy);
-  assert.throws(() => verifyFeedbackRun(copy, contract, sha256(contractBytes)), code);
+  assert.throws(() => verifyFeedbackRun(copy, contract, sha256(contractBytes), identity), code);
 };
 refuses((copy) => { copy.attempts[0].validity["stale-output-canary"] = false; }, /FADENO_FEEDBACK_ATTEMPT_INVALID/u);
 refuses((copy) => { copy.attempts.splice(1, 1); }, /FADENO_FEEDBACK_RUN_ATTEMPT_COUNT/u);
