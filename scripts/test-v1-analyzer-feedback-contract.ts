@@ -115,6 +115,8 @@ refuses((copy) => { copy.attempts[2].attemptId = copy.attempts[0].attemptId; }, 
 refuses((copy) => { copy.attempts[0].acceptedNs = copy.attempts[0].startNs; }, /FADENO_FEEDBACK_ATTEMPT_CLOCK/u);
 refuses((copy) => { copy.attempts[1].acceptedEvent.diagnosticCodes = ["stale"]; }, /FADENO_FEEDBACK_ATTEMPT_DIAGNOSTICS/u);
 refuses((copy) => { copy.attempts[1].acceptedEvent.diskArtifacts[0].sha256 = "c".repeat(64); }, /FADENO_FEEDBACK_ATTEMPT_ARTIFACT_MISMATCH/u);
+refuses((copy) => { copy.attempts[2].acceptedEvent.workspaceEpoch = copy.attempts[1].acceptedEvent.workspaceEpoch; }, /FADENO_FEEDBACK_ATTEMPT_EPOCH_ORDER/u);
+refuses((copy) => { copy.attempts[2].acceptedEvent.operationId = copy.attempts[0].acceptedEvent.operationId; copy.attempts[2].acceptedEvent.diagnosticOperationId = copy.attempts[0].acceptedEvent.operationId; copy.attempts[2].acceptedEvent.publicationOperationId = copy.attempts[0].acceptedEvent.operationId; }, /FADENO_FEEDBACK_ATTEMPT_OPERATION_ORDER/u);
 refuses((copy) => { copy.cleanup.activeOperations = 1; }, /FADENO_FEEDBACK_RUN_CLEANUP/u);
 refuses((copy) => { copy.attempts[0].phaseTiming = {}; }, /FADENO_FEEDBACK_ATTEMPT_DEEP_DISABLED/u);
 refuses((copy) => { copy.selection = "best-attempt"; }, /FADENO_FEEDBACK_RUN_COMPLETENESS/u);

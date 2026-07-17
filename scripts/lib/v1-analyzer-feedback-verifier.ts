@@ -251,6 +251,12 @@ export function verifyFeedbackRun(
   const rounds = contract.schedule.warmups + contract.schedule.repetitions;
   if (run["attempts"].length !== rounds * contract.schedule.order.length) throw new TypeError("FADENO_FEEDBACK_RUN_ATTEMPT_COUNT");
   const byId = new Map(contract.workloads.map((workload) => [workload.id, workload]));
+  const operationIds = new Set<string>();
+  let priorAccepted = 0n;
+  let priorWorkspaceEpoch = 0;
+  let configurationEpoch: number | null = null;
+  let acceptedDiskArtifacts: readonly Readonly<{ path: string; sha256: string }>[] | null = null;
+  let acceptedDiskSha256: string | null = null;
   for (let index = 0; index < run["attempts"].length; index += 1) {
     const attempt = record(run["attempts"][index], "FADENO_FEEDBACK_ATTEMPT_OBJECT");
     exactKeys(attempt, ["attemptId", "stage", "repetition", "workloadId", "startNs", "acceptedNs", "elapsedNs", "acceptedEvent", "phaseTiming"], "FADENO_FEEDBACK_ATTEMPT_KEYS");
@@ -264,16 +270,23 @@ export function verifyFeedbackRun(
     const start = decimal(attempt["startNs"], "FADENO_FEEDBACK_ATTEMPT_CLOCK");
     const accepted = decimal(attempt["acceptedNs"], "FADENO_FEEDBACK_ATTEMPT_CLOCK");
     const elapsed = decimal(attempt["elapsedNs"], "FADENO_FEEDBACK_ATTEMPT_CLOCK");
-    if (accepted < start || accepted - start !== elapsed) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_CLOCK");
+    if (start < priorAccepted || accepted < start || accepted - start !== elapsed) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_CLOCK");
+    priorAccepted = accepted;
     const event = record(attempt["acceptedEvent"], "FADENO_FEEDBACK_ATTEMPT_EVENT");
     exactKeys(event, ["kind", "operationId", "diagnosticOperationId", "publicationOperationId", "workspaceEpoch", "configurationEpoch", "diagnosticCodes", "diagnosticCompleteness", "diagnosticTruncated", "publicationArtifacts", "removedArtifactPaths", "diskArtifacts", "publicationSha256", "diskSha256"], "FADENO_FEEDBACK_ATTEMPT_EVENT");
     const workload = byId.get(workloadId)!;
     if (event["kind"] !== workload.acceptedEvent || typeof event["operationId"] !== "string" || event["operationId"].length === 0) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_EVENT");
+    if (operationIds.has(event["operationId"] as string)) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_OPERATION_ORDER");
+    operationIds.add(event["operationId"] as string);
     if (event["diagnosticOperationId"] !== event["operationId"] || event["publicationOperationId"] !== event["operationId"] || event["diagnosticCompleteness"] !== "complete" || event["diagnosticTruncated"] !== false) {
       throw new TypeError("FADENO_FEEDBACK_ATTEMPT_EVENT_IDENTITY");
     }
-    positiveInteger(event["workspaceEpoch"], "FADENO_FEEDBACK_ATTEMPT_EVENT");
-    positiveInteger(event["configurationEpoch"], "FADENO_FEEDBACK_ATTEMPT_EVENT");
+    const workspaceEpoch = positiveInteger(event["workspaceEpoch"], "FADENO_FEEDBACK_ATTEMPT_EVENT");
+    const currentConfigurationEpoch = positiveInteger(event["configurationEpoch"], "FADENO_FEEDBACK_ATTEMPT_EVENT");
+    if (workspaceEpoch <= priorWorkspaceEpoch) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_EPOCH_ORDER");
+    priorWorkspaceEpoch = workspaceEpoch;
+    configurationEpoch ??= currentConfigurationEpoch;
+    if (currentConfigurationEpoch !== configurationEpoch) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_CONFIGURATION_EPOCH");
     same(strings(event["diagnosticCodes"], "FADENO_FEEDBACK_ATTEMPT_DIAGNOSTICS"), workload.diagnosticCodes, "FADENO_FEEDBACK_ATTEMPT_DIAGNOSTICS");
     for (const key of ["publicationSha256", "diskSha256"] as const) if (typeof event[key] !== "string" || !sha256Pattern.test(event[key] as string)) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_EVENT_DIGEST");
     const artifacts = (value: unknown, code: string): readonly Readonly<{ path: string; sha256: string }>[] => {
@@ -301,6 +314,10 @@ export function verifyFeedbackRun(
       same(removed, [], "FADENO_FEEDBACK_ATTEMPT_REMOVED_ARTIFACTS");
       same(publicationArtifacts, diskArtifacts, "FADENO_FEEDBACK_ATTEMPT_ARTIFACT_MISMATCH");
     }
+    acceptedDiskArtifacts ??= diskArtifacts;
+    acceptedDiskSha256 ??= event["diskSha256"] as string;
+    same(diskArtifacts, acceptedDiskArtifacts, "FADENO_FEEDBACK_ATTEMPT_STALE_DISK");
+    if (event["diskSha256"] !== acceptedDiskSha256) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_STALE_DISK");
     if (run["deepTiming"] === false) {
       if (attempt["phaseTiming"] !== null) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_DEEP_DISABLED");
     } else {
