@@ -34,6 +34,7 @@ function treeSha256(directory: string): string {
     }
   };
   visit(directory);
+  files.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
   return sha256(JSON.stringify(files));
 }
 
