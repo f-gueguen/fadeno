@@ -9,7 +9,8 @@ than becoming application vocabulary.
 
 ## Status
 
-Fadeno is in V1 implementation. A private packed framework can analyze, build,
+Fadeno has completed its qualified private V1 and is entering A0 public-alpha
+work. A private packed framework can analyze, build,
 and run the canonical routed application through generated route bindings and a
 verified production bootstrap. The application includes request-owned
 resources and an authenticated native-form CRUD workflow with protected
@@ -17,16 +18,17 @@ sessions, validation, upload, redirects, replay refusal, and complete
 revalidation. Deliberate failures, flow inspection, rollback, stale-output
 recovery, three-browser JavaScript-disabled operation, and production-only
 startup run as executable repository evidence. No package is published or
-production-supported yet; browser enhancement, public release identity, and
-final V1 qualification remain later work.
+production-supported yet; public identity, scaffold/test/deploy qualification,
+and alpha release remain A0 work. Browser enhancement remains V2 and islands
+remain V3.
 
 The four K0 kill-risk investigations are complete: structural preservation and
 incremental declaration generation were narrowed, while bounded interaction
 extraction and correctness-first revalidation were accepted within their
 measured evidence.
 
-See [the roadmap](docs/roadmap.md) and
-[current V1 plan](docs/roadmap/v1.md).
+See [the roadmap](docs/roadmap.md), [completed V1 plan](docs/roadmap/v1.md), and
+[current A0 plan](docs/roadmap/a0.md).
 
 Current private-V1 documentation is generated from executed source and verified
 output:
@@ -62,6 +64,12 @@ pnpm check:v1-running-example
 
 That check also drives the packed authenticated CRUD example over HTTPS in
 Chromium, Firefox, and WebKit with browser JavaScript disabled.
+
+The complete private V1 boundary can be reconstructed with:
+
+```sh
+pnpm check:v1-exit
+```
 
 ## Repository contract
 

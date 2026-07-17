@@ -559,6 +559,75 @@ for (const [index, expected] of expectedV114.entries()) {
   if (!cells[4] || !cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} is missing artifacts or user boundary`);
 }
 
+const expectedA0 = [
+  { id: "A0-00", features: ["GOV-01", "CLI-01", "DOC-01", "REL-01"], dependencies: "V1-14D", artifacts: "Detailed A0 plan, current ledger, registry/auth evidence, refreshed status documentation", validation: "Documentation/model/ledger gates; `pnpm check`; `pnpm ci:local`", commands: ["pnpm check", "pnpm ci:local"] },
+  { id: "A0-01", features: ["CSS-01", "ACCESS-01", "WEB-02"], dependencies: "A0-00", gate: "DG-A0-03", artifacts: "Resolve DG-A0-03 through a CSS ADR or explicit scoped-CSS deferral; public-entrypoint style example; three-engine native/failure evidence", validation: "Decision/model gates; packed example; rendering security; accessibility baseline; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+  { id: "A0-02", features: ["GOV-01", "BUILD-01", "CLI-01", "REL-01"], dependencies: "A0-00, authenticated registry ownership", gate: "DG-A0-01", artifacts: "Registry-ownership evidence; resolve DG-A0-01 through a package-publication ADR; exact entrypoint/bin/name mapping; trusted-publication and rollback decision", validation: "Read-only ownership verifier; package/public-surface gates; decision/model gates; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+  { id: "A0-03", features: ["BUILD-01", "DOC-01", "REL-01"], dependencies: "A0-02", artifacts: "Lockstep alpha version, changeset/changelog machinery, package metadata/content/provenance checks, migration seed, rollback fixture", validation: "Frozen pack/install; exact content/SBOM/provenance checks; release-policy mutations; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+  { id: "A0-04", features: ["CLI-01", "BUILD-01", "DOC-01", "TEST-01"], dependencies: "A0-03", artifacts: "Accepted create command, bounded arguments/refusals, canonical template sourced from the tested application, clean generated consumer", validation: "Public package install; create success/refusal; check/build/dev/start; byte-stable scaffold; docs snippets; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+  { id: "A0-05", features: ["CLI-01", "TEST-01", "DOC-01"], dependencies: "A0-04", artifacts: "Scaffolded test command and public helpers only if demonstrated; success/failure/recovery fixtures", validation: "Clean created project; stock test execution; package-boundary and example gates; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+  { id: "A0-06", features: ["CLI-01", "BUILD-01", "SEC-01", "DOC-01"], dependencies: "A0-04", gate: "DG-A0-04", artifacts: "Resolve DG-A0-04 through a deployment ADR; production-only artifact; configuration/secrets boundary; health/start/stop/rollback example; generated guide", validation: "Clean artifact deployment; HTTPS/origin/session controls; failure/rollback; no source/dev dependency; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+  { id: "A0-07", features: ["CLI-01", "DX-01", "DOC-01", "ACCESS-01", "TEST-01"], dependencies: "A0-05, A0-06", artifacts: "Versioned task packet and anonymized observations for install/create/test/check/dev/build/deploy, seeded diagnostics/corrections/flows/recovery, and missing workflows", validation: "Independent replay verifier; exact artifact identity; all attempts retained; no fabricated success; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+  { id: "A0-08", features: ["DX-01", "TOOL-01", "DOC-01"], dependencies: "A0-07", gate: "DG-A0-02", artifacts: "Resolve DG-A0-02 through an analyzer-schema/tooling ADR and fixtures, or an explicit deferral retaining the private analyzer", validation: "Consumer-specific lifecycle suite if accepted; otherwise decision/deferral/model gates; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+  { id: "A0-09", features: ["SEC-01", "ACCESS-01", "PERF-01", "TEST-01", "DOC-01", "REL-01"], dependencies: "A0-01 through A0-08", artifacts: "Threat review, decoder fuzzing, package/readme/docs audit, clean-machine workflow, reproducibility and rollback evidence, alpha migration guide", validation: "Full security/accessibility/package/docs/performance/reproducibility gates; `pnpm check`; `pnpm ci:local`", commands: ["pnpm check", "pnpm ci:local"] },
+  { id: "A0-10", features: ["CLI-01", "DOC-01", "REL-01"], dependencies: "A0-09", artifacts: "Mechanical release commit, exact tag, public package, immutable docs artifact, install verification, release notes", validation: "Tag/source/package/docs identity; clean public install/create/test/check/build/deploy; rollback drill; `pnpm ci:local`", commands: ["pnpm ci:local"] },
+] as const;
+const a0 = read("docs/roadmap/a0.md");
+const a0Rows = tableRows(a0, /^\| A0-\d{2} \|/);
+const a0Ids = a0Rows.map((cells) => cells[0]);
+const expectedA0Ids = expectedA0.map((entry) => entry.id);
+if (JSON.stringify(a0Ids) !== JSON.stringify(expectedA0Ids)) {
+  errors.push(`docs/roadmap/a0.md: expected ordered slices ${expectedA0Ids.join(", ")}`);
+}
+for (const duplicate of duplicates(a0Ids)) errors.push(`docs/roadmap/a0.md: duplicate slice ${duplicate}`);
+
+const ownedA0Gates = new Set<string>();
+for (const [index, expected] of expectedA0.entries()) {
+  const cells = a0Rows[index];
+  if (!cells || cells[0] !== expected.id) continue;
+  if (cells.length !== 6) {
+    errors.push(`docs/roadmap/a0.md: ${expected.id} must have exactly 6 columns`);
+    continue;
+  }
+  const features = [...cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)].map((match) => match[1]);
+  if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
+    errors.push(`docs/roadmap/a0.md: ${expected.id} feature ownership differs from the accepted plan`);
+  }
+  for (const feature of features) {
+    if (!scopeSet.has(feature)) errors.push(`docs/roadmap/a0.md: ${expected.id} references unknown feature ${feature}`);
+  }
+  if (cells[3] !== expected.dependencies) {
+    errors.push(`docs/roadmap/a0.md: ${expected.id} dependency contract differs from the accepted plan`);
+  }
+  if (/\bDG-A0-\d{2}\b/.test(cells[3])) {
+    errors.push(`docs/roadmap/a0.md: ${expected.id} lists an owned decision gate as a prerequisite`);
+  }
+  if (cells[4] !== expected.artifacts) {
+    errors.push(`docs/roadmap/a0.md: ${expected.id} artifact contract differs from the accepted plan`);
+  }
+  const rowGates = [...`${cells[1]} ${cells[4]} ${cells[5]}`.matchAll(/\b(DG-A0-\d{2})\b/g)].map((match) => match[1]);
+  const expectedGates = "gate" in expected ? [expected.gate] : [];
+  if (JSON.stringify(rowGates) !== JSON.stringify(expectedGates)) {
+    errors.push(`docs/roadmap/a0.md: ${expected.id} decision ownership differs from the accepted plan`);
+  }
+  if ("gate" in expected) ownedA0Gates.add(expected.gate);
+  if (cells[5] !== expected.validation) {
+    errors.push(`docs/roadmap/a0.md: ${expected.id} validation contract differs from the accepted plan`);
+  }
+  for (const command of expected.commands) {
+    if (!cells[5].includes(`\`${command}\``)) {
+      errors.push(`docs/roadmap/a0.md: ${expected.id} missing validation command ${command}`);
+    }
+  }
+}
+const openA0Gates = new Set(gateIds.filter((gate) => gate.startsWith("DG-A0-")));
+for (const gate of setDifference(openA0Gates, ownedA0Gates)) {
+  errors.push(`docs/roadmap/a0.md: no atomic slice owns ${gate}`);
+}
+for (const gate of setDifference(ownedA0Gates, openA0Gates)) {
+  errors.push(`docs/roadmap/a0.md: owns unknown or resolved gate ${gate}`);
+}
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],
