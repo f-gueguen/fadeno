@@ -118,17 +118,32 @@ function identitySha256(identity: FileIdentity): string {
 function sourceIdentity(): Readonly<{ commit: string; treeSha256: string }> {
   const commit = run("git", ["rev-parse", "HEAD"], root).trim();
   assert.match(commit, /^[0-9a-f]{40}$/u);
-  const listed = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], {
+  const listed = spawnSync("git", ["ls-files", "--stage", "-z"], {
     cwd: root,
     encoding: "buffer",
     maxBuffer: 32 * 1024 * 1024,
   });
   if (listed.error) throw listed.error;
   if (listed.status !== 0) throw new TypeError("FADENO_FEEDBACK_SOURCE_FILES");
-  const paths = listed.stdout.toString("utf8").split("\0").filter(Boolean).sort();
-  const identity = paths.map((path) => {
+  const tracked = listed.stdout.toString("utf8").split("\0").filter(Boolean).map((entry) => {
+    const match = /^(100644|100755) [0-9a-f]+ 0\t(.+)$/u.exec(entry);
+    if (!match) throw new TypeError("FADENO_FEEDBACK_SOURCE_INDEX");
+    return Object.freeze({ path: match[2]!, mode: Number.parseInt(match[1]!, 8) & 0o777 });
+  });
+  const others = spawnSync("git", ["ls-files", "--others", "--exclude-standard", "-z"], {
+    cwd: root,
+    encoding: "buffer",
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  if (others.error) throw others.error;
+  if (others.status !== 0) throw new TypeError("FADENO_FEEDBACK_SOURCE_FILES");
+  const untracked = others.stdout.toString("utf8").split("\0").filter(Boolean).map((path) => Object.freeze({
+    path,
+    mode: lstatSync(join(root, path)).mode & 0o777,
+  }));
+  const identity = [...tracked, ...untracked].sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0).map(({ path, mode }) => {
     const absolute = join(root, path);
-    return Object.freeze({ path, mode: lstatSync(absolute).mode & 0o777, sha256: sha256(readFileSync(absolute)) });
+    return Object.freeze({ path, mode, sha256: sha256(readFileSync(absolute)) });
   });
   return Object.freeze({ commit, treeSha256: sha256(JSON.stringify(identity)) });
 }
