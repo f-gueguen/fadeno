@@ -9,7 +9,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { PrivateAnalyzerOperationHandle } from "../packages/framework/src/internal/analyzer-coordinator.ts";
 import type { PrivateProjectRefresh } from "../packages/framework/src/internal/analyzer-project.ts";
 import type { PrivateFilesystemRefreshCycle, PrivateFilesystemRefreshTarget } from "../packages/framework/src/internal/analyzer-watcher.ts";
-import { sha256, verifyFeedbackContract, verifyFeedbackRun } from "./lib/v1-analyzer-feedback-verifier.ts";
+import {
+  redactedEnvironmentSha256,
+  sha256,
+  verifyFeedbackContract,
+  verifyFeedbackRun,
+} from "./lib/v1-analyzer-feedback-verifier.ts";
 
 type AnalyzerProjectModule = typeof import("../packages/framework/src/internal/analyzer-project.ts");
 type AnalyzerCompilerModule = typeof import("../packages/framework/src/internal/analyzer-compiler.ts");
@@ -184,10 +189,6 @@ function publicationArtifacts(publication: PrivateProjectRefresh["publication"])
 
 function publicationSha256(publication: PrivateProjectRefresh["publication"]): string {
   return sha256(JSON.stringify(publication));
-}
-
-function environmentSha256(): string {
-  return sha256(JSON.stringify(Object.entries(process.env).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)));
 }
 
 function acceptedPromise(workloadId: PendingAttempt["workloadId"], startNs: bigint): Readonly<{
@@ -446,7 +447,7 @@ try {
     compilerPackageSha256: compilerIdentity_.sha256,
     platform: process.platform,
     architecture: process.arch,
-    environmentSha256: environmentSha256(),
+    environmentSha256: redactedEnvironmentSha256(process.env),
   });
   const raw = Object.freeze({
     schema: "fadeno.private.feedback-run",
