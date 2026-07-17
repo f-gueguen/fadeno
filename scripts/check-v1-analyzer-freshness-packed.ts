@@ -21,7 +21,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { AnalyzerDiagnosticBatch } from "../packages/framework/src/internal/analyzer-diagnostics.ts";
 import type {
   PrivateProjectDiagnosticError,
-  PrivateProjectRefresh,
 } from "../packages/framework/src/internal/analyzer-project.ts";
 import type {
   PrivateFilesystemInvalidationBatch,
@@ -179,29 +178,6 @@ function normalizedBatch(batch: PrivateFilesystemInvalidationBatch) {
     fullWorkspace: batch.fullWorkspace,
     hints: batch.hints,
     reasons: batch.reasons,
-  };
-}
-
-function normalizedSuccess(name: string, capture: SuccessCapture) {
-  const routes = routeIds(capture);
-  return {
-    name,
-    cycle: capture.cycle.sequence,
-    batch: normalizedBatch(capture.cycle.batch),
-    workspaceEpoch: capture.cycle.refresh.publication.workspaceEpoch,
-    configurationEpoch: capture.cycle.refresh.publication.configurationEpoch,
-    applicationChanged: capture.cycle.refresh.application.changed,
-    diagnosticCodes: capture.cycle.refresh.diagnostics.diagnostics.map(({ code }) => code),
-    artifactCount: capture.cycle.refresh.publication.artifacts.length,
-    removedArtifactCount: capture.cycle.refresh.publication.removedArtifacts.length,
-    routeCount: routes.length,
-    routePresence: {
-      freshness: routes.includes("/freshness"),
-      renamed: routes.includes("/renamed"),
-      conflict: routes.includes("/conflict"),
-    },
-    exactPublicationBytesApplied: true,
-    transactionDebrisAbsent: capture.parentEntries.length === 1 && capture.parentEntries[0] === "routes",
   };
 }
 
