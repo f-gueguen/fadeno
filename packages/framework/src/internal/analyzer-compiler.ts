@@ -64,6 +64,11 @@ export interface PrivateCompilerValidatorOptions {
   readonly onClose?: (pid: number, code: number | null, signal: NodeJS.Signals | null) => void;
 }
 
+export type PrivateCompilerOwnership = Readonly<{
+  state: "accepting" | "closing" | "closed";
+  activeValidations: number;
+}>;
+
 export class PrivateCompilerValidationError extends TypeError {
   readonly code:
     | "FADENO_ANALYZER_COMPILER_CONFIG"
@@ -434,6 +439,7 @@ export class PrivateCompilerValidator {
   readonly #onSpawn?: PrivateCompilerValidatorOptions["onSpawn"];
   readonly #onClose?: PrivateCompilerValidatorOptions["onClose"];
   #closed = false;
+  #closeSettled = false;
   #closePromise: Promise<void> | null = null;
   #active: Readonly<{
     abort: AbortController;
@@ -451,6 +457,13 @@ export class PrivateCompilerValidator {
 
   ownsProject(projectRoot: string): boolean {
     try { return ownedRoot(projectRoot) === this.#root; } catch { return false; }
+  }
+
+  ownership(): PrivateCompilerOwnership {
+    return Object.freeze({
+      state: this.#closeSettled ? "closed" : this.#closed ? "closing" : "accepting",
+      activeValidations: this.#active ? 1 : 0,
+    });
   }
 
   validate(request: PrivateCompilerValidationRequest): Promise<PrivateCompilerValidation> {
@@ -611,6 +624,7 @@ export class PrivateCompilerValidator {
         this.#active.abort.abort();
         try { await this.#active.result; } catch { /* close drains terminal compiler state */ }
       }
+      this.#closeSettled = true;
     })();
     return this.#closePromise;
   }

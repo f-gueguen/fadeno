@@ -180,6 +180,13 @@ finalFailureGate.resolve();
 await finalFailureAssertion;
 await closing;
 assert.equal(coordinator.state, "closed");
+assert.deepEqual(coordinator.ownership(), {
+  state: "closed",
+  queuedOperations: 0,
+  activeOperations: 0,
+  pendingAnalysisOperations: 0,
+  drainWorkers: 0,
+});
 assert.equal(active, 0);
 assert.equal(maximumActive, 1);
 
@@ -259,6 +266,21 @@ try {
   await drainingSecondInterrupted;
   const drained = await drainingSecond.result;
   await projectClosing;
+  assert.deepEqual(analyzer.ownership(), {
+    coordinator: {
+      state: "closed",
+      queuedOperations: 0,
+      activeOperations: 0,
+      pendingAnalysisOperations: 0,
+      drainWorkers: 0,
+    },
+    currentAnalysisTokens: 0,
+    latestAnalysisRequests: 0,
+    pendingApplicationRecoveries: 0,
+    pendingRollbacks: 0,
+    pendingCleanups: 0,
+    compiler: null,
+  });
   assert.equal(drained.publication.sessionId, currentAnalysis.publication.sessionId);
   assert.throws(() => drained.apply(), /FADENO_ANALYZER_PROJECT_CLOSED/u);
   await assert.rejects(drained.explain("semantic"), /FADENO_ANALYZER_PROJECT_CLOSED/u);

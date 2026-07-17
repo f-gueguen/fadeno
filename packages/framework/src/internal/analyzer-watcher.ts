@@ -77,6 +77,20 @@ export interface PrivateFilesystemInvalidationOptions<Refresh = PrivateProjectRe
   readonly onFailure?: (batch: PrivateFilesystemInvalidationBatch, error: unknown) => void;
 }
 
+export type PrivateFilesystemInvalidationOwnership = Readonly<{
+  state: "accepting" | "closing" | "closed";
+  pendingHints: number;
+  pendingAliases: number;
+  pendingReasons: number;
+  pendingBytes: number;
+  pendingNotifications: number;
+  waiters: number;
+  timers: number;
+  activeOperations: number;
+  retainedCycles: number;
+  observers: number;
+}>;
+
 type CycleWaiter<Refresh> = Readonly<{
   targetSequence: number;
   resolve(cycle: PrivateFilesystemRefreshCycle<Refresh>): void;
@@ -140,8 +154,8 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
   readonly #maximumPendingHints: number;
   readonly #maximumPathBytes: number;
   readonly #maximumPendingBytes: number;
-  readonly #onCycle?: PrivateFilesystemInvalidationOptions<Refresh>["onCycle"];
-  readonly #onFailure?: PrivateFilesystemInvalidationOptions<Refresh>["onFailure"];
+  #onCycle?: PrivateFilesystemInvalidationOptions<Refresh>["onCycle"];
+  #onFailure?: PrivateFilesystemInvalidationOptions<Refresh>["onFailure"];
   readonly #hints = new Set<string>();
   readonly #rawAliases = new Map<string, string>();
   readonly #reasons = new Set<PrivateFilesystemAdmission["reason"]>();
@@ -247,6 +261,22 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
     return this.#accept(sequence, "contained-change", hint, notification.path, false);
   }
 
+  ownership(): PrivateFilesystemInvalidationOwnership {
+    return Object.freeze({
+      state: this.#state,
+      pendingHints: this.#hints.size,
+      pendingAliases: this.#rawAliases.size,
+      pendingReasons: this.#reasons.size,
+      pendingBytes: this.#pendingBytes,
+      pendingNotifications: this.#pendingSize,
+      waiters: this.#waiters.length,
+      timers: this.#timer === null ? 0 : 1,
+      activeOperations: this.#active ? 1 : 0,
+      retainedCycles: this.#lastCycle ? 1 : 0,
+      observers: Number(Boolean(this.#onCycle)) + Number(Boolean(this.#onFailure)),
+    });
+  }
+
   flush(): Promise<PrivateFilesystemRefreshCycle<Refresh>> {
     if (this.#state !== "accepting") return Promise.reject(interruption("FADENO_ANALYZER_WATCH_CLOSED"));
     if (this.#admissionSequence === 0 || (!this.#hasPending() && !this.#active)) {
@@ -274,6 +304,9 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
   close(): Promise<void> {
     if (this.#closePromise) return this.#closePromise;
     this.#state = "closing";
+    this.#onCycle = undefined;
+    this.#onFailure = undefined;
+    this.#lastCycle = null;
     this.#clearTimer();
     this.#clearPending();
     const error = interruption("FADENO_ANALYZER_WATCH_CLOSED");

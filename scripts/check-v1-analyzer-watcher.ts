@@ -417,6 +417,19 @@ try {
   await closing;
   assert.deepEqual(closingCycles, []);
   assert.deepEqual(closingFailures, []);
+  assert.deepEqual(closingAdapter.ownership(), {
+    state: "closed",
+    pendingHints: 0,
+    pendingAliases: 0,
+    pendingReasons: 0,
+    pendingBytes: 0,
+    pendingNotifications: 0,
+    waiters: 0,
+    timers: 0,
+    activeOperations: 0,
+    retainedCycles: 0,
+    observers: 0,
+  });
 } finally {
   rmSync(schedulerRoot, { recursive: true, force: true });
   rmSync(externalRoot, { recursive: true, force: true });

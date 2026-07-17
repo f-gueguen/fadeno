@@ -922,6 +922,22 @@ try {
   await assert.rejects(closingRefresh.result, /FADENO_ANALYZER_PROJECT_CLOSED/u);
   await closing;
   assert.equal(spawned.length, closed.length);
+  assert.deepEqual(compiler.ownership(), { state: "closed", activeValidations: 0 });
+  assert.deepEqual(analyzer.ownership(), {
+    coordinator: {
+      state: "closed",
+      queuedOperations: 0,
+      activeOperations: 0,
+      pendingAnalysisOperations: 0,
+      drainWorkers: 0,
+    },
+    currentAnalysisTokens: 0,
+    latestAnalysisRequests: 0,
+    pendingApplicationRecoveries: 0,
+    pendingRollbacks: 0,
+    pendingCleanups: 0,
+    compiler: { state: "closed", activeValidations: 0 },
+  });
   assertNoCompilerOutput(lifecycleRoot);
 } finally {
   rmSync(lifecycleRoot, { recursive: true, force: true });
