@@ -36,6 +36,12 @@ expectMutation("V1 exit accessibility baseline evidence is missing", (document) 
   const access = (document["features"] as Record<string, unknown>[]).find((feature) => feature["id"] === "ACCESS-01");
   if (access) access["evidence"] = ["docs/guides/getting-started.md"];
 });
+expectMutation("V1 exit feature WEB-01 unsafe evidence path: ../escape.json", (document) => {
+  ((document["features"] as Record<string, unknown>[])[0] as Record<string, unknown>)["evidence"] = ["../escape.json"];
+});
+expectMutation("V1 exit feature WEB-01 evidence is not tracked regular content: evidence/v1-exit/not-tracked.json", (document) => {
+  ((document["features"] as Record<string, unknown>[])[0] as Record<string, unknown>)["evidence"] = ["evidence/v1-exit/not-tracked.json"];
+});
 const withoutExactAdapterGate = Object.freeze({
   ...context,
   rootGates: new Set([...context.rootGates].filter((gate) => gate !== "check:v1-adapter")),
@@ -45,4 +51,4 @@ if (!exactGateErrors.includes("V1 exit feature ADP-01 gate is outside root check
   throw new Error("V1 exit exact root-gate ownership was not enforced");
 }
 
-console.log("V1 exit qualification mutation tests passed (feature, exact gate, claim, audit, accessibility)");
+console.log("V1 exit qualification mutation tests passed (feature, exact gate, claim, audit, accessibility, containment)");
