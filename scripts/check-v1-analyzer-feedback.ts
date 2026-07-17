@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
+import { cpus, release, tmpdir, totalmem, version as osVersion } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -480,6 +480,18 @@ try {
         identity,
         attempts: raw.attempts.length,
         deepTiming,
+      }, null, 2)}\n`);
+      writeFileSync(join(stage, "host.json"), `${JSON.stringify({
+        schema: "fadeno.private.feedback-host",
+        version: 1,
+        platform: process.platform,
+        architecture: process.arch,
+        osRelease: release(),
+        osVersion: osVersion(),
+        cpuModel: cpus()[0]?.model ?? "unknown",
+        logicalCpuCount: cpus().length,
+        totalMemoryBytes: totalmem(),
+        runtimeVersion: process.version,
       }, null, 2)}\n`);
       renameSync(stage, output);
     } catch (error) {

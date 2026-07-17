@@ -97,8 +97,17 @@ if (existsSync(refusalPath)) {
   });
   console.log(`V1 analyzer feedback refusal passed (${resultId}, source identity rejected, no timing interpretation)`);
 } else {
-  assert.deepEqual(readdirSync(resultDirectory).sort(), ["identity.json", "manifest.json", "raw.json", "summary.json"]);
+  assert.deepEqual(readdirSync(resultDirectory).sort(), ["host.json", "identity.json", "manifest.json", "raw.json", "summary.json"]);
   assert.equal(reconstructedSourceTreeSha256, identity.identity.sourceTreeSha256);
+  const host = json(join(resultDirectory, "host.json"));
+  assert.deepEqual(Object.keys(host).sort(), ["architecture", "cpuModel", "logicalCpuCount", "osRelease", "osVersion", "platform", "runtimeVersion", "schema", "totalMemoryBytes", "version"].sort());
+  assert.equal(host.schema, "fadeno.private.feedback-host");
+  assert.equal(host.version, 1);
+  assert.equal(host.platform, identity.identity.platform);
+  assert.equal(host.architecture, identity.identity.architecture);
+  assert.equal(host.runtimeVersion, identity.identity.runtimeVersion);
+  for (const key of ["cpuModel", "osRelease", "osVersion"]) assert.equal(typeof host[key], "string");
+  for (const key of ["logicalCpuCount", "totalMemoryBytes"]) assert.ok(Number.isSafeInteger(host[key]) && host[key] > 0);
   const summary = deriveFeedbackEvidenceSummary(raw, resultId, contract.schedule.order, contract.phases);
   assert.deepEqual(summary, json(join(resultDirectory, "summary.json")));
   const manifest = json(join(resultDirectory, "manifest.json"));
@@ -108,7 +117,7 @@ if (existsSync(refusalPath)) {
     resultId,
     sourceCommit,
     contractSha256,
-    files: ["identity.json", "raw.json", "summary.json"].map((path) => ({ path, sha256: sha256(readFileSync(join(resultDirectory, path))) })),
+    files: ["host.json", "identity.json", "raw.json", "summary.json"].map((path) => ({ path, sha256: sha256(readFileSync(join(resultDirectory, path))) })),
     conclusion: "baseline-only-no-budget",
   });
   console.log(`V1 analyzer feedback evidence passed (${resultId}, 10 samples, baseline only)`);

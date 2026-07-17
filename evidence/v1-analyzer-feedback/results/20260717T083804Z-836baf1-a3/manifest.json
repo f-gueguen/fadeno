@@ -6,6 +6,10 @@
   "contractSha256": "4d845b85d054205b3a7845d3610111a20bf1bc11d2db94e7da1c56ce8b86b3f9",
   "files": [
     {
+      "path": "host.json",
+      "sha256": "d9e91806e2a5e1a73436eb9f4dc5990e44650c9ac462b160b9bfc6740c4c0f84"
+    },
+    {
       "path": "identity.json",
       "sha256": "58b801672be5b873b221781753f77df9cdb2512500cff0c63719bfdbcff4c805"
     },
