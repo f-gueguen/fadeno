@@ -6,41 +6,35 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-00 — decompose public-alpha delivery from the qualified V1 boundary
+A0-01 — decide the alpha CSS boundary from executable native-CSS evidence
 
 ## Exit criteria
 
-- [x] Add a dependency-ordered detailed A0 plan whose decision slices precede
-  package, scaffold, deployment, tooling, and release implementation.
-- [x] Record current registry/auth evidence without selecting an unowned name or
-  weakening trusted publication and local-CI policy.
-- [x] Align the outcome roadmap, current ledger, and repository status with the
-  completed V1 boundary and planned A0 work.
-- [x] Pass documentation, decision, ledger, model, full repository, local CI,
-  and independent review gates.
+- [ ] Extend the canonical packed application with one external native
+  stylesheet served through public framework entrypoints.
+- [ ] Prove the styled document in three engines with JavaScript disabled and
+  retain inline-style refusal, correction, flow, and stale-removal evidence.
+- [ ] Resolve DG-A0-03 through an ADR, current specifications, traceability,
+  risk/deferral state, and executable documentation sourced from tested files.
+- [ ] Pass CSS, rendering-security, accessibility, documentation, model, full
+  repository, local CI, and independent review gates.
 
 ## Active sub-slice
 
-A0-00 planning only. No package identity, public command, deployment target,
-external analyzer schema, editor product, scoped-CSS contract, version, tag, or
-publication is introduced in this slice.
+A0-01 evidence and decision only. It may use the existing public JSX, handler,
+build, adapter, and package boundaries; it does not invent a scoped-CSS
+compiler, runtime style injection, asset pipeline, package identity, version,
+tag, or publication.
 
 ## In progress
 
-- A0-00 sequences CSS scope, package identity/publication, scaffold, test,
-  deployment, independent-user evidence, tooling choice, qualification, and
-  immutable alpha publication as separate reversible review boundaries.
-- The unscoped registry identity is unavailable as of 2026-07-17. The current
-  workstation is not registry-authenticated, so DG-A0-01 cannot resolve yet.
-- A0-01's CSS decision can proceed without registry authority after this plan
-  merges. Package-publication work remains blocked on authenticated ownership.
-- `pnpm check` passes with the A0 plan guard included. The guard rejects stale
-  registry evidence, premature identity selection, slice reordering, missing
-  decision gates, and accidental publication of the private package.
-- Independent review identified and resolved A0 model coverage, decision
-  ownership, release-commit qualification, phase ownership, and current-ledger
-  defects. Both A0 and project-model mutation suites now enforce the corrected
-  plan before the final-tip clean local-CI and fresh-review replay.
+- Existing rendering policy refuses inline style attributes and application
+  `style` children while accepting `class`, stylesheet links, and raw handlers.
+- The evidence candidate serves ordinary CSS from a handler-owned `Response`,
+  links it from the canonical layout, and keeps the essential path free of
+  JavaScript.
+- Scoped CSS remains unimplemented while the evidence tests whether native CSS
+  already satisfies the alpha application.
 
 ## Blockers
 
@@ -58,6 +52,11 @@ publication is introduced in this slice.
   by A0-06 after the public project-creation workflow exists.
 
 ## Completed slices
+
+- A0-00 — Merge commit `29ded97` decomposes public-alpha delivery into eleven
+  dependency-ordered slices, records the blocked registry identity, assigns
+  four decision owners, and mechanically enforces exact A0 feature, dependency,
+  artifact, validation, and private-package contracts.
 
 - V1-14D — Merge commit `d2acf0a` derives all V1-gated features and contained
   evidence into one checked exit manifest, qualifies the three-engine native
