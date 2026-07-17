@@ -31,6 +31,15 @@
     "architecture",
     "environment"
   ],
+  "generatedArtifacts": [
+    ".fadeno/routes/app.ts",
+    ".fadeno/routes/index.d.ts",
+    ".fadeno/routes/index.js",
+    ".fadeno/routes/loader.ts",
+    ".fadeno/routes/manifest.json",
+    ".fadeno/routes/owner.json",
+    ".fadeno/routes/virtual.ts"
+  ],
   "workloads": [
     {
       "id": "diagnostic-replacement",

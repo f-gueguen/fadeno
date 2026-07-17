@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
@@ -15,12 +15,13 @@ type AnalyzerProjectModule = typeof import("../packages/framework/src/internal/a
 type AnalyzerCompilerModule = typeof import("../packages/framework/src/internal/analyzer-compiler.ts");
 type AnalyzerWatcherModule = typeof import("../packages/framework/src/internal/analyzer-watcher.ts");
 type AnalyzerDiagnosticsModule = typeof import("../packages/framework/src/internal/analyzer-diagnostics.ts");
-type FileIdentity = readonly Readonly<{ path: string; sha256: string }>[];
+type FileIdentity = readonly Readonly<{ path: string; mode: number; sha256: string }>[];
 
 type PendingAttempt = {
   readonly workloadId: "diagnostic-replacement" | "cleared-replacement";
   readonly startNs: bigint;
   readonly accept: (observation: AcceptedObservation) => void;
+  readonly refuse: (error: unknown) => void;
   refreshNs: bigint | null;
   compilerStartNs: bigint | null;
   compilerEndNs: bigint | null;
@@ -65,7 +66,7 @@ function run(command: string, args: readonly string[], cwd: string): string {
 }
 
 function fileIdentity(directory: string): FileIdentity {
-  const files: { path: string; sha256: string }[] = [];
+  const files: { path: string; mode: number; sha256: string }[] = [];
   const visit = (current: string): void => {
     for (const entry of readdirSync(current, { withFileTypes: true })
       .sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0)) {
@@ -74,6 +75,7 @@ function fileIdentity(directory: string): FileIdentity {
       if (entry.isDirectory()) visit(path);
       else if (entry.isFile()) files.push({
         path: relative(directory, path).split("\\").join("/"),
+        mode: lstatSync(path).mode & 0o777,
         sha256: sha256(readFileSync(path)),
       });
       else throw new TypeError("FADENO_FEEDBACK_IDENTITY_ENTRY");
@@ -98,7 +100,10 @@ function sourceIdentity(): Readonly<{ commit: string; treeSha256: string }> {
   if (listed.error) throw listed.error;
   if (listed.status !== 0) throw new TypeError("FADENO_FEEDBACK_SOURCE_FILES");
   const paths = listed.stdout.toString("utf8").split("\0").filter(Boolean).sort();
-  const identity = paths.map((path) => Object.freeze({ path, sha256: sha256(readFileSync(join(root, path))) }));
+  const identity = paths.map((path) => {
+    const absolute = join(root, path);
+    return Object.freeze({ path, mode: lstatSync(absolute).mode & 0o777, sha256: sha256(readFileSync(absolute)) });
+  });
   return Object.freeze({ commit, treeSha256: sha256(JSON.stringify(identity)) });
 }
 
@@ -122,6 +127,20 @@ function outputSha256(application: string): string {
   return identitySha256(fileIdentity(join(application, ".fadeno/routes")));
 }
 
+function diskArtifacts(application: string): readonly Readonly<{ path: string; sha256: string }>[] {
+  return Object.freeze(fileIdentity(join(application, ".fadeno/routes")).map(({ path, sha256: digest }) => Object.freeze({
+    path: `.fadeno/routes/${path}`,
+    sha256: digest,
+  })));
+}
+
+function publicationArtifacts(publication: PrivateProjectRefresh["publication"]): readonly Readonly<{ path: string; sha256: string }>[] {
+  return Object.freeze(publication.artifacts.map((artifact) => {
+    const value = artifact.value as Readonly<{ sha256: string }>;
+    return Object.freeze({ path: artifact.path, sha256: value.sha256 });
+  }).sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
+}
+
 function publicationSha256(publication: PrivateProjectRefresh["publication"]): string {
   return sha256(JSON.stringify(publication));
 }
@@ -135,10 +154,11 @@ function acceptedPromise(workloadId: PendingAttempt["workloadId"], startNs: bigi
   pending: PendingAttempt;
 }> {
   let accept!: (observation: AcceptedObservation) => void;
-  const promise = new Promise<AcceptedObservation>((resolve) => { accept = resolve; });
+  let refuse!: (error: unknown) => void;
+  const promise = new Promise<AcceptedObservation>((resolve, reject) => { accept = resolve; refuse = reject; });
   return Object.freeze({
     promise,
-    pending: { workloadId, startNs, accept, refreshNs: null, compilerStartNs: null, compilerEndNs: null },
+    pending: { workloadId, startNs, accept, refuse, refreshNs: null, compilerStartNs: null, compilerEndNs: null },
   });
 }
 
@@ -170,8 +190,8 @@ try {
   const contractBytes = readFileSync(contractPath);
   const contractSha256 = sha256(contractBytes);
   const contract = verifyFeedbackContract(JSON.parse(contractBytes.toString("utf8")) as unknown);
-  assert.equal(sha256(pageBytes), (contract.workloads[0] as any).setup.sha256);
-  assert.equal(sha256(handlerBytes), (contract.workloads[0] as any).mutation.sha256);
+  assert.equal(sha256(pageBytes), contract.workloads[0]!.setup.sha256);
+  assert.equal(sha256(handlerBytes), contract.workloads[0]!.mutation.sha256);
 
   rmSync(join(packageRoot, "dist"), { recursive: true, force: true });
   run("pnpm", ["--filter", packageName, "build"], root);
@@ -254,7 +274,10 @@ try {
           error: null,
           diskSha256: outputSha256(application),
         }));
-      } catch (error) { observerErrors.push(error); }
+      } catch (error) {
+        observerErrors.push(error);
+        pending.refuse(error);
+      }
     },
     onFailure: (_batch, error) => {
       if (!pending) return;
@@ -268,7 +291,10 @@ try {
           error,
           diskSha256: outputSha256(application),
         }));
-      } catch (captureError) { observerErrors.push(captureError); }
+      } catch (captureError) {
+        observerErrors.push(captureError);
+        pending.refuse(captureError);
+      }
     },
   });
 
@@ -339,9 +365,16 @@ try {
         acceptedEvent: {
           kind: observation.kind,
           operationId: publication.operationId,
+          diagnosticOperationId: diagnostics.identity.operationId,
+          publicationOperationId: publication.operationId,
           workspaceEpoch: diagnostics.identity.workspaceEpoch,
           configurationEpoch: diagnostics.identity.configurationEpoch,
           diagnosticCodes: diagnostics.diagnostics.map(({ code }) => code),
+          diagnosticCompleteness: diagnostics.completeness,
+          diagnosticTruncated: diagnostics.truncated,
+          publicationArtifacts: publicationArtifacts(publication),
+          removedArtifactPaths: publication.removedArtifacts.map(({ path }) => path).sort(),
+          diskArtifacts: diskArtifacts(application),
           publicationSha256: publicationSha256(publication),
           diskSha256: observation.diskSha256,
         },
@@ -355,7 +388,7 @@ try {
   const cleanup = cleanupProjection(adapter.ownership(), analyzer.ownership());
   assert.equal(Object.values(cleanup).every((value) => value === 0), true);
   const validity = Object.freeze(Object.fromEntries(contract.validity.map((key) => [key, true])));
-  const attempts = captured.map((attempt) => Object.freeze({ ...attempt, validity, cleanup }));
+  const attempts = captured.map((attempt) => Object.freeze(attempt));
   const source = sourceIdentity();
   const compilerIdentity_ = compilerIdentity(installedPackage);
   const identity = Object.freeze({
@@ -380,6 +413,8 @@ try {
     identity,
     clock: contract.clock,
     attempts: Object.freeze(attempts),
+    validity,
+    cleanup,
     complete: true,
     selection: "all-attempts-no-retry",
   });
@@ -447,7 +482,7 @@ try {
       stalePackage: refusal((copy) => { copy.identity.installedPackageTreeSha256 = "0".repeat(64); }),
       missingAttempt: refusal((copy) => { copy.attempts.pop(); }),
       missingFinalEvent: refusal((copy) => { copy.attempts[0].acceptedEvent.kind = "success-replacement"; }),
-      incompleteCleanup: refusal((copy) => { copy.attempts[0].cleanup.activeOperations = 1; }),
+      incompleteCleanup: refusal((copy) => { copy.cleanup.activeOperations = 1; }),
       retrySelection: refusal((copy) => { copy.selection = "best-attempt"; }),
     };
     assertJsonFixture("feedback-dry-run.normalized.json", projection);

@@ -2,6 +2,6 @@
   "stalePackage": "FADENO_FEEDBACK_RUN_IDENTITY_MISMATCH",
   "missingAttempt": "FADENO_FEEDBACK_RUN_ATTEMPT_COUNT",
   "missingFinalEvent": "FADENO_FEEDBACK_ATTEMPT_EVENT",
-  "incompleteCleanup": "FADENO_FEEDBACK_ATTEMPT_CLEANUP",
+  "incompleteCleanup": "FADENO_FEEDBACK_RUN_CLEANUP",
   "retrySelection": "FADENO_FEEDBACK_RUN_COMPLETENESS"
 }
