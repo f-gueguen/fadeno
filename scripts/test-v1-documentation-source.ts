@@ -47,6 +47,13 @@ try {
   if (!invalidErrors.includes("documentation evidence category is empty: failure")) {
     throw new Error("empty failure evidence was not refused");
   }
+
+  manifest.applicationRoots = ["../adapter-smoke"];
+  writeFileSync(join(root, "examples/v1-app/documentation-source.json"), JSON.stringify(manifest));
+  const escapingErrors = checkV1DocumentationAuthority(root, tracked);
+  if (!escapingErrors.includes("unsafe documentation authority path: ../adapter-smoke")) {
+    throw new Error("escaping application root was not refused");
+  }
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

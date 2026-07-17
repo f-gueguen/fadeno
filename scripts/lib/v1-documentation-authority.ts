@@ -20,7 +20,7 @@ function files(directory: string): readonly string[] {
   });
 }
 
-function safeFile(root: string, path: string, errors: string[]): string | undefined {
+function safePath(root: string, path: string, errors: string[]): string | undefined {
   if (!path || path.startsWith("/") || path.split(/[\\/]/u).includes("..")) {
     errors.push(`unsafe documentation authority path: ${path}`);
     return undefined;
@@ -30,12 +30,28 @@ function safeFile(root: string, path: string, errors: string[]): string | undefi
     errors.push(`documentation authority path escapes its root: ${path}`);
     return undefined;
   }
-  if (!existsSync(target) || !lstatSync(target).isFile()) {
-    errors.push(`documentation authority file is missing: ${path}`);
+  if (!existsSync(target)) {
+    errors.push(`documentation authority path is missing: ${path}`);
     return undefined;
   }
-  if (lstatSync(target).isSymbolicLink() || !realpathSync(target).startsWith(`${realpathSync(root)}${sep}`)) {
-    errors.push(`documentation authority file must be a contained regular file: ${path}`);
+  const realRoot = realpathSync(root);
+  const realTarget = realpathSync(target);
+  const expectedRealTarget = resolve(realRoot, relative(root, target));
+  if (
+    lstatSync(target).isSymbolicLink()
+    || realTarget !== expectedRealTarget
+    || (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${sep}`))
+  ) {
+    errors.push(`documentation authority path must be contained and must not traverse symlinks: ${path}`);
+    return undefined;
+  }
+  return target;
+}
+
+function safeFile(root: string, path: string, errors: string[]): string | undefined {
+  const target = safePath(root, path, errors);
+  if (target && !lstatSync(target).isFile()) {
+    errors.push(`documentation authority file is not regular: ${path}`);
     return undefined;
   }
   return target;
@@ -57,6 +73,7 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
       errors.push("examples/authority.json: supporting examples must declare the narrow package-adapter-smoke role");
       continue;
     }
+    if (declared.has(value.path)) errors.push(`examples/authority.json: duplicate example role: ${value.path}`);
     declared.add(value.path);
   }
   const packagedExamples = readdirSync(examplesRoot, { withFileTypes: true })
@@ -84,11 +101,8 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
   if (strings(manifest.verificationGates).length === 0) errors.push("documentation authority requires verification gates");
 
   for (const rootPath of strings(manifest.applicationRoots)) {
-    const target = resolve(appRoot, rootPath);
-    if (!existsSync(target)) {
-      errors.push(`documentation application root is missing: ${rootPath}`);
-      continue;
-    }
+    const target = safePath(appRoot, rootPath, errors);
+    if (!target) continue;
     const owned = lstatSync(target).isDirectory() ? files(target) : [target];
     for (const file of owned) {
       const repositoryPath = relative(repositoryRoot, file);
@@ -100,6 +114,7 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
   for (const kind of evidenceKinds) {
     const entries = strings(manifest.evidence[kind]);
     if (entries.length === 0) errors.push(`documentation evidence category is empty: ${kind}`);
+    if (new Set(entries).size !== entries.length) errors.push(`documentation evidence category contains duplicates: ${kind}`);
     for (const path of entries) {
       const file = safeFile(appRoot, path, errors);
       if (!file) continue;
@@ -109,15 +124,26 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
     }
   }
 
-  const scenarioRoot = typeof manifest.scenarioRoot === "string" ? resolve(appRoot, manifest.scenarioRoot) : "";
-  const evidenceFiles = [...files(join(appRoot, "expected")), ...files(scenarioRoot)]
+  const scenarioRoot = typeof manifest.scenarioRoot === "string"
+    ? safePath(appRoot, manifest.scenarioRoot, errors)
+    : undefined;
+  if (!scenarioRoot || !lstatSync(scenarioRoot).isDirectory()) {
+    errors.push("documentation scenario root must be a contained directory");
+  }
+  const scenarioFiles = scenarioRoot ? files(scenarioRoot) : [];
+  for (const file of scenarioFiles) {
+    const repositoryPath = relative(repositoryRoot, file);
+    if (!trackedPaths.has(repositoryPath)) errors.push(`documentation scenario source is not tracked: ${repositoryPath}`);
+  }
+  const evidenceFiles = [...files(join(appRoot, "expected")), ...scenarioFiles]
     .filter((file) => file.startsWith(join(appRoot, "expected")) || file.includes(`${sep}expected${sep}`))
     .map((file) => relative(appRoot, file));
+  const evidenceFileSet = new Set(evidenceFiles);
   for (const path of evidenceFiles) {
     if (!categorized.has(path)) errors.push(`verified example evidence has no documentation category: ${path}`);
   }
   for (const path of categorized) {
-    if (!evidenceFiles.includes(path)) errors.push(`documentation category does not reference verified evidence: ${path}`);
+    if (!evidenceFileSet.has(path)) errors.push(`documentation category does not reference verified evidence: ${path}`);
   }
 
   for (const required of ["examples/authority.json", "examples/v1-app/documentation-source.json"]) {
