@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "fadeno check --project-root .",
     "build": "fadeno build --project-root .",
     "dev": "fadeno dev --project-root . --port 4173",
     "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"

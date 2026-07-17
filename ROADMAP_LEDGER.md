@@ -22,16 +22,18 @@ V1-14 — make V1 independently usable and documented
 
 ## Active sub-slice
 
-V1-14B — generate the V1 public API reference, tutorials, diagnostics guide,
-and migration seed from executed application source and verified output. The
-private package identity remains explicit and no copied Markdown example may
-become an alternate authority.
+V1-14C — prove the documented install, check, build, development, production
+start, failure, correction, and recovery workflow from one newly prepared
+current-packed consumer. Audit package contents, readmes, links, snippets, and
+the export-derived public-surface reference in the same gate.
 
 ## In progress
 
-- The V1 API reference is generated from the current emitted TypeScript
-  declarations. Tutorials, diagnostics, corrections, flow, recovery, and the
-  migration seed next consume the V1-14A authority manifest.
+- V1-14B now generates the API reference from exact emitted declaration bytes
+  and the package export allowlist, and generates tutorials, diagnostics,
+  correction, flow, recovery, and migration guidance from V1-14A authority.
+- V1-14C first makes `pnpm check` part of the canonical application command
+  surface, then replays every documented command from one clean packed consumer.
 - V1-14A owns one versioned manifest of the canonical application's executed
   source and normalized success, failure, correction, flow, recovery, and
   stale-removal evidence. The earlier adapter smoke remains a narrow package

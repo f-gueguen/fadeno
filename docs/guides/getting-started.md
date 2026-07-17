@@ -14,7 +14,8 @@ clean checkout, install with `pnpm install --frozen-lockfile`. There is no publi
 package name, scaffold command, deployment command, or compatibility promise
 yet; A0 owns those release decisions.
 
-The example package is the executable command contract. `pnpm build` runs the
+The example package is the executable command contract. `pnpm check` analyzes
+framework semantics without writing build output, `pnpm build` runs the
 transactional production build, `pnpm dev` starts the retained loopback
 development server on its explicit port, and `pnpm start` starts an accepted
 production build.
@@ -26,6 +27,7 @@ production build.
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "fadeno check --project-root .",
     "build": "fadeno build --project-root .",
     "dev": "fadeno dev --project-root . --port 4173",
     "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"
@@ -111,11 +113,12 @@ export default page;
 
 ## Check, develop, build, and start
 
-Run `pnpm check:v1-analyzer-workflow` at the repository root to execute the
-packed human `fadeno check` success, failure, explanation, and recovery paths.
-Run `pnpm --dir examples/v1-app dev` for the demonstrated loopback development
-workflow. Native mutation submission intentionally remains unavailable over
-that HTTP listener because production actions require an exact HTTPS origin.
+Inside an installed application, run `pnpm check`, `pnpm dev`, and `pnpm build`
+through the scripts shown above. In this repository,
+`pnpm check:v1-analyzer-workflow` additionally executes the packed human
+`fadeno check` success, failure, explanation, and recovery paths. Native
+mutation submission intentionally remains unavailable over the development
+HTTP listener because production actions require an exact HTTPS origin.
 
 Run `pnpm check:v1-running-example` to fresh-pack the framework, create clean
 consumers, produce two byte-identical builds, start the verified production
