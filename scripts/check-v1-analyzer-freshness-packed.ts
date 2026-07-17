@@ -376,11 +376,16 @@ try {
   };
   const receiveFailure = async (): Promise<FailureCapture> => {
     const prior = failures.length;
-    await assert.rejects(adapter.flush(), /FADENO_ANALYZER_APPLICATION_DIAGNOSTIC/u);
+    let rejected: unknown = null;
+    await assert.rejects(adapter.flush(), (error: unknown) => {
+      rejected = error;
+      return error instanceof Error && /FADENO_ANALYZER_APPLICATION_DIAGNOSTIC/u.test(error.message);
+    });
     assert.equal(failures.length, prior + 1);
     assert.deepEqual(observerErrors, []);
     const capture = failures.at(-1);
     assert.ok(capture);
+    assert.equal(capture.error, rejected);
     return capture;
   };
 
