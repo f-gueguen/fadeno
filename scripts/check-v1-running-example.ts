@@ -237,10 +237,16 @@ async function verifyParsedApplication(origin: string): Promise<void> {
   for (const [name, browserType] of Object.entries(browserTypes)) {
     const browser = await browserType.launch({ headless: true });
     try {
-      const context = await browser.newContext({ javaScriptEnabled: false });
+      const context = await browser.newContext({ javaScriptEnabled: false, colorScheme: "light" });
       const page = await context.newPage();
       const response = await page.goto(origin);
       assert.equal(response?.status(), 200, `${name}: home status`);
+      const stylesheet = await context.request.get(`${origin}/styles`);
+      assert.equal(stylesheet.status(), 200, `${name}: stylesheet status`);
+      assert.equal(stylesheet.headers()["content-type"], "text/css; charset=utf-8", `${name}: stylesheet content type`);
+      assert.equal(stylesheet.headers()["cache-control"], "public, max-age=300", `${name}: stylesheet cache control`);
+      assert.match(await stylesheet.text(), /@media \(prefers-reduced-motion: reduce\)/u, `${name}: reduced-motion rule`);
+      assert.equal(await page.locator('link[rel="stylesheet"][href="/styles"]').count(), 1, `${name}: stylesheet link`);
       assert.equal(await page.locator("h1").textContent(), "First running Fadeno application", `${name}: heading`);
       assert.equal(await page.getByText("Equivalent resource reads shared one request result.").count(), 1, `${name}: resource result`);
       assert.equal(await page.locator("nav[aria-label='Primary'] a").count(), 2, `${name}: navigation`);
@@ -249,8 +255,29 @@ async function verifyParsedApplication(origin: string): Promise<void> {
       assert.equal(await page.locator("script").count(), 0, `${name}: ordinary page script count`);
       const homeLink = page.locator("nav[aria-label='Primary'] a").nth(0);
       const greetingLink = page.locator("nav[aria-label='Primary'] a").nth(1);
+      assert.deepEqual(await page.evaluate(() => {
+        const body = getComputedStyle(document.body);
+        const navigation = getComputedStyle(document.querySelector("nav") as HTMLElement);
+        const main = getComputedStyle(document.querySelector("main") as HTMLElement);
+        const hero = getComputedStyle(document.querySelector(".hero-card") as HTMLElement);
+        return {
+          bodyBackground: body.backgroundColor,
+          navigationDisplay: navigation.display,
+          mainWidth: main.width,
+          heroBackground: hero.backgroundColor,
+        };
+      }), {
+        bodyBackground: "rgb(244, 246, 251)",
+        navigationDisplay: "flex",
+        mainWidth: "960px",
+        heroBackground: "rgb(255, 255, 255)",
+      }, `${name}: native CSS computed styles`);
       await homeLink.focus();
       assert.equal(await homeLink.evaluate((element) => element === element.ownerDocument.activeElement), true, `${name}: first navigation target focusable`);
+      assert.deepEqual(await homeLink.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth };
+      }), { outlineStyle: "solid", outlineWidth: "3px" }, `${name}: visible focus style`);
       await greetingLink.focus();
       const [keyboardNavigation] = await Promise.all([
         page.waitForNavigation(),
@@ -623,6 +650,93 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   const acceptedIdentity = treeIdentity(join(project, "dist"));
   const acceptedManifest = readFileSync(join(project, "dist/.fadeno/build-manifest.json"), "utf8");
   assert.equal(treeContains(join(project, "dist"), secretCanary), false);
+
+  const cssScenario = join(exampleRoot, "scenarios/css-boundary");
+  const cssRoute = join(project, "src/routes/css-boundary");
+  mkdirSync(cssRoute);
+  cpSync(join(cssScenario, "before/src/routes/css-boundary/page.tsx"), join(cssRoute, "page.tsx"));
+  const cssFailure = runFadeno(build, buildArguments, project);
+  assert.equal(cssFailure.status, 1);
+  assert.equal(cssFailure.stdout, "");
+  assert.equal(
+    cssFailure.stderr,
+    readFileSync(join(cssScenario, "expected/diagnostic-human.txt"), "utf8"),
+  );
+  assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
+
+  const runtimeCssRefusal = spawnSync(process.execPath, [
+    "--input-type=module",
+    "--eval",
+    [
+      'import { jsx } from "fadeno-framework-internal/jsx-runtime";',
+      "const results = [];",
+      'for (const [name, invoke] of [["inline-attribute", () => jsx("p", { style: "color: red", children: "refused" })], ["style-element", () => jsx("style", { children: "p { color: red; }" })]]) {',
+      "  try { invoke(); results.push({ name, code: \"unexpected-acceptance\" }); }",
+      "  catch (error) { results.push({ name, code: error instanceof Error ? error.message : \"unknown-error\" }); }",
+      "}",
+      "process.stdout.write(JSON.stringify(results));",
+    ].join("\n"),
+  ], { cwd: project, encoding: "utf8" });
+  assert.equal(runtimeCssRefusal.status, 0, runtimeCssRefusal.stderr);
+  assert.equal(runtimeCssRefusal.stderr, "");
+  const runtimeCodes = JSON.parse(runtimeCssRefusal.stdout) as readonly Readonly<{ name: string; code: string }>[];
+  assert.deepEqual(runtimeCodes, [
+    { name: "inline-attribute", code: "FADENO_RENDER_STYLE_ATTRIBUTE" },
+    { name: "style-element", code: "FADENO_RENDER_STYLE_CHILDREN" },
+  ]);
+  const typeCode = /\bTS\d+\b/u.exec(cssFailure.stderr)?.[0] ?? "missing";
+  assert.equal(
+    readFileSync(join(cssScenario, "expected/diagnostic.json"), "utf8"),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      scenario: "inline-css-refusal",
+      typeCode,
+      runtimeCodes,
+      correction: "replace inline CSS with class and an external stylesheet",
+    }, null, 2)}\n`,
+  );
+
+  cpSync(join(cssScenario, "after/src/routes/css-boundary/page.tsx"), join(cssRoute, "page.tsx"));
+  const correctedCssBuild = runFadeno(build, buildArguments, project);
+  assert.equal(correctedCssBuild.status, 0, correctedCssBuild.stderr);
+  assert.doesNotMatch(`${correctedCssBuild.stdout}${correctedCssBuild.stderr}`, /TS\d+|FADENO_RENDER_STYLE/u);
+  assert.equal(existsSync(join(project, "dist/src/routes/css-boundary/page.js")), true);
+  assert.equal(
+    readFileSync(join(cssScenario, "expected/correction-before.json"), "utf8"),
+    `${JSON.stringify({ schemaVersion: 1, mechanism: "inline-style-attribute", accepted: false }, null, 2)}\n`,
+  );
+  assert.equal(
+    readFileSync(join(cssScenario, "expected/correction-after.json"), "utf8"),
+    `${JSON.stringify({ schemaVersion: 1, mechanism: "class-and-external-stylesheet", accepted: true }, null, 2)}\n`,
+  );
+  assert.equal(
+    readFileSync(join(cssScenario, "expected/flow.json"), "utf8"),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      scenario: "native-css-boundary",
+      decisions: ["refuse-inline-css", "serve-external-stylesheet", "apply-class-selector"],
+      causes: ["closed-jsx-sinks", "contextual-css-security", "native-css-sufficiency"],
+      ownership: { document: "src/routes/layout.tsx", stylesheet: "src/routes/styles/handler.ts", styles: "src/styles.ts" },
+      skippedWork: ["scoped-css-compilation", "runtime-style-injection", "client-javascript"],
+      observableOutcome: "styled-server-document",
+    }, null, 2)}\n`,
+  );
+  rmSync(cssRoute, { recursive: true });
+  const cssCleanupBuild = runFadeno(build, buildArguments, project);
+  assert.deepEqual(cssCleanupBuild, firstBuild);
+  assert.equal(existsSync(join(project, "dist/src/routes/css-boundary/page.js")), false);
+  assert.equal(
+    readFileSync(join(cssScenario, "expected/recovery.json"), "utf8"),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      scenario: "native-css-correction-and-cleanup",
+      staleDiagnosticRemoved: true,
+      correctedArtifactPublished: true,
+      sourceOwnerRemoved: true,
+      staleArtifactRemoved: true,
+    }, null, 2)}\n`,
+  );
+
   const secondBuild = runFadeno(build, buildArguments, project);
   assert.deepEqual(secondBuild, firstBuild);
   assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
@@ -975,13 +1089,14 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     const homeBody = await home.text();
     assert.equal(home.status, 200);
     assert.match(homeBody, /^<!doctype html><html lang="en">/u);
-    assert.match(homeBody, /<nav aria-label="Primary">/u);
+    assert.match(homeBody, /<nav aria-label="Primary" class="primary-nav">/u);
     assert.match(homeBody, /First running Fadeno application/u);
     assert.match(homeBody, /href="\/hello\/Reader"/u);
     for (const line of readFileSync(join(exampleRoot, "expected/resource-success.txt"), "utf8").trim().split("\n")) {
       assert.match(homeBody, new RegExp(line.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
     }
     assert.match(home.headers.get("content-security-policy") ?? "", /script-src 'none'/u);
+    assert.match(home.headers.get("content-security-policy") ?? "", /style-src 'self'/u);
 
     const tenantAlpha = await fetch(server.origin, { headers: { authorization: "Bearer example-tenant-alpha" } });
     const tenantAlphaBody = await tenantAlpha.text();
@@ -1115,6 +1230,18 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
         "keyboard-checkbox-activation",
       ],
       deferred: ["assistive-technology-review-before-stable-release"],
+    }, null, 2)}\n`,
+  );
+  assert.equal(
+    readFileSync(join(exampleRoot, "expected/css-baseline.json"), "utf8"),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      scenario: "native-external-css",
+      browserEngines: Object.keys(browserTypes),
+      javaScriptEnabled: false,
+      stylesheet: { route: "/styles", contentType: "text/css; charset=utf-8", cacheControl: "public, max-age=300" },
+      checks: ["external-stylesheet-link", "application-class-styling", "visible-focus-outline", "reduced-motion-rule"],
+      scopedCssCompiler: "deferred",
     }, null, 2)}\n`,
   );
 }

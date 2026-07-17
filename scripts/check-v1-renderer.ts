@@ -144,6 +144,7 @@ const success = await renderRoute({
 assert.equal(success.status, 200);
 assert.equal(success.headers.get("content-type"), "text/html; charset=utf-8");
 assert.match(success.headers.get("content-security-policy") ?? "", /script-src 'none'/u);
+assert.match(success.headers.get("content-security-policy") ?? "", /style-src 'self'/u);
 assert.doesNotMatch(success.headers.get("content-security-policy") ?? "", /nonce-/u);
 assert.equal(
   await body(success),

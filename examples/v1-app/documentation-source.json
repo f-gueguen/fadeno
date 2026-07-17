@@ -22,6 +22,7 @@
       "expected/build-success.txt",
       "expected/check-success-explain.txt",
       "expected/check-success.txt",
+      "expected/css-baseline.json",
       "expected/development-success.txt",
       "expected/independent-workflow.txt",
       "expected/resource-success.txt"
@@ -33,6 +34,8 @@
       "expected/check-collision.txt",
       "expected/failure-report.json",
       "expected/resource-failure.txt",
+      "scenarios/css-boundary/expected/diagnostic-human.txt",
+      "scenarios/css-boundary/expected/diagnostic.json",
       "scenarios/action-lifecycle/expected/diagnostic.json",
       "scenarios/resource-lifecycle/expected/expected-failure.json",
       "scenarios/resource-lifecycle/expected/refusal.json"
@@ -40,6 +43,8 @@
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
       "scenarios/action-lifecycle/expected/correction-before.json",
+      "scenarios/css-boundary/expected/correction-after.json",
+      "scenarios/css-boundary/expected/correction-before.json",
       "scenarios/resource-lifecycle/expected/correction-after.json",
       "scenarios/resource-lifecycle/expected/correction-before.json"
     ],
@@ -48,6 +53,7 @@
       "expected/check-success-explain.txt",
       "scenarios/action-lifecycle/expected/flow.json",
       "scenarios/build-compiler-error/expected/flow.json",
+      "scenarios/css-boundary/expected/flow.json",
       "scenarios/development-lifecycle/expected/flow.json",
       "scenarios/resource-lifecycle/expected/flow.json",
       "scenarios/route-role-collision/expected/flow.json"
@@ -57,6 +63,7 @@
       "expected/independent-workflow.txt",
       "scenarios/action-lifecycle/expected/recovery.json",
       "scenarios/build-compiler-error/expected/recovery.json",
+      "scenarios/css-boundary/expected/recovery.json",
       "scenarios/development-lifecycle/expected/recovery.json",
       "scenarios/resource-lifecycle/expected/recovery.json",
       "scenarios/route-role-collision/expected/recovery.json"
@@ -65,6 +72,7 @@
       "expected/independent-workflow.txt",
       "scenarios/action-lifecycle/expected/recovery.json",
       "scenarios/build-compiler-error/expected/recovery.json",
+      "scenarios/css-boundary/expected/recovery.json",
       "scenarios/development-lifecycle/expected/recovery.json",
       "scenarios/resource-lifecycle/expected/recovery.json",
       "scenarios/route-role-collision/expected/recovery.json"

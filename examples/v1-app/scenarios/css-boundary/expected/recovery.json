@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "scenario": "native-css-correction-and-cleanup",
+  "staleDiagnosticRemoved": true,
+  "correctedArtifactPublished": true,
+  "sourceOwnerRemoved": true,
+  "staleArtifactRemoved": true
+}

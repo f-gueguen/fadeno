@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "scenario": "native-css-boundary",
+  "decisions": [
+    "refuse-inline-css",
+    "serve-external-stylesheet",
+    "apply-class-selector"
+  ],
+  "causes": [
+    "closed-jsx-sinks",
+    "contextual-css-security",
+    "native-css-sufficiency"
+  ],
+  "ownership": {
+    "document": "src/routes/layout.tsx",
+    "stylesheet": "src/routes/styles/handler.ts",
+    "styles": "src/styles.ts"
+  },
+  "skippedWork": [
+    "scoped-css-compilation",
+    "runtime-style-injection",
+    "client-javascript"
+  ],
+  "observableOutcome": "styled-server-document"
+}
