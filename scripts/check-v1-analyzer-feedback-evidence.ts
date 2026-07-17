@@ -50,6 +50,37 @@ if (containment.length === 0 || containment.startsWith("..") || basename(resultD
   throw new TypeError("FADENO_FEEDBACK_EVIDENCE_PATH");
 }
 const resultId = basename(resultDirectory);
+const redactionPath = join(resultDirectory, "redaction.json");
+if (existsSync(redactionPath)) {
+  assert.deepEqual(readdirSync(resultDirectory), ["redaction.json"]);
+  const redaction = json(redactionPath);
+  assert.deepEqual(Object.keys(redaction).sort(), [
+    "code",
+    "disposition",
+    "priorDisposition",
+    "resultId",
+    "retrySelection",
+    "schema",
+    "sourceCommit",
+    "timingsAreBaseline",
+    "version",
+  ].sort());
+  assert.equal(redaction.schema, "fadeno.private.feedback-redaction");
+  assert.equal(redaction.version, 1);
+  assert.equal(redaction.resultId, resultId);
+  assert.match(redaction.sourceCommit, /^[0-9a-f]{40}$/u);
+  assert.ok(resultId.includes(`-${redaction.sourceCommit.slice(0, 7)}-`));
+  assert.equal(redaction.code, "FADENO_FEEDBACK_ENVIRONMENT_VALUE_FINGERPRINT");
+  assert.ok([
+    "refused-before-timing-interpretation",
+    "accepted-before-review",
+  ].includes(redaction.priorDisposition));
+  assert.equal(redaction.disposition, "sensitive-identity-removed-before-merge");
+  assert.equal(redaction.timingsAreBaseline, false);
+  assert.equal(redaction.retrySelection, false);
+  console.log(`V1 analyzer feedback redaction passed (${resultId}, sensitive identity removed, no timing interpretation)`);
+  process.exit(0);
+}
 const contractBytes = readFileSync(join(root, "fixtures/v1-analyzer/feedback-contract.json"));
 const contractSha256 = sha256(contractBytes);
 const contract = verifyFeedbackContract(JSON.parse(contractBytes.toString("utf8")) as unknown);

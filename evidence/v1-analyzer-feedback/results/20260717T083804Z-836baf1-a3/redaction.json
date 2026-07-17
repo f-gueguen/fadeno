@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.private.feedback-redaction",
+  "version": 1,
+  "resultId": "20260717T083804Z-836baf1-a3",
+  "sourceCommit": "836baf15a58271532425316691584eb48175ffcd",
+  "code": "FADENO_FEEDBACK_ENVIRONMENT_VALUE_FINGERPRINT",
+  "priorDisposition": "accepted-before-review",
+  "disposition": "sensitive-identity-removed-before-merge",
+  "timingsAreBaseline": false,
+  "retrySelection": false
+}

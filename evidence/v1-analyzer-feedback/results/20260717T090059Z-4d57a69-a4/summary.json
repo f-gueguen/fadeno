@@ -1,8 +1,8 @@
 {
   "schema": "fadeno.private.feedback-summary",
   "version": 1,
-  "resultId": "20260717T083804Z-836baf1-a3",
-  "sourceCommit": "836baf15a58271532425316691584eb48175ffcd",
+  "resultId": "20260717T090059Z-4d57a69-a4",
+  "sourceCommit": "4d57a6913c9286510a62cb7e0ccc1e1ff96d987f",
   "conclusion": "baseline-only-no-budget",
   "warmupsPerWorkload": 2,
   "samplesPerWorkload": 5,
@@ -13,26 +13,26 @@
         "completed": 5,
         "skipped": 0,
         "skipReasons": [],
-        "minimumNs": "49113500",
-        "medianNs": "49992958",
-        "p95Ns": "60895375"
+        "minimumNs": "47503625",
+        "medianNs": "49823042",
+        "p95Ns": "53108291"
       },
       "phases": {
         "invalidation": {
           "completed": 5,
           "skipped": 0,
           "skipReasons": [],
-          "minimumNs": "490666",
-          "medianNs": "510708",
-          "p95Ns": "587750"
+          "minimumNs": "473583",
+          "medianNs": "479084",
+          "p95Ns": "491625"
         },
         "fadeno-analysis-and-generation": {
           "completed": 5,
           "skipped": 0,
           "skipReasons": [],
-          "minimumNs": "48602792",
-          "medianNs": "49405208",
-          "p95Ns": "60404709"
+          "minimumNs": "47012000",
+          "medianNs": "49346542",
+          "p95Ns": "52634708"
         },
         "typescript-refresh": {
           "completed": 0,
@@ -60,42 +60,42 @@
         "completed": 5,
         "skipped": 0,
         "skipReasons": [],
-        "minimumNs": "451193209",
-        "medianNs": "453158333",
-        "p95Ns": "475358625"
+        "minimumNs": "440362166",
+        "medianNs": "448635208",
+        "p95Ns": "450980584"
       },
       "phases": {
         "invalidation": {
           "completed": 5,
           "skipped": 0,
           "skipReasons": [],
-          "minimumNs": "64333",
-          "medianNs": "72792",
-          "p95Ns": "93375"
+          "minimumNs": "65375",
+          "medianNs": "67916",
+          "p95Ns": "70833"
         },
         "fadeno-analysis-and-generation": {
           "completed": 5,
           "skipped": 0,
           "skipReasons": [],
-          "minimumNs": "142515959",
-          "medianNs": "144214667",
-          "p95Ns": "160498000"
+          "minimumNs": "138943875",
+          "medianNs": "143142708",
+          "p95Ns": "146235834"
         },
         "typescript-refresh": {
           "completed": 5,
           "skipped": 0,
           "skipReasons": [],
-          "minimumNs": "217311500",
-          "medianNs": "221999458",
-          "p95Ns": "225152875"
+          "minimumNs": "210265458",
+          "medianNs": "215078958",
+          "p95Ns": "221958292"
         },
         "accepted-consumer-replacement": {
           "completed": 5,
           "skipped": 0,
           "skipReasons": [],
-          "minimumNs": "85907042",
-          "medianNs": "91773000",
-          "p95Ns": "95598583"
+          "minimumNs": "85808917",
+          "medianNs": "88511500",
+          "p95Ns": "91708458"
         }
       }
     }
