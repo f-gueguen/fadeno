@@ -6,12 +6,20 @@ export interface ApiReferenceEntryPoint {
   readonly declarationPath: string;
 }
 
-function exportedNames(declaration: string): readonly string[] {
+export function exportedNames(declaration: string): readonly string[] {
   const names = new Set<string>();
   const pattern = /^export\s+(?:declare\s+)?(?:function|interface|type|class|enum|namespace|const|let|var)\s+([A-Za-z_$][\w$]*)/gmu;
   for (const match of declaration.matchAll(pattern)) {
     names.add(match[1]);
   }
+  for (const match of declaration.matchAll(/^export\s*\{([^}]+)\}/gmu)) {
+    for (const member of match[1].split(",")) {
+      const parts = member.trim().replace(/^type\s+/u, "").split(/\s+as\s+/u);
+      const name = parts.at(-1);
+      if (name && /^[A-Za-z_$][\w$]*$/u.test(name)) names.add(name);
+    }
+  }
+  if (/^export\s+default\b/mu.test(declaration)) names.add("default");
   return [...names].sort((left, right) => left.localeCompare(right));
 }
 
@@ -22,7 +30,9 @@ function normalized(path: string): string {
 export function renderV1ApiReference(entryPoints: readonly ApiReferenceEntryPoint[]): string {
   const sections = entryPoints.map(({ importPath, declarationPath }) => {
     const declaration = normalized(declarationPath);
+    if (declaration.includes("```")) throw new Error(`public declaration contains a Markdown fence: ${declarationPath}`);
     const names = exportedNames(declaration);
+    if (names.length === 0) throw new Error(`public entrypoint has no exports: ${declarationPath}`);
     const digest = createHash("sha256").update(declaration).digest("hex");
     return [
       `## \`${importPath}\``,
