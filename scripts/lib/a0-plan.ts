@@ -44,6 +44,43 @@ export function validateA0Plan(context: A0PlanContext): readonly string[] {
   const slices = [...context.roadmap.matchAll(/^\| A0-(\d{2}) \|/gmu)].map((match) => match[1]);
   const expectedSlices = Array.from({ length: 11 }, (_value, index) => String(index).padStart(2, "0"));
   if (JSON.stringify(slices) !== JSON.stringify(expectedSlices)) errors.push("A0 roadmap slices must be exactly A0-00 through A0-10 in order");
+  const rows = context.roadmap
+    .split("\n")
+    .filter((line) => /^\| A0-\d{2} \|/u.test(line))
+    .map((line) => line.slice(1, -1).split("|").map((cell) => cell.trim()));
+  const expectedDependencies = [
+    "V1-14D",
+    "A0-00",
+    "A0-00, authenticated registry ownership",
+    "A0-02",
+    "A0-03",
+    "A0-04",
+    "A0-04",
+    "A0-05, A0-06",
+    "A0-07",
+    "A0-01 through A0-08",
+    "A0-09",
+  ];
+  const expectedOwners = new Map([
+    ["A0-01", "DG-A0-03"],
+    ["A0-02", "DG-A0-01"],
+    ["A0-06", "DG-A0-04"],
+    ["A0-08", "DG-A0-02"],
+  ]);
+  for (const [index, row] of rows.entries()) {
+    const slice = row[0] ?? `A0-${String(index).padStart(2, "0")}`;
+    if (row.length !== 6) {
+      errors.push(`A0 roadmap ${slice} must have exactly 6 columns`);
+      continue;
+    }
+    if (row[3] !== expectedDependencies[index]) errors.push(`A0 roadmap ${slice} dependency contract mismatch`);
+    if (/\bDG-A0-\d{2}\b/u.test(row[3] ?? "")) errors.push(`A0 roadmap ${slice} uses its decision outcome as a prerequisite`);
+    const actualOwners = [...(row[4] ?? "").matchAll(/\b(DG-A0-\d{2})\b/gu)].map((match) => match[1]);
+    const expectedOwner = expectedOwners.get(slice);
+    if (JSON.stringify(actualOwners) !== JSON.stringify(expectedOwner ? [expectedOwner] : [])) {
+      errors.push(`A0 roadmap ${slice} decision ownership mismatch`);
+    }
+  }
   for (const gate of ["DG-A0-01", "DG-A0-02", "DG-A0-03", "DG-A0-04"]) {
     const line = context.decisionGates.split("\n").find((candidate) => candidate.startsWith(`| ${gate} |`));
     if (!line?.endsWith("| Open |")) errors.push(`A0 unresolved decision gate drifted: ${gate}`);

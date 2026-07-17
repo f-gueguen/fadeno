@@ -24,6 +24,14 @@ expectMutation("A0 roadmap slices must be exactly A0-00 through A0-10 in order",
   ...context,
   roadmap: context.roadmap.replace("| A0-05 |", "| A0-15 |"),
 }));
+expectMutation("A0 roadmap A0-04 dependency contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| A0-04 \|.*$/mu, (line) => line.replace("| A0-03 |", "| A0-10 |")),
+}));
+expectMutation("A0 roadmap A0-02 decision ownership mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| A0-02 \|.*$/mu, (line) => line.replace("resolve DG-A0-01 through ", "")),
+}));
 expectMutation("A0 unresolved decision gate drifted: DG-A0-02", (context) => Object.freeze({
   ...context,
   decisionGates: context.decisionGates.replace("| DG-A0-02 |", "| DG-A0-X2 |"),
@@ -33,4 +41,4 @@ expectMutation("A0 planning crossed the private package boundary", (context) => 
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: false },
 }));
 
-console.log("A0 plan mutation tests passed (identity, freshness, ordering, gates, private package)");
+console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, ownership, gates, private package)");
