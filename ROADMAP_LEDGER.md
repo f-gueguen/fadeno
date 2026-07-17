@@ -16,7 +16,7 @@ A0-00 — decompose public-alpha delivery from the qualified V1 boundary
   weakening trusted publication and local-CI policy.
 - [x] Align the outcome roadmap, current ledger, and repository status with the
   completed V1 boundary and planned A0 work.
-- [ ] Pass documentation, decision, ledger, model, full repository, local CI,
+- [x] Pass documentation, decision, ledger, model, full repository, local CI,
   and independent review gates.
 
 ## Active sub-slice
@@ -37,6 +37,10 @@ publication is introduced in this slice.
 - `pnpm check` passes with the A0 plan guard included. The guard rejects stale
   registry evidence, premature identity selection, slice reordering, missing
   decision gates, and accidental publication of the private package.
+- Independent review identified and resolved A0 model coverage, decision
+  ownership, release-commit qualification, phase ownership, and current-ledger
+  defects. Both A0 and project-model mutation suites now enforce the corrected
+  plan before the final-tip clean local-CI and fresh-review replay.
 
 ## Blockers
 
