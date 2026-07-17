@@ -148,6 +148,7 @@ export type PrivateProjectRefresh = Readonly<{
   requestId: string;
   generation: number;
   publication: AnalyzerPublicationSnapshot;
+  diagnostics: AnalyzerDiagnosticBatch;
   application: RouteGenerationResult;
   compiler: PrivateCompilerValidation;
 }>;
@@ -156,11 +157,13 @@ export type PrivateProjectRefreshHandle = PrivateAnalyzerOperationHandle<Private
 
 export class PrivateProjectDiagnosticError extends TypeError {
   readonly diagnostics: AnalyzerDiagnosticBatch;
+  readonly publication: AnalyzerPublicationSnapshot;
 
-  constructor(diagnostics: AnalyzerDiagnosticBatch) {
+  constructor(diagnostics: AnalyzerDiagnosticBatch, publication: AnalyzerPublicationSnapshot) {
     super("FADENO_ANALYZER_APPLICATION_DIAGNOSTIC");
     this.name = "PrivateProjectDiagnosticError";
     this.diagnostics = diagnostics;
+    this.publication = publication;
   }
 }
 
@@ -328,7 +331,7 @@ export class PrivateProjectAnalyzer {
       this.#recoverPendingCleanup();
       const analysis = await this.#analyze(requestId, signal);
       if (analysis.diagnostics.diagnostics.length > 0) {
-        throw new PrivateProjectDiagnosticError(analysis.diagnostics);
+        throw new PrivateProjectDiagnosticError(analysis.diagnostics, analysis.publication);
       }
       signal.throwIfAborted();
       let transaction: RouteArtifactApplicationTransaction | null = null;
@@ -362,7 +365,14 @@ export class PrivateProjectAnalyzer {
         transaction.assertPending();
         const application = transaction.commit();
         if (transaction.cleanupPending) this.#pendingCleanup = transaction;
-        return Object.freeze({ requestId, generation, publication: analysis.publication, application, compiler });
+        return Object.freeze({
+          requestId,
+          generation,
+          publication: analysis.publication,
+          diagnostics: analysis.diagnostics,
+          application,
+          compiler,
+        });
       } catch (error) {
         if (
           error instanceof PrivateCompilerValidationError &&
