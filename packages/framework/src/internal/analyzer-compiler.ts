@@ -438,8 +438,7 @@ export class PrivateCompilerValidator {
   readonly #compilerInputRoot: string | null;
   readonly #onSpawn?: PrivateCompilerValidatorOptions["onSpawn"];
   readonly #onClose?: PrivateCompilerValidatorOptions["onClose"];
-  #closed = false;
-  #closeSettled = false;
+  #state: PrivateCompilerOwnership["state"] = "accepting";
   #closePromise: Promise<void> | null = null;
   #active: Readonly<{
     abort: AbortController;
@@ -461,13 +460,13 @@ export class PrivateCompilerValidator {
 
   ownership(): PrivateCompilerOwnership {
     return Object.freeze({
-      state: this.#closeSettled ? "closed" : this.#closed ? "closing" : "accepting",
+      state: this.#state,
       activeValidations: this.#active ? 1 : 0,
     });
   }
 
   validate(request: PrivateCompilerValidationRequest): Promise<PrivateCompilerValidation> {
-    if (this.#closed || this.#active) throw new TypeError("FADENO_ANALYZER_COMPILER_STATE");
+    if (this.#state !== "accepting" || this.#active) throw new TypeError("FADENO_ANALYZER_COMPILER_STATE");
     request.signal.throwIfAborted();
     if (ownedRoot(this.#root) !== this.#root) throw new TypeError("FADENO_ANALYZER_COMPILER_CONFIG");
     const runId = `${randomUUID()}:compiler-run`;
@@ -481,7 +480,7 @@ export class PrivateCompilerValidator {
   }
 
   async assertCurrent(validation: PrivateCompilerValidation, signal: AbortSignal): Promise<void> {
-    if (this.#closed || this.#active) throw new TypeError("FADENO_ANALYZER_COMPILER_STATE");
+    if (this.#state !== "accepting" || this.#active) throw new TypeError("FADENO_ANALYZER_COMPILER_STATE");
     signal.throwIfAborted();
     if (ownedRoot(this.#root) !== this.#root) throw new TypeError("FADENO_ANALYZER_COMPILER_CONFIG");
     if (await projectInventory(this.#root, signal, validation.runId) !== validation.inventorySha256) {
@@ -618,13 +617,13 @@ export class PrivateCompilerValidator {
 
   close(): Promise<void> {
     if (this.#closePromise) return this.#closePromise;
-    this.#closed = true;
+    this.#state = "closing";
     this.#closePromise = (async () => {
       if (this.#active) {
         this.#active.abort.abort();
         try { await this.#active.result; } catch { /* close drains terminal compiler state */ }
       }
-      this.#closeSettled = true;
+      this.#state = "closed";
     })();
     return this.#closePromise;
   }
