@@ -18,6 +18,7 @@ const requiredFiles = [
   "docs/migrations/README.md",
   "docs/migrations/template.md",
   "docs/migrations/fixtures/README.md",
+  "docs/reference/v1-api.md",
   "docs/spec/README.md",
   "docs/security/requirements.md",
   "docs/ledgers/decision-gates.md",
