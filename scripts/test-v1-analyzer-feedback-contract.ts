@@ -50,10 +50,19 @@ for (let round = 0; round < contract.schedule.warmups + contract.schedule.repeti
       cleanup: {
         activeOperations: 0,
         compilerValidations: 0,
+        coordinatorActiveOperations: 0,
+        coordinatorDrainWorkers: 0,
+        coordinatorPendingAnalysisOperations: 0,
+        coordinatorQueuedOperations: 0,
+        currentAnalysisTokens: 0,
+        latestAnalysisRequests: 0,
         observers: 0,
+        pendingApplicationRecoveries: 0,
         pendingBytes: 0,
+        pendingCleanups: 0,
         pendingHints: 0,
         pendingNotifications: 0,
+        pendingRollbacks: 0,
         retainedCycles: 0,
         timers: 0,
         waiters: 0,
@@ -74,12 +83,12 @@ const valid = {
   complete: true,
   selection: "all-attempts-no-retry",
 };
-assert.deepEqual(verifyFeedbackRun(valid, contract), { mode: "dry-run", attempts: 14, deepTiming: false });
+assert.deepEqual(verifyFeedbackRun(valid, contract, sha256(contractBytes)), { mode: "dry-run", attempts: 14, deepTiming: false });
 
 const refuses = (mutate: (copy: any) => void, code: RegExp): void => {
   const copy = structuredClone(valid);
   mutate(copy);
-  assert.throws(() => verifyFeedbackRun(copy, contract), code);
+  assert.throws(() => verifyFeedbackRun(copy, contract, sha256(contractBytes)), code);
 };
 refuses((copy) => { copy.attempts[0].validity["stale-output-canary"] = false; }, /FADENO_FEEDBACK_ATTEMPT_INVALID/u);
 refuses((copy) => { copy.attempts.splice(1, 1); }, /FADENO_FEEDBACK_RUN_ATTEMPT_COUNT/u);
@@ -89,5 +98,6 @@ refuses((copy) => { copy.attempts[1].acceptedEvent.diagnosticCodes = ["stale"]; 
 refuses((copy) => { copy.attempts[0].cleanup.activeOperations = 1; }, /FADENO_FEEDBACK_ATTEMPT_CLEANUP/u);
 refuses((copy) => { copy.attempts[0].phaseTiming = {}; }, /FADENO_FEEDBACK_ATTEMPT_DEEP_DISABLED/u);
 refuses((copy) => { copy.selection = "best-attempt"; }, /FADENO_FEEDBACK_RUN_COMPLETENESS/u);
+refuses((copy) => { copy.contractSha256 = "c".repeat(64); }, /FADENO_FEEDBACK_RUN_CONTRACT_IDENTITY/u);
 
 console.log("V1 analyzer feedback contract passed (workloads, schedule, identities, monotonic endpoints, refusals)");

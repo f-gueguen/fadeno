@@ -71,10 +71,19 @@ const exactValidity = Object.freeze([
 const ownershipKeys = Object.freeze([
   "activeOperations",
   "compilerValidations",
+  "coordinatorActiveOperations",
+  "coordinatorDrainWorkers",
+  "coordinatorPendingAnalysisOperations",
+  "coordinatorQueuedOperations",
+  "currentAnalysisTokens",
+  "latestAnalysisRequests",
   "observers",
+  "pendingApplicationRecoveries",
   "pendingBytes",
+  "pendingCleanups",
   "pendingHints",
   "pendingNotifications",
+  "pendingRollbacks",
   "retainedCycles",
   "timers",
   "waiters",
@@ -164,11 +173,17 @@ export function verifyFeedbackContract(value: unknown): FeedbackContract {
   return contract as FeedbackContract;
 }
 
-export function verifyFeedbackRun(value: unknown, contract: FeedbackContract): VerifiedFeedbackRun {
+export function verifyFeedbackRun(
+  value: unknown,
+  contract: FeedbackContract,
+  expectedContractSha256: string,
+): VerifiedFeedbackRun {
   const run = record(value, "FADENO_FEEDBACK_RUN_OBJECT");
   exactKeys(run, ["schema", "version", "contractSha256", "mode", "deepTiming", "identity", "clock", "attempts", "complete", "selection"], "FADENO_FEEDBACK_RUN_KEYS");
   if (run["schema"] !== "fadeno.private.feedback-run" || run["version"] !== 1) throw new TypeError("FADENO_FEEDBACK_RUN_VERSION");
-  if (typeof run["contractSha256"] !== "string" || !sha256Pattern.test(run["contractSha256"])) throw new TypeError("FADENO_FEEDBACK_RUN_CONTRACT_IDENTITY");
+  if (run["contractSha256"] !== expectedContractSha256 || !sha256Pattern.test(expectedContractSha256)) {
+    throw new TypeError("FADENO_FEEDBACK_RUN_CONTRACT_IDENTITY");
+  }
   if (run["mode"] !== "dry-run" && run["mode"] !== "measurement") throw new TypeError("FADENO_FEEDBACK_RUN_MODE");
   if (typeof run["deepTiming"] !== "boolean") throw new TypeError("FADENO_FEEDBACK_RUN_DEEP");
   if (run["complete"] !== true || run["selection"] !== "all-attempts-no-retry") throw new TypeError("FADENO_FEEDBACK_RUN_COMPLETENESS");
