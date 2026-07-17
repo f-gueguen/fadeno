@@ -1,0 +1,6 @@
+{
+  "afterCloseNotify": "FADENO_ANALYZER_WATCH_CLOSED",
+  "afterCloseFlush": "FADENO_ANALYZER_WATCH_CLOSED",
+  "ordinaryFailureCallbackUsed": false,
+  "publicCorrectionAvailable": false
+}

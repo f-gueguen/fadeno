@@ -1,0 +1,26 @@
+[
+  {
+    "step": "baseline",
+    "outcome": "accepted-current-generation"
+  },
+  {
+    "step": "explicit-cancellation",
+    "cause": "consumer-cancel",
+    "outcome": "no-delivery-last-good-preserved"
+  },
+  {
+    "step": "recovery",
+    "cause": "fresh-rescan",
+    "outcome": "accepted-cancelled-route"
+  },
+  {
+    "step": "supersession",
+    "cause": "newer-adapter-refresh",
+    "outcome": "obsolete-suppressed-newest-accepted"
+  },
+  {
+    "step": "close-during-work",
+    "cause": "consumer-close",
+    "outcome": "no-delivery-ownership-drained"
+  }
+]

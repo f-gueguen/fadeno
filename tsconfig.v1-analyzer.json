@@ -25,6 +25,7 @@
     "scripts/check-v1-analyzer-lifecycle.ts",
     "scripts/check-v1-analyzer-lifecycle-packed.ts",
     "scripts/check-v1-analyzer-freshness-packed.ts",
+    "scripts/check-v1-analyzer-interruption-packed.ts",
     "scripts/check-v1-analyzer-coordinator.ts",
     "scripts/check-v1-analyzer-application.ts",
     "scripts/check-v1-analyzer-compiler.ts",

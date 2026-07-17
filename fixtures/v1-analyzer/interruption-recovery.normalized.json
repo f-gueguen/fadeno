@@ -1,0 +1,9 @@
+{
+  "cancelledRouteAcceptedAfterRecovery": true,
+  "obsoleteRouteAbsent": true,
+  "newestRoutePresent": true,
+  "exactNewestPublicationBytesApplied": true,
+  "staleArtifactsAbsent": true,
+  "staleDiagnosticsAbsent": true,
+  "transactionDebrisAbsent": true
+}
