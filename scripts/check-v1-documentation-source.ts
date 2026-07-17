@@ -3,7 +3,7 @@ import { checkV1DocumentationAuthority } from "./lib/v1-documentation-authority.
 
 const root = process.cwd();
 const tracked = new Set(
-  execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" })
+  execFileSync("git", ["ls-files", "--cached"], { cwd: root, encoding: "utf8" })
     .trim()
     .split("\n"),
 );

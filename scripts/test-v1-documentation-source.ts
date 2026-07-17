@@ -54,6 +54,17 @@ try {
   if (!escapingErrors.includes("unsafe documentation authority path: ../adapter-smoke")) {
     throw new Error("escaping application root was not refused");
   }
+
+  manifest.applicationRoots = [];
+  manifest.scenarioRoot = "package.json";
+  writeFileSync(join(root, "examples/v1-app/documentation-source.json"), JSON.stringify(manifest));
+  const shapeErrors = checkV1DocumentationAuthority(root, tracked);
+  if (!shapeErrors.includes("documentation authority requires application roots")) {
+    throw new Error("empty application roots were not refused");
+  }
+  if (!shapeErrors.includes("documentation scenario root must be a contained directory")) {
+    throw new Error("regular-file scenario root was not refused");
+  }
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

@@ -87,7 +87,7 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
     errors.push("examples/authority.json: v1-app must remain the sole canonical V1 application");
   }
 
-  const appRoot = join(examplesRoot, authority.canonicalApplication);
+  const appRoot = join(examplesRoot, "v1-app");
   const manifestPath = join(appRoot, "documentation-source.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as unknown;
   if (!object(manifest) || manifest.schemaVersion !== 1 || !object(manifest.evidence)) {
@@ -100,7 +100,9 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
   }
   if (strings(manifest.verificationGates).length === 0) errors.push("documentation authority requires verification gates");
 
-  for (const rootPath of strings(manifest.applicationRoots)) {
+  const applicationRoots = strings(manifest.applicationRoots);
+  if (applicationRoots.length === 0) errors.push("documentation authority requires application roots");
+  for (const rootPath of applicationRoots) {
     const target = safePath(appRoot, rootPath, errors);
     if (!target) continue;
     const owned = lstatSync(target).isDirectory() ? files(target) : [target];
@@ -127,10 +129,12 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
   const scenarioRoot = typeof manifest.scenarioRoot === "string"
     ? safePath(appRoot, manifest.scenarioRoot, errors)
     : undefined;
+  let scenarioFiles: readonly string[] = [];
   if (!scenarioRoot || !lstatSync(scenarioRoot).isDirectory()) {
     errors.push("documentation scenario root must be a contained directory");
+  } else {
+    scenarioFiles = files(scenarioRoot);
   }
-  const scenarioFiles = scenarioRoot ? files(scenarioRoot) : [];
   for (const file of scenarioFiles) {
     const repositoryPath = relative(repositoryRoot, file);
     if (!trackedPaths.has(repositoryPath)) errors.push(`documentation scenario source is not tracked: ${repositoryPath}`);
