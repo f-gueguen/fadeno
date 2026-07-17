@@ -127,6 +127,21 @@ output removal. A manual production start additionally supplies `FADENO_PORT`,
 an exact HTTPS `FADENO_ORIGIN`, and an active-first `FADENO_SESSION_KEYS`
 keyring as described by the canonical application's README.
 
+The V1-14C gate replays that documented command surface from one current packed
+consumer. Its normalized transcript records the successful lifecycle and the
+deliberate check/build failures, corrections, and stale-state removal that the
+gate asserts rather than merely printing.
+
+```text
+packed install: current tarball, frozen lockfile, stale local canary absent
+public entrypoints: root, node, jsx-runtime
+project check: success, route-role collision, correction, stale diagnostic removed
+production build: success, compiler refusal, last-good preservation, correction, stale artifact removed
+development: documented command ready, HTTP 200, graceful shutdown
+production: production-only install, documented command ready, HTTP 200, graceful shutdown
+cleanup: no operation lock or request ownership retained
+```
+
 ## What to read next
 
 - [Resources, actions, and sessions](resources-actions.md)

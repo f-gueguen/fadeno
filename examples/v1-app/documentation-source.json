@@ -22,6 +22,7 @@
       "expected/check-success-explain.txt",
       "expected/check-success.txt",
       "expected/development-success.txt",
+      "expected/independent-workflow.txt",
       "expected/resource-success.txt"
     ],
     "failure": [
@@ -52,6 +53,7 @@
     ],
     "recovery": [
       "expected/resource-recovery.txt",
+      "expected/independent-workflow.txt",
       "scenarios/action-lifecycle/expected/recovery.json",
       "scenarios/build-compiler-error/expected/recovery.json",
       "scenarios/development-lifecycle/expected/recovery.json",
@@ -59,6 +61,7 @@
       "scenarios/route-role-collision/expected/recovery.json"
     ],
     "staleRemoval": [
+      "expected/independent-workflow.txt",
       "scenarios/action-lifecycle/expected/recovery.json",
       "scenarios/build-compiler-error/expected/recovery.json",
       "scenarios/development-lifecycle/expected/recovery.json",

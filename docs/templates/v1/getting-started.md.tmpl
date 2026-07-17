@@ -55,6 +55,13 @@ output removal. A manual production start additionally supplies `FADENO_PORT`,
 an exact HTTPS `FADENO_ORIGIN`, and an active-first `FADENO_SESSION_KEYS`
 keyring as described by the canonical application's README.
 
+The V1-14C gate replays that documented command surface from one current packed
+consumer. Its normalized transcript records the successful lifecycle and the
+deliberate check/build failures, corrections, and stale-state removal that the
+gate asserts rather than merely printing.
+
+<!-- fadeno:include {"path":"examples/v1-app/expected/independent-workflow.txt","language":"text"} -->
+
 ## What to read next
 
 - [Resources, actions, and sessions](resources-actions.md)
