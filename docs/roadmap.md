@@ -5,7 +5,8 @@ package inventory. Only the current slice appears in detail in
 [ROADMAP_LEDGER.md](../ROADMAP_LEDGER.md).
 
 K0 follows its reviewed [detailed plan](roadmap/k0.md), and accepted K0 evidence
-now feeds the dependency-ordered [detailed V1 plan](roadmap/v1.md). Later gates
+feeds the dependency-ordered [detailed V1 plan](roadmap/v1.md). Qualified V1
+evidence now feeds the [detailed A0 plan](roadmap/a0.md). Later gates
 receive detailed plans only after their entry evidence is accepted, so future
 work is neither forgotten nor specified from guesses. The
 [feature matrix](product/scope.md) preserves full release coverage meanwhile.
@@ -55,6 +56,9 @@ Outcome: a new user can install, scaffold, build, test, diagnose, and deploy the
 supported vertical slice from public artifacts. Security gates, package
 contents, provenance, rollback, and clean-machine installation are verified.
 The public surface remains explicitly pre-1.0.
+
+Implementation order and owner/decision boundaries are defined in the
+[A0 plan](roadmap/a0.md).
 
 ## B0 — Beta reliability
 

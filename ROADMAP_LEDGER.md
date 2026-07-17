@@ -6,38 +6,34 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-14 — make V1 independently usable and documented
+A0-00 — decompose public-alpha delivery from the qualified V1 boundary
 
 ## Exit criteria
 
-- [x] Audit the packed canonical application as the sole independently runnable
-  V1 success, failure, correction, flow, recovery, and stale-removal example.
-- [x] Add generated public API reference, tutorials, diagnostics guidance, and
-  migration seed sourced from executed code and verified outputs.
-- [x] Pass clean-machine install, check, build, development, start, and example
-  replay without private guidance; audit package, readme, links, snippets, and
-  public surface.
-- [x] Pass `pnpm ci:local` and every affected example, documentation, package,
-  security, accessibility, architecture, Big-O, and independent review gate.
+- [ ] Add a dependency-ordered detailed A0 plan whose decision slices precede
+  package, scaffold, deployment, tooling, and release implementation.
+- [ ] Record current registry/auth evidence without selecting an unowned name or
+  weakening trusted publication and local-CI policy.
+- [ ] Align the outcome roadmap, current ledger, and repository status with the
+  completed V1 boundary and planned A0 work.
+- [ ] Pass documentation, decision, ledger, model, full repository, local CI,
+  and independent review gates.
 
 ## Active sub-slice
 
-V1-14D — qualify V1 exit without adding a package, command, analyzer schema, or
-editor product. Add one checked V1 exit manifest over canonical feature/gate/
-evidence ownership; extend the packed application with native keyboard and
-error-association evidence; audit the accepted security, package, architecture,
-and Big-O boundaries; then pass the clean commit-bound local and independent
-review gates. External-user evidence remains an A0 input and is not fabricated.
+A0-00 planning only. No package identity, public command, deployment target,
+external analyzer schema, editor product, scoped-CSS contract, version, tag, or
+publication is introduced in this slice.
 
 ## In progress
 
-- V1-14D must make the V1 exit claim mechanically reconstructable from tracked
-  evidence while preserving every A0, V2, V3, B0, and R1 non-goal.
-- V1-14D now derives all 15 V1-gated features from canonical scope, requires
-  their gates to be exact root-check members, validates contained tracked
-  evidence, qualifies the three-engine JavaScript-disabled semantic/keyboard/
-  error-association baseline, records six bounded audits and residual risks,
-  and fail-closes every unsupported release, tooling, and performance claim.
+- A0-00 sequences CSS scope, package identity/publication, scaffold, test,
+  deployment, independent-user evidence, tooling choice, qualification, and
+  immutable alpha publication as separate reversible review boundaries.
+- The unscoped registry identity is unavailable as of 2026-07-17. The current
+  workstation is not registry-authenticated, so DG-A0-01 cannot resolve yet.
+- A0-01's CSS decision can proceed without registry authority after this plan
+  merges. Package-publication work remains blocked on authenticated ownership.
 - V1-14B generates the API reference from exact emitted declaration bytes
   and the package export allowlist, and generates tutorials, diagnostics,
   correction, flow, recovery, and migration guidance from V1-14A authority.
@@ -68,7 +64,8 @@ review gates. External-user evidence remains an A0 input and is not fabricated.
 
 ## Blockers
 
-- None.
+- A0-02 / DG-A0-01: authenticate the owner account on this workstation and
+  verify an owned registry scope before selecting or securing a package name.
 
 ## Open questions
 
@@ -77,6 +74,11 @@ review gates. External-user evidence remains an A0 input and is not fabricated.
   after a demonstrated supported consumer.
 
 ## Completed slices
+
+- V1-14D — Merge commit `d2acf0a` derives all V1-gated features and contained
+  evidence into one checked exit manifest, qualifies the three-engine native
+  accessibility baseline, retains bounded security/architecture/Big-O risks,
+  and preserves private package, tooling, support, and performance limits.
 
 - V1-14C — Merge commit `c305ec7` adds the canonical `pnpm check` script and
   one current-packed single-consumer gate for frozen installation, public
