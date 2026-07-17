@@ -1,0 +1,64 @@
+{
+  "initial": {
+    "delivery": {
+      "size": 1,
+      "fullWorkspace": true,
+      "hints": [],
+      "reasons": [
+        "missing-name-rescan"
+      ]
+    },
+    "artifactCount": 7,
+    "exactPublicationBytesApplied": true
+  },
+  "direct": {
+    "delivery": {
+      "size": 1,
+      "fullWorkspace": false,
+      "hints": [
+        "src/routes/freshness/page.tsx"
+      ],
+      "reasons": [
+        "contained-change"
+      ]
+    },
+    "workspaceEpoch": 3,
+    "routeAdded": true,
+    "declarationAndManifestReplaced": true,
+    "artifactCount": 7,
+    "exactPublicationBytesApplied": true
+  },
+  "transitive": {
+    "delivery": {
+      "size": 1,
+      "fullWorkspace": false,
+      "hints": [
+        "support-chain/level3.ts"
+      ],
+      "reasons": [
+        "contained-change"
+      ]
+    },
+    "importedLeafOutsideRootInclude": "support-chain/level3.ts",
+    "compilerInputChanged": true,
+    "artifactIdentityUnchanged": true,
+    "artifactBytesUnchanged": true
+  },
+  "configuration": {
+    "delivery": {
+      "size": 1,
+      "fullWorkspace": false,
+      "hints": [
+        "fadeno.config.ts"
+      ],
+      "reasons": [
+        "contained-change"
+      ]
+    },
+    "configurationEpochBefore": 1,
+    "configurationEpochAfter": 2,
+    "soleMutationAdvancedConfigurationEpoch": true,
+    "artifactBytesUnchanged": true
+  }
+}
+

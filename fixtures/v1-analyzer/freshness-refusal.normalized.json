@@ -1,0 +1,109 @@
+{
+  "batch": {
+    "size": 1,
+    "fullWorkspace": false,
+    "hints": [
+      "src/routes/conflict/page.tsx"
+    ],
+    "reasons": [
+      "contained-change"
+    ]
+  },
+  "error": "FADENO_ANALYZER_APPLICATION_DIAGNOSTIC",
+  "operationIdentityMatches": true,
+  "diagnostics": [
+    {
+      "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "parameters": {
+        "role": "handler",
+        "route": "/conflict"
+      },
+      "primaryLocation": {
+        "path": "src/routes/conflict/handler.ts",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/routes/conflict/page.tsx",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ],
+      "causedBy": [],
+      "correctionFixIds": [
+        "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+      ],
+      "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+    },
+    {
+      "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "parameters": {
+        "role": "page",
+        "route": "/conflict"
+      },
+      "primaryLocation": {
+        "path": "src/routes/conflict/page.tsx",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/routes/conflict/handler.ts",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ],
+      "causedBy": [],
+      "correctionFixIds": [
+        "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+      ],
+      "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+    },
+    {
+      "code": "FADENO_ROUTE_ROUTE_ROLE_COLLISION",
+      "parameters": {
+        "route": "/conflict"
+      },
+      "primaryLocation": {
+        "path": "src/routes/conflict/handler.ts",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/routes/conflict/page.tsx",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ],
+      "causedBy": [
+        "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "FADENO_ROUTE_ROUTE_ROLE_OWNER"
+      ],
+      "correctionFixIds": [
+        "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+      ],
+      "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+    }
+  ],
+  "correctionFixIds": [
+    "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+  ],
+  "skippedWork": [
+    "manifest-publication"
+  ],
+  "publicationArtifactCount": 0,
+  "removedArtifactIds": [
+    "generated:routes-app-ts",
+    "generated:routes-index-d-ts",
+    "generated:routes-index-js",
+    "generated:routes-loader-ts",
+    "generated:routes-manifest-json",
+    "generated:routes-owner-json",
+    "generated:routes-virtual-ts"
+  ],
+  "lastGoodDiskPreserved": true,
+  "transactionDebrisAbsent": true
+}
+

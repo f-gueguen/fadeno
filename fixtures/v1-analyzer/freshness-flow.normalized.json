@@ -1,0 +1,250 @@
+[
+  {
+    "name": "direct",
+    "invalidation": {
+      "size": 1,
+      "fullWorkspace": false,
+      "hints": [
+        "src/routes/freshness/page.tsx"
+      ],
+      "reasons": [
+        "contained-change"
+      ]
+    },
+    "decision": "replace-generated-artifacts",
+    "ownership": {
+      "artifactCount": 7,
+      "ownerNodeIds": [
+        "route:artifact-plan"
+      ]
+    },
+    "outcome": {
+      "freshnessRoute": true,
+      "renamedRoute": false,
+      "conflictRoute": false,
+      "exactPublicationBytesApplied": true
+    }
+  },
+  {
+    "name": "transitive",
+    "invalidation": {
+      "size": 1,
+      "fullWorkspace": false,
+      "hints": [
+        "support-chain/level3.ts"
+      ],
+      "reasons": [
+        "contained-change"
+      ]
+    },
+    "decision": "retain-identical-artifacts",
+    "ownership": {
+      "artifactCount": 7,
+      "ownerNodeIds": [
+        "route:artifact-plan"
+      ]
+    },
+    "outcome": {
+      "freshnessRoute": true,
+      "renamedRoute": false,
+      "conflictRoute": false,
+      "exactPublicationBytesApplied": true
+    }
+  },
+  {
+    "name": "configuration",
+    "invalidation": {
+      "size": 1,
+      "fullWorkspace": false,
+      "hints": [
+        "fadeno.config.ts"
+      ],
+      "reasons": [
+        "contained-change"
+      ]
+    },
+    "decision": "retain-identical-artifacts",
+    "ownership": {
+      "artifactCount": 7,
+      "ownerNodeIds": [
+        "route:artifact-plan"
+      ]
+    },
+    "outcome": {
+      "freshnessRoute": true,
+      "renamedRoute": false,
+      "conflictRoute": false,
+      "exactPublicationBytesApplied": true
+    }
+  },
+  {
+    "name": "rename",
+    "invalidation": {
+      "size": 1,
+      "fullWorkspace": true,
+      "hints": [],
+      "reasons": [
+        "rename-rescan"
+      ]
+    },
+    "decision": "replace-generated-artifacts",
+    "ownership": {
+      "artifactCount": 7,
+      "ownerNodeIds": [
+        "route:artifact-plan"
+      ]
+    },
+    "outcome": {
+      "freshnessRoute": false,
+      "renamedRoute": true,
+      "conflictRoute": false,
+      "exactPublicationBytesApplied": true
+    }
+  },
+  {
+    "name": "delete",
+    "invalidation": {
+      "size": 1,
+      "fullWorkspace": true,
+      "hints": [],
+      "reasons": [
+        "rename-rescan"
+      ]
+    },
+    "decision": "replace-generated-artifacts",
+    "ownership": {
+      "artifactCount": 7,
+      "ownerNodeIds": [
+        "route:artifact-plan"
+      ]
+    },
+    "outcome": {
+      "freshnessRoute": false,
+      "renamedRoute": false,
+      "conflictRoute": false,
+      "exactPublicationBytesApplied": true
+    }
+  },
+  {
+    "name": "refusal",
+    "invalidation": {
+      "size": 1,
+      "fullWorkspace": false,
+      "hints": [
+        "src/routes/conflict/page.tsx"
+      ],
+      "reasons": [
+        "contained-change"
+      ]
+    },
+    "decision": "refuse-artifact-application",
+    "causesAndOwnership": [
+      {
+        "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "parameters": {
+          "role": "handler",
+          "route": "/conflict"
+        },
+        "primaryLocation": {
+          "path": "src/routes/conflict/handler.ts",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        },
+        "relatedLocations": [
+          {
+            "path": "src/routes/conflict/page.tsx",
+            "range": null,
+            "rangeReason": "filesystem-entry"
+          }
+        ],
+        "causedBy": [],
+        "correctionFixIds": [
+          "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+        ],
+        "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+      },
+      {
+        "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "parameters": {
+          "role": "page",
+          "route": "/conflict"
+        },
+        "primaryLocation": {
+          "path": "src/routes/conflict/page.tsx",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        },
+        "relatedLocations": [
+          {
+            "path": "src/routes/conflict/handler.ts",
+            "range": null,
+            "rangeReason": "filesystem-entry"
+          }
+        ],
+        "causedBy": [],
+        "correctionFixIds": [
+          "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+        ],
+        "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+      },
+      {
+        "code": "FADENO_ROUTE_ROUTE_ROLE_COLLISION",
+        "parameters": {
+          "route": "/conflict"
+        },
+        "primaryLocation": {
+          "path": "src/routes/conflict/handler.ts",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        },
+        "relatedLocations": [
+          {
+            "path": "src/routes/conflict/page.tsx",
+            "range": null,
+            "rangeReason": "filesystem-entry"
+          }
+        ],
+        "causedBy": [
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+          "FADENO_ROUTE_ROUTE_ROLE_OWNER"
+        ],
+        "correctionFixIds": [
+          "FADENO_FIX_REVIEW_ROUTE_ROLE_COLLISION"
+        ],
+        "explanationRef": "https://fadeno.dev/diagnostics/routes/route-role-collision"
+      }
+    ],
+    "skippedWork": [
+      "manifest-publication"
+    ],
+    "outcome": {
+      "publicationArtifactsRemoved": 7,
+      "lastGoodDiskPreserved": true
+    }
+  },
+  {
+    "name": "recovery",
+    "invalidation": {
+      "size": 1,
+      "fullWorkspace": true,
+      "hints": [],
+      "reasons": [
+        "rename-rescan"
+      ]
+    },
+    "decision": "retain-identical-artifacts",
+    "ownership": {
+      "artifactCount": 7,
+      "ownerNodeIds": [
+        "route:artifact-plan"
+      ]
+    },
+    "outcome": {
+      "freshnessRoute": false,
+      "renamedRoute": false,
+      "conflictRoute": false,
+      "exactPublicationBytesApplied": true
+    }
+  }
+]
+
