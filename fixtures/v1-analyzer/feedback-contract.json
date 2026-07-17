@@ -1,0 +1,90 @@
+{
+  "schema": "fadeno.private.feedback-contract",
+  "version": 1,
+  "clock": {
+    "kind": "monotonic",
+    "source": "process.hrtime.bigint",
+    "unit": "ns",
+    "start": "after-save-before-notification",
+    "end": "matching-final-accepted-consumer-event"
+  },
+  "schedule": {
+    "warmups": 2,
+    "repetitions": 5,
+    "order": [
+      "diagnostic-replacement",
+      "cleared-replacement"
+    ],
+    "retryPolicy": "none",
+    "selectionPolicy": "all-attempts-in-declared-order"
+  },
+  "identity": [
+    "source-commit",
+    "source-tree",
+    "tarball-bytes",
+    "installed-package-tree",
+    "runtime-version",
+    "runtime-executable",
+    "compiler-version",
+    "compiler-package",
+    "platform",
+    "architecture",
+    "environment"
+  ],
+  "workloads": [
+    {
+      "id": "diagnostic-replacement",
+      "setup": {
+        "path": "src/routes/feedback/page.tsx",
+        "sha256": "8be50b59819f9192e373b22b290e27e15b7857ca068bfc6bdff70b5c22bd87b5"
+      },
+      "mutation": {
+        "kind": "write",
+        "path": "src/routes/feedback/handler.ts",
+        "sha256": "e022f38ada1eda59735d22c4c57b982eadb7f4e16a51380d51c241f3ad1151d4"
+      },
+      "notification": "change",
+      "acceptedEvent": "diagnostic-replacement",
+      "diagnosticCodes": [
+        "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+      ]
+    },
+    {
+      "id": "cleared-replacement",
+      "setup": {
+        "path": "src/routes/feedback/handler.ts",
+        "sha256": "e022f38ada1eda59735d22c4c57b982eadb7f4e16a51380d51c241f3ad1151d4"
+      },
+      "mutation": {
+        "kind": "remove",
+        "path": "src/routes/feedback/handler.ts",
+        "sha256": null
+      },
+      "notification": "rename",
+      "acceptedEvent": "success-replacement",
+      "diagnosticCodes": []
+    }
+  ],
+  "phases": [
+    "invalidation",
+    "fadeno-analysis-and-generation",
+    "typescript-refresh",
+    "accepted-consumer-replacement"
+  ],
+  "deepTiming": {
+    "default": false,
+    "flag": "--deep-timing",
+    "maximumRecordsPerAttempt": 16,
+    "profiles": "explicit-only"
+  },
+  "validity": [
+    "exact-identities",
+    "stale-output-canary",
+    "expected-final-event",
+    "complete-replacement",
+    "monotonic-endpoints",
+    "zero-private-ownership"
+  ]
+}
