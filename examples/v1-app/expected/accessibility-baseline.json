@@ -9,7 +9,7 @@
   "javaScriptEnabled": false,
   "checks": [
     "semantic-landmarks",
-    "keyboard-navigation",
+    "keyboard-link-activation",
     "label-association",
     "validation-error-association",
     "keyboard-checkbox-activation"

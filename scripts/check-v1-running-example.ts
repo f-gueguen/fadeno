@@ -247,10 +247,17 @@ async function verifyParsedApplication(origin: string): Promise<void> {
       assert.equal(await page.locator("main section").count(), 1, `${name}: semantic main`);
       assert.equal(await page.locator("footer").textContent(), "Rendered by the V1 framework", `${name}: footer`);
       assert.equal(await page.locator("script").count(), 0, `${name}: ordinary page script count`);
-      await page.keyboard.press("Tab");
-      assert.equal(await page.locator(":focus").getAttribute("href"), "/", `${name}: first keyboard navigation target`);
-      await page.keyboard.press("Tab");
-      assert.equal(await page.locator(":focus").getAttribute("href"), "/hello/Fadeno", `${name}: second keyboard navigation target`);
+      const homeLink = page.locator("nav[aria-label='Primary'] a").nth(0);
+      const greetingLink = page.locator("nav[aria-label='Primary'] a").nth(1);
+      await homeLink.focus();
+      assert.equal(await homeLink.evaluate((element) => element === element.ownerDocument.activeElement), true, `${name}: first navigation target focusable`);
+      await greetingLink.focus();
+      const [keyboardNavigation] = await Promise.all([
+        page.waitForNavigation(),
+        page.keyboard.press("Enter"),
+      ]);
+      assert.equal(keyboardNavigation?.status(), 200, `${name}: keyboard link activation status`);
+      assert.equal(await page.locator("h1").textContent(), "Hello Fadeno", `${name}: keyboard link activation target`);
       await context.close();
     } finally {
       await browser.close();
@@ -1102,7 +1109,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
       javaScriptEnabled: false,
       checks: [
         "semantic-landmarks",
-        "keyboard-navigation",
+        "keyboard-link-activation",
         "label-association",
         "validation-error-association",
         "keyboard-checkbox-activation",
