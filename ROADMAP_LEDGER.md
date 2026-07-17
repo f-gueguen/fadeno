@@ -37,33 +37,6 @@ publication is introduced in this slice.
 - `pnpm check` passes with the A0 plan guard included. The guard rejects stale
   registry evidence, premature identity selection, slice reordering, missing
   decision gates, and accidental publication of the private package.
-- V1-14B generates the API reference from exact emitted declaration bytes
-  and the package export allowlist, and generates tutorials, diagnostics,
-  correction, flow, recovery, and migration guidance from V1-14A authority.
-- V1-14C makes `pnpm check` part of the canonical application command surface
-  and `pnpm check:v1-independent-workflow` now replays one current tarball from
-  a single frozen-installed consumer. The gate proves the declared public
-  entrypoints, successful and refused check/build paths, correction, stale
-  diagnostic/artifact removal, development and production HTTP service,
-  production-only installation, graceful shutdown, package/readme audit, and
-  absence of retained operation ownership.
-- V1-14A owns one versioned manifest of the canonical application's executed
-  source and normalized success, failure, correction, flow, recovery, and
-  stale-removal evidence. The earlier adapter smoke remains a narrow package
-  checkpoint and cannot become a second V1 user workflow.
-- C5B retains the raw deep-detail attempt schedule from source `4d57a69` and
-  independently reconstructs that commit, current tarball, installed package,
-  runtime/compiler/environment identities, accepted events, artifacts, disk,
-  cleanup, host, manifest, and derived summary. The earlier `a1` and `a3`
-  records retain only redaction tombstones after review identified that their
-  environment digest fingerprinted values; neither contributes timing evidence.
-- The accepted baseline is evidence, not a budget: diagnostic replacement has
-  49.823042 ms median and 53.108291 ms p95; cleared replacement has 448.635208
-  ms median and 450.980584 ms p95 on the recorded host. V1-14 now turns the
-  complete V1 slice into an independently usable documented workflow.
-- The analyzer remains private and tool-neutral. C5B adds no command, generic
-  protocol, package export, editor metadata, stable external schema, supported
-  editor product, latency budget, or revived incremental bound.
 
 ## Blockers
 
@@ -77,6 +50,8 @@ publication is introduced in this slice.
   after a demonstrated supported consumer.
 - DG-A0-03: whether alpha needs a scoped-CSS contract after the executable
   styling evidence in A0-01.
+- DG-A0-04: first supported deployment boundary and rollback contract, owned
+  by A0-06 after the public project-creation workflow exists.
 
 ## Completed slices
 

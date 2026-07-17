@@ -79,6 +79,44 @@ expectPolicyFailure("missing K0 dependency", "check-project-model.ts", "K0-99", 
   writeFileSync(path, content);
 });
 
+expectPolicyFailure("reordered A0 slices", "check-project-model.ts", "expected ordered slices A0-00", (copy) => {
+  const path = join(copy, "docs/roadmap/a0.md");
+  const content = readFileSync(path, "utf8");
+  const row1 = content.match(/^\| A0-01 \|.*$/m)?.[0] ?? "";
+  const row2 = content.match(/^\| A0-02 \|.*$/m)?.[0] ?? "";
+  writeFileSync(path, content.replace(row1, "__A0_01__").replace(row2, row1).replace("__A0_01__", row2));
+});
+
+expectPolicyFailure("broken A0 dependency", "check-project-model.ts", "A0-07 dependency contract differs", (copy) => {
+  const path = join(copy, "docs/roadmap/a0.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-07 \|.*$/m, (line) => line.replace("A0-05, A0-06", "A0-05")));
+});
+
+expectPolicyFailure("wrong A0 feature ownership", "check-project-model.ts", "A0-06 feature ownership differs", (copy) => {
+  const path = join(copy, "docs/roadmap/a0.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-06 \|.*$/m, (line) => line.replace("SEC-01, DOC-01", "SEC-01, OPS-01, DOC-01")));
+});
+
+expectPolicyFailure("empty A0 artifacts", "check-project-model.ts", "A0-05 artifact contract differs", (copy) => {
+  const path = join(copy, "docs/roadmap/a0.md");
+  const content = readFileSync(path, "utf8").replace(/^\| A0-05 \|.*$/m, (line) => {
+    const cells = line.slice(1, -1).split("|").map((cell) => cell.trim());
+    cells[4] = "";
+    return `| ${cells.join(" | ")} |`;
+  });
+  writeFileSync(path, content);
+});
+
+expectPolicyFailure("missing A0 validation command", "check-project-model.ts", "A0-10 missing validation command pnpm ci:local", (copy) => {
+  const path = join(copy, "docs/roadmap/a0.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-10 \|.*$/m, (line) => line.replace("; `pnpm ci:local`", "")));
+});
+
+expectPolicyFailure("A0 gate used as prerequisite", "check-project-model.ts", "A0-01 lists an owned decision gate as a prerequisite", (copy) => {
+  const path = join(copy, "docs/roadmap/a0.md");
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-01 \|.*$/m, (line) => line.replace("| A0-00 |", "| A0-00, DG-A0-03 |")));
+});
+
 expectPolicyFailure("unknown root feature", "check-project-model.ts", "UNKNOWN-99", (copy) => {
   appendFileSync(join(copy, "AGENTS.md"), "\nImplement UNKNOWN-99.\n");
 });
@@ -247,4 +285,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("policy mutation tests passed (27 expected failures detected)");
+console.log("policy mutation tests passed (33 expected failures detected)");

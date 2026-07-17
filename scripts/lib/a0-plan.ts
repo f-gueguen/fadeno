@@ -44,7 +44,7 @@ export function validateA0Plan(context: A0PlanContext): readonly string[] {
   const slices = [...context.roadmap.matchAll(/^\| A0-(\d{2}) \|/gmu)].map((match) => match[1]);
   const expectedSlices = Array.from({ length: 11 }, (_value, index) => String(index).padStart(2, "0"));
   if (JSON.stringify(slices) !== JSON.stringify(expectedSlices)) errors.push("A0 roadmap slices must be exactly A0-00 through A0-10 in order");
-  for (const gate of ["DG-A0-01", "DG-A0-02", "DG-A0-03"]) {
+  for (const gate of ["DG-A0-01", "DG-A0-02", "DG-A0-03", "DG-A0-04"]) {
     const line = context.decisionGates.split("\n").find((candidate) => candidate.startsWith(`| ${gate} |`));
     if (!line?.endsWith("| Open |")) errors.push(`A0 unresolved decision gate drifted: ${gate}`);
   }

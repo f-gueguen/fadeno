@@ -11,6 +11,7 @@ ledger when an effective ADR and current specification resolve it.
 | DG-A0-01 | Public package publication | Secure and select unscoped names or an npm organization and map public entrypoints | Registry ownership verification and actual package consumers | Package-publication ADR | Open |
 | DG-A0-02 | External analyzer consumers | Define diagnostic-code lifecycle and versioned machine-readable analyzer schema | Stable internal diagnostics used by build/check | Analyzer-schema ADR and schema fixtures | Open |
 | DG-A0-03 | CSS-01 inclusion | Decide whether scoped CSS is required for alpha and, if so, its ownership and ordering semantics | Executable application styling needs and browser behavior | CSS ADR or explicit deferral | Open |
+| DG-A0-04 | A0-06 deployment implementation | Select the first supported deployment boundary, artifact contract, configuration and secrets ownership, and rollback behavior | Current packed production application and candidate deployment replay | Deployment ADR and executable deployment fixtures | Open |
 
 ## Gate rules
 
