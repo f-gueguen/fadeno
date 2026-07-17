@@ -994,6 +994,17 @@ as skipped rather than inventing execution. Closing the runner must clear all
 watcher, coordinator, analyzer, transaction, compiler, observer, waiter, timer,
 and retained-cycle owners before the independent verifier accepts the run.
 
+C5B retains both the pre-interpretation source-identity refusal and the first
+accepted reconstructible baseline. The evidence verifier rebuilds the measured
+source tree from the recorded commit; checks contract, source, tarball,
+installed package, runtime, compiler, redacted environment, host, operation,
+epoch, diagnostic, publication, disk, and cleanup identity; derives summaries
+from every declared sample; and verifies the result file manifest. It cannot
+discard a sample, accept a duplicate event, reinterpret a skipped phase, or
+promote the refused attempt. The accepted values remain baseline-only evidence
+with no threshold, optimization conclusion, incremental claim, public schema,
+or supported consumer contract.
+
 The disposable consumer and private machine fixtures are packed conformance
 evidence only. They add no package export, public command, generic protocol,
 editor metadata, supported editor product, or compatibility-controlled schema.

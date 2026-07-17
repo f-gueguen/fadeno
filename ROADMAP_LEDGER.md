@@ -6,31 +6,33 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-C5B — retain and verify complete feedback baseline evidence
+V1-14 — make V1 independently usable and documented
 
 ## Exit criteria
 
-- [ ] Collect every declared warmup and sample attempt from the exact committed
-  source and current packed package without retrying or selecting results.
-- [ ] Independently verify exact identities, monotonic endpoints, accepted
-  diagnostic and cleared replacements, complete cleanup, and raw completeness.
-- [ ] Retain the valid raw attempts and environment identity without values,
-  update the execution and risk ledgers, and report baseline values only.
-- [ ] Pass feedback, lifecycle, exact local CI, architecture, Big-O, and fresh
-  independent review gates without a latency budget, optimization claim,
-  revived incremental bound, export, protocol, schema, or editor product.
+- [ ] Audit the packed canonical application as the sole independently runnable
+  V1 success, failure, correction, flow, recovery, and stale-removal example.
+- [ ] Add generated public API reference, tutorials, diagnostics guidance, and
+  migration seed sourced from executed code and verified outputs.
+- [ ] Pass clean-machine install, check, build, development, start, and example
+  replay without private guidance; audit package, readme, links, snippets, and
+  public surface.
+- [ ] Pass `pnpm ci:local` and every affected example, documentation, package,
+  security, accessibility, architecture, Big-O, and independent review gate.
 
 ## In progress
 
-- C5A freezes two exact saved mutations, two warmups, five repetitions, the
-  save-to-accepted-event clock, all source/package/runtime/compiler/environment
-  identities, the no-retry schedule, and an independent refusal verifier.
-- Its current-packed dry run observes seven complete diagnostic replacements
-  and seven clearing replacements, restores a stale-package canary, preserves
-  last-good disk bytes, and reaches zero private ownership. Normalized evidence
-  retains no timing result.
-- C5B now collects and independently verifies the exact raw baseline attempts.
-  The analyzer remains private and tool-neutral. C5A adds no command, generic
+- C5B retains the raw deep-detail attempt schedule from source `836baf1` and
+  independently reconstructs that commit, current tarball, installed package,
+  runtime/compiler/environment identities, accepted events, artifacts, disk,
+  cleanup, host, manifest, and derived summary. The earlier `a1` capture is
+  retained as refused before timing interpretation; no favorable retry was
+  selected.
+- The accepted baseline is evidence, not a budget: diagnostic replacement has
+  49.992958 ms median and 60.895375 ms p95; cleared replacement has 453.158333
+  ms median and 475.358625 ms p95 on the recorded host. V1-14 now turns the
+  complete V1 slice into an independently usable documented workflow.
+- The analyzer remains private and tool-neutral. C5B adds no command, generic
   protocol, package export, editor metadata, stable external schema, supported
   editor product, latency budget, or revived incremental bound.
 
@@ -45,6 +47,15 @@ V1-DX-C5B — retain and verify complete feedback baseline evidence
   after a demonstrated supported consumer.
 
 ## Completed slices
+
+- V1-DX-C5B — Result `20260717T083804Z-836baf1-a3`, retained by evidence
+  commit `86e9ca2`, records every declared warmup and sample with explicit
+  phase detail, exact source/package/runtime/compiler/environment and host
+  identity, accepted diagnostic and cleared replacements, complete artifact/
+  disk evidence, and zero cleanup. Its independent verifier reconstructs the
+  source commit, derives the summary from all samples, verifies file manifests,
+  retains the prior identity refusal, and makes no performance bound or public
+  analyzer/tooling contract.
 
 - V1-DX-C5A — Implementation commit `34daa55` freezes the exact two-workload,
   2-warmup, 5-repetition feedback contract; verifies current source, packed

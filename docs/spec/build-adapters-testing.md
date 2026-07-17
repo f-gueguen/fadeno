@@ -510,6 +510,26 @@ exists at this boundary, so timing values are baseline evidence only. Any
 threshold, optimization claim, or renewed incremental bound requires a later
 separately accepted slice.
 
+The first retained capture, `20260717T082930Z-5d35543-a1`, is preserved as a
+refusal because its working-file permission identity could not be reconstructed
+from its Git commit. Its timing values are explicitly not baseline evidence.
+The runner then uses Git-owned modes for tracked source, and the independently
+verified accepted result is `20260717T083804Z-836baf1-a3`. The missing `a2`
+result was never retained or interpreted because an ordering defect in the
+independent source-tree verifier was corrected before evidence acceptance; it
+is not a selected timing result.
+
+The accepted result records the exact Apple M2 Pro, 10-logical-CPU, 32 GiB,
+Darwin arm64 host, runtime and compiler versions, aggregate redacted environment
+identity, raw attempts, derived summary, and file manifest. Across all five
+samples, diagnostic replacement has a 49.992958 ms median and 60.895375 ms p95.
+Cleared replacement has a 453.158333 ms median and 475.358625 ms p95; its
+median phase values are 0.072792 ms invalidation, 144.214667 ms analysis and
+generation, 221.999458 ms compiler refresh, and 91.773000 ms accepted consumer
+replacement. Diagnostic attempts correctly skip compiler refresh. These values
+describe only this exact workload and host; they are not a budget or an
+incremental-performance claim.
+
 ## V1 and A0 conformance
 
 - A clean checkout reaches the same build through the documented commands.
