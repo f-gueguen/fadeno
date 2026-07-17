@@ -2,7 +2,10 @@ import { existsSync, lstatSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { performance } from "node:perf_hooks";
 
-import type { PrivateAnalyzerOperationHandle } from "./analyzer-coordinator.ts";
+import {
+  PrivateAnalyzerOperationInterrupted,
+  type PrivateAnalyzerOperationHandle,
+} from "./analyzer-coordinator.ts";
 import type { PrivateProjectRefresh } from "./analyzer-project.ts";
 
 const defaultDebounceMs = 25;
@@ -359,15 +362,21 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
     this.#active = handle;
     void handle.result.then(
       (refresh) => {
+        const publish = this.#active === handle && this.#state === "accepting";
         this.#finishCycle(handle);
+        if (!publish) return;
         const cycle = Object.freeze({ sequence: ++this.#cycleSequence, batch, refresh });
         this.#lastCycle = cycle;
         try { this.#onCycle?.(cycle); } catch { /* observation cannot control scheduling ownership */ }
         this.#settleWaiters(batch.latestAdmissionSequence, cycle, null);
       },
       (error: unknown) => {
+        const publish = this.#active === handle && this.#state === "accepting";
         this.#finishCycle(handle);
-        try { this.#onFailure?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
+        if (!publish) return;
+        if (!(error instanceof PrivateAnalyzerOperationInterrupted)) {
+          try { this.#onFailure?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
+        }
         this.#settleWaiters(batch.latestAdmissionSequence, null, error);
       },
     );
