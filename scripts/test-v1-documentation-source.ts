@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkV1DocumentationAuthority } from "./lib/v1-documentation-authority.ts";
@@ -64,6 +64,16 @@ try {
   }
   if (!shapeErrors.includes("documentation scenario root must be a contained directory")) {
     throw new Error("regular-file scenario root was not refused");
+  }
+
+  manifest.applicationRoots = ["package.json", "src"];
+  manifest.scenarioRoot = "scenarios";
+  symlinkSync("page.tsx", join(root, "examples/v1-app/src/alias.tsx"));
+  tracked.add("examples/v1-app/src/alias.tsx");
+  writeFileSync(join(root, "examples/v1-app/documentation-source.json"), JSON.stringify(manifest));
+  const symlinkErrors = checkV1DocumentationAuthority(root, tracked);
+  if (!symlinkErrors.includes("documentation authority refuses non-regular entry: src/alias.tsx")) {
+    throw new Error("nested source symlink was not refused");
   }
 } finally {
   rmSync(root, { recursive: true, force: true });
