@@ -10,11 +10,11 @@ A0-01 — decide the alpha CSS boundary from executable native-CSS evidence
 
 ## Exit criteria
 
-- [ ] Extend the canonical packed application with one external native
+- [x] Extend the canonical packed application with one external native
   stylesheet served through public framework entrypoints.
-- [ ] Prove the styled document in three engines with JavaScript disabled and
+- [x] Prove the styled document in three engines with JavaScript disabled and
   retain inline-style refusal, correction, flow, and stale-removal evidence.
-- [ ] Resolve DG-A0-03 through an ADR, current specifications, traceability,
+- [x] Resolve the CSS-01 decision through an ADR, current specifications, traceability,
   risk/deferral state, and executable documentation sourced from tested files.
 - [ ] Pass CSS, rendering-security, accessibility, documentation, model, full
   repository, local CI, and independent review gates.
@@ -28,13 +28,14 @@ tag, or publication.
 
 ## In progress
 
-- Existing rendering policy refuses inline style attributes and application
-  `style` children while accepting `class`, stylesheet links, and raw handlers.
-- The evidence candidate serves ordinary CSS from a handler-owned `Response`,
-  links it from the canonical layout, and keeps the essential path free of
-  JavaScript.
-- Scoped CSS remains unimplemented while the evidence tests whether native CSS
-  already satisfies the alpha application.
+- ADR 0036 accepts only application-owned same-origin external CSS for alpha;
+  inline CSS stays refused and scoped CSS plus an asset pipeline remain deferred.
+- The canonical packed application serves ordinary CSS from a handler-owned
+  `Response`, links it from the root layout, and keeps the essential path free
+  of JavaScript.
+- Chromium, Firefox, and WebKit prove computed styles and focus visibility with
+  JavaScript disabled; normalized failure, correction, flow, recovery, and
+  stale-removal evidence is retained in the scenario harness.
 
 ## Blockers
 
@@ -46,8 +47,6 @@ tag, or publication.
 - DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
-- DG-A0-03: whether alpha needs a scoped-CSS contract after the executable
-  styling evidence in A0-01.
 - DG-A0-04: first supported deployment boundary and rollback contract, owned
   by A0-06 after the public project-creation workflow exists.
 
