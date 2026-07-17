@@ -10,11 +10,11 @@ A0-00 — decompose public-alpha delivery from the qualified V1 boundary
 
 ## Exit criteria
 
-- [ ] Add a dependency-ordered detailed A0 plan whose decision slices precede
+- [x] Add a dependency-ordered detailed A0 plan whose decision slices precede
   package, scaffold, deployment, tooling, and release implementation.
-- [ ] Record current registry/auth evidence without selecting an unowned name or
+- [x] Record current registry/auth evidence without selecting an unowned name or
   weakening trusted publication and local-CI policy.
-- [ ] Align the outcome roadmap, current ledger, and repository status with the
+- [x] Align the outcome roadmap, current ledger, and repository status with the
   completed V1 boundary and planned A0 work.
 - [ ] Pass documentation, decision, ledger, model, full repository, local CI,
   and independent review gates.
@@ -34,6 +34,9 @@ publication is introduced in this slice.
   workstation is not registry-authenticated, so DG-A0-01 cannot resolve yet.
 - A0-01's CSS decision can proceed without registry authority after this plan
   merges. Package-publication work remains blocked on authenticated ownership.
+- `pnpm check` passes with the A0 plan guard included. The guard rejects stale
+  registry evidence, premature identity selection, slice reordering, missing
+  decision gates, and accidental publication of the private package.
 - V1-14B generates the API reference from exact emitted declaration bytes
   and the package export allowlist, and generates tutorials, diagnostics,
   correction, flow, recovery, and migration guidance from V1-14A authority.
@@ -72,6 +75,8 @@ publication is introduced in this slice.
 - DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
+- DG-A0-03: whether alpha needs a scoped-CSS contract after the executable
+  styling evidence in A0-01.
 
 ## Completed slices
 
