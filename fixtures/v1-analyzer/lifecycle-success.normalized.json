@@ -1,0 +1,626 @@
+{
+  "event": {
+    "operationId": "fadeno-project-document-2",
+    "documentOperationId": "operation-6",
+    "requestId": "request-3",
+    "operation": "change",
+    "documentVersion": 2,
+    "documentLifetime": 1,
+    "workspaceEpoch": 5,
+    "input": "overlay",
+    "document": {
+      "path": "fadeno.config.ts",
+      "savedRevision": 1,
+      "open": {
+        "version": 2,
+        "lifetime": 1
+      },
+      "effectiveSource": "overlay",
+      "effectiveText": "/* overlay */// café 😀\r\nexport default { routes: { root: \"src/routes\" } };\r\n"
+    },
+    "publication": {
+      "analyzerVersion": 1,
+      "schemaVersion": 4,
+      "operationId": "operation-8",
+      "operation": "publish",
+      "workspaceEpoch": 5,
+      "configurationEpoch": 2,
+      "generation": 3,
+      "requestedFacets": [
+        {
+          "namespace": "fadeno.diagnostics"
+        },
+        {
+          "namespace": "fadeno.graph"
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "generated:routes-app-ts",
+          "path": ".fadeno/routes/app.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-d-ts",
+          "path": ".fadeno/routes/index.d.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-js",
+          "path": ".fadeno/routes/index.js",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-loader-ts",
+          "path": ".fadeno/routes/loader.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-manifest-json",
+          "path": ".fadeno/routes/manifest.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-owner-json",
+          "path": ".fadeno/routes/owner.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-virtual-ts",
+          "path": ".fadeno/routes/virtual.ts",
+          "ownerNodeId": "route:artifact-plan"
+        }
+      ],
+      "removedArtifacts": [],
+      "completeness": "complete",
+      "interruption": null,
+      "truncated": false
+    }
+  },
+  "artifactOwnership": {
+    "artifacts": [
+      {
+        "id": "generated:routes-app-ts",
+        "path": ".fadeno/routes/app.ts",
+        "ownerNodeId": "route:artifact-plan",
+        "module": {
+          "namespace": "fadeno.routes",
+          "version": 1,
+          "transformation": "artifact-plan"
+        },
+        "generatedOwnership": {
+          "artifactId": "generated:routes-app-ts",
+          "ownerNodeId": "route:artifact-plan",
+          "path": ".fadeno/routes/app.ts"
+        },
+        "primaryOrigin": {
+          "path": "fadeno.config.ts",
+          "range": {
+            "start": 0,
+            "end": 77
+          }
+        },
+        "relationCounts": {
+          "relatedOrigins": 16,
+          "sourceToArtifacts": 17,
+          "artifactToSources": 17
+        }
+      },
+      {
+        "id": "generated:routes-index-d-ts",
+        "path": ".fadeno/routes/index.d.ts",
+        "ownerNodeId": "route:artifact-plan",
+        "module": {
+          "namespace": "fadeno.routes",
+          "version": 1,
+          "transformation": "artifact-plan"
+        },
+        "generatedOwnership": {
+          "artifactId": "generated:routes-index-d-ts",
+          "ownerNodeId": "route:artifact-plan",
+          "path": ".fadeno/routes/index.d.ts"
+        },
+        "primaryOrigin": {
+          "path": "fadeno.config.ts",
+          "range": {
+            "start": 0,
+            "end": 77
+          }
+        },
+        "relationCounts": {
+          "relatedOrigins": 16,
+          "sourceToArtifacts": 17,
+          "artifactToSources": 17
+        }
+      },
+      {
+        "id": "generated:routes-index-js",
+        "path": ".fadeno/routes/index.js",
+        "ownerNodeId": "route:artifact-plan",
+        "module": {
+          "namespace": "fadeno.routes",
+          "version": 1,
+          "transformation": "artifact-plan"
+        },
+        "generatedOwnership": {
+          "artifactId": "generated:routes-index-js",
+          "ownerNodeId": "route:artifact-plan",
+          "path": ".fadeno/routes/index.js"
+        },
+        "primaryOrigin": {
+          "path": "fadeno.config.ts",
+          "range": {
+            "start": 0,
+            "end": 77
+          }
+        },
+        "relationCounts": {
+          "relatedOrigins": 16,
+          "sourceToArtifacts": 17,
+          "artifactToSources": 17
+        }
+      },
+      {
+        "id": "generated:routes-loader-ts",
+        "path": ".fadeno/routes/loader.ts",
+        "ownerNodeId": "route:artifact-plan",
+        "module": {
+          "namespace": "fadeno.routes",
+          "version": 1,
+          "transformation": "artifact-plan"
+        },
+        "generatedOwnership": {
+          "artifactId": "generated:routes-loader-ts",
+          "ownerNodeId": "route:artifact-plan",
+          "path": ".fadeno/routes/loader.ts"
+        },
+        "primaryOrigin": {
+          "path": "fadeno.config.ts",
+          "range": {
+            "start": 0,
+            "end": 77
+          }
+        },
+        "relationCounts": {
+          "relatedOrigins": 16,
+          "sourceToArtifacts": 17,
+          "artifactToSources": 17
+        }
+      },
+      {
+        "id": "generated:routes-manifest-json",
+        "path": ".fadeno/routes/manifest.json",
+        "ownerNodeId": "route:artifact-plan",
+        "module": {
+          "namespace": "fadeno.routes",
+          "version": 1,
+          "transformation": "artifact-plan"
+        },
+        "generatedOwnership": {
+          "artifactId": "generated:routes-manifest-json",
+          "ownerNodeId": "route:artifact-plan",
+          "path": ".fadeno/routes/manifest.json"
+        },
+        "primaryOrigin": {
+          "path": "fadeno.config.ts",
+          "range": {
+            "start": 0,
+            "end": 77
+          }
+        },
+        "relationCounts": {
+          "relatedOrigins": 16,
+          "sourceToArtifacts": 17,
+          "artifactToSources": 17
+        }
+      },
+      {
+        "id": "generated:routes-owner-json",
+        "path": ".fadeno/routes/owner.json",
+        "ownerNodeId": "route:artifact-plan",
+        "module": {
+          "namespace": "fadeno.routes",
+          "version": 1,
+          "transformation": "artifact-plan"
+        },
+        "generatedOwnership": {
+          "artifactId": "generated:routes-owner-json",
+          "ownerNodeId": "route:artifact-plan",
+          "path": ".fadeno/routes/owner.json"
+        },
+        "primaryOrigin": {
+          "path": "fadeno.config.ts",
+          "range": {
+            "start": 0,
+            "end": 77
+          }
+        },
+        "relationCounts": {
+          "relatedOrigins": 16,
+          "sourceToArtifacts": 17,
+          "artifactToSources": 17
+        }
+      },
+      {
+        "id": "generated:routes-virtual-ts",
+        "path": ".fadeno/routes/virtual.ts",
+        "ownerNodeId": "route:artifact-plan",
+        "module": {
+          "namespace": "fadeno.routes",
+          "version": 1,
+          "transformation": "artifact-plan"
+        },
+        "generatedOwnership": {
+          "artifactId": "generated:routes-virtual-ts",
+          "ownerNodeId": "route:artifact-plan",
+          "path": ".fadeno/routes/virtual.ts"
+        },
+        "primaryOrigin": {
+          "path": "fadeno.config.ts",
+          "range": {
+            "start": 0,
+            "end": 77
+          }
+        },
+        "relationCounts": {
+          "relatedOrigins": 16,
+          "sourceToArtifacts": 17,
+          "artifactToSources": 17
+        }
+      }
+    ],
+    "representativeRelations": {
+      "artifactId": "generated:routes-manifest-json",
+      "relatedOrigins": [
+        {
+          "path": "src/routes/admin/dashboard/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 136
+          }
+        },
+        {
+          "path": "src/routes/admin/layout.tsx",
+          "range": {
+            "start": 0,
+            "end": 257
+          }
+        },
+        {
+          "path": "src/routes/admin/not-found.tsx",
+          "range": {
+            "start": 0,
+            "end": 173
+          }
+        },
+        {
+          "path": "src/routes/error.tsx",
+          "range": {
+            "start": 0,
+            "end": 516
+          }
+        },
+        {
+          "path": "src/routes/failure/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 165
+          }
+        },
+        {
+          "path": "src/routes/hello/[name]/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 432
+          }
+        },
+        {
+          "path": "src/routes/layout.tsx",
+          "range": {
+            "start": 0,
+            "end": 487
+          }
+        },
+        {
+          "path": "src/routes/moved/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 144
+          }
+        },
+        {
+          "path": "src/routes/not-found.tsx",
+          "range": {
+            "start": 0,
+            "end": 280
+          }
+        },
+        {
+          "path": "src/routes/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 1029
+          }
+        },
+        {
+          "path": "src/routes/projects/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 2787
+          }
+        },
+        {
+          "path": "src/routes/raw/handler.ts",
+          "range": {
+            "start": 0,
+            "end": 241
+          }
+        },
+        {
+          "path": "src/routes/resource-failure/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 296
+          }
+        },
+        {
+          "path": "src/routes/resource-recovery/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 476
+          }
+        },
+        {
+          "path": "src/routes/shop/catalog/page.tsx",
+          "range": {
+            "start": 0,
+            "end": 145
+          }
+        },
+        {
+          "path": "src/routes/shop/not-found.tsx",
+          "range": {
+            "start": 0,
+            "end": 184
+          }
+        }
+      ],
+      "sourceToArtifacts": [
+        {
+          "sourcePath": "fadeno.config.ts",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/admin/dashboard/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/admin/layout.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/admin/not-found.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/error.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/failure/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/hello/[name]/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/layout.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/moved/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/not-found.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/projects/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/raw/handler.ts",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/resource-failure/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/resource-recovery/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/shop/catalog/page.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        },
+        {
+          "sourcePath": "src/routes/shop/not-found.tsx",
+          "artifactId": "generated:routes-manifest-json"
+        }
+      ],
+      "artifactToSources": [
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "fadeno.config.ts"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/admin/dashboard/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/admin/layout.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/admin/not-found.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/error.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/failure/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/hello/[name]/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/layout.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/moved/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/not-found.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/projects/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/raw/handler.ts"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/resource-failure/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/resource-recovery/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/shop/catalog/page.tsx"
+        },
+        {
+          "artifactId": "generated:routes-manifest-json",
+          "sourcePath": "src/routes/shop/not-found.tsx"
+        }
+      ]
+    }
+  },
+  "analyzerTextEqualsDeclaredText": true,
+  "diskTextUnchanged": true,
+  "diagnostics": {
+    "namespace": "fadeno.diagnostics",
+    "version": 1,
+    "identity": {
+      "workspaceEpoch": 5,
+      "configurationEpoch": 2,
+      "operationId": "operation-8",
+      "documentVersions": [
+        {
+          "path": "fadeno.config.ts",
+          "version": 2,
+          "lifetime": 1
+        }
+      ],
+      "documents": [
+        {
+          "path": "fadeno.config.ts",
+          "length": 77
+        },
+        {
+          "path": "src/routes/admin/dashboard/page.tsx",
+          "length": 136
+        },
+        {
+          "path": "src/routes/admin/layout.tsx",
+          "length": 257
+        },
+        {
+          "path": "src/routes/admin/not-found.tsx",
+          "length": 173
+        },
+        {
+          "path": "src/routes/error.tsx",
+          "length": 516
+        },
+        {
+          "path": "src/routes/failure/page.tsx",
+          "length": 165
+        },
+        {
+          "path": "src/routes/hello/[name]/page.tsx",
+          "length": 432
+        },
+        {
+          "path": "src/routes/layout.tsx",
+          "length": 487
+        },
+        {
+          "path": "src/routes/moved/page.tsx",
+          "length": 144
+        },
+        {
+          "path": "src/routes/not-found.tsx",
+          "length": 280
+        },
+        {
+          "path": "src/routes/page.tsx",
+          "length": 1029
+        },
+        {
+          "path": "src/routes/projects/page.tsx",
+          "length": 2787
+        },
+        {
+          "path": "src/routes/raw/handler.ts",
+          "length": 241
+        },
+        {
+          "path": "src/routes/resource-failure/page.tsx",
+          "length": 296
+        },
+        {
+          "path": "src/routes/resource-recovery/page.tsx",
+          "length": 476
+        },
+        {
+          "path": "src/routes/shop/catalog/page.tsx",
+          "length": 145
+        },
+        {
+          "path": "src/routes/shop/not-found.tsx",
+          "length": 184
+        }
+      ]
+    },
+    "diagnostics": [],
+    "corrections": [],
+    "skippedWork": [],
+    "completeness": "complete",
+    "redaction": {
+      "state": "none"
+    },
+    "truncated": false
+  }
+}

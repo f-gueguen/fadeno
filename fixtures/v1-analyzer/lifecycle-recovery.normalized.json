@@ -1,0 +1,183 @@
+{
+  "event": {
+    "operationId": "fadeno-project-document-4",
+    "documentOperationId": "operation-13",
+    "requestId": "request-5",
+    "operation": "replace",
+    "documentVersion": 4,
+    "documentLifetime": 1,
+    "workspaceEpoch": 11,
+    "input": "overlay",
+    "document": {
+      "path": "fadeno.config.ts",
+      "savedRevision": 1,
+      "open": {
+        "version": 4,
+        "lifetime": 1
+      },
+      "effectiveSource": "overlay",
+      "effectiveText": "// café 😀\r\nexport default { routes: { root: 'src/routes' } };\r\n"
+    },
+    "publication": {
+      "analyzerVersion": 1,
+      "schemaVersion": 4,
+      "operationId": "operation-16",
+      "operation": "publish",
+      "workspaceEpoch": 11,
+      "configurationEpoch": 4,
+      "generation": 5,
+      "requestedFacets": [
+        {
+          "namespace": "fadeno.diagnostics"
+        },
+        {
+          "namespace": "fadeno.graph"
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "generated:routes-app-ts",
+          "path": ".fadeno/routes/app.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-d-ts",
+          "path": ".fadeno/routes/index.d.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-js",
+          "path": ".fadeno/routes/index.js",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-loader-ts",
+          "path": ".fadeno/routes/loader.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-manifest-json",
+          "path": ".fadeno/routes/manifest.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-owner-json",
+          "path": ".fadeno/routes/owner.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-virtual-ts",
+          "path": ".fadeno/routes/virtual.ts",
+          "ownerNodeId": "route:artifact-plan"
+        }
+      ],
+      "removedArtifacts": [],
+      "completeness": "complete",
+      "interruption": null,
+      "truncated": false
+    }
+  },
+  "priorDiagnosticInstanceIds": [
+    "diagnostic-1",
+    "diagnostic-2",
+    "diagnostic-3"
+  ],
+  "diagnostics": {
+    "namespace": "fadeno.diagnostics",
+    "version": 1,
+    "identity": {
+      "workspaceEpoch": 11,
+      "configurationEpoch": 4,
+      "operationId": "operation-16",
+      "documentVersions": [
+        {
+          "path": "fadeno.config.ts",
+          "version": 4,
+          "lifetime": 1
+        }
+      ],
+      "documents": [
+        {
+          "path": "fadeno.config.ts",
+          "length": 64
+        },
+        {
+          "path": "src/routes/admin/dashboard/page.tsx",
+          "length": 136
+        },
+        {
+          "path": "src/routes/admin/layout.tsx",
+          "length": 257
+        },
+        {
+          "path": "src/routes/admin/not-found.tsx",
+          "length": 173
+        },
+        {
+          "path": "src/routes/error.tsx",
+          "length": 516
+        },
+        {
+          "path": "src/routes/failure/page.tsx",
+          "length": 165
+        },
+        {
+          "path": "src/routes/hello/[name]/page.tsx",
+          "length": 432
+        },
+        {
+          "path": "src/routes/layout.tsx",
+          "length": 487
+        },
+        {
+          "path": "src/routes/moved/page.tsx",
+          "length": 144
+        },
+        {
+          "path": "src/routes/not-found.tsx",
+          "length": 280
+        },
+        {
+          "path": "src/routes/page.tsx",
+          "length": 1029
+        },
+        {
+          "path": "src/routes/projects/page.tsx",
+          "length": 2787
+        },
+        {
+          "path": "src/routes/raw/handler.ts",
+          "length": 241
+        },
+        {
+          "path": "src/routes/resource-failure/page.tsx",
+          "length": 296
+        },
+        {
+          "path": "src/routes/resource-recovery/page.tsx",
+          "length": 476
+        },
+        {
+          "path": "src/routes/shop/catalog/page.tsx",
+          "length": 145
+        },
+        {
+          "path": "src/routes/shop/not-found.tsx",
+          "length": 184
+        }
+      ]
+    },
+    "diagnostics": [],
+    "corrections": [],
+    "skippedWork": [],
+    "completeness": "complete",
+    "redaction": {
+      "state": "none"
+    },
+    "truncated": false
+  },
+  "staleDiagnosticInstancesPresent": false,
+  "routeArtifactsRestored": true,
+  "diskTextUnchanged": true
+}
+

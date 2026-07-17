@@ -6,37 +6,40 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-C2 — packed document and diagnostic lifecycle qualification
+V1-DX-C3 — packed saved-project freshness qualification
 
 ## Exit criteria
 
-- [ ] Install the current framework tarball into a disposable private consumer
-  and reject stale or mismatched package bytes before lifecycle qualification.
-- [ ] Qualify initialize, open, one declared-order position-dependent unsaved
-  edit batch, full replacement, repair, close, reopen, and cleanup through the
-  packed consumer boundary.
-- [ ] Preserve exact line endings and analyzer-text equivalence, and observe
-  structured diagnostics, related evidence, and correction intent from accepted
-  immutable consumer events.
-- [ ] Add permanent normalized canonical success, failure, correction, flow,
-  recovery, and cleanup artifacts that assert behavior rather than only printing
-  output.
-- [ ] Pass lifecycle, package, exact local CI, architecture, Big-O, and fresh
-  independent review gates without adding an export, command, editor metadata,
-  stable machine schema, or supported editor product.
+- [ ] Drive direct and three-level transitive saved-source changes through the
+  current packed private consumer and accepted full-replacement events.
+- [ ] Prove configuration-epoch refresh, rename and deletion cleanup, and fresh
+  declaration and manifest regeneration from one authoritative project state.
+- [ ] Observe atomic diagnostic, artifact, and removal replacement so repaired,
+  renamed, deleted, or superseded owners leave no stale consumer-visible state.
+- [ ] Add permanent normalized canonical success, refusal, flow, recovery, and
+  stale-artifact evidence that asserts behavior rather than only printing output.
+- [ ] Pass lifecycle, workflow, package, exact local CI, architecture, Big-O, and
+  fresh independent review gates without adding an export, command, editor
+  metadata, stable machine schema, or supported editor product.
 
 ## In progress
 
-- V1-DX-C1 completed at implementation commit `0aecd81`: one private project
-  authority now owns bounded saved/overlay document transitions and publishes
-  only analysis bound to the exact accepted ownership generation.
-- C1 deliberately leaves packed installation, consumer delivery, normalized
-  transported artifacts, and stale-package refusal to C2. Direct private tests
-  are implementation evidence, not yet consumer lifecycle qualification.
-- C2 must consume current packed bytes while keeping the canonical public
-  application buildable. Deliberate lifecycle failures remain isolated private
-  scenarios and must recover without stale diagnostics or artifacts.
-- The analyzer remains private and tool-neutral. C2 does not add a command,
+- V1-DX-C2 completed at implementation commit `0bf6239`: one current packed
+  private consumer rejects stale analyzer and parser bytes before import, then
+  observes accepted initialize, ordered edit, replacement, diagnostic,
+  correction, recovery, close, reopen, and cleanup events with permanent
+  normalized evidence.
+- C3 extends that packed event boundary to saved project changes. It must prove
+  direct and transitive freshness, configuration epochs, rename/deletion
+  cleanup, and atomic declaration/manifest replacement without reconstructing
+  policy in the consumer.
+- Stock TypeScript remains authoritative for ordinary TypeScript refresh. C3
+  observes only Fadeno ownership, diagnostics, provenance, generated artifacts,
+  and removals from accepted private analyzer publications.
+- Cancellation, supersession, and zero-retention qualification remain C4. The
+  complete feedback-loop measurements and disposable editor consumer remain
+  C5A and C5B.
+- The analyzer remains private and tool-neutral. C3 does not add a command,
   generic protocol, package export, editor metadata, stable external schema, or
   supported editor product.
 
@@ -249,3 +252,10 @@ V1-DX-C2 — packed document and diagnostic lifecycle qualification
   ownership; suppresses changed generations before publication; and retains
   permanent direct success, refusal, flow, and recovery evidence without a
   packed consumer, public schema, command, or editor product.
+- V1-DX-C2 — Implementation commit `0bf6239` installs and verifies one current
+  framework tarball before importing private analyzer bytes; observes accepted
+  packed initialize, open, position-dependent edits, replacement, structured
+  diagnostics, review correction, recovery, close, reopen, and cleanup; and
+  retains normalized success, failure, correction, flow, recovery, and cleanup
+  evidence without an export, command, editor metadata, stable schema, or
+  supported editor product.

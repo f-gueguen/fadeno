@@ -1,0 +1,201 @@
+{
+  "event": {
+    "operationId": "fadeno-project-document-3",
+    "documentOperationId": "operation-9",
+    "requestId": "request-4",
+    "operation": "replace",
+    "documentVersion": 3,
+    "documentLifetime": 1,
+    "workspaceEpoch": 8,
+    "input": "overlay",
+    "document": {
+      "path": "fadeno.config.ts",
+      "savedRevision": 1,
+      "open": {
+        "version": 3,
+        "lifetime": 1
+      },
+      "effectiveSource": "overlay",
+      "effectiveText": "// collision café 😀\r\nexport default { routes: { root: 'src/collision' } };\r\n"
+    },
+    "publication": {
+      "analyzerVersion": 1,
+      "schemaVersion": 4,
+      "operationId": "operation-12",
+      "operation": "publish",
+      "workspaceEpoch": 8,
+      "configurationEpoch": 3,
+      "generation": 4,
+      "requestedFacets": [
+        {
+          "namespace": "fadeno.diagnostics"
+        },
+        {
+          "namespace": "fadeno.graph"
+        }
+      ],
+      "artifacts": [],
+      "removedArtifacts": [
+        {
+          "id": "generated:routes-app-ts",
+          "path": ".fadeno/routes/app.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-d-ts",
+          "path": ".fadeno/routes/index.d.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-index-js",
+          "path": ".fadeno/routes/index.js",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-loader-ts",
+          "path": ".fadeno/routes/loader.ts",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-manifest-json",
+          "path": ".fadeno/routes/manifest.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-owner-json",
+          "path": ".fadeno/routes/owner.json",
+          "ownerNodeId": "route:artifact-plan"
+        },
+        {
+          "id": "generated:routes-virtual-ts",
+          "path": ".fadeno/routes/virtual.ts",
+          "ownerNodeId": "route:artifact-plan"
+        }
+      ],
+      "completeness": "complete",
+      "interruption": null,
+      "truncated": false
+    }
+  },
+  "outcome": {
+    "routePlan": null,
+    "diagnosticCodes": [
+      "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+    ],
+    "removedArtifacts": [
+      {
+        "id": "generated:routes-app-ts",
+        "path": ".fadeno/routes/app.ts",
+        "ownerNodeId": "route:artifact-plan"
+      },
+      {
+        "id": "generated:routes-index-d-ts",
+        "path": ".fadeno/routes/index.d.ts",
+        "ownerNodeId": "route:artifact-plan"
+      },
+      {
+        "id": "generated:routes-index-js",
+        "path": ".fadeno/routes/index.js",
+        "ownerNodeId": "route:artifact-plan"
+      },
+      {
+        "id": "generated:routes-loader-ts",
+        "path": ".fadeno/routes/loader.ts",
+        "ownerNodeId": "route:artifact-plan"
+      },
+      {
+        "id": "generated:routes-manifest-json",
+        "path": ".fadeno/routes/manifest.json",
+        "ownerNodeId": "route:artifact-plan"
+      },
+      {
+        "id": "generated:routes-owner-json",
+        "path": ".fadeno/routes/owner.json",
+        "ownerNodeId": "route:artifact-plan"
+      },
+      {
+        "id": "generated:routes-virtual-ts",
+        "path": ".fadeno/routes/virtual.ts",
+        "ownerNodeId": "route:artifact-plan"
+      }
+    ]
+  },
+  "causes": [
+    {
+      "instanceId": "diagnostic-1",
+      "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "causedBy": []
+    },
+    {
+      "instanceId": "diagnostic-2",
+      "code": "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+      "causedBy": []
+    },
+    {
+      "instanceId": "diagnostic-3",
+      "code": "FADENO_ROUTE_ROUTE_ROLE_COLLISION",
+      "causedBy": [
+        "diagnostic-1",
+        "diagnostic-2"
+      ]
+    }
+  ],
+  "ownership": [
+    {
+      "instanceId": "diagnostic-1",
+      "primaryLocation": {
+        "path": "src/collision/handler.ts",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/collision/page.tsx",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ]
+    },
+    {
+      "instanceId": "diagnostic-2",
+      "primaryLocation": {
+        "path": "src/collision/page.tsx",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/collision/handler.ts",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ]
+    },
+    {
+      "instanceId": "diagnostic-3",
+      "primaryLocation": {
+        "path": "src/collision/handler.ts",
+        "range": null,
+        "rangeReason": "filesystem-entry"
+      },
+      "relatedLocations": [
+        {
+          "path": "src/collision/page.tsx",
+          "range": null,
+          "rangeReason": "filesystem-entry"
+        }
+      ]
+    }
+  ],
+  "skippedWork": [
+    {
+      "id": "manifest-publication",
+      "causedBy": [
+        "diagnostic-3"
+      ]
+    }
+  ]
+}
+
