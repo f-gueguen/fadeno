@@ -17,7 +17,7 @@ V1-14 — make V1 independently usable and documented
 - [x] Pass clean-machine install, check, build, development, start, and example
   replay without private guidance; audit package, readme, links, snippets, and
   public surface.
-- [ ] Pass `pnpm ci:local` and every affected example, documentation, package,
+- [x] Pass `pnpm ci:local` and every affected example, documentation, package,
   security, accessibility, architecture, Big-O, and independent review gate.
 
 ## Active sub-slice
@@ -33,6 +33,11 @@ review gates. External-user evidence remains an A0 input and is not fabricated.
 
 - V1-14D must make the V1 exit claim mechanically reconstructable from tracked
   evidence while preserving every A0, V2, V3, B0, and R1 non-goal.
+- V1-14D now derives all 15 V1-gated features from canonical scope, requires
+  their gates to be exact root-check members, validates contained tracked
+  evidence, qualifies the three-engine JavaScript-disabled semantic/keyboard/
+  error-association baseline, records six bounded audits and residual risks,
+  and fail-closes every unsupported release, tooling, and performance claim.
 - V1-14B generates the API reference from exact emitted declaration bytes
   and the package export allowlist, and generates tutorials, diagnostics,
   correction, flow, recovery, and migration guidance from V1-14A authority.
