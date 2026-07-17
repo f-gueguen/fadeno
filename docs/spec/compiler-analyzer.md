@@ -986,13 +986,32 @@ consumer callback. Internal current-state inspection is not an endpoint.
 The frozen schedule is diagnostic then clear for two warmups and five samples,
 with no retries or favorable-result selection. Every attempt carries exact
 source, tarball, installed package, runtime, compiler, platform, architecture,
-redacted environment, operation, epoch, publication, disk, and contract
+name-only environment digest, operation, epoch, publication, disk, and contract
 identity. Default attempts contain no phase object. The explicit deep-timing
 flag alone permits bounded invalidation, analyzer/generation, compiler-refresh,
 and accepted-replacement details; a framework diagnostic records compiler work
 as skipped rather than inventing execution. Closing the runner must clear all
 watcher, coordinator, analyzer, transaction, compiler, observer, waiter, timer,
 and retained-cycle owners before the independent verifier accepts the run.
+
+C5B retains redaction tombstones for the two pre-merge captures whose
+environment digest fingerprinted values, and accepts the first reconstructible
+name-only-environment baseline. The evidence verifier rebuilds the measured
+source tree from the recorded commit; checks contract, source, tarball,
+installed package, runtime, compiler, name-only environment, host, operation,
+epoch, diagnostic, publication, disk, and cleanup identity; derives summaries
+from every declared sample; and verifies the result file manifest. It cannot
+discard a sample, accept a duplicate event, reinterpret a skipped phase, or
+promote a redacted attempt. The accepted values remain baseline-only evidence
+with no threshold, optimization conclusion, incremental claim, public schema,
+or supported consumer contract.
+
+The measured source commit must be an ancestor of the preserved branch history.
+Reconstruction obtains modes from that Git tree, not archive extraction, and
+performs a frozen offline install, framework build, pack, and extraction before
+accepting package or compiler digests. The capture transaction emits raw,
+identity, host, derived summary, and manifest files together; the normal evidence
+gate refuses a partial directory.
 
 The disposable consumer and private machine fixtures are packed conformance
 evidence only. They add no package export, public command, generic protocol,

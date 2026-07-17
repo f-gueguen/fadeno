@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { sha256, verifyFeedbackContract, verifyFeedbackRun } from "./lib/v1-analyzer-feedback-verifier.ts";
+import { buildFeedbackEvidenceDocuments } from "./lib/v1-analyzer-feedback-evidence.ts";
+import {
+  redactedEnvironmentSha256,
+  sha256,
+  verifyFeedbackContract,
+  verifyFeedbackRun,
+} from "./lib/v1-analyzer-feedback-verifier.ts";
 
 const contractBytes = readFileSync(fileURLToPath(new URL("../fixtures/v1-analyzer/feedback-contract.json", import.meta.url)));
 const contract = verifyFeedbackContract(JSON.parse(contractBytes.toString("utf8")) as unknown);
@@ -15,6 +21,14 @@ contractRefuses((copy) => { copy.schedule.warmups = 3; }, /FADENO_FEEDBACK_CONTR
 contractRefuses((copy) => { copy.workloads[0].mutation.path = "src/routes/other/handler.ts"; }, /FADENO_FEEDBACK_CONTRACT_WORKLOADS/u);
 contractRefuses((copy) => { copy.workloads[0].mutation.sha256 = "0".repeat(64); }, /FADENO_FEEDBACK_CONTRACT_WORKLOADS/u);
 const digest = "a".repeat(64);
+assert.equal(
+  redactedEnvironmentSha256({ FADENO_SECRET: "first", PATH: "/first" }),
+  redactedEnvironmentSha256({ PATH: "/second", FADENO_SECRET: "second" }),
+);
+assert.notEqual(
+  redactedEnvironmentSha256({ FADENO_SECRET: "first" }),
+  redactedEnvironmentSha256({ FADENO_OTHER: "first" }),
+);
 const identity = Object.freeze({
   sourceCommit: "b".repeat(40),
   sourceTreeSha256: digest,
@@ -103,6 +117,31 @@ const valid = {
   selection: "all-attempts-no-retry",
 };
 assert.deepEqual(verifyFeedbackRun(valid, contract, sha256(contractBytes), identity), { mode: "dry-run", attempts: 14, deepTiming: false });
+const measurement = structuredClone(valid);
+measurement.mode = "measurement";
+measurement.deepTiming = true;
+for (const attempt of measurement.attempts) {
+  attempt.phaseTiming = Object.fromEntries(contract.phases.map((phase) => [phase, phase === "typescript-refresh" && attempt.workloadId === "diagnostic-replacement"
+    ? { status: "skipped", elapsedNs: "0", reason: "framework-diagnostic" }
+    : { status: "completed", elapsedNs: "1", reason: null }]));
+}
+assert.deepEqual(verifyFeedbackRun(measurement, contract, sha256(contractBytes), identity), { mode: "measurement", attempts: 14, deepTiming: true });
+const evidence = buildFeedbackEvidenceDocuments(
+  measurement,
+  { schema: "identity" },
+  { schema: "host" },
+  "20260717T000000Z-bbbbbbb-a1",
+  identity.sourceCommit,
+  sha256(contractBytes),
+  contract.schedule.order,
+  contract.phases,
+);
+assert.deepEqual(Object.keys(evidence), ["host.json", "identity.json", "raw.json", "summary.json", "manifest.json"]);
+const evidenceManifest = JSON.parse(evidence["manifest.json"]) as any;
+assert.deepEqual(evidenceManifest.files, ["host.json", "identity.json", "raw.json", "summary.json"].map((path) => ({
+  path,
+  sha256: sha256(evidence[path as keyof typeof evidence]),
+})));
 
 const refuses = (mutate: (copy: any) => void, code: RegExp): void => {
   const copy = structuredClone(valid);

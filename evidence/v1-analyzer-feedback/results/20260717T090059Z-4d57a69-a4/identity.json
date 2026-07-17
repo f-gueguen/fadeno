@@ -1,0 +1,20 @@
+{
+  "schema": "fadeno.private.feedback-identity",
+  "version": 1,
+  "contractSha256": "4d845b85d054205b3a7845d3610111a20bf1bc11d2db94e7da1c56ce8b86b3f9",
+  "identity": {
+    "sourceCommit": "4d57a6913c9286510a62cb7e0ccc1e1ff96d987f",
+    "sourceTreeSha256": "8f62679c6dc6c06a10e56db13a966a58c670ae94d08f8dce02ff38ca55b481a4",
+    "tarballSha256": "ea47db6aef08238896bd53785176fead0e178e365f54acfff008fe3e5d7dac78",
+    "installedPackageTreeSha256": "3c0d3a2133a9e66dad684ffc9dfa0ca826828e226da2011d660a1dde69d80ca1",
+    "runtimeVersion": "v24.18.0",
+    "runtimeExecutableSha256": "ee6fb0e015284d83a91e8ec5213f43a157f8a392b58555301682892ba928c04a",
+    "compilerVersion": "7.0.2",
+    "compilerPackageSha256": "cf0ee56bb9e394483f67855e92006084bbe1e80b0b1f92b2c363dc8d7897c54b",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "environmentSha256": "f1bb0712e3d491956f349af7979c5224f743787940dced6db1ce92c7dcb155ac"
+  },
+  "attempts": 14,
+  "deepTiming": true
+}

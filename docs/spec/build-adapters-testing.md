@@ -493,8 +493,9 @@ are no per-attempt retries and all fourteen attempts must remain present.
 
 The raw private envelope binds the source commit and complete source-tree
 digest, tarball bytes, installed package tree, runtime version and executable,
-compiler version and package, platform, architecture, redacted environment
-digest, contract digest, monotonic endpoints, operation and workspace identity,
+compiler version and package, platform, architecture, a digest of sorted
+environment variable names without values, contract digest, monotonic endpoints,
+operation and workspace identity,
 diagnostic codes, publication and disk identities, validity controls, and final
 ownership cleanup. The independent verifier rejects identity mismatch,
 missing or reordered attempts, the wrong final event, non-monotonic duration,
@@ -509,6 +510,39 @@ invalidates the attempt and blocks qualification. No accepted latency budget
 exists at this boundary, so timing values are baseline evidence only. Any
 threshold, optimization claim, or renewed incremental bound requires a later
 separately accepted slice.
+
+The `a1` capture was initially refused because its working-file permission
+identity could not be reconstructed from its Git commit. Review then found that
+both `a1` and the initially accepted `a3` fingerprinted environment values.
+Their raw identities and timings were removed before merge; only verified
+redaction tombstones remain, and neither is baseline evidence. The missing `a2`
+result was never retained or interpreted because an ordering defect in the
+independent source-tree verifier was corrected before evidence acceptance. The
+runner now hashes sorted environment variable names without values. The first
+accepted result under that rule is `20260717T090059Z-4d57a69-a4`; no prior
+timing result was selected.
+
+The retained source commit must remain an ancestor of the reviewed branch and
+merge; C5B therefore preserves branch history rather than squashing it. Source
+reconstruction reads `100644` and `100755` modes from the Git tree instead of
+the archive extraction filesystem, so the verifier is independent of umask.
+From that exact source, the verifier performs a frozen offline install, rebuilds
+and repacks the framework, extracts the package, and compares the reconstructed
+tarball, installed package tree, compiler, runtime, platform, and architecture
+identities with the raw record. Sibling JSON agreement is insufficient. A
+retained capture atomically publishes raw, identity, host, derived summary, and
+manifest documents as one verifier-ready directory.
+
+The accepted result records the exact Apple M2 Pro, 10-logical-CPU, 32 GiB,
+Darwin arm64 host, runtime and compiler versions, name-only environment
+identity, raw attempts, derived summary, and file manifest. Across all five
+samples, diagnostic replacement has a 49.823042 ms median and 53.108291 ms p95.
+Cleared replacement has a 448.635208 ms median and 450.980584 ms p95; its
+median phase values are 0.067916 ms invalidation, 143.142708 ms analysis and
+generation, 215.078958 ms compiler refresh, and 88.511500 ms accepted consumer
+replacement. Diagnostic attempts correctly skip compiler refresh. These values
+describe only this exact workload and host; they are not a budget or an
+incremental-performance claim.
 
 ## V1 and A0 conformance
 

@@ -136,6 +136,12 @@ export function sha256(bytes: Buffer | string): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+export function redactedEnvironmentSha256(
+  environment: Readonly<Record<string, string | undefined>>,
+): string {
+  return sha256(JSON.stringify(Object.keys(environment).sort()));
+}
+
 export function verifyFeedbackContract(value: unknown): FeedbackContract {
   const contract = record(value, "FADENO_FEEDBACK_CONTRACT_OBJECT");
   exactKeys(contract, ["schema", "version", "clock", "schedule", "identity", "generatedArtifacts", "workloads", "phases", "deepTiming", "validity"], "FADENO_FEEDBACK_CONTRACT_KEYS");

@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { cpus, release, tmpdir, totalmem, version as osVersion } from "node:os";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { PrivateAnalyzerOperationHandle } from "../packages/framework/src/internal/analyzer-coordinator.ts";
 import type { PrivateProjectRefresh } from "../packages/framework/src/internal/analyzer-project.ts";
 import type { PrivateFilesystemRefreshCycle, PrivateFilesystemRefreshTarget } from "../packages/framework/src/internal/analyzer-watcher.ts";
-import { sha256, verifyFeedbackContract, verifyFeedbackRun } from "./lib/v1-analyzer-feedback-verifier.ts";
+import { buildFeedbackEvidenceDocuments } from "./lib/v1-analyzer-feedback-evidence.ts";
+import {
+  redactedEnvironmentSha256,
+  sha256,
+  verifyFeedbackContract,
+  verifyFeedbackRun,
+} from "./lib/v1-analyzer-feedback-verifier.ts";
 
 type AnalyzerProjectModule = typeof import("../packages/framework/src/internal/analyzer-project.ts");
 type AnalyzerCompilerModule = typeof import("../packages/framework/src/internal/analyzer-compiler.ts");
@@ -42,10 +48,36 @@ const contractPath = join(root, "fixtures/v1-analyzer/feedback-contract.json");
 const pageBytes = "export default function Page(): string { return 'feedback'; }\n";
 const handlerBytes = "export function GET(): Response { return new Response('feedback'); }\n";
 const arguments_ = process.argv.slice(2).filter((argument, index) => argument !== "--" || index !== 0);
-if (arguments_.length > 1 || (arguments_.length === 1 && arguments_[0] !== "--deep-timing")) {
+let deepTiming = false;
+let retainPath: string | null = null;
+for (let index = 0; index < arguments_.length; index += 1) {
+  const argument = arguments_[index]!;
+  if (argument === "--deep-timing" && !deepTiming) {
+    deepTiming = true;
+    continue;
+  }
+  if (argument === "--retain" && retainPath === null && index + 1 < arguments_.length) {
+    retainPath = arguments_[++index]!;
+    continue;
+  }
   throw new TypeError("FADENO_FEEDBACK_ARGUMENTS");
 }
-const deepTiming = arguments_[0] === "--deep-timing";
+if (retainPath !== null && !deepTiming) throw new TypeError("FADENO_FEEDBACK_RETAIN_REQUIRES_DEEP_TIMING");
+
+function retainedDirectory(requested: string, sourceCommit: string): string {
+  if (requested.length === 0 || isAbsolute(requested) || requested.includes("\0")) throw new TypeError("FADENO_FEEDBACK_RETAIN_PATH");
+  const result = resolve(root, requested);
+  const relativePath = relative(root, result).split("\\").join("/");
+  if (relativePath !== requested || !relativePath.startsWith("evidence/v1-analyzer-feedback/results/")) {
+    throw new TypeError("FADENO_FEEDBACK_RETAIN_PATH");
+  }
+  const name = relativePath.slice("evidence/v1-analyzer-feedback/results/".length);
+  if (!/^20[0-9]{6}T[0-9]{6}Z-[0-9a-f]{7}-a[1-9][0-9]*$/u.test(name) || !name.includes(`-${sourceCommit.slice(0, 7)}-`)) {
+    throw new TypeError("FADENO_FEEDBACK_RETAIN_IDENTITY");
+  }
+  if (existsSync(result)) throw new TypeError("FADENO_FEEDBACK_RETAIN_EXISTS");
+  return result;
+}
 
 function assertJsonFixture(name: string, actual: unknown): void {
   const expected = JSON.parse(readFileSync(join(root, "fixtures/v1-analyzer", name), "utf8")) as unknown;
@@ -92,17 +124,32 @@ function identitySha256(identity: FileIdentity): string {
 function sourceIdentity(): Readonly<{ commit: string; treeSha256: string }> {
   const commit = run("git", ["rev-parse", "HEAD"], root).trim();
   assert.match(commit, /^[0-9a-f]{40}$/u);
-  const listed = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], {
+  const listed = spawnSync("git", ["ls-files", "--stage", "-z"], {
     cwd: root,
     encoding: "buffer",
     maxBuffer: 32 * 1024 * 1024,
   });
   if (listed.error) throw listed.error;
   if (listed.status !== 0) throw new TypeError("FADENO_FEEDBACK_SOURCE_FILES");
-  const paths = listed.stdout.toString("utf8").split("\0").filter(Boolean).sort();
-  const identity = paths.map((path) => {
+  const tracked = listed.stdout.toString("utf8").split("\0").filter(Boolean).map((entry) => {
+    const match = /^(100644|100755) [0-9a-f]+ 0\t(.+)$/u.exec(entry);
+    if (!match) throw new TypeError("FADENO_FEEDBACK_SOURCE_INDEX");
+    return Object.freeze({ path: match[2]!, mode: Number.parseInt(match[1]!, 8) & 0o777 });
+  });
+  const others = spawnSync("git", ["ls-files", "--others", "--exclude-standard", "-z"], {
+    cwd: root,
+    encoding: "buffer",
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  if (others.error) throw others.error;
+  if (others.status !== 0) throw new TypeError("FADENO_FEEDBACK_SOURCE_FILES");
+  const untracked = others.stdout.toString("utf8").split("\0").filter(Boolean).map((path) => Object.freeze({
+    path,
+    mode: lstatSync(join(root, path)).mode & 0o777,
+  }));
+  const identity = [...tracked, ...untracked].sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0).map(({ path, mode }) => {
     const absolute = join(root, path);
-    return Object.freeze({ path, mode: lstatSync(absolute).mode & 0o777, sha256: sha256(readFileSync(absolute)) });
+    return Object.freeze({ path, mode, sha256: sha256(readFileSync(absolute)) });
   });
   return Object.freeze({ commit, treeSha256: sha256(JSON.stringify(identity)) });
 }
@@ -145,10 +192,6 @@ function publicationSha256(publication: PrivateProjectRefresh["publication"]): s
   return sha256(JSON.stringify(publication));
 }
 
-function environmentSha256(): string {
-  return sha256(JSON.stringify(Object.entries(process.env).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)));
-}
-
 function acceptedPromise(workloadId: PendingAttempt["workloadId"], startNs: bigint): Readonly<{
   promise: Promise<AcceptedObservation>;
   pending: PendingAttempt;
@@ -187,6 +230,9 @@ function cleanupProjection(watcher: ReturnType<AnalyzerWatcherModule["PrivateFil
 
 const temporary = mkdtempSync(join(tmpdir(), "fadeno-v1-feedback-"));
 try {
+  if (retainPath !== null && run("git", ["status", "--porcelain"], root).trim().length !== 0) {
+    throw new TypeError("FADENO_FEEDBACK_RETAIN_DIRTY_SOURCE");
+  }
   const contractBytes = readFileSync(contractPath);
   const contractSha256 = sha256(contractBytes);
   const contract = verifyFeedbackContract(JSON.parse(contractBytes.toString("utf8")) as unknown);
@@ -402,13 +448,13 @@ try {
     compilerPackageSha256: compilerIdentity_.sha256,
     platform: process.platform,
     architecture: process.arch,
-    environmentSha256: environmentSha256(),
+    environmentSha256: redactedEnvironmentSha256(process.env),
   });
   const raw = Object.freeze({
     schema: "fadeno.private.feedback-run",
     version: 1,
     contractSha256,
-    mode: "dry-run",
+    mode: retainPath === null ? "dry-run" : "measurement",
     deepTiming,
     identity,
     clock: contract.clock,
@@ -419,8 +465,53 @@ try {
     selection: "all-attempts-no-retry",
   });
   const verified = verifyFeedbackRun(raw, contract, contractSha256, identity);
-  assert.deepEqual(verified, { mode: "dry-run", attempts: 14, deepTiming });
-  if (!deepTiming) {
+  assert.deepEqual(verified, { mode: retainPath === null ? "dry-run" : "measurement", attempts: 14, deepTiming });
+  if (retainPath !== null) {
+    const output = retainedDirectory(retainPath, source.commit);
+    const resultId = basename(output);
+    const parent = dirname(output);
+    mkdirSync(parent, { recursive: true });
+    const stage = join(parent, `.${output.slice(parent.length + 1)}.stage`);
+    if (existsSync(stage)) throw new TypeError("FADENO_FEEDBACK_RETAIN_STAGE");
+    mkdirSync(stage);
+    try {
+      const identityDocument = {
+        schema: "fadeno.private.feedback-identity",
+        version: 1,
+        contractSha256,
+        identity,
+        attempts: raw.attempts.length,
+        deepTiming,
+      };
+      const hostDocument = {
+        schema: "fadeno.private.feedback-host",
+        version: 1,
+        platform: process.platform,
+        architecture: process.arch,
+        osRelease: release(),
+        osVersion: osVersion(),
+        cpuModel: cpus()[0]?.model ?? "unknown",
+        logicalCpuCount: cpus().length,
+        totalMemoryBytes: totalmem(),
+        runtimeVersion: process.version,
+      };
+      const evidence = buildFeedbackEvidenceDocuments(
+        raw,
+        identityDocument,
+        hostDocument,
+        resultId,
+        source.commit,
+        contractSha256,
+        contract.schedule.order,
+        contract.phases,
+      );
+      for (const [name, bytes] of Object.entries(evidence)) writeFileSync(join(stage, name), bytes);
+      renameSync(stage, output);
+    } catch (error) {
+      rmSync(stage, { recursive: true, force: true });
+      throw error;
+    }
+  } else if (!deepTiming) {
     const projection = {
       schema: raw.schema,
       version: raw.version,
@@ -491,7 +582,7 @@ try {
     assertJsonFixture("feedback-refusal.normalized.json", refusals);
     assertTextFixture("feedback-diagnostic.human.txt", humanDiagnostic);
   }
-  console.log(`V1 analyzer feedback dry run passed (${verified.attempts} ordered attempts, current package, no retained timing result${deepTiming ? ", explicit phase detail" : ""})`);
+  console.log(`V1 analyzer feedback ${retainPath === null ? "dry run" : "capture"} passed (${verified.attempts} ordered attempts, current package${retainPath === null ? ", no retained timing result" : ", retained raw baseline"}${deepTiming ? ", explicit phase detail" : ""})`);
 } finally {
   rmSync(join(packageRoot, "dist"), { recursive: true, force: true });
   rmSync(temporary, { recursive: true, force: true });
