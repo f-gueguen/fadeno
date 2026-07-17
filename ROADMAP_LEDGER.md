@@ -20,8 +20,19 @@ V1-14 — make V1 independently usable and documented
 - [ ] Pass `pnpm ci:local` and every affected example, documentation, package,
   security, accessibility, architecture, Big-O, and independent review gate.
 
+## Active sub-slice
+
+V1-14A — make the canonical V1 application and its verified evidence the
+mechanically enforced documentation authority. This adds no public behavior or
+copied prose example. V1-14B generates the user documentation, V1-14C proves
+the clean independent workflow, and V1-14D performs the V1 exit qualification.
+
 ## In progress
 
+- V1-14A owns one versioned manifest of the canonical application's executed
+  source and normalized success, failure, correction, flow, recovery, and
+  stale-removal evidence. The earlier adapter smoke remains a narrow package
+  checkpoint and cannot become a second V1 user workflow.
 - C5B retains the raw deep-detail attempt schedule from source `4d57a69` and
   independently reconstructs that commit, current tarball, installed package,
   runtime/compiler/environment identities, accepted events, artifacts, disk,
