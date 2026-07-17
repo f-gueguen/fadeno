@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-07-17",
+  "registry": "https://registry.npmjs.org/",
+  "unscopedIdentity": "fadeno",
+  "unscopedAvailability": "occupied",
+  "authenticatedOwner": null,
+  "selectedIdentity": null,
+  "blocker": "registry-authentication-required",
+  "publicationAuthorized": false
+}
