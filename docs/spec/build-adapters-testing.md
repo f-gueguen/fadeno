@@ -432,6 +432,21 @@ manifest replacement/removal. C4 qualifies cancellation, supersession,
 obsolete-result suppression, close during work, and cleanup with deterministic
 barriers rather than sleeps.
 
+C3 records only immutable filesystem-adapter observer deliveries. Each success
+delivery includes the analyzer-produced empty diagnostic batch, publication,
+application result, and stock-compiler validation for one operation. Each
+diagnostic failure includes its analyzer-produced diagnostic batch and
+publication while the previously accepted generated directory remains
+byte-identical. Callback capture is synchronous because callback exceptions are
+intentionally isolated; assertions occur after flush and require exactly one
+captured delivery, matching callback/flush identity, all seven unique generated
+paths and values, exact generated-directory bytes, and no transaction debris.
+The genuine transitive control places its leaf outside the configured root-file
+include and reaches it only through a three-edge import chain from one included
+owner. Package, parser, platform executable, analyzer, and invalidation-adapter
+identities are verified with mutation canaries before absolute installed-path
+imports.
+
 The package-owned lifecycle runner is conformance infrastructure, not a public
 entrypoint. It may be present in packed internals only while export and deep
 import tests keep it inaccessible. It defines no command, generic transport,
