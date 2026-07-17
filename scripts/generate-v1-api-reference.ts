@@ -1,14 +1,30 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { renderV1ApiReference } from "./lib/v1-api-reference.ts";
 
 const root = process.cwd();
 const output = join(root, "docs/reference/v1-api.md");
-const entryPoints = [
-  { importPath: "fadeno-framework-internal", declarationPath: join(root, "packages/framework/dist/index.d.ts") },
-  { importPath: "fadeno-framework-internal/node", declarationPath: join(root, "packages/framework/dist/node.d.ts") },
-  { importPath: "fadeno-framework-internal/jsx-runtime", declarationPath: join(root, "packages/framework/dist/jsx-runtime.d.ts") },
-] as const;
+const packageRoot = join(root, "packages/framework");
+const packageManifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as {
+  readonly name?: unknown;
+  readonly exports?: unknown;
+};
+if (typeof packageManifest.name !== "string" || typeof packageManifest.exports !== "object" || packageManifest.exports === null) {
+  throw new Error("framework package must declare a name and typed export map");
+}
+const entryPoints = Object.entries(packageManifest.exports as Record<string, unknown>)
+  .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+  .map(([subpath, target]) => {
+    if (typeof target !== "object" || target === null || typeof (target as Record<string, unknown>).types !== "string") {
+      throw new Error(`framework export has no declaration target: ${subpath}`);
+    }
+    const declarationPath = resolve(packageRoot, (target as { readonly types: string }).types);
+    if (!declarationPath.startsWith(`${packageRoot}${sep}`)) throw new Error(`framework declaration target escapes package: ${subpath}`);
+    return {
+      importPath: subpath === "." ? packageManifest.name as string : `${packageManifest.name}${subpath.slice(1)}`,
+      declarationPath,
+    };
+  });
 
 for (const entryPoint of entryPoints) {
   if (!existsSync(entryPoint.declarationPath)) {

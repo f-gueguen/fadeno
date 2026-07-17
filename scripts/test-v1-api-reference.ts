@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,8 +19,13 @@ if (JSON.stringify(names) !== JSON.stringify(["Alpha", "beta", "gamma"])) {
 const root = mkdtempSync(join(tmpdir(), "fadeno-api-reference-"));
 try {
   const path = join(root, "index.d.ts");
-  writeFileSync(path, declaration);
+  const emitted = `${declaration}\n`;
+  writeFileSync(path, emitted);
   const first = renderV1ApiReference([{ importPath: "example", declarationPath: path }]);
+  const digest = createHash("sha256").update(emitted).digest("hex");
+  if (!first.includes(`Emitted declaration byte SHA-256: \`${digest}\`.`)) {
+    throw new Error("reference digest does not identify emitted declaration bytes");
+  }
   writeFileSync(path, `${declaration}\nexport type Delta = string;\n`);
   const second = renderV1ApiReference([{ importPath: "example", declarationPath: path }]);
   if (first === second || !second.includes("`Delta`")) throw new Error("declaration change did not update the API reference");

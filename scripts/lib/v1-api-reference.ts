@@ -23,23 +23,20 @@ export function exportedNames(declaration: string): readonly string[] {
   return [...names].sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
 }
 
-function normalized(path: string): string {
-  return readFileSync(path, "utf8").replaceAll("\r\n", "\n").trimEnd();
-}
-
 export function renderV1ApiReference(entryPoints: readonly ApiReferenceEntryPoint[]): string {
   const sections = entryPoints.map(({ importPath, declarationPath }) => {
-    const declaration = normalized(declarationPath);
+    const emittedBytes = readFileSync(declarationPath);
+    const declaration = emittedBytes.toString("utf8").replaceAll("\r\n", "\n").trimEnd();
     if (declaration.includes("```")) throw new Error(`public declaration contains a Markdown fence: ${declarationPath}`);
     const names = exportedNames(declaration);
     if (names.length === 0) throw new Error(`public entrypoint has no exports: ${declarationPath}`);
-    const digest = createHash("sha256").update(declaration).digest("hex");
+    const digest = createHash("sha256").update(emittedBytes).digest("hex");
     return [
       `## \`${importPath}\``,
       "",
       `Exports: ${names.map((name) => `\`${name}\``).join(", ")}.`,
       "",
-      `Declaration SHA-256: \`${digest}\`.`,
+      `Emitted declaration byte SHA-256: \`${digest}\`.`,
       "",
       "```ts",
       declaration,
