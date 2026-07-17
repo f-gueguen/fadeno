@@ -954,6 +954,9 @@ supersession reject the matching flush waiter with their structured internal
 interruption identity, but do not invoke the ordinary failure callback. Close
 clears callbacks and the retained last cycle before cancelling active work, and
 suppresses any success or failure continuation already queued for delivery.
+A dedicated private interruption observer may settle consumer-owned lifecycle
+state, such as refusing an interrupted development candidate, without rendering
+or publishing an ordinary failure.
 
 Two private adapters may address the same retained analyzer authority for the
 supersession fixture. One owns a deliberately blocked obsolete compiler child;

@@ -10,11 +10,12 @@ import {
   realpathSync,
   renameSync,
   rmSync,
+  watch,
   writeFileSync,
 } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -112,6 +113,25 @@ async function expectUnavailable(origin: string): Promise<void> {
     await new Promise<void>((accept) => setTimeout(accept, 10));
   }
   throw new Error(`FADENO_V1_DEVELOPMENT_LISTENER_RETAINED:${origin}`);
+}
+
+async function waitForPath(path: string): Promise<void> {
+  if (existsSync(path)) return;
+  await new Promise<void>((accept, refuse) => {
+    const watcher = watch(dirname(path), () => {
+      if (!existsSync(path)) return;
+      watcher.close();
+      accept();
+    });
+    watcher.once("error", (error) => {
+      watcher.close();
+      refuse(error);
+    });
+    if (existsSync(path)) {
+      watcher.close();
+      accept();
+    }
+  });
 }
 
 function copyPackedProject(temporaryRoot: string, name: string, tarball: string): string {
@@ -236,11 +256,26 @@ try {
   for (const value of ["Burst generation one", "Burst generation two", "Burst generation final"]) {
     writeFileSync(renamedHelper, `export const developmentMessage = '${value}';\n`);
   }
-  await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
+  stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
   await responseText(origin, "Burst generation final");
+
+  const interruptedMarker = join(temporaryRoot, "interrupted-candidate-ready");
+  const currentPage = readFileSync(pagePath, "utf8");
+  writeFileSync(pagePath, [
+    'import { writeFileSync as writeInterruptionMarker } from "node:fs";',
+    `writeInterruptionMarker(${JSON.stringify(interruptedMarker)}, "ready\\n");`,
+    "await new Promise<never>(() => undefined);",
+    currentPage,
+  ].join("\n"));
+  await waitForPath(interruptedMarker);
+  writeFileSync(pagePath, currentPage);
+  writeFileSync(renamedHelper, "export const developmentMessage = 'Interrupted generation final';\n");
+  stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
+  await responseText(origin, "Interrupted generation final");
 
   const flow = JSON.parse(readFileSync(join(scenarioRoot, "expected/flow.json"), "utf8")) as Record<string, unknown>;
   assert.equal(flow["observableOutcome"], "latest-complete-generation-served");
+  assert.equal((flow["causes"] as readonly string[]).includes("active-candidate-interruption"), true);
   const recovery = JSON.parse(readFileSync(join(scenarioRoot, "expected/recovery.json"), "utf8")) as Record<string, unknown>;
   assert.equal(recovery["staleDiagnosticRemoved"], true);
   assert.equal(recovery["staleArtifactRemovedAfterOwnerDeletion"], true);

@@ -382,12 +382,14 @@ try {
   const interruptedScheduler = new ManualScheduler();
   const interruptedTarget = new InterruptibleRefreshTarget(schedulerRoot);
   const interruptedCycles: PrivateFilesystemRefreshCycle[] = [];
+  const interruptions: unknown[] = [];
   const interruptedFailures: unknown[] = [];
   const interruptedAdapter = new PrivateFilesystemInvalidationAdapter(schedulerRoot, interruptedTarget, {
     debounceMs: 25,
     maximumDelayMs: 100,
     scheduler: interruptedScheduler,
     onCycle: (cycle) => { interruptedCycles.push(cycle); },
+    onInterruption: (_batch, error) => { interruptions.push(error); },
     onFailure: (_batch, error) => { interruptedFailures.push(error); },
   });
   interruptedAdapter.notify({ kind: "change", path: "src/cancelled.ts" });
@@ -395,6 +397,8 @@ try {
   interruptedTarget.pending[0]!.handle.cancel();
   await assert.rejects(interruptedFlush, /FADENO_ANALYZER_PROJECT_CANCELLED/u);
   assert.deepEqual(interruptedCycles, []);
+  assert.equal(interruptions.length, 1);
+  assert.ok(interruptions[0] instanceof PrivateAnalyzerOperationInterrupted);
   assert.deepEqual(interruptedFailures, []);
   await interruptedAdapter.close();
 

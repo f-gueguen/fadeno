@@ -74,6 +74,7 @@ export interface PrivateFilesystemInvalidationOptions<Refresh = PrivateProjectRe
   readonly maximumPendingBytes?: number;
   readonly scheduler?: PrivateFilesystemInvalidationScheduler;
   readonly onCycle?: (cycle: PrivateFilesystemRefreshCycle<Refresh>) => void;
+  readonly onInterruption?: (batch: PrivateFilesystemInvalidationBatch, error: PrivateAnalyzerOperationInterrupted) => void;
   readonly onFailure?: (batch: PrivateFilesystemInvalidationBatch, error: unknown) => void;
 }
 
@@ -155,6 +156,7 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
   readonly #maximumPathBytes: number;
   readonly #maximumPendingBytes: number;
   #onCycle?: PrivateFilesystemInvalidationOptions<Refresh>["onCycle"];
+  #onInterruption?: PrivateFilesystemInvalidationOptions<Refresh>["onInterruption"];
   #onFailure?: PrivateFilesystemInvalidationOptions<Refresh>["onFailure"];
   readonly #hints = new Set<string>();
   readonly #rawAliases = new Map<string, string>();
@@ -211,6 +213,7 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
     );
     this.#scheduler = options.scheduler ?? realScheduler;
     this.#onCycle = options.onCycle;
+    this.#onInterruption = options.onInterruption;
     this.#onFailure = options.onFailure;
   }
 
@@ -273,7 +276,9 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
       timers: this.#timer === null ? 0 : 1,
       activeOperations: this.#active ? 1 : 0,
       retainedCycles: this.#lastCycle ? 1 : 0,
-      observers: Number(Boolean(this.#onCycle)) + Number(Boolean(this.#onFailure)),
+      observers: Number(Boolean(this.#onCycle)) +
+        Number(Boolean(this.#onInterruption)) +
+        Number(Boolean(this.#onFailure)),
     });
   }
 
@@ -305,6 +310,7 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
     if (this.#closePromise) return this.#closePromise;
     this.#state = "closing";
     this.#onCycle = undefined;
+    this.#onInterruption = undefined;
     this.#onFailure = undefined;
     this.#lastCycle = null;
     this.#clearTimer();
@@ -407,7 +413,9 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
         const publish = this.#active === handle && this.#state === "accepting";
         this.#finishCycle(handle);
         if (!publish) return;
-        if (!(error instanceof PrivateAnalyzerOperationInterrupted)) {
+        if (error instanceof PrivateAnalyzerOperationInterrupted) {
+          try { this.#onInterruption?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
+        } else {
           try { this.#onFailure?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
         }
         this.#settleWaiters(batch.latestAdmissionSequence, null, error);

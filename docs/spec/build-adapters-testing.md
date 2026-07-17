@@ -461,6 +461,12 @@ never become an accepted delivery. The final accepted generation must match
 all seven generated values and disk bytes, contain no stale route or diagnostic,
 and leave no transaction debris.
 
+The packed development scenario additionally blocks an active child candidate,
+admits a newer saved edit, and proves the interruption-only observer resets
+candidate decision ownership without printing failure output. The immediately
+queued batch must accept and serve the newest edit; a third notification is not
+permitted as a recovery trigger.
+
 The package-owned lifecycle runner is conformance infrastructure, not a public
 entrypoint. It may be present in packed internals only while export and deep
 import tests keep it inaccessible. It defines no command, generic transport,
