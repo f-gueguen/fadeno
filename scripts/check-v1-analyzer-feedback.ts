@@ -309,12 +309,24 @@ try {
       const stage = round < contract.schedule.warmups ? "warmup" : "sample";
       const repetition = stage === "warmup" ? round + 1 : round - contract.schedule.warmups + 1;
       const phaseTiming = deepTiming ? Object.freeze({
-        invalidation: ((pending.refreshNs ?? observation.acceptedNs) - startNs).toString(),
-        "fadeno-analysis-and-generation": ((pending.compilerStartNs ?? observation.acceptedNs) - (pending.refreshNs ?? startNs)).toString(),
+        invalidation: Object.freeze({
+          status: "completed",
+          elapsedNs: ((pending.refreshNs ?? observation.acceptedNs) - startNs).toString(),
+          reason: null,
+        }),
+        "fadeno-analysis-and-generation": Object.freeze({
+          status: "completed",
+          elapsedNs: ((pending.compilerStartNs ?? observation.acceptedNs) - (pending.refreshNs ?? startNs)).toString(),
+          reason: null,
+        }),
         "typescript-refresh": pending.compilerStartNs && pending.compilerEndNs
-          ? (pending.compilerEndNs - pending.compilerStartNs).toString()
-          : "0",
-        "accepted-consumer-replacement": (observation.acceptedNs - (pending.compilerEndNs ?? observation.acceptedNs)).toString(),
+          ? Object.freeze({ status: "completed", elapsedNs: (pending.compilerEndNs - pending.compilerStartNs).toString(), reason: null })
+          : Object.freeze({ status: "skipped", elapsedNs: "0", reason: "framework-diagnostic" }),
+        "accepted-consumer-replacement": Object.freeze({
+          status: "completed",
+          elapsedNs: (observation.acceptedNs - (pending.compilerEndNs ?? observation.acceptedNs)).toString(),
+          reason: null,
+        }),
       }) : null;
       captured.push({
         attemptId: `${stage}-${repetition}-${workloadId}`,

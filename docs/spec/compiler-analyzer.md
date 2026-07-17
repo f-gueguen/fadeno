@@ -975,6 +975,25 @@ bytes, waiters, timers, operations, retained cycles, observers, recovery,
 rollback, cleanup, drain, and compiler-validation owners. These reports remain
 packed internals and define no transport or external schema.
 
+C5A drives that same current-packed consumer through two exact saved mutations.
+Writing a sibling handler beside one valid canonical page must deliver the
+three route-ownership diagnostics as one full accepted replacement. Removing
+the handler must deliver a later empty replacement while the last accepted disk
+generation remains exact. The monotonic interval starts after each mutation
+returns and before its notification is admitted, and ends inside the matching
+consumer callback. Internal current-state inspection is not an endpoint.
+
+The frozen schedule is diagnostic then clear for two warmups and five samples,
+with no retries or favorable-result selection. Every attempt carries exact
+source, tarball, installed package, runtime, compiler, platform, architecture,
+redacted environment, operation, epoch, publication, disk, and contract
+identity. Default attempts contain no phase object. The explicit deep-timing
+flag alone permits bounded invalidation, analyzer/generation, compiler-refresh,
+and accepted-replacement details; a framework diagnostic records compiler work
+as skipped rather than inventing execution. Closing the runner must clear all
+watcher, coordinator, analyzer, transaction, compiler, observer, waiter, timer,
+and retained-cycle owners before the independent verifier accepts the run.
+
 The disposable consumer and private machine fixtures are packed conformance
 evidence only. They add no package export, public command, generic protocol,
 editor metadata, supported editor product, or compatibility-controlled schema.

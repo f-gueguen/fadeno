@@ -6,39 +6,31 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V1-DX-C5A — freeze complete feedback workload and verifier
+V1-DX-C5B — retain and verify complete feedback baseline evidence
 
 ## Exit criteria
 
-- [ ] Freeze exact canonical edit-to-fresh and edit-to-cleared mutations and
-  the save-to-final-accepted-event boundary before retaining timing results.
-- [ ] Bind every dry run to exact source, packed package, runtime, compiler,
-  environment, monotonic clock, warmup, repetition, and raw-attempt identity.
-- [ ] Add stale-output, invalid-attempt, missing-event, incomplete-cleanup, and
-  retry-selection refusal controls plus an independent verifier.
-- [ ] Keep default evidence end-to-end; require an explicit flag for bounded
-  phase timing or profiles, and make no budget, optimization, or incremental
-  performance claim.
-- [ ] Pass feedback-contract, model, exact local CI, architecture, Big-O, and
-  fresh independent review gates without adding an export, command, protocol,
-  editor metadata, stable machine schema, or supported editor product.
+- [ ] Collect every declared warmup and sample attempt from the exact committed
+  source and current packed package without retrying or selecting results.
+- [ ] Independently verify exact identities, monotonic endpoints, accepted
+  diagnostic and cleared replacements, complete cleanup, and raw completeness.
+- [ ] Retain the valid raw attempts and environment identity without values,
+  update the execution and risk ledgers, and report baseline values only.
+- [ ] Pass feedback, lifecycle, exact local CI, architecture, Big-O, and fresh
+  independent review gates without a latency budget, optimization claim,
+  revived incremental bound, export, protocol, schema, or editor product.
 
 ## In progress
 
-- V1-DX-C4 completed at implementation commit `173bb38`: the current packed
-  private consumer uses compiler-child barriers to distinguish explicit
-  cancellation, supersession, and close; suppresses every obsolete consumer
-  callback; accepts only the newest complete generation; and proves exact
-  observer, waiter, timer, operation, transaction, compiler-child, and retained
-  cycle cleanup without timing sleeps.
-- C4 records provisional artifact application accurately: a candidate may own
-  disk bytes while compiler validation is active, but it cannot become a
-  consumer delivery. Interruption rolls it back or the newer accepted
-  generation replaces it before the sole accepted event.
-- C5A now freezes the complete feedback workload and independent verifier. It
-  collects dry-run correctness and identity evidence only; C5B separately
-  retains baseline timings after this contract is reviewed.
-- The analyzer remains private and tool-neutral. C5A adds no command, generic
+- C5A freezes two exact saved mutations, two warmups, five repetitions, the
+  save-to-accepted-event clock, all source/package/runtime/compiler/environment
+  identities, the no-retry schedule, and an independent refusal verifier.
+- Its current-packed dry run observes seven complete diagnostic replacements
+  and seven clearing replacements, restores a stale-package canary, preserves
+  last-good disk bytes, and reaches zero private ownership. Normalized evidence
+  retains no timing result.
+- C5B now collects and independently verifies the exact raw baseline attempts.
+  The analyzer remains private and tool-neutral. C5A adds no command, generic
   protocol, package export, editor metadata, stable external schema, supported
   editor product, latency budget, or revived incremental bound.
 
@@ -53,6 +45,13 @@ V1-DX-C5A — freeze complete feedback workload and verifier
   after a demonstrated supported consumer.
 
 ## Completed slices
+
+- V1-DX-C5A — Implementation commit `34daa55` freezes the exact two-workload,
+  2-warmup, 5-repetition feedback contract; verifies current source, packed
+  package, runtime, compiler, environment, monotonic endpoints, accepted-event
+  order, stale-output recovery, no-retry completeness, and zero ownership; and
+  retains normalized success, diagnostic, flow, refusal, and recovery evidence
+  without retaining timing values or adding a public surface.
 
 - V1-DX-C4 — Commit `173bb38` adds current-packed deterministic cancellation,
   supersession, newest-only delivery, close-during-work, post-close refusal,

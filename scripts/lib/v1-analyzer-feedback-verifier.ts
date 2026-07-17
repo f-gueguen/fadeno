@@ -239,7 +239,19 @@ export function verifyFeedbackRun(
       const phases = record(attempt["phaseTiming"], "FADENO_FEEDBACK_ATTEMPT_PHASES");
       same(Object.keys(phases), contract.phases, "FADENO_FEEDBACK_ATTEMPT_PHASES");
       if (Object.keys(phases).length > contract.deepTiming.maximumRecordsPerAttempt) throw new TypeError("FADENO_FEEDBACK_ATTEMPT_PHASE_LIMIT");
-      for (const value of Object.values(phases)) decimal(value, "FADENO_FEEDBACK_ATTEMPT_PHASES");
+      for (const [phase, value] of Object.entries(phases)) {
+        const detail = record(value, "FADENO_FEEDBACK_ATTEMPT_PHASES");
+        exactKeys(detail, ["status", "elapsedNs", "reason"], "FADENO_FEEDBACK_ATTEMPT_PHASES");
+        decimal(detail["elapsedNs"], "FADENO_FEEDBACK_ATTEMPT_PHASES");
+        const skipped = phase === "typescript-refresh" && workloadId === "diagnostic-replacement";
+        if (skipped) {
+          if (detail["status"] !== "skipped" || detail["elapsedNs"] !== "0" || detail["reason"] !== "framework-diagnostic") {
+            throw new TypeError("FADENO_FEEDBACK_ATTEMPT_PHASES");
+          }
+        } else if (detail["status"] !== "completed" || detail["reason"] !== null) {
+          throw new TypeError("FADENO_FEEDBACK_ATTEMPT_PHASES");
+        }
+      }
     }
   }
   return Object.freeze({ mode: run["mode"] as "dry-run" | "measurement", attempts: run["attempts"].length, deepTiming: run["deepTiming"] });
