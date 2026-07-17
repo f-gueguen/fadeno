@@ -106,7 +106,7 @@ async function waitForHome(origin: string): Promise<string> {
   let last = "";
   for (let attempt = 0; attempt < 1_000; attempt += 1) {
     try {
-      const response = await fetch(origin);
+      const response = await fetch(origin, { signal: AbortSignal.timeout(1_000) });
       last = await response.text();
       if (response.status === 200 && last.includes("First running Fadeno application")) return last;
     } catch { /* listener startup and shutdown are bounded below */ }
@@ -130,6 +130,7 @@ const localCanary = join(packageRoot, "dist/v1-independent-local-canary.js");
 let development: RunningCommand | null = null;
 let production: RunningCommand | null = null;
 try {
+  rmSync(localCanary, { force: true });
   requireSuccess("pnpm", ["--filter", "fadeno-framework-internal", "build"], root);
   const tarballs = join(temporaryRoot, "tarballs");
   mkdirSync(tarballs);
@@ -142,7 +143,7 @@ try {
   const project = join(temporaryRoot, "application");
   cpSync(exampleRoot, project, {
     recursive: true,
-    filter: (source) => !source.includes("/node_modules") && !source.includes("/.fadeno") && !source.includes("/dist"),
+    filter: (source) => !["node_modules", ".fadeno", "dist"].includes(basename(source)),
   });
   const manifestPath = join(project, "package.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { dependencies: Record<string, string> };
