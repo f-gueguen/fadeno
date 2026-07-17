@@ -10,11 +10,11 @@ V1-14 — make V1 independently usable and documented
 
 ## Exit criteria
 
-- [ ] Audit the packed canonical application as the sole independently runnable
+- [x] Audit the packed canonical application as the sole independently runnable
   V1 success, failure, correction, flow, recovery, and stale-removal example.
-- [ ] Add generated public API reference, tutorials, diagnostics guidance, and
+- [x] Add generated public API reference, tutorials, diagnostics guidance, and
   migration seed sourced from executed code and verified outputs.
-- [ ] Pass clean-machine install, check, build, development, start, and example
+- [x] Pass clean-machine install, check, build, development, start, and example
   replay without private guidance; audit package, readme, links, snippets, and
   public surface.
 - [ ] Pass `pnpm ci:local` and every affected example, documentation, package,
@@ -22,16 +22,23 @@ V1-14 — make V1 independently usable and documented
 
 ## Active sub-slice
 
-V1-14B — generate the V1 public API reference, tutorials, diagnostics guide,
-and migration seed from executed application source and verified output. The
-private package identity remains explicit and no copied Markdown example may
-become an alternate authority.
+V1-14C — prove the documented install, check, build, development, production
+start, failure, correction, and recovery workflow from one newly prepared
+current-packed consumer. Audit package contents, readmes, links, snippets, and
+the export-derived public-surface reference in the same gate.
 
 ## In progress
 
-- The V1 API reference is generated from the current emitted TypeScript
-  declarations. Tutorials, diagnostics, corrections, flow, recovery, and the
-  migration seed next consume the V1-14A authority manifest.
+- V1-14B now generates the API reference from exact emitted declaration bytes
+  and the package export allowlist, and generates tutorials, diagnostics,
+  correction, flow, recovery, and migration guidance from V1-14A authority.
+- V1-14C makes `pnpm check` part of the canonical application command surface
+  and `pnpm check:v1-independent-workflow` now replays one current tarball from
+  a single frozen-installed consumer. The gate proves the declared public
+  entrypoints, successful and refused check/build paths, correction, stale
+  diagnostic/artifact removal, development and production HTTP service,
+  production-only installation, graceful shutdown, package/readme audit, and
+  absence of retained operation ownership.
 - V1-14A owns one versioned manifest of the canonical application's executed
   source and normalized success, failure, correction, flow, recovery, and
   stale-removal evidence. The earlier adapter smoke remains a narrow package
