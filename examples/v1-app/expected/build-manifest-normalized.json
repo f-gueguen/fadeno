@@ -24,7 +24,9 @@
     "src/routes/resource-failure/page.js",
     "src/routes/resource-recovery/page.js",
     "src/routes/shop/catalog/page.js",
-    "src/routes/shop/not-found.js"
+    "src/routes/shop/not-found.js",
+    "src/routes/styles/handler.js",
+    "src/styles.js"
   ],
   "runtime": {
     "schemaVersion": 1,

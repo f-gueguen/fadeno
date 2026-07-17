@@ -63,6 +63,8 @@ application; no package-global route registration exists.
    after disconnect.
 7. Framework diagnostics and error pages do not disclose secrets, cookie
    contents, authorization headers, or sensitive field values.
+8. Rendered documents permit application-owned same-origin external
+   stylesheets through `style-src 'self'` without enabling inline CSS.
 
 ADR 0028 fixes the exact sink taxonomy, unsafe capability, URL XSS floor,
 prohibited CSS/RAWTEXT/foreign contexts, nonce ownership, and redaction limits.
@@ -71,6 +73,12 @@ adds real parser/CSP integration. Ordinary pages emit no executable framework
 markup and allocate no nonce; an integrated fixture separately proves the
 framework-owned executable-markup path without adding a no-op script to the
 canonical application.
+
+ADR 0036 fixes the alpha styling boundary: applications own native external
+CSS, stylesheet ordering, cascade, selector scope, and caching. The renderer
+permits same-origin stylesheets while retaining ADR 0028's refusal of inline
+style attributes and application-owned `style` children. Scoped CSS,
+rewriting, extraction, and an asset pipeline remain deferred.
 
 ## Streaming and boundaries
 

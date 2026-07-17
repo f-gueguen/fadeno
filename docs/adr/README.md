@@ -44,6 +44,7 @@ effective decision.
 32. [ADR 0033 — Build and development lifecycle](0033-build-and-development-lifecycle.md)
 33. [ADR 0034 — Resource identity and request cache](0034-resource-identity-and-request-cache.md)
 34. [ADR 0035 — Native actions and protected sessions](0035-native-actions-and-protected-sessions.md)
+35. [ADR 0036 — Native external CSS for alpha](0036-native-external-css-for-alpha.md)
 
 ## Superseded decisions
 

@@ -112,9 +112,9 @@ expectPolicyFailure("missing A0 validation command", "check-project-model.ts", "
   writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-10 \|.*$/m, (line) => line.replace("; `pnpm ci:local`", "")));
 });
 
-expectPolicyFailure("A0 gate used as prerequisite", "check-project-model.ts", "A0-01 lists an owned decision gate as a prerequisite", (copy) => {
+expectPolicyFailure("A0 gate used as prerequisite", "check-project-model.ts", "A0-02 lists an owned decision gate as a prerequisite", (copy) => {
   const path = join(copy, "docs/roadmap/a0.md");
-  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-01 \|.*$/m, (line) => line.replace("| A0-00 |", "| A0-00, DG-A0-03 |")));
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-02 \|.*$/m, (line) => line.replace("| A0-00, authenticated registry ownership |", "| A0-00, authenticated registry ownership, DG-A0-01 |")));
 });
 
 expectPolicyFailure("unknown root feature", "check-project-model.ts", "UNKNOWN-99", (copy) => {

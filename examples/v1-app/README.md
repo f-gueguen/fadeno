@@ -42,6 +42,16 @@ Run the verified application, failure, flow, and recovery evidence with:
 pnpm check:v1-running-example
 ```
 
+The application uses native external CSS only. The root layout links `/styles`,
+and `src/routes/styles/handler.ts` serves `src/styles.ts` through the public
+typed handler boundary. `pnpm check:a0-css` verifies that contract and its
+permanent evidence inventory. The packed running-example gate additionally
+proves computed styles, focus visibility, and reduced-motion source in
+Chromium, Firefox, and WebKit with JavaScript disabled. The deliberate
+`scenarios/css-boundary/` fixture records the inline-style type failure,
+runtime refusals, class-and-stylesheet correction, flow ownership, recovery,
+and stale-artifact removal without making the primary application unbuildable.
+
 That gate installs the current packed framework into two clean consumers and
 requires byte-identical builds. It starts the generated production bootstrap,
 exercises the routed application, seeds the compiler failure under

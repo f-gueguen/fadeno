@@ -10,6 +10,19 @@ Validation failures return accessible server-rendered feedback associated with
 the relevant controls. Redirects and navigation preserve normal URL and history
 semantics.
 
+## Native CSS baseline
+
+Alpha styling uses standard external CSS under
+[ADR 0036](../adr/0036-native-external-css-for-alpha.md). Applications render
+ordinary `class` attributes, link same-origin stylesheets, and own stylesheet
+ordering, cascade, selector scope, and caching. Rendered documents permit only
+same-origin styles through `style-src 'self'`; inline style attributes and
+application-owned `style` children remain refused.
+
+Fadeno does not provide scoped CSS, selector rewriting, extraction, an asset
+pipeline, or stylesheet hot replacement in alpha. Those capabilities remain
+deferred until application evidence earns a separate decision.
+
 ## Enhanced contract
 
 When enhancement code is available, it may intercept a link or form only when

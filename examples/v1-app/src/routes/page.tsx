@@ -12,7 +12,7 @@ const page: Page = async ({ read }) => {
   if (first !== equivalent) throw new Error("equivalent resource reads did not share one result");
 
   return (
-    <section aria-labelledby="welcome-heading">
+    <section aria-labelledby="welcome-heading" class="hero-card">
       <h1 id="welcome-heading">First running Fadeno application</h1>
       <p>This document is routed, escaped, and streamed without client JavaScript.</p>
       <p>Project {first.projectId} is ready for {first.viewer}.</p>

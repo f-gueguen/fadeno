@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "scenario": "inline-css-refusal",
+  "typeCode": "TS2322",
+  "runtimeCodes": [
+    {
+      "name": "inline-attribute",
+      "code": "FADENO_RENDER_STYLE_ATTRIBUTE"
+    },
+    {
+      "name": "style-element",
+      "code": "FADENO_RENDER_STYLE_CHILDREN"
+    }
+  ],
+  "correction": "replace inline CSS with class and an external stylesheet"
+}

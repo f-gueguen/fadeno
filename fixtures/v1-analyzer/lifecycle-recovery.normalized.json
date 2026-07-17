@@ -127,7 +127,7 @@
         },
         {
           "path": "src/routes/layout.tsx",
-          "length": 487
+          "length": 649
         },
         {
           "path": "src/routes/moved/page.tsx",
@@ -139,7 +139,7 @@
         },
         {
           "path": "src/routes/page.tsx",
-          "length": 1029
+          "length": 1047
         },
         {
           "path": "src/routes/projects/page.tsx",
@@ -164,6 +164,10 @@
         {
           "path": "src/routes/shop/not-found.tsx",
           "length": 184
+        },
+        {
+          "path": "src/routes/styles/handler.ts",
+          "length": 315
         }
       ]
     },
@@ -180,4 +184,3 @@
   "routeArtifactsRestored": true,
   "diskTextUnchanged": true
 }
-

@@ -39,6 +39,22 @@ JSX. The generated route module and stock TypeScript own route typing.
 
 <!-- fadeno:include {"path":"examples/v1-app/src/routes/page.tsx","language":"tsx"} -->
 
+## Add native external CSS
+
+Alpha applications use ordinary browser CSS. The layout links a same-origin
+stylesheet, and an application-owned typed handler returns the CSS response.
+Fadeno keeps inline style attributes and application-owned `style` children
+refused; it does not add a scoped-CSS compiler or asset pipeline.
+
+<!-- fadeno:include {"path":"examples/v1-app/src/routes/styles/handler.ts","language":"ts"} -->
+
+The canonical stylesheet source includes visible keyboard focus and honors the
+reduced-motion preference. `pnpm check:a0-css` verifies the decision and
+evidence inventory, while `pnpm check:v1-running-example` proves the packed
+result in three browsers with JavaScript disabled.
+
+<!-- fadeno:include {"path":"examples/v1-app/src/styles.ts","language":"ts"} -->
+
 ## Check, develop, build, and start
 
 Inside an installed application, run `pnpm check`, `pnpm dev`, and `pnpm build`

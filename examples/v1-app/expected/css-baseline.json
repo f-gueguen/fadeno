@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "scenario": "native-external-css",
+  "browserEngines": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "javaScriptEnabled": false,
+  "stylesheet": {
+    "route": "/styles",
+    "contentType": "text/css; charset=utf-8",
+    "cacheControl": "public, max-age=300"
+  },
+  "checks": [
+    "external-stylesheet-link",
+    "application-class-styling",
+    "visible-focus-outline",
+    "reduced-motion-rule"
+  ],
+  "scopedCssCompiler": "deferred"
+}
