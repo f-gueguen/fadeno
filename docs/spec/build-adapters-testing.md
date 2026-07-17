@@ -482,6 +482,27 @@ collect only end-to-end timing. An explicit flag enables bounded phase detail
 and profiles. Attempts are not retried or selected until a favorable value
 appears.
 
+The frozen workload adds one valid `/feedback` page to a packed copy of the
+canonical application. A diagnostic attempt writes one exact sibling handler,
+samples the monotonic start after the write returns and before notification,
+and ends only when the consumer receives the matching full diagnostic
+replacement. A clearing attempt removes that handler, samples the same save
+boundary, and ends only at the matching empty successful replacement. The
+declared order is diagnostic then clear for two warmups and five samples. There
+are no per-attempt retries and all fourteen attempts must remain present.
+
+The raw private envelope binds the source commit and complete source-tree
+digest, tarball bytes, installed package tree, runtime version and executable,
+compiler version and package, platform, architecture, redacted environment
+digest, contract digest, monotonic endpoints, operation and workspace identity,
+diagnostic codes, publication and disk identities, validity controls, and final
+ownership cleanup. The independent verifier rejects identity mismatch,
+missing or reordered attempts, the wrong final event, non-monotonic duration,
+incomplete cleanup, hidden phase detail, incomplete runs, and retry selection.
+The dry run restores a deliberately changed installed file before imports and
+retains normalized diagnostic, flow, refusal, recovery, and machine evidence;
+it does not retain measured durations.
+
 C5B retains and independently verifies edit-to-fresh and edit-to-cleared raw
 evidence. Correctness, freshness, identity, cleanup, or completeness failure
 invalidates the attempt and blocks qualification. No accepted latency budget

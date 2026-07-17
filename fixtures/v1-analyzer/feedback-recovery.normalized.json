@@ -1,0 +1,28 @@
+{
+  "pairs": 7,
+  "diagnosticReplacementObserved": 7,
+  "emptyReplacementObserved": 7,
+  "staleDiagnosticsRemoved": true,
+  "lastGoodDiskPreserved": true,
+  "stalePackageCanaryRestored": true,
+  "finalCleanup": {
+    "activeOperations": 0,
+    "compilerValidations": 0,
+    "coordinatorActiveOperations": 0,
+    "coordinatorDrainWorkers": 0,
+    "coordinatorPendingAnalysisOperations": 0,
+    "coordinatorQueuedOperations": 0,
+    "currentAnalysisTokens": 0,
+    "latestAnalysisRequests": 0,
+    "observers": 0,
+    "pendingApplicationRecoveries": 0,
+    "pendingBytes": 0,
+    "pendingCleanups": 0,
+    "pendingHints": 0,
+    "pendingNotifications": 0,
+    "pendingRollbacks": 0,
+    "retainedCycles": 0,
+    "timers": 0,
+    "waiters": 0
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "schema": "fadeno.private.feedback-run",
+  "version": 1,
+  "contractSha256": "<sha256>",
+  "mode": "dry-run",
+  "deepTiming": false,
+  "identity": {
+    "sourceCommit": "<sourceCommit>",
+    "sourceTreeSha256": "<sourceTreeSha256>",
+    "tarballSha256": "<tarballSha256>",
+    "installedPackageTreeSha256": "<installedPackageTreeSha256>",
+    "runtimeVersion": "<runtimeVersion>",
+    "runtimeExecutableSha256": "<runtimeExecutableSha256>",
+    "compilerVersion": "<compilerVersion>",
+    "compilerPackageSha256": "<compilerPackageSha256>",
+    "platform": "<platform>",
+    "architecture": "<architecture>",
+    "environmentSha256": "<environmentSha256>"
+  },
+  "clock": {
+    "kind": "monotonic",
+    "source": "process.hrtime.bigint",
+    "unit": "ns",
+    "start": "after-save-before-notification",
+    "end": "matching-final-accepted-consumer-event"
+  },
+  "attemptIds": [
+    "warmup-1-diagnostic-replacement",
+    "warmup-1-cleared-replacement",
+    "warmup-2-diagnostic-replacement",
+    "warmup-2-cleared-replacement",
+    "sample-1-diagnostic-replacement",
+    "sample-1-cleared-replacement",
+    "sample-2-diagnostic-replacement",
+    "sample-2-cleared-replacement",
+    "sample-3-diagnostic-replacement",
+    "sample-3-cleared-replacement",
+    "sample-4-diagnostic-replacement",
+    "sample-4-cleared-replacement",
+    "sample-5-diagnostic-replacement",
+    "sample-5-cleared-replacement"
+  ],
+  "timing": {
+    "startNs": "<ns>",
+    "acceptedNs": "<ns>",
+    "elapsedNs": "<ns>",
+    "retained": false
+  },
+  "observedWorkloads": [
+    {
+      "id": "diagnostic-replacement",
+      "attempts": 7,
+      "acceptedEvent": "diagnostic-replacement",
+      "diagnosticCodes": [
+        "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "FADENO_ROUTE_ROUTE_ROLE_OWNER",
+        "FADENO_ROUTE_ROUTE_ROLE_COLLISION"
+      ]
+    },
+    {
+      "id": "cleared-replacement",
+      "attempts": 7,
+      "acceptedEvent": "success-replacement",
+      "diagnosticCodes": []
+    }
+  ],
+  "validity": {
+    "exact-identities": true,
+    "stale-output-canary": true,
+    "expected-final-event": true,
+    "complete-replacement": true,
+    "monotonic-endpoints": true,
+    "zero-private-ownership": true
+  },
+  "finalCleanup": {
+    "activeOperations": 0,
+    "compilerValidations": 0,
+    "coordinatorActiveOperations": 0,
+    "coordinatorDrainWorkers": 0,
+    "coordinatorPendingAnalysisOperations": 0,
+    "coordinatorQueuedOperations": 0,
+    "currentAnalysisTokens": 0,
+    "latestAnalysisRequests": 0,
+    "observers": 0,
+    "pendingApplicationRecoveries": 0,
+    "pendingBytes": 0,
+    "pendingCleanups": 0,
+    "pendingHints": 0,
+    "pendingNotifications": 0,
+    "pendingRollbacks": 0,
+    "retainedCycles": 0,
+    "timers": 0,
+    "waiters": 0
+  },
+  "complete": true,
+  "selection": "all-attempts-no-retry"
+}
