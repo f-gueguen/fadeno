@@ -2,6 +2,13 @@ import { randomUUID } from "node:crypto";
 
 export type PrivateAnalyzerOperationKind = "analysis" | "explanation";
 export type PrivateAnalyzerCoordinatorState = "accepting" | "closing" | "closed";
+export type PrivateAnalyzerCoordinatorOwnership = Readonly<{
+  state: PrivateAnalyzerCoordinatorState;
+  queuedOperations: number;
+  activeOperations: number;
+  pendingAnalysisOperations: number;
+  drainWorkers: number;
+}>;
 export type PrivateAnalyzerInterruptionCode =
   | "FADENO_ANALYZER_PROJECT_CANCELLED"
   | "FADENO_ANALYZER_PROJECT_SUPERSEDED";
@@ -76,6 +83,22 @@ export class PrivateAnalyzerOperationCoordinator {
 
   get state(): PrivateAnalyzerCoordinatorState {
     return this.#state;
+  }
+
+  ownership(): PrivateAnalyzerCoordinatorOwnership {
+    let queuedOperations = 0;
+    let queued = this.#queueHead;
+    while (queued) {
+      queuedOperations += 1;
+      queued = queued.next;
+    }
+    return Object.freeze({
+      state: this.#state,
+      queuedOperations,
+      activeOperations: this.#active ? 1 : 0,
+      pendingAnalysisOperations: this.#pendingAnalysis ? 1 : 0,
+      drainWorkers: this.#drainPromise ? 1 : 0,
+    });
   }
 
   start<T>(

@@ -545,6 +545,7 @@ export async function runProjectDevCommand(
       },
     );
     adapter = new PrivateFilesystemInvalidationAdapter(parsed.projectRoot, target, {
+      onInterruption: (_batch, error) => target?.observeFailure(error),
       onFailure: (_batch, error) => target?.observeFailure(error),
     });
     watcher = watch(parsed.projectRoot, { recursive: true, encoding: "utf8" }, (eventType, filename) => {

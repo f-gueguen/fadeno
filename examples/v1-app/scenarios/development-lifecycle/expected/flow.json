@@ -7,6 +7,7 @@
     "transitive-module-change",
     "configuration-change",
     "rename-and-deletion-rescan",
+    "active-candidate-interruption",
     "burst-supersession"
   ],
   "ownership": {
@@ -17,6 +18,7 @@
   },
   "skippedWork": [
     "obsolete-burst-generations",
+    "interrupted-active-candidate",
     "failed-candidate-publication",
     "failed-child-switch"
   ],

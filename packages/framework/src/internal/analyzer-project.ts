@@ -6,11 +6,13 @@ import type { FadenoConfig } from "../index.ts";
 import { loadConfigFromSource, readConfigSource } from "./config.ts";
 import {
   PrivateAnalyzerOperationCoordinator,
+  type PrivateAnalyzerCoordinatorOwnership,
   type PrivateAnalyzerOperationHandle,
 } from "./analyzer-coordinator.ts";
 import {
   PrivateCompilerValidationError,
   PrivateCompilerValidator,
+  type PrivateCompilerOwnership,
   type PrivateCompilerValidation,
 } from "./analyzer-compiler.ts";
 import { normalizeAnalyzerFacetValue } from "./analyzer-facets.ts";
@@ -137,6 +139,16 @@ export interface PrivateProjectAnalyzerOptions {
   readonly session?: AnalyzerSession;
   readonly compiler?: PrivateCompilerValidator;
 }
+
+export type PrivateProjectAnalyzerOwnership = Readonly<{
+  coordinator: PrivateAnalyzerCoordinatorOwnership;
+  currentAnalysisTokens: number;
+  latestAnalysisRequests: number;
+  pendingApplicationRecoveries: number;
+  pendingRollbacks: number;
+  pendingCleanups: number;
+  compiler: PrivateCompilerOwnership | null;
+}>;
 
 export interface PrivateProjectRefreshOptions {
   readonly application?: PrivateProjectApplicationOptions;
@@ -310,6 +322,18 @@ export class PrivateProjectAnalyzer {
 
   ownsProject(projectRoot: string): boolean {
     return resolve(projectRoot) === this.#root;
+  }
+
+  ownership(): PrivateProjectAnalyzerOwnership {
+    return Object.freeze({
+      coordinator: this.#coordinator.ownership(),
+      currentAnalysisTokens: this.#currentAnalysisToken ? 1 : 0,
+      latestAnalysisRequests: this.#latestAnalysisRequestId ? 1 : 0,
+      pendingApplicationRecoveries: this.#pendingApplicationRecovery ? 1 : 0,
+      pendingRollbacks: this.#pendingRollback ? 1 : 0,
+      pendingCleanups: this.#pendingCleanup ? 1 : 0,
+      compiler: this.#compiler?.ownership() ?? null,
+    });
   }
 
   analyze(): PrivateProjectAnalysisHandle {

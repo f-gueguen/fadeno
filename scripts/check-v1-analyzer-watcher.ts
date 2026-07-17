@@ -12,7 +12,10 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import type { PrivateAnalyzerOperationHandle } from "../packages/framework/src/internal/analyzer-coordinator.ts";
+import {
+  PrivateAnalyzerOperationInterrupted,
+  type PrivateAnalyzerOperationHandle,
+} from "../packages/framework/src/internal/analyzer-coordinator.ts";
 import { PrivateProjectAnalyzer, type PrivateProjectRefresh } from "../packages/framework/src/internal/analyzer-project.ts";
 import {
   PrivateFilesystemInvalidationAdapter,
@@ -119,6 +122,50 @@ class ManualRefreshTarget implements PrivateFilesystemRefreshTarget {
     this.#closed = true;
     this.closeCount += 1;
   }
+}
+
+class InterruptibleRefreshTarget implements PrivateFilesystemRefreshTarget {
+  readonly #root: string;
+  #sequence = 0;
+  readonly pending: PendingRefresh[] = [];
+
+  constructor(root: string) { this.#root = resolve(root); }
+
+  ownsProject(projectRoot: string): boolean { return resolve(projectRoot) === this.#root; }
+
+  refresh(): PrivateAnalyzerOperationHandle<PrivateProjectRefresh> {
+    const sequence = ++this.#sequence;
+    const operation = deferred<PrivateProjectRefresh>();
+    let settled = false;
+    const requestId = `interruptible:request-${sequence}`;
+    const handle = Object.freeze({
+      requestId,
+      sequence,
+      kind: "analysis" as const,
+      result: operation.promise,
+      cancel: () => {
+        if (settled) return;
+        settled = true;
+        operation.reject(new PrivateAnalyzerOperationInterrupted("FADENO_ANALYZER_PROJECT_CANCELLED", requestId));
+      },
+    });
+    this.pending.push(Object.freeze({
+      handle,
+      resolve: () => {
+        if (settled) return;
+        settled = true;
+        operation.resolve(Object.freeze({ requestId, generation: sequence }) as PrivateProjectRefresh);
+      },
+      reject: (error) => {
+        if (settled) return;
+        settled = true;
+        operation.reject(error);
+      },
+    }));
+    return handle;
+  }
+
+  async close(): Promise<void> {}
 }
 
 function copyApplication(root: string): void {
@@ -331,6 +378,62 @@ try {
   const rollbackCycle = await rollbackFlush;
   assert.deepEqual(rollbackCycle.batch.hints, ["src/after-clock-rollback.ts", "src/before-clock-rollback.ts"]);
   await rollbackAdapter.close();
+
+  const interruptedScheduler = new ManualScheduler();
+  const interruptedTarget = new InterruptibleRefreshTarget(schedulerRoot);
+  const interruptedCycles: PrivateFilesystemRefreshCycle[] = [];
+  const interruptions: unknown[] = [];
+  const interruptedFailures: unknown[] = [];
+  const interruptedAdapter = new PrivateFilesystemInvalidationAdapter(schedulerRoot, interruptedTarget, {
+    debounceMs: 25,
+    maximumDelayMs: 100,
+    scheduler: interruptedScheduler,
+    onCycle: (cycle) => { interruptedCycles.push(cycle); },
+    onInterruption: (_batch, error) => { interruptions.push(error); },
+    onFailure: (_batch, error) => { interruptedFailures.push(error); },
+  });
+  interruptedAdapter.notify({ kind: "change", path: "src/cancelled.ts" });
+  const interruptedFlush = interruptedAdapter.flush();
+  interruptedTarget.pending[0]!.handle.cancel();
+  await assert.rejects(interruptedFlush, /FADENO_ANALYZER_PROJECT_CANCELLED/u);
+  assert.deepEqual(interruptedCycles, []);
+  assert.equal(interruptions.length, 1);
+  assert.ok(interruptions[0] instanceof PrivateAnalyzerOperationInterrupted);
+  assert.deepEqual(interruptedFailures, []);
+  await interruptedAdapter.close();
+
+  const closingScheduler = new ManualScheduler();
+  const closingTarget = new ManualRefreshTarget(schedulerRoot);
+  const closingCycles: PrivateFilesystemRefreshCycle[] = [];
+  const closingFailures: unknown[] = [];
+  const closingAdapter = new PrivateFilesystemInvalidationAdapter(schedulerRoot, closingTarget, {
+    debounceMs: 25,
+    maximumDelayMs: 100,
+    scheduler: closingScheduler,
+    onCycle: (cycle) => { closingCycles.push(cycle); },
+    onFailure: (_batch, error) => { closingFailures.push(error); },
+  });
+  closingAdapter.notify({ kind: "change", path: "src/queued-success.ts" });
+  const queuedSuccessFlush = closingAdapter.flush();
+  closingTarget.pending[0]!.resolve();
+  const closing = closingAdapter.close();
+  await assert.rejects(queuedSuccessFlush, /FADENO_ANALYZER_WATCH_CLOSED/u);
+  await closing;
+  assert.deepEqual(closingCycles, []);
+  assert.deepEqual(closingFailures, []);
+  assert.deepEqual(closingAdapter.ownership(), {
+    state: "closed",
+    pendingHints: 0,
+    pendingAliases: 0,
+    pendingReasons: 0,
+    pendingBytes: 0,
+    pendingNotifications: 0,
+    waiters: 0,
+    timers: 0,
+    activeOperations: 0,
+    retainedCycles: 0,
+    observers: 0,
+  });
 } finally {
   rmSync(schedulerRoot, { recursive: true, force: true });
   rmSync(externalRoot, { recursive: true, force: true });

@@ -428,9 +428,11 @@ position-dependent unsaved edit batch, line-ending and analyzer-text
 equivalence, diagnose/correct/repair/close/reopen behavior through a disposable
 private lifecycle consumer. C3 qualifies saved direct and three-level transitive
 changes, configuration reload, rename/deletion, and generated declaration and
-manifest replacement/removal. C4 qualifies cancellation, supersession,
-obsolete-result suppression, close during work, and cleanup with deterministic
-barriers rather than sleeps.
+manifest replacement/removal. C4 uses deterministic compiler-child barriers
+rather than sleeps to qualify explicit cancellation, shared-authority
+supersession, obsolete-result suppression, newest-only accepted delivery, close
+during work, post-close refusal, balanced child settlement, and exact private
+ownership cleanup.
 
 C3 records only immutable filesystem-adapter observer deliveries. Each success
 delivery includes the analyzer-produced empty diagnostic batch, publication,
@@ -446,6 +448,24 @@ include and reaches it only through a three-edge import chain from one included
 owner. Package, parser, platform executable, analyzer, and invalidation-adapter
 identities are verified with mutation canaries before absolute installed-path
 imports.
+
+C4 rebuilds and installs the current tarball before importing its private
+analyzer, compiler, and invalidation modules by absolute installed path. Its
+TypeScript barrier child distinguishes cooperative cancellation from an
+uncooperative obsolete completion. Only filesystem-adapter callbacks count as
+accepted consumer truth; interruption identities and post-close refusals are
+captured from the matching operation or flush promise. Normalized fixtures
+retain interruption, refusal, causal flow, recovery, and cleanup. They record
+that provisional compiler candidates can own disk bytes while active but can
+never become an accepted delivery. The final accepted generation must match
+all seven generated values and disk bytes, contain no stale route or diagnostic,
+and leave no transaction debris.
+
+The packed development scenario additionally blocks an active child candidate,
+admits a newer saved edit, and proves the interruption-only observer resets
+candidate decision ownership without printing failure output. The immediately
+queued batch must accept and serve the newest edit; a third notification is not
+permitted as a recovery trigger.
 
 The package-owned lifecycle runner is conformance infrastructure, not a public
 entrypoint. It may be present in packed internals only while export and deep

@@ -2,7 +2,10 @@ import { existsSync, lstatSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { performance } from "node:perf_hooks";
 
-import type { PrivateAnalyzerOperationHandle } from "./analyzer-coordinator.ts";
+import {
+  PrivateAnalyzerOperationInterrupted,
+  type PrivateAnalyzerOperationHandle,
+} from "./analyzer-coordinator.ts";
 import type { PrivateProjectRefresh } from "./analyzer-project.ts";
 
 const defaultDebounceMs = 25;
@@ -71,8 +74,23 @@ export interface PrivateFilesystemInvalidationOptions<Refresh = PrivateProjectRe
   readonly maximumPendingBytes?: number;
   readonly scheduler?: PrivateFilesystemInvalidationScheduler;
   readonly onCycle?: (cycle: PrivateFilesystemRefreshCycle<Refresh>) => void;
+  readonly onInterruption?: (batch: PrivateFilesystemInvalidationBatch, error: PrivateAnalyzerOperationInterrupted) => void;
   readonly onFailure?: (batch: PrivateFilesystemInvalidationBatch, error: unknown) => void;
 }
+
+export type PrivateFilesystemInvalidationOwnership = Readonly<{
+  state: "accepting" | "closing" | "closed";
+  pendingHints: number;
+  pendingAliases: number;
+  pendingReasons: number;
+  pendingBytes: number;
+  pendingNotifications: number;
+  waiters: number;
+  timers: number;
+  activeOperations: number;
+  retainedCycles: number;
+  observers: number;
+}>;
 
 type CycleWaiter<Refresh> = Readonly<{
   targetSequence: number;
@@ -137,8 +155,9 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
   readonly #maximumPendingHints: number;
   readonly #maximumPathBytes: number;
   readonly #maximumPendingBytes: number;
-  readonly #onCycle?: PrivateFilesystemInvalidationOptions<Refresh>["onCycle"];
-  readonly #onFailure?: PrivateFilesystemInvalidationOptions<Refresh>["onFailure"];
+  #onCycle?: PrivateFilesystemInvalidationOptions<Refresh>["onCycle"];
+  #onInterruption?: PrivateFilesystemInvalidationOptions<Refresh>["onInterruption"];
+  #onFailure?: PrivateFilesystemInvalidationOptions<Refresh>["onFailure"];
   readonly #hints = new Set<string>();
   readonly #rawAliases = new Map<string, string>();
   readonly #reasons = new Set<PrivateFilesystemAdmission["reason"]>();
@@ -194,6 +213,7 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
     );
     this.#scheduler = options.scheduler ?? realScheduler;
     this.#onCycle = options.onCycle;
+    this.#onInterruption = options.onInterruption;
     this.#onFailure = options.onFailure;
   }
 
@@ -244,6 +264,24 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
     return this.#accept(sequence, "contained-change", hint, notification.path, false);
   }
 
+  ownership(): PrivateFilesystemInvalidationOwnership {
+    return Object.freeze({
+      state: this.#state,
+      pendingHints: this.#hints.size,
+      pendingAliases: this.#rawAliases.size,
+      pendingReasons: this.#reasons.size,
+      pendingBytes: this.#pendingBytes,
+      pendingNotifications: this.#pendingSize,
+      waiters: this.#waiters.length,
+      timers: this.#timer === null ? 0 : 1,
+      activeOperations: this.#active ? 1 : 0,
+      retainedCycles: this.#lastCycle ? 1 : 0,
+      observers: Number(Boolean(this.#onCycle)) +
+        Number(Boolean(this.#onInterruption)) +
+        Number(Boolean(this.#onFailure)),
+    });
+  }
+
   flush(): Promise<PrivateFilesystemRefreshCycle<Refresh>> {
     if (this.#state !== "accepting") return Promise.reject(interruption("FADENO_ANALYZER_WATCH_CLOSED"));
     if (this.#admissionSequence === 0 || (!this.#hasPending() && !this.#active)) {
@@ -271,6 +309,10 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
   close(): Promise<void> {
     if (this.#closePromise) return this.#closePromise;
     this.#state = "closing";
+    this.#onCycle = undefined;
+    this.#onInterruption = undefined;
+    this.#onFailure = undefined;
+    this.#lastCycle = null;
     this.#clearTimer();
     this.#clearPending();
     const error = interruption("FADENO_ANALYZER_WATCH_CLOSED");
@@ -359,15 +401,23 @@ export class PrivateFilesystemInvalidationAdapter<Refresh = PrivateProjectRefres
     this.#active = handle;
     void handle.result.then(
       (refresh) => {
+        const publish = this.#active === handle && this.#state === "accepting";
         this.#finishCycle(handle);
+        if (!publish) return;
         const cycle = Object.freeze({ sequence: ++this.#cycleSequence, batch, refresh });
         this.#lastCycle = cycle;
         try { this.#onCycle?.(cycle); } catch { /* observation cannot control scheduling ownership */ }
         this.#settleWaiters(batch.latestAdmissionSequence, cycle, null);
       },
       (error: unknown) => {
+        const publish = this.#active === handle && this.#state === "accepting";
         this.#finishCycle(handle);
-        try { this.#onFailure?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
+        if (!publish) return;
+        if (error instanceof PrivateAnalyzerOperationInterrupted) {
+          try { this.#onInterruption?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
+        } else {
+          try { this.#onFailure?.(batch, error); } catch { /* observation cannot control scheduling ownership */ }
+        }
         this.#settleWaiters(batch.latestAdmissionSequence, null, error);
       },
     );

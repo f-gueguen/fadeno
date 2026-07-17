@@ -1,0 +1,67 @@
+{
+  "adapters": [
+    {
+      "state": "closed",
+      "pendingHints": 0,
+      "pendingAliases": 0,
+      "pendingReasons": 0,
+      "pendingBytes": 0,
+      "pendingNotifications": 0,
+      "waiters": 0,
+      "timers": 0,
+      "activeOperations": 0,
+      "retainedCycles": 0,
+      "observers": 0
+    },
+    {
+      "state": "closed",
+      "pendingHints": 0,
+      "pendingAliases": 0,
+      "pendingReasons": 0,
+      "pendingBytes": 0,
+      "pendingNotifications": 0,
+      "waiters": 0,
+      "timers": 0,
+      "activeOperations": 0,
+      "retainedCycles": 0,
+      "observers": 0
+    },
+    {
+      "state": "closed",
+      "pendingHints": 0,
+      "pendingAliases": 0,
+      "pendingReasons": 0,
+      "pendingBytes": 0,
+      "pendingNotifications": 0,
+      "waiters": 0,
+      "timers": 0,
+      "activeOperations": 0,
+      "retainedCycles": 0,
+      "observers": 0
+    }
+  ],
+  "analyzer": {
+    "coordinator": {
+      "state": "closed",
+      "queuedOperations": 0,
+      "activeOperations": 0,
+      "pendingAnalysisOperations": 0,
+      "drainWorkers": 0
+    },
+    "currentAnalysisTokens": 0,
+    "latestAnalysisRequests": 0,
+    "pendingApplicationRecoveries": 0,
+    "pendingRollbacks": 0,
+    "pendingCleanups": 0,
+    "compiler": {
+      "state": "closed",
+      "activeValidations": 0
+    }
+  },
+  "compilerChildrenSpawned": 9,
+  "compilerChildrenClosed": 9,
+  "childLifecycleBalanced": true,
+  "generatedTransactionDebris": 0,
+  "retainedAcceptedRouteDirectory": true,
+  "disposableConsumerRootRemoved": true
+}

@@ -920,10 +920,10 @@ new lifetime and cleanup.
 C3 separately qualifies saved direct and three-level transitive changes,
 configuration epochs, rename/deletion, and atomic declaration/manifest
 replacement or removal at that same event boundary. Stock TypeScript remains
-authoritative for ordinary TypeScript inputs and results. C4 separately uses
-deterministic barriers, never timing sleeps, to qualify active cancellation,
+authoritative for ordinary TypeScript inputs and results. C4 uses deterministic
+compiler-child barriers, never timing sleeps, to qualify active cancellation,
 supersession, obsolete-event suppression, close during work, and zero retained
-operation and artifact ownership.
+operation, observer, transaction, compiler-child, and cycle ownership.
 
 The C3 private refresh delivery carries both the analyzer publication and its
 complete diagnostic batch. A diagnostic refusal carries the publication and
@@ -948,6 +948,33 @@ the difference between current refused desired state and preserved last-good
 disk state. Recovery reunifies one empty diagnostic batch, one publication,
 and the exact applied bytes.
 
+The C4 filesystem consumer publishes only while the exact refresh handle still
+owns the active cycle and the adapter remains accepting. Cancellation and
+supersession reject the matching flush waiter with their structured internal
+interruption identity, but do not invoke the ordinary failure callback. Close
+clears callbacks and the retained last cycle before cancelling active work, and
+suppresses any success or failure continuation already queued for delivery.
+A dedicated private interruption observer may settle consumer-owned lifecycle
+state, such as refusing an interrupted development candidate, without rendering
+or publishing an ordinary failure.
+
+Two private adapters may address the same retained analyzer authority for the
+supersession fixture. One owns a deliberately blocked obsolete compiler child;
+the other admits newer saved state and therefore exercises the coordinator's
+existing supersession policy without changing the adapter's dirty-batch policy.
+The obsolete child may complete after interruption, but its result cannot emit
+a cycle or overwrite the one newest accepted generation.
+
+Route artifacts are provisionally applied for compiler validation. C4 does not
+claim those candidate bytes are absent while a barrier is active. The enforceable
+boundary is that provisional bytes are never delivered as accepted consumer
+state; interruption rolls them back, or the newer complete generation replaces
+them before the only accepted event. After close, private ownership reports
+contain only state and counts and prove zero pending hints, aliases, reasons,
+bytes, waiters, timers, operations, retained cycles, observers, recovery,
+rollback, cleanup, drain, and compiler-validation owners. These reports remain
+packed internals and define no transport or external schema.
+
 The disposable consumer and private machine fixtures are packed conformance
 evidence only. They add no package export, public command, generic protocol,
 editor metadata, supported editor product, or compatibility-controlled schema.
@@ -970,8 +997,11 @@ to use public entrypoints and are not documentation for this private consumer.
   disappearance.
 - Atomic-publication fixtures compare diagnostics, declarations, manifests,
   mappings, and deletions as one epoch, including error repair and recovery.
-- Cancellation and supersession fixtures prove obsolete results are not
-  published.
+- Current-packed cancellation and supersession fixtures use explicit child
+  barriers to prove obsolete results are not published, only the newest
+  complete generation is delivered, close drains active work, post-close
+  admission refuses, child lifecycle is balanced, transaction debris is
+  absent, and all counted private owners reach zero.
 - Retained-consumer fixtures prove same-turn bursts, active supersession,
   explicit cancellation, exact terminal identity, failure recovery, result
   handoff, pre-close drain, and no operation overlap without timing sleeps.

@@ -1,0 +1,32 @@
+{
+  "explicitCancellation": {
+    "barrier": "compiler-child-ready",
+    "deliveryCode": "FADENO_ANALYZER_PROJECT_CANCELLED",
+    "operationCode": "FADENO_ANALYZER_PROJECT_CANCELLED",
+    "requestIdentityMatches": true,
+    "consumerCyclePublished": false,
+    "failureCallbackPublished": false,
+    "lastGoodArtifactsPreserved": true
+  },
+  "supersession": {
+    "barrier": "compiler-child-ready",
+    "obsoleteDeliveryCode": "FADENO_ANALYZER_PROJECT_SUPERSEDED",
+    "obsoleteOperationCode": "FADENO_ANALYZER_PROJECT_SUPERSEDED",
+    "requestIdentityMatches": true,
+    "obsoleteConsumerCyclePublished": false,
+    "obsoleteFailureCallbackPublished": false,
+    "newestConsumerCyclesPublished": 1,
+    "provisionalObsoleteGenerationNotDelivered": true,
+    "obsoleteRouteAbsent": true,
+    "newestRoutePresent": true
+  },
+  "close": {
+    "barrier": "compiler-child-ready",
+    "flushRefusalCode": "FADENO_ANALYZER_WATCH_CLOSED",
+    "operationCode": "FADENO_ANALYZER_PROJECT_CANCELLED",
+    "closeWaitedForActiveOwnership": true,
+    "consumerCyclePublished": false,
+    "failureCallbackPublished": false,
+    "lastGoodArtifactsPreserved": true
+  }
+}
