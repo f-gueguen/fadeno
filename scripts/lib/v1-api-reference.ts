@@ -20,7 +20,7 @@ export function exportedNames(declaration: string): readonly string[] {
     }
   }
   if (/^export\s+default\b/mu.test(declaration)) names.add("default");
-  return [...names].sort((left, right) => left.localeCompare(right));
+  return [...names].sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
 }
 
 function normalized(path: string): string {

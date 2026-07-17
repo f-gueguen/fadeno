@@ -8,7 +8,7 @@ making the package name, version, or publication status public or stable.
 
 ## `fadeno-framework-internal`
 
-Exports: `ActionAuthorizationContext`, `ActionDeclaration`, `actionError`, `ActionError`, `ActionField`, `ActionFieldToken`, `ActionInput`, `ActionOptions`, `ActionRedirectOutcome`, `ActionRunContext`, `ActionUpload`, `Boundary`, `BoundaryProps`, `checkboxField`, `defineAction`, `defineConfig`, `defineResource`, `ErrorPage`, `FadenoConfig`, `fileField`, `Handler`, `integerField`, `Layout`, `MatchedRouteRender`, `notFound`, `NotFoundPage`, `Page`, `PageContext`, `redirect`, `RedirectOutcome`, `RenderChild`, `RenderNode`, `renderRoute`, `ResourceDeclaration`, `resourceError`, `ResourceError`, `ResourceInput`, `ResourceInputObject`, `ResourceLoader`, `ResourceReadContext`, `ResourceStatus`, `RouteConfig`, `RouteOutcome`, `Session`, `SessionValue`, `SessionValueObject`, `SessionView`, `textField`, `unsafeHtml`, `UnsafeHtml`.
+Exports: `ActionAuthorizationContext`, `ActionDeclaration`, `ActionError`, `ActionField`, `ActionFieldToken`, `ActionInput`, `ActionOptions`, `ActionRedirectOutcome`, `ActionRunContext`, `ActionUpload`, `Boundary`, `BoundaryProps`, `ErrorPage`, `FadenoConfig`, `Handler`, `Layout`, `MatchedRouteRender`, `NotFoundPage`, `Page`, `PageContext`, `RedirectOutcome`, `RenderChild`, `RenderNode`, `ResourceDeclaration`, `ResourceError`, `ResourceInput`, `ResourceInputObject`, `ResourceLoader`, `ResourceReadContext`, `ResourceStatus`, `RouteConfig`, `RouteOutcome`, `Session`, `SessionValue`, `SessionValueObject`, `SessionView`, `UnsafeHtml`, `actionError`, `checkboxField`, `defineAction`, `defineConfig`, `defineResource`, `fileField`, `integerField`, `notFound`, `redirect`, `renderRoute`, `resourceError`, `textField`, `unsafeHtml`.
 
 Declaration SHA-256: `ffedfc61ba8d24a5774525a8df855dd3f2ae1f175e213c8f3520a7b1bcfa83c9`.
 
@@ -204,7 +204,7 @@ export {};
 ```
 ## `fadeno-framework-internal/node`
 
-Exports: `FrameworkFailureObserver`, `FrameworkFailureReport`, `listenNodeHttp`, `ListenNodeHttpOptions`, `nodeHttpCapabilities`, `NodeHttpCapabilities`, `NodeHttpServer`.
+Exports: `FrameworkFailureObserver`, `FrameworkFailureReport`, `ListenNodeHttpOptions`, `NodeHttpCapabilities`, `NodeHttpServer`, `listenNodeHttp`, `nodeHttpCapabilities`.
 
 Declaration SHA-256: `a24874763432a164ba4c732d484081b58085b2e05ed5fefafed770c0c874ace4`.
 
@@ -251,7 +251,7 @@ export declare function listenNodeHttp(options: ListenNodeHttpOptions): Promise<
 ```
 ## `fadeno-framework-internal/jsx-runtime`
 
-Exports: `Component`, `Fragment`, `jsx`, `JSX`, `jsxs`.
+Exports: `Component`, `Fragment`, `JSX`, `jsx`, `jsxs`.
 
 Declaration SHA-256: `43e8fc2786b78663b248c6792111c9a915f85de2e085929cb6ca73f96ddb7263`.
 
