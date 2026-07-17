@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "applicationRoots": [
+    "fadeno.config.ts",
+    "package.json",
+    "tsconfig.json",
+    "src"
+  ],
+  "scenarioRoot": "scenarios",
+  "verificationGates": [
+    "check:v1-analyzer-workflow",
+    "check:v1-running-example",
+    "check:v1-development",
+    "check:v1-resources",
+    "check:v1-actions",
+    "check:v1-action-runtime"
+  ],
+  "evidence": {
+    "success": [
+      "expected/build-manifest-normalized.json",
+      "expected/build-success.txt",
+      "expected/check-success-explain.txt",
+      "expected/check-success.txt",
+      "expected/development-success.txt",
+      "expected/resource-success.txt"
+    ],
+    "failure": [
+      "expected/action-failure.txt",
+      "expected/build-typescript-error.txt",
+      "expected/check-collision-explain.txt",
+      "expected/check-collision.txt",
+      "expected/failure-report.json",
+      "expected/resource-failure.txt",
+      "scenarios/action-lifecycle/expected/diagnostic.json",
+      "scenarios/resource-lifecycle/expected/expected-failure.json",
+      "scenarios/resource-lifecycle/expected/refusal.json"
+    ],
+    "correction": [
+      "scenarios/action-lifecycle/expected/correction-after.json",
+      "scenarios/action-lifecycle/expected/correction-before.json",
+      "scenarios/resource-lifecycle/expected/correction-after.json",
+      "scenarios/resource-lifecycle/expected/correction-before.json"
+    ],
+    "flow": [
+      "expected/check-collision-explain.txt",
+      "expected/check-success-explain.txt",
+      "scenarios/action-lifecycle/expected/flow.json",
+      "scenarios/build-compiler-error/expected/flow.json",
+      "scenarios/development-lifecycle/expected/flow.json",
+      "scenarios/resource-lifecycle/expected/flow.json",
+      "scenarios/route-role-collision/expected/flow.json"
+    ],
+    "recovery": [
+      "expected/resource-recovery.txt",
+      "scenarios/action-lifecycle/expected/recovery.json",
+      "scenarios/build-compiler-error/expected/recovery.json",
+      "scenarios/development-lifecycle/expected/recovery.json",
+      "scenarios/resource-lifecycle/expected/recovery.json",
+      "scenarios/route-role-collision/expected/recovery.json"
+    ],
+    "staleRemoval": [
+      "scenarios/action-lifecycle/expected/recovery.json",
+      "scenarios/build-compiler-error/expected/recovery.json",
+      "scenarios/development-lifecycle/expected/recovery.json",
+      "scenarios/resource-lifecycle/expected/recovery.json",
+      "scenarios/route-role-collision/expected/recovery.json"
+    ]
+  }
+}

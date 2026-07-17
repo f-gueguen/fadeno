@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "canonicalApplication": "v1-app",
+  "supportingExamples": [
+    {
+      "path": "adapter-smoke",
+      "role": "package-adapter-smoke"
+    }
+  ]
+}

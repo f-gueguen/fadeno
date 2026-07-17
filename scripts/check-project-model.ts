@@ -527,6 +527,38 @@ for (const [index, expected] of expectedV1DxC.entries()) {
   }
 }
 
+const expectedV114 = [
+  { id: "V1-14A", features: ["GOV-01", "TEST-01", "DOC-01"], dependencies: ["V1-13", "V1-DX-C5B"], commands: ["pnpm check:v1-documentation-source", "pnpm check:docs", "pnpm check:model", "pnpm check", "pnpm ci:local"] },
+  { id: "V1-14B", features: ["BUILD-01", "CLI-01", "DX-01", "DOC-01"], dependencies: ["V1-14A"], commands: ["pnpm check:v1-documentation", "pnpm check"] },
+  { id: "V1-14C", features: ["BUILD-01", "CLI-01", "TEST-01", "DX-01", "DOC-01"], dependencies: ["V1-14B"], commands: ["pnpm check:v1-independent-workflow", "pnpm check:v1-public-package", "pnpm check:v1-running-example", "pnpm check:v1-development", "pnpm check"] },
+  { id: "V1-14D", features: ["GOV-01", "SEC-01", "TEST-01", "DX-01", "DOC-01", "ACCESS-01", "PERF-01"], dependencies: ["V1-14C"], commands: ["pnpm ci:local"] },
+] as const;
+const v114Rows = tableRows(v1, /^\| V1-14[A-D] \|/);
+const v114Ids = v114Rows.map((cells) => cells[0]);
+const expectedV114Ids = expectedV114.map((entry) => entry.id);
+if (JSON.stringify(v114Ids) !== JSON.stringify(expectedV114Ids)) {
+  errors.push(`docs/roadmap/v1.md: expected ordered V1-14 sub-slices ${expectedV114Ids.join(", ")}`);
+}
+for (const [index, expected] of expectedV114.entries()) {
+  const cells = v114Rows[index];
+  if (!cells || cells[0] !== expected.id) continue;
+  if (cells.length !== 7) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} must have exactly 7 columns`);
+    continue;
+  }
+  const features = [...cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)].map((match) => match[1]);
+  if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
+    errors.push(`docs/roadmap/v1.md: ${expected.id} feature ownership differs from the accepted plan`);
+  }
+  for (const dependency of expected.dependencies) {
+    if (!cells[3].includes(dependency)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing dependency ${dependency}`);
+  }
+  for (const command of expected.commands) {
+    if (!cells[5].includes(`\`${command}\``)) errors.push(`docs/roadmap/v1.md: ${expected.id} missing validation command ${command}`);
+  }
+  if (!cells[4] || !cells[6]) errors.push(`docs/roadmap/v1.md: ${expected.id} is missing artifacts or user boundary`);
+}
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],
