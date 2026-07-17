@@ -296,6 +296,8 @@ try {
   await waitForPath(join(control, `${cancelledPid}.ready`));
   cancelledHandle.cancel();
   const [cancelledDelivery, cancelledOperation] = await Promise.all([cancelledFlushError, cancelledHandleError]);
+  assert.notEqual(cancelledDelivery.requestId, null);
+  assert.notEqual(cancelledOperation.requestId, null);
   assert.deepEqual(readOutput(application), baselineOutput);
   assert.deepEqual(failuresA, []);
 
@@ -334,6 +336,8 @@ try {
     obsoleteHandleError,
     newestFlush,
   ]);
+  assert.notEqual(obsoleteDelivery.requestId, null);
+  assert.notEqual(obsoleteOperation.requestId, null);
   const newestOutput = readOutput(application);
   assertApplied(newest, newestOutput);
   assert.equal(routeIds(newestOutput).includes("/c4-obsolete"), false);
