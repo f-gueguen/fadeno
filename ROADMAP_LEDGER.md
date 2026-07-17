@@ -33,6 +33,22 @@ V1-DX-C3 — packed saved-project freshness qualification
   direct and transitive freshness, configuration epochs, rename/deletion
   cleanup, and atomic declaration/manifest replacement without reconstructing
   policy in the consumer.
+- The packed C3 consumer records only immutable filesystem-adapter deliveries.
+  The existing private refresh and diagnostic-failure deliveries will carry the
+  analyzer-produced diagnostic batch and publication from the same operation so
+  the consumer never reads internal current state or rebuilds replacement
+  policy. Observer callbacks copy the delivered bytes synchronously; their
+  exceptions cannot become test assertions because the adapter intentionally
+  isolates observer failures.
+- C3 proves compiler transitivity with one included owner and a three-edge
+  imported chain whose deepest dependency is outside the configured root-file
+  include. A leaf-only saved change must refresh the delivered compiler input
+  while framework artifact bytes remain unchanged.
+- Successful deliveries must account for every generated route artifact and
+  exact applied byte. Diagnostic refusal keeps the prior applied bytes intact
+  while its analyzer publication records the current empty/replacement state;
+  recovery must publish one later empty diagnostic batch whose artifact bytes
+  exactly equal disk and contain no stale owner.
 - Stock TypeScript remains authoritative for ordinary TypeScript refresh. C3
   observes only Fadeno ownership, diagnostics, provenance, generated artifacts,
   and removals from accepted private analyzer publications.
