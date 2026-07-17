@@ -16,7 +16,7 @@ A0-01 — decide the alpha CSS boundary from executable native-CSS evidence
   retain inline-style refusal, correction, flow, and stale-removal evidence.
 - [x] Resolve the CSS-01 decision through an ADR, current specifications, traceability,
   risk/deferral state, and executable documentation sourced from tested files.
-- [ ] Pass CSS, rendering-security, accessibility, documentation, model, full
+- [x] Pass CSS, rendering-security, accessibility, documentation, model, full
   repository, local CI, and independent review gates.
 
 ## Active sub-slice
@@ -36,6 +36,9 @@ tag, or publication.
 - Chromium, Firefox, and WebKit prove computed styles and focus visibility with
   JavaScript disabled; normalized failure, correction, flow, recovery, and
   stale-removal evidence is retained in the scenario harness.
+- Exact tip `904a856` passed `pnpm check` and `pnpm ci:local`; the current-tip
+  independent review reported no major issues and exhaustive thread triage left
+  no unresolved connector findings.
 
 ## Blockers
 
