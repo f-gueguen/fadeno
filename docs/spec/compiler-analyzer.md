@@ -1006,6 +1006,13 @@ promote a redacted attempt. The accepted values remain baseline-only evidence
 with no threshold, optimization conclusion, incremental claim, public schema,
 or supported consumer contract.
 
+The measured source commit must be an ancestor of the preserved branch history.
+Reconstruction obtains modes from that Git tree, not archive extraction, and
+performs a frozen offline install, framework build, pack, and extraction before
+accepting package or compiler digests. The capture transaction emits raw,
+identity, host, derived summary, and manifest files together; the normal evidence
+gate refuses a partial directory.
+
 The disposable consumer and private machine fixtures are packed conformance
 evidence only. They add no package export, public command, generic protocol,
 editor metadata, supported editor product, or compatibility-controlled schema.

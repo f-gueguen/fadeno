@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { deriveFeedbackEvidenceSummary } from "./lib/v1-analyzer-feedback-evidence.ts";
@@ -10,6 +11,7 @@ import { sha256, verifyFeedbackContract, verifyFeedbackRun } from "./lib/v1-anal
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const expectedRoot = join(root, "evidence/v1-analyzer-feedback/results");
+type FileIdentity = readonly Readonly<{ path: string; mode: number; sha256: string }>[];
 
 function run(command: string, arguments_: readonly string[], cwd: string): Buffer {
   const result = spawnSync(command, arguments_, { cwd, encoding: "buffer", maxBuffer: 64 * 1024 * 1024 });
@@ -18,11 +20,12 @@ function run(command: string, arguments_: readonly string[], cwd: string): Buffe
   return result.stdout;
 }
 
-function treeSha256(directory: string): string {
+function fileIdentity(directory: string): FileIdentity {
   const files: { path: string; mode: number; sha256: string }[] = [];
   const visit = (current: string): void => {
     for (const entry of readdirSync(current, { withFileTypes: true })
       .sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0)) {
+      if (entry.name === "node_modules") continue;
       const path = join(current, entry.name);
       if (entry.isDirectory()) visit(path);
       else if (entry.isFile()) files.push({
@@ -34,8 +37,48 @@ function treeSha256(directory: string): string {
     }
   };
   visit(directory);
-  files.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
-  return sha256(JSON.stringify(files));
+  return Object.freeze(files.map((file) => Object.freeze(file)));
+}
+
+function identitySha256(identity: FileIdentity): string {
+  return sha256(JSON.stringify(identity));
+}
+
+function gitTreeSha256(directory: string, sourceCommit: string): string {
+  const entries = run("git", ["ls-tree", "-r", "-z", "--full-tree", sourceCommit], root)
+    .toString("utf8").split("\0").filter(Boolean).map((entry) => {
+      const match = /^(100644|100755) blob [0-9a-f]+\t(.+)$/u.exec(entry);
+      if (!match) throw new TypeError("FADENO_FEEDBACK_EVIDENCE_SOURCE_INDEX");
+      const path = match[2]!;
+      const absolute = resolve(directory, path);
+      const containment = relative(directory, absolute);
+      if (containment.length === 0 || containment.startsWith("..")) {
+        throw new TypeError("FADENO_FEEDBACK_EVIDENCE_SOURCE_PATH");
+      }
+      return Object.freeze({
+        path,
+        mode: Number.parseInt(match[1]!, 8) & 0o777,
+        sha256: sha256(readFileSync(absolute)),
+      });
+    });
+  entries.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+  return sha256(JSON.stringify(entries));
+}
+
+function compilerIdentity(packageRoot: string): Readonly<{ version: string; sha256: string }> {
+  const require = createRequire(join(packageRoot, "package.json"));
+  const manifestPath = require.resolve("typescript/package.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { version: string };
+  const parserRequire = createRequire(manifestPath);
+  const executableManifest = parserRequire.resolve(`@typescript/typescript-${process.platform}-${process.arch}/package.json`);
+  const executable = join(dirname(executableManifest), "lib/tsc");
+  const identity = [
+    Object.freeze({ path: "typescript/package.json", sha256: sha256(readFileSync(manifestPath)) }),
+    Object.freeze({ path: "typescript/lib/tsc.js", sha256: sha256(readFileSync(join(dirname(manifestPath), "lib/tsc.js"))) }),
+    Object.freeze({ path: "compiler/package.json", sha256: sha256(readFileSync(executableManifest)) }),
+    Object.freeze({ path: "compiler/lib/tsc", sha256: sha256(readFileSync(executable)) }),
+  ];
+  return Object.freeze({ version: manifest.version, sha256: sha256(JSON.stringify(identity)) });
 }
 
 function json(path: string): any {
@@ -97,15 +140,34 @@ verifyFeedbackRun(raw, contract, contractSha256, identity.identity);
 const sourceCommit = identity.identity.sourceCommit as string;
 assert.match(sourceCommit, /^[0-9a-f]{40}$/u);
 assert.ok(resultId.includes(`-${sourceCommit.slice(0, 7)}-`));
+run("git", ["merge-base", "--is-ancestor", sourceCommit, "HEAD"], root);
 const temporary = mkdtempSync(join(tmpdir(), "fadeno-feedback-evidence-"));
 let reconstructedSourceTreeSha256 = "";
+let reconstructedTarballSha256 = "";
+let reconstructedInstalledPackageTreeSha256 = "";
+let reconstructedCompilerIdentity: Readonly<{ version: string; sha256: string }> | null = null;
 try {
   const archive = join(temporary, "source.tar");
   run("git", ["archive", "--format=tar", "-o", archive, sourceCommit], root);
   const source = join(temporary, "source");
   mkdirSync(source);
   run("tar", ["-xf", archive, "-C", source], temporary);
-  reconstructedSourceTreeSha256 = treeSha256(source);
+  reconstructedSourceTreeSha256 = gitTreeSha256(source, sourceCommit);
+  run("pnpm", ["install", "--offline", "--frozen-lockfile", "--ignore-scripts"], source);
+  run("pnpm", ["--filter", "fadeno-framework-internal", "build"], source);
+  const tarballs = join(temporary, "tarballs");
+  mkdirSync(tarballs);
+  const packageRoot = join(source, "packages/framework");
+  run("pnpm", ["pack", "--pack-destination", tarballs], packageRoot);
+  const tarballName = readdirSync(tarballs).find((name) => name.endsWith(".tgz"));
+  if (!tarballName) throw new TypeError("FADENO_FEEDBACK_EVIDENCE_TARBALL");
+  const tarball = join(tarballs, tarballName);
+  reconstructedTarballSha256 = sha256(readFileSync(tarball));
+  const extracted = join(temporary, "package");
+  mkdirSync(extracted);
+  run("tar", ["-xzf", tarball, "-C", extracted], temporary);
+  reconstructedInstalledPackageTreeSha256 = identitySha256(fileIdentity(join(extracted, "package")));
+  reconstructedCompilerIdentity = compilerIdentity(packageRoot);
 } finally {
   rmSync(temporary, { recursive: true, force: true });
 }
@@ -130,6 +192,14 @@ if (existsSync(refusalPath)) {
 } else {
   assert.deepEqual(readdirSync(resultDirectory).sort(), ["host.json", "identity.json", "manifest.json", "raw.json", "summary.json"]);
   assert.equal(reconstructedSourceTreeSha256, identity.identity.sourceTreeSha256);
+  assert.equal(reconstructedTarballSha256, identity.identity.tarballSha256);
+  assert.equal(reconstructedInstalledPackageTreeSha256, identity.identity.installedPackageTreeSha256);
+  assert.equal(reconstructedCompilerIdentity?.version, identity.identity.compilerVersion);
+  assert.equal(reconstructedCompilerIdentity?.sha256, identity.identity.compilerPackageSha256);
+  assert.equal(identity.identity.runtimeVersion, process.version);
+  assert.equal(identity.identity.runtimeExecutableSha256, sha256(readFileSync(process.execPath)));
+  assert.equal(identity.identity.platform, process.platform);
+  assert.equal(identity.identity.architecture, process.arch);
   const host = json(join(resultDirectory, "host.json"));
   assert.deepEqual(Object.keys(host).sort(), ["architecture", "cpuModel", "logicalCpuCount", "osRelease", "osVersion", "platform", "runtimeVersion", "schema", "totalMemoryBytes", "version"].sort());
   assert.equal(host.schema, "fadeno.private.feedback-host");

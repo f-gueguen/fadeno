@@ -82,3 +82,36 @@ export function deriveFeedbackEvidenceSummary(
     workloads: Object.freeze(workloads),
   });
 }
+
+export function buildFeedbackEvidenceDocuments(
+  raw: unknown,
+  identity: unknown,
+  host: unknown,
+  resultId: string,
+  sourceCommit: string,
+  contractSha256: string,
+  workloadOrder: readonly string[],
+  phaseOrder: readonly string[],
+): Readonly<Record<"host.json" | "identity.json" | "raw.json" | "summary.json" | "manifest.json", string>> {
+  const summary = deriveFeedbackEvidenceSummary(raw, resultId, workloadOrder, phaseOrder);
+  const documents = {
+    "host.json": `${JSON.stringify(host, null, 2)}\n`,
+    "identity.json": `${JSON.stringify(identity, null, 2)}\n`,
+    "raw.json": `${JSON.stringify(raw, null, 2)}\n`,
+    "summary.json": `${JSON.stringify(summary, null, 2)}\n`,
+  } as const;
+  const manifest = {
+    schema: "fadeno.private.feedback-evidence",
+    version: 1,
+    resultId,
+    sourceCommit,
+    contractSha256,
+    files: Object.entries(documents).map(([path, bytes]) => ({ path, sha256: sha256(bytes) })),
+    conclusion: "baseline-only-no-budget",
+  };
+  return Object.freeze({
+    ...documents,
+    "manifest.json": `${JSON.stringify(manifest, null, 2)}\n`,
+  });
+}
+import { sha256 } from "./v1-analyzer-feedback-verifier.ts";

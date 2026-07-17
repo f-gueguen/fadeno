@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { buildFeedbackEvidenceDocuments } from "./lib/v1-analyzer-feedback-evidence.ts";
 import {
   redactedEnvironmentSha256,
   sha256,
@@ -116,6 +117,31 @@ const valid = {
   selection: "all-attempts-no-retry",
 };
 assert.deepEqual(verifyFeedbackRun(valid, contract, sha256(contractBytes), identity), { mode: "dry-run", attempts: 14, deepTiming: false });
+const measurement = structuredClone(valid);
+measurement.mode = "measurement";
+measurement.deepTiming = true;
+for (const attempt of measurement.attempts) {
+  attempt.phaseTiming = Object.fromEntries(contract.phases.map((phase) => [phase, phase === "typescript-refresh" && attempt.workloadId === "diagnostic-replacement"
+    ? { status: "skipped", elapsedNs: "0", reason: "framework-diagnostic" }
+    : { status: "completed", elapsedNs: "1", reason: null }]));
+}
+assert.deepEqual(verifyFeedbackRun(measurement, contract, sha256(contractBytes), identity), { mode: "measurement", attempts: 14, deepTiming: true });
+const evidence = buildFeedbackEvidenceDocuments(
+  measurement,
+  { schema: "identity" },
+  { schema: "host" },
+  "20260717T000000Z-bbbbbbb-a1",
+  identity.sourceCommit,
+  sha256(contractBytes),
+  contract.schedule.order,
+  contract.phases,
+);
+assert.deepEqual(Object.keys(evidence), ["host.json", "identity.json", "raw.json", "summary.json", "manifest.json"]);
+const evidenceManifest = JSON.parse(evidence["manifest.json"]) as any;
+assert.deepEqual(evidenceManifest.files, ["host.json", "identity.json", "raw.json", "summary.json"].map((path) => ({
+  path,
+  sha256: sha256(evidence[path as keyof typeof evidence]),
+})));
 
 const refuses = (mutate: (copy: any) => void, code: RegExp): void => {
   const copy = structuredClone(valid);

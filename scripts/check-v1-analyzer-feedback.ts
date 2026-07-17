@@ -3,12 +3,13 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { cpus, release, tmpdir, totalmem, version as osVersion } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { PrivateAnalyzerOperationHandle } from "../packages/framework/src/internal/analyzer-coordinator.ts";
 import type { PrivateProjectRefresh } from "../packages/framework/src/internal/analyzer-project.ts";
 import type { PrivateFilesystemRefreshCycle, PrivateFilesystemRefreshTarget } from "../packages/framework/src/internal/analyzer-watcher.ts";
+import { buildFeedbackEvidenceDocuments } from "./lib/v1-analyzer-feedback-evidence.ts";
 import {
   redactedEnvironmentSha256,
   sha256,
@@ -467,22 +468,22 @@ try {
   assert.deepEqual(verified, { mode: retainPath === null ? "dry-run" : "measurement", attempts: 14, deepTiming });
   if (retainPath !== null) {
     const output = retainedDirectory(retainPath, source.commit);
+    const resultId = basename(output);
     const parent = dirname(output);
     mkdirSync(parent, { recursive: true });
     const stage = join(parent, `.${output.slice(parent.length + 1)}.stage`);
     if (existsSync(stage)) throw new TypeError("FADENO_FEEDBACK_RETAIN_STAGE");
     mkdirSync(stage);
     try {
-      writeFileSync(join(stage, "raw.json"), `${JSON.stringify(raw, null, 2)}\n`);
-      writeFileSync(join(stage, "identity.json"), `${JSON.stringify({
+      const identityDocument = {
         schema: "fadeno.private.feedback-identity",
         version: 1,
         contractSha256,
         identity,
         attempts: raw.attempts.length,
         deepTiming,
-      }, null, 2)}\n`);
-      writeFileSync(join(stage, "host.json"), `${JSON.stringify({
+      };
+      const hostDocument = {
         schema: "fadeno.private.feedback-host",
         version: 1,
         platform: process.platform,
@@ -493,7 +494,18 @@ try {
         logicalCpuCount: cpus().length,
         totalMemoryBytes: totalmem(),
         runtimeVersion: process.version,
-      }, null, 2)}\n`);
+      };
+      const evidence = buildFeedbackEvidenceDocuments(
+        raw,
+        identityDocument,
+        hostDocument,
+        resultId,
+        source.commit,
+        contractSha256,
+        contract.schedule.order,
+        contract.phases,
+      );
+      for (const [name, bytes] of Object.entries(evidence)) writeFileSync(join(stage, name), bytes);
       renameSync(stage, output);
     } catch (error) {
       rmSync(stage, { recursive: true, force: true });

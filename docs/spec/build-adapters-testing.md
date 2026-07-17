@@ -522,6 +522,17 @@ runner now hashes sorted environment variable names without values. The first
 accepted result under that rule is `20260717T090059Z-4d57a69-a4`; no prior
 timing result was selected.
 
+The retained source commit must remain an ancestor of the reviewed branch and
+merge; C5B therefore preserves branch history rather than squashing it. Source
+reconstruction reads `100644` and `100755` modes from the Git tree instead of
+the archive extraction filesystem, so the verifier is independent of umask.
+From that exact source, the verifier performs a frozen offline install, rebuilds
+and repacks the framework, extracts the package, and compares the reconstructed
+tarball, installed package tree, compiler, runtime, platform, and architecture
+identities with the raw record. Sibling JSON agreement is insufficient. A
+retained capture atomically publishes raw, identity, host, derived summary, and
+manifest documents as one verifier-ready directory.
+
 The accepted result records the exact Apple M2 Pro, 10-logical-CPU, 32 GiB,
 Darwin arm64 host, runtime and compiler versions, name-only environment
 identity, raw attempts, derived summary, and file manifest. Across all five
