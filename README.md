@@ -28,6 +28,14 @@ measured evidence.
 See [the roadmap](docs/roadmap.md) and
 [current V1 plan](docs/roadmap/v1.md).
 
+Current private-V1 documentation is generated from executed source and verified
+output:
+
+- [getting started](docs/guides/getting-started.md);
+- [resources, actions, and sessions](docs/guides/resources-actions.md);
+- [diagnostics, flow inspection, and recovery](docs/guides/diagnostics-recovery.md);
+- [V1 API reference](docs/reference/v1-api.md).
+
 For a complete view of planned capabilities, use the
 [feature matrix](docs/product/scope.md), [traceability matrix](docs/traceability.md),
 and [detailed V1 plan](docs/roadmap/v1.md).

@@ -1,7 +1,9 @@
 # Migration policy and index
 
 Migration documents exist only for released compatibility changes. There are no
-released migrations yet.
+released migrations yet. The [V1 private-preview seed](v1-private-preview.md)
+is generated from verified correction evidence to establish the future format;
+it is not a released migration.
 
 ## Location and naming
 
@@ -49,4 +51,4 @@ belongs in specifications and released declarations.
 
 ## Current migrations
 
-None.
+None. The private-preview seed is non-release guidance.

@@ -22,13 +22,16 @@ V1-14 — make V1 independently usable and documented
 
 ## Active sub-slice
 
-V1-14A — make the canonical V1 application and its verified evidence the
-mechanically enforced documentation authority. This adds no public behavior or
-copied prose example. V1-14B generates the user documentation, V1-14C proves
-the clean independent workflow, and V1-14D performs the V1 exit qualification.
+V1-14B — generate the V1 public API reference, tutorials, diagnostics guide,
+and migration seed from executed application source and verified output. The
+private package identity remains explicit and no copied Markdown example may
+become an alternate authority.
 
 ## In progress
 
+- The V1 API reference is generated from the current emitted TypeScript
+  declarations. Tutorials, diagnostics, corrections, flow, recovery, and the
+  migration seed next consume the V1-14A authority manifest.
 - V1-14A owns one versioned manifest of the canonical application's executed
   source and normalized success, failure, correction, flow, recovery, and
   stale-removal evidence. The earlier adapter smoke remains a narrow package

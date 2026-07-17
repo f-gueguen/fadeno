@@ -11,12 +11,15 @@ function strings(value: unknown): readonly string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
 }
 
-function files(directory: string): readonly string[] {
+function files(directory: string, errors: string[], displayRoot: string): readonly string[] {
   if (!existsSync(directory)) return [];
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     if (entry.name === "node_modules" || entry.name === ".fadeno" || entry.name === "dist") return [];
     const path = join(directory, entry.name);
-    return entry.isDirectory() ? files(path) : entry.isFile() ? [path] : [];
+    if (entry.isDirectory()) return files(path, errors, displayRoot);
+    if (entry.isFile()) return [path];
+    errors.push(`documentation authority refuses non-regular entry: ${relative(displayRoot, path)}`);
+    return [];
   });
 }
 
@@ -105,7 +108,7 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
   for (const rootPath of applicationRoots) {
     const target = safePath(appRoot, rootPath, errors);
     if (!target) continue;
-    const owned = lstatSync(target).isDirectory() ? files(target) : [target];
+    const owned = lstatSync(target).isDirectory() ? files(target, errors, appRoot) : [target];
     for (const file of owned) {
       const repositoryPath = relative(repositoryRoot, file);
       if (!trackedPaths.has(repositoryPath)) errors.push(`documentation application source is not tracked: ${repositoryPath}`);
@@ -133,13 +136,13 @@ export function checkV1DocumentationAuthority(repositoryRoot: string, trackedPat
   if (!scenarioRoot || !lstatSync(scenarioRoot).isDirectory()) {
     errors.push("documentation scenario root must be a contained directory");
   } else {
-    scenarioFiles = files(scenarioRoot);
+    scenarioFiles = files(scenarioRoot, errors, appRoot);
   }
   for (const file of scenarioFiles) {
     const repositoryPath = relative(repositoryRoot, file);
     if (!trackedPaths.has(repositoryPath)) errors.push(`documentation scenario source is not tracked: ${repositoryPath}`);
   }
-  const evidenceFiles = [...files(join(appRoot, "expected")), ...scenarioFiles]
+  const evidenceFiles = [...files(join(appRoot, "expected"), errors, appRoot), ...scenarioFiles]
     .filter((file) => file.startsWith(join(appRoot, "expected")) || file.includes(`${sep}expected${sep}`))
     .map((file) => relative(appRoot, file));
   const evidenceFileSet = new Set(evidenceFiles);
