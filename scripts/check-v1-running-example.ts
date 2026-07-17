@@ -247,6 +247,10 @@ async function verifyParsedApplication(origin: string): Promise<void> {
       assert.equal(await page.locator("main section").count(), 1, `${name}: semantic main`);
       assert.equal(await page.locator("footer").textContent(), "Rendered by the V1 framework", `${name}: footer`);
       assert.equal(await page.locator("script").count(), 0, `${name}: ordinary page script count`);
+      await page.keyboard.press("Tab");
+      assert.equal(await page.locator(":focus").getAttribute("href"), "/", `${name}: first keyboard navigation target`);
+      await page.keyboard.press("Tab");
+      assert.equal(await page.locator(":focus").getAttribute("href"), "/hello/Fadeno", `${name}: second keyboard navigation target`);
       await context.close();
     } finally {
       await browser.close();
@@ -420,7 +424,11 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         const humanFailure = readFileSync(join(exampleRoot, "expected/action-failure.txt"), "utf8").trim().split("\n");
         assert.equal(await page.getByRole("alert").getByText(humanFailure[0] ?? "missing").count(), 1);
         assert.equal(await page.getByText(humanFailure[1] ?? "missing").count(), 1);
-        assert.equal(await page.getByLabel("Title", { exact: true }).getAttribute("aria-invalid"), "true");
+        const invalidTitle = page.getByLabel("Title", { exact: true });
+        assert.equal(await invalidTitle.getAttribute("aria-invalid"), "true");
+        const describedBy = await invalidTitle.getAttribute("aria-describedby");
+        assert.ok(describedBy, `${browserName}: invalid title describes its error`);
+        assert.equal(await page.locator(`#${describedBy}`).textContent(), humanFailure[1], `${browserName}: described error text`);
         assert.equal(await page.locator("#project-list > li").count(), 1, `${browserName}: invalid create has no mutation`);
 
         const createForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Create project" }) });
@@ -485,7 +493,10 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         assert.equal(await page.locator("#project-list > li").count(), 2, `${browserName}: refused delete has no mutation`);
 
         deleteForm = createdItem.locator("form").filter({ has: page.getByRole("button", { name: "Delete project" }) });
-        await deleteForm.getByLabel("Confirm deletion").check();
+        const confirmation = deleteForm.getByLabel("Confirm deletion");
+        await confirmation.focus();
+        await page.keyboard.press("Space");
+        assert.equal(await confirmation.isChecked(), true, `${browserName}: keyboard checkbox activation`);
         const [deleted] = await Promise.all([
           page.waitForNavigation(),
           deleteForm.getByRole("button", { name: "Delete project" }).click(),
@@ -1082,6 +1093,23 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     await server.stop();
   }
   await verifyAuthenticatedCrud(project);
+  assert.equal(
+    readFileSync(join(exampleRoot, "expected/accessibility-baseline.json"), "utf8"),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      scenario: "native-accessibility-baseline",
+      browserEngines: Object.keys(browserTypes),
+      javaScriptEnabled: false,
+      checks: [
+        "semantic-landmarks",
+        "keyboard-navigation",
+        "label-association",
+        "validation-error-association",
+        "keyboard-checkbox-activation",
+      ],
+      deferred: ["assistive-technology-review-before-stable-release"],
+    }, null, 2)}\n`,
+  );
 }
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-v1-running-example-"));

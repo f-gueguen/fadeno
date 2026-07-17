@@ -17,6 +17,7 @@
   ],
   "evidence": {
     "success": [
+      "expected/accessibility-baseline.json",
       "expected/build-manifest-normalized.json",
       "expected/build-success.txt",
       "expected/check-success-explain.txt",
