@@ -1,0 +1,21 @@
+{
+  "delivery": {
+    "size": 1,
+    "fullWorkspace": true,
+    "hints": [],
+    "reasons": [
+      "rename-rescan"
+    ]
+  },
+  "workspaceEpoch": 9,
+  "artifactCount": 7,
+  "diagnosticsReplacedWithEmptyBatch": true,
+  "staleDiagnosticInstancesPresent": false,
+  "publicationMatchesDisk": true,
+  "lastGoodBytesReunified": true,
+  "staleRoutePresent": false,
+  "transactionDebrisAbsent": true,
+  "adapterAndAnalyzerClosed": true,
+  "disposableApplicationRemoved": true
+}
+

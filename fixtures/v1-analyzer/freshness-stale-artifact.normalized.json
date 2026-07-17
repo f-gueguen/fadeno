@@ -1,0 +1,19 @@
+{
+  "rename": {
+    "oldRouteAbsent": true,
+    "newRoutePresent": true,
+    "declarationReplaced": true,
+    "exactArtifactBytesApplied": true
+  },
+  "deletion": {
+    "oldAndNewRoutesAbsent": true,
+    "declarationReplaced": true,
+    "disappearedOwnerRemoved": true,
+    "exactArtifactBytesApplied": true
+  },
+  "refusal": {
+    "desiredPublicationRemovedArtifacts": 7,
+    "appliedLastGoodDiskPreserved": true
+  }
+}
+
