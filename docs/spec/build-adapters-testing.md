@@ -243,6 +243,23 @@ configuration refusals, external HTTPS health, graceful stop, corrupted
 candidate rollback, corrected release, secret/dev/source exclusion, flow, and
 stale generated-route removal evidence.
 
+## Independent usability evidence
+
+ADR 0042 splits A0-07 into a frozen collection contract and later real-user
+evidence. The versioned packet covers install/create/test/check/dev/build/deploy,
+successful explanation, seeded configuration/route/generation failures,
+correction, stale-state recovery, and a missing-workflow report. At least two
+participants who did not contribute Fadeno implementation or packet text must
+use the same exact source commit and packed-tarball SHA-256 without private
+guidance.
+
+Records are anonymous and bounded. Every started attempt is retained with its
+outcome and assistance category. Synthetic fixtures, omitted attempts,
+facilitator intervention presented as independent success, changed tasks, and
+artifact mismatch are refused. `pnpm check:a0-usability-contract` validates the
+pre-observation packet and its negative controls; a later A0-07B command must
+replay real attempts before A0-08 may interpret tooling needs.
+
 ## Diagnostics and support
 
 - User errors provide a stable identifier, source location, concise reason,

@@ -1,0 +1,26 @@
+{
+  "schema": "fadeno.a0.independent-usability-task-packet",
+  "version": 1,
+  "packetId": "a0-public-workflow-v1",
+  "minimumIndependentParticipants": 2,
+  "artifact": {
+    "package": "@fadeno/framework",
+    "kind": "packed-tarball",
+    "identity": "sha256-and-source-commit"
+  },
+  "tasks": [
+    { "id": "install-create", "requiresRecovery": false },
+    { "id": "application-test", "requiresRecovery": true },
+    { "id": "successful-flow-explanation", "requiresRecovery": false },
+    { "id": "route-failure", "requiresRecovery": true },
+    { "id": "configuration-failure", "requiresRecovery": true },
+    { "id": "generation-failure", "requiresRecovery": true },
+    { "id": "development-run", "requiresRecovery": false },
+    { "id": "immutable-deployment", "requiresRecovery": true },
+    { "id": "missing-workflow-report", "requiresRecovery": false }
+  ],
+  "attemptOutcomes": ["completed", "refused", "abandoned"],
+  "assistance": ["none", "public-documentation", "facilitator-intervention"],
+  "retention": "all-started-attempts",
+  "syntheticFixturesCountAsEvidence": false
+}

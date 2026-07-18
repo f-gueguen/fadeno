@@ -50,6 +50,7 @@ effective decision.
 38. [ADR 0039 — Public project creation](0039-public-project-creation.md)
 39. [ADR 0040 — Stock application test workflow](0040-stock-application-test-workflow.md)
 40. [ADR 0041 — Immutable loopback deployment artifact](0041-immutable-loopback-deployment-artifact.md)
+41. [ADR 0042 — Independent usability evidence contract](0042-independent-usability-evidence-contract.md)
 
 ## Superseded decisions
 
