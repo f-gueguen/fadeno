@@ -19,7 +19,8 @@ revalidation. Deliberate failures, flow inspection, rollback, stale-output
 recovery, three-browser JavaScript-disabled operation, and production-only
 startup run as executable repository evidence. The package has public metadata
 and guarded release machinery but no registry version or production support;
-scaffold/test/deploy qualification and the alpha release remain A0 work.
+the packed project-creation workflow now passes while test/deploy qualification
+and the alpha release remain A0 work.
 Browser enhancement remains V2 and islands remain V3.
 
 The four K0 kill-risk investigations are complete: structural preservation and

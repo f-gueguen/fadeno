@@ -9,9 +9,11 @@ configuration, rendering and route outcomes, and the request-scoped resource
 and action/session surfaces. The `./node` facade exports the Node HTTP adapter
 contract, including the production bootstrap's exact HTTPS origin and generated
 application identity inputs. The package executable owns project analysis,
-transactional production build, and retained development paths:
+transactional production build, retained development paths, and exact
+non-interactive creation into a missing target:
 
 ```sh
+fadeno create --project-root ./my-project
 fadeno check --project-root ./my-project
 fadeno check --project-root ./my-project --explain
 fadeno build --project-root ./my-project
