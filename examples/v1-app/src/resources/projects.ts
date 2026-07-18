@@ -2,7 +2,7 @@ import {
   defineResource,
   resourceError,
   type ResourceReadContext,
-} from "fadeno-framework-internal";
+} from "@fadeno/framework";
 
 export type ProjectInput = Readonly<{
   projectId: number;

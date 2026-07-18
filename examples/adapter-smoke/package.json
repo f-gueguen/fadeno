@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "fadeno-framework-internal": "workspace:*"
+    "@fadeno/framework": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

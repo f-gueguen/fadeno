@@ -128,7 +128,7 @@ function fixture(name: string): string {
 
 const temporary = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-workflow-"));
 try {
-  requireSuccess("pnpm", ["--filter", "fadeno-framework-internal", "build"], root);
+  requireSuccess("pnpm", ["--filter", "@fadeno/framework", "build"], root);
   const builtIdentity = packageIdentity(packageRoot);
   const builtParserDirectories = parserDirectories(packageRoot);
   const builtParserIdentity = Object.freeze({
@@ -148,10 +148,10 @@ try {
     version: "0.0.0",
     private: true,
     type: "module",
-    dependencies: { "fadeno-framework-internal": `file:${join(tarballs, tarballName)}` },
+    dependencies: { "@fadeno/framework": `file:${join(tarballs, tarballName)}` },
   }, null, 2)}\n`);
   requireSuccess("pnpm", ["install", "--offline", "--ignore-scripts"], consumer);
-  const installedPackage = join(consumer, "node_modules/fadeno-framework-internal");
+  const installedPackage = join(consumer, "node_modules/@fadeno/framework");
   assertPackageIdentity(installedPackage, builtIdentity);
   const installedParserDirectories = parserDirectories(installedPackage);
   assertParserIdentity(installedParserDirectories, builtParserIdentity);

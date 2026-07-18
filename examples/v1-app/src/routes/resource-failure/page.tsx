@@ -1,4 +1,4 @@
-import type { Page } from "fadeno-framework-internal";
+import type { Page } from "@fadeno/framework";
 import { missingProject } from "../../resources/projects.ts";
 
 const page: Page = async ({ read }) => {

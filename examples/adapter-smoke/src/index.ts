@@ -1,5 +1,5 @@
-import type { Handler } from "fadeno-framework-internal";
-import { listenNodeHttp, nodeHttpCapabilities } from "fadeno-framework-internal/node";
+import type { Handler } from "@fadeno/framework";
+import { listenNodeHttp, nodeHttpCapabilities } from "@fadeno/framework/node";
 
 if (nodeHttpCapabilities.runtime !== "node") throw new Error("adapter capability differs");
 const minimumVersion = nodeHttpCapabilities.minimumVersion;

@@ -1,4 +1,4 @@
-import type { Layout } from "fadeno-framework-internal";
+import type { Layout } from "@fadeno/framework";
 
 const layout: Layout = ({ children }) => (
   <section aria-labelledby="admin-area-heading">

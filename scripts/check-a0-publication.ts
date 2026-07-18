@@ -6,4 +6,4 @@ const tracked = new Set(execFileSync("git", ["ls-files", "--cached"], { cwd: roo
 const errors = validateA0Publication(loadA0PublicationContext(root, tracked));
 if (errors.length > 0) throw new Error(errors.join("\n"));
 
-console.log("A0 publication boundary passed (owned identity, exact surface, private package, provenance bootstrap, trusted releases)");
+console.log("A0 publication boundary passed (owned identity, exact surface, publishable seed, provenance bootstrap, trusted releases)");

@@ -9,6 +9,7 @@
   "scenarioRoot": "scenarios",
   "verificationGates": [
     "check:a0-css",
+    "check:a0-release",
     "check:v1-analyzer-workflow",
     "check:v1-running-example",
     "check:v1-development",

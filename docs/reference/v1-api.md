@@ -6,7 +6,7 @@ This reference is generated from the declarations emitted by the current
 private packed framework. It documents the exact V1 import surfaces without
 making the package name, version, or publication status public or stable.
 
-## `fadeno-framework-internal`
+## `@fadeno/framework`
 
 Exports: `ActionAuthorizationContext`, `ActionDeclaration`, `ActionError`, `ActionField`, `ActionFieldToken`, `ActionInput`, `ActionOptions`, `ActionRedirectOutcome`, `ActionRunContext`, `ActionUpload`, `Boundary`, `BoundaryProps`, `ErrorPage`, `FadenoConfig`, `Handler`, `Layout`, `MatchedRouteRender`, `NotFoundPage`, `Page`, `PageContext`, `RedirectOutcome`, `RenderChild`, `RenderNode`, `ResourceDeclaration`, `ResourceError`, `ResourceInput`, `ResourceInputObject`, `ResourceLoader`, `ResourceReadContext`, `ResourceStatus`, `RouteConfig`, `RouteOutcome`, `Session`, `SessionValue`, `SessionValueObject`, `SessionView`, `UnsafeHtml`, `actionError`, `checkboxField`, `defineAction`, `defineConfig`, `defineResource`, `fileField`, `integerField`, `notFound`, `redirect`, `renderRoute`, `resourceError`, `textField`, `unsafeHtml`.
 
@@ -202,7 +202,7 @@ type ExactConfig<Config extends FadenoConfig> = NoExtra<Config, FadenoConfig> & 
 export declare function defineConfig<const Config extends FadenoConfig>(config: ExactConfig<Config>): Config;
 export {};
 ```
-## `fadeno-framework-internal/jsx-runtime`
+## `@fadeno/framework/jsx-runtime`
 
 Exports: `Component`, `Fragment`, `JSX`, `jsx`, `jsxs`.
 
@@ -408,7 +408,7 @@ export declare namespace JSX {
 }
 export {};
 ```
-## `fadeno-framework-internal/node`
+## `@fadeno/framework/node`
 
 Exports: `FrameworkFailureObserver`, `FrameworkFailureReport`, `ListenNodeHttpOptions`, `NodeHttpCapabilities`, `NodeHttpServer`, `listenNodeHttp`, `nodeHttpCapabilities`.
 

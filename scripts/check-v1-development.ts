@@ -54,7 +54,7 @@ type RunningDevelopment = Readonly<{
 }>;
 
 function startDevelopment(project: string, port: number): RunningDevelopment {
-  const executable = realpathSync(join(project, "node_modules/fadeno-framework-internal/dist/cli.js"));
+  const executable = realpathSync(join(project, "node_modules/@fadeno/framework/dist/cli.js"));
   const child = spawn(process.execPath, [executable, "dev", "--project-root", project, "--port", String(port)], {
     cwd: project,
     env: process.env,
@@ -142,7 +142,7 @@ function copyPackedProject(temporaryRoot: string, name: string, tarball: string)
       !source.includes("/dist") && !source.includes("/node_modules"),
   });
   const manifest = JSON.parse(readFileSync(join(project, "package.json"), "utf8")) as { dependencies: Record<string, string> };
-  manifest.dependencies["fadeno-framework-internal"] = `file:${tarball}`;
+  manifest.dependencies["@fadeno/framework"] = `file:${tarball}`;
   writeFileSync(join(project, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   run("pnpm", ["install", "--offline", "--ignore-scripts"], project);
   return project;
@@ -151,7 +151,7 @@ function copyPackedProject(temporaryRoot: string, name: string, tarball: string)
 const temporaryRoot = realpathSync(mkdtempSync(join(tmpdir(), "fadeno-v1-development-")));
 let development: RunningDevelopment | null = null;
 try {
-  run("pnpm", ["--filter", "fadeno-framework-internal", "build"], root);
+  run("pnpm", ["--filter", "@fadeno/framework", "build"], root);
   const tarballs = join(temporaryRoot, "tarballs");
   mkdirSync(tarballs);
   run("pnpm", ["pack", "--pack-destination", tarballs], packageRoot);
@@ -169,7 +169,7 @@ try {
   mkdirSync(runtimeOutputRoot);
   writeFileSync(join(runtimeOutputRoot, "handler.ts"), [
     'import { stdout } from "node:process";',
-    'import type { Handler } from "fadeno-framework-internal";',
+    'import type { Handler } from "@fadeno/framework";',
     'const runtimeLine = "x".repeat(900 * 1024);',
     "const handler: Handler = () => { stdout.write(`${runtimeLine}\\n`); return new Response('runtime-output'); };",
     "export default handler;",
@@ -197,8 +197,8 @@ try {
   writeFileSync(helperPath, "export const developmentMessage = 'Transitive generation one';\n");
   writeFileSync(pagePath, originalPage
     .replace(
-      'import type { Page } from "fadeno-framework-internal";\n',
-      'import type { Page } from "fadeno-framework-internal";\nimport { developmentMessage } from "../development-message.js";\n',
+      'import type { Page } from "@fadeno/framework";\n',
+      'import type { Page } from "@fadeno/framework";\nimport { developmentMessage } from "../development-message.js";\n',
     )
     .replace("<p>This document is routed, escaped, and streamed without client JavaScript.</p>", "<p>{developmentMessage}</p>"));
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
@@ -298,7 +298,7 @@ try {
   const hangingRoute = join(project, "src/routes/hanging/handler.ts");
   mkdirSync(join(project, "src/routes/hanging"));
   writeFileSync(hangingRoute, [
-    'import type { Handler } from "fadeno-framework-internal";',
+    'import type { Handler } from "@fadeno/framework";',
     "const encoder = new TextEncoder();",
     "const handler: Handler = () => new Response(new ReadableStream({",
     "  start(controller) { controller.enqueue(encoder.encode('active-stream')); },",
@@ -341,7 +341,7 @@ try {
   );
 
   const invalidUsage = spawnSync(process.execPath, [
-    realpathSync(join(project, "node_modules/fadeno-framework-internal/dist/cli.js")),
+    realpathSync(join(project, "node_modules/@fadeno/framework/dist/cli.js")),
     "dev", "--project-root", project, "--port", "0",
   ], { cwd: project, encoding: "utf8" });
   assert.deepEqual({ status: invalidUsage.status, stdout: invalidUsage.stdout, stderr: invalidUsage.stderr }, {

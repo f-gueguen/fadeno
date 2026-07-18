@@ -138,7 +138,7 @@ export function assertPrivateBuildCompilerContract(document: unknown): void {
     rootDir: ".",
     outDir: "dist",
     jsx: "react-jsx",
-    jsxImportSource: "fadeno-framework-internal",
+    jsxImportSource: "@fadeno/framework",
     allowImportingTsExtensions: true,
     rewriteRelativeImportExtensions: true,
     isolatedModules: true,

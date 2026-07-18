@@ -178,8 +178,8 @@
       "redaction": { "state": "none" },
       "truncated": false
     },
-    "before": "import { defineConfig } from \"fadeno-framework-internal\";\n\nexport default defineConfig({ routes: { root: \"src/route\" } });\n",
-    "after": "import { defineConfig } from \"fadeno-framework-internal\";\n\nexport default defineConfig({ routes: { root: \"src/routes\" } });\n",
+    "before": "import { defineConfig } from \"@fadeno/framework\";\n\nexport default defineConfig({ routes: { root: \"src/route\" } });\n",
+    "after": "import { defineConfig } from \"@fadeno/framework\";\n\nexport default defineConfig({ routes: { root: \"src/routes\" } });\n",
     "staleRefusal": "FADENO_ANALYZER_CORRECTION_STALE"
   },
   "internalFailure": {

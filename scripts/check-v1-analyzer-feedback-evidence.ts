@@ -154,7 +154,7 @@ try {
   run("tar", ["-xf", archive, "-C", source], temporary);
   reconstructedSourceTreeSha256 = gitTreeSha256(source, sourceCommit);
   run("pnpm", ["install", "--offline", "--frozen-lockfile", "--ignore-scripts"], source);
-  run("pnpm", ["--filter", "fadeno-framework-internal", "build"], source);
+  run("pnpm", ["--filter", "@fadeno/framework", "build"], source);
   const tarballs = join(temporary, "tarballs");
   mkdirSync(tarballs);
   const packageRoot = join(source, "packages/framework");

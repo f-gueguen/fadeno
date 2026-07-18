@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "operation": "first-alpha-publication",
+  "causes": [
+    "reviewed-minor-changeset",
+    "locally-qualified-immutable-commit",
+    "public-source-provenance"
+  ],
+  "ownership": {
+    "version": "changesets",
+    "mergeQualification": "local-ci",
+    "publication": "npm-production",
+    "package": "@fadeno/framework"
+  },
+  "skipped": [
+    {
+      "work": "registry-publication",
+      "reason": "A0-10-not-active"
+    },
+    {
+      "work": "trusted-publisher-configuration",
+      "reason": "package-does-not-exist"
+    }
+  ],
+  "observableOutcome": "publishable-tarball-without-registry-version"
+}

@@ -1,4 +1,4 @@
-import type { Page } from "fadeno-framework-internal";
+import type { Page } from "@fadeno/framework";
 import {
   createProject,
   deleteProject,

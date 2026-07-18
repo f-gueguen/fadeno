@@ -77,11 +77,18 @@ errors. Registry naming remains separate from this relative topology.
 
 ADR 0037 selects `@fadeno/framework` as the only public package identity. Its
 exact public map is `.`, `./node`, `./jsx-runtime`, and the `fadeno` executable
-at `./dist/cli.js`. The pre-publication `fadeno-framework-internal` name is not
-an alias and is never published. A0-03 must update the package manifest,
-generated imports, consumers, documentation, and release machinery atomically;
-until then the manifest stays private at `0.0.0-private` without
-`publishConfig`.
+at `./dist/cli.js`. The former pre-publication workspace name is not an alias
+and is never published. A0-03 atomically moves the manifest, generated imports,
+consumers, documentation, and release machinery to the accepted identity. Its
+`0.0.0` seed is publishable metadata but never a published version.
+
+ADR 0038 requires a pending Changeset for every user-visible package outcome.
+The first release plan consumes those reviewed intents into
+`0.1.0-alpha.0`. Exact tarball contents include the generated declarations and
+runtime, package README, changelog, license, and normalized SPDX SBOM. A
+prepublication guard refuses the seed version, dirty or unqualified source,
+wrong tag/workflow/repository identity, private source, absent provenance, or
+the wrong bootstrap/trusted credential mode.
 
 ADR 0025 fixes the first private package surface. `.` exports the standard Web
 `Handler` type. `./node` exports `listenNodeHttp`, `ListenNodeHttpOptions`,

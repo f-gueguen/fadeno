@@ -131,7 +131,7 @@ let development: RunningCommand | null = null;
 let production: RunningCommand | null = null;
 try {
   rmSync(localCanary, { force: true });
-  requireSuccess("pnpm", ["--filter", "fadeno-framework-internal", "build"], root);
+  requireSuccess("pnpm", ["--filter", "@fadeno/framework", "build"], root);
   const tarballs = join(temporaryRoot, "tarballs");
   mkdirSync(tarballs);
   requireSuccess("pnpm", ["pack", "--pack-destination", tarballs], packageRoot);
@@ -147,19 +147,19 @@ try {
   });
   const manifestPath = join(project, "package.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { dependencies: Record<string, string> };
-  manifest.dependencies["fadeno-framework-internal"] = `file:${tarball}`;
+  manifest.dependencies["@fadeno/framework"] = `file:${tarball}`;
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   requireSuccess("pnpm", ["install", "--offline", "--ignore-scripts"], project);
   rmSync(join(project, "node_modules"), { recursive: true, force: true });
   requireSuccess("pnpm", ["install", "--frozen-lockfile", "--offline", "--ignore-scripts"], project);
-  const installedPackage = join(project, "node_modules/fadeno-framework-internal");
+  const installedPackage = join(project, "node_modules/@fadeno/framework");
   assert.equal(existsSync(join(installedPackage, "dist", basename(localCanary))), false);
   assert.match(readFileSync(join(installedPackage, "README.md"), "utf8"), /private V1 integration/u);
 
   requireSuccess(process.execPath, ["--input-type=module", "--eval", [
-    'await import("fadeno-framework-internal");',
-    'await import("fadeno-framework-internal/node");',
-    'await import("fadeno-framework-internal/jsx-runtime");',
+    'await import("@fadeno/framework");',
+    'await import("@fadeno/framework/node");',
+    'await import("@fadeno/framework/jsx-runtime");',
   ].join("\n")], project);
 
   const successDiagnostic = readFileSync(join(project, "expected/check-success.txt"), "utf8");

@@ -23,7 +23,7 @@ import {
   defineResource,
   resourceError,
   type ResourceReadContext,
-} from "fadeno-framework-internal";
+} from "@fadeno/framework";
 
 export type ProjectInput = Readonly<{
   projectId: number;
@@ -83,7 +83,7 @@ import {
   integerField,
   redirect,
   textField,
-} from "fadeno-framework-internal";
+} from "@fadeno/framework";
 
 export type Project = Readonly<{
   id: number;
@@ -207,7 +207,7 @@ names. The framework generates the action proof and verifies it before running
 application behavior. The page does not construct or parse those identities.
 
 ```tsx
-import type { Page } from "fadeno-framework-internal";
+import type { Page } from "@fadeno/framework";
 import {
   createProject,
   deleteProject,

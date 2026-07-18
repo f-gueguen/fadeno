@@ -1,7 +1,24 @@
 {
-  "name": "fadeno-framework-internal",
-  "version": "0.0.0-private",
-  "private": true,
+  "name": "@fadeno/framework",
+  "version": "0.0.0",
+  "description": "A server-owned TypeScript web framework with progressive enhancement by default.",
+  "license": "MIT",
+  "keywords": [
+    "fadeno",
+    "framework",
+    "typescript",
+    "server-rendered",
+    "progressive-enhancement"
+  ],
+  "homepage": "https://github.com/f-gueguen/fadeno#readme",
+  "bugs": {
+    "url": "https://github.com/f-gueguen/fadeno/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/f-gueguen/fadeno.git",
+    "directory": "packages/framework"
+  },
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -25,14 +42,25 @@
     }
   },
   "files": [
+    "CHANGELOG.md",
+    "LICENSE",
     "dist",
-    "README.md"
+    "README.md",
+    "sbom.spdx.json"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/",
+    "tag": "alpha"
+  },
   "dependencies": {
     "typescript": "7.0.2"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "check": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.neutral.json"
+    "check": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.neutral.json",
+    "prepack": "pnpm build && node --no-warnings --experimental-strip-types ../../scripts/generate-a0-sbom.ts --check",
+    "prepublishOnly": "node --no-warnings --experimental-strip-types ../../scripts/assert-a0-publication.ts"
   }
 }

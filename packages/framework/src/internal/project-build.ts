@@ -38,7 +38,7 @@ import {
 import { AnalyzerRootError } from "./analyzer-session.ts";
 import { FadenoDiagnosticError, formatDiagnosticHuman } from "./diagnostic.ts";
 
-const packageName = "fadeno-framework-internal";
+const packageName = "@fadeno/framework";
 const maximumChildOutputBytes = 8 * 1024 * 1024;
 const maximumGenerationRequestBytes = 256 * 1024;
 const maximumOutputFiles = 4_096;

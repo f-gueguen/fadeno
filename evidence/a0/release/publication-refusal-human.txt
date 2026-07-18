@@ -1,0 +1,1 @@
+FADENO_RELEASE_PRERELEASE_VERSION: The unpublished 0.0.0 seed cannot be published. Enter the reviewed alpha prerelease train during A0-10 and qualify the resulting immutable commit before publication.

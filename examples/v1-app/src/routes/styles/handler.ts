@@ -1,4 +1,4 @@
-import type { Handler } from "fadeno-framework-internal";
+import type { Handler } from "@fadeno/framework";
 import { applicationStyles } from "../../styles.ts";
 
 const handler: Handler = () => new Response(applicationStyles, {

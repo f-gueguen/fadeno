@@ -26,13 +26,13 @@ importers:
 
   examples/adapter-smoke:
     dependencies:
-      fadeno-framework-internal:
+      '@fadeno/framework':
         specifier: workspace:*
         version: link:../../packages/framework
 
   examples/v1-app:
     dependencies:
-      fadeno-framework-internal:
+      '@fadeno/framework':
         specifier: workspace:*
         version: link:../../packages/framework
     devDependencies:
