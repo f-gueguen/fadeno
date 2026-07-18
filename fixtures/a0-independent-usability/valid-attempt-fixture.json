@@ -1,0 +1,46 @@
+{
+  "schema": "fadeno.a0.independent-usability-attempt",
+  "version": 1,
+  "disposition": "synthetic-not-user-evidence",
+  "packetId": "a0-public-workflow-v1",
+  "participant": {
+    "anonymousId": "participant-synthetic01",
+    "priorExperience": "limited",
+    "priorContributor": false,
+    "privateImplementationGuidance": false
+  },
+  "artifact": {
+    "sourceCommit": "0000000000000000000000000000000000000000",
+    "packageSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "packageVersion": "0.1.0-alpha.0"
+  },
+  "tasks": [
+    {
+      "taskId": "install-create",
+      "outcome": "completed",
+      "assistance": "public-documentation",
+      "durationBand": "5-15m",
+      "recovery": "not-applicable",
+      "observation": "Synthetic shape-validation record only.",
+      "artifacts": {
+        "humanOutput": {
+          "path": "fixtures/a0-independent-usability/synthetic-human.txt",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "machineOutput": null,
+        "correctionBefore": null,
+        "correctionAfter": null,
+        "flowInspection": null,
+        "recovery": null
+      }
+    }
+  ],
+  "missingWorkflow": {
+    "summary": "",
+    "editorProductWouldHaveChangedOutcome": null
+  },
+  "redaction": {
+    "reviewed": true,
+    "removedFields": []
+  }
+}

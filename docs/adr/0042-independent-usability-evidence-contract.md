@@ -28,20 +28,26 @@ packet and its verifier before observation. A0-07B retains every started
 attempt and accepts a result only after at least two independent participants
 complete the packet against the same exact packed artifact identity.
 
-A participant is independent only when they have not contributed Fadeno source,
-tests, specifications, or task-packet text and have not received private
-implementation guidance. The retained record uses an anonymous participant ID,
-coarse prior-experience bands, task outcomes, assistance categories, bounded
-redacted observations, artifact identity, and explicit missing-workflow reports.
+A participant is independent only when they have never contributed to the
+Fadeno repository and have not received private implementation guidance. The
+retained record uses an anonymous participant ID, coarse prior-experience
+bands, task outcomes, assistance categories, bounded redacted observations,
+artifact identity, and explicit missing-workflow reports.
 Names, contact details, free-form environment values, secrets, source paths,
 and command history outside the packet are not collected.
 
-The packet covers install/create, stock application tests, successful and
-failed framework explanation, seeded configuration/route/generation failures,
-correction and stale-state removal, development, production build, immutable
-deployment, and one explicit missing-workflow report. Every started attempt is
+The packet covers install/create, stock application tests, separate successful
+and failed framework explanation tasks, exact seeded configuration, route, and
+generation failures, correction and stale-state removal, development, a
+standalone production build, immutable deployment, and one explicit
+missing-workflow report. Its complete human instruction bytes are bound by a
+checked SHA-256. Every started attempt is
 retained, including refusal, abandonment, and facilitator-intervention states.
-The verifier rejects changed tasks, artifact mismatch, omitted attempts,
+The packet also freezes the complete versioned attempt-record shape, exact
+artifact fields, prior-experience and duration bands, recovery states,
+observation limit, and prohibited sensitive fields before observation. The
+verifier rejects changed tasks or instruction bytes, artifact mismatch,
+omitted attempts,
 duplicate participant identity, unclassified assistance, missing recovery, or
 claims derived from contract fixtures.
 

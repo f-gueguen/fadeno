@@ -8,9 +8,11 @@
     "application-test",
     "successful-flow-explanation",
     "route-failure",
+    "failed-flow-explanation",
     "configuration-failure",
     "generation-failure",
     "development-run",
+    "production-build",
     "immutable-deployment",
     "missing-workflow-report"
   ]
