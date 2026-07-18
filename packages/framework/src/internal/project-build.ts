@@ -19,7 +19,7 @@ import {
   type Dirent,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { version as compilerVersion } from "typescript";
@@ -109,7 +109,7 @@ function ownedDirectory(path: string, code: string): string {
 
 function contained(root: string, path: string): boolean {
   const difference = relative(root, path);
-  return difference === "" || (!difference.startsWith("..") && !isAbsolute(difference));
+  return difference === "" || (difference !== ".." && !difference.startsWith(`..${sep}`) && !isAbsolute(difference));
 }
 
 function boundedDirectoryEntries(directory: string, remaining: number, code: string): Dirent<string>[] {
@@ -821,11 +821,18 @@ export async function assertPrivateDeploymentArtifact(projectRoot: string): Prom
     const output = join(root, "dist");
     assertAcceptedOutput(output, code);
     const manifest = readAcceptedBuildManifest(output, code);
+    let frameworkRoot: string | null = null;
     for (const dependency of manifest.dependencies) {
       const dependencyRoot = realpathSync(join(root, dependency.path));
       if (!contained(root, dependencyRoot)) fail(code);
       assertPrivateRuntimeIdentity(dependencyRoot, dependency.identity);
+      if (dependency.name === packageName) {
+        if (frameworkRoot !== null) fail(code);
+        frameworkRoot = dependencyRoot;
+      }
     }
+    if (frameworkRoot === null) fail(code);
+    assertPrivateRuntimeIdentity(frameworkRoot, manifest.runtime);
   } catch (error) {
     if (error instanceof TypeError && error.message === code) throw error;
     fail(code);

@@ -2,7 +2,6 @@ import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   cpSync,
-  existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
@@ -43,7 +42,16 @@ function refusal(code: string, message: string): ProjectDeployCommandResult {
 
 function contained(root: string, path: string): boolean {
   const difference = relative(root, path);
-  return difference === "" || (!difference.startsWith("..") && !isAbsolute(difference));
+  return difference === "" || (difference !== ".." && !difference.startsWith(`..${sep}`) && !isAbsolute(difference));
+}
+
+function outputEntryExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ENOENT";
+  }
 }
 
 function isOrdinarySymlinkFreeDirectory(path: string): boolean {
@@ -152,7 +160,7 @@ export async function runProjectDeployCommand(
   } catch {
     return refusal("FADENO_DEPLOY_OUTPUT_PARENT", "Deployment output parent and ancestors must be ordinary non-symlink directories.");
   }
-  if (existsSync(output)) return refusal("FADENO_DEPLOY_TARGET_EXISTS", "Deployment output must not already exist.");
+  if (outputEntryExists(output)) return refusal("FADENO_DEPLOY_TARGET_EXISTS", "Deployment output must not already exist.");
 
   const build = await runProjectBuildCommand(["build", "--project-root", projectRoot], {
     cwd: context.cwd,
@@ -163,7 +171,7 @@ export async function runProjectDeployCommand(
 
   let claimed = false;
   try {
-    if (existsSync(output)) return refusal("FADENO_DEPLOY_TARGET_EXISTS", "Deployment output must not already exist.");
+    if (outputEntryExists(output)) return refusal("FADENO_DEPLOY_TARGET_EXISTS", "Deployment output must not already exist.");
     const sourceManifestPath = join(projectRoot, "package.json");
     const sourceLockPath = join(projectRoot, "pnpm-lock.yaml");
     const sourceManifest = readStableDocument(sourceManifestPath, "FADENO_DEPLOY_MANIFEST");

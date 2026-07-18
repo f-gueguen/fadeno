@@ -24,6 +24,13 @@ expectMutation("deployment artifact identity verification drifted", (context) =>
   ...context,
   buildImplementation: context.buildImplementation.replace("export async function assertPrivateDeploymentArtifact", "async function removedArtifactVerifier"),
 }));
+expectMutation("deployment artifact identity verification drifted", (context) => Object.freeze({
+  ...context,
+  buildImplementation: context.buildImplementation.replace(
+    "assertPrivateRuntimeIdentity(frameworkRoot, manifest.runtime)",
+    "void frameworkRoot",
+  ),
+}));
 expectMutation("public deploy command dispatch drifted", (context) => Object.freeze({
   ...context,
   cli: context.cli.replace('arguments_[0] === "deploy"', 'arguments_[0] === "other"'),

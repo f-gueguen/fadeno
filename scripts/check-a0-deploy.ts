@@ -15,6 +15,7 @@ import {
   readlinkSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -267,6 +268,20 @@ try {
   assert.equal(contained.status, 1);
   assert.match(contained.stderr, /^FADENO_DEPLOY_OUTPUT_BOUNDARY:/u);
   assert.equal(existsSync(containedOutput), false);
+  const dotPrefixedChild = join(project, "..release");
+  const dotPrefixed = run(executable, ["deploy", "--project-root", project, "--output", dotPrefixedChild], project);
+  assert.equal(dotPrefixed.status, 1);
+  assert.match(dotPrefixed.stderr, /^FADENO_DEPLOY_OUTPUT_BOUNDARY:/u);
+  assert.equal(existsSync(dotPrefixedChild), false);
+
+  const danglingOutput = join(temporaryRoot, "dangling-release");
+  symlinkSync(join(temporaryRoot, "absent-release-target"), danglingOutput);
+  assert.equal(existsSync(join(project, "dist")), false);
+  const dangling = run(executable, ["deploy", "--project-root", project, "--output", danglingOutput], project);
+  assert.equal(dangling.status, 1);
+  assert.match(dangling.stderr, /^FADENO_DEPLOY_TARGET_EXISTS:/u);
+  assert.equal(existsSync(join(project, "dist")), false);
+  assert.equal(readlinkSync(danglingOutput), join(temporaryRoot, "absent-release-target"));
 
   const existingOutput = join(temporaryRoot, "existing-release");
   mkdirSync(existingOutput);
@@ -452,6 +467,31 @@ try {
   assert.match(missingLock.stderr, /^FADENO_DEPLOY_LOCKFILE:/u);
   assert.equal(existsSync(missingLockOutput), false);
   writeFileSync(lockPath, lockBytes);
+
+  const alternatePackageRoot = join(temporaryRoot, "alternate-package");
+  mkdirSync(alternatePackageRoot);
+  requireSuccess("tar", ["-xzf", tarball, "-C", alternatePackageRoot], temporaryRoot);
+  appendFileSync(join(alternatePackageRoot, "package/README.md"), "\nalternate runtime identity fixture\n");
+  const alternateTarball = join(tarballs, "fadeno-framework-alternate.tgz");
+  requireSuccess("tar", ["-czf", alternateTarball, "-C", alternatePackageRoot, "package"], temporaryRoot);
+  const alternateProject = join(temporaryRoot, "alternate-application");
+  cpSync(project, alternateProject, {
+    recursive: true,
+    filter: (source) => !["node_modules", ".fadeno", "dist"].some((name) =>
+      source === join(project, name) || source.startsWith(`${join(project, name)}/`)),
+  });
+  const alternatePackagePath = join(alternateProject, "package.json");
+  const alternateProjectPackage = JSON.parse(readFileSync(alternatePackagePath, "utf8")) as {
+    dependencies: Record<string, string>;
+  };
+  alternateProjectPackage.dependencies["@fadeno/framework"] = `file:${alternateTarball}`;
+  writeFileSync(alternatePackagePath, `${JSON.stringify(alternateProjectPackage, null, 2)}\n`);
+  requireSuccess("pnpm", ["install", "--offline", "--ignore-scripts", "--no-frozen-lockfile"], alternateProject);
+  const mismatchedOutput = join(temporaryRoot, "mismatched-runtime-release");
+  const mismatched = run(executable, ["deploy", "--project-root", alternateProject, "--output", mismatchedOutput], alternateProject);
+  assert.equal(mismatched.status, 1);
+  assert.match(mismatched.stderr, /^FADENO_DEPLOY_ARTIFACT:/u);
+  assert.equal(existsSync(mismatchedOutput), false);
 
   console.log("A0 packed deployment passed (production artifact, secure health, refusal, rollback, stale-output recovery)");
 } finally {

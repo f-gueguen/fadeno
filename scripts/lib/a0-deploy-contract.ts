@@ -126,6 +126,8 @@ export function validateA0Deploy(context: A0DeployContext): readonly string[] {
     'const usage = "FADENO_DEPLOY_USAGE: fadeno deploy --project-root <path> --output <missing-path>',
     'arguments_[0] !== "deploy"',
     'arguments_[3] !== "--output"',
+    'difference !== ".." && !difference.startsWith(`..${sep}`)',
+    "function outputEntryExists(path: string)",
     '["install", "--prod", "--frozen-lockfile", "--ignore-scripts"]',
     'writeFileSync(join(output, "package.json")',
     'unlinkSync(join(output, "pnpm-lock.yaml"))',
@@ -136,7 +138,8 @@ export function validateA0Deploy(context: A0DeployContext): readonly string[] {
   }
   if (!context.buildImplementation.includes("export async function assertPrivateDeploymentArtifact")
     || !context.buildImplementation.includes("for (const dependency of manifest.dependencies)")
-    || !context.buildImplementation.includes("assertPrivateRuntimeIdentity(dependencyRoot, dependency.identity)")) {
+    || !context.buildImplementation.includes("assertPrivateRuntimeIdentity(dependencyRoot, dependency.identity)")
+    || !context.buildImplementation.includes("assertPrivateRuntimeIdentity(frameworkRoot, manifest.runtime)")) {
     errors.push("deployment artifact identity verification drifted");
   }
   if (!context.cli.includes('arguments_[0] === "deploy"') || !context.cli.includes("runProjectDeployCommand")) {
