@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { verifyA0UsabilityPacket } from "./lib/a0-usability-contract.ts";
 import { verifyA0UsabilityEvidence } from "./lib/a0-usability-evidence.ts";
@@ -57,7 +57,7 @@ try {
     const second = readJson(root, manifest.attemptFiles[1]);
     second.participant.anonymousId = first.participant.anonymousId;
     writeJson(root, manifest.attemptFiles[1], second);
-  }, /FADENO_A0_USABILITY_EVIDENCE_PARTICIPANT/u);
+  }, /FADENO_A0_USABILITY_EVIDENCE_ATTEMPT_PATH/u);
   refuses((root, manifest) => {
     const attempt = readJson(root, manifest.attemptFiles[0]);
     attempt.artifact.packageVersion = "0.0.1";
@@ -78,6 +78,11 @@ try {
     attempt.tasks[0].artifacts.humanOutput.sha256 = "1".repeat(64);
     writeJson(root, manifest.attemptFiles[0], attempt);
   }, /FADENO_A0_USABILITY_EVIDENCE_ARTIFACT/u);
+  refuses((root, manifest) => {
+    const attempt = readJson(root, manifest.attemptFiles[0]);
+    attempt.tasks[0].observation = "retained from /Users/example/private/project";
+    writeJson(root, manifest.attemptFiles[0], attempt);
+  }, /FADENO_A0_USABILITY_EVIDENCE_PRIVACY/u);
   refuses((root, manifest) => {
     const attempt = readJson(root, manifest.attemptFiles[0]);
     const reference = attempt.tasks[0].artifacts.humanOutput;
@@ -102,6 +107,7 @@ try {
     const realIdentity = { sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0" };
     manifest.disposition = "participant-evidence";
     manifest.artifact = realIdentity;
+    const realAttemptFiles = [];
     for (const path of manifest.attemptFiles) {
       const attempt = readJson(root, path);
       attempt.disposition = "participant-attempt";
@@ -109,8 +115,25 @@ try {
       if (attempt.participant.anonymousId === "participant-synthetic02") {
         attempt.tasks[0].assistance = "facilitator-intervention";
       }
-      writeJson(root, path, attempt);
+      for (const task of attempt.tasks) {
+        for (const value of Object.values(task.artifacts) as unknown[]) {
+          if (!value || typeof value !== "object" || !("path" in value) || typeof value.path !== "string") continue;
+          const reference = value as { path: string };
+          const nextPath = reference.path.replace(
+            `fixtures/a0-independent-usability/replay/${attempt.participant.anonymousId}/`,
+            `evidence/a0/independent-usability/attempts/${attempt.participant.anonymousId}/`,
+          );
+          mkdirSync(dirname(join(root, nextPath)), { recursive: true });
+          cpSync(join(root, reference.path), join(root, nextPath));
+          reference.path = nextPath;
+        }
+      }
+      const nextAttemptPath = `evidence/a0/independent-usability/attempts/${attempt.participant.anonymousId}/attempt.json`;
+      mkdirSync(dirname(join(root, nextAttemptPath)), { recursive: true });
+      writeJson(root, nextAttemptPath, attempt);
+      realAttemptFiles.push(nextAttemptPath);
     }
+    manifest.attemptFiles = realAttemptFiles.sort();
   }, /FADENO_A0_USABILITY_EVIDENCE_MINIMUM/u, "real-evidence", realSha);
 
   console.log(`A0 usability replay negative tests passed (${mutationOrdinal + 1} retention, identity, artifact, recovery, privacy, minimum, synthetic controls)`);

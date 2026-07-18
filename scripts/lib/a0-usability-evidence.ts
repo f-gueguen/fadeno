@@ -20,6 +20,7 @@ interface TaskAttempt {
   readonly outcome: "completed" | "refused" | "abandoned";
   readonly assistance: "none" | "public-documentation" | "facilitator-intervention";
   readonly recovery: "not-applicable" | "completed" | "refused" | "abandoned";
+  readonly observation: string;
   readonly artifacts: Readonly<Record<ArtifactField, ArtifactReference | null>>;
 }
 
@@ -151,20 +152,31 @@ function sha256(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function verifyArtifactBytes(root: string, reference: ArtifactReference, participantId: string, seen: Set<string>): void {
+function verifyPrivateText(text: string, code: string): void {
+  if (
+    text.includes("\uFFFD") || /\/(?:Users|home|private|tmp)\//u.test(text) || /[A-Za-z]:\\/u.test(text) ||
+    /(?:FADENO_SESSION_KEYS|TOKEN|PASSWORD|SECRET|API_KEY)\s*=\s*(?!<)[^\s]+/iu.test(text)
+  ) throw new TypeError(code);
+}
+
+function verifyArtifactBytes(
+  root: string,
+  reference: ArtifactReference,
+  participantId: string,
+  seen: Set<string>,
+  mode: "real-evidence" | "synthetic-contract",
+): void {
   const code = "FADENO_A0_USABILITY_EVIDENCE_ARTIFACT";
-  const expectedPrefixes = [
-    `evidence/a0/independent-usability/attempts/${participantId}/`,
-    `fixtures/a0-independent-usability/replay/${participantId}/`,
-  ];
-  if (!expectedPrefixes.some((prefix) => reference.path.startsWith(prefix)) || seen.has(reference.path)) {
+  const expectedPrefix = mode === "real-evidence"
+    ? `evidence/a0/independent-usability/attempts/${participantId}/`
+    : `fixtures/a0-independent-usability/replay/${participantId}/`;
+  if (!reference.path.startsWith(expectedPrefix) || seen.has(reference.path)) {
     throw new TypeError(code);
   }
   seen.add(reference.path);
   const bytes = readFileSync(containedRegularFile(root, reference.path, code));
   if (bytes.byteLength > 262144 || sha256(bytes) !== reference.sha256) throw new TypeError(code);
-  const text = bytes.toString("utf8");
-  if (/\/(?:Users|home|private|tmp)\//u.test(text) || /[A-Za-z]:\\/u.test(text)) throw new TypeError(code);
+  verifyPrivateText(bytes.toString("utf8"), code);
 }
 
 function counts<T extends string>(values: readonly T[], expected: readonly T[]): Record<T, number> {
@@ -204,7 +216,12 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
     if (bytes.byteLength > 524288) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_ATTEMPT_SIZE");
     const value = JSON.parse(bytes.toString("utf8")) as unknown;
     verifyA0UsabilityAttemptRecord(value, options.packet.taskIds);
-    return value as AttemptRecord;
+    const attempt = value as AttemptRecord;
+    const expectedPath = options.mode === "real-evidence"
+      ? `evidence/a0/independent-usability/attempts/${attempt.participant.anonymousId}/attempt.json`
+      : `fixtures/a0-independent-usability/replay/${attempt.participant.anonymousId}/attempt.json`;
+    if (path !== expectedPath) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_ATTEMPT_PATH");
+    return attempt;
   });
   const participantIds = attempts.map(({ participant }) => participant.anonymousId);
   if (new Set(participantIds).size !== participantIds.length) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_PARTICIPANT");
@@ -230,13 +247,20 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
     const seenArtifacts = new Set<string>();
     let complete = attempt.tasks.length === options.packet.taskIds.length;
     for (const task of attempt.tasks) {
+      verifyPrivateText(task.observation, "FADENO_A0_USABILITY_EVIDENCE_PRIVACY");
       taskOutcomes.push(task.outcome);
       assistance.push(task.assistance);
       const requirement = options.packet.taskRequirements[task.taskId];
       if (!requirement) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_TASK");
       for (const field of artifactFields) {
         const reference = task.artifacts[field];
-        if (reference) verifyArtifactBytes(options.repositoryRoot, reference, attempt.participant.anonymousId, seenArtifacts);
+        if (reference) verifyArtifactBytes(
+          options.repositoryRoot,
+          reference,
+          attempt.participant.anonymousId,
+          seenArtifacts,
+          options.mode,
+        );
       }
       if (task.outcome === "completed") {
         for (const field of requirement.requiredArtifacts) {
@@ -248,6 +272,7 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
       }
       if (task.outcome !== "completed" || task.assistance === "facilitator-intervention") complete = false;
     }
+    verifyPrivateText(attempt.missingWorkflow.summary, "FADENO_A0_USABILITY_EVIDENCE_PRIVACY");
     const reportsMissingWorkflow = attempt.missingWorkflow.summary.trim().length > 0;
     if (reportsMissingWorkflow) missingWorkflowReports += 1;
     if (
