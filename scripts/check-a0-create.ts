@@ -15,6 +15,7 @@ import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadA0CreateContext, validateA0Create } from "./lib/a0-create-contract.ts";
 
 interface CommandResult {
   readonly status: number | null;
@@ -154,6 +155,9 @@ const temporaryRoot = realpathSync.native(mkdtempSync(join(tmpdir(), "fadeno-a0-
 let development: RunningCommand | null = null;
 let production: RunningCommand | null = null;
 try {
+  const tracked = new Set(requireSuccess("git", ["ls-files", "--cached"], root).stdout.trim().split("\n"));
+  const contractErrors = validateA0Create(loadA0CreateContext(root, tracked));
+  if (contractErrors.length > 0) throw new Error(contractErrors.join("\n"));
   requireSuccess("pnpm", ["--filter", "@fadeno/framework", "build"], root);
   const tarballs = join(temporaryRoot, "tarballs");
   mkdirSync(tarballs);
