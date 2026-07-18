@@ -45,6 +45,8 @@ for (const text of [
   "not additional participant guidance",
   "Opening the packet starts an attempt",
   "facilitator-intervention",
+  "Email addresses",
+  "unreferenced files",
   "omittedAttemptIds` must be empty",
   "pnpm check:a0-usability-evidence --manifest evidence/a0/independent-usability/evidence-manifest.json",
   "not permission to delete an attempt",

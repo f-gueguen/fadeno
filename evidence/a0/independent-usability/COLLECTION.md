@@ -6,6 +6,7 @@ public documentation.
 
 1. Before a participant opens the packet, assign an anonymous ID matching
    `participant-[a-z0-9]{8,32}` and record it in the started-attempt roster.
+   IDs containing `synthetic` or `fixture` are reserved and refused.
    Opening the packet starts an attempt; refusal or abandonment does not remove
    it from the roster.
 2. Confirm that the participant has never contributed to the repository and
@@ -18,12 +19,15 @@ public documentation.
    flow inspection, and recovery where the frozen packet requires them.
 4. Before hashing or retaining a file, remove names, contact details, secrets,
    absolute paths, environment values, unrelated command history, and precise
-   timestamps. Keep each artifact at or below 262,144 bytes and each
+   timestamps. Email addresses and `mailto:` or `tel:` contact values are
+   refused mechanically. Keep each artifact at or below 262,144 bytes and each
    observation at or below 2,048 UTF-8 bytes. Record lowercase SHA-256 digests.
 5. Create `attempt.json` in that participant directory using the exact record
    shape in `task-packet.json`. Retain all tasks that were started, in packet
    order, including refused and abandoned outcomes and their matching recovery
-   state.
+   state. The complete `attempts/` subtree must contain exactly the manifest's
+   attempt records and their referenced artifacts; unreferenced files, links,
+   special files, excessive depth, and excessive file counts are refused.
 6. After collection is truly closed, create one manifest with schema
    `fadeno.a0.independent-usability-evidence`, version `1`, disposition
    `participant-evidence`, the packet and artifact identities from the bundle,

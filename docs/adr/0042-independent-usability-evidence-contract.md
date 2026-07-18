@@ -94,4 +94,5 @@ from such a merged-source bundle. Its private
 command reconstructs the manifest's exact source commit and requires commit,
 package digest, and package version identity before replay. The command cannot
 accept synthetic fixtures or fewer than two qualifying independent
-participants.
+participants; it also rejects reserved fixture markers, contact values, and
+any unreferenced entry in the retained attempts subtree.
