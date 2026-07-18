@@ -552,4 +552,13 @@ try {
   }
 } finally { rmSync(malformedOwner, { recursive: true, force: true }); }
 
+const optionalBoundaries = createProject(["page.tsx"]);
+try {
+  const config = await loadConfig(optionalBoundaries);
+  const output = generateRoutes(optionalBoundaries, config).output;
+  const application = readFileSync(join(output, "app.ts"), "utf8");
+  assert.doesNotMatch(application, /\b(?:notFound|error): undefined\b/u);
+  assert.match(application, /page: module0, layouts: \[\] \}\);/u);
+} finally { rmSync(optionalBoundaries, { recursive: true, force: true }); }
+
 console.log("V1 production routing passed (config, discovery, transaction, stock types, app-bound links, metadata matcher)");
