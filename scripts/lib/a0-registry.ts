@@ -4,14 +4,17 @@ type JsonRecord = Record<string, unknown>;
 
 export type RegistryBlocker =
   | "invalid-candidate"
+  | "invalid-organization"
   | "registry-authentication-required"
+  | "registry-candidate-occupied"
   | "registry-candidate-required"
+  | "registry-organization-ownership-unverified"
   | "registry-package-not-found"
   | "registry-ownership-unverified"
   | "registry-response-invalid"
   | "registry-unavailable";
 
-export type RegistryOperation = "whoami" | "owner-ls";
+export type RegistryOperation = "whoami" | "org-ls" | "view" | "owner-ls";
 
 export type RegistryCommand = Readonly<{
   operation: RegistryOperation;
@@ -46,8 +49,25 @@ export type RegistryPreflightEvidence = Readonly<{
   operations: readonly RegistryOperationEvidence[];
 }>;
 
+export type RegistryOrganizationPreflightEvidence = Readonly<{
+  schemaVersion: 1;
+  registry: typeof A0_REGISTRY;
+  verificationMode: "read-only";
+  authenticatedOwner: string | null;
+  organization: string | null;
+  organizationRole: "owner" | null;
+  candidateIdentity: string | null;
+  candidateState: "unpublished" | null;
+  selectedIdentity: string | null;
+  blocker: RegistryBlocker | null;
+  publicationAttempted: false;
+  publicationAuthorized: false;
+  operations: readonly RegistryOperationEvidence[];
+}>;
+
 const usernamePattern = /^[a-z0-9][a-z0-9._-]*$/u;
 const packagePartPattern = /^[a-z0-9][a-z0-9._-]*$/u;
+const organizationPattern = /^[a-z0-9][a-z0-9-]*$/u;
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -79,6 +99,16 @@ export function registryWhoamiCommand(): RegistryCommand {
 export function registryOwnerCommand(candidate: string): RegistryCommand {
   if (!validCandidate(candidate)) throw new Error("FADENO_A0_REGISTRY_INVALID_CANDIDATE");
   return command("owner-ls", ["owner", "ls", candidate, `--registry=${A0_REGISTRY}`]);
+}
+
+export function registryOrganizationCommand(organization: string): RegistryCommand {
+  if (!organizationPattern.test(organization)) throw new Error("FADENO_A0_REGISTRY_INVALID_ORGANIZATION");
+  return command("org-ls", ["org", "ls", organization, "--json", `--registry=${A0_REGISTRY}`]);
+}
+
+export function registryViewCommand(candidate: string): RegistryCommand {
+  if (!validCandidate(candidate)) throw new Error("FADENO_A0_REGISTRY_INVALID_CANDIDATE");
+  return command("view", ["view", candidate, "name", "version", "--json", `--registry=${A0_REGISTRY}`]);
 }
 
 function evidence(
@@ -165,22 +195,116 @@ export function runRegistryPreflight(candidate: string | null, run: RegistryComm
   return evidence(candidate, owner, candidate, null, operations);
 }
 
+function organizationEvidence(
+  organization: string | null,
+  candidateIdentity: string | null,
+  authenticatedOwner: string | null,
+  organizationRole: "owner" | null,
+  candidateState: "unpublished" | null,
+  selectedIdentity: string | null,
+  blocker: RegistryBlocker | null,
+  operations: readonly RegistryOperationEvidence[],
+): RegistryOrganizationPreflightEvidence {
+  return Object.freeze({
+    schemaVersion: 1,
+    registry: A0_REGISTRY,
+    verificationMode: "read-only",
+    authenticatedOwner,
+    organization,
+    organizationRole,
+    candidateIdentity,
+    candidateState,
+    selectedIdentity,
+    blocker,
+    publicationAttempted: false,
+    publicationAuthorized: false,
+    operations: Object.freeze([...operations]),
+  });
+}
+
+export function runRegistryOrganizationPreflight(
+  organization: string,
+  candidate: string,
+  run: RegistryCommandRunner,
+): RegistryOrganizationPreflightEvidence {
+  if (!organizationPattern.test(organization)) {
+    return organizationEvidence(organization, candidate, null, null, null, null, "invalid-organization", []);
+  }
+  if (!validCandidate(candidate) || !candidate.startsWith(`@${organization}/`)) {
+    return organizationEvidence(organization, candidate, null, null, null, null, "invalid-candidate", []);
+  }
+
+  const operations: RegistryOperationEvidence[] = [];
+  const whoami = run(registryWhoamiCommand());
+  if (whoami.exitCode !== 0) {
+    const blocker = failure("whoami", whoami.stderr);
+    operations.push(operationEvidence("whoami", whoami, blocker));
+    return organizationEvidence(organization, candidate, null, null, null, null, blocker, operations);
+  }
+  const owner = whoami.stdout.trim();
+  if (!usernamePattern.test(owner)) {
+    operations.push(operationEvidence("whoami", whoami, "registry-response-invalid"));
+    return organizationEvidence(organization, candidate, null, null, null, null, "registry-response-invalid", operations);
+  }
+  operations.push(operationEvidence("whoami", whoami, "accepted"));
+
+  const organizationResult = run(registryOrganizationCommand(organization));
+  if (organizationResult.exitCode !== 0) {
+    const blocker = failure("org-ls", organizationResult.stderr);
+    operations.push(operationEvidence("org-ls", organizationResult, blocker));
+    return organizationEvidence(organization, candidate, owner, null, null, null, blocker, operations);
+  }
+  let members: unknown;
+  try {
+    members = JSON.parse(organizationResult.stdout) as unknown;
+  } catch {
+    members = null;
+  }
+  if (!isRecord(members)) {
+    operations.push(operationEvidence("org-ls", organizationResult, "registry-response-invalid"));
+    return organizationEvidence(organization, candidate, owner, null, null, null, "registry-response-invalid", operations);
+  }
+  if (members[owner] !== "owner") {
+    operations.push(operationEvidence("org-ls", organizationResult, "registry-organization-ownership-unverified"));
+    return organizationEvidence(organization, candidate, owner, null, null, null, "registry-organization-ownership-unverified", operations);
+  }
+  operations.push(operationEvidence("org-ls", organizationResult, "accepted"));
+
+  const candidateResult = run(registryViewCommand(candidate));
+  if (candidateResult.exitCode === 0) {
+    operations.push(operationEvidence("view", candidateResult, "registry-candidate-occupied"));
+    return organizationEvidence(organization, candidate, owner, "owner", null, null, "registry-candidate-occupied", operations);
+  }
+  if (!/E404|\b404\b|not found/iu.test(candidateResult.stderr)) {
+    const blocker = failure("view", candidateResult.stderr);
+    operations.push(operationEvidence("view", candidateResult, blocker));
+    return organizationEvidence(organization, candidate, owner, "owner", null, null, blocker, operations);
+  }
+  operations.push(operationEvidence("view", candidateResult, "accepted"));
+  return organizationEvidence(organization, candidate, owner, "owner", "unpublished", candidate, null, operations);
+}
+
 export function validateRegistryDiscovery(value: unknown): readonly string[] {
   const errors: string[] = [];
   if (!isRecord(value)) return Object.freeze(["A0 registry evidence must be an object"]);
-  if (value["schemaVersion"] !== 2) errors.push("A0 registry schemaVersion must be 2");
+  if (value["schemaVersion"] !== 3) errors.push("A0 registry schemaVersion must be 3");
   if (value["observedAt"] !== "2026-07-18") errors.push("A0 registry observation date mismatch");
   if (value["registry"] !== A0_REGISTRY) errors.push("A0 registry authority mismatch");
   if (value["verificationMode"] !== "read-only") errors.push("A0 registry verification must be read-only");
   if (value["unscopedIdentity"] !== "fadeno" || value["unscopedAvailability"] !== "occupied") errors.push("A0 unscoped registry evidence mismatch");
-  if (value["authenticatedOwner"] !== null || value["candidateIdentity"] !== null || value["selectedIdentity"] !== null) {
-    errors.push("A0 registry identity was selected before ownership verification");
+  if (value["authenticatedOwner"] !== "fgueguen"
+    || value["organization"] !== "fadeno"
+    || value["organizationRole"] !== "owner"
+    || value["candidateIdentity"] !== "@fadeno/framework"
+    || value["candidateState"] !== "unpublished"
+    || value["selectedIdentity"] !== "@fadeno/framework") {
+    errors.push("A0 registry identity mapping mismatch");
   }
-  if (value["blocker"] !== "registry-authentication-required") errors.push("A0 registry blocker must remain authentication-required");
+  if (value["blocker"] !== null) errors.push("A0 registry ownership blocker must be resolved");
   if (value["publicationAttempted"] !== false || value["publicationAuthorized"] !== false) errors.push("A0 registry evidence must remain non-publishing");
   const allowedOperations = value["allowedOperations"];
   if (!Array.isArray(allowedOperations)
-    || JSON.stringify(allowedOperations) !== JSON.stringify(["whoami", "owner-ls"])) {
+    || JSON.stringify(allowedOperations) !== JSON.stringify(["whoami", "org-ls", "view", "owner-ls"])) {
     errors.push("A0 registry allowed operations must remain read-only");
   }
   return Object.freeze(errors);
@@ -188,14 +312,15 @@ export function validateRegistryDiscovery(value: unknown): readonly string[] {
 
 export function validateRegistryCaptureSource(source: string): readonly string[] {
   const errors: string[] = [];
-  if (!source.includes("runRegistryPreflight(candidateArgument(process.argv.slice(2)), run)")) {
+  if (!source.includes("runRegistryOrganizationPreflight(options.organization, options.candidate, run)")
+    || !source.includes("runRegistryPreflight(options.candidate, run)")) {
     errors.push("A0 registry capture must delegate to the bounded preflight");
   }
   if ((source.match(/spawnSync\(/gu) ?? []).length !== 1
     || !source.includes("spawnSync(command.executable, command.arguments")) {
     errors.push("A0 registry capture command boundary drifted");
   }
-  if (/\b(?:publish|unpublish|add|rm|set|grant|revoke|token|dist-tag)\b/iu.test(source)
+  if (/["'](?:publish|unpublish|add|rm|set|grant|revoke|token|dist-tag)["']/iu.test(source)
     || /\b(?:writeFile|appendFile|rename|unlink)Sync\b/u.test(source)) {
     errors.push("A0 registry capture admitted mutation");
   }

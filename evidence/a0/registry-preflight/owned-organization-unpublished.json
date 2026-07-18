@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "registry": "https://registry.npmjs.org/",
+  "verificationMode": "read-only",
+  "authenticatedOwner": "maintainer",
+  "organization": "example",
+  "organizationRole": "owner",
+  "candidateIdentity": "@example/framework",
+  "candidateState": "unpublished",
+  "selectedIdentity": "@example/framework",
+  "blocker": null,
+  "publicationAttempted": false,
+  "publicationAuthorized": false,
+  "operations": [
+    {
+      "operation": "whoami",
+      "exitCode": 0,
+      "outcome": "accepted"
+    },
+    {
+      "operation": "org-ls",
+      "exitCode": 0,
+      "outcome": "accepted"
+    },
+    {
+      "operation": "view",
+      "exitCode": 1,
+      "outcome": "accepted"
+    }
+  ]
+}

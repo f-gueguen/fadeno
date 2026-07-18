@@ -1,18 +1,23 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "observedAt": "2026-07-18",
   "registry": "https://registry.npmjs.org/",
   "verificationMode": "read-only",
   "unscopedIdentity": "fadeno",
   "unscopedAvailability": "occupied",
-  "authenticatedOwner": null,
-  "candidateIdentity": null,
-  "selectedIdentity": null,
-  "blocker": "registry-authentication-required",
+  "authenticatedOwner": "fgueguen",
+  "organization": "fadeno",
+  "organizationRole": "owner",
+  "candidateIdentity": "@fadeno/framework",
+  "candidateState": "unpublished",
+  "selectedIdentity": "@fadeno/framework",
+  "blocker": null,
   "publicationAttempted": false,
   "publicationAuthorized": false,
   "allowedOperations": [
     "whoami",
+    "org-ls",
+    "view",
     "owner-ls"
   ]
 }

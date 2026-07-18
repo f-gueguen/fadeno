@@ -9,6 +9,7 @@ const tracked = new Set(execFileSync("git", ["ls-files", "--cached"], { cwd: roo
 const requiredPaths = [
   "evidence/a0/registry-discovery.json",
   "evidence/a0/registry-preflight/authentication-required.json",
+  "evidence/a0/registry-preflight/owned-organization-unpublished.json",
   "evidence/a0/registry-preflight/owned-package.json",
   "scripts/capture-a0-registry.ts",
 ];
@@ -21,4 +22,4 @@ const errors = [
 ];
 if (errors.length > 0) throw new Error(errors.join("\n"));
 
-console.log("A0 registry preflight passed (read-only operations, blocked identity, no publication)");
+console.log("A0 registry preflight passed (owned organization, selected unpublished identity, no publication)");

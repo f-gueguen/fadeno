@@ -12,7 +12,7 @@ function expectMutation(expected: string, mutate: (context: A0PlanContext) => A0
 
 const validErrors = validateA0Plan(source);
 if (validErrors.length > 0) throw new Error(`valid A0 plan refused:\n${validErrors.join("\n")}`);
-expectMutation("A0 registry identity was selected before ownership verification", (context) => Object.freeze({
+expectMutation("A0 registry identity mapping mismatch", (context) => Object.freeze({
   ...context,
   registry: { ...(context.registry as Record<string, unknown>), selectedIdentity: "unverified" },
 }));

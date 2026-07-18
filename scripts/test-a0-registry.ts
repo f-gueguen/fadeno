@@ -3,8 +3,11 @@ import { fileURLToPath } from "node:url";
 
 import {
   A0_REGISTRY,
+  registryOrganizationCommand,
   registryOwnerCommand,
+  registryViewCommand,
   registryWhoamiCommand,
+  runRegistryOrganizationPreflight,
   runRegistryPreflight,
   validateRegistryCaptureSource,
   validateRegistryDiscovery,
@@ -37,6 +40,19 @@ function expectBlocker(candidate: string | null, results: readonly RegistryComma
   }
 }
 
+function expectOrganizationBlocker(
+  organization: string,
+  candidate: string,
+  results: readonly RegistryCommandResult[],
+  expected: string,
+): void {
+  const observed: RegistryCommand[] = [];
+  const evidence = runRegistryOrganizationPreflight(organization, candidate, runner(results, observed));
+  if (evidence.blocker !== expected || evidence.selectedIdentity !== null || evidence.publicationAttempted || evidence.publicationAuthorized) {
+    throw new Error(`registry organization refusal mismatch: ${expected}\n${JSON.stringify(evidence)}`);
+  }
+}
+
 const whoami = registryWhoamiCommand();
 if (JSON.stringify(whoami) !== JSON.stringify({
   operation: "whoami",
@@ -50,7 +66,19 @@ if (JSON.stringify(owner) !== JSON.stringify({
   executable: "npm",
   arguments: ["owner", "ls", "@maintainer/fadeno", `--registry=${A0_REGISTRY}`],
 })) throw new Error("owner command drifted");
-for (const token of [...whoami.arguments, ...owner.arguments]) {
+const organization = registryOrganizationCommand("example");
+if (JSON.stringify(organization) !== JSON.stringify({
+  operation: "org-ls",
+  executable: "npm",
+  arguments: ["org", "ls", "example", "--json", `--registry=${A0_REGISTRY}`],
+})) throw new Error("organization command drifted");
+const view = registryViewCommand("@example/framework");
+if (JSON.stringify(view) !== JSON.stringify({
+  operation: "view",
+  executable: "npm",
+  arguments: ["view", "@example/framework", "name", "version", "--json", `--registry=${A0_REGISTRY}`],
+})) throw new Error("view command drifted");
+for (const token of [...whoami.arguments, ...owner.arguments, ...organization.arguments, ...view.arguments]) {
   if (["publish", "unpublish", "add", "rm", "set", "grant", "revoke", "token", "dist-tag"].includes(token)) {
     throw new Error(`mutating registry token admitted: ${token}`);
   }
@@ -72,6 +100,26 @@ if (success.blocker !== null
 if (JSON.stringify(success).includes("private@example.invalid")) throw new Error("owner email escaped normalized evidence");
 if (JSON.stringify(success) !== JSON.stringify(fixture("owned-package"))) throw new Error("owned-package fixture drifted");
 
+const organizationCommands: RegistryCommand[] = [];
+const organizationSuccess = runRegistryOrganizationPreflight(
+  "example",
+  "@example/framework",
+  runner([
+    ok("maintainer\n"),
+    ok('{"maintainer":"owner"}\n'),
+    refused("E404 package not found"),
+  ], organizationCommands),
+);
+if (JSON.stringify(organizationSuccess) !== JSON.stringify(fixture("owned-organization-unpublished"))) {
+  throw new Error(`owned-organization fixture drifted:\n${JSON.stringify(organizationSuccess)}`);
+}
+expectOrganizationBlocker("INVALID", "@example/framework", [], "invalid-organization");
+expectOrganizationBlocker("example", "@different/framework", [], "invalid-candidate");
+expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), ok('{"maintainer":"developer"}\n')], "registry-organization-ownership-unverified");
+expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), ok("not-json\n")], "registry-response-invalid");
+expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), ok('{"maintainer":"owner"}\n'), ok('{"name":"@example/framework"}\n')], "registry-candidate-occupied");
+expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), ok('{"maintainer":"owner"}\n'), refused("network unavailable")], "registry-unavailable");
+
 const authenticationCommands: RegistryCommand[] = [];
 const authenticationRequired = runRegistryPreflight(
   null,
@@ -91,19 +139,22 @@ expectBlocker("@maintainer/fadeno;publish", [], "invalid-candidate");
 expectBlocker("@maintainer/fadeno", [ok("unexpected owner value\nwith spaces\n")], "registry-response-invalid");
 
 const trackedEvidence = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   observedAt: "2026-07-18",
   registry: A0_REGISTRY,
   verificationMode: "read-only",
   unscopedIdentity: "fadeno",
   unscopedAvailability: "occupied",
-  authenticatedOwner: null,
-  candidateIdentity: null,
-  selectedIdentity: null,
-  blocker: "registry-authentication-required",
+  authenticatedOwner: "fgueguen",
+  organization: "fadeno",
+  organizationRole: "owner",
+  candidateIdentity: "@fadeno/framework",
+  candidateState: "unpublished",
+  selectedIdentity: "@fadeno/framework",
+  blocker: null,
   publicationAttempted: false,
   publicationAuthorized: false,
-  allowedOperations: ["whoami", "owner-ls"],
+  allowedOperations: ["whoami", "org-ls", "view", "owner-ls"],
 };
 if (validateRegistryDiscovery(trackedEvidence).length !== 0) throw new Error("valid tracked registry evidence refused");
 const mutatingEvidence = { ...trackedEvidence, allowedOperations: ["whoami", "publish"] };
@@ -118,12 +169,12 @@ if (!validateRegistryDiscovery(publishingEvidence).includes("A0 registry evidenc
 const captureSource = readFileSync(`${root}scripts/capture-a0-registry.ts`, "utf8");
 if (validateRegistryCaptureSource(captureSource).length !== 0) throw new Error("valid capture source refused");
 if (!validateRegistryCaptureSource(captureSource.replace(
-  "const result = runRegistryPreflight",
-  'spawnSync("npm", ["publish"]);\nconst result = runRegistryPreflight',
+  "const options = argumentsOptions",
+  'spawnSync("npm", ["publish"]);\nconst options = argumentsOptions',
 )).includes("A0 registry capture admitted mutation")) throw new Error("direct publication mutation was not refused");
 if (!validateRegistryCaptureSource(captureSource.replace(
-  "runRegistryPreflight(candidateArgument(process.argv.slice(2)), run)",
-  "runRegistryPreflight(null, run)",
+  "runRegistryOrganizationPreflight(options.organization, options.candidate, run)",
+  "runRegistryOrganizationPreflight(options.organization, null, run)",
 )).includes("A0 registry capture must delegate to the bounded preflight")) throw new Error("capture delegation mutation was not refused");
 
 console.log("A0 registry preflight tests passed (success, auth, ownership, malformed data, injection, no publication)");
