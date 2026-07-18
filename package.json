@@ -8,6 +8,7 @@
     "node": ">=22.17.0"
   },
   "scripts": {
+    "changeset": "changeset",
     "check:experiment-contract": "node --no-warnings --experimental-strip-types scripts/check-experiment-contract.ts && node --no-warnings --experimental-strip-types scripts/test-experiment-contract.ts",
     "check:reference-image": "node --no-warnings --experimental-strip-types scripts/check-reference-image.ts",
     "check:browser-reference": "node --no-warnings --experimental-strip-types scripts/check-browser-reference.ts && node --no-warnings --experimental-strip-types scripts/test-browser-reference.ts",
@@ -80,6 +81,7 @@
     "experiment:type-spine": "node --no-warnings --experimental-strip-types experiments/type-spine/run.ts"
   },
   "devDependencies": {
+    "@changesets/cli": "2.31.1",
     "@playwright/test": "1.61.0",
     "@types/node": "22.20.1",
     "ajv": "8.20.0",
