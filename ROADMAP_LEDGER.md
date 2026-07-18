@@ -44,7 +44,8 @@ schema, publish a package, or treat synthetic fixtures as participants.
 
 ## Completed slices
 
-- A0-06 — Merge commit `0272684` adds the exact public deployment command,
+- A0-06 — add the first supported deployment workflow. Merge commit `0272684`
+  accepts ADR 0041 and adds the exact public deployment command,
   source-free production-only artifact, runtime identity verification, external
   HTTPS health, configuration refusal, graceful stop, prior-directory rollback,
   stale-route recovery, generated guidance, and review hardening without a
