@@ -6,44 +6,40 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-01 — decide the alpha CSS boundary from executable native-CSS evidence
+A0-02A — establish a read-only, non-publishing registry ownership preflight
 
 ## Exit criteria
 
-- [x] Extend the canonical packed application with one external native
-  stylesheet served through public framework entrypoints.
-- [x] Prove the styled document in three engines with JavaScript disabled and
-  retain inline-style refusal, correction, flow, and stale-removal evidence.
-- [x] Resolve the CSS-01 decision through an ADR, current specifications, traceability,
-  risk/deferral state, and executable documentation sourced from tested files.
-- [x] Pass CSS, rendering-security, accessibility, documentation, model, full
-  repository, local CI, and independent review gates.
+- [ ] Add one TypeScript verifier limited to authenticated identity and
+  existing-package owner queries, with no publication or ownership mutation.
+- [ ] Prove normalized success, authentication refusal, missing-package,
+  unverified-owner, malformed-response, and command-injection cases offline.
+- [ ] Keep the internal package private, leave DG-A0-01 open, and retain the
+  authenticated-owner and candidate identity as explicit blockers.
+- [ ] Pass registry, plan, model, type, full repository, and local CI gates on
+  an exact local commit.
 
 ## Active sub-slice
 
-A0-01 evidence and decision only. It may use the existing public JSX, handler,
-build, adapter, and package boundaries; it does not invent a scoped-CSS
-compiler, runtime style injection, asset pipeline, package identity, version,
-tag, or publication.
+A0-02 registry preflight only. It may query the current authenticated identity
+and owners of an already existing candidate package. It does not select a
+public identity, authorize or perform publication, mutate registry ownership,
+resolve DG-A0-01, add hosted CI, or make the private package publishable.
 
 ## In progress
 
-- ADR 0036 accepts only application-owned same-origin external CSS for alpha;
-  inline CSS stays refused and scoped CSS plus an asset pipeline remain deferred.
-- The canonical packed application serves ordinary CSS from a handler-owned
-  `Response`, links it from the root layout, and keeps the essential path free
-  of JavaScript.
-- Chromium, Firefox, and WebKit prove computed styles and focus visibility with
-  JavaScript disabled; normalized failure, correction, flow, recovery, and
-  stale-removal evidence is retained in the scenario harness.
-- Exact tip `904a856` passed `pnpm check` and `pnpm ci:local`; the current-tip
-  independent review reported no major issues and exhaustive thread triage left
-  no unresolved connector findings.
+- The existing registry observation is being upgraded to name the two allowed
+  read-only operations and to record that no publication was attempted.
+- The verifier will fail closed until the workstation is authenticated and the
+  authenticated account appears in the owner list of an existing candidate.
+- Local merge gates use injected command results only; they do not depend on
+  registry availability or credentials.
 
 ## Blockers
 
 - A0-02 / DG-A0-01: authenticate the owner account on this workstation and
-  verify an owned registry scope before selecting or securing a package name.
+  establish an owned candidate package manually before selecting its public
+  identity and accepting the publication boundary.
 
 ## Open questions
 
@@ -54,6 +50,11 @@ tag, or publication.
   by A0-06 after the public project-creation workflow exists.
 
 ## Completed slices
+
+- A0-01 — Merge commit `6de019c` accepts only application-owned same-origin
+  external CSS for alpha, retains inline-style refusal and scoped-CSS deferral,
+  and proves the packed canonical application in three engines with complete
+  normalized failure, correction, flow, recovery, and stale-removal evidence.
 
 - A0-00 — Merge commit `29ded97` decomposes public-alpha delivery into eleven
   dependency-ordered slices, records the blocked registry identity, assigns

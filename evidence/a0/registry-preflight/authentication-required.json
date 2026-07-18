@@ -1,18 +1,18 @@
 {
-  "schemaVersion": 2,
-  "observedAt": "2026-07-18",
+  "schemaVersion": 1,
   "registry": "https://registry.npmjs.org/",
   "verificationMode": "read-only",
-  "unscopedIdentity": "fadeno",
-  "unscopedAvailability": "occupied",
   "authenticatedOwner": null,
   "candidateIdentity": null,
   "selectedIdentity": null,
   "blocker": "registry-authentication-required",
   "publicationAttempted": false,
   "publicationAuthorized": false,
-  "allowedOperations": [
-    "whoami",
-    "owner-ls"
+  "operations": [
+    {
+      "operation": "whoami",
+      "exitCode": 1,
+      "outcome": "registry-authentication-required"
+    }
   ]
 }
