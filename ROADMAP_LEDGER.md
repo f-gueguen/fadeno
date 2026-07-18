@@ -15,14 +15,15 @@ A0-05 — add the supported application-test workflow
 - [x] Add the command and typed executable test to the created-project template.
 - [x] Prove packed success, deliberate failure, normalized human and machine
   output, correction, flow, recovery, and stale-output removal.
-- [ ] Source documentation from verified artifacts; pass package, example,
+- [x] Source documentation from verified artifacts; pass package, example,
   full local CI, and independent review gates.
 
 ## Active sub-slice
 
-A0-05A accepts and implements only the created application's stock test
-workflow. It does not add deployment, publication, another package, a public
-test helper, a public analyzer schema, or a second framework runtime.
+A0-05 final exact-tip validation, final review, and merge only. The accepted
+created-application test workflow is complete; this slice does not add
+deployment, publication, another package, a public test helper, a public
+analyzer schema, or a second framework runtime.
 
 ## In progress
 
@@ -31,7 +32,11 @@ test helper, a public analyzer schema, or a second framework runtime.
   and TAP output, correction, flow, recovery, stale-output removal, generated
   guidance, and mutation guards are complete. Project creation, package
   boundary, public package, canonical running example, documentation, model,
-  and TypeScript gates pass. Exact local CI and independent review remain.
+  TypeScript, and exact local CI gates pass. The initial independent review's
+  three threads were exhaustively triaged; its two valid findings are fixed by
+  `02bd616`, with targeted test, documentation, build-recovery, and running-
+  example gates passing. Final exact-tip local CI and review remain operational
+  work only.
 
 ## Blockers
 
