@@ -16,7 +16,7 @@ A0-02B — accept the owned public package identity and publication boundary
   trusted-publication boundary, and rollback behavior through an ADR.
 - [x] Resolve the package-identity gate without making the internal package publishable before
   A0-03 or publishing a placeholder version.
-- [ ] Pass registry, package-surface, decision, model, full repository, local
+- [x] Pass registry, package-surface, decision, model, full repository, local
   CI, and independent review gates.
 
 ## Active sub-slice
@@ -36,6 +36,8 @@ placeholder, add hosted CI, or begin the A0-03 release implementation.
   `fadeno` executable while keeping the package private and unpublished.
 - The first release must bootstrap with provenance from public source before
   exact trusted-publisher identity can replace its one-use credential.
+- Exact branch tip `41cf05d` passed `pnpm check` and commit-bound
+  `pnpm ci:local`; the final ledger-only commit must repeat the local gate.
 
 ## Blockers
 
