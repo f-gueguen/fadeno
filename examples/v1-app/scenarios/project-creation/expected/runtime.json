@@ -1,0 +1,14 @@
+{
+  "development": {
+    "homeStatus": 200,
+    "stylesheetStatus": 200,
+    "missingStatus": 404,
+    "clientScriptPresent": false
+  },
+  "production": {
+    "homeStatus": 200,
+    "stylesheetStatus": 200,
+    "missingStatus": 404,
+    "clientScriptPresent": false
+  }
+}

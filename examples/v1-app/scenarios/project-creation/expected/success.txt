@@ -1,0 +1,2 @@
+Created Fadeno project at <PROJECT_ROOT>.
+Next: cd <PROJECT_ROOT> && pnpm install && pnpm check

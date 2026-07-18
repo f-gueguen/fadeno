@@ -6,39 +6,38 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-03 — make the selected public package mechanically releasable
+A0-04 — merge public project creation
 
 ## Exit criteria
 
-- [x] Accept the `0.0.0` unpublished seed, expected `0.1.0-alpha.0` first
-  release, Changesets workflow, changelog ownership, and rollback through ADR
-  0038.
-- [x] Atomically rename the package and every consumer to `@fadeno/framework`,
-  add complete public metadata, and retain exactly the accepted exports/bin.
-- [x] Add fail-closed release/provenance automation, frozen package contents,
-  SPDX SBOM, migration seed, and public-name pack/install evidence.
-- [x] Pass release-policy mutations, package/public surface, documentation,
-  full repository, local CI, and independent review gates.
+- [x] Accept one exact non-interactive create command, exclusive target
+  ownership, transactional rollback, package-version pin, and template boundary through
+  ADR 0039.
+- [x] Implement the create command in the existing TypeScript executable with
+  bounded arguments, contained writes, rollback, and stable human diagnostics.
+- [x] Source a byte-stable scaffold from the canonical tested application and
+  prove its public-package check/build/dev/start workflow.
+- [x] Retain executable success, refusal, diagnostic, normalized output, flow,
+  recovery, stale-removal, and documentation evidence; pass full local CI and
+  independent review.
 
 ## Active sub-slice
 
-A0-03 final exact-commit qualification and review only. The package is
-mechanically publishable and the release-only transporter exists, but this
-slice does not create a tag, release, registry version, public repository,
-scaffold, deployment, or new framework API.
+A0-04 final review and merge only. The accepted public create command and its
+fixed template are complete; this slice does not add the application-test
+workflow, deployment, publication, a second package, or a second runtime.
 
 ## In progress
 
-- ADR 0038 and the pinned Changesets configuration own the initial release
-  train. The public-name migration, exact tarball, deterministic SPDX SBOM,
-  fail-closed publication guard, release-only transporter, success/refusal/
-  flow/recovery/rollback evidence, and current-packed consumer replay pass.
-  Final `pnpm ci:local`, independent review, and merge remain.
+- ADR 0039, the TypeScript command, fixed template, packed consumer, normalized
+  success/refusal/correction/flow/recovery evidence, generated guidance, and
+  mutation contracts are complete. Exact `pnpm check` and `pnpm ci:local`
+  passed at `574e93d`; final review and merge remain operational work only.
 
 ## Blockers
 
 - None. Registry organization ownership and the unpublished selected identity
-  were accepted by A0-02.
+  were accepted by A0-02, and A0-03 merged the publishable public package.
 
 ## Open questions
 
@@ -48,6 +47,12 @@ scaffold, deployment, or new framework API.
   by A0-06 after the public project-creation workflow exists.
 
 ## Completed slices
+
+- A0-03 — Merge commit `18dbf8f` completes the public-name migration and
+  establishes the `0.0.0` seed,
+  Changesets alpha train, exact tarball and metadata, deterministic SPDX SBOM,
+  guarded release-only publication transport, current-packed consumers, and
+  permanent success/refusal/flow/recovery/rollback evidence without publishing.
 
 - A0-02 — Merge commit `7dfe3a3` accepts the owner-verified unpublished
   `@fadeno/framework` identity, exact export/bin map, provenance bootstrap,

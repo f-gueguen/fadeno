@@ -1,0 +1,20 @@
+{
+  "name": "my-fadeno-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "check": "fadeno check --project-root .",
+    "build": "fadeno build --project-root .",
+    "dev": "fadeno dev --project-root . --port 4173",
+    "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"
+  },
+  "dependencies": {
+    "@fadeno/framework": "0.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "typescript": "7.0.2"
+  }
+}

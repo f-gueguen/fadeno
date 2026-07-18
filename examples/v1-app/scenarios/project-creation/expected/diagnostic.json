@@ -1,0 +1,7 @@
+{
+  "command": "fadeno create --project-root Bad_Name",
+  "exitCode": 1,
+  "stdout": "",
+  "stderr": "FADENO_CREATE_NAME: Project directory name must be a lowercase package name.\n",
+  "targetExists": false
+}
