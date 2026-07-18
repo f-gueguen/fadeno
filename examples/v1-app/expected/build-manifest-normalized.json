@@ -35,12 +35,12 @@
   },
   "dependencies": [
     {
-      "name": "<platform-compiler-package>",
+      "name": "@fadeno/framework",
       "files": "<verified-files>",
       "sha256": "<verified-sha256>"
     },
     {
-      "name": "@fadeno/framework",
+      "name": "<platform-compiler-package>",
       "files": "<verified-files>",
       "sha256": "<verified-sha256>"
     },

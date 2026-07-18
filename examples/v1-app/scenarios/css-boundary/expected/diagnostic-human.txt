@@ -1,2 +1,2 @@
 FADENO_BUILD_TYPESCRIPT: TypeScript reported 1 diagnostic.
-  TS2322 src/routes/css-boundary/page.tsx:94-99: Type <redacted-literal> is not assignable to type <redacted-literal>.
+  TS2322 src/routes/css-boundary/page.tsx:86-91: Type <redacted-literal> is not assignable to type <redacted-literal>.
