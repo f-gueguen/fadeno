@@ -38,14 +38,14 @@ not exist, and the final directory name is a lowercase unscoped package name
 matching `[a-z][a-z0-9-]{0,63}`. Unknown, duplicate, missing, or additional
 arguments are usage refusals.
 
-Creation writes a fixed allowlist into a fresh sibling staging directory and
-atomically renames that directory to the requested target. Every file path is
-framework-owned, relative, normalized, and contained. Any failure before the
-rename removes the staging directory and leaves the target absent. Existing
-targets, symlinked parents, non-directory parents, and invalid names are
-refused without writes. The command does not install dependencies, initialize
-version control, contact a network, execute generated code, or overwrite a
-partial or existing project.
+Creation prepares every output byte before writing, atomically claims the
+missing target with exclusive directory creation, and writes a fixed allowlist
+only inside that framework-owned directory. Every file path is relative,
+normalized, and contained. Any later failure removes the directory the command
+claimed and leaves the target absent. Existing targets, symlinked parents,
+non-directory parents, and invalid names are refused without writes. The
+command does not install dependencies, initialize version control, contact a
+network, execute generated code, or overwrite a partial or existing project.
 
 The generated manifest pins the exact version of the executing
 `@fadeno/framework` package. It exposes only `check`, `build`, `dev`, and
@@ -60,6 +60,9 @@ external CSS. It does not create a second compiler or runtime.
   are harder to reproduce and automate.
 - Positional destination arguments: rejected because existing public commands
   already make project-root ownership explicit.
+- Sibling staging followed by ordinary rename: rejected because the available
+  rename operation may replace an empty directory created concurrently; an
+  exclusive target-directory claim preserves the stronger no-overwrite rule.
 - Create into an existing empty directory: rejected because emptiness checks
   race and make rollback ownership ambiguous.
 - Install dependencies automatically: rejected because project creation must

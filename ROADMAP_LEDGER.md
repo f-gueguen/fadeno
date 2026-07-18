@@ -10,8 +10,8 @@ A0-04A — accept the public project-creation contract
 
 ## Exit criteria
 
-- [ ] Accept one exact non-interactive create command, target ownership,
-  transactional publication, package-version pin, and template boundary through
+- [ ] Accept one exact non-interactive create command, exclusive target
+  ownership, transactional rollback, package-version pin, and template boundary through
   ADR 0039.
 - [ ] Implement the create command in the existing TypeScript executable with
   bounded arguments, contained writes, rollback, and stable human diagnostics.
@@ -30,7 +30,7 @@ workflow, deployment, publication, a second package, or a second runtime.
 ## In progress
 
 - ADR 0039 accepts `fadeno create --project-root <path>`, fresh-target and
-  non-symlink-parent ownership, sibling staging plus atomic rename, exact
+  non-symlink-parent ownership, exclusive directory claim plus rollback, exact
   executing-package version pinning, no implicit install/network/version-control
   work, and an action-free canonical template. Implementation and evidence are
   pending.
