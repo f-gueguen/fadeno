@@ -114,8 +114,8 @@ export function validateA0Create(context: A0CreateContext): readonly string[] {
   if (!riskRow.includes("symlink-free parent path") || !riskRow.includes("packed generated consumer passes")) {
     errors.push("project-creation risk control drifted");
   }
-  if (!context.ledger.includes("[x] Accept one exact non-interactive create command")
-    || !context.ledger.includes("[x] Implement the create command")) {
+  if (!context.ledger.includes("A0-04 — Merge commit `0f3b351`")
+    || !context.ledger.includes("adds the exact public create command")) {
     errors.push("project-creation ledger status drifted");
   }
   if (!context.roadmap.includes("`pnpm check:a0-create`; public package install")
@@ -154,7 +154,6 @@ export function validateA0Create(context: A0CreateContext): readonly string[] {
   if (!record(generatedPackage) || !record(generatedPackage["dependencies"])
     || !record(generatedPackage["scripts"])
     || generatedPackage["dependencies"]["@fadeno/framework"] !== frameworkPackage["version"]
-    || generatedPackage["scripts"]["test"] !== undefined
     || generatedPackage["scripts"]["check"] !== "fadeno check --project-root .") {
     errors.push("generated project manifest drifted");
   }

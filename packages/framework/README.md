@@ -28,6 +28,13 @@ and atomically replaces `dist` while preserving the last accepted generation
 on failure. Unrelated development packages are not startup inputs. Neither
 command has a machine-output mode.
 
+Projects created by the executable also expose `pnpm test`. That command uses
+the pinned stock TypeScript compiler and Node's built-in test runner against
+the application's route modules and Fadeno's production `renderRoute` and
+`Handler` surfaces. It writes only disposable `.fadeno/test` output, removes
+the prior output before compiling, and adds no framework test runtime or public
+test helper.
+
 Start an accepted build from its project root with an explicit port. An
 application that declares actions also provides its canonical HTTPS origin and
 active-first protected-session keyring:

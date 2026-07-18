@@ -1,0 +1,29 @@
+{
+  "operation": "pnpm test",
+  "causes": [
+    "typed application and test sources compiled with stock TypeScript",
+    "production renderRoute executed the application page and not-found page",
+    "production Handler executed the stylesheet response"
+  ],
+  "ownership": {
+    "source": [
+      "src",
+      "test/application.test.tsx",
+      "tsconfig.test.json"
+    ],
+    "disposableOutput": ".fadeno/test",
+    "productionOutput": "excluded"
+  },
+  "skippedWork": [
+    "framework test runtime",
+    "public test helper",
+    "private package import",
+    "public analyzer schema"
+  ],
+  "outcome": {
+    "success": true,
+    "deliberateFailure": "ERR_ASSERTION",
+    "recovery": true,
+    "tests": 3
+  }
+}

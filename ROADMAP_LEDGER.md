@@ -12,8 +12,8 @@ A0-05 — add the supported application-test workflow
 
 - [x] Accept one stock application-test command, isolated output ownership, and
   no-helper/no-second-runtime boundary through ADR 0040.
-- [ ] Add the command and typed executable test to the created-project template.
-- [ ] Prove packed success, deliberate failure, normalized human and machine
+- [x] Add the command and typed executable test to the created-project template.
+- [x] Prove packed success, deliberate failure, normalized human and machine
   output, correction, flow, recovery, and stale-output removal.
 - [ ] Source documentation from verified artifacts; pass package, example,
   full local CI, and independent review gates.
@@ -26,9 +26,12 @@ test helper, a public analyzer schema, or a second framework runtime.
 
 ## In progress
 
-- ADR 0040 accepts `pnpm test` over stock TypeScript, the platform test runner,
-  and production public runtime semantics. Template implementation and packed
-  executable evidence are next.
+- ADR 0040, the 12-file TypeScript/TSX template, disposable test compiler,
+  three production-runtime assertions, deliberate failure, normalized human
+  and TAP output, correction, flow, recovery, stale-output removal, generated
+  guidance, and mutation guards are complete. Project creation, package
+  boundary, public package, canonical running example, documentation, model,
+  and TypeScript gates pass. Exact local CI and independent review remain.
 
 ## Blockers
 

@@ -1,0 +1,12 @@
+✔ renders the application document through the production renderer (<DURATION>)
+✔ renders the application not-found document (<DURATION>)
+✔ serves the application stylesheet through its raw handler (<DURATION>)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms <DURATION>
+$ node --input-type=module --eval "import { rm } from 'node:fs/promises'; await rm('.fadeno/test', { force: true, recursive: true });" && tsc -p tsconfig.test.json && node --test --test-reporter=spec .fadeno/test/test/application.test.js

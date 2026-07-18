@@ -1,0 +1,6 @@
+{
+  "source": "test/application.test.tsx",
+  "after": "/Your Fadeno application is running/u",
+  "accepted": true,
+  "diagnostic": null
+}

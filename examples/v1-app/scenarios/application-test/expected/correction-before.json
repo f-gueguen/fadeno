@@ -1,0 +1,6 @@
+{
+  "source": "test/application.test.tsx",
+  "before": "/A heading that does not exist/u",
+  "accepted": false,
+  "diagnostic": "ERR_ASSERTION"
+}
