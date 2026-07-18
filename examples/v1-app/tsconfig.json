@@ -14,7 +14,7 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "fadeno-framework-internal",
+    "jsxImportSource": "@fadeno/framework",
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", ".fadeno/routes/*.ts"]

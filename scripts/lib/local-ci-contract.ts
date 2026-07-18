@@ -16,6 +16,7 @@ export type LocalCiProjection = {
   pullRequestTemplate: string;
   readme: string;
   activeWorkflowFiles: string[];
+  publicationWorkflow: string | null;
   dependabot: string;
 };
 
@@ -42,6 +43,9 @@ export function loadLocalCiProjection(root: string): LocalCiProjection {
         .map((entry) => entry.name)
         .sort()
       : [],
+    publicationWorkflow: existsSync(join(workflows, "publish.yml"))
+      ? readFileSync(join(workflows, "publish.yml"), "utf8")
+      : null,
     dependabot: readFileSync(join(root, ".github/dependabot.yml"), "utf8"),
   };
 }
@@ -77,8 +81,21 @@ export function validateLocalCiProjection(
       errors.push(`${path}: canonical local CI command missing`);
     }
   }
-  if (projection.activeWorkflowFiles.length !== 0) {
-    errors.push(`workflows: hosted CI remains active (${projection.activeWorkflowFiles.join(", ")})`);
+  const unexpectedWorkflows = projection.activeWorkflowFiles.filter((name) => name !== "publish.yml");
+  if (unexpectedWorkflows.length !== 0) {
+    errors.push(`workflows: hosted merge CI remains active (${unexpectedWorkflows.join(", ")})`);
+  }
+  if (projection.activeWorkflowFiles.includes("publish.yml")) {
+    const workflow = projection.publicationWorkflow ?? "";
+    if (!workflow.includes("release:")
+      || !workflow.includes("types: [published]")
+      || !workflow.includes("pnpm check:a0-release")
+      || !workflow.includes("npm publish ./packages/framework")
+      || /^\s+(?:push|pull_request|workflow_dispatch|schedule):/mu.test(workflow)) {
+      errors.push("workflows: publication transport is not release-only");
+    }
+  } else if (projection.publicationWorkflow !== null) {
+    errors.push("workflows: unlisted publication transport content remains");
   }
   if (projection.dependabot.includes("package-ecosystem: github-actions")) {
     errors.push("dependabot: inactive GitHub Actions ecosystem remains configured");

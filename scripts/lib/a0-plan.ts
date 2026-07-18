@@ -79,11 +79,11 @@ export function validateA0Plan(context: A0PlanContext): readonly string[] {
 
   const packageDocument = context.packageDocument;
   if (!isRecord(packageDocument)
-    || packageDocument["name"] !== "fadeno-framework-internal"
-    || packageDocument["version"] !== "0.0.0-private"
-    || packageDocument["private"] !== true
-    || Object.hasOwn(packageDocument, "publishConfig")) {
-    errors.push("A0 planning crossed the private package boundary");
+    || packageDocument["name"] !== "@fadeno/framework"
+    || packageDocument["version"] !== "0.0.0"
+    || Object.hasOwn(packageDocument, "private")
+    || !isRecord(packageDocument["publishConfig"])) {
+    errors.push("A0 publishable package seed drifted");
   }
   if (!context.readme.includes("completed its qualified private V1") || !context.readme.includes("current A0 plan")) errors.push("A0 repository status is stale");
   return errors;

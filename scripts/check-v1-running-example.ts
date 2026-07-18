@@ -40,7 +40,7 @@ function runResult(command: string, arguments_: readonly string[], cwd: string):
 }
 
 function runFadeno(command: string, arguments_: readonly string[], cwd: string): ReturnType<typeof runResult> {
-  const publicBinTarget = realpathSync(join(command, "../../fadeno-framework-internal/dist/cli.js"));
+  const publicBinTarget = realpathSync(join(command, "../../@fadeno/framework/dist/cli.js"));
   return runResult(process.execPath, [publicBinTarget, ...arguments_], cwd);
 }
 
@@ -595,12 +595,12 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   cpSync(exampleRoot, project, { recursive: true, filter: (source) => !source.includes("/scenarios") && !source.includes("/.fadeno") && !source.includes("/dist") && !source.includes("/node_modules") });
   const tarballs = join(temporaryRoot, "tarballs");
   mkdirSync(tarballs);
-  run("pnpm", ["--filter", "fadeno-framework-internal", "build"], root);
+  run("pnpm", ["--filter", "@fadeno/framework", "build"], root);
   run("pnpm", ["pack", "--pack-destination", tarballs], packageRoot);
   const tarball = join(tarballs, readdirSync(tarballs).find((name) => name.endsWith(".tgz")) ?? "missing.tgz");
   assert.ok(existsSync(tarball));
   const packageJson = JSON.parse(readFileSync(join(project, "package.json"), "utf8")) as { dependencies: Record<string, string> };
-  packageJson.dependencies["fadeno-framework-internal"] = `file:${tarball}`;
+  packageJson.dependencies["@fadeno/framework"] = `file:${tarball}`;
   writeFileSync(join(project, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`);
   run("pnpm", ["install", "--offline", "--ignore-scripts"], project);
   const secretCanary = "FADENO_BUILD_SECRET_CANARY_47c50877";
@@ -668,7 +668,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     "--input-type=module",
     "--eval",
     [
-      'import { jsx } from "fadeno-framework-internal/jsx-runtime";',
+      'import { jsx } from "@fadeno/framework/jsx-runtime";',
       "const results = [];",
       'for (const [name, invoke] of [["inline-attribute", () => jsx("p", { style: "color: red", children: "refused" })], ["style-element", () => jsx("style", { children: "p { color: red; }" })]]) {',
       "  try { invoke(); results.push({ name, code: \"unexpected-acceptance\" }); }",
@@ -745,7 +745,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   const cleanProject = join(temporaryRoot, "application-clean-copy");
   cpSync(exampleRoot, cleanProject, { recursive: true, filter: (source) => !source.includes("/scenarios") && !source.includes("/.fadeno") && !source.includes("/dist") && !source.includes("/node_modules") });
   const cleanPackageJson = JSON.parse(readFileSync(join(cleanProject, "package.json"), "utf8")) as { dependencies: Record<string, string> };
-  cleanPackageJson.dependencies["fadeno-framework-internal"] = `file:${tarball}`;
+  cleanPackageJson.dependencies["@fadeno/framework"] = `file:${tarball}`;
   writeFileSync(join(cleanProject, "package.json"), `${JSON.stringify(cleanPackageJson, null, 2)}\n`);
   writeFileSync(join(cleanProject, ".env"), `APPLICATION_SECRET=${secretCanary}\n`);
   run("pnpm", ["install", "--offline", "--ignore-scripts"], cleanProject);
@@ -781,7 +781,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
   assert.equal(treeIdentity(join(project, "dist")), acceptedIdentity);
   rmSync(fabricatedRollback, { recursive: true });
 
-  const installedFramework = realpathSync(join(project, "node_modules", "fadeno-framework-internal"));
+  const installedFramework = realpathSync(join(project, "node_modules", "@fadeno/framework"));
   const privateBuild = await import(pathToFileURL(join(installedFramework, "dist/internal/project-build.js")).href) as {
     runProjectBuildCommand(
       arguments_: readonly string[],
@@ -850,7 +850,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     return () => writeFileSync(externalCompilerInput, externalCompilerBeforeHook);
   });
 
-  const frameworkRuntimePath = join(project, "node_modules/fadeno-framework-internal/README.md");
+  const frameworkRuntimePath = join(project, "node_modules/@fadeno/framework/README.md");
   const frameworkRuntimeBeforeHook = readFileSync(frameworkRuntimePath);
   await assertPostHookRefusal("FADENO_BUILD_RUNTIME_IDENTITY", () => {
     writeFileSync(frameworkRuntimePath, Buffer.concat([frameworkRuntimeBeforeHook, Buffer.from("\npost-hook runtime drift\n")]));
@@ -1028,7 +1028,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     writeFileSync(manifestPath, manifestBytes);
   }
 
-  const runtimeReadme = join(project, "node_modules", "fadeno-framework-internal", "README.md");
+  const runtimeReadme = join(project, "node_modules", "@fadeno/framework", "README.md");
   const runtimeReadmeBytes = readFileSync(runtimeReadme);
   try {
     writeFileSync(runtimeReadme, Buffer.concat([runtimeReadmeBytes, Buffer.from("\nmutation\n")]));

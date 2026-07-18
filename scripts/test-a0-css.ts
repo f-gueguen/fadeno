@@ -24,13 +24,13 @@ expectMutation("documentation source is missing check:a0-css", (context) => Obje
     verificationGates: (context.documentationSource as { verificationGates: readonly string[] }).verificationGates.filter((gate) => gate !== "check:a0-css"),
   },
 }));
-expectMutation("A0 CSS crossed the private package boundary", (context) => Object.freeze({
+expectMutation("A0 CSS package identity drifted", (context) => Object.freeze({
   ...context,
-  packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: false },
+  packageDocument: { ...(context.packageDocument as Record<string, unknown>), name: "@fadeno/other" },
 }));
 expectMutation("A0 CSS evidence is not tracked: examples/v1-app/expected/css-baseline.json", (context) => Object.freeze({
   ...context,
   tracked: new Set([...context.tracked].filter((path) => path !== "examples/v1-app/expected/css-baseline.json")),
 }));
 
-console.log("A0 CSS mutation tests passed (decision, CSP, handler, accessibility, evidence, package, tracking)");
+console.log("A0 CSS mutation tests passed (decision, CSP, handler, accessibility, evidence, package identity, tracking)");

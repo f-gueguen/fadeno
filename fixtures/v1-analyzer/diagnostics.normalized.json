@@ -10,9 +10,9 @@
         { "path": "src/routes/page.tsx", "version": 0, "lifetime": 1 }
       ],
       "documents": [
-        { "path": "fadeno.config.ts", "length": 124 },
-        { "path": "src/routes/layout.tsx", "length": 649 },
-        { "path": "src/routes/page.tsx", "length": 1047 }
+        { "path": "fadeno.config.ts", "length": 116 },
+        { "path": "src/routes/layout.tsx", "length": 641 },
+        { "path": "src/routes/page.tsx", "length": 1039 }
       ]
     },
     "diagnostics": [],
@@ -34,10 +34,10 @@
         { "path": "src/routes/page.tsx", "version": 0, "lifetime": 1 }
       ],
       "documents": [
-        { "path": "fadeno.config.ts", "length": 124 },
+        { "path": "fadeno.config.ts", "length": 116 },
         { "path": "src/routes/handler.ts", "length": 69 },
-        { "path": "src/routes/layout.tsx", "length": 649 },
-        { "path": "src/routes/page.tsx", "length": 1047 }
+        { "path": "src/routes/layout.tsx", "length": 641 },
+        { "path": "src/routes/page.tsx", "length": 1039 }
       ]
     },
     "diagnostics": [
@@ -129,10 +129,10 @@
           { "path": "src/routes/page.tsx", "version": 0, "lifetime": 1 }
         ],
         "documents": [
-          { "path": "fadeno.config.ts", "length": 123 },
+          { "path": "fadeno.config.ts", "length": 115 },
           { "path": "src/routes/handler.ts", "length": 69 },
-          { "path": "src/routes/layout.tsx", "length": 649 },
-          { "path": "src/routes/page.tsx", "length": 1047 }
+          { "path": "src/routes/layout.tsx", "length": 641 },
+          { "path": "src/routes/page.tsx", "length": 1039 }
         ]
       },
       "diagnostics": [
@@ -143,7 +143,7 @@
           "module": { "namespace": "fadeno.configuration", "version": 1 },
           "phase": "ownership",
           "parameters": { "configuredRoot": "src/route" },
-          "primaryLocation": { "path": "fadeno.config.ts", "range": { "start": 105, "end": 116 }, "rangeReason": null },
+          "primaryLocation": { "path": "fadeno.config.ts", "range": { "start": 97, "end": 108 }, "rangeReason": null },
           "relatedLocations": [],
           "causedBy": [],
           "correctionFixIds": ["FADENO_FIX_CONFIG_ROOT"],
@@ -164,7 +164,7 @@
               "path": "fadeno.config.ts",
               "version": 1,
               "lifetime": 1,
-              "range": { "start": 105, "end": 116 },
+              "range": { "start": 97, "end": 108 },
               "expectedText": "\"src/route\"",
               "text": "\"src/routes\""
             }
@@ -178,8 +178,8 @@
       "redaction": { "state": "none" },
       "truncated": false
     },
-    "before": "import { defineConfig } from \"fadeno-framework-internal\";\n\nexport default defineConfig({ routes: { root: \"src/route\" } });\n",
-    "after": "import { defineConfig } from \"fadeno-framework-internal\";\n\nexport default defineConfig({ routes: { root: \"src/routes\" } });\n",
+    "before": "import { defineConfig } from \"@fadeno/framework\";\n\nexport default defineConfig({ routes: { root: \"src/route\" } });\n",
+    "after": "import { defineConfig } from \"@fadeno/framework\";\n\nexport default defineConfig({ routes: { root: \"src/routes\" } });\n",
     "staleRefusal": "FADENO_ANALYZER_CORRECTION_STALE"
   },
   "internalFailure": {
@@ -194,10 +194,10 @@
         { "path": "src/routes/page.tsx", "version": 0, "lifetime": 1 }
       ],
       "documents": [
-        { "path": "fadeno.config.ts", "length": 123 },
+        { "path": "fadeno.config.ts", "length": 115 },
         { "path": "src/routes/handler.ts", "length": 69 },
-        { "path": "src/routes/layout.tsx", "length": 649 },
-        { "path": "src/routes/page.tsx", "length": 1047 }
+        { "path": "src/routes/layout.tsx", "length": 641 },
+        { "path": "src/routes/page.tsx", "length": 1039 }
       ]
     },
     "diagnostics": [
@@ -208,7 +208,7 @@
         "module": { "namespace": "fadeno.analyzer", "version": 1 },
         "phase": "internal",
         "parameters": { "operation": "route-analysis" },
-        "primaryLocation": { "path": "fadeno.config.ts", "range": { "start": 105, "end": 116 }, "rangeReason": null },
+        "primaryLocation": { "path": "fadeno.config.ts", "range": { "start": 97, "end": 108 }, "rangeReason": null },
         "relatedLocations": [],
         "causedBy": [],
         "correctionFixIds": [],

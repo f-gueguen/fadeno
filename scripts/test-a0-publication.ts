@@ -13,9 +13,9 @@ function expectMutation(expected: string, mutate: (context: A0PublicationContext
 const validErrors = validateA0Publication(source);
 if (validErrors.length > 0) throw new Error(`valid A0 publication boundary refused:\n${validErrors.join("\n")}`);
 
-expectMutation("A0-02 crossed the private package boundary", (context) => Object.freeze({
+expectMutation("accepted public package identity drifted", (context) => Object.freeze({
   ...context,
-  packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: false },
+  packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 expectMutation("accepted public export mapping drifted", (context) => Object.freeze({
   ...context,
@@ -48,9 +48,4 @@ expectMutation("A0 publication evidence is not tracked: evidence/a0/registry-dis
   ...context,
   tracked: new Set([...context.tracked].filter((path) => path !== "evidence/a0/registry-discovery.json")),
 }));
-expectMutation("A0-02 introduced publication automation before A0-03", (context) => Object.freeze({
-  ...context,
-  tracked: new Set([...context.tracked, ".github/workflows/publish.yml"]),
-}));
-
-console.log("A0 publication mutation tests passed (identity, exports, executable, private boundary, provenance, bootstrap, automation, tracking)");
+console.log("A0 publication mutation tests passed (identity, exports, executable, provenance, bootstrap, tracking)");

@@ -100,7 +100,7 @@ export function validateA0Css(context: A0CssContext): readonly string[] {
 
   if (!context.renderer.includes("style-src 'self'") || context.renderer.includes("unsafe-inline")) errors.push("renderer CSS CSP boundary drifted");
   if (!context.layout.includes('<link href="/styles" rel="stylesheet" type="text/css" />') || !context.layout.includes('class="app-shell"')) errors.push("canonical application stylesheet link drifted");
-  if (!context.handler.includes('import type { Handler } from "fadeno-framework-internal"')
+  if (!context.handler.includes('import type { Handler } from "@fadeno/framework"')
     || !context.handler.includes('"content-type": "text/css; charset=utf-8"')
     || !context.handler.includes('"cache-control": "public, max-age=300"')) {
     errors.push("canonical application CSS handler drifted");
@@ -129,11 +129,8 @@ export function validateA0Css(context: A0CssContext): readonly string[] {
 
   const packageDocument = context.packageDocument;
   if (!isRecord(packageDocument)
-    || packageDocument["name"] !== "fadeno-framework-internal"
-    || packageDocument["version"] !== "0.0.0-private"
-    || packageDocument["private"] !== true
-    || Object.hasOwn(packageDocument, "publishConfig")) {
-    errors.push("A0 CSS crossed the private package boundary");
+    || packageDocument["name"] !== "@fadeno/framework") {
+    errors.push("A0 CSS package identity drifted");
   }
   return errors;
 }

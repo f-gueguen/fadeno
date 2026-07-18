@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { scanModuleReferences } from "./lib/package-boundaries.ts";
 
-const packageName = "fadeno-framework-internal";
+const packageName = "@fadeno/framework";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = join(root, "packages/framework");
 const exampleSource = join(root, "examples/adapter-smoke/src/index.ts");
@@ -98,6 +98,7 @@ try {
   const tarball = join(tarballs, tarballName);
   const entries = run("tar", ["-tzf", tarball], root).trim().split("\n").sort();
   const expectedEntries = [
+    "package/CHANGELOG.md",
     "package/LICENSE",
     "package/README.md",
     "package/dist/cli.d.ts",
@@ -187,6 +188,7 @@ try {
     "package/dist/node.d.ts",
     "package/dist/node.js",
     "package/package.json",
+    "package/sbom.spdx.json",
   ].sort();
   if (JSON.stringify(entries) !== JSON.stringify(expectedEntries)) {
     throw new Error(`FADENO_PUBLIC_PACKAGE_CONTENTS:${JSON.stringify(entries)}`);
@@ -223,7 +225,7 @@ try {
   const manifest = JSON.parse(readFileSync(join(installedPackage, "package.json"), "utf8")) as {
     name?: string;
     private?: boolean;
-    publishConfig?: unknown;
+    publishConfig?: Record<string, unknown>;
     version?: string;
     bin?: Record<string, string>;
     dependencies?: Record<string, string>;
@@ -234,9 +236,16 @@ try {
     "./node": { types: "./dist/node.d.ts", import: "./dist/node.js" },
     "./jsx-runtime": { types: "./dist/jsx-runtime.d.ts", import: "./dist/jsx-runtime.js" },
   };
+  const expectedPublishConfig = {
+    access: "public",
+    provenance: true,
+    registry: "https://registry.npmjs.org/",
+    tag: "alpha",
+  };
   if (
-    manifest.name !== packageName || manifest.version !== "0.0.0-private" || manifest.private !== true ||
-    manifest.publishConfig !== undefined || JSON.stringify(manifest.bin) !== JSON.stringify({ fadeno: "./dist/cli.js" }) ||
+    manifest.name !== packageName || manifest.version !== "0.0.0" || manifest.private !== undefined ||
+    JSON.stringify(manifest.publishConfig) !== JSON.stringify(expectedPublishConfig) ||
+    JSON.stringify(manifest.bin) !== JSON.stringify({ fadeno: "./dist/cli.js" }) ||
     JSON.stringify(manifest.dependencies) !== JSON.stringify({ typescript: "7.0.2" }) ||
     JSON.stringify(manifest.exports) !== JSON.stringify(expectedExports)
   ) {
@@ -352,4 +361,4 @@ try {
   rmSync(temporaryRoot, { recursive: true, force: true });
 }
 
-console.log("V1 public package passed (exact tarball, neutral root, clean tracked consumer, private internals)");
+console.log("V1 public package passed (exact publishable tarball, neutral root, clean tracked consumer, private internals)");

@@ -88,7 +88,7 @@ function configurationFromSourceFile(file: ts.SourceFile): FadenoConfig {
       if (
         statement.attributes !== undefined || clause?.phaseModifier !== undefined || clause?.name ||
         !ts.isStringLiteral(statement.moduleSpecifier) ||
-        statement.moduleSpecifier.text !== "fadeno-framework-internal" || !bindings || !ts.isNamedImports(bindings) ||
+        statement.moduleSpecifier.text !== "@fadeno/framework" || !bindings || !ts.isNamedImports(bindings) ||
         bindings.elements.length !== 1 || bindings.elements[0]!.propertyName !== undefined ||
         bindings.elements[0]!.isTypeOnly || bindings.elements[0]!.name.text !== "defineConfig" || defineConfigImported
       ) fail("STATIC");

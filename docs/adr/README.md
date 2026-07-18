@@ -46,6 +46,7 @@ effective decision.
 34. [ADR 0035 — Native actions and protected sessions](0035-native-actions-and-protected-sessions.md)
 35. [ADR 0036 — Native external CSS for alpha](0036-native-external-css-for-alpha.md)
 36. [ADR 0037 — Public package identity and publication boundary](0037-public-package-identity-and-publication.md)
+37. [ADR 0038 — Alpha version and release train](0038-alpha-version-and-release-train.md)
 
 ## Superseded decisions
 

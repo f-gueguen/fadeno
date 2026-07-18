@@ -90,11 +90,13 @@ export function validateA0Publication(context: A0PublicationContext): readonly s
 
   const packageDocument = context.packageDocument;
   if (!isRecord(packageDocument)
-    || packageDocument["name"] !== "fadeno-framework-internal"
-    || packageDocument["version"] !== "0.0.0-private"
-    || packageDocument["private"] !== true
-    || Object.hasOwn(packageDocument, "publishConfig")) {
-    errors.push("A0-02 crossed the private package boundary");
+    || packageDocument["name"] !== "@fadeno/framework"
+    || packageDocument["version"] !== "0.0.0"
+    || Object.hasOwn(packageDocument, "private")
+    || !isRecord(packageDocument["publishConfig"])
+    || packageDocument["publishConfig"]["access"] !== "public"
+    || packageDocument["publishConfig"]["provenance"] !== true) {
+    errors.push("accepted public package identity drifted");
   } else {
     const exports = packageDocument["exports"];
     const bin = packageDocument["bin"];
@@ -127,10 +129,10 @@ export function validateA0Publication(context: A0PublicationContext): readonly s
   }
 
   for (const [name, content, required] of [
-    ["build specification", context.buildSpecification, ["ADR 0037 selects `@fadeno/framework`", "`.`, `./node`, `./jsx-runtime`", "`fadeno` executable", "0.0.0-private"]],
+    ["build specification", context.buildSpecification, ["ADR 0037 selects `@fadeno/framework`", "`.`, `./node`, `./jsx-runtime`", "`fadeno` executable", "0.0.0"]],
     ["release policy", context.releasePolicy, ["ADR 0037 selects `@fadeno/framework`", "time-bounded", "revoked immediately", "public source repository", "`f-gueguen/fadeno`", "`publish.yml`", "`npm-production`", "never becomes merge authority"]],
     ["A0 roadmap", context.roadmap, ["ADR 0037 package-publication decision", "`pnpm check:a0-registry`", "`pnpm check:a0-publication`"]],
-    ["current ledger", context.ledger, ["ADR 0037 selects `@fadeno/framework`", "package private and unpublished"]],
+    ["current ledger", context.ledger, ["`@fadeno/framework`", "public-name migration"]],
     ["risk ledger", context.risks, ["Registry or publication identity drifts", "public-source provenance", "trusted-publisher identity"]],
   ] as const) {
     for (const fragment of required) {
@@ -153,9 +155,6 @@ export function validateA0Publication(context: A0PublicationContext): readonly s
     || typeof scripts["check"] !== "string"
     || !scripts["check"].includes("pnpm check:a0-publication")) {
     errors.push("workspace check does not enforce A0 publication decision");
-  }
-  if (context.tracked.has(".github/workflows/publish.yml")) {
-    errors.push("A0-02 introduced publication automation before A0-03");
   }
   return Object.freeze(errors);
 }

@@ -6,4 +6,4 @@ const tracked = new Set(execFileSync("git", ["ls-files", "--cached"], { cwd: roo
 const errors = validateA0Css(loadA0CssContext(root, tracked));
 if (errors.length > 0) throw new Error(errors.join("\n"));
 
-console.log("A0 CSS boundary passed (native external CSS, inline refusal, complete executable evidence, private package)");
+console.log("A0 CSS boundary passed (native external CSS, inline refusal, complete executable evidence, public package identity)");

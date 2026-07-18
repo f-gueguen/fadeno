@@ -4,8 +4,8 @@
 
 Fadeno has no published package or released compatibility line yet. This page
 is the executable format seed for future migration guidance, not a claim that a
-public upgrade exists. A0 will replace the private package identity and assign
-version intent before any prerelease.
+public upgrade exists. A0 has selected the public package identity and release
+intent, but no prerelease exists yet.
 
 ## Seeded change: remove an unsafe selective revalidation hint
 

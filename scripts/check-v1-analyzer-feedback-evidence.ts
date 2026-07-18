@@ -11,6 +11,7 @@ import { sha256, verifyFeedbackContract, verifyFeedbackRun } from "./lib/v1-anal
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const expectedRoot = join(root, "evidence/v1-analyzer-feedback/results");
+const historicalPackageName = ["fadeno", "framework", "internal"].join("-");
 type FileIdentity = readonly Readonly<{ path: string; mode: number; sha256: string }>[];
 
 function run(command: string, arguments_: readonly string[], cwd: string): Buffer {
@@ -154,7 +155,7 @@ try {
   run("tar", ["-xf", archive, "-C", source], temporary);
   reconstructedSourceTreeSha256 = gitTreeSha256(source, sourceCommit);
   run("pnpm", ["install", "--offline", "--frozen-lockfile", "--ignore-scripts"], source);
-  run("pnpm", ["--filter", "fadeno-framework-internal", "build"], source);
+  run("pnpm", ["--filter", historicalPackageName, "build"], source);
   const tarballs = join(temporary, "tarballs");
   mkdirSync(tarballs);
   const packageRoot = join(source, "packages/framework");

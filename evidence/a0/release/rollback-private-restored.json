@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "name": "fadeno-framework-internal",
+  "version": "0.0.0-private",
+  "private": true,
+  "publishConfig": false,
+  "publicationAttempted": false
+}

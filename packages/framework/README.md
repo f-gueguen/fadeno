@@ -1,8 +1,8 @@
-# Fadeno framework package (private V1 integration)
+# @fadeno/framework
 
-This private workspace package proves Fadeno's first package and Node adapter
-boundary. It is not published, production-supported, or the final registry
-identity.
+This is the selected public Fadeno package. Its `0.0.0` manifest is an
+unpublished release seed; the first qualified registry version will be an
+alpha prerelease. It is not yet published or production-supported.
 
 The runtime-neutral `.` facade exports the standard Web `Handler` type,
 configuration, rendering and route outcomes, and the request-scoped resource
@@ -71,8 +71,9 @@ The permanent packed action example is
 sign-in, validation, upload, create, read, update, replay-refusal, delete, and
 stale-state recovery paths in all three browsers with JavaScript disabled.
 
-Private package internals discover and match route metadata, generate one
+Package internals discover and match route metadata, generate one
 transactional application-bound `fadeno:routes` module, render matched routes,
 and coordinate compiler/build freshness. Those modules are not package exports.
-Publication support and a supported analyzer or editor schema remain later
-work. The analyzer and action decision schemas remain private package internals.
+Publication is guarded by the repository release process. A supported analyzer
+or editor schema remains later work; analyzer and action decision schemas stay
+private package internals.

@@ -1,4 +1,4 @@
-import type { ErrorPage } from "fadeno-framework-internal";
+import type { ErrorPage } from "@fadeno/framework";
 
 const errorPage: ErrorPage = ({ incidentId, resourceError }) => resourceError ? (
   <section aria-labelledby="resource-error-heading">

@@ -55,12 +55,25 @@ function requireSuccess(command: string, arguments_: readonly string[], cwd: str
   return `${result.stdout}${result.stderr}`;
 }
 
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+    .map(([key, entry]) => [key, canonicalJson(entry)]));
+}
+
 function packageIdentity(packageDirectory: string): PackedIdentity {
   const manifestBytes = readFileSync(join(packageDirectory, "package.json"), "utf8");
-  const manifest = JSON.parse(manifestBytes) as { bin?: unknown };
+  const manifest = JSON.parse(manifestBytes) as { bin?: unknown; scripts?: Record<string, string> };
   assert.deepEqual(manifest.bin, { fadeno: "./dist/cli.js" });
+  const normalizedManifest = structuredClone(manifest);
+  if (normalizedManifest.scripts) {
+    delete normalizedManifest.scripts["prepack"];
+    delete normalizedManifest.scripts["prepublishOnly"];
+  }
   const pending = [join(packageDirectory, "dist/cli.js")];
-  const files = new Map<string, string>([["package.json", sha256(Buffer.from(manifestBytes.trimEnd()))]]);
+  const files = new Map<string, string>([["package.json", sha256(Buffer.from(JSON.stringify(canonicalJson(normalizedManifest))))]]);
   while (pending.length > 0) {
     const path = pending.pop()!;
     const containment = relative(packageDirectory, path);
@@ -128,7 +141,7 @@ function fixture(name: string): string {
 
 const temporary = mkdtempSync(join(tmpdir(), "fadeno-v1-analyzer-workflow-"));
 try {
-  requireSuccess("pnpm", ["--filter", "fadeno-framework-internal", "build"], root);
+  requireSuccess("pnpm", ["--filter", "@fadeno/framework", "build"], root);
   const builtIdentity = packageIdentity(packageRoot);
   const builtParserDirectories = parserDirectories(packageRoot);
   const builtParserIdentity = Object.freeze({
@@ -148,10 +161,10 @@ try {
     version: "0.0.0",
     private: true,
     type: "module",
-    dependencies: { "fadeno-framework-internal": `file:${join(tarballs, tarballName)}` },
+    dependencies: { "@fadeno/framework": `file:${join(tarballs, tarballName)}` },
   }, null, 2)}\n`);
   requireSuccess("pnpm", ["install", "--offline", "--ignore-scripts"], consumer);
-  const installedPackage = join(consumer, "node_modules/fadeno-framework-internal");
+  const installedPackage = join(consumer, "node_modules/@fadeno/framework");
   assertPackageIdentity(installedPackage, builtIdentity);
   const installedParserDirectories = parserDirectories(installedPackage);
   assertParserIdentity(installedParserDirectories, builtParserIdentity);

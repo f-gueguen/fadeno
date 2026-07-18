@@ -49,7 +49,7 @@ type FailureCapture = Readonly<{
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = join(root, "packages/framework");
 const fixtureRoot = join(root, "fixtures/v1-analyzer");
-const packageName = "fadeno-framework-internal";
+const packageName = "@fadeno/framework";
 const generatedNames = Object.freeze([
   "app.ts",
   "index.d.ts",

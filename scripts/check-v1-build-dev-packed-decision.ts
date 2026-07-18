@@ -47,7 +47,7 @@ type ChildResult = Readonly<{
   operationSha256?: string;
 }>;
 
-const packageName = "fadeno-framework-internal";
+const packageName = "@fadeno/framework";
 const repositoryRoot = realpathSync(new URL("../", import.meta.url).pathname);
 
 function writeJson(path: string, value: unknown): void { writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`); }

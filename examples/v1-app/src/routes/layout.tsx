@@ -1,4 +1,4 @@
-import type { Layout } from "fadeno-framework-internal";
+import type { Layout } from "@fadeno/framework";
 
 const layout: Layout = ({ children }) => (
   <html lang="en">

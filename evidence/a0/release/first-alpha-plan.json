@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "package": "@fadeno/framework",
+  "seedVersion": "0.0.0",
+  "changeset": "early-fadeno-alpha",
+  "intent": "minor",
+  "prereleaseTag": "alpha",
+  "expectedVersion": "0.1.0-alpha.0",
+  "distributionTag": "alpha",
+  "publicationAttempted": false
+}

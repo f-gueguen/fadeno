@@ -36,9 +36,9 @@ expectMutation("A0 unresolved decision gate drifted: DG-A0-02", (context) => Obj
   ...context,
   decisionGates: context.decisionGates.replace("| DG-A0-02 |", "| DG-A0-X2 |"),
 }));
-expectMutation("A0 planning crossed the private package boundary", (context) => Object.freeze({
+expectMutation("A0 publishable package seed drifted", (context) => Object.freeze({
   ...context,
-  packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: false },
+  packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, ownership, gates, private package)");
+console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, ownership, gates, package seed)");

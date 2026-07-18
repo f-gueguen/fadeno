@@ -1,0 +1,37 @@
+name: Publish package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event.release.prerelease == true
+    runs-on: ubuntu-latest
+    environment: npm-production
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24.18.0
+          registry-url: https://registry.npmjs.org/
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:a0-release
+      - run: npm publish ./packages/framework --access public --tag alpha
+        env:
+          FADENO_RELEASE_MODE: ${{ vars.NPM_RELEASE_MODE }}
+          FADENO_QUALIFIED_COMMIT: ${{ vars.FADENO_QUALIFIED_COMMIT }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}

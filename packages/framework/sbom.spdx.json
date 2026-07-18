@@ -1,0 +1,68 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "@fadeno/framework@0.0.0",
+  "documentNamespace": "https://fadeno.dev/sbom/framework/0.0.0",
+  "creationInfo": {
+    "created": "2026-07-18T00:00:00Z",
+    "creators": [
+      "Tool: npm/cli",
+      "Tool: Fadeno deterministic SBOM normalizer"
+    ]
+  },
+  "documentDescribes": [
+    "SPDXRef-Package-fadeno.framework-0.0.0"
+  ],
+  "packages": [
+    {
+      "name": "@fadeno/framework",
+      "SPDXID": "SPDXRef-Package-fadeno.framework-0.0.0",
+      "versionInfo": "0.0.0",
+      "packageFileName": "",
+      "description": "A server-owned TypeScript web framework with progressive enhancement by default.",
+      "primaryPackagePurpose": "LIBRARY",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "homepage": "https://github.com/f-gueguen/fadeno#readme",
+      "licenseDeclared": "MIT",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/%40fadeno/framework@0.0.0"
+        }
+      ]
+    },
+    {
+      "name": "typescript",
+      "SPDXID": "SPDXRef-Package-typescript-7.0.2",
+      "versionInfo": "7.0.2",
+      "packageFileName": "node_modules/typescript",
+      "description": "TypeScript is a language for application scale JavaScript development",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "homepage": "https://www.typescriptlang.org/",
+      "licenseDeclared": "Apache-2.0",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/typescript@7.0.2"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relatedSpdxElement": "SPDXRef-Package-fadeno.framework-0.0.0",
+      "relationshipType": "DESCRIBES"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-typescript-7.0.2",
+      "relatedSpdxElement": "SPDXRef-Package-fadeno.framework-0.0.0",
+      "relationshipType": "DEPENDENCY_OF"
+    }
+  ]
+}

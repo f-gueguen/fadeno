@@ -33,7 +33,7 @@ production build.
     "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"
   },
   "dependencies": {
-    "fadeno-framework-internal": "workspace:*"
+    "@fadeno/framework": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "22.20.1",
@@ -48,7 +48,7 @@ The configuration uses the public package entrypoint and chooses the directory
 that owns route files.
 
 ```ts
-import { defineConfig } from "fadeno-framework-internal";
+import { defineConfig } from "@fadeno/framework";
 
 export default defineConfig({ routes: { root: "src/routes" } });
 ```
@@ -60,7 +60,7 @@ shell, while the root page reads request-owned resources and returns HTML-shaped
 JSX. The generated route module and stock TypeScript own route typing.
 
 ```tsx
-import type { Layout } from "fadeno-framework-internal";
+import type { Layout } from "@fadeno/framework";
 
 const layout: Layout = ({ children }) => (
   <html lang="en">
@@ -85,7 +85,7 @@ export default layout;
 ```
 
 ```tsx
-import type { Page } from "fadeno-framework-internal";
+import type { Page } from "@fadeno/framework";
 import { routeHref } from "fadeno:routes";
 import { projectSummary } from "../resources/projects.ts";
 
@@ -120,7 +120,7 @@ Fadeno keeps inline style attributes and application-owned `style` children
 refused; it does not add a scoped-CSS compiler or asset pipeline.
 
 ```ts
-import type { Handler } from "fadeno-framework-internal";
+import type { Handler } from "@fadeno/framework";
 import { applicationStyles } from "../../styles.ts";
 
 const handler: Handler = () => new Response(applicationStyles, {

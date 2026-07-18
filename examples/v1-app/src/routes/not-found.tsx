@@ -1,4 +1,4 @@
-import type { NotFoundPage } from "fadeno-framework-internal";
+import type { NotFoundPage } from "@fadeno/framework";
 
 const notFoundPage: NotFoundPage = () => (
   <section aria-labelledby="missing-heading">

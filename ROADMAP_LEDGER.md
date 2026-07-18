@@ -6,43 +6,39 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-02B — accept the owned public package identity and publication boundary
+A0-03 — make the selected public package mechanically releasable
 
 ## Exit criteria
 
-- [x] Record authenticated ownership of the `fadeno` organization and the
-  unpublished `@fadeno/framework` candidate through read-only evidence.
-- [x] Accept the exact package name, public entrypoints, `fadeno` executable,
-  trusted-publication boundary, and rollback behavior through an ADR.
-- [x] Resolve the package-identity gate without making the internal package publishable before
-  A0-03 or publishing a placeholder version.
-- [x] Pass registry, package-surface, decision, model, full repository, local
-  CI, and independent review gates.
+- [x] Accept the `0.0.0` unpublished seed, expected `0.1.0-alpha.0` first
+  release, Changesets workflow, changelog ownership, and rollback through ADR
+  0038.
+- [x] Atomically rename the package and every consumer to `@fadeno/framework`,
+  add complete public metadata, and retain exactly the accepted exports/bin.
+- [x] Add fail-closed release/provenance automation, frozen package contents,
+  SPDX SBOM, migration seed, and public-name pack/install evidence.
+- [x] Pass release-policy mutations, package/public surface, documentation,
+  full repository, local CI, and independent review gates.
 
 ## Active sub-slice
 
-A0-02 package-publication decision only. It may select the owned scoped name
-and map the already demonstrated package surface. It does not rename or make
-the private package publishable, introduce versions or Changesets, publish a
-placeholder, add hosted CI, or begin the A0-03 release implementation.
+A0-03 final exact-commit qualification and review only. The package is
+mechanically publishable and the release-only transporter exists, but this
+slice does not create a tag, release, registry version, public repository,
+scaffold, deployment, or new framework API.
 
 ## In progress
 
-- Authenticated read-only queries report `fgueguen` as owner of `fadeno` and
-  `@fadeno/framework` as unpublished; no package or owner mutation occurred.
-- The first implementation boundary extends the checked preflight for owned
-  organizations and keeps publication unattempted and unauthorized in evidence.
-- ADR 0037 selects `@fadeno/framework`, the existing three exports, and the
-  `fadeno` executable while keeping the package private and unpublished.
-- The first release must bootstrap with provenance from public source before
-  exact trusted-publisher identity can replace its one-use credential.
-- Exact branch tip `41cf05d` passed `pnpm check` and commit-bound
-  `pnpm ci:local`; the final ledger-only commit must repeat the local gate.
+- ADR 0038 and the pinned Changesets configuration own the initial release
+  train. The public-name migration, exact tarball, deterministic SPDX SBOM,
+  fail-closed publication guard, release-only transporter, success/refusal/
+  flow/recovery/rollback evidence, and current-packed consumer replay pass.
+  Final `pnpm ci:local`, independent review, and merge remain.
 
 ## Blockers
 
-- None for A0-02B. The organization ownership and scoped candidate evidence are
-  available; the ADR and executable mapping checks now own gate resolution.
+- None. Registry organization ownership and the unpublished selected identity
+  were accepted by A0-02.
 
 ## Open questions
 
@@ -52,6 +48,11 @@ placeholder, add hosted CI, or begin the A0-03 release implementation.
   by A0-06 after the public project-creation workflow exists.
 
 ## Completed slices
+
+- A0-02 — Merge commit `7dfe3a3` accepts the owner-verified unpublished
+  `@fadeno/framework` identity, exact export/bin map, provenance bootstrap,
+  trusted-publisher identity, and rollback boundary without publishing or
+  making the package public.
 
 - A0-02A — Merge commit `7757013` adds a TypeScript-only read-only registry
   preflight with normalized success/refusal fixtures, mutation guards, release

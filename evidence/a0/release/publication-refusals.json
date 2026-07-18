@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "scenario": "seed-version",
+      "code": "FADENO_RELEASE_PRERELEASE_VERSION"
+    },
+    {
+      "scenario": "private-source",
+      "code": "FADENO_RELEASE_PUBLIC_REPOSITORY"
+    },
+    {
+      "scenario": "stale-qualification",
+      "code": "FADENO_RELEASE_QUALIFIED_COMMIT"
+    },
+    {
+      "scenario": "missing-oidc",
+      "code": "FADENO_RELEASE_OIDC_UNAVAILABLE"
+    },
+    {
+      "scenario": "trusted-mode-token",
+      "code": "FADENO_RELEASE_TRUSTED_TOKEN_PRESENT"
+    }
+  ]
+}

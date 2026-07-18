@@ -43,7 +43,7 @@ type AcceptedObservation = Readonly<{
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = join(root, "packages/framework");
-const packageName = "fadeno-framework-internal";
+const packageName = "@fadeno/framework";
 const contractPath = join(root, "fixtures/v1-analyzer/feedback-contract.json");
 const pageBytes = "export default function Page(): string { return 'feedback'; }\n";
 const handlerBytes = "export function GET(): Response { return new Response('feedback'); }\n";

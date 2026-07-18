@@ -103,71 +103,71 @@
         },
         {
           "path": "src/routes/admin/dashboard/page.tsx",
-          "length": 136
+          "length": 128
         },
         {
           "path": "src/routes/admin/layout.tsx",
-          "length": 257
+          "length": 249
         },
         {
           "path": "src/routes/admin/not-found.tsx",
-          "length": 173
-        },
-        {
-          "path": "src/routes/error.tsx",
-          "length": 516
-        },
-        {
-          "path": "src/routes/failure/page.tsx",
           "length": 165
         },
         {
+          "path": "src/routes/error.tsx",
+          "length": 508
+        },
+        {
+          "path": "src/routes/failure/page.tsx",
+          "length": 157
+        },
+        {
           "path": "src/routes/hello/[name]/page.tsx",
-          "length": 432
+          "length": 424
         },
         {
           "path": "src/routes/layout.tsx",
-          "length": 649
+          "length": 641
         },
         {
           "path": "src/routes/moved/page.tsx",
-          "length": 144
+          "length": 136
         },
         {
           "path": "src/routes/not-found.tsx",
-          "length": 280
+          "length": 272
         },
         {
           "path": "src/routes/page.tsx",
-          "length": 1047
+          "length": 1039
         },
         {
           "path": "src/routes/projects/page.tsx",
-          "length": 2787
+          "length": 2779
         },
         {
           "path": "src/routes/raw/handler.ts",
-          "length": 241
+          "length": 233
         },
         {
           "path": "src/routes/resource-failure/page.tsx",
-          "length": 296
+          "length": 288
         },
         {
           "path": "src/routes/resource-recovery/page.tsx",
-          "length": 476
+          "length": 468
         },
         {
           "path": "src/routes/shop/catalog/page.tsx",
-          "length": 145
+          "length": 137
         },
         {
           "path": "src/routes/shop/not-found.tsx",
-          "length": 184
+          "length": 176
         },
         {
           "path": "src/routes/styles/handler.ts",
-          "length": 315
+          "length": 307
         }
       ]
     },

@@ -8,9 +8,6 @@ export type V1ExitContext = Readonly<{
   scripts: Readonly<Record<string, string>>;
   rootGates: ReadonlySet<string>;
   trackedEvidence: ReadonlySet<string>;
-  packagePrivate: boolean;
-  packageVersion: string;
-  packageHasPublishConfig: boolean;
   supportPolicy: string;
   deferrals: string;
 }>;
@@ -69,7 +66,6 @@ export function createV1ExitContext(root: string, tracked: ReadonlySet<string>):
     const match = /^pnpm ([^ ]+)$/u.exec(command.trim());
     return match?.[1] ? [match[1]] : [];
   }));
-  const frameworkPackage = JSON.parse(readFileSync(join(root, "packages/framework/package.json"), "utf8")) as JsonRecord;
   const trackedEvidence = new Set<string>();
   const canonicalRoot = realpathSync(root);
   for (const path of tracked) {
@@ -85,9 +81,6 @@ export function createV1ExitContext(root: string, tracked: ReadonlySet<string>):
     scripts,
     rootGates,
     trackedEvidence,
-    packagePrivate: frameworkPackage["private"] === true,
-    packageVersion: typeof frameworkPackage["version"] === "string" ? frameworkPackage["version"] : "",
-    packageHasPublishConfig: Object.hasOwn(frameworkPackage, "publishConfig"),
     supportPolicy: readFileSync(join(root, "SUPPORT.md"), "utf8"),
     deferrals: readFileSync(join(root, "docs/ledgers/deferrals.md"), "utf8"),
   });
@@ -163,9 +156,6 @@ export function validateV1ExitDocument(document: unknown, context: V1ExitContext
   }
   compareExact(observedAudits, new Set(Object.keys(auditOutcomes)), "audit", errors);
 
-  if (!context.packagePrivate || context.packageVersion !== "0.0.0-private" || context.packageHasPublishConfig) {
-    errors.push("V1 exit requires the unpublished private package boundary");
-  }
   if (!context.supportPolicy.includes("not yet published or supported for production use")) errors.push("V1 exit support policy lost the private boundary");
   if (!context.deferrals.includes("Supported editor product") || !context.deferrals.includes("Public analyzer schema")) {
     errors.push("V1 exit analyzer/editor deferrals are incomplete");

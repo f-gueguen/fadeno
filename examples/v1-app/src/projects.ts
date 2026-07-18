@@ -7,7 +7,7 @@ import {
   integerField,
   redirect,
   textField,
-} from "fadeno-framework-internal";
+} from "@fadeno/framework";
 
 export type Project = Readonly<{
   id: number;

@@ -38,9 +38,17 @@ Release workflows pin permissions to the minimum required and do not store a
 long-lived npm publication token.
 
 ADR 0037 selects `@fadeno/framework`, with public exports `.`, `./node`, and
-`./jsx-runtime`, plus the `fadeno` executable at `./dist/cli.js`. The current
-`fadeno-framework-internal` manifest remains private and unpublished until
-A0-03 applies the complete public metadata and release contract.
+`./jsx-runtime`, plus the `fadeno` executable at `./dist/cli.js`. ADR 0038 sets
+the unpublished manifest seed to `0.0.0`; that seed is never published. The
+first mechanical alpha plan consumes reviewed Changesets into the expected
+`0.1.0-alpha.0` version and `alpha` distribution tag.
+
+Every user-visible package change adds one pending Changeset with semantic
+version intent and changelog-ready text. Internal, evidence-only, and
+documentation-only changes declare why they do not affect a released package.
+Feature branches do not run versioning or publication. Release slices consume
+reviewed intent, generate the package changelog, and introduce no unrelated
+behavior.
 
 Trusted-publisher configuration requires an existing package. The first public
 version therefore bootstraps from a supported hosted release runner using
@@ -59,6 +67,12 @@ source commit that already passed local CI and never becomes merge authority.
 
 Non-registry artifacts include verifiable source identity and a software bill
 of materials before stable release.
+
+The package tarball contains its exact license, README, changelog, generated
+runtime/declarations, and deterministic SPDX SBOM. `pnpm check:a0-release`
+verifies those bytes, simulates the first alpha plan, exercises the
+prepublication refusal boundary, and installs the current tarball without
+publishing it.
 
 Package names, ownership, and public entrypoints must be accepted before
 the first registry publication.
