@@ -45,6 +45,7 @@ effective decision.
 33. [ADR 0034 — Resource identity and request cache](0034-resource-identity-and-request-cache.md)
 34. [ADR 0035 — Native actions and protected sessions](0035-native-actions-and-protected-sessions.md)
 35. [ADR 0036 — Native external CSS for alpha](0036-native-external-css-for-alpha.md)
+36. [ADR 0037 — Public package identity and publication boundary](0037-public-package-identity-and-publication.md)
 
 ## Superseded decisions
 

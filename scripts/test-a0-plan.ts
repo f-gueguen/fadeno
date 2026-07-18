@@ -12,7 +12,7 @@ function expectMutation(expected: string, mutate: (context: A0PlanContext) => A0
 
 const validErrors = validateA0Plan(source);
 if (validErrors.length > 0) throw new Error(`valid A0 plan refused:\n${validErrors.join("\n")}`);
-expectMutation("A0 registry identity was selected before ownership verification", (context) => Object.freeze({
+expectMutation("A0 registry identity mapping mismatch", (context) => Object.freeze({
   ...context,
   registry: { ...(context.registry as Record<string, unknown>), selectedIdentity: "unverified" },
 }));
@@ -30,7 +30,7 @@ expectMutation("A0 roadmap A0-04 dependency contract mismatch", (context) => Obj
 }));
 expectMutation("A0 roadmap A0-02 decision ownership mismatch", (context) => Object.freeze({
   ...context,
-  roadmap: context.roadmap.replace(/^\| A0-02 \|.*$/mu, (line) => line.replace("resolve DG-A0-01 through ", "")),
+  roadmap: context.roadmap.replace(/^\| A0-02 \|.*$/mu, (line) => line.replace("ADR 0037 package-publication decision", "DG-A0-01 package-publication decision")),
 }));
 expectMutation("A0 unresolved decision gate drifted: DG-A0-02", (context) => Object.freeze({
   ...context,

@@ -6,54 +6,56 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-02A — establish a read-only, non-publishing registry ownership preflight
+A0-02B — accept the owned public package identity and publication boundary
 
 ## Exit criteria
 
-- [x] Add one TypeScript verifier limited to authenticated identity and
-  existing-package owner queries, with no publication or ownership mutation.
-- [x] Prove normalized success, authentication refusal, missing-package,
-  unverified-owner, malformed-response, and command-injection cases offline.
-- [x] Keep the internal package private, leave DG-A0-01 open, and retain the
-  authenticated-owner and candidate identity as explicit blockers.
-- [x] Pass registry, plan, model, type, full repository, and local CI gates on
-  an exact local commit.
+- [x] Record authenticated ownership of the `fadeno` organization and the
+  unpublished `@fadeno/framework` candidate through read-only evidence.
+- [x] Accept the exact package name, public entrypoints, `fadeno` executable,
+  trusted-publication boundary, and rollback behavior through an ADR.
+- [x] Resolve the package-identity gate without making the internal package publishable before
+  A0-03 or publishing a placeholder version.
+- [x] Pass registry, package-surface, decision, model, full repository, local
+  CI, and independent review gates.
 
 ## Active sub-slice
 
-A0-02 registry preflight only. It may query the current authenticated identity
-and owners of an already existing candidate package. It does not select a
-public identity, authorize or perform publication, mutate registry ownership,
-resolve DG-A0-01, add hosted CI, or make the private package publishable.
+A0-02 package-publication decision only. It may select the owned scoped name
+and map the already demonstrated package surface. It does not rename or make
+the private package publishable, introduce versions or Changesets, publish a
+placeholder, add hosted CI, or begin the A0-03 release implementation.
 
 ## In progress
 
-- The checked registry observation names only `whoami` and `owner-ls`, records
-  that no publication was attempted, and retains null owner/candidate identity.
-- The verifier fails closed until the workstation is authenticated and the
-  authenticated account appears in the owner list of an existing candidate;
-  raw owner emails do not enter normalized evidence.
-- Offline success/refusal fixtures and mutation tests cover authentication,
-  candidate, ownership, malformed output, network, injection, direct command,
-  and publication-attempt boundaries.
-- Exact implementation commit `8293cd6` passed `pnpm check:a0-registry`,
-  `pnpm check`, and `pnpm ci:local`; no live capture or publication occurred.
+- Authenticated read-only queries report `fgueguen` as owner of `fadeno` and
+  `@fadeno/framework` as unpublished; no package or owner mutation occurred.
+- The first implementation boundary extends the checked preflight for owned
+  organizations and keeps publication unattempted and unauthorized in evidence.
+- ADR 0037 selects `@fadeno/framework`, the existing three exports, and the
+  `fadeno` executable while keeping the package private and unpublished.
+- The first release must bootstrap with provenance from public source before
+  exact trusted-publisher identity can replace its one-use credential.
+- Exact branch tip `41cf05d` passed `pnpm check` and commit-bound
+  `pnpm ci:local`; the final ledger-only commit must repeat the local gate.
 
 ## Blockers
 
-- A0-02 / DG-A0-01: authenticate the owner account on this workstation and
-  establish an owned candidate package manually before selecting its public
-  identity and accepting the publication boundary.
+- None for A0-02B. The organization ownership and scoped candidate evidence are
+  available; the ADR and executable mapping checks now own gate resolution.
 
 ## Open questions
 
-- DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
 - DG-A0-04: first supported deployment boundary and rollback contract, owned
   by A0-06 after the public project-creation workflow exists.
 
 ## Completed slices
+
+- A0-02A — Merge commit `7757013` adds a TypeScript-only read-only registry
+  preflight with normalized success/refusal fixtures, mutation guards, release
+  policy, traceability, and risk evidence while leaving the package private.
 
 - A0-01 — Merge commit `6de019c` accepts only application-owned same-origin
   external CSS for alpha, retains inline-style refusal and scoped-CSS deferral,
