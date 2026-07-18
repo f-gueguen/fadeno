@@ -10,11 +10,11 @@ A0-02B — accept the owned public package identity and publication boundary
 
 ## Exit criteria
 
-- [ ] Record authenticated ownership of the `fadeno` organization and the
+- [x] Record authenticated ownership of the `fadeno` organization and the
   unpublished `@fadeno/framework` candidate through read-only evidence.
-- [ ] Accept the exact package name, public entrypoints, `fadeno` executable,
+- [x] Accept the exact package name, public entrypoints, `fadeno` executable,
   trusted-publication boundary, and rollback behavior through an ADR.
-- [ ] Resolve DG-A0-01 without making the internal package publishable before
+- [x] Resolve the package-identity gate without making the internal package publishable before
   A0-03 or publishing a placeholder version.
 - [ ] Pass registry, package-surface, decision, model, full repository, local
   CI, and independent review gates.
@@ -32,6 +32,10 @@ placeholder, add hosted CI, or begin the A0-03 release implementation.
   `@fadeno/framework` as unpublished; no package or owner mutation occurred.
 - The first implementation boundary extends the checked preflight for owned
   organizations and keeps publication unattempted and unauthorized in evidence.
+- ADR 0037 selects `@fadeno/framework`, the existing three exports, and the
+  `fadeno` executable while keeping the package private and unpublished.
+- The first release must bootstrap with provenance from public source before
+  exact trusted-publisher identity can replace its one-use credential.
 
 ## Blockers
 
@@ -40,7 +44,6 @@ placeholder, add hosted CI, or begin the A0-03 release implementation.
 
 ## Open questions
 
-- DG-A0-01: public package names after registry ownership is secured.
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
 - DG-A0-04: first supported deployment boundary and rollback contract, owned

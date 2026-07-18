@@ -75,6 +75,14 @@ are present in package contents. Cross-package relative imports, re-exports,
 dynamic imports, traversal, symlink escapes, and private deep imports are
 errors. Registry naming remains separate from this relative topology.
 
+ADR 0037 selects `@fadeno/framework` as the only public package identity. Its
+exact public map is `.`, `./node`, `./jsx-runtime`, and the `fadeno` executable
+at `./dist/cli.js`. The pre-publication `fadeno-framework-internal` name is not
+an alias and is never published. A0-03 must update the package manifest,
+generated imports, consumers, documentation, and release machinery atomically;
+until then the manifest stays private at `0.0.0-private` without
+`publishConfig`.
+
 ADR 0025 fixes the first private package surface. `.` exports the standard Web
 `Handler` type. `./node` exports `listenNodeHttp`, `ListenNodeHttpOptions`,
 `NodeHttpServer`, `nodeHttpCapabilities`, and `NodeHttpCapabilities`. The

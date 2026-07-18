@@ -30,7 +30,7 @@ expectMutation("A0 roadmap A0-04 dependency contract mismatch", (context) => Obj
 }));
 expectMutation("A0 roadmap A0-02 decision ownership mismatch", (context) => Object.freeze({
   ...context,
-  roadmap: context.roadmap.replace(/^\| A0-02 \|.*$/mu, (line) => line.replace("resolve DG-A0-01 through ", "")),
+  roadmap: context.roadmap.replace(/^\| A0-02 \|.*$/mu, (line) => line.replace("ADR 0037 package-publication decision", "DG-A0-01 package-publication decision")),
 }));
 expectMutation("A0 unresolved decision gate drifted: DG-A0-02", (context) => Object.freeze({
   ...context,
