@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { validateRegistryDiscovery } from "./a0-registry.ts";
+
 type JsonRecord = Record<string, unknown>;
 
 export type A0PlanContext = Readonly<{
@@ -30,16 +32,7 @@ export function loadA0PlanContext(root: string, tracked: ReadonlySet<string>): A
 export function validateA0Plan(context: A0PlanContext): readonly string[] {
   const errors: string[] = [];
   if (!context.tracked.has("evidence/a0/registry-discovery.json")) errors.push("A0 registry evidence is not tracked");
-  const registry = context.registry;
-  if (!isRecord(registry)) errors.push("A0 registry evidence must be an object");
-  else {
-    if (registry["schemaVersion"] !== 1) errors.push("A0 registry schemaVersion must be 1");
-    if (registry["observedAt"] !== "2026-07-17") errors.push("A0 registry observation date mismatch");
-    if (registry["registry"] !== "https://registry.npmjs.org/") errors.push("A0 registry authority mismatch");
-    if (registry["unscopedIdentity"] !== "fadeno" || registry["unscopedAvailability"] !== "occupied") errors.push("A0 unscoped registry evidence mismatch");
-    if (registry["authenticatedOwner"] !== null || registry["selectedIdentity"] !== null) errors.push("A0 registry identity was selected before ownership verification");
-    if (registry["blocker"] !== "registry-authentication-required" || registry["publicationAuthorized"] !== false) errors.push("A0 registry blocker must remain fail-closed");
-  }
+  errors.push(...validateRegistryDiscovery(context.registry));
 
   const slices = [...context.roadmap.matchAll(/^\| A0-(\d{2}) \|/gmu)].map((match) => match[1]);
   const expectedSlices = Array.from({ length: 11 }, (_value, index) => String(index).padStart(2, "0"));

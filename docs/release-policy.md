@@ -43,6 +43,22 @@ of materials before stable release.
 DG-A0-01 must resolve package names, ownership, and public entrypoints before
 the first registry publication.
 
+### Registry ownership preflight
+
+Before DG-A0-01 resolves, `pnpm capture:a0-registry` is an explicit maintainer
+operation that prints normalized evidence without writing repository files. It
+may query only the current authenticated identity. When given
+`--candidate <existing-package-name>`, it may also list that package's owners.
+It never publishes, changes owners, or authorizes publication. A candidate is
+accepted only when the authenticated identity appears in the existing
+package's owner list; an unpublished or unavailable name remains unverified.
+
+`pnpm check:a0-registry` is the offline repository gate. It uses injected
+responses and checked fixtures, so credentials and registry availability are
+not merge prerequisites. Manual establishment of a package may happen later,
+but DG-A0-01 remains open until its resulting ownership evidence and the
+package-publication ADR are reviewed together.
+
 ## Documentation
 
 Current documentation has one editable source tree. Each supported release

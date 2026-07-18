@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "registry": "https://registry.npmjs.org/",
+  "verificationMode": "read-only",
+  "authenticatedOwner": "maintainer",
+  "candidateIdentity": "@maintainer/fadeno",
+  "selectedIdentity": "@maintainer/fadeno",
+  "blocker": null,
+  "publicationAttempted": false,
+  "publicationAuthorized": false,
+  "operations": [
+    {
+      "operation": "whoami",
+      "exitCode": 0,
+      "outcome": "accepted"
+    },
+    {
+      "operation": "owner-ls",
+      "exitCode": 0,
+      "outcome": "accepted"
+    }
+  ]
+}
