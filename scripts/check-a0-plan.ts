@@ -6,4 +6,4 @@ const tracked = new Set(execFileSync("git", ["ls-files", "--cached"], { cwd: roo
 const errors = validateA0Plan(loadA0PlanContext(root, tracked));
 if (errors.length > 0) throw new Error(errors.join("\n"));
 
-console.log("A0 plan passed (11 ordered slices, registry identity accepted, 2 decisions pending)");
+console.log("A0 plan passed (11 ordered slices, registry identity accepted, 1 A0 decision pending)");
