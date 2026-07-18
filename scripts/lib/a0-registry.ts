@@ -82,8 +82,16 @@ function validCandidate(candidate: string): boolean {
   return packagePartPattern.test(candidate);
 }
 
+function normalizeOrganization(organization: string): string | null {
+  const normalized = organization.startsWith("@") ? organization.slice(1) : organization;
+  return organizationPattern.test(normalized) ? normalized : null;
+}
+
 function failure(operation: RegistryOperation, stderr: string): RegistryBlocker {
   if (/ENEEDAUTH|E401|\b401\b|not logged in|need auth/iu.test(stderr)) return "registry-authentication-required";
+  if (operation === "org-ls" && /E403|\b403\b|forbidden|not authorized|permission denied/iu.test(stderr)) {
+    return "registry-organization-ownership-unverified";
+  }
   if (operation === "owner-ls" && /E404|\b404\b|not found/iu.test(stderr)) return "registry-package-not-found";
   return "registry-unavailable";
 }
@@ -102,8 +110,9 @@ export function registryOwnerCommand(candidate: string): RegistryCommand {
 }
 
 export function registryOrganizationCommand(organization: string): RegistryCommand {
-  if (!organizationPattern.test(organization)) throw new Error("FADENO_A0_REGISTRY_INVALID_ORGANIZATION");
-  return command("org-ls", ["org", "ls", organization, "--json", `--registry=${A0_REGISTRY}`]);
+  const normalized = normalizeOrganization(organization);
+  if (normalized === null) throw new Error("FADENO_A0_REGISTRY_INVALID_ORGANIZATION");
+  return command("org-ls", ["org", "ls", normalized, "--json", `--registry=${A0_REGISTRY}`]);
 }
 
 export function registryViewCommand(candidate: string): RegistryCommand {
@@ -227,11 +236,12 @@ export function runRegistryOrganizationPreflight(
   candidate: string,
   run: RegistryCommandRunner,
 ): RegistryOrganizationPreflightEvidence {
-  if (!organizationPattern.test(organization)) {
+  const normalizedOrganization = normalizeOrganization(organization);
+  if (normalizedOrganization === null) {
     return organizationEvidence(organization, candidate, null, null, null, null, "invalid-organization", []);
   }
-  if (!validCandidate(candidate) || !candidate.startsWith(`@${organization}/`)) {
-    return organizationEvidence(organization, candidate, null, null, null, null, "invalid-candidate", []);
+  if (!validCandidate(candidate) || !candidate.startsWith(`@${normalizedOrganization}/`)) {
+    return organizationEvidence(normalizedOrganization, candidate, null, null, null, null, "invalid-candidate", []);
   }
 
   const operations: RegistryOperationEvidence[] = [];
@@ -239,20 +249,20 @@ export function runRegistryOrganizationPreflight(
   if (whoami.exitCode !== 0) {
     const blocker = failure("whoami", whoami.stderr);
     operations.push(operationEvidence("whoami", whoami, blocker));
-    return organizationEvidence(organization, candidate, null, null, null, null, blocker, operations);
+    return organizationEvidence(normalizedOrganization, candidate, null, null, null, null, blocker, operations);
   }
   const owner = whoami.stdout.trim();
   if (!usernamePattern.test(owner)) {
     operations.push(operationEvidence("whoami", whoami, "registry-response-invalid"));
-    return organizationEvidence(organization, candidate, null, null, null, null, "registry-response-invalid", operations);
+    return organizationEvidence(normalizedOrganization, candidate, null, null, null, null, "registry-response-invalid", operations);
   }
   operations.push(operationEvidence("whoami", whoami, "accepted"));
 
-  const organizationResult = run(registryOrganizationCommand(organization));
+  const organizationResult = run(registryOrganizationCommand(normalizedOrganization));
   if (organizationResult.exitCode !== 0) {
     const blocker = failure("org-ls", organizationResult.stderr);
     operations.push(operationEvidence("org-ls", organizationResult, blocker));
-    return organizationEvidence(organization, candidate, owner, null, null, null, blocker, operations);
+    return organizationEvidence(normalizedOrganization, candidate, owner, null, null, null, blocker, operations);
   }
   let members: unknown;
   try {
@@ -262,26 +272,26 @@ export function runRegistryOrganizationPreflight(
   }
   if (!isRecord(members)) {
     operations.push(operationEvidence("org-ls", organizationResult, "registry-response-invalid"));
-    return organizationEvidence(organization, candidate, owner, null, null, null, "registry-response-invalid", operations);
+    return organizationEvidence(normalizedOrganization, candidate, owner, null, null, null, "registry-response-invalid", operations);
   }
   if (members[owner] !== "owner") {
     operations.push(operationEvidence("org-ls", organizationResult, "registry-organization-ownership-unverified"));
-    return organizationEvidence(organization, candidate, owner, null, null, null, "registry-organization-ownership-unverified", operations);
+    return organizationEvidence(normalizedOrganization, candidate, owner, null, null, null, "registry-organization-ownership-unverified", operations);
   }
   operations.push(operationEvidence("org-ls", organizationResult, "accepted"));
 
   const candidateResult = run(registryViewCommand(candidate));
   if (candidateResult.exitCode === 0) {
     operations.push(operationEvidence("view", candidateResult, "registry-candidate-occupied"));
-    return organizationEvidence(organization, candidate, owner, "owner", null, null, "registry-candidate-occupied", operations);
+    return organizationEvidence(normalizedOrganization, candidate, owner, "owner", null, null, "registry-candidate-occupied", operations);
   }
   if (!/E404|\b404\b|not found/iu.test(candidateResult.stderr)) {
     const blocker = failure("view", candidateResult.stderr);
     operations.push(operationEvidence("view", candidateResult, blocker));
-    return organizationEvidence(organization, candidate, owner, "owner", null, null, blocker, operations);
+    return organizationEvidence(normalizedOrganization, candidate, owner, "owner", null, null, blocker, operations);
   }
   operations.push(operationEvidence("view", candidateResult, "accepted"));
-  return organizationEvidence(organization, candidate, owner, "owner", "unpublished", candidate, null, operations);
+  return organizationEvidence(normalizedOrganization, candidate, owner, "owner", "unpublished", candidate, null, operations);
 }
 
 export function validateRegistryDiscovery(value: unknown): readonly string[] {

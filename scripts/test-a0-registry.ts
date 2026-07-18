@@ -66,7 +66,7 @@ if (JSON.stringify(owner) !== JSON.stringify({
   executable: "npm",
   arguments: ["owner", "ls", "@maintainer/fadeno", `--registry=${A0_REGISTRY}`],
 })) throw new Error("owner command drifted");
-const organization = registryOrganizationCommand("example");
+const organization = registryOrganizationCommand("@example");
 if (JSON.stringify(organization) !== JSON.stringify({
   operation: "org-ls",
   executable: "npm",
@@ -102,7 +102,7 @@ if (JSON.stringify(success) !== JSON.stringify(fixture("owned-package"))) throw 
 
 const organizationCommands: RegistryCommand[] = [];
 const organizationSuccess = runRegistryOrganizationPreflight(
-  "example",
+  "@example",
   "@example/framework",
   runner([
     ok("maintainer\n"),
@@ -113,9 +113,13 @@ const organizationSuccess = runRegistryOrganizationPreflight(
 if (JSON.stringify(organizationSuccess) !== JSON.stringify(fixture("owned-organization-unpublished"))) {
   throw new Error(`owned-organization fixture drifted:\n${JSON.stringify(organizationSuccess)}`);
 }
+if (JSON.stringify(organizationCommands[1]) !== JSON.stringify(organization)) {
+  throw new Error("prefixed organization was not normalized at the command boundary");
+}
 expectOrganizationBlocker("INVALID", "@example/framework", [], "invalid-organization");
 expectOrganizationBlocker("example", "@different/framework", [], "invalid-candidate");
 expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), ok('{"maintainer":"developer"}\n')], "registry-organization-ownership-unverified");
+expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), refused("E403 forbidden")], "registry-organization-ownership-unverified");
 expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), ok("not-json\n")], "registry-response-invalid");
 expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), ok('{"maintainer":"owner"}\n'), ok('{"name":"@example/framework"}\n')], "registry-candidate-occupied");
 expectOrganizationBlocker("example", "@example/framework", [ok("maintainer\n"), ok('{"maintainer":"owner"}\n'), refused("network unavailable")], "registry-unavailable");
