@@ -154,7 +154,7 @@ try {
   requireSuccess("pnpm", ["install", "--frozen-lockfile", "--offline", "--ignore-scripts"], project);
   const installedPackage = join(project, "node_modules/@fadeno/framework");
   assert.equal(existsSync(join(installedPackage, "dist", basename(localCanary))), false);
-  assert.match(readFileSync(join(installedPackage, "README.md"), "utf8"), /private V1 integration/u);
+  assert.match(readFileSync(join(installedPackage, "README.md"), "utf8"), /unpublished release seed/u);
 
   requireSuccess(process.execPath, ["--input-type=module", "--eval", [
     'await import("@fadeno/framework");',
