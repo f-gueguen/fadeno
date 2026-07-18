@@ -45,7 +45,9 @@ checked SHA-256. Every started attempt is
 retained, including refusal, abandonment, and facilitator-intervention states.
 The packet also freezes the complete versioned attempt-record shape, exact
 artifact fields, prior-experience and duration bands, recovery states,
-observation limit, and prohibited sensitive fields before observation. The
+observation and artifact byte limits, and prohibited sensitive fields before
+observation. Each task names the applicable artifact categories required for a
+completed claim. The
 verifier rejects changed tasks or instruction bytes, artifact mismatch,
 omitted attempts,
 duplicate participant identity, unclassified assistance, missing recovery, or
@@ -80,6 +82,8 @@ editor protocol.
 ## Validation
 
 `pnpm check:a0-usability-contract` validates the frozen packet, documentation,
-tracking, synthetic positive fixture, and negative mutations. A0-07B adds the
-attempt replay verifier, exact artifact reconstruction, all-attempt manifest,
-and accepted/refused evidence commands before the result can be claimed.
+tracking, synthetic positive fixture, and negative mutations.
+`pnpm check:a0-usability-replay-contract` validates A0-07B1's private replay
+summary, all-started manifest, task evidence, privacy, recovery, minimum, and
+synthetic-refusal controls. A0-07B1 also adds exact artifact reconstruction and
+collection preparation before A0-07B2 may retain or claim real evidence.

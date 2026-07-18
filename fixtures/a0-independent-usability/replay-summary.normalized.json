@@ -1,0 +1,21 @@
+{
+  "schema": "fadeno.a0.independent-usability-replay-summary",
+  "version": 1,
+  "disposition": "synthetic-not-user-evidence",
+  "packetId": "a0-public-workflow-v1",
+  "attemptsRetained": 3,
+  "qualifyingIndependentParticipants": 2,
+  "taskOutcomes": {
+    "completed": 23,
+    "refused": 0,
+    "abandoned": 1
+  },
+  "assistance": {
+    "none": 12,
+    "publicDocumentation": 11,
+    "facilitatorIntervention": 1
+  },
+  "missingWorkflowReports": 2,
+  "accepted": false,
+  "reason": "synthetic-fixture-excluded"
+}

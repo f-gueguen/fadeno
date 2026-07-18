@@ -254,12 +254,27 @@ to the Fadeno repository must use the same exact source commit and
 packed-tarball SHA-256 without private guidance.
 
 Records are anonymous and bounded by the packet's pre-observation attempt
-contract. Every started attempt is retained with its outcome and assistance
-category. Synthetic fixtures, omitted attempts, facilitator intervention
+contract. Every task fixes its applicable required artifact categories, and
+every started attempt is retained with its outcome and assistance category.
+Synthetic fixtures, omitted attempts, facilitator intervention
 presented as independent success, changed instruction bytes or tasks, and
 artifact mismatch are refused. `pnpm check:a0-usability-contract` validates the
 pre-observation packet and its negative controls; a later A0-07B command must
 replay real attempts before A0-08 may interpret tooling needs.
+
+A0-07B1 derives replay status rather than trusting a participant or facilitator
+success flag. One closed manifest must enumerate every started and retained
+anonymous attempt with no omissions. Every attempt uses the same packet and
+package identity; completed tasks supply their frozen applicable artifacts,
+which are contained regular files with exact digests and bounded normalized
+bytes. Duplicate participants or artifacts, missing recovery, unclassified
+assistance, stale packet identity, and path-bearing output are refused.
+
+The permanent synthetic replay contains two complete shapes plus one
+facilitator-assisted abandonment. It exercises the aggregate and negative
+controls but always derives `synthetic-fixture-excluded`, never accepted user
+evidence. Run `pnpm check:a0-usability-replay-contract`; its normalized output
+is `fixtures/a0-independent-usability/replay-summary.normalized.json`.
 
 ## Diagnostics and support
 

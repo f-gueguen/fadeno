@@ -10,7 +10,7 @@ A0-07 — collect independent public-workflow evidence
 
 ## Exit criteria
 
-- [ ] Freeze the versioned independent-user task, privacy, retention, artifact
+- [x] Freeze the versioned independent-user task, privacy, retention, artifact
   identity, and synthetic-evidence refusal contract through ADR 0042.
 - [ ] Retain at least two real independent participant attempts over one exact
   packed artifact without private guidance or omitted attempts.
@@ -20,22 +20,26 @@ A0-07 — collect independent public-workflow evidence
 
 ## Active sub-slice
 
-A0-07A contract and task packet only. It freezes collection before observation
-and cannot claim user evidence, select editor tooling, expose an analyzer
-schema, publish a package, or treat synthetic fixtures as participants.
+A0-07B1 replay and collection controls only. It verifies exact artifact and
+attempt identity, all-started retention, privacy, task evidence, and synthetic
+refusal before collection. It cannot claim user evidence, select editor
+tooling, expose an analyzer schema, publish a package, or treat synthetic
+fixtures as participants.
 
 ## In progress
 
-- ADR 0042 freezes two bounded A0-07 sub-slices, nine ordered public-workflow
-  tasks, two-participant minimum, anonymous bounded records, all-attempt
+- Merge commit `3be74fa` completes A0-07A with eleven exact ordered
+  public-workflow tasks, a digest-bound instruction packet, a versioned attempt
+  shape, two-participant minimum, anonymous bounded records, all-attempt
   retention, exact artifact identity, and fail-closed synthetic-evidence
-  refusal. A0-07A contract validation is in progress; real collection remains
-  A0-07B.
+  refusal. A0-07B1 now adds replay and collection controls before A0-07B2 may
+  retain real observations.
 
 ## Blockers
 
-- None. Registry organization ownership and the unpublished selected identity
-  were accepted by A0-02, and A0-03 merged the publishable public package.
+- A0-07B2 acceptance requires at least two real independent non-contributors.
+  Implementation and synthetic contract testing can continue, but no automated
+  fixture or maintainer replay can satisfy that external evidence gate.
 
 ## Open questions
 

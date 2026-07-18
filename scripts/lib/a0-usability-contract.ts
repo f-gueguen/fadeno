@@ -1,17 +1,17 @@
 type RecordValue = Record<string, unknown>;
 
 const taskContract = Object.freeze([
-  ["install-create", false],
-  ["application-test", true],
-  ["successful-flow-explanation", false],
-  ["route-failure", true],
-  ["failed-flow-explanation", true],
-  ["configuration-failure", true],
-  ["generation-failure", true],
-  ["development-run", false],
-  ["production-build", false],
-  ["immutable-deployment", true],
-  ["missing-workflow-report", false],
+  ["install-create", false, ["humanOutput"]],
+  ["application-test", true, ["humanOutput", "machineOutput", "correctionBefore", "correctionAfter", "recovery"]],
+  ["successful-flow-explanation", false, ["humanOutput", "flowInspection"]],
+  ["route-failure", true, ["humanOutput", "correctionBefore", "correctionAfter", "recovery"]],
+  ["failed-flow-explanation", true, ["humanOutput", "flowInspection", "recovery"]],
+  ["configuration-failure", true, ["humanOutput", "correctionBefore", "correctionAfter", "recovery"]],
+  ["generation-failure", true, ["humanOutput", "correctionBefore", "correctionAfter", "flowInspection", "recovery"]],
+  ["development-run", false, ["humanOutput"]],
+  ["production-build", false, ["humanOutput", "machineOutput"]],
+  ["immutable-deployment", true, ["humanOutput", "machineOutput", "correctionBefore", "correctionAfter", "flowInspection", "recovery"]],
+  ["missing-workflow-report", false, ["humanOutput"]],
 ] as const);
 
 const attemptOutcomes = Object.freeze(["completed", "refused", "abandoned"] as const);
@@ -64,6 +64,7 @@ export function verifyA0UsabilityPacket(value: unknown): Readonly<{
   instructionSha256: string;
   packetId: string;
   taskIds: readonly string[];
+  taskRequirements: Readonly<Record<string, Readonly<{ requiredArtifacts: readonly string[]; requiresRecovery: boolean }>>>;
 }> {
   const code = "FADENO_A0_USABILITY_PACKET";
   const packet = record(value, code);
@@ -89,12 +90,14 @@ export function verifyA0UsabilityPacket(value: unknown): Readonly<{
   exactKeys(attemptRecord, [
     "schema", "version", "dispositions", "recordKeys", "participantKeys", "artifactIdentityKeys", "taskAttemptKeys",
     "artifactReferenceKeys", "missingWorkflowKeys", "redactionKeys", "anonymousIdPattern", "digestFormat",
-    "priorExperienceBands", "durationBands", "recoveryOutcomes", "artifactFields", "maxObservationBytes", "prohibitedFields",
+    "priorExperienceBands", "durationBands", "recoveryOutcomes", "artifactFields", "maxObservationBytes", "maxArtifactBytes",
+    "prohibitedFields",
   ], code);
   if (
     attemptRecord["schema"] !== "fadeno.a0.independent-usability-attempt" || attemptRecord["version"] !== 1 ||
     attemptRecord["anonymousIdPattern"] !== "participant-[a-z0-9]{8,32}" ||
-    attemptRecord["digestFormat"] !== "lowercase-sha256" || attemptRecord["maxObservationBytes"] !== 2048
+    attemptRecord["digestFormat"] !== "lowercase-sha256" || attemptRecord["maxObservationBytes"] !== 2048 ||
+    attemptRecord["maxArtifactBytes"] !== 262144
   ) throw new TypeError(code);
   exactArray(attemptRecord["dispositions"], ["participant-attempt", "synthetic-not-user-evidence"], code);
   exactArray(attemptRecord["recordKeys"], attemptRecordKeys, code);
@@ -112,15 +115,23 @@ export function verifyA0UsabilityPacket(value: unknown): Readonly<{
   if (!Array.isArray(packet["tasks"]) || packet["tasks"].length !== taskContract.length) throw new TypeError(code);
   const taskIds = packet["tasks"].map((value, index) => {
     const task = record(value, code);
-    exactKeys(task, ["id", "requiresRecovery"], code);
+    exactKeys(task, ["id", "requiresRecovery", "requiredArtifacts"], code);
     const expected = taskContract[index]!;
-    if (task["id"] !== expected[0] || task["requiresRecovery"] !== expected[1]) throw new TypeError(code);
+    if (
+      task["id"] !== expected[0] || task["requiresRecovery"] !== expected[1] ||
+      JSON.stringify(task["requiredArtifacts"]) !== JSON.stringify(expected[2])
+    ) throw new TypeError(code);
     return expected[0];
   });
+  const taskRequirements = Object.freeze(Object.fromEntries(taskContract.map(([id, requiresRecovery, requiredArtifacts]) => [
+    id,
+    Object.freeze({ requiresRecovery, requiredArtifacts: Object.freeze([...requiredArtifacts]) }),
+  ])));
   return Object.freeze({
     instructionSha256: packet["instructionSha256"],
     packetId: packet["packetId"],
     taskIds: Object.freeze(taskIds),
+    taskRequirements,
   });
 }
 
