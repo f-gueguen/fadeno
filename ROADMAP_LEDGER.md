@@ -6,33 +6,37 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-04 — merge public project creation
+A0-05 — add the supported application-test workflow
 
 ## Exit criteria
 
-- [x] Accept one exact non-interactive create command, exclusive target
-  ownership, transactional rollback, package-version pin, and template boundary through
-  ADR 0039.
-- [x] Implement the create command in the existing TypeScript executable with
-  bounded arguments, contained writes, rollback, and stable human diagnostics.
-- [x] Source a byte-stable scaffold from the canonical tested application and
-  prove its public-package check/build/dev/start workflow.
-- [x] Retain executable success, refusal, diagnostic, normalized output, flow,
-  recovery, stale-removal, and documentation evidence; pass full local CI and
-  independent review.
+- [x] Accept one stock application-test command, isolated output ownership, and
+  no-helper/no-second-runtime boundary through ADR 0040.
+- [x] Add the command and typed executable test to the created-project template.
+- [x] Prove packed success, deliberate failure, normalized human and machine
+  output, correction, flow, recovery, and stale-output removal.
+- [x] Source documentation from verified artifacts; pass package, example,
+  full local CI, and independent review gates.
 
 ## Active sub-slice
 
-A0-04 final review and merge only. The accepted public create command and its
-fixed template are complete; this slice does not add the application-test
-workflow, deployment, publication, a second package, or a second runtime.
+A0-05 final exact-tip validation, final review, and merge only. The accepted
+created-application test workflow is complete; this slice does not add
+deployment, publication, another package, a public test helper, a public
+analyzer schema, or a second framework runtime.
 
 ## In progress
 
-- ADR 0039, the TypeScript command, fixed template, packed consumer, normalized
-  success/refusal/correction/flow/recovery evidence, generated guidance, and
-  mutation contracts are complete. Exact `pnpm check` and `pnpm ci:local`
-  passed at `574e93d`; final review and merge remain operational work only.
+- ADR 0040, the 12-file TypeScript/TSX template, disposable test compiler,
+  three production-runtime assertions, deliberate failure, normalized human
+  and TAP output, correction, flow, recovery, stale-output removal, generated
+  guidance, and mutation guards are complete. Project creation, package
+  boundary, public package, canonical running example, documentation, model,
+  TypeScript, and exact local CI gates pass. The initial independent review's
+  three threads were exhaustively triaged; its two valid findings are fixed by
+  `02bd616`, with targeted test, documentation, build-recovery, and running-
+  example gates passing. Final exact-tip local CI and review remain operational
+  work only.
 
 ## Blockers
 
@@ -47,6 +51,11 @@ workflow, deployment, publication, a second package, or a second runtime.
   by A0-06 after the public project-creation workflow exists.
 
 ## Completed slices
+
+- A0-04 — Merge commit `0f3b351` adds the exact public create command, fixed
+  TypeScript/TSX scaffold, packed check/build/dev/start proof, diagnostics,
+  correction, flow, recovery, documentation, and mutation evidence without
+  installing dependencies, publishing, or creating another runtime.
 
 - A0-03 — Merge commit `18dbf8f` completes the public-name migration and
   establishes the `0.0.0` seed,

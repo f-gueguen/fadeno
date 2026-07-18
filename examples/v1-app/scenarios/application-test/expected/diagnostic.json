@@ -1,0 +1,7 @@
+{
+  "command": "pnpm test",
+  "exitCode": 1,
+  "source": "test/application.test.tsx",
+  "assertion": "/A heading that does not exist/u",
+  "diagnostic": "ERR_ASSERTION"
+}

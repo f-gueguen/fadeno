@@ -1,0 +1,31 @@
+{
+  "operation": "pnpm test",
+  "causes": [
+    "typed application and test sources compiled with stock TypeScript",
+    "production renderRoute executed the application page and not-found page",
+    "production Handler executed the stylesheet response",
+    "production build refused disposable test output as a compiler input"
+  ],
+  "ownership": {
+    "source": [
+      "src",
+      "test/application.test.tsx",
+      "tsconfig.test.json"
+    ],
+    "disposableOutput": ".fadeno/test",
+    "productionOutput": "excluded"
+  },
+  "skippedWork": [
+    "framework test runtime",
+    "public test helper",
+    "private package import",
+    "public analyzer schema"
+  ],
+  "outcome": {
+    "success": true,
+    "deliberateFailure": "ERR_ASSERTION",
+    "productionInputRefusal": "FADENO_BUILD_CHILD_COMPILER_INPUT",
+    "recovery": true,
+    "tests": 3
+  }
+}

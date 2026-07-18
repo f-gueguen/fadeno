@@ -10,6 +10,7 @@
   "verificationGates": [
     "check:a0-css",
     "check:a0-create",
+    "check:a0-test",
     "check:a0-release",
     "check:v1-analyzer-workflow",
     "check:v1-running-example",
@@ -38,9 +39,12 @@
       "scenarios/project-creation/expected/app/src/routes/page.tsx",
       "scenarios/project-creation/expected/app/src/routes/styles/handler.ts",
       "scenarios/project-creation/expected/app/src/styles.ts",
+      "scenarios/project-creation/expected/app/test/application.test.tsx",
       "scenarios/project-creation/expected/app/tsconfig.json",
+      "scenarios/project-creation/expected/app/tsconfig.test.json",
       "scenarios/project-creation/expected/runtime.json",
-      "scenarios/project-creation/expected/success.txt"
+      "scenarios/project-creation/expected/success.txt",
+      "scenarios/application-test/expected/success.txt"
     ],
     "failure": [
       "expected/action-failure.txt",
@@ -53,6 +57,10 @@
       "scenarios/css-boundary/expected/diagnostic.json",
       "scenarios/project-creation/expected/diagnostic-human.txt",
       "scenarios/project-creation/expected/diagnostic.json",
+      "scenarios/application-test/expected/diagnostic-human.txt",
+      "scenarios/application-test/expected/diagnostic.json",
+      "scenarios/application-test/expected/diagnostic.tap",
+      "scenarios/application-test/expected/build-input-refusal.txt",
       "scenarios/action-lifecycle/expected/diagnostic.json",
       "scenarios/resource-lifecycle/expected/expected-failure.json",
       "scenarios/resource-lifecycle/expected/refusal.json"
@@ -64,6 +72,8 @@
       "scenarios/css-boundary/expected/correction-before.json",
       "scenarios/project-creation/expected/correction-after.json",
       "scenarios/project-creation/expected/correction-before.json",
+      "scenarios/application-test/expected/correction-after.json",
+      "scenarios/application-test/expected/correction-before.json",
       "scenarios/resource-lifecycle/expected/correction-after.json",
       "scenarios/resource-lifecycle/expected/correction-before.json"
     ],
@@ -75,6 +85,7 @@
       "scenarios/css-boundary/expected/flow.json",
       "scenarios/development-lifecycle/expected/flow.json",
       "scenarios/project-creation/expected/flow.json",
+      "scenarios/application-test/expected/flow.json",
       "scenarios/resource-lifecycle/expected/flow.json",
       "scenarios/route-role-collision/expected/flow.json"
     ],
@@ -86,6 +97,7 @@
       "scenarios/css-boundary/expected/recovery.json",
       "scenarios/development-lifecycle/expected/recovery.json",
       "scenarios/project-creation/expected/recovery.json",
+      "scenarios/application-test/expected/recovery.json",
       "scenarios/resource-lifecycle/expected/recovery.json",
       "scenarios/route-role-collision/expected/recovery.json"
     ],
@@ -96,6 +108,7 @@
       "scenarios/css-boundary/expected/recovery.json",
       "scenarios/development-lifecycle/expected/recovery.json",
       "scenarios/project-creation/expected/recovery.json",
+      "scenarios/application-test/expected/recovery.json",
       "scenarios/resource-lifecycle/expected/recovery.json",
       "scenarios/route-role-collision/expected/recovery.json"
     ]

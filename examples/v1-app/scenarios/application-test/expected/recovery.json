@@ -1,0 +1,13 @@
+{
+  "failure": {
+    "exitCode": 1,
+    "diagnostic": "ERR_ASSERTION"
+  },
+  "recovery": {
+    "exitCode": 0,
+    "productionInputRefusalCleared": true,
+    "staleDiagnosticPresent": false,
+    "staleOutputPresent": false,
+    "testCount": 3
+  }
+}

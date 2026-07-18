@@ -1,0 +1,44 @@
+TAP version 13
+# Subtest: renders the application document through the production renderer
+not ok 1 - renders the application document through the production renderer
+  ---
+  duration_ms: <DURATION>
+  type: 'test'
+  location: '<PROJECT_ROOT>/.fadeno/test/test/application.test.js:8:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /A heading that does not exist/u. Input:
+
+    '<!doctype html><html lang="en"><head><title>my-fadeno-app</title><link href="/styles" rel="stylesheet" type="text/css"></head><body class="app-shell"><header class="site-header"><nav aria-label="Primary" class="primary-nav"><a href="/">Home</a></nav></header><main class="page-content"><section aria-labelledby="welcome-heading" class="hero-card"><h1 id="welcome-heading">Your Fadeno application is running</h1><p>This routed document is rendered and streamed by the server.</p><p>It remains usable without client JavaScript.</p></section></main><footer class="site-footer">Rendered by Fadeno</footer></body></html>'
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: '<!doctype html><html lang="en"><head><title>my-fadeno-app</title><link href="/styles" rel="stylesheet" type="text/css"></head><body class="app-shell"><header class="site-header"><nav aria-label="Primary" class="primary-nav"><a href="/">Home</a></nav></header><main class="page-content"><section aria-labelledby="welcome-heading" class="hero-card"><h1 id="welcome-heading">Your Fadeno application is running</h1><p>This routed document is rendered and streamed by the server.</p><p>It remains usable without client JavaScript.</p></section></main><footer class="site-footer">Rendered by Fadeno</footer></body></html>'
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file://<PROJECT_ROOT>/.fadeno/test/test/application.test.js:17:12)
+    async Test.run (node:internal/test_runner/<LOCATION>)
+    async startSubtestAfterBootstrap (node:internal/test_runner/<LOCATION>)
+  ...
+# Subtest: renders the application not-found document
+ok 2 - renders the application not-found document
+  ---
+  duration_ms: <DURATION>
+  type: 'test'
+  ...
+# Subtest: serves the application stylesheet through its raw handler
+ok 3 - serves the application stylesheet through its raw handler
+  ---
+  duration_ms: <DURATION>
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 2
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms <DURATION>

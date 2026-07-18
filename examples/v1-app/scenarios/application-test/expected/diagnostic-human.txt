@@ -1,0 +1,5 @@
+✖ renders the application document through the production renderer (<DURATION>)
+AssertionError [ERR_ASSERTION]: The input did not match the regular expression /A heading that does not exist/u.
+expected: /A heading that does not exist/u
+operator: 'match'
+[ELIFECYCLE] Test failed. See above for more details.

@@ -137,6 +137,7 @@ try {
     packageManager: "pnpm@11.7.0",
     scripts: {
       check: "fadeno check --project-root .",
+      test: "node --input-type=module --eval \"import { rm } from 'node:fs/promises'; await rm('.fadeno/test', { force: true, recursive: true });\" && tsc -p tsconfig.test.json && node --test --test-reporter=spec .fadeno/test/test/application.test.js",
       build: "fadeno build --project-root .",
       dev: "fadeno dev --project-root . --port 4173",
       start: "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js",
