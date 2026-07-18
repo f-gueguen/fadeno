@@ -1,0 +1,20 @@
+{
+  "failedCandidate": {
+    "artifact": "release-2",
+    "diagnostic": "FADENO_BUILD_RUNTIME_IDENTITY",
+    "ready": false
+  },
+  "rollback": {
+    "artifact": "release-1",
+    "bytesUnchanged": true,
+    "healthStatus": 200,
+    "gracefulStop": true
+  },
+  "recovery": {
+    "artifact": "release-3",
+    "accepted": true,
+    "healthStatus": 200,
+    "staleDiagnosticPresent": false,
+    "staleGeneratedRoutePresent": false
+  }
+}

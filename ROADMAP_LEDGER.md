@@ -6,37 +6,36 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-05 — add the supported application-test workflow
+A0-06 — add the first supported deployment workflow
 
 ## Exit criteria
 
-- [x] Accept one stock application-test command, isolated output ownership, and
-  no-helper/no-second-runtime boundary through ADR 0040.
-- [x] Add the command and typed executable test to the created-project template.
-- [x] Prove packed success, deliberate failure, normalized human and machine
-  output, correction, flow, recovery, and stale-output removal.
-- [x] Source documentation from verified artifacts; pass package, example,
+- [x] Accept the immutable same-platform loopback release directory, runtime
+  configuration, external HTTPS health, and prior-directory rollback boundary
+  through ADR 0041.
+- [x] Complete the public deploy command and exact production-only artifact.
+- [x] Prove packed success, refusal, secure health, graceful stop, correction,
+  flow, rollback, recovery, secret exclusion, and stale-output removal.
+- [ ] Source generated guidance from verified artifacts; pass package, example,
   full local CI, and independent review gates.
 
 ## Active sub-slice
 
-A0-05 final exact-tip validation, final review, and merge only. The accepted
-created-application test workflow is complete; this slice does not add
-deployment, publication, another package, a public test helper, a public
-analyzer schema, or a second framework runtime.
+A0-06 public command, packed artifact, permanent deployment scenario, generated
+guidance, validation, review, and merge only. This slice does not publish,
+select a hosting provider, broaden the loopback listener, add a process manager,
+add multi-process action/session ownership, expose a machine schema, or create a
+second framework runtime.
 
 ## In progress
 
-- ADR 0040, the 12-file TypeScript/TSX template, disposable test compiler,
-  three production-runtime assertions, deliberate failure, normalized human
-  and TAP output, correction, flow, recovery, stale-output removal, generated
-  guidance, and mutation guards are complete. Project creation, package
-  boundary, public package, canonical running example, documentation, model,
-  TypeScript, and exact local CI gates pass. The initial independent review's
-  three threads were exhaustively triaged; its two valid findings are fixed by
-  `02bd616`, with targeted test, documentation, build-recovery, and running-
-  example gates passing. Final exact-tip local CI and review remain operational
-  work only.
+- ADR 0041 selects one missing immutable output outside the project, an exact
+  production-only install, runtime-only manifest, loopback process behind an
+  operator-owned HTTPS boundary, application-owned `/` health, process-injected
+  origin/session secrets, graceful stop, and explicit prior-directory rollback.
+  The command, build-owned artifact verification, packed example, generated
+  documentation, and mutation guards pass their targeted gates. Complete local
+  CI and independent review remain in progress.
 
 ## Blockers
 
@@ -47,10 +46,14 @@ analyzer schema, or a second framework runtime.
 
 - DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
   after a demonstrated supported consumer.
-- DG-A0-04: first supported deployment boundary and rollback contract, owned
-  by A0-06 after the public project-creation workflow exists.
 
 ## Completed slices
+
+- A0-05 — Merge commit `985a22f` adds the stock created-application test
+  workflow, three production-runtime assertions, deliberate assertion and
+  build-input refusals, normalized human/TAP evidence, correction, flow,
+  recovery, stale-output removal, and generated guidance without another test
+  runtime, public helper, or analyzer schema.
 
 - A0-04 — Merge commit `0f3b351` adds the exact public create command, fixed
   TypeScript/TSX scaffold, packed check/build/dev/start proof, diagnostics,

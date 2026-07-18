@@ -737,6 +737,7 @@ function readAcceptedBuildManifest(output: string, code: string): Readonly<{
   bytes: Buffer;
   identity: PrivateRuntimeIdentity;
   runtime: PrivateRuntimeIdentity;
+  dependencies: readonly Readonly<{ name: string; path: string; identity: PrivateRuntimeIdentity }>[];
 }> {
   try {
     const path = join(output, ".fadeno", "build-manifest.json");
@@ -774,6 +775,7 @@ function readAcceptedBuildManifest(output: string, code: string): Readonly<{
     let previousDependencyPath: string | null = null;
     let dependencyFiles = 0;
     let dependencyBytes = 0;
+    const dependencies: Array<Readonly<{ name: string; path: string; identity: PrivateRuntimeIdentity }>> = [];
     for (const value of manifest["dependencies"]) {
       if (!value || typeof value !== "object" || Array.isArray(value)) fail(code);
       const dependency = value as Record<string, unknown>;
@@ -789,6 +791,11 @@ function readAcceptedBuildManifest(output: string, code: string): Readonly<{
       dependencyBytes += dependencyIdentity.files.reduce((total, file) => total + file.bytes, 0);
       if (dependencyFiles > maximumRuntimeFiles || dependencyBytes > maximumRuntimeBytes) fail(code);
       previousDependencyPath = dependency["path"];
+      dependencies.push(Object.freeze({
+        name: dependency["name"] as string,
+        path: dependency["path"] as string,
+        identity: dependencyIdentity,
+      }));
     }
     const identity = assertIdentityStructure(Object.freeze({
       schemaVersion: 1 as const,
@@ -800,7 +807,25 @@ function readAcceptedBuildManifest(output: string, code: string): Readonly<{
     ];
     const ownedFiles = new Set(identity.files.map(({ path }) => path));
     if (requiredFiles.some((path) => !ownedFiles.has(path))) fail(code);
-    return Object.freeze({ bytes, identity, runtime });
+    return Object.freeze({ bytes, identity, runtime, dependencies: Object.freeze(dependencies) });
+  } catch (error) {
+    if (error instanceof TypeError && error.message === code) throw error;
+    fail(code);
+  }
+}
+
+export async function assertPrivateDeploymentArtifact(projectRoot: string): Promise<void> {
+  const code = "FADENO_DEPLOY_ARTIFACT";
+  try {
+    const root = ownedDirectory(projectRoot, code);
+    const output = join(root, "dist");
+    assertAcceptedOutput(output, code);
+    const manifest = readAcceptedBuildManifest(output, code);
+    for (const dependency of manifest.dependencies) {
+      const dependencyRoot = realpathSync(join(root, dependency.path));
+      if (!contained(root, dependencyRoot)) fail(code);
+      assertPrivateRuntimeIdentity(dependencyRoot, dependency.identity);
+    }
   } catch (error) {
     if (error instanceof TypeError && error.message === code) throw error;
     fail(code);

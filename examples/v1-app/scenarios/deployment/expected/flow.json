@@ -1,0 +1,35 @@
+{
+  "operation": "fadeno deploy",
+  "causes": [
+    "accepted production build",
+    "pinned production-only dependency installation",
+    "build and installed-runtime identity verification",
+    "process-injected external origin and session key ring",
+    "application-owned health through the external HTTPS boundary"
+  ],
+  "ownership": {
+    "source": "application project",
+    "artifact": "missing immutable release directory",
+    "listener": "Fadeno loopback process",
+    "https": "operator boundary",
+    "runtimeConfiguration": "process environment",
+    "rollback": "previous immutable release directory"
+  },
+  "skippedWork": [
+    "application source and tests",
+    "project development dependencies",
+    "environment and secret files",
+    "dependency lifecycle scripts",
+    "existing-release overwrite",
+    "public machine schema",
+    "multi-process session ownership"
+  ],
+  "outcome": {
+    "artifactAccepted": true,
+    "secureHealthStatus": 200,
+    "gracefulStop": true,
+    "failedCandidateRefused": true,
+    "priorReleaseRestarted": true,
+    "correctedReleaseAccepted": true
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "operation": "start-candidate",
+  "exitCode": 1,
+  "code": "FADENO_ACTION_RUNTIME_CONFIG",
+  "ready": false
+}

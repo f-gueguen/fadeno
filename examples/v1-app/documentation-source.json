@@ -10,6 +10,7 @@
   "verificationGates": [
     "check:a0-css",
     "check:a0-create",
+    "check:a0-deploy",
     "check:a0-test",
     "check:a0-release",
     "check:v1-analyzer-workflow",
@@ -44,7 +45,9 @@
       "scenarios/project-creation/expected/app/tsconfig.test.json",
       "scenarios/project-creation/expected/runtime.json",
       "scenarios/project-creation/expected/success.txt",
-      "scenarios/application-test/expected/success.txt"
+      "scenarios/application-test/expected/success.txt",
+      "scenarios/deployment/expected/success.txt",
+      "scenarios/deployment/expected/artifact.json"
     ],
     "failure": [
       "expected/action-failure.txt",
@@ -63,7 +66,9 @@
       "scenarios/application-test/expected/build-input-refusal.txt",
       "scenarios/action-lifecycle/expected/diagnostic.json",
       "scenarios/resource-lifecycle/expected/expected-failure.json",
-      "scenarios/resource-lifecycle/expected/refusal.json"
+      "scenarios/resource-lifecycle/expected/refusal.json",
+      "scenarios/deployment/expected/diagnostic-human.txt",
+      "scenarios/deployment/expected/diagnostic.json"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -75,7 +80,9 @@
       "scenarios/application-test/expected/correction-after.json",
       "scenarios/application-test/expected/correction-before.json",
       "scenarios/resource-lifecycle/expected/correction-after.json",
-      "scenarios/resource-lifecycle/expected/correction-before.json"
+      "scenarios/resource-lifecycle/expected/correction-before.json",
+      "scenarios/deployment/expected/correction-after.json",
+      "scenarios/deployment/expected/correction-before.json"
     ],
     "flow": [
       "expected/check-collision-explain.txt",
@@ -87,7 +94,8 @@
       "scenarios/project-creation/expected/flow.json",
       "scenarios/application-test/expected/flow.json",
       "scenarios/resource-lifecycle/expected/flow.json",
-      "scenarios/route-role-collision/expected/flow.json"
+      "scenarios/route-role-collision/expected/flow.json",
+      "scenarios/deployment/expected/flow.json"
     ],
     "recovery": [
       "expected/resource-recovery.txt",
@@ -99,7 +107,8 @@
       "scenarios/project-creation/expected/recovery.json",
       "scenarios/application-test/expected/recovery.json",
       "scenarios/resource-lifecycle/expected/recovery.json",
-      "scenarios/route-role-collision/expected/recovery.json"
+      "scenarios/route-role-collision/expected/recovery.json",
+      "scenarios/deployment/expected/recovery.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -110,7 +119,8 @@
       "scenarios/project-creation/expected/recovery.json",
       "scenarios/application-test/expected/recovery.json",
       "scenarios/resource-lifecycle/expected/recovery.json",
-      "scenarios/route-role-collision/expected/recovery.json"
+      "scenarios/route-role-collision/expected/recovery.json",
+      "scenarios/deployment/expected/recovery.json"
     ]
   }
 }
