@@ -150,6 +150,13 @@ operator: 'match'
 [ELIFECYCLE] Test failed. See above for more details.
 ```
 
+Disposable test output is also refused if a broadened production TypeScript
+configuration tries to include it:
+
+```text
+FADENO_BUILD_CHILD_COMPILER_INPUT
+```
+
 Run `pnpm check:a0-test` to create and install a project from the current packed
 framework and execute the success, failure, correction, flow, and recovery
 sequence. The workflow adds no `fadeno test` command, framework test runtime,

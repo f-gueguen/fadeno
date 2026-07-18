@@ -27,6 +27,13 @@ expectMutation("production compiler includes application tests", (context) => Ob
   ...context,
   productionConfig: { ...(context.productionConfig as Record<string, unknown>), include: ["test/**/*.tsx"] },
 }));
+expectMutation("production build does not refuse disposable test input", (context) => Object.freeze({
+  ...context,
+  buildImplementation: context.buildImplementation.replace(
+    '|| relativePath.startsWith(".fadeno/test/")',
+    "",
+  ),
+}));
 expectMutation("A0-05 introduced a public test export", (context) => Object.freeze({
   ...context,
   frameworkPackage: {

@@ -3,7 +3,8 @@
   "causes": [
     "typed application and test sources compiled with stock TypeScript",
     "production renderRoute executed the application page and not-found page",
-    "production Handler executed the stylesheet response"
+    "production Handler executed the stylesheet response",
+    "production build refused disposable test output as a compiler input"
   ],
   "ownership": {
     "source": [
@@ -23,6 +24,7 @@
   "outcome": {
     "success": true,
     "deliberateFailure": "ERR_ASSERTION",
+    "productionInputRefusal": "FADENO_BUILD_CHILD_COMPILER_INPUT",
     "recovery": true,
     "tests": 3
   }

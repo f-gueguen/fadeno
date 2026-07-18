@@ -106,6 +106,21 @@ try {
   const success = requireSuccess("pnpm", ["test"], project);
   assert.equal(normalize(`${success.stdout}${success.stderr}`, project), expected("success.txt"));
 
+  const productionConfigPath = join(project, "tsconfig.json");
+  const acceptedProductionConfig = readFileSync(productionConfigPath, "utf8");
+  const broadenedProductionConfig = JSON.parse(acceptedProductionConfig) as { include: string[] };
+  broadenedProductionConfig.include.push(".fadeno/test/**/*.ts");
+  writeFileSync(join(project, ".fadeno/test/stale-production.ts"), "export const staleTestOutput = true;\n");
+  writeFileSync(productionConfigPath, `${JSON.stringify(broadenedProductionConfig, null, 2)}\n`);
+  const productionRefusal = run("pnpm", ["build"], project);
+  assert.equal(productionRefusal.status, 1);
+  const productionRefusalOutput = `${productionRefusal.stdout}${productionRefusal.stderr}`;
+  assert.equal(productionRefusalOutput.includes("FADENO_BUILD_CHILD_COMPILER_INPUT"), true, productionRefusalOutput);
+  assert.equal("FADENO_BUILD_CHILD_COMPILER_INPUT\n", expected("build-input-refusal.txt"));
+  writeFileSync(productionConfigPath, acceptedProductionConfig);
+  const productionRecovery = requireSuccess("pnpm", ["build"], project);
+  assert.match(productionRecovery.stdout, /files written to dist/u);
+
   const testPath = join(project, "test/application.test.tsx");
   const acceptedTest = readFileSync(testPath, "utf8");
   const refusedAssertion = "/A heading that does not exist/u";
@@ -151,6 +166,7 @@ try {
     failure: { exitCode: failure.status, diagnostic: "ERR_ASSERTION" },
     recovery: {
       exitCode: recovery.status,
+      productionInputRefusalCleared: productionRecovery.status === 0,
       staleDiagnosticPresent: recoveryOutput.includes("ERR_ASSERTION"),
       staleOutputPresent: existsSync(staleCanary),
       testCount: 3,
@@ -163,6 +179,7 @@ try {
       "typed application and test sources compiled with stock TypeScript",
       "production renderRoute executed the application page and not-found page",
       "production Handler executed the stylesheet response",
+      "production build refused disposable test output as a compiler input",
     ],
     ownership: {
       source: ["src", "test/application.test.tsx", "tsconfig.test.json"],
@@ -175,7 +192,13 @@ try {
       "private package import",
       "public analyzer schema",
     ],
-    outcome: { success: true, deliberateFailure: "ERR_ASSERTION", recovery: true, tests: 3 },
+    outcome: {
+      success: true,
+      deliberateFailure: "ERR_ASSERTION",
+      productionInputRefusal: "FADENO_BUILD_CHILD_COMPILER_INPUT",
+      recovery: true,
+      tests: 3,
+    },
   }, expectedJson("flow.json"));
 
   console.log("A0 packed application test passed (render, handler, failure, TAP, correction, stale-output recovery)");

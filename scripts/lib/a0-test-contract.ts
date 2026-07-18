@@ -11,6 +11,7 @@ export interface A0TestContext {
   readonly risks: string;
   readonly ledger: string;
   readonly implementation: string;
+  readonly buildImplementation: string;
   readonly testSource: string;
   readonly productionConfig: unknown;
   readonly testConfig: unknown;
@@ -29,6 +30,7 @@ const requiredEvidence = Object.freeze([
   "examples/v1-app/scenarios/project-creation/expected/app/test/application.test.tsx",
   "examples/v1-app/scenarios/project-creation/expected/app/tsconfig.test.json",
   "examples/v1-app/scenarios/application-test/expected/success.txt",
+  "examples/v1-app/scenarios/application-test/expected/build-input-refusal.txt",
   "examples/v1-app/scenarios/application-test/expected/diagnostic-human.txt",
   "examples/v1-app/scenarios/application-test/expected/diagnostic.json",
   "examples/v1-app/scenarios/application-test/expected/diagnostic.tap",
@@ -62,6 +64,7 @@ export function loadA0TestContext(root: string, tracked: ReadonlySet<string>): A
     risks: read("docs/ledgers/risks.md"),
     ledger: read("ROADMAP_LEDGER.md"),
     implementation: read("packages/framework/src/internal/project-create.ts"),
+    buildImplementation: read("packages/framework/src/internal/build-dev-generation-child.ts"),
     testSource: read("examples/v1-app/scenarios/project-creation/expected/app/test/application.test.tsx"),
     productionConfig: JSON.parse(read("examples/v1-app/scenarios/project-creation/expected/app/tsconfig.json")) as unknown,
     testConfig: JSON.parse(read("examples/v1-app/scenarios/project-creation/expected/app/tsconfig.test.json")) as unknown,
@@ -95,6 +98,9 @@ export function validateA0Test(context: A0TestContext): readonly string[] {
   if (!context.specification.includes("ADR 0040 selects the first supported application-test workflow")
     || !context.specification.includes("pnpm check:a0-test")) {
     errors.push("application-test specification drifted");
+  }
+  if (!context.buildImplementation.includes('relativePath.startsWith(".fadeno/test/")')) {
+    errors.push("production build does not refuse disposable test input");
   }
   const testScope = context.scope.split("\n").find((line) => line.startsWith("| TEST-01 |")) ?? "";
   const testTrace = context.traceability.split("\n").find((line) => line.startsWith("| TEST-01 |")) ?? "";
@@ -160,6 +166,7 @@ export function validateA0Test(context: A0TestContext): readonly string[] {
     const evidence = documentationSource["evidence"];
     if (!record(evidence)
       || !contains(evidence["success"], "scenarios/application-test/expected/success.txt")
+      || !contains(evidence["failure"], "scenarios/application-test/expected/build-input-refusal.txt")
       || !contains(evidence["failure"], "scenarios/application-test/expected/diagnostic.tap")
       || !contains(evidence["correction"], "scenarios/application-test/expected/correction-before.json")
       || !contains(evidence["flow"], "scenarios/application-test/expected/flow.json")

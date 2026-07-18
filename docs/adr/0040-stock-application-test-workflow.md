@@ -75,6 +75,8 @@ and a separately reviewed public contract.
 installs that exact tarball, and runs the scaffolded command. It proves rendered
 document and handler behavior, introduces one assertion failure, retains
 normalized human and TAP evidence, restores the test, proves the failure and
-disposable output clear, and reruns package-boundary, example, and local merge
-gates. Mutation checks refuse private imports, a second test runtime, production
-test inclusion, missing cleanup, or an unasserted example.
+disposable output clear, and refuses disposable test output as a production
+compiler input. Package-boundary and example gates run alongside this check;
+the local merge gate wraps the repository check separately and is never invoked
+from `check:a0-test`. Mutation checks refuse private imports, a second test
+runtime, production test inclusion, missing cleanup, or an unasserted example.

@@ -60,6 +60,7 @@
       "scenarios/application-test/expected/diagnostic-human.txt",
       "scenarios/application-test/expected/diagnostic.json",
       "scenarios/application-test/expected/diagnostic.tap",
+      "scenarios/application-test/expected/build-input-refusal.txt",
       "scenarios/action-lifecycle/expected/diagnostic.json",
       "scenarios/resource-lifecycle/expected/expected-failure.json",
       "scenarios/resource-lifecycle/expected/refusal.json"

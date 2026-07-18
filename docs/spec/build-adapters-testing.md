@@ -165,8 +165,9 @@ compiler emits application and typed test source into a disposable
 `.fadeno/test/` tree after removing the prior tree, and Node's built-in test
 runner executes one exact emitted entry. Tests use application modules and the
 declared production `renderRoute` and `Handler` surfaces. Production compilation
-does not include tests or their output, and no private import, second runtime,
-public test export, or public analyzer contract is introduced.
+does not include tests, and its compiler rejects `.fadeno/test/` output even if
+an application broadens its production configuration. No private import,
+second runtime, public test export, or public analyzer contract is introduced.
 
 ## Private experiment evidence
 

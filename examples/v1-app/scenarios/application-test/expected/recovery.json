@@ -5,6 +5,7 @@
   },
   "recovery": {
     "exitCode": 0,
+    "productionInputRefusalCleared": true,
     "staleDiagnosticPresent": false,
     "staleOutputPresent": false,
     "testCount": 3

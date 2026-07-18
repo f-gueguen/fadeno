@@ -221,7 +221,11 @@ async function structuredDiagnostics(projectRoot: string): Promise<Readonly<{
     for (const path of programFiles) {
       if (!contained(projectRoot, path)) continue;
       const relativePath = relative(projectRoot, path).split("\\").join("/");
-      if (relativePath.startsWith("dist/") || relativePath.startsWith(".fadeno/build-stage/")) {
+      if (
+        relativePath.startsWith("dist/")
+        || relativePath.startsWith(".fadeno/build-stage/")
+        || relativePath.startsWith(".fadeno/test/")
+      ) {
         fail("FADENO_BUILD_CHILD_COMPILER_INPUT");
       }
       const source = program.getSourceFile(path);
