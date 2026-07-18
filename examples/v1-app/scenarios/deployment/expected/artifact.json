@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "rootEntries": [
+    "dist",
+    "node_modules",
+    "package.json"
+  ],
+  "runtimeManifestFields": [
+    "name",
+    "private",
+    "scripts",
+    "type",
+    "version"
+  ],
+  "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js",
+  "sourcePresent": false,
+  "testPresent": false,
+  "configurationPresent": false,
+  "environmentPresent": false,
+  "lockfilePresent": false,
+  "projectDevelopmentDependencyPresent": false,
+  "lifecycleSideEffectPresent": false,
+  "secretPresent": false,
+  "runtimeClosureVerified": true
+}

@@ -111,8 +111,8 @@ export function validateA0Test(context: A0TestContext): readonly string[] {
   if (!risk.includes("cleaned disposable output tree") || !risk.includes("second runtime")) {
     errors.push("application-test risk control drifted");
   }
-  if (!context.ledger.includes("A0-05 — add the supported application-test workflow")
-    || !context.ledger.includes("[x] Accept one stock application-test command")) {
+  if (!context.ledger.includes("A0-05 — Merge commit `985a22f`")
+    || !context.ledger.includes("stock created-application test")) {
     errors.push("A0-05 ledger status drifted");
   }
 

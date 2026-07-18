@@ -1,0 +1,11 @@
+{
+  "artifact": "release-1",
+  "origin": "https://127.0.0.1:<PORT>",
+  "sessionKeys": "<INJECTED_KEYRING>",
+  "accepted": true,
+  "health": {
+    "path": "/",
+    "status": 200,
+    "document": "First running Fadeno application"
+  }
+}

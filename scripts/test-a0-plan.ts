@@ -32,6 +32,10 @@ expectMutation("A0 roadmap A0-02 decision ownership mismatch", (context) => Obje
   ...context,
   roadmap: context.roadmap.replace(/^\| A0-02 \|.*$/mu, (line) => line.replace("ADR 0037 package-publication decision", "DG-A0-01 package-publication decision")),
 }));
+expectMutation("A0 roadmap A0-06 decision ownership mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^(\| A0-06 \|.*?\| A0-04 \|)(.*)$/mu, "$1 DG-A0-04; $2"),
+}));
 expectMutation("A0 unresolved decision gate drifted: DG-A0-02", (context) => Object.freeze({
   ...context,
   decisionGates: context.decisionGates.replace("| DG-A0-02 |", "| DG-A0-X2 |"),
@@ -41,4 +45,4 @@ expectMutation("A0 publishable package seed drifted", (context) => Object.freeze
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, ownership, gates, package seed)");
+console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, resolved ownership, gates, package seed)");

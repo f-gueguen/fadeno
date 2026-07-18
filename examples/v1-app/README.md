@@ -16,6 +16,25 @@ FADENO_SESSION_KEYS='active:<32-byte-base64url-key>' \
 pnpm start
 ```
 
+Create each production release as a new immutable directory outside the
+application project:
+
+```sh
+fadeno deploy --project-root . --output ../releases/v1-app-001
+```
+
+The deployment gate verifies that the release contains only the accepted
+build, its production dependency closure, and a runtime-only package manifest.
+It starts the release behind the scenario's same-host HTTPS boundary, checks
+GET `/`, stops with `SIGTERM`, rejects missing or insecure runtime
+configuration, restarts an unchanged prior release after a corrupted candidate,
+and proves the corrected release contains neither stale route output nor stale
+diagnostics. Run the complete packed sequence with:
+
+```sh
+pnpm check:a0-deploy
+```
+
 The demonstrated development workflow is:
 
 ```sh

@@ -12,8 +12,9 @@ recovery are executed by the local merge gate.
 Use Node.js 22.17 or newer and the repository's locked package manager. From a
 clean checkout, install with `pnpm install --frozen-lockfile`. The selected
 public package name and project-creation command exist in reviewed packed
-artifacts, but no registry version, deployment command, production-support
-claim, or compatibility promise exists yet.
+artifacts. The deployment command also exists in the current packed artifact,
+but no registry version, production-support claim, or compatibility promise
+exists yet.
 
 ## Create a project
 
@@ -162,6 +163,109 @@ framework and execute the success, failure, correction, flow, and recovery
 sequence. The workflow adds no `fadeno test` command, framework test runtime,
 public test helper, or private import.
 
+## Create and operate an immutable release
+
+After installing dependencies, create a missing release directory outside the
+project root. Deploy reruns the accepted production build, installs only the
+locked production dependency closure with lifecycle scripts disabled, and
+accepts the artifact only when its build and runtime identities agree:
+
+```sh
+fadeno deploy --project-root . --output ../releases/my-fadeno-app-001
+```
+
+The packed canonical scenario normalizes only the temporary artifact path:
+
+```text
+Fadeno production build completed: 25 files written to dist.
+Fadeno deployment artifact completed at <ARTIFACT_ROOT>.
+```
+
+The accepted root contains `dist`, `node_modules`, and a runtime-only
+`package.json`. It contains no application source, tests, configuration,
+environment file, lockfile, project development dependency, or lifecycle side
+effect. The verified machine-readable observation is:
+
+```json
+{
+  "schemaVersion": 1,
+  "rootEntries": [
+    "dist",
+    "node_modules",
+    "package.json"
+  ],
+  "runtimeManifestFields": [
+    "name",
+    "private",
+    "scripts",
+    "type",
+    "version"
+  ],
+  "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js",
+  "sourcePresent": false,
+  "testPresent": false,
+  "configurationPresent": false,
+  "environmentPresent": false,
+  "lockfilePresent": false,
+  "projectDevelopmentDependencyPresent": false,
+  "lifecycleSideEffectPresent": false,
+  "secretPresent": false,
+  "runtimeClosureVerified": true
+}
+```
+
+Start from the release directory with the generated loader before the
+bootstrap. Applications with actions receive their exact external HTTPS origin
+and active-first session key ring only through the process environment:
+
+```sh
+FADENO_PORT=3000 \
+FADENO_ORIGIN=https://app.example \
+FADENO_SESSION_KEYS='<active-id>:<base64url-32-byte-key>' \
+node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js
+```
+
+The application remains loopback-only. A same-host operator-owned HTTPS
+terminator exposes it, and an ordinary GET `/` is this application's health
+check. Missing runtime configuration is refused before readiness:
+
+```text
+FADENO_ACTION_RUNTIME_CONFIG
+```
+
+Stop with `SIGTERM`. If a candidate fails integrity, startup, configuration, or
+health, leave its directory unused and restart the unchanged prior release.
+There is no mutable active link or in-place overwrite. The executed recovery
+also proves a removed route does not survive into the corrected release:
+
+```json
+{
+  "failedCandidate": {
+    "artifact": "release-2",
+    "diagnostic": "FADENO_BUILD_RUNTIME_IDENTITY",
+    "ready": false
+  },
+  "rollback": {
+    "artifact": "release-1",
+    "bytesUnchanged": true,
+    "healthStatus": 200,
+    "gracefulStop": true
+  },
+  "recovery": {
+    "artifact": "release-3",
+    "accepted": true,
+    "healthStatus": 200,
+    "staleDiagnosticPresent": false,
+    "staleGeneratedRoutePresent": false
+  }
+}
+```
+
+Run `pnpm check:a0-deploy` for the packed success, refusal, external HTTPS
+health, graceful stop, rollback, correction, secret exclusion, flow, and stale
+artifact evidence. This boundary adds no provider, proxy implementation,
+process manager, public machine schema, or multi-process session owner.
+
 The canonical example package remains the complete executable feature corpus.
 `pnpm check` analyzes
 framework semantics without writing build output, `pnpm build` runs the
@@ -175,6 +279,7 @@ production build.
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
     "check": "fadeno check --project-root .",
     "build": "fadeno build --project-root .",

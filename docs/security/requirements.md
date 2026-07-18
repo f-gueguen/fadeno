@@ -49,6 +49,15 @@ packed runtime integrates the exact-origin proof, replay, upload cleanup,
 protected cookie, rotation, redirect, and complete-revalidation path while
 retaining the explicit single-process limit.
 
+ADR 0041 carries those controls into the first deployment boundary. The
+immutable release contains no environment file or secret value, accepts only
+process-injected `FADENO_ORIGIN` and `FADENO_SESSION_KEYS`, keeps the application
+process on loopback behind an operator-owned same-host HTTPS terminator, and
+retains the single-process replay/session owner. Packaging disables dependency
+lifecycle scripts and verifies the complete production closure before accepting
+the release. A configuration, integrity, startup, or health refusal restarts an
+unchanged prior release rather than mutating it in place.
+
 ## Evidence gate
 
 A vertical slice that introduces a trust boundary includes:

@@ -207,6 +207,42 @@ application test. `pnpm check:a0-test` owns its packed success, deliberate
 assertion failure, normalized human and TAP output, correction, disposable
 output cleanup, and repaired rerun evidence.
 
+## Deployment
+
+ADR 0041 selects the exact public deployment form
+`fadeno deploy --project-root <path> --output <missing-path>`. The output is an
+immutable release directory outside the canonical project root. Its parent and
+ancestors are existing ordinary non-symlink directories, and an existing output
+is never updated or selected.
+
+Deploy runs the same accepted production build, claims the missing release,
+copies the exact `dist` generation plus temporary package/lock inputs, and uses
+the project's pinned pnpm 11.7.0 with lifecycle scripts disabled to install
+production dependencies only. It then writes a runtime-only package manifest,
+removes the lockfile, and verifies the build identity plus complete installed
+runtime closure. The accepted root contains only `dist`, `node_modules`, and
+`package.json`; source, tests, configuration, environment files, project
+development dependencies, and lifecycle scripts are absent. A failed operation
+removes only its claimed release or reports redacted unresolved cleanup.
+
+The artifact starts through the existing generated loader and bootstrap, binds
+only loopback, and is assembled for the same operating-system and architecture
+boundary. An operator-owned same-host HTTPS terminator supplies the external
+boundary. `FADENO_ORIGIN` names that exact HTTPS origin and
+`FADENO_SESSION_KEYS` supplies the active-first key ring at process start; no
+runtime secret is copied into release bytes. The created application's ordinary
+GET `/` is the first health observation, not a reserved framework route.
+`SIGTERM` uses the accepted graceful drain. Candidate startup, integrity,
+configuration, or health failure rolls back by stopping that candidate and
+restarting a retained, unchanged prior release directory. No mutable active
+link, provider contract, proxy implementation, public deployment manifest,
+machine-output option, or multi-process owner is introduced.
+
+`pnpm check:a0-deploy` owns the packed artifact success, output and
+configuration refusals, external HTTPS health, graceful stop, corrupted
+candidate rollback, corrected release, secret/dev/source exclusion, flow, and
+stale generated-route removal evidence.
+
 ## Diagnostics and support
 
 - User errors provide a stable identifier, source location, concise reason,

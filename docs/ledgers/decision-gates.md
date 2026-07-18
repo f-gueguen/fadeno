@@ -9,7 +9,6 @@ ledger when an effective ADR and current specification resolve it.
 | DG-V2-01 | ENH-01 implementation | Define experimental patch identity, scroll boundary, ordering, redirects, errors, recovery, cache policy, and version negotiation | ADR 0014 narrowed result and V1 action round trip | Patch-protocol ADR and versioned fixtures | Open |
 | DG-V3-02 | ISLAND-01 implementation | Define island authoring adapter, mount triggers, serialized input, changed-input delivery, teardown, and root-island declaration | V2 preservation runtime and lifecycle spike | Island-lifecycle ADR | Open |
 | DG-A0-02 | External analyzer consumers | Define diagnostic-code lifecycle and versioned machine-readable analyzer schema | Stable internal diagnostics used by build/check | Analyzer-schema ADR and schema fixtures | Open |
-| DG-A0-04 | A0-06 deployment implementation | Select the first supported deployment boundary, artifact contract, configuration and secrets ownership, and rollback behavior | Current packed production application and candidate deployment replay | Deployment ADR and executable deployment fixtures | Open |
 
 ## Gate rules
 
