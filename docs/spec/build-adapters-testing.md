@@ -179,8 +179,9 @@ qualification result exists.
 ADR 0039 assigns `fadeno create --project-root <path>` to the existing public
 executable. Creation is exact, non-interactive, and network-free. It accepts
 only a missing target with a valid lowercase package-name basename beneath an
-existing ordinary non-symlink parent. It prepares every byte, claims the target
-with exclusive directory creation, and writes one fixed contained allowlist;
+existing parent whose complete existing path consists only of ordinary
+non-symlink directories. It prepares every byte, claims the target with
+exclusive directory creation, and writes one fixed contained allowlist;
 refusal or a later failure removes the directory owned by that operation.
 
 The created manifest pins the executing `@fadeno/framework` version and

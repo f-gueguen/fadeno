@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -38,7 +39,7 @@ function treeIdentity(root: string): readonly Readonly<{ path: string; sha256: s
   return Object.freeze(files.map((file) => Object.freeze(file)));
 }
 
-const temporary = mkdtempSync(join(tmpdir(), "fadeno-a0-create-command-"));
+const temporary = realpathSync.native(mkdtempSync(join(tmpdir(), "fadeno-a0-create-command-")));
 try {
   const context = { cwd: temporary, packageVersion: "0.1.0-alpha.0" } satisfies ProjectCreateCommandContext;
   for (const arguments_ of [
@@ -60,15 +61,29 @@ try {
     "FADENO_CREATE_NAME: Project directory name must be a lowercase package name.\n");
   assert.equal(existsSync(join(temporary, "Bad_Name")), false);
   assert.equal(runProjectCreateCommand(["create", "--project-root", "missing/my-app"], context).stderr,
-    "FADENO_CREATE_PARENT: Project parent must be one ordinary non-symlink directory.\n");
+    "FADENO_CREATE_PARENT: Project parent and ancestors must be ordinary non-symlink directories.\n");
 
   const realParent = join(temporary, "real-parent");
   const linkedParent = join(temporary, "linked-parent");
   mkdirSync(realParent);
   symlinkSync(realParent, linkedParent, "dir");
   assert.equal(runProjectCreateCommand(["create", "--project-root", "linked-parent/my-app"], context).stderr,
-    "FADENO_CREATE_PARENT: Project parent must be one ordinary non-symlink directory.\n");
+    "FADENO_CREATE_PARENT: Project parent and ancestors must be ordinary non-symlink directories.\n");
   assert.equal(existsSync(join(realParent, "my-app")), false);
+
+  const realAncestor = join(temporary, "real-ancestor");
+  const linkedAncestor = join(temporary, "linked-ancestor");
+  mkdirSync(join(realAncestor, "ordinary-parent"), { recursive: true });
+  symlinkSync(realAncestor, linkedAncestor, "dir");
+  assert.equal(
+    runProjectCreateCommand([
+      "create",
+      "--project-root",
+      "linked-ancestor/ordinary-parent/my-app",
+    ], context).stderr,
+    "FADENO_CREATE_PARENT: Project parent and ancestors must be ordinary non-symlink directories.\n",
+  );
+  assert.equal(existsSync(join(realAncestor, "ordinary-parent", "my-app")), false);
 
   const existing = join(temporary, "existing-app");
   mkdirSync(existing);

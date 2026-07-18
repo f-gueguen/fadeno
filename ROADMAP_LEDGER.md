@@ -6,14 +6,14 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-04A — accept the public project-creation contract
+A0-04 — complete public project-creation evidence
 
 ## Exit criteria
 
-- [ ] Accept one exact non-interactive create command, exclusive target
+- [x] Accept one exact non-interactive create command, exclusive target
   ownership, transactional rollback, package-version pin, and template boundary through
   ADR 0039.
-- [ ] Implement the create command in the existing TypeScript executable with
+- [x] Implement the create command in the existing TypeScript executable with
   bounded arguments, contained writes, rollback, and stable human diagnostics.
 - [ ] Source a byte-stable scaffold from the canonical tested application and
   prove its public-package check/build/dev/start workflow.
@@ -30,10 +30,11 @@ workflow, deployment, publication, a second package, or a second runtime.
 ## In progress
 
 - ADR 0039 accepts `fadeno create --project-root <path>`, fresh-target and
-  non-symlink-parent ownership, exclusive directory claim plus rollback, exact
-  executing-package version pinning, no implicit install/network/version-control
-  work, and an action-free canonical template. Implementation and evidence are
-  pending.
+  symlink-free parent-path ownership, exclusive directory claim plus rollback,
+  exact executing-package version pinning, no implicit
+  install/network/version-control work, and an action-free canonical template.
+  The TypeScript command and focused contract tests exist; packed public-package
+  execution, permanent example evidence, and documentation remain in progress.
 
 ## Blockers
 

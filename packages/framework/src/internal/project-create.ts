@@ -2,10 +2,11 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, parse, relative, resolve, sep } from "node:path";
 
 export interface ProjectCreateCommandResult {
   readonly exitCode: 0 | 1 | 2 | 3;
@@ -221,6 +222,19 @@ function missing(path: string): boolean {
   }
 }
 
+function isOrdinarySymlinkFreeDirectory(path: string): boolean {
+  const root = parse(path).root;
+  let current = root;
+  const rootEntry = lstatSync(current);
+  if (!rootEntry.isDirectory() || rootEntry.isSymbolicLink()) return false;
+  for (const component of relative(root, path).split(sep).filter(Boolean)) {
+    current = join(current, component);
+    const entry = lstatSync(current);
+    if (!entry.isDirectory() || entry.isSymbolicLink()) return false;
+  }
+  return true;
+}
+
 function refusal(code: string, message: string): ProjectCreateCommandResult {
   return Object.freeze({ exitCode: 1 as const, stdout: "", stderr: `${code}: ${message}\n` });
 }
@@ -237,19 +251,24 @@ export function runProjectCreateCommand(
     || typeof context.cwd !== "string") {
     return Object.freeze({ exitCode: 2 as const, stdout: "", stderr: usage });
   }
-  const target = resolve(context.cwd, arguments_[2]);
-  const name = basename(target);
+  const unresolvedTarget = resolve(context.cwd, arguments_[2]);
+  const name = basename(unresolvedTarget);
   if (!packageNamePattern.test(name)) {
     return refusal("FADENO_CREATE_NAME", "Project directory name must be a lowercase package name.");
   }
+  let target: string;
+  try {
+    target = resolve(realpathSync.native(context.cwd), arguments_[2]);
+  } catch {
+    return refusal("FADENO_CREATE_PARENT", "Project parent and ancestors must be ordinary non-symlink directories.");
+  }
   const parent = dirname(target);
   try {
-    const parentEntry = lstatSync(parent);
-    if (!parentEntry.isDirectory() || parentEntry.isSymbolicLink()) {
-      return refusal("FADENO_CREATE_PARENT", "Project parent must be one ordinary non-symlink directory.");
+    if (!isOrdinarySymlinkFreeDirectory(parent)) {
+      return refusal("FADENO_CREATE_PARENT", "Project parent and ancestors must be ordinary non-symlink directories.");
     }
   } catch {
-    return refusal("FADENO_CREATE_PARENT", "Project parent must be one ordinary non-symlink directory.");
+    return refusal("FADENO_CREATE_PARENT", "Project parent and ancestors must be ordinary non-symlink directories.");
   }
   if (!missing(target)) return refusal("FADENO_CREATE_TARGET_EXISTS", "Project target must not already exist.");
 
