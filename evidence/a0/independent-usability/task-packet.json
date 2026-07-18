@@ -10,17 +10,17 @@
     "identity": "sha256-and-source-commit"
   },
   "tasks": [
-    { "id": "install-create", "requiresRecovery": false },
-    { "id": "application-test", "requiresRecovery": true },
-    { "id": "successful-flow-explanation", "requiresRecovery": false },
-    { "id": "route-failure", "requiresRecovery": true },
-    { "id": "failed-flow-explanation", "requiresRecovery": true },
-    { "id": "configuration-failure", "requiresRecovery": true },
-    { "id": "generation-failure", "requiresRecovery": true },
-    { "id": "development-run", "requiresRecovery": false },
-    { "id": "production-build", "requiresRecovery": false },
-    { "id": "immutable-deployment", "requiresRecovery": true },
-    { "id": "missing-workflow-report", "requiresRecovery": false }
+    { "id": "install-create", "requiresRecovery": false, "requiredArtifacts": ["humanOutput"] },
+    { "id": "application-test", "requiresRecovery": true, "requiredArtifacts": ["humanOutput", "machineOutput", "correctionBefore", "correctionAfter", "recovery"] },
+    { "id": "successful-flow-explanation", "requiresRecovery": false, "requiredArtifacts": ["humanOutput", "flowInspection"] },
+    { "id": "route-failure", "requiresRecovery": true, "requiredArtifacts": ["humanOutput", "correctionBefore", "correctionAfter", "recovery"] },
+    { "id": "failed-flow-explanation", "requiresRecovery": true, "requiredArtifacts": ["humanOutput", "flowInspection", "recovery"] },
+    { "id": "configuration-failure", "requiresRecovery": true, "requiredArtifacts": ["humanOutput", "correctionBefore", "correctionAfter", "recovery"] },
+    { "id": "generation-failure", "requiresRecovery": true, "requiredArtifacts": ["humanOutput", "correctionBefore", "correctionAfter", "flowInspection", "recovery"] },
+    { "id": "development-run", "requiresRecovery": false, "requiredArtifacts": ["humanOutput"] },
+    { "id": "production-build", "requiresRecovery": false, "requiredArtifacts": ["humanOutput", "machineOutput"] },
+    { "id": "immutable-deployment", "requiresRecovery": true, "requiredArtifacts": ["humanOutput", "machineOutput", "correctionBefore", "correctionAfter", "flowInspection", "recovery"] },
+    { "id": "missing-workflow-report", "requiresRecovery": false, "requiredArtifacts": ["humanOutput"] }
   ],
   "attemptOutcomes": ["completed", "refused", "abandoned"],
   "assistance": ["none", "public-documentation", "facilitator-intervention"],
@@ -42,6 +42,7 @@
     "recoveryOutcomes": ["not-applicable", "completed", "refused", "abandoned"],
     "artifactFields": ["humanOutput", "machineOutput", "correctionBefore", "correctionAfter", "flowInspection", "recovery"],
     "maxObservationBytes": 2048,
+    "maxArtifactBytes": 262144,
     "prohibitedFields": ["name", "contactDetails", "secret", "absolutePath", "environmentValue", "unrelatedCommandHistory", "preciseTimestamp"]
   },
   "retention": "all-started-attempts",

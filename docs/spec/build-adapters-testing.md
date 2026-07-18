@@ -254,12 +254,40 @@ to the Fadeno repository must use the same exact source commit and
 packed-tarball SHA-256 without private guidance.
 
 Records are anonymous and bounded by the packet's pre-observation attempt
-contract. Every started attempt is retained with its outcome and assistance
-category. Synthetic fixtures, omitted attempts, facilitator intervention
+contract. Every task fixes its applicable required artifact categories, and
+every started attempt is retained with its outcome and assistance category.
+Synthetic fixtures, omitted attempts, facilitator intervention
 presented as independent success, changed instruction bytes or tasks, and
 artifact mismatch are refused. `pnpm check:a0-usability-contract` validates the
 pre-observation packet and its negative controls; a later A0-07B command must
 replay real attempts before A0-08 may interpret tooling needs.
+
+A0-07B1 derives replay status rather than trusting a participant or facilitator
+success flag. One closed manifest must enumerate every started and retained
+anonymous attempt with no omissions. Every attempt uses the same packet and
+package identity, including the independently reconstructed source commit;
+completed tasks supply their frozen applicable artifacts,
+which are contained regular files with exact digests and bounded normalized
+bytes. Refused or abandoned recovery tasks retain the matching recovery state.
+Duplicate participants or artifacts, missing recovery, unclassified assistance,
+stale packet identity, and path-bearing output are refused.
+
+The permanent synthetic replay contains two complete shapes plus one
+facilitator-assisted abandonment. It exercises the aggregate and negative
+controls but always derives `synthetic-fixture-excluded`, never accepted user
+evidence. Run `pnpm check:a0-usability-replay-contract`; its normalized output
+is `fixtures/a0-independent-usability/replay-summary.normalized.json`.
+
+Participant collection uses one missing facilitator-owned bundle directory.
+`pnpm capture:a0-usability-bundle -- --output <missing-path>` requires a clean
+commit, packs the current framework, reconstructs that same commit through a
+Git archive, frozen offline install, build, and pack, and requires identical
+package filename, version, and SHA-256. Failure removes the claimed directory.
+The accepted bundle contains exactly the package tarball, frozen JSON and
+Markdown task packets, a digest-bound cover sheet, and a short guidance file;
+it contains no observations or claim of user evidence. Run
+`pnpm check:a0-usability-artifact` for the real reconstruction and synthetic
+integrity/refusal controls.
 
 ## Diagnostics and support
 
