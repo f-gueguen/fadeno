@@ -2,12 +2,15 @@
 
 import { runProjectCheckCommand } from "./internal/project-check.ts";
 import { runProjectBuildCommand } from "./internal/project-build.ts";
+import { runProjectCreateCommand } from "./internal/project-create.ts";
 import { runProjectDevCommand } from "./internal/project-dev.ts";
 
 const arguments_ = process.argv.slice(2);
 const context = { cwd: process.cwd() };
 const result = arguments_[0] === "build"
   ? await runProjectBuildCommand(arguments_, context)
+  : arguments_[0] === "create"
+    ? runProjectCreateCommand(arguments_, context)
   : arguments_[0] === "dev"
     ? await runProjectDevCommand(arguments_, {
       ...context,
