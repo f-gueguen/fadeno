@@ -89,4 +89,9 @@ synthetic-refusal controls. `pnpm check:a0-usability-artifact` packs a clean
 commit, independently reconstructs and repacks that commit with the frozen
 offline dependency graph, compares the tarball identity, and verifies the
 bounded participant bundle. A0-07B2 may retain or claim real evidence only
-from such a merged-source bundle.
+from such a merged-source bundle. Its private
+`pnpm check:a0-usability-evidence --manifest <repository-relative-manifest>`
+command reconstructs the manifest's exact source commit and requires commit,
+package digest, and package version identity before replay. The command cannot
+accept synthetic fixtures or fewer than two qualifying independent
+participants.

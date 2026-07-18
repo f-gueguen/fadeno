@@ -31,7 +31,7 @@ interface AttemptRecord {
     priorContributor: boolean;
     privateImplementationGuidance: boolean;
   }>;
-  readonly artifact: ArtifactIdentity;
+  readonly artifact: A0UsabilityArtifactIdentity;
   readonly tasks: readonly TaskAttempt[];
   readonly missingWorkflow: Readonly<{
     summary: string;
@@ -39,7 +39,7 @@ interface AttemptRecord {
   }>;
 }
 
-interface ArtifactIdentity {
+export interface A0UsabilityArtifactIdentity {
   readonly sourceCommit: string;
   readonly packageSha256: string;
   readonly packageVersion: string;
@@ -49,7 +49,7 @@ interface EvidenceManifest {
   readonly disposition: EvidenceDisposition;
   readonly packetId: string;
   readonly instructionSha256: string;
-  readonly artifact: ArtifactIdentity;
+  readonly artifact: A0UsabilityArtifactIdentity;
   readonly attemptFiles: readonly string[];
   readonly retention: Readonly<{
     collectionClosed: boolean;
@@ -94,7 +94,7 @@ function exactStrings(value: unknown, code: string): readonly string[] {
   return value;
 }
 
-function parseArtifactIdentity(value: unknown, code: string): ArtifactIdentity {
+function parseArtifactIdentity(value: unknown, code: string): A0UsabilityArtifactIdentity {
   const identity = record(value, code);
   exactKeys(identity, ["sourceCommit", "packageSha256", "packageVersion"], code);
   if (
@@ -102,7 +102,7 @@ function parseArtifactIdentity(value: unknown, code: string): ArtifactIdentity {
     typeof identity["packageSha256"] !== "string" || !digestPattern.test(identity["packageSha256"]) ||
     typeof identity["packageVersion"] !== "string"
   ) throw new TypeError(code);
-  return identity as unknown as ArtifactIdentity;
+  return identity as unknown as A0UsabilityArtifactIdentity;
 }
 
 function parseManifest(value: unknown): EvidenceManifest {
@@ -186,12 +186,24 @@ function counts<T extends string>(values: readonly T[], expected: readonly T[]):
   return Object.fromEntries(expected.map((value) => [value, values.filter((candidate) => candidate === value).length])) as Record<T, number>;
 }
 
+export function readA0UsabilityEvidenceArtifactIdentity(options: Readonly<{
+  repositoryRoot: string;
+  manifestPath: string;
+}>): A0UsabilityArtifactIdentity {
+  const bytes = readFileSync(containedRegularFile(
+    options.repositoryRoot,
+    options.manifestPath,
+    "FADENO_A0_USABILITY_EVIDENCE_PATH",
+  ));
+  return parseManifest(JSON.parse(bytes.toString("utf8")) as unknown).artifact;
+}
+
 export function verifyA0UsabilityEvidence(options: Readonly<{
   repositoryRoot: string;
   manifestPath: string;
   packet: Packet;
   mode: "real-evidence" | "synthetic-contract";
-  reconstructedArtifact?: Readonly<{ sourceCommit: string; packageSha256: string }>;
+  reconstructedArtifact?: A0UsabilityArtifactIdentity;
 }>): A0UsabilityReplaySummary {
   const manifestBytes = readFileSync(containedRegularFile(
     options.repositoryRoot,
@@ -211,6 +223,9 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
       throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_SOURCE");
     }
     if (options.reconstructedArtifact.packageSha256 !== manifest.artifact.packageSha256) {
+      throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_PACKAGE");
+    }
+    if (options.reconstructedArtifact.packageVersion !== manifest.artifact.packageVersion) {
       throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_PACKAGE");
     }
   } else if (manifest.disposition !== "synthetic-not-user-evidence") {

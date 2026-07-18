@@ -289,6 +289,18 @@ it contains no observations or claim of user evidence. Run
 `pnpm check:a0-usability-artifact` for the real reconstruction and synthetic
 integrity/refusal controls.
 
+After the facilitator has retained and redacted every started attempt under
+`evidence/a0/independent-usability/attempts/`, close the collection in one
+contained manifest and run
+`pnpm check:a0-usability-evidence --manifest <repository-relative-manifest>`.
+The private command reads the claimed source commit, reconstructs that exact
+ancestor from the repository, repacks it from the frozen offline dependency
+graph, and requires the reconstructed commit, package SHA-256, and package
+version to match every retained attempt. It then applies the A0-07B1 privacy,
+retention, artifact, recovery, independence, and two-participant gates. Until
+real records exist, command tests cover fail-closed usage and non-manifest
+input only; no synthetic success path may stand in for participants.
+
 ## Diagnostics and support
 
 - User errors provide a stable identifier, source location, concise reason,
