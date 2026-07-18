@@ -32,8 +32,9 @@ fixtures as participants.
   public-workflow tasks, a digest-bound instruction packet, a versioned attempt
   shape, two-participant minimum, anonymous bounded records, all-attempt
   retention, exact artifact identity, and fail-closed synthetic-evidence
-  refusal. A0-07B1 now adds replay and collection controls before A0-07B2 may
-  retain real observations.
+  refusal. A0-07B1 now adds replay, exact clean-commit package reconstruction,
+  and missing-directory participant-bundle controls before A0-07B2 may retain
+  real observations.
 
 ## Blockers
 

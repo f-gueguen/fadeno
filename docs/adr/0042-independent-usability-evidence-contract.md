@@ -85,5 +85,8 @@ editor protocol.
 tracking, synthetic positive fixture, and negative mutations.
 `pnpm check:a0-usability-replay-contract` validates A0-07B1's private replay
 summary, all-started manifest, task evidence, privacy, recovery, minimum, and
-synthetic-refusal controls. A0-07B1 also adds exact artifact reconstruction and
-collection preparation before A0-07B2 may retain or claim real evidence.
+synthetic-refusal controls. `pnpm check:a0-usability-artifact` packs a clean
+commit, independently reconstructs and repacks that commit with the frozen
+offline dependency graph, compares the tarball identity, and verifies the
+bounded participant bundle. A0-07B2 may retain or claim real evidence only
+from such a merged-source bundle.
