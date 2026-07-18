@@ -265,10 +265,12 @@ replay real attempts before A0-08 may interpret tooling needs.
 A0-07B1 derives replay status rather than trusting a participant or facilitator
 success flag. One closed manifest must enumerate every started and retained
 anonymous attempt with no omissions. Every attempt uses the same packet and
-package identity; completed tasks supply their frozen applicable artifacts,
+package identity, including the independently reconstructed source commit;
+completed tasks supply their frozen applicable artifacts,
 which are contained regular files with exact digests and bounded normalized
-bytes. Duplicate participants or artifacts, missing recovery, unclassified
-assistance, stale packet identity, and path-bearing output are refused.
+bytes. Refused or abandoned recovery tasks retain the matching recovery state.
+Duplicate participants or artifacts, missing recovery, unclassified assistance,
+stale packet identity, and path-bearing output are refused.
 
 The permanent synthetic replay contains two complete shapes plus one
 facilitator-assisted abandonment. It exercises the aggregate and negative

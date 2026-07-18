@@ -154,7 +154,10 @@ function sha256(bytes: Buffer): string {
 
 function verifyPrivateText(text: string, code: string): void {
   if (
-    text.includes("\uFFFD") || /\/(?:Users|home|private|tmp)\//u.test(text) || /[A-Za-z]:\\/u.test(text) ||
+    text.includes("\uFFFD") ||
+    /(?:^|[\s"'(])\/(?!\/)(?:[^/\s"')]+\/){2,}[^/\s"')]+/u.test(text) ||
+    /(?:^|[\s"'(])[A-Za-z]:[\\/](?:[^\\/\s"')]+[\\/])+[^\\/\s"')]+/u.test(text) ||
+    /\/(?:Users|home|private|tmp|workspace|workspaces|root|opt|srv|mnt|var|data|code|build)\//u.test(text) ||
     /(?:FADENO_SESSION_KEYS|TOKEN|PASSWORD|SECRET|API_KEY)\s*=\s*(?!<)[^\s]+/iu.test(text)
   ) throw new TypeError(code);
 }
@@ -188,7 +191,7 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
   manifestPath: string;
   packet: Packet;
   mode: "real-evidence" | "synthetic-contract";
-  reconstructedPackageSha256?: string;
+  reconstructedArtifact?: Readonly<{ sourceCommit: string; packageSha256: string }>;
 }>): A0UsabilityReplaySummary {
   const manifestBytes = readFileSync(containedRegularFile(
     options.repositoryRoot,
@@ -204,7 +207,10 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
       manifest.disposition !== "participant-evidence" || manifest.artifact.sourceCommit === "0".repeat(40) ||
       manifest.artifact.packageSha256 === "0".repeat(64)
     ) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_SYNTHETIC");
-    if (options.reconstructedPackageSha256 !== manifest.artifact.packageSha256) {
+    if (options.reconstructedArtifact?.sourceCommit !== manifest.artifact.sourceCommit) {
+      throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_SOURCE");
+    }
+    if (options.reconstructedArtifact.packageSha256 !== manifest.artifact.packageSha256) {
       throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_PACKAGE");
     }
   } else if (manifest.disposition !== "synthetic-not-user-evidence") {
@@ -237,7 +243,11 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
   let qualifyingIndependentParticipants = 0;
   let missingWorkflowReports = 0;
   for (const attempt of attempts) {
-    if (JSON.stringify(attempt.artifact) !== JSON.stringify(manifest.artifact)) {
+    if (
+      attempt.artifact.sourceCommit !== manifest.artifact.sourceCommit ||
+      attempt.artifact.packageSha256 !== manifest.artifact.packageSha256 ||
+      attempt.artifact.packageVersion !== manifest.artifact.packageVersion
+    ) {
       throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_IDENTITY");
     }
     if (
@@ -266,10 +276,11 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
         for (const field of requirement.requiredArtifacts) {
           if (!task.artifacts[field as ArtifactField]) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_REQUIRED_ARTIFACT");
         }
-        if (requirement.requiresRecovery ? task.recovery !== "completed" : task.recovery !== "not-applicable") {
-          throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_RECOVERY");
-        }
       }
+      const expectedRecovery = requirement.requiresRecovery
+        ? task.outcome === "completed" ? "completed" : task.outcome
+        : "not-applicable";
+      if (task.recovery !== expectedRecovery) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_RECOVERY");
       if (task.outcome !== "completed" || task.assistance === "facilitator-intervention") complete = false;
     }
     verifyPrivateText(attempt.missingWorkflow.summary, "FADENO_A0_USABILITY_EVIDENCE_PRIVACY");
