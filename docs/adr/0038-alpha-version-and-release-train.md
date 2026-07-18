@@ -46,6 +46,12 @@ version, source commit, release qualification, hosted provenance context, and
 approved publication mode agree. A0-03 adds the guard and release workflow but
 does not create a release, tag, registry version, or public repository.
 
+This narrows ADR 0016's workflow-file absence rule to the boundary it intended:
+hosted merge validation remains absent and `pnpm ci:local` remains the sole
+merge authority. One release-event-only workflow may transport an already
+locally qualified immutable package to the registry. It must not run on push,
+pull request, schedule, or manual dispatch, and it cannot replace local CI.
+
 The package changelog is generated from reviewed changesets. Compatibility
 changes also update the stable migration file and executable before/after
 fixture named by the same changeset. The V1 private-preview migration remains
@@ -81,4 +87,5 @@ version; it never deletes or replaces the published version or tag.
 simulates the first alpha plan without modifying the repository, verifies the
 changelog and migration seed, freezes package contents and an SPDX SBOM, checks
 the publication guard and workflow by mutation, and installs the current
-tarball through public entrypoints.
+tarball through public entrypoints. The local-CI contract independently refuses
+any hosted merge trigger or workflow beyond the release-only transporter.

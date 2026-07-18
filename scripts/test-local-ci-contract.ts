@@ -34,6 +34,9 @@ mutation("main check", (value) => {
   );
 });
 mutation("active workflow", (value) => { value.activeWorkflowFiles.push("check.yml"); });
+mutation("publication trigger", (value) => {
+  value.publicationWorkflow = value.publicationWorkflow!.replace("  release:\n", "  pull_request:\n");
+});
 mutation("README", (value) => { value.readme = value.readme.replace("pnpm ci:local", "pnpm check"); });
 mutation("contributor workflow", (value) => {
   value.contributorWorkflow = value.contributorWorkflow.replaceAll("pnpm ci:local", "pnpm check");
@@ -136,4 +139,4 @@ for (const [label, head, status] of [
   detected += 1;
 }
 
-console.log(`local CI negative tests passed (${detected} mutations)`);
+console.log(`local CI negative tests passed (${detected} mutations, release-only publication transport retained)`);
