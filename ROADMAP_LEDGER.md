@@ -6,36 +6,31 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-06 — add the first supported deployment workflow
+A0-07 — collect independent public-workflow evidence
 
 ## Exit criteria
 
-- [x] Accept the immutable same-platform loopback release directory, runtime
-  configuration, external HTTPS health, and prior-directory rollback boundary
-  through ADR 0041.
-- [x] Complete the public deploy command and exact production-only artifact.
-- [x] Prove packed success, refusal, secure health, graceful stop, correction,
-  flow, rollback, recovery, secret exclusion, and stale-output removal.
-- [ ] Source generated guidance from verified artifacts; pass package, example,
-  full local CI, and independent review gates.
+- [ ] Freeze the versioned independent-user task, privacy, retention, artifact
+  identity, and synthetic-evidence refusal contract through ADR 0042.
+- [ ] Retain at least two real independent participant attempts over one exact
+  packed artifact without private guidance or omitted attempts.
+- [ ] Verify install/create/test/check/dev/build/deploy, seeded failures,
+  corrections, flow inspection, stale-state recovery, and missing workflows.
+- [ ] Pass exact evidence replay, full local CI, and independent review gates.
 
 ## Active sub-slice
 
-A0-06 public command, packed artifact, permanent deployment scenario, generated
-guidance, validation, review, and merge only. This slice does not publish,
-select a hosting provider, broaden the loopback listener, add a process manager,
-add multi-process action/session ownership, expose a machine schema, or create a
-second framework runtime.
+A0-07A contract and task packet only. It freezes collection before observation
+and cannot claim user evidence, select editor tooling, expose an analyzer
+schema, publish a package, or treat synthetic fixtures as participants.
 
 ## In progress
 
-- ADR 0041 selects one missing immutable output outside the project, an exact
-  production-only install, runtime-only manifest, loopback process behind an
-  operator-owned HTTPS boundary, application-owned `/` health, process-injected
-  origin/session secrets, graceful stop, and explicit prior-directory rollback.
-  The command, build-owned artifact verification, packed example, generated
-  documentation, and mutation guards pass their targeted gates. Complete local
-  CI and independent review remain in progress.
+- ADR 0042 freezes two bounded A0-07 sub-slices, nine ordered public-workflow
+  tasks, two-participant minimum, anonymous bounded records, all-attempt
+  retention, exact artifact identity, and fail-closed synthetic-evidence
+  refusal. A0-07A contract validation is in progress; real collection remains
+  A0-07B.
 
 ## Blockers
 
@@ -48,6 +43,13 @@ second framework runtime.
   after a demonstrated supported consumer.
 
 ## Completed slices
+
+- A0-06 — add the first supported deployment workflow. Merge commit `0272684`
+  accepts ADR 0041 and adds the exact public deployment command,
+  source-free production-only artifact, runtime identity verification, external
+  HTTPS health, configuration refusal, graceful stop, prior-directory rollback,
+  stale-route recovery, generated guidance, and review hardening without a
+  provider, proxy implementation, process manager, or public machine schema.
 
 - A0-05 — Merge commit `985a22f` adds the stock created-application test
   workflow, three production-runtime assertions, deliberate assertion and

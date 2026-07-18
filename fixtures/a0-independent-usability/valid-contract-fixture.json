@@ -1,0 +1,19 @@
+{
+  "schema": "fadeno.a0.independent-usability-contract-fixture",
+  "version": 1,
+  "disposition": "synthetic-not-user-evidence",
+  "packetId": "a0-public-workflow-v1",
+  "taskIds": [
+    "install-create",
+    "application-test",
+    "successful-flow-explanation",
+    "route-failure",
+    "failed-flow-explanation",
+    "configuration-failure",
+    "generation-failure",
+    "development-run",
+    "production-build",
+    "immutable-deployment",
+    "missing-workflow-report"
+  ]
+}
