@@ -159,6 +159,8 @@ try {
     "package/dist/internal/project-build.js",
     "package/dist/internal/project-check.d.ts",
     "package/dist/internal/project-check.js",
+    "package/dist/internal/project-create.d.ts",
+    "package/dist/internal/project-create.js",
     "package/dist/internal/project-dev.d.ts",
     "package/dist/internal/project-dev.js",
     "package/dist/internal/routing/artifact-contract.d.ts",
@@ -316,6 +318,7 @@ try {
     ["analyzer-explain", "AnalyzerExplainCoordinator"],
     ["analyzer-route-explain", "createRouteExplainContribution"],
     ["project-build", "runProjectBuildCommand"],
+    ["project-create", "runProjectCreateCommand"],
     ["project-dev", "runProjectDevCommand"],
     ["session-decision", "createDecisionSession"],
   ] as const) {
