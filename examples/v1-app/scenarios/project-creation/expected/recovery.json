@@ -1,0 +1,12 @@
+{
+  "failure": {
+    "diagnostic": "FADENO_CREATE_TARGET_EXISTS",
+    "existingBytesPreserved": true
+  },
+  "recovery": {
+    "targetRemovedByOwner": true,
+    "retryAccepted": true,
+    "staleDiagnosticPresent": false,
+    "generatedBytesMatchFirstSuccess": true
+  }
+}

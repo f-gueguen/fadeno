@@ -1,0 +1,25 @@
+{
+  "operation": "fadeno create",
+  "causes": [
+    "exact create command accepted",
+    "project name accepted",
+    "parent path accepted",
+    "missing target exclusively claimed"
+  ],
+  "ownership": {
+    "owner": "fadeno create operation",
+    "root": "<PROJECT_ROOT>",
+    "files": "fixed template allowlist"
+  },
+  "skippedWork": [
+    "dependency installation",
+    "network access",
+    "version-control initialization",
+    "generated-code execution"
+  ],
+  "outcome": {
+    "exitCode": 0,
+    "generatedFileCount": 10,
+    "byteStable": true
+  }
+}
