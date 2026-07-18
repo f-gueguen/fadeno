@@ -6,32 +6,34 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-03A — establish the public alpha version and release train
+A0-03 — make the selected public package mechanically releasable
 
 ## Exit criteria
 
-- [ ] Accept the `0.0.0` unpublished seed, expected `0.1.0-alpha.0` first
+- [x] Accept the `0.0.0` unpublished seed, expected `0.1.0-alpha.0` first
   release, Changesets workflow, changelog ownership, and rollback through ADR
   0038.
-- [ ] Atomically rename the package and every consumer to `@fadeno/framework`,
+- [x] Atomically rename the package and every consumer to `@fadeno/framework`,
   add complete public metadata, and retain exactly the accepted exports/bin.
-- [ ] Add fail-closed release/provenance automation, frozen package contents,
+- [x] Add fail-closed release/provenance automation, frozen package contents,
   SPDX SBOM, migration seed, and public-name pack/install evidence.
-- [ ] Pass release-policy mutations, package/public surface, documentation,
+- [x] Pass release-policy mutations, package/public surface, documentation,
   full repository, local CI, and independent review gates.
 
 ## Active sub-slice
 
-A0-03 release implementation only. It may make the accepted package
-mechanically publishable and add publication transport, but it does not create
-a tag, release, registry version, public repository, scaffold, deployment, or
-new framework API.
+A0-03 final exact-commit qualification and review only. The package is
+mechanically publishable and the release-only transporter exists, but this
+slice does not create a tag, release, registry version, public repository,
+scaffold, deployment, or new framework API.
 
 ## In progress
 
 - ADR 0038 and the pinned Changesets configuration own the initial release
-  train. The public-name migration, package evidence, and guarded workflow are
-  still pending in this slice.
+  train. The public-name migration, exact tarball, deterministic SPDX SBOM,
+  fail-closed publication guard, release-only transporter, success/refusal/
+  flow/recovery/rollback evidence, and current-packed consumer replay pass.
+  Final `pnpm ci:local`, independent review, and merge remain.
 
 ## Blockers
 
