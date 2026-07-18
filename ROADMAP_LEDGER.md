@@ -10,13 +10,13 @@ A0-02A — establish a read-only, non-publishing registry ownership preflight
 
 ## Exit criteria
 
-- [ ] Add one TypeScript verifier limited to authenticated identity and
+- [x] Add one TypeScript verifier limited to authenticated identity and
   existing-package owner queries, with no publication or ownership mutation.
-- [ ] Prove normalized success, authentication refusal, missing-package,
+- [x] Prove normalized success, authentication refusal, missing-package,
   unverified-owner, malformed-response, and command-injection cases offline.
-- [ ] Keep the internal package private, leave DG-A0-01 open, and retain the
+- [x] Keep the internal package private, leave DG-A0-01 open, and retain the
   authenticated-owner and candidate identity as explicit blockers.
-- [ ] Pass registry, plan, model, type, full repository, and local CI gates on
+- [x] Pass registry, plan, model, type, full repository, and local CI gates on
   an exact local commit.
 
 ## Active sub-slice
@@ -28,12 +28,16 @@ resolve DG-A0-01, add hosted CI, or make the private package publishable.
 
 ## In progress
 
-- The existing registry observation is being upgraded to name the two allowed
-  read-only operations and to record that no publication was attempted.
-- The verifier will fail closed until the workstation is authenticated and the
-  authenticated account appears in the owner list of an existing candidate.
-- Local merge gates use injected command results only; they do not depend on
-  registry availability or credentials.
+- The checked registry observation names only `whoami` and `owner-ls`, records
+  that no publication was attempted, and retains null owner/candidate identity.
+- The verifier fails closed until the workstation is authenticated and the
+  authenticated account appears in the owner list of an existing candidate;
+  raw owner emails do not enter normalized evidence.
+- Offline success/refusal fixtures and mutation tests cover authentication,
+  candidate, ownership, malformed output, network, injection, direct command,
+  and publication-attempt boundaries.
+- Exact implementation commit `8293cd6` passed `pnpm check:a0-registry`,
+  `pnpm check`, and `pnpm ci:local`; no live capture or publication occurred.
 
 ## Blockers
 
