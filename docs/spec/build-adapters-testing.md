@@ -299,7 +299,10 @@ graph, and requires the reconstructed commit, package SHA-256, and package
 version to match every retained attempt. It then applies the A0-07B1 privacy,
 retention, artifact, recovery, independence, and two-participant gates. Until
 real records exist, command tests cover fail-closed usage and non-manifest
-input only; no synthetic success path may stand in for participants.
+input only; no synthetic success path may stand in for participants. The
+checked facilitator-only retention procedure is
+[`COLLECTION.md`](../../evidence/a0/independent-usability/COLLECTION.md); it is
+not added to the participant bundle and cannot change the frozen task bytes.
 
 ## Diagnostics and support
 
