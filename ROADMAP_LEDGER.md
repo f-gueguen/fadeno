@@ -6,7 +6,7 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-04 — complete public project-creation evidence
+A0-04 — merge public project creation
 
 ## Exit criteria
 
@@ -15,26 +15,24 @@ A0-04 — complete public project-creation evidence
   ADR 0039.
 - [x] Implement the create command in the existing TypeScript executable with
   bounded arguments, contained writes, rollback, and stable human diagnostics.
-- [ ] Source a byte-stable scaffold from the canonical tested application and
+- [x] Source a byte-stable scaffold from the canonical tested application and
   prove its public-package check/build/dev/start workflow.
-- [ ] Retain executable success, refusal, diagnostic, normalized output, flow,
+- [x] Retain executable success, refusal, diagnostic, normalized output, flow,
   recovery, stale-removal, and documentation evidence; pass full local CI and
   independent review.
 
 ## Active sub-slice
 
-A0-04 project-creation decision and implementation only. It may add the public
-create command and its fixed template, but it does not add the application-test
+A0-04 final review and merge only. The accepted public create command and its
+fixed template are complete; this slice does not add the application-test
 workflow, deployment, publication, a second package, or a second runtime.
 
 ## In progress
 
-- ADR 0039 accepts `fadeno create --project-root <path>`, fresh-target and
-  symlink-free parent-path ownership, exclusive directory claim plus rollback,
-  exact executing-package version pinning, no implicit
-  install/network/version-control work, and an action-free canonical template.
-  The TypeScript command and focused contract tests exist; packed public-package
-  execution, permanent example evidence, and documentation remain in progress.
+- ADR 0039, the TypeScript command, fixed template, packed consumer, normalized
+  success/refusal/correction/flow/recovery evidence, generated guidance, and
+  mutation contracts are complete. Exact `pnpm check` and `pnpm ci:local`
+  passed at `574e93d`; final review and merge remain operational work only.
 
 ## Blockers
 
