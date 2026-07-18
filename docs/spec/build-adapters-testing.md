@@ -279,7 +279,7 @@ evidence. Run `pnpm check:a0-usability-replay-contract`; its normalized output
 is `fixtures/a0-independent-usability/replay-summary.normalized.json`.
 
 Participant collection uses one missing facilitator-owned bundle directory.
-`pnpm capture:a0-usability-bundle -- --output <missing-path>` requires a clean
+`pnpm capture:a0-usability-bundle --output <missing-path>` requires a clean
 commit, packs the current framework, reconstructs that same commit through a
 Git archive, frozen offline install, build, and pack, and requires identical
 package filename, version, and SHA-256. Failure removes the claimed directory.
