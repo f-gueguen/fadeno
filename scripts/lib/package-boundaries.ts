@@ -22,8 +22,21 @@ const sourceExtensions = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts",
 export function scanModuleReferences(source: string): ModuleReference[] {
   const scanner = createScanner(true, undefined, source);
   const tokens: Token[] = [];
+  const templateExpressionDepth: number[] = [];
+  let previousTokenEnd = -1;
   for (let kind = scanner.scan(); kind !== SyntaxKind.EndOfFile; kind = scanner.scan()) {
+    const templateIndex = templateExpressionDepth.length - 1;
+    if (kind === SyntaxKind.CloseBraceToken && templateIndex >= 0) {
+      if (templateExpressionDepth[templateIndex] === 0) kind = scanner.reScanTemplateToken(false);
+      else templateExpressionDepth[templateIndex]! -= 1;
+    }
+    const tokenEnd = scanner.getTokenEnd();
+    if (tokenEnd <= previousTokenEnd) throw new TypeError(`FADENO_PACKAGE_SCANNER_PROGRESS:${tokenEnd}`);
+    previousTokenEnd = tokenEnd;
     tokens.push({ kind, precedingLineBreak: scanner.hasPrecedingLineBreak(), value: scanner.getTokenValue() });
+    if (kind === SyntaxKind.TemplateHead) templateExpressionDepth.push(0);
+    else if (kind === SyntaxKind.TemplateTail) templateExpressionDepth.pop();
+    else if (kind === SyntaxKind.OpenBraceToken && templateIndex >= 0) templateExpressionDepth[templateIndex]! += 1;
   }
 
   const references: ModuleReference[] = [];

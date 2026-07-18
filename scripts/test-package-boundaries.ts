@@ -56,6 +56,8 @@ expectViolation("symlink escape", 'import "./linked.ts";\n', "import", (root) =>
 });
 
 const references = scanModuleReferences([
+  "const heading = `# ${name}`;",
+  "const nested = `${{ value: `${name}` }.value}`;",
   'import "./side-effect.ts";',
   'import { value } from "./static.ts";',
   'import { from as contextual } from "./contextual.ts";',
