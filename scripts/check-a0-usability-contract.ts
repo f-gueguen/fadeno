@@ -27,6 +27,7 @@ const tracked = new Set(execFileSync("git", ["ls-files", "--cached", "--others",
 }).trim().split("\n"));
 for (const path of [
   "docs/adr/0042-independent-usability-evidence-contract.md",
+  "evidence/a0/independent-usability/COLLECTION.md",
   "evidence/a0/independent-usability/task-packet.json",
   "evidence/a0/independent-usability/task-packet.md",
   "fixtures/a0-independent-usability/valid-contract-fixture.json",
@@ -39,6 +40,17 @@ for (const text of [
 ]) assert.equal(adr.includes(text), true, `FADENO_A0_USABILITY_ADR:${text}`);
 const instructions = read("evidence/a0/independent-usability/task-packet.md");
 assert.equal(createHash("sha256").update(instructions).digest("hex"), packet.instructionSha256, "FADENO_A0_USABILITY_INSTRUCTIONS_DIGEST");
+const collection = read("evidence/a0/independent-usability/COLLECTION.md");
+for (const text of [
+  "not additional participant guidance",
+  "Opening the packet starts an attempt",
+  "facilitator-intervention",
+  "Email addresses",
+  "unreferenced files",
+  "omittedAttemptIds` must be empty",
+  "pnpm check:a0-usability-evidence --manifest evidence/a0/independent-usability/evidence-manifest.json",
+  "not permission to delete an attempt",
+]) assert.equal(collection.includes(text), true, `FADENO_A0_USABILITY_COLLECTION:${text}`);
 assert.equal(read("docs/adr/README.md").includes("0042-independent-usability-evidence-contract.md"), true);
 assert.equal(read("ROADMAP_LEDGER.md").includes("A0-07A"), true);
 assert.equal(read("docs/roadmap/a0.md").includes("pnpm check:a0-usability-contract"), true);

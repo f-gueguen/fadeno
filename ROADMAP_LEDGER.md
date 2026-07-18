@@ -20,11 +20,12 @@ A0-07 — collect independent public-workflow evidence
 
 ## Active sub-slice
 
-A0-07B1 replay and collection controls only. It verifies exact artifact and
-attempt identity, all-started retention, privacy, task evidence, and synthetic
-refusal before collection. It cannot claim user evidence, select editor
-tooling, expose an analyzer schema, publish a package, or treat synthetic
-fixtures as participants.
+A0-07B2 real participant collection. The merged-source bundle and private real
+replay command verify exact artifact and attempt identity, all-started
+retention, privacy, task evidence, and synthetic refusal. This slice cannot
+claim user evidence before two qualifying non-contributors finish, select
+editor tooling, expose an analyzer schema, publish a package, or treat
+synthetic fixtures as participants.
 
 ## In progress
 
@@ -35,6 +36,10 @@ fixtures as participants.
   refusal. A0-07B1 now adds replay, exact clean-commit package reconstruction,
   and missing-directory participant-bundle controls before A0-07B2 may retain
   real observations.
+- Merge commit `b572673` completes A0-07B1. A participant bundle reconstructed
+  from that exact merged source is retained outside the repository with package
+  SHA-256 `9ee8190e456b552a325733896ec17709f9ba9048e43dd5c60595254733070cd7`.
+  A0-07B2 now adds the fail-closed real-evidence command before collection.
 
 ## Blockers
 

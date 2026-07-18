@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { verifyA0UsabilityPacket } from "./lib/a0-usability-contract.ts";
-import { verifyA0UsabilityEvidence } from "./lib/a0-usability-evidence.ts";
+import {
+  type A0UsabilityArtifactIdentity,
+  verifyA0UsabilityEvidence,
+} from "./lib/a0-usability-evidence.ts";
 import { writeSyntheticA0UsabilityEvidenceFixture } from "./lib/a0-usability-evidence-fixture.ts";
 
 const packet = verifyA0UsabilityPacket(
@@ -23,7 +26,7 @@ const writeJson = (root: string, path: string, value: unknown): void => {
 const verify = (
   root: string,
   mode: "real-evidence" | "synthetic-contract" = "synthetic-contract",
-  reconstructedArtifact?: Readonly<{ sourceCommit: string; packageSha256: string }>,
+  reconstructedArtifact?: A0UsabilityArtifactIdentity,
 ) =>
   verifyA0UsabilityEvidence({
     repositoryRoot: root,
@@ -36,7 +39,7 @@ const refuses = (
   mutate: (root: string, manifest: any) => void,
   code: RegExp,
   mode: "real-evidence" | "synthetic-contract" = "synthetic-contract",
-  reconstructedArtifact?: Readonly<{ sourceCommit: string; packageSha256: string }>,
+  reconstructedArtifact?: A0UsabilityArtifactIdentity,
 ): void => {
   const root = join(temporary, `mutation-${String(++mutationOrdinal).padStart(2, "0")}`);
   cpSync(baseline, root, { recursive: true });
@@ -44,6 +47,60 @@ const refuses = (
   mutate(root, manifest);
   writeJson(root, fixture.manifestPath, manifest);
   assert.throws(() => verify(root, mode, reconstructedArtifact), code);
+};
+const rewriteAsRealEvidence = (
+  root: string,
+  manifest: any,
+  identity: A0UsabilityArtifactIdentity,
+  disqualifiedParticipant?: string,
+  preserveSyntheticMarkers = false,
+): void => {
+  manifest.disposition = "participant-evidence";
+  manifest.artifact = identity;
+  const realAttemptFiles = [];
+  const participantIds = [];
+  for (const path of manifest.attemptFiles) {
+    const attempt = readJson(root, path);
+    const fixtureParticipantId = attempt.participant.anonymousId as string;
+    const participantId = preserveSyntheticMarkers
+      ? fixtureParticipantId
+      : fixtureParticipantId.replace("synthetic", "replaytest");
+    attempt.disposition = "participant-attempt";
+    attempt.artifact = identity;
+    attempt.participant.anonymousId = participantId;
+    participantIds.push(participantId);
+    if (fixtureParticipantId === disqualifiedParticipant) {
+      attempt.tasks[0].assistance = "facilitator-intervention";
+    }
+    for (const task of attempt.tasks) {
+      if (!preserveSyntheticMarkers) task.observation = `Retained ${task.taskId} observation.`;
+      for (const value of Object.values(task.artifacts) as unknown[]) {
+        if (!value || typeof value !== "object" || !("path" in value) || typeof value.path !== "string") continue;
+        const reference = value as { path: string; sha256: string };
+        const nextPath = reference.path.replace(
+          `fixtures/a0-independent-usability/replay/${fixtureParticipantId}/`,
+          `evidence/a0/independent-usability/attempts/${participantId}/`,
+        );
+        mkdirSync(dirname(join(root, nextPath)), { recursive: true });
+        const body = preserveSyntheticMarkers
+          ? readFileSync(join(root, reference.path))
+          : Buffer.from(`${JSON.stringify({ taskId: task.taskId, participantId })}\n`);
+        writeFileSync(join(root, nextPath), body);
+        reference.path = nextPath;
+        reference.sha256 = createHash("sha256").update(body).digest("hex");
+      }
+    }
+    if (!preserveSyntheticMarkers && attempt.missingWorkflow.summary.length > 0) {
+      attempt.missingWorkflow.summary = `Retained missing-workflow report from ${participantId}.`;
+    }
+    const nextAttemptPath = `evidence/a0/independent-usability/attempts/${participantId}/attempt.json`;
+    mkdirSync(dirname(join(root, nextAttemptPath)), { recursive: true });
+    writeJson(root, nextAttemptPath, attempt);
+    realAttemptFiles.push(nextAttemptPath);
+  }
+  manifest.attemptFiles = realAttemptFiles.sort();
+  manifest.retention.startedAttemptIds = [...participantIds].sort();
+  manifest.retention.retainedAttemptIds = [...participantIds].sort();
 };
 
 try {
@@ -62,7 +119,7 @@ try {
   writeJson(reorderedRoot, reorderedManifest.attemptFiles[0], reorderedAttempt);
   assert.equal(verify(reorderedRoot).attemptsRetained, 3);
   assert.throws(() => verify(baseline, "real-evidence", {
-    sourceCommit: "0".repeat(40), packageSha256: "0".repeat(64),
+    sourceCommit: "0".repeat(40), packageSha256: "0".repeat(64), packageVersion: "0.0.0",
   }), /FADENO_A0_USABILITY_EVIDENCE_SYNTHETIC/u);
 
   refuses((_root, manifest) => { manifest.instructionSha256 = "1".repeat(64); }, /FADENO_A0_USABILITY_EVIDENCE_PACKET/u);
@@ -111,6 +168,19 @@ try {
     writeJson(root, manifest.attemptFiles[0], attempt);
   }, /FADENO_A0_USABILITY_EVIDENCE_PRIVACY/u);
   refuses((root, manifest) => {
+    const attempt = readJson(root, manifest.attemptFiles[0]);
+    attempt.tasks[0].observation = "Contact the participant at person@example.test.";
+    writeJson(root, manifest.attemptFiles[0], attempt);
+  }, /FADENO_A0_USABILITY_EVIDENCE_PRIVACY/u);
+  refuses((root, manifest) => {
+    const attempt = readJson(root, manifest.attemptFiles[0]);
+    const reference = attempt.tasks[0].artifacts.humanOutput;
+    const body = "participant contact: person@example.test\n";
+    writeFileSync(join(root, reference.path), body);
+    reference.sha256 = createHash("sha256").update(body).digest("hex");
+    writeJson(root, manifest.attemptFiles[0], attempt);
+  }, /FADENO_A0_USABILITY_EVIDENCE_ARTIFACT/u);
+  refuses((root, manifest) => {
     const attempt = readJson(root, manifest.attemptFiles[2]);
     attempt.tasks[1].recovery = "not-applicable";
     writeJson(root, manifest.attemptFiles[2], attempt);
@@ -137,69 +207,47 @@ try {
   const realSha = "2".repeat(64);
   refuses((root, manifest) => {
     const realIdentity = { sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0" };
-    manifest.disposition = "participant-evidence";
-    manifest.artifact = realIdentity;
-    const realAttemptFiles = [];
-    for (const path of manifest.attemptFiles) {
-      const attempt = readJson(root, path);
-      attempt.disposition = "participant-attempt";
-      attempt.artifact = realIdentity;
-      if (attempt.participant.anonymousId === "participant-synthetic02") {
-        attempt.tasks[0].assistance = "facilitator-intervention";
-      }
-      for (const task of attempt.tasks) {
-        for (const value of Object.values(task.artifacts) as unknown[]) {
-          if (!value || typeof value !== "object" || !("path" in value) || typeof value.path !== "string") continue;
-          const reference = value as { path: string };
-          const nextPath = reference.path.replace(
-            `fixtures/a0-independent-usability/replay/${attempt.participant.anonymousId}/`,
-            `evidence/a0/independent-usability/attempts/${attempt.participant.anonymousId}/`,
-          );
-          mkdirSync(dirname(join(root, nextPath)), { recursive: true });
-          cpSync(join(root, reference.path), join(root, nextPath));
-          reference.path = nextPath;
-        }
-      }
-      const nextAttemptPath = `evidence/a0/independent-usability/attempts/${attempt.participant.anonymousId}/attempt.json`;
-      mkdirSync(dirname(join(root, nextAttemptPath)), { recursive: true });
-      writeJson(root, nextAttemptPath, attempt);
-      realAttemptFiles.push(nextAttemptPath);
-    }
-    manifest.attemptFiles = realAttemptFiles.sort();
-  }, /FADENO_A0_USABILITY_EVIDENCE_MINIMUM/u, "real-evidence", {
-    sourceCommit: "1".repeat(40), packageSha256: realSha,
+    rewriteAsRealEvidence(root, manifest, realIdentity, undefined, true);
+  }, /FADENO_A0_USABILITY_EVIDENCE_SYNTHETIC/u, "real-evidence", {
+    sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0",
   });
 
   refuses((root, manifest) => {
     const realIdentity = { sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0" };
-    manifest.disposition = "participant-evidence";
-    manifest.artifact = realIdentity;
-    const realAttemptFiles = [];
-    for (const path of manifest.attemptFiles) {
-      const attempt = readJson(root, path);
-      attempt.disposition = "participant-attempt";
-      attempt.artifact = { packageVersion: "0.0.0", sourceCommit: "1".repeat(40), packageSha256: realSha };
-      for (const task of attempt.tasks) {
-        for (const value of Object.values(task.artifacts) as unknown[]) {
-          if (!value || typeof value !== "object" || !("path" in value) || typeof value.path !== "string") continue;
-          const reference = value as { path: string };
-          const nextPath = reference.path.replace(
-            `fixtures/a0-independent-usability/replay/${attempt.participant.anonymousId}/`,
-            `evidence/a0/independent-usability/attempts/${attempt.participant.anonymousId}/`,
-          );
-          mkdirSync(dirname(join(root, nextPath)), { recursive: true });
-          cpSync(join(root, reference.path), join(root, nextPath));
-          reference.path = nextPath;
-        }
-      }
-      const nextAttemptPath = `evidence/a0/independent-usability/attempts/${attempt.participant.anonymousId}/attempt.json`;
-      mkdirSync(dirname(join(root, nextAttemptPath)), { recursive: true });
-      writeJson(root, nextAttemptPath, attempt);
-      realAttemptFiles.push(nextAttemptPath);
-    }
-    manifest.attemptFiles = realAttemptFiles.sort();
+    rewriteAsRealEvidence(root, manifest, realIdentity, "participant-synthetic02");
+  }, /FADENO_A0_USABILITY_EVIDENCE_MINIMUM/u, "real-evidence", {
+    sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0",
+  });
+
+  refuses((root, manifest) => {
+    const realIdentity = { sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0" };
+    rewriteAsRealEvidence(root, manifest, realIdentity);
   }, /FADENO_A0_USABILITY_EVIDENCE_SOURCE/u, "real-evidence", {
-    sourceCommit: "2".repeat(40), packageSha256: realSha,
+    sourceCommit: "2".repeat(40), packageSha256: realSha, packageVersion: "0.0.0",
+  });
+
+  refuses((root, manifest) => {
+    const realIdentity = { sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0" };
+    rewriteAsRealEvidence(root, manifest, realIdentity);
+  }, /FADENO_A0_USABILITY_EVIDENCE_PACKAGE/u, "real-evidence", {
+    sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.1",
+  });
+
+  refuses((root, manifest) => {
+    const realIdentity = { sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0" };
+    rewriteAsRealEvidence(root, manifest, realIdentity);
+    const extra = join(root, "evidence/a0/independent-usability/attempts/participant-replaytest01/unreferenced.log");
+    writeFileSync(extra, "unreferenced retained bytes\n");
+  }, /FADENO_A0_USABILITY_EVIDENCE_ARTIFACT/u, "real-evidence", {
+    sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0",
+  });
+
+  refuses((root, manifest) => {
+    const realIdentity = { sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0" };
+    rewriteAsRealEvidence(root, manifest, realIdentity);
+    mkdirSync(join(root, "evidence/a0/independent-usability/attempts/participant-replaytest01/unreferenced"));
+  }, /FADENO_A0_USABILITY_EVIDENCE_ARTIFACT/u, "real-evidence", {
+    sourceCommit: "1".repeat(40), packageSha256: realSha, packageVersion: "0.0.0",
   });
 
   console.log(`A0 usability replay negative tests passed (${mutationOrdinal + 1} retention, identity, artifact, recovery, privacy, minimum, synthetic controls)`);

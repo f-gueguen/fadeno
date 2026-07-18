@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
 import { verifyA0UsabilityAttemptRecord, verifyA0UsabilityPacket } from "./a0-usability-contract.ts";
@@ -31,7 +31,7 @@ interface AttemptRecord {
     priorContributor: boolean;
     privateImplementationGuidance: boolean;
   }>;
-  readonly artifact: ArtifactIdentity;
+  readonly artifact: A0UsabilityArtifactIdentity;
   readonly tasks: readonly TaskAttempt[];
   readonly missingWorkflow: Readonly<{
     summary: string;
@@ -39,7 +39,7 @@ interface AttemptRecord {
   }>;
 }
 
-interface ArtifactIdentity {
+export interface A0UsabilityArtifactIdentity {
   readonly sourceCommit: string;
   readonly packageSha256: string;
   readonly packageVersion: string;
@@ -49,7 +49,7 @@ interface EvidenceManifest {
   readonly disposition: EvidenceDisposition;
   readonly packetId: string;
   readonly instructionSha256: string;
-  readonly artifact: ArtifactIdentity;
+  readonly artifact: A0UsabilityArtifactIdentity;
   readonly attemptFiles: readonly string[];
   readonly retention: Readonly<{
     collectionClosed: boolean;
@@ -94,7 +94,7 @@ function exactStrings(value: unknown, code: string): readonly string[] {
   return value;
 }
 
-function parseArtifactIdentity(value: unknown, code: string): ArtifactIdentity {
+function parseArtifactIdentity(value: unknown, code: string): A0UsabilityArtifactIdentity {
   const identity = record(value, code);
   exactKeys(identity, ["sourceCommit", "packageSha256", "packageVersion"], code);
   if (
@@ -102,7 +102,7 @@ function parseArtifactIdentity(value: unknown, code: string): ArtifactIdentity {
     typeof identity["packageSha256"] !== "string" || !digestPattern.test(identity["packageSha256"]) ||
     typeof identity["packageVersion"] !== "string"
   ) throw new TypeError(code);
-  return identity as unknown as ArtifactIdentity;
+  return identity as unknown as A0UsabilityArtifactIdentity;
 }
 
 function parseManifest(value: unknown): EvidenceManifest {
@@ -152,14 +152,47 @@ function sha256(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function verifyPrivateText(text: string, code: string): void {
+function verifyPrivateText(text: string, code: string, mode: "real-evidence" | "synthetic-contract"): void {
   if (
     text.includes("\uFFFD") ||
     /(?:^|[\s"'(])\/(?!\/)(?:[^/\s"')]+\/){2,}[^/\s"')]+/u.test(text) ||
     /(?:^|[\s"'(])[A-Za-z]:[\\/](?:[^\\/\s"')]+[\\/])+[^\\/\s"')]+/u.test(text) ||
     /\/(?:Users|home|private|tmp|workspace|workspaces|root|opt|srv|mnt|var|data|code|build)\//u.test(text) ||
-    /(?:FADENO_SESSION_KEYS|TOKEN|PASSWORD|SECRET|API_KEY)\s*=\s*(?!<)[^\s]+/iu.test(text)
+    /(?:FADENO_SESSION_KEYS|TOKEN|PASSWORD|SECRET|API_KEY)\s*=\s*(?!<)[^\s]+/iu.test(text) ||
+    /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text) ||
+    /(?:mailto|tel):[^\s"')]+/iu.test(text) ||
+    mode === "real-evidence" && /\b(?:synthetic|fixture)(?:[- ](?:attempt|control|evidence|observation|record|shape))?\b/iu.test(text)
   ) throw new TypeError(code);
+}
+
+function containedRegularFiles(root: string, directoryPath: string, code: string): readonly string[] {
+  const segments = directoryPath.split("/");
+  if (segments.some((segment) => segment.length === 0 || segment === "." || segment === "..")) throw new TypeError(code);
+  let directory = root;
+  for (const segment of segments) {
+    directory = resolve(directory, segment);
+    const status = lstatSync(directory);
+    if (!status.isDirectory() || status.isSymbolicLink()) throw new TypeError(code);
+  }
+  const files: string[] = [];
+  const walk = (current: string, relativeSegments: readonly string[], depth: number): void => {
+    if (depth > 16) throw new TypeError(code);
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) throw new TypeError(code);
+      const absolute = resolve(current, entry.name);
+      const nextSegments = [...relativeSegments, entry.name];
+      if (entry.isDirectory()) {
+        const fileCount = files.length;
+        walk(absolute, nextSegments, depth + 1);
+        if (files.length === fileCount) throw new TypeError(code);
+      }
+      else if (entry.isFile()) files.push([...segments, ...nextSegments].join("/"));
+      else throw new TypeError(code);
+      if (files.length > 4096) throw new TypeError(code);
+    }
+  };
+  walk(directory, [], 0);
+  return files.sort();
 }
 
 function verifyArtifactBytes(
@@ -179,11 +212,23 @@ function verifyArtifactBytes(
   seen.add(reference.path);
   const bytes = readFileSync(containedRegularFile(root, reference.path, code));
   if (bytes.byteLength > 262144 || sha256(bytes) !== reference.sha256) throw new TypeError(code);
-  verifyPrivateText(bytes.toString("utf8"), code);
+  verifyPrivateText(bytes.toString("utf8"), code, mode);
 }
 
 function counts<T extends string>(values: readonly T[], expected: readonly T[]): Record<T, number> {
   return Object.fromEntries(expected.map((value) => [value, values.filter((candidate) => candidate === value).length])) as Record<T, number>;
+}
+
+export function readA0UsabilityEvidenceArtifactIdentity(options: Readonly<{
+  repositoryRoot: string;
+  manifestPath: string;
+}>): A0UsabilityArtifactIdentity {
+  const bytes = readFileSync(containedRegularFile(
+    options.repositoryRoot,
+    options.manifestPath,
+    "FADENO_A0_USABILITY_EVIDENCE_PATH",
+  ));
+  return parseManifest(JSON.parse(bytes.toString("utf8")) as unknown).artifact;
 }
 
 export function verifyA0UsabilityEvidence(options: Readonly<{
@@ -191,7 +236,7 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
   manifestPath: string;
   packet: Packet;
   mode: "real-evidence" | "synthetic-contract";
-  reconstructedArtifact?: Readonly<{ sourceCommit: string; packageSha256: string }>;
+  reconstructedArtifact?: A0UsabilityArtifactIdentity;
 }>): A0UsabilityReplaySummary {
   const manifestBytes = readFileSync(containedRegularFile(
     options.repositoryRoot,
@@ -211,6 +256,9 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
       throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_SOURCE");
     }
     if (options.reconstructedArtifact.packageSha256 !== manifest.artifact.packageSha256) {
+      throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_PACKAGE");
+    }
+    if (options.reconstructedArtifact.packageVersion !== manifest.artifact.packageVersion) {
       throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_PACKAGE");
     }
   } else if (manifest.disposition !== "synthetic-not-user-evidence") {
@@ -240,9 +288,13 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
 
   const taskOutcomes: TaskAttempt["outcome"][] = [];
   const assistance: TaskAttempt["assistance"][] = [];
+  const retainedFiles = new Set(manifest.attemptFiles);
   let qualifyingIndependentParticipants = 0;
   let missingWorkflowReports = 0;
   for (const attempt of attempts) {
+    if (options.mode === "real-evidence" && /(?:synthetic|fixture)/u.test(attempt.participant.anonymousId)) {
+      throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_SYNTHETIC");
+    }
     if (
       attempt.artifact.sourceCommit !== manifest.artifact.sourceCommit ||
       attempt.artifact.packageSha256 !== manifest.artifact.packageSha256 ||
@@ -254,10 +306,9 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
       options.mode === "real-evidence" ? attempt.disposition !== "participant-attempt" :
         attempt.disposition !== "synthetic-not-user-evidence"
     ) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_DISPOSITION");
-    const seenArtifacts = new Set<string>();
     let complete = attempt.tasks.length === options.packet.taskIds.length;
     for (const task of attempt.tasks) {
-      verifyPrivateText(task.observation, "FADENO_A0_USABILITY_EVIDENCE_PRIVACY");
+      verifyPrivateText(task.observation, "FADENO_A0_USABILITY_EVIDENCE_PRIVACY", options.mode);
       taskOutcomes.push(task.outcome);
       assistance.push(task.assistance);
       const requirement = options.packet.taskRequirements[task.taskId];
@@ -268,7 +319,7 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
           options.repositoryRoot,
           reference,
           attempt.participant.anonymousId,
-          seenArtifacts,
+          retainedFiles,
           options.mode,
         );
       }
@@ -283,13 +334,25 @@ export function verifyA0UsabilityEvidence(options: Readonly<{
       if (task.recovery !== expectedRecovery) throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_RECOVERY");
       if (task.outcome !== "completed" || task.assistance === "facilitator-intervention") complete = false;
     }
-    verifyPrivateText(attempt.missingWorkflow.summary, "FADENO_A0_USABILITY_EVIDENCE_PRIVACY");
+    verifyPrivateText(attempt.missingWorkflow.summary, "FADENO_A0_USABILITY_EVIDENCE_PRIVACY", options.mode);
     const reportsMissingWorkflow = attempt.missingWorkflow.summary.trim().length > 0;
     if (reportsMissingWorkflow) missingWorkflowReports += 1;
     if (
       complete && reportsMissingWorkflow && attempt.missingWorkflow.editorProductWouldHaveChangedOutcome !== null &&
       !attempt.participant.priorContributor && !attempt.participant.privateImplementationGuidance
     ) qualifyingIndependentParticipants += 1;
+  }
+
+  if (options.mode === "real-evidence") {
+    const retained = [...retainedFiles].sort();
+    const present = containedRegularFiles(
+      options.repositoryRoot,
+      "evidence/a0/independent-usability/attempts",
+      "FADENO_A0_USABILITY_EVIDENCE_ARTIFACT",
+    );
+    if (JSON.stringify(present) !== JSON.stringify(retained)) {
+      throw new TypeError("FADENO_A0_USABILITY_EVIDENCE_ARTIFACT");
+    }
   }
 
   const outcomeCounts = counts(taskOutcomes, ["completed", "refused", "abandoned"]);
