@@ -3,7 +3,7 @@
   "packageVersion": "0.1.0-alpha.0",
   "sourceTag": "v0.1.0-alpha.0",
   "artifactFilename": "fadeno-docs-0.1.0-alpha.0.tar.gz",
-  "aggregateSha256": "83459cb62d27d193053abba7a6e557daf905e5ddb084933bf19b66f94d52b82b",
+  "aggregateSha256": "a8d649327fc0e7847b5c409a3deca377106d446a7bfc4308784c963399eb9e4f",
   "files": [
     {
       "path": "README.md",
@@ -262,8 +262,8 @@
     },
     {
       "path": "docs/guides/getting-started.md",
-      "bytes": 16678,
-      "sha256": "dfebdb20a3c9c1ca347631bd039d162e10091ca2980dcb2cb53ca5419b43feb7"
+      "bytes": 16818,
+      "sha256": "9ac895e33ce26bbdd134ec01a43d6cf638c0c213372c71187f87429ac81559b2"
     },
     {
       "path": "docs/guides/resources-actions.md",
@@ -317,8 +317,8 @@
     },
     {
       "path": "docs/product/scope.md",
-      "bytes": 14030,
-      "sha256": "d5695a536d1515f8542dce90d4dd3e4883d0762bdb44917163a4076f0a60f102"
+      "bytes": 14100,
+      "sha256": "230d1fba63f4135b30d07daaf590c06eb751360cc9cfcc50dda22522443cacec"
     },
     {
       "path": "docs/reference/v1-api.md",
@@ -392,8 +392,8 @@
     },
     {
       "path": "docs/spec/build-adapters-testing.md",
-      "bytes": 48385,
-      "sha256": "649b484ae50d2164598356d7a99ca5eede580cac17d7dc567c2e72927dc152c7"
+      "bytes": 48509,
+      "sha256": "de553ba60b068cb51e3125536ad7775522583ebb1817fe9789249c5055f6f24a"
     },
     {
       "path": "docs/spec/compiler-analyzer.md",
@@ -447,8 +447,8 @@
     },
     {
       "path": "docs/traceability.md",
-      "bytes": 17707,
-      "sha256": "ec28a7d02c9854727dc0e83c1e4d8c19794e84b53bacfae99125868152d9444f"
+      "bytes": 17765,
+      "sha256": "c2cd363432c245ee41581d95526e1733598ecf575cc6e65c72d1c963a713f7d2"
     },
     {
       "path": "packages/framework/CHANGELOG.md",

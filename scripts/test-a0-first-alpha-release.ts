@@ -32,6 +32,26 @@ expectMutation("A0 first-alpha prior qualification drifted", (context) => Object
   ...context,
   alphaCandidate: { ...(context.alphaCandidate as Record<string, unknown>), status: "incomplete" },
 }));
+expectMutation("A0 first-alpha changelog is missing changeset application-test-workflow", (context) => Object.freeze({
+  ...context,
+  changelog: context.changelog.replace("Add the scaffolded stock-TypeScript application-test workflow", "Omitted application-test outcome"),
+}));
+expectMutation("A0 first-alpha build specification is missing The current A0-10 release source is `@fadeno/framework@0.1.0-alpha.0`", (context) => Object.freeze({
+  ...context,
+  buildSpecification: context.buildSpecification.replace("The current A0-10 release source is", "A stale release source was"),
+}));
+expectMutation("getting-started template does not describe the current first-alpha source", (context) => Object.freeze({
+  ...context,
+  guideTemplate: context.guideTemplate.replace("public alpha release source", "private registry-less source"),
+}));
+expectMutation("REL-01 scope does not describe the current first-alpha source", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace("current `0.1.0-alpha.0` release source", "unpublished seed"),
+}));
+expectMutation("REL-01 traceability does not describe the current first-alpha source", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace("current `0.1.0-alpha.0` release source", "unpublished seed"),
+}));
 expectMutation("A0 documentation aggregate drifted", (context) => Object.freeze({
   ...context,
   docsManifest: { ...(context.docsManifest as Record<string, unknown>), aggregateSha256: "0".repeat(64) },
@@ -49,4 +69,4 @@ expectMutation("REL-01 is missing A0 first-alpha release traceability", (context
   traceability: context.traceability.replace(/^\| REL-01 \|.*$/mu, (line) => line.replace("`pnpm check:a0-first-alpha-release`", "removed")),
 }));
 
-console.log("A0 first-alpha release mutation tests passed (version, prerelease, prior qualification, docs, recovery, workflow, traceability)");
+console.log("A0 first-alpha release mutation tests passed (version, prerelease, all Changesets, prior qualification, docs, recovery, workflow, traceability)");

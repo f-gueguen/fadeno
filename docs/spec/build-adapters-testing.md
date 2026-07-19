@@ -340,8 +340,10 @@ workspace shortcut: the canonical application covers install/check/build/dev/
 start, and the A0 creation, application-test, and immutable-deployment gates
 cover their isolated success, failure, correction, recovery, stale-removal, and
 rollback paths. Automated packed evidence does not establish newcomer or
-assistive-technology usability. The package remains the unpublished `0.0.0`
-seed; publication, immutable tag and registry/docs identity remain A0-10 only.
+assistive-technology usability. At A0-09 qualification the package was the
+unpublished `0.0.0` seed; that checkpoint did not publish, tag, or establish
+registry/docs identity. The current A0-10 release source is
+`@fadeno/framework@0.1.0-alpha.0` and owns those remaining checks.
 
 ## A0-10 first-alpha release and public replay
 

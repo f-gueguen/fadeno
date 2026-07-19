@@ -19,6 +19,7 @@ type JsonRecord = Record<string, unknown>;
 export type A0FirstAlphaReleaseContext = Readonly<{
   manifest: unknown;
   prerelease: unknown;
+  changesets: Readonly<Record<string, string>>;
   changelog: string;
   sbom: unknown;
   alphaCandidate: unknown;
@@ -36,6 +37,9 @@ export type A0FirstAlphaReleaseContext = Readonly<{
   packageReadme: string;
   support: string;
   releasePolicy: string;
+  buildSpecification: string;
+  guideTemplate: string;
+  generatedGuide: string;
   roadmap: string;
   ledger: string;
   scope: string;
@@ -49,6 +53,7 @@ export type A0FirstAlphaReleaseContext = Readonly<{
 
 const requiredPaths = Object.freeze([
   ".changeset/pre.json",
+  ...A0_FIRST_ALPHA_CHANGESETS.map((id) => `.changeset/${id}.md`),
   ".github/workflows/publish.yml",
   "docs/releases/0.1.0-alpha.0.md",
   "evidence/a0/qualification/alpha-candidate.json",
@@ -84,6 +89,11 @@ function normalized(value: string): string {
   return value.replace(/\s+/gu, " ");
 }
 
+function changesetBody(value: string): string | undefined {
+  const match = /^---\n"@fadeno\/framework": (?:minor|patch)\n---\n\n([\s\S]+?)\n?$/u.exec(value);
+  return match?.[1];
+}
+
 function readJson(read: (path: string) => string, path: string): unknown {
   return JSON.parse(read(path)) as unknown;
 }
@@ -96,6 +106,7 @@ export function loadA0FirstAlphaReleaseContext(
   return Object.freeze({
     manifest: readJson(read, "packages/framework/package.json"),
     prerelease: readJson(read, ".changeset/pre.json"),
+    changesets: Object.freeze(Object.fromEntries(A0_FIRST_ALPHA_CHANGESETS.map((id) => [id, read(`.changeset/${id}.md`)]))),
     changelog: read("packages/framework/CHANGELOG.md"),
     sbom: readJson(read, "packages/framework/sbom.spdx.json"),
     alphaCandidate: readJson(read, "evidence/a0/qualification/alpha-candidate.json"),
@@ -113,6 +124,9 @@ export function loadA0FirstAlphaReleaseContext(
     packageReadme: read("packages/framework/README.md"),
     support: read("SUPPORT.md"),
     releasePolicy: read("docs/release-policy.md"),
+    buildSpecification: read("docs/spec/build-adapters-testing.md"),
+    guideTemplate: read("docs/templates/v1/getting-started.md.tmpl"),
+    generatedGuide: read("docs/guides/getting-started.md"),
     roadmap: read("docs/roadmap/a0.md"),
     ledger: read("ROADMAP_LEDGER.md"),
     scope: read("docs/product/scope.md"),
@@ -224,6 +238,12 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   if (expectedDocs) errors.push(...validateA0DocumentationManifest(context.docsManifest, expectedDocs));
 
   const changelog = normalized(context.changelog);
+  for (const id of A0_FIRST_ALPHA_CHANGESETS) {
+    const body = changesetBody(context.changesets[id] ?? "");
+    if (!body || !changelog.includes(normalized(body))) {
+      errors.push(`A0 first-alpha changelog is missing changeset ${id}`);
+    }
+  }
   for (const fragment of [
     `## ${A0_FIRST_ALPHA_VERSION}`,
     "first public alpha package",
@@ -265,12 +285,42 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   if (!normalized(context.ledger).includes("A0-10 — publish and verify the first immutable alpha release")) {
     errors.push("A0-10 ledger state drifted");
   }
+  for (const fragment of [
+    "At A0-09 qualification the package was the unpublished `0.0.0` seed",
+    "The current A0-10 release source is `@fadeno/framework@0.1.0-alpha.0`",
+  ]) {
+    if (!normalized(context.buildSpecification).includes(fragment)) {
+      errors.push(`A0 first-alpha build specification is missing ${fragment}`);
+    }
+  }
+  for (const [name, content] of [
+    ["getting-started template", context.guideTemplate],
+    ["generated getting-started guide", context.generatedGuide],
+  ] as const) {
+    const prose = normalized(content);
+    if (!prose.includes("first public alpha release source, `@fadeno/framework@0.1.0-alpha.0`")
+      || !prose.includes("registry availability and provenance are accepted only when `pnpm verify:a0-public-alpha` passes")
+      || prose.includes("working private framework, not yet a registry release")
+      || prose.includes("no registry version")) {
+      errors.push(`${name} does not describe the current first-alpha source`);
+    }
+  }
   for (const feature of ["CLI-01", "DOC-01", "REL-01"]) {
     const scopeRow = context.scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
     const traceRow = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
     if (!scopeRow.includes("check:a0-first-alpha-release") || !traceRow.includes("check:a0-first-alpha-release")) {
       errors.push(`${feature} is missing A0 first-alpha release traceability`);
     }
+  }
+  const scopeRelease = context.scope.split("\n").find((line) => line.startsWith("| REL-01 |")) ?? "";
+  const traceRelease = context.traceability.split("\n").find((line) => line.startsWith("| REL-01 |")) ?? "";
+  if (!scopeRelease.includes("current `0.1.0-alpha.0` release source")
+    || !scopeRelease.includes("every consumed Changeset")) {
+    errors.push("REL-01 scope does not describe the current first-alpha source");
+  }
+  if (!traceRelease.includes("current `0.1.0-alpha.0` release source")
+    || !traceRelease.includes("every consumed Changeset")) {
+    errors.push("REL-01 traceability does not describe the current first-alpha source");
   }
   return Object.freeze(errors);
 }
