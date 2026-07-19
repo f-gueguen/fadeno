@@ -428,7 +428,10 @@ try {
     version: A0_FIRST_ALPHA_VERSION,
     sourceTag: A0_FIRST_ALPHA_TAG,
     sourceCommit,
-    distributionTag: A0_DISTRIBUTION_TAG,
+    distributionAliases: Object.freeze({
+      [A0_DISTRIBUTION_TAG]: A0_FIRST_ALPHA_VERSION,
+      latest: A0_FIRST_ALPHA_VERSION,
+    }),
     provenancePresent: true,
     packageTarballIntegrityVerified: true,
     packageSourceContentVerified: true,

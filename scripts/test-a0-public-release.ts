@@ -28,6 +28,10 @@ mutation("A0 public-release qualification drifted", (context) => Object.freeze({
     distributionAliases: { alpha: "0.1.0-alpha.1" },
   },
 }));
+mutation("A0 public-release live verification drifted", (context) => Object.freeze({
+  ...context,
+  verification: { ...(context.verification as Record<string, unknown>), corruptedCandidateRefused: false },
+}));
 mutation("A0 public-release diagnostics are missing FADENO_A0_BOOTSTRAP_SELF_REVOCATION", (context) => Object.freeze({
   ...context,
   diagnosticHuman: context.diagnosticHuman.replace("FADENO_A0_BOOTSTRAP_SELF_REVOCATION:", "REMOVED:"),

@@ -13,6 +13,7 @@ export type A0PublicReleaseEvidenceContext = Readonly<{
   decision: string;
   decisionIndex: string;
   qualification: unknown;
+  verification: unknown;
   diagnostics: unknown;
   diagnosticHuman: string;
   correctionBefore: unknown;
@@ -36,6 +37,7 @@ export const A0_FIRST_ALPHA_SOURCE_COMMIT = "4f30236d9734053cca0138ecfff5da1bbbd
 const requiredPaths = Object.freeze([
   "docs/adr/0044-first-alpha-registry-transport-reconciliation.md",
   "evidence/a0/release/public/qualification.json",
+  "evidence/a0/release/public/verification.json",
   "evidence/a0/release/public/diagnostics.json",
   "evidence/a0/release/public/diagnostic-human.txt",
   "evidence/a0/release/public/correction-before.json",
@@ -72,6 +74,7 @@ export function loadA0PublicReleaseEvidenceContext(
     decision: read("docs/adr/0044-first-alpha-registry-transport-reconciliation.md"),
     decisionIndex: read("docs/adr/README.md"),
     qualification: readJson(read, "evidence/a0/release/public/qualification.json"),
+    verification: readJson(read, "evidence/a0/release/public/verification.json"),
     diagnostics: readJson(read, "evidence/a0/release/public/diagnostics.json"),
     diagnosticHuman: read("evidence/a0/release/public/diagnostic-human.txt"),
     correctionBefore: readJson(read, "evidence/a0/release/public/correction-before.json"),
@@ -131,6 +134,24 @@ export function validateA0PublicReleaseEvidence(
     documentationReceiptSha256: "25df4167d4e48bd4627be0abd12d0112e423d8949cc80d93c37a49e933c4c7e5",
     verificationCommand: `pnpm verify:a0-public-alpha -- --source-commit ${A0_FIRST_ALPHA_SOURCE_COMMIT}`,
   })) errors.push("A0 public-release qualification drifted");
+
+  if (!exact(context.verification, {
+    schemaVersion: 1,
+    milestone: "A0-10",
+    status: "verified-public-alpha",
+    package: A0_PACKAGE_NAME,
+    version: A0_FIRST_ALPHA_VERSION,
+    sourceTag: A0_FIRST_ALPHA_TAG,
+    sourceCommit: A0_FIRST_ALPHA_SOURCE_COMMIT,
+    distributionAliases: { alpha: A0_FIRST_ALPHA_VERSION, latest: A0_FIRST_ALPHA_VERSION },
+    provenancePresent: true,
+    packageTarballIntegrityVerified: true,
+    packageSourceContentVerified: true,
+    documentationArtifactVerified: true,
+    publicWorkflows: ["install", "create", "test", "check", "build", "development", "start", "deploy", "rollback"],
+    corruptedCandidateRefused: true,
+    priorReleasePreserved: true,
+  })) errors.push("A0 public-release live verification drifted");
 
   const diagnostics = isRecord(context.diagnostics) && Array.isArray(context.diagnostics["scenarios"])
     ? context.diagnostics["scenarios"]

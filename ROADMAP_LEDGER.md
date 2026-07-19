@@ -19,7 +19,7 @@ A0-10 — publish and verify the first immutable alpha release
   final release-source commit.
 - [x] Make the source repository public with explicit owner authorization,
   publish through the accepted provenance bootstrap, and revoke its credential.
-- [ ] Verify the registry package and immutable tag from a clean public install,
+- [x] Verify the registry package and immutable tag from a clean public install,
   including create, test, check, build, development, deployment, and rollback.
 
 ## Active sub-slice

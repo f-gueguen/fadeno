@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "milestone": "A0-10",
+  "status": "verified-public-alpha",
+  "package": "@fadeno/framework",
+  "version": "0.1.0-alpha.1",
+  "sourceTag": "v0.1.0-alpha.1",
+  "sourceCommit": "4f30236d9734053cca0138ecfff5da1bbbdd1e18",
+  "distributionAliases": {
+    "alpha": "0.1.0-alpha.1",
+    "latest": "0.1.0-alpha.1"
+  },
+  "provenancePresent": true,
+  "packageTarballIntegrityVerified": true,
+  "packageSourceContentVerified": true,
+  "documentationArtifactVerified": true,
+  "publicWorkflows": [
+    "install",
+    "create",
+    "test",
+    "check",
+    "build",
+    "development",
+    "start",
+    "deploy",
+    "rollback"
+  ],
+  "corruptedCandidateRefused": true,
+  "priorReleasePreserved": true
+}
