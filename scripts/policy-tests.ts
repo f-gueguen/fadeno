@@ -69,6 +69,22 @@ expectPolicyFailure("invented traceability authority", "check-project-model.ts",
   writeFileSync(path, content);
 });
 
+expectPolicyFailure("non-accepted ADR cannot resolve a gate", "check-project-model.ts", "references unknown gate DG-FAKE-99", (copy) => {
+  writeFileSync(
+    join(copy, "docs/adr/9999-proposed-fake-gate.md"),
+    "# Proposed fake gate\n\n- Status: Proposed\n\nDG-FAKE-99 is resolved.\n",
+  );
+  appendFileSync(join(copy, "AGENTS.md"), "\nDG-FAKE-99 remains invalid outside an accepted ADR.\n");
+});
+
+expectPolicyFailure("unindexed accepted ADR cannot resolve a gate", "check-project-model.ts", "references unknown gate DG-FAKE-98", (copy) => {
+  writeFileSync(
+    join(copy, "docs/adr/unindexed-note.md"),
+    "# Unindexed note\n\n- Status: Accepted\n\nDG-FAKE-98 is resolved.\n",
+  );
+  appendFileSync(join(copy, "AGENTS.md"), "\nDG-FAKE-98 remains invalid outside the effective ADR index.\n");
+});
+
 expectPolicyFailure("missing K0 dependency", "check-project-model.ts", "K0-99", (copy) => {
   const path = join(copy, "docs/roadmap/k0.md");
   const content = readFileSync(path, "utf8").replace(/^\| K0-02 \|.*$/m, (line) => {

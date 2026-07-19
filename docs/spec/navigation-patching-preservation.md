@@ -34,8 +34,14 @@ application selector commands. Navigation, action completion, and later live
 data share render, ordering, recovery, and preservation semantics, but their
 transport envelopes may differ.
 
-The experimental patch format stays private through K0 and V1. DG-V2-01 is the
-only path to an external versioned protocol.
+ADR 0045 selects an **exact private version 1 envelope** for V2 implementation
+evidence. It binds application generation, document epoch, the current
+operation, normalized request URL, and sequence, a single-use result identity,
+and a server-owned structural root. Document and expected-error outcomes must
+match that operation URL exactly; route changes use typed redirects. It is
+`no-store`, strict about unknown fields and versions,
+and remains private; an external consumer still requires a separate ADR and
+demonstrated compatibility evidence.
 
 ## Preservation contract
 
@@ -54,10 +60,12 @@ failure is correctness failure, not cosmetic variance.
 
 ADR 0014 narrows the structural mechanism: node reuse alone does not preserve
 exact numeric scroll when layout changes before the document viewport or before
-content inside a scroller. Until DG-V2-01 qualifies an explicit management
-policy, an enhanced update must refuse or replace any patch boundary that can
-affect that preceding layout. This restriction does not weaken the native
-fallback or imply that K0's private identity format is public.
+content inside a scroller. ADR 0045 therefore admits an in-place update only
+when both relevant document and element preceding layout are proven unaffected.
+Any **affected or unknown preceding layout** refuses in-place mutation and
+returns to current server truth through the native path. This restriction does
+not imply that K0's or V2-01's private identity format is public. Scroll
+classifications must be exact strings and are not coerced from other values.
 
 ## Ordering, errors, and recovery
 
@@ -71,6 +79,25 @@ fallback or imply that K0's private identity format is public.
    request for current server truth.
 5. Development diagnostics explain which resource, action, or navigation
    caused an update without exposing protected data.
+
+ADR 0045 makes these rules exact for the private V2 boundary: only the matching
+application generation, document epoch, operation ID, sequence, operation kind,
+normalized operation URL, and unconsumed result may apply. Document/error URLs
+must match that operation URL; typed `303`/`307`/`308`
+redirects are same-origin HTTPS in deployed contexts, with same-origin HTTP
+limited to trustworthy loopback development hosts; mutation redirects are
+`303` and retain the native exact same-origin HTTPS and no-credentials
+restriction even during loopback development. The consumer verifies `no-store`
+in both its fetch mode and quote-aware parsing of observed response
+`Cache-Control` metadata rather than trusting the envelope alone. Malformed,
+unsupported, stale, duplicate, unsafe, cached, oversized, or over-time results
+change no document state. Boundary measurements must be nonnegative safe
+integers before their maxima are checked, and the measured aggregate envelope
+cap still applies when an individual field is at its own cap. Recovery must
+match an independently trusted current-truth URL and cannot select a route from
+transported data. Navigation may return to its native request before
+commit; uncertain mutation recovery performs a safe GET and **never repeats a
+mutation**.
 
 ## Narrowed H1 result and V2 conformance
 

@@ -1,0 +1,388 @@
+{
+  "schemaVersion": 1,
+  "operation": "fadeno.private.v2-patch-protocol-decision",
+  "baseContext": {
+    "origin": "https://example.test",
+    "currentTruthUrl": "/projects?view=active",
+    "transport": {
+      "requestCache": "no-store",
+      "responseCacheControl": "private, no-store"
+    },
+    "generation": "generation-7",
+    "documentEpoch": "document-3",
+    "currentOperation": {
+      "id": "operation-9",
+      "sequence": 9,
+      "kind": "navigation",
+      "url": "/projects?view=active"
+    },
+    "consumedResultIds": [],
+    "requestCommitted": false,
+    "boundary": {
+      "bytes": 512,
+      "records": 12,
+      "depth": 5,
+      "durationMilliseconds": 1
+    }
+  },
+  "baseEnvelope": {
+    "protocol": "fadeno.private.update",
+    "version": 1,
+    "applicationGeneration": "generation-7",
+    "documentEpoch": "document-3",
+    "operation": {
+      "id": "operation-9",
+      "sequence": 9,
+      "kind": "navigation"
+    },
+    "resultId": "result-10",
+    "cache": "no-store",
+    "outcome": {
+      "kind": "document",
+      "url": "/projects?view=active",
+      "title": "Active projects",
+      "root": {
+        "identity": "route:projects:index",
+        "html": "<main><h1>Active projects</h1></main>"
+      },
+      "scrollBoundary": {
+        "documentPrecedingLayout": "unaffected",
+        "elementPrecedingLayout": "unaffected"
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "document-accepted",
+      "category": "success",
+      "changes": [],
+      "expected": { "status": "accepted", "code": "FADENO_UPDATE_DOCUMENT", "outcome": "document", "recovery": "none", "mutationResubmission": "never" }
+    },
+    {
+      "id": "expected-error-accepted",
+      "category": "error",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "expected-error", "code": "PROJECT_CONFLICT", "url": "/projects?view=active", "title": "Project conflict", "root": { "identity": "route:projects:index", "html": "<main><p>Resolve the conflict.</p></main>" }, "scrollBoundary": { "documentPrecedingLayout": "unaffected", "elementPrecedingLayout": "unaffected" } } }
+      ],
+      "expected": { "status": "accepted", "code": "FADENO_UPDATE_EXPECTED_ERROR", "outcome": "expected-error", "recovery": "none", "mutationResubmission": "never" }
+    },
+    {
+      "id": "navigation-redirect-accepted",
+      "category": "redirect",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 307, "location": "/projects/7" } }
+      ],
+      "expected": { "status": "accepted", "code": "FADENO_UPDATE_REDIRECT", "outcome": "redirect", "recovery": "none", "mutationResubmission": "never" }
+    },
+    {
+      "id": "mutation-redirect-accepted",
+      "category": "redirect",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["currentOperation", "kind"], "value": "mutation" },
+        { "target": "context", "operation": "set", "path": ["requestCommitted"], "value": true },
+        { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": "mutation" },
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 303, "location": "/projects/7?updated=1" } }
+      ],
+      "expected": { "status": "accepted", "code": "FADENO_UPDATE_REDIRECT", "outcome": "redirect", "recovery": "none", "mutationResubmission": "never" }
+    },
+    {
+      "id": "loopback-navigation-redirect-accepted",
+      "category": "redirect",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["origin"], "value": "http://127.0.0.1:4173" },
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 307, "location": "/projects/7" } }
+      ],
+      "expected": { "status": "accepted", "code": "FADENO_UPDATE_REDIRECT", "outcome": "redirect", "recovery": "none", "mutationResubmission": "never" }
+    },
+    {
+      "id": "loopback-mutation-redirect-refused",
+      "category": "redirect",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["origin"], "value": "http://127.0.0.1:4173" },
+        { "target": "context", "operation": "set", "path": ["currentOperation", "kind"], "value": "mutation" },
+        { "target": "context", "operation": "set", "path": ["requestCommitted"], "value": true },
+        { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": "mutation" },
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 303, "location": "/projects/7" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_REDIRECT", "outcome": null, "recovery": "reload-current-truth", "mutationResubmission": "never" }
+    },
+    {
+      "id": "credential-redirect-refused",
+      "category": "redirect",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 307, "location": "https://user:password@example.test/projects/7" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_REDIRECT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "server-recovery-accepted",
+      "category": "recovery",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "recover", "reason": "server-current-truth", "location": "/projects?view=active" } }
+      ],
+      "expected": { "status": "recovery", "code": "FADENO_UPDATE_RECOVERY", "outcome": "recover", "recovery": "reload-current-truth", "mutationResubmission": "never" }
+    },
+    {
+      "id": "recovery-url-mismatch-refused",
+      "category": "recovery",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "recover", "reason": "server-current-truth", "location": "/other-route" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_RECOVERY_URL", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "malformed-recovery-reason-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "recover", "reason": { "toString": null }, "location": "/projects?view=active" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "newer-version-refused",
+      "category": "compatibility",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["version"], "value": 2 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_VERSION", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "older-version-refused",
+      "category": "compatibility",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["version"], "value": 0 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_VERSION", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "unknown-field-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["selector"], "value": "#admin" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "missing-outcome-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "delete", "path": ["outcome"] }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "generation-mismatch-refused",
+      "category": "identity",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["applicationGeneration"], "value": "generation-8" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_GENERATION", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "document-epoch-mismatch-refused",
+      "category": "identity",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["documentEpoch"], "value": "document-2" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_DOCUMENT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "stale-operation-id-refused",
+      "category": "ordering",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["operation", "id"], "value": "operation-8" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_STALE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "stale-sequence-refused",
+      "category": "ordering",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["operation", "sequence"], "value": 8 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_STALE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "wrong-operation-kind-refused",
+      "category": "ordering",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": "mutation" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_STALE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "malformed-operation-kind-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": { "toString": null } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_OPERATION", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "duplicate-result-refused",
+      "category": "ordering",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["consumedResultIds"], "value": ["result-10"] }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_DUPLICATE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "cached-result-refused",
+      "category": "cache",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["cache"], "value": "private" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "transport-request-cache-refused",
+      "category": "cache",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["transport", "requestCache"], "value": "default" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "transport-response-cache-refused",
+      "category": "cache",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["transport", "responseCacheControl"], "value": "private, max-age=60" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "quoted-cache-text-refused",
+      "category": "cache",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["transport", "responseCacheControl"], "value": "private=\"foo,no-store,bar\", max-age=3600" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "cross-origin-document-refused",
+      "category": "origin",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome", "url"], "value": "https://attacker.test/projects" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_URL", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "different-operation-url-refused",
+      "category": "ordering",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome", "url"], "value": "/other-route" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_URL", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "cross-origin-redirect-refused",
+      "category": "origin",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 303, "location": "https://attacker.test/steal" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_REDIRECT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "mutation-redirect-status-refused",
+      "category": "redirect",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["currentOperation", "kind"], "value": "mutation" },
+        { "target": "context", "operation": "set", "path": ["requestCommitted"], "value": true },
+        { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": "mutation" },
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 307, "location": "/projects/7" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_REDIRECT", "outcome": null, "recovery": "reload-current-truth", "mutationResubmission": "never" }
+    },
+    {
+      "id": "document-scroll-affected-refused",
+      "category": "scroll",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome", "scrollBoundary", "documentPrecedingLayout"], "value": "affected" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCROLL_BOUNDARY", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "element-scroll-unknown-refused",
+      "category": "scroll",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome", "scrollBoundary", "elementPrecedingLayout"], "value": "unknown" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCROLL_BOUNDARY", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "array-scroll-classification-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome", "scrollBoundary", "documentPrecedingLayout"], "value": ["affected"] }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "byte-limit-refused",
+      "category": "limit",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["boundary", "bytes"], "value": 2097153 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_LIMIT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "negative-boundary-refused",
+      "category": "limit",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["boundary", "bytes"], "value": -1 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_LIMIT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "record-limit-refused",
+      "category": "limit",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["boundary", "records"], "value": 4097 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_LIMIT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "depth-limit-refused",
+      "category": "limit",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["boundary", "depth"], "value": 17 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_LIMIT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "duration-limit-refused",
+      "category": "limit",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["boundary", "durationMilliseconds"], "value": 51 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_TIMEOUT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "selector-command-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome", "root", "selector"], "value": "main > form" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "invalid-error-code-refused",
+      "category": "error",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "expected-error", "code": "private value", "url": "/projects", "title": "Failure", "root": { "identity": "route:projects:index", "html": "<main>Failure</main>" }, "scrollBoundary": { "documentPrecedingLayout": "unaffected", "elementPrecedingLayout": "unaffected" } } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "committed-mutation-malformed-refused",
+      "category": "recovery",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["currentOperation", "kind"], "value": "mutation" },
+        { "target": "context", "operation": "set", "path": ["requestCommitted"], "value": true },
+        { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": "mutation" },
+        { "target": "envelope", "operation": "delete", "path": ["outcome"] }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "reload-current-truth", "mutationResubmission": "never" }
+    }
+  ]
+}

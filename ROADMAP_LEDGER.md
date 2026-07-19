@@ -6,47 +6,56 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-00 — decompose browser enhancement from the verified public native baseline
+V2-01 — resolve the experimental update protocol and scroll boundary
 
 ## Exit criteria
 
-- [ ] Freeze one dependency-ordered V2 plan with reviewable outcomes and exact
-  native/enhanced checkpoints.
-- [ ] Assign DG-V2-01 to a decision/evidence slice before ENH-01 implementation.
-- [ ] Preserve the native no-JavaScript baseline, public-package authority,
-  private analyzer boundary, V3 island boundary, and explicit deferrals.
-- [ ] Bind V2 scope, traceability, risks, roadmap state, and plan validation.
+- [x] Accept one patch-protocol ADR resolving DG-V2-01 without publishing an
+  implementation or stable external protocol.
+- [x] Retain versioned accepted/refused fixtures for identity, ordering,
+  redirects, errors, recovery, cache, limits, and compatibility.
+- [x] Choose and qualify one explicit scroll boundary in Chromium, Firefox,
+  and WebKit against ADR 0014's narrowed evidence.
+- [x] Align the decision gate, specification, traceability, risks, and roadmap
+  state with the accepted decision.
 - [ ] Pass all affected gates, full local CI, and independent review.
 
 ## Active sub-slice
 
-V2-00 planning only. It decomposes the accepted browser-enhancement outcome and
-ADR 0014's narrowed preservation evidence. It does not choose the patch
-protocol, add browser code, expose an analyzer schema, or claim enhanced
-behavior.
+V2-01 decision and evidence only. ADR 0045 resolves the private update protocol
+and conservative scroll-refusal policy before implementation. It does not add
+browser runtime code, create the separate browser entrypoint, expose an
+analyzer schema, or claim enhanced behavior. Release impact: none — no package
+behavior changes and no Changeset is required.
 
 ## In progress
 
-- The verified public native application is the V2 success/failure/recovery
-  corpus; V2 does not create a disconnected example application.
-- DG-V2-01 remains open and blocks browser enhancement implementation until an
-  accepted ADR and versioned executable fixtures resolve it.
+- DG-V2-01 is resolved by ADR 0045 and leaves the open decision-gate ledger.
+- The versioned corpus retains accepted/refused identity, ordering, redirect,
+  error, recovery, cache, limit, and compatibility outcomes. Three-engine
+  controls admit only proven-unaffected scroll boundaries.
+- The V1 action round trip and verified public native application remain the
+  outcome and recovery authorities; uncertain mutation recovery never retries.
 
 ## Blockers
 
-- No V2 implementation may begin before DG-V2-01 resolves patch identity,
-  scroll, ordering, redirects, errors, recovery, cache, and version negotiation.
+- V2-02 remains blocked on the separate V2-01A browser-entrypoint
+  package-boundary decision even though DG-V2-01 is resolved.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
 ## Open questions
 
-- V2-01 must choose between explicit affected-scroll management and refusal or
-  replacement of layout-affecting patch boundaries.
 - Later external analyzer consumers require new evidence and a new
   compatibility decision.
 
 ## Completed slices
+
+- V2-00 — decompose browser enhancement. Merge commit `7ec3f1a` records
+  nineteen dependency-ordered slices, retains every native, security,
+  accessibility, performance, qualification, and release boundary, and adds
+  fail-closed V2 plan and mutation gates without introducing browser runtime
+  behavior.
 
 - A0-10 — Merge commit `60d55c7` publishes and verifies
   `@fadeno/framework@0.1.0-alpha.1`, retains exact source/package/release/docs
