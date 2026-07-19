@@ -3,6 +3,7 @@
   "operation": "fadeno.private.v2-patch-protocol-decision",
   "baseContext": {
     "origin": "https://example.test",
+    "currentTruthUrl": "/projects?view=active",
     "transport": {
       "requestCache": "no-store",
       "responseCacheControl": "private, no-store"
@@ -117,9 +118,25 @@
       "id": "server-recovery-accepted",
       "category": "recovery",
       "changes": [
-        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "recover", "reason": "server-current-truth", "location": "/projects" } }
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "recover", "reason": "server-current-truth", "location": "/projects?view=active" } }
       ],
       "expected": { "status": "recovery", "code": "FADENO_UPDATE_RECOVERY", "outcome": "recover", "recovery": "reload-current-truth", "mutationResubmission": "never" }
+    },
+    {
+      "id": "recovery-url-mismatch-refused",
+      "category": "recovery",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "recover", "reason": "server-current-truth", "location": "/other-route" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_RECOVERY_URL", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "malformed-recovery-reason-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "recover", "reason": { "toString": null }, "location": "/projects?view=active" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
     },
     {
       "id": "newer-version-refused",
@@ -192,6 +209,14 @@
         { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": "mutation" }
       ],
       "expected": { "status": "refused", "code": "FADENO_UPDATE_STALE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "malformed-operation-kind-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": { "toString": null } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_OPERATION", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
     },
     {
       "id": "duplicate-result-refused",

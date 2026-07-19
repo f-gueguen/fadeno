@@ -6,6 +6,7 @@ import {
   parseV2PatchProtocolCorpus,
   runV2PatchProtocolFixture,
   V2_PATCH_PROTOCOL_LIMITS,
+  V2_PATCH_PROTOCOL_REQUIRED_CASE_IDS,
 } from "./lib/v2-patch-protocol.ts";
 
 const root = process.cwd();
@@ -22,6 +23,7 @@ for (const [index, fixture] of corpus.cases.entries()) {
   assert.deepEqual(observed[index]?.decision, fixture.expected, fixture.id);
 }
 assert.equal(new Set(corpus.cases.map(({ id }) => id)).size, corpus.cases.length);
+assert.deepEqual(corpus.cases.map(({ id }) => id).sort(), V2_PATCH_PROTOCOL_REQUIRED_CASE_IDS);
 assert.deepEqual(
   [...new Set(corpus.cases.map(({ category }) => category))].sort(),
   ["cache", "compatibility", "decoder", "error", "identity", "limit", "ordering", "origin", "recovery", "redirect", "scroll", "success"],

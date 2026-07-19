@@ -122,7 +122,9 @@ operation mismatch, duplicates, and unsafe scroll all fail closed before any
 document mutation. Before a navigation request commits, refusal leaves or
 returns to native navigation. After commitment, and for every uncertain
 mutation, recovery performs a safe GET to **reload current server truth** and
-**never resubmits** the mutation. Application-generation mismatch uses the same
+**never resubmits** the mutation. Its destination must exactly match the
+independently trusted current-truth URL in the operation context; transported
+recovery data cannot select another route. Application-generation mismatch uses the same
 recovery and provides rolling-deploy rollback without accepting mixed versions.
 
 ## Alternatives considered
@@ -157,7 +159,7 @@ recovery and provides rolling-deploy rollback without accepting mixed versions.
 ## Validation
 
 `pnpm check:v2-patch-protocol` type-checks the private model, decodes and replays
-the versioned corpus, rejects fixture-schema mutations, checks inclusive and
+the versioned corpus, locks its exact required case IDs, rejects fixture-schema mutations, checks inclusive and
 exceeded limits, malicious object shapes, redaction, serialization round trips,
 and runs the scroll admission controls in Chromium, Firefox, and WebKit.
 `pnpm check:v2-plan`, decision, ledger, model, documentation, and full local CI

@@ -30,6 +30,7 @@ export type PrivateUpdateDecision = Readonly<{
 
 export type PrivateUpdateDecisionContext = Readonly<{
   origin: string;
+  currentTruthUrl: string;
   transport: Readonly<{
     requestCache: string;
     responseCacheControl: string | null;
@@ -73,6 +74,49 @@ export type V2PatchProtocolCorpus = Readonly<{
   baseEnvelope: JsonRecord;
   cases: readonly V2PatchProtocolFixture[];
 }>;
+
+export const V2_PATCH_PROTOCOL_REQUIRED_CASE_IDS = Object.freeze([
+  "array-scroll-classification-refused",
+  "byte-limit-refused",
+  "cached-result-refused",
+  "committed-mutation-malformed-refused",
+  "credential-redirect-refused",
+  "cross-origin-document-refused",
+  "cross-origin-redirect-refused",
+  "depth-limit-refused",
+  "different-operation-url-refused",
+  "document-accepted",
+  "document-epoch-mismatch-refused",
+  "document-scroll-affected-refused",
+  "duplicate-result-refused",
+  "duration-limit-refused",
+  "element-scroll-unknown-refused",
+  "expected-error-accepted",
+  "generation-mismatch-refused",
+  "invalid-error-code-refused",
+  "loopback-mutation-redirect-refused",
+  "loopback-navigation-redirect-accepted",
+  "malformed-operation-kind-refused",
+  "malformed-recovery-reason-refused",
+  "missing-outcome-refused",
+  "mutation-redirect-accepted",
+  "mutation-redirect-status-refused",
+  "navigation-redirect-accepted",
+  "negative-boundary-refused",
+  "newer-version-refused",
+  "older-version-refused",
+  "quoted-cache-text-refused",
+  "record-limit-refused",
+  "recovery-url-mismatch-refused",
+  "selector-command-refused",
+  "server-recovery-accepted",
+  "stale-operation-id-refused",
+  "stale-sequence-refused",
+  "transport-request-cache-refused",
+  "transport-response-cache-refused",
+  "unknown-field-refused",
+  "wrong-operation-kind-refused",
+]);
 
 const encoder = new TextEncoder();
 const identityPattern = /^[a-zA-Z0-9][a-zA-Z0-9:._/-]*$/u;
@@ -118,6 +162,13 @@ function boundedIdentity(value: unknown): value is string {
 
 function finiteInteger(value: unknown, minimum = 0): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= minimum;
+}
+
+function stringLiteral<const Values extends readonly string[]>(
+  value: unknown,
+  allowed: Values,
+): value is Values[number] {
+  return typeof value === "string" && allowed.includes(value);
 }
 
 function safeSameOriginUrl(value: unknown, origin: string, httpsOnly = false): boolean {
@@ -273,7 +324,7 @@ function decodeOutcome(value: unknown): DecodedOutcome | undefined {
   }
   if (value["kind"] === "recover") {
     if (!exactKeys(value, ["kind", "reason", "location"])) return undefined;
-    if (!new Set(["desynchronized", "server-current-truth"]).has(String(value["reason"])) || typeof value["location"] !== "string") return undefined;
+    if (!stringLiteral(value["reason"], ["desynchronized", "server-current-truth"] as const) || typeof value["location"] !== "string") return undefined;
     return Object.freeze({ kind: "recover", reason: value["reason"] as "desynchronized" | "server-current-truth", location: value["location"] });
   }
   return undefined;
@@ -299,7 +350,7 @@ function decodeEnvelope(value: unknown): { envelope?: DecodedEnvelope; code?: st
   }
   const operation = value["operation"];
   if (!plainRecord(operation) || !exactKeys(operation, ["id", "sequence", "kind"])) return { code: "FADENO_UPDATE_SCHEMA" };
-  if (!boundedIdentity(operation["id"]) || !finiteInteger(operation["sequence"], 1) || !new Set(["navigation", "mutation"]).has(String(operation["kind"]))) {
+  if (!boundedIdentity(operation["id"]) || !finiteInteger(operation["sequence"], 1) || !stringLiteral(operation["kind"], ["navigation", "mutation"] as const)) {
     return { code: "FADENO_UPDATE_OPERATION" };
   }
   if (typeof value["cache"] !== "string") return { code: "FADENO_UPDATE_SCHEMA" };
@@ -362,7 +413,7 @@ export function evaluatePrivateUpdate(
     return accepted("FADENO_UPDATE_REDIRECT", "redirect");
   }
   if (outcome.kind === "recover") {
-    if (!safeSameOriginUrl(outcome.location, context.origin)) return refused("FADENO_UPDATE_RECOVERY_URL", context);
+    if (!matchesOperationUrl(outcome.location, context.currentTruthUrl, context.origin)) return refused("FADENO_UPDATE_RECOVERY_URL", context);
     return Object.freeze({
       status: "recovery",
       code: "FADENO_UPDATE_RECOVERY",
@@ -393,9 +444,9 @@ function requireString(value: unknown, label: string): string {
 function parseExpected(value: unknown, label: string): PrivateUpdateDecision {
   const record = requireRecord(value, label);
   if (!exactKeys(record, ["status", "code", "outcome", "recovery", "mutationResubmission"])) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: ${label} keys`);
-  if (!new Set(["accepted", "refused", "recovery"]).has(String(record["status"]))) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: ${label} status`);
-  if (!(record["outcome"] === null || new Set(["document", "expected-error", "redirect", "recover"]).has(String(record["outcome"])))) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: ${label} outcome`);
-  if (!new Set(["none", "native-navigation", "reload-current-truth"]).has(String(record["recovery"]))) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: ${label} recovery`);
+  if (!stringLiteral(record["status"], ["accepted", "refused", "recovery"] as const)) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: ${label} status`);
+  if (!(record["outcome"] === null || stringLiteral(record["outcome"], ["document", "expected-error", "redirect", "recover"] as const))) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: ${label} outcome`);
+  if (!stringLiteral(record["recovery"], ["none", "native-navigation", "reload-current-truth"] as const)) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: ${label} recovery`);
   if (record["mutationResubmission"] !== "never") throw new Error(`FADENO_V2_FIXTURE_SCHEMA: ${label} mutation resubmission`);
   return Object.freeze({
     status: record["status"] as PrivateUpdateDecision["status"],
@@ -408,7 +459,7 @@ function parseExpected(value: unknown, label: string): PrivateUpdateDecision {
 
 function parseContext(value: unknown): PrivateUpdateDecisionContext {
   const record = requireRecord(value, "baseContext");
-  if (!exactKeys(record, ["origin", "transport", "generation", "documentEpoch", "currentOperation", "consumedResultIds", "requestCommitted", "boundary"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext keys");
+  if (!exactKeys(record, ["origin", "currentTruthUrl", "transport", "generation", "documentEpoch", "currentOperation", "consumedResultIds", "requestCommitted", "boundary"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext keys");
   const transport = requireRecord(record["transport"], "baseContext transport");
   const operation = requireRecord(record["currentOperation"], "baseContext currentOperation");
   const boundary = requireRecord(record["boundary"], "baseContext boundary");
@@ -419,7 +470,7 @@ function parseContext(value: unknown): PrivateUpdateDecisionContext {
   if (responseCacheControl !== null && typeof responseCacheControl !== "string") throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext transport values");
   if (!exactKeys(operation, ["id", "sequence", "kind", "url"]) || !exactKeys(boundary, ["bytes", "records", "depth", "durationMilliseconds"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext nested keys");
   if (!Array.isArray(record["consumedResultIds"]) || !record["consumedResultIds"].every((item) => typeof item === "string")) throw new Error("FADENO_V2_FIXTURE_SCHEMA: consumed results");
-  if (typeof record["requestCommitted"] !== "boolean" || !finiteInteger(operation["sequence"], 1) || !new Set(["navigation", "mutation"]).has(String(operation["kind"]))) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext operation");
+  if (typeof record["requestCommitted"] !== "boolean" || !finiteInteger(operation["sequence"], 1) || !stringLiteral(operation["kind"], ["navigation", "mutation"] as const)) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext operation");
   const bytes = boundary["bytes"];
   const records = boundary["records"];
   const depth = boundary["depth"];
@@ -427,6 +478,7 @@ function parseContext(value: unknown): PrivateUpdateDecisionContext {
   if (!finiteInteger(bytes) || !finiteInteger(records) || !finiteInteger(depth) || !finiteInteger(durationMilliseconds)) throw new Error("FADENO_V2_FIXTURE_SCHEMA: boundary metrics");
   return Object.freeze({
     origin: requireString(record["origin"], "baseContext origin"),
+    currentTruthUrl: requireString(record["currentTruthUrl"], "baseContext current truth URL"),
     transport: Object.freeze({ requestCache, responseCacheControl: responseCacheControl as string | null }),
     generation: requireString(record["generation"], "baseContext generation"),
     documentEpoch: requireString(record["documentEpoch"], "baseContext documentEpoch"),
@@ -453,12 +505,15 @@ export function parseV2PatchProtocolCorpus(value: unknown): V2PatchProtocolCorpu
     const changes = fixture["changes"].map((item, changeIndex) => {
       const change = requireRecord(item, `case ${id} change ${changeIndex}`);
       const allowed = change["operation"] === "set" ? ["target", "operation", "path", "value"] : ["target", "operation", "path"];
-      if (!exactKeys(change, allowed) || !new Set(["context", "envelope"]).has(String(change["target"])) || !new Set(["set", "delete"]).has(String(change["operation"]))) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: case ${id} change ${changeIndex}`);
+      if (!exactKeys(change, allowed) || !stringLiteral(change["target"], ["context", "envelope"] as const) || !stringLiteral(change["operation"], ["set", "delete"] as const)) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: case ${id} change ${changeIndex}`);
       if (!Array.isArray(change["path"]) || change["path"].length < 1 || change["path"].length > 8 || !change["path"].every((part) => typeof part === "string" || finiteInteger(part))) throw new Error(`FADENO_V2_FIXTURE_SCHEMA: case ${id} path`);
       return Object.freeze({ target: change["target"] as "context" | "envelope", operation: change["operation"] as "set" | "delete", path: Object.freeze([...change["path"]] as (string | number)[]), ...(change["operation"] === "set" ? { value: structuredClone(change["value"]) } : {}) });
     });
     return Object.freeze({ id, category: requireString(fixture["category"], `case ${id} category`), changes: Object.freeze(changes), expected: parseExpected(fixture["expected"], `case ${id} expected`) });
   });
+  if (JSON.stringify([...ids].sort()) !== JSON.stringify(V2_PATCH_PROTOCOL_REQUIRED_CASE_IDS)) {
+    throw new Error("FADENO_V2_FIXTURE_SCHEMA: required case IDs");
+  }
   return Object.freeze({
     schemaVersion: 1,
     operation: "fadeno.private.v2-patch-protocol-decision",

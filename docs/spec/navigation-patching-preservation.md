@@ -93,7 +93,9 @@ in both its fetch mode and quote-aware parsing of observed response
 unsupported, stale, duplicate, unsafe, cached, oversized, or over-time results
 change no document state. Boundary measurements must be nonnegative safe
 integers before their maxima are checked, and the measured aggregate envelope
-cap still applies when an individual field is at its own cap. Navigation may return to its native request before
+cap still applies when an individual field is at its own cap. Recovery must
+match an independently trusted current-truth URL and cannot select a route from
+transported data. Navigation may return to its native request before
 commit; uncertain mutation recovery performs a safe GET and **never repeats a
 mutation**.
 

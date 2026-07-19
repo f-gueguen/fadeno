@@ -43,6 +43,9 @@ rejects((value) => {
   const first = cases[0];
   if (first) first["changes"] = [{ target: "envelope", operation: "delete", path: [] }];
 }, /case document-accepted path/u);
+rejects((value) => {
+  value["cases"] = (value["cases"] as Record<string, unknown>[]).filter((fixture) => fixture["id"] !== "credential-redirect-refused");
+}, /required case IDs/u);
 
 for (const fixture of corpus.cases) assert.deepEqual(runV2PatchProtocolFixture(corpus, fixture), fixture.expected);
 assert.deepEqual(decidePrivateScrollBoundary({ documentPrecedingLayout: "unaffected", elementPrecedingLayout: "unaffected" }), {
