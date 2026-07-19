@@ -213,11 +213,16 @@ export function validateA0Release(context: A0ReleaseContext): readonly string[] 
     "actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
     "pnpm install --frozen-lockfile", "pnpm check:a0-release",
     "npm publish ./packages/framework --access public --tag alpha",
+    "pnpm revoke:a0-bootstrap-token",
     "vars.NPM_RELEASE_MODE", "vars.FADENO_QUALIFIED_COMMIT", "secrets.NPM_BOOTSTRAP_TOKEN",
   ]) {
     if (!context.workflow.includes(required)) errors.push(`publication workflow is missing ${required}`);
   }
   if (/^\s+(?:push|pull_request):/mu.test(context.workflow)) errors.push("publication workflow became merge CI");
+  if (context.workflow.indexOf("pnpm revoke:a0-bootstrap-token")
+    <= context.workflow.indexOf("npm publish ./packages/framework --access public --tag alpha")) {
+    errors.push("publication workflow does not revoke bootstrap credentials after publication");
+  }
 
   for (const [name, content, required] of [
     ["release policy", context.releasePolicy, ["ADR 0038", "`0.1.0-alpha.0`", "pending Changeset", "deterministic SPDX SBOM", "pnpm check:a0-release"]],

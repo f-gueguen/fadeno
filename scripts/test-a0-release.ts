@@ -18,6 +18,10 @@ expectMutation("first-alpha prerelease state drifted", (context) => Object.freez
 expectMutation("public package release metadata drifted", (context) => Object.freeze({ ...context, manifest: { ...(context.manifest as Record<string, unknown>), private: true } }));
 expectMutation("normalized SPDX SBOM drifted", (context) => Object.freeze({ ...context, sbom: { ...(context.sbom as Record<string, unknown>), documentNamespace: "stale" } }));
 expectMutation("publication workflow became merge CI", (context) => Object.freeze({ ...context, workflow: `${context.workflow}\n  pull_request:\n` }));
+expectMutation("publication workflow is missing pnpm revoke:a0-bootstrap-token", (context) => Object.freeze({
+  ...context,
+  workflow: context.workflow.replace("pnpm revoke:a0-bootstrap-token", "removed-bootstrap-revocation"),
+}));
 expectMutation("prepublication rollback fixture drifted", (context) => Object.freeze({ ...context, rollbackPrivate: { ...(context.rollbackPrivate as Record<string, unknown>), publicationAttempted: true } }));
 expectMutation("human publication refusal evidence drifted", (context) => Object.freeze({ ...context, publicationRefusalHuman: "stale" }));
 expectMutation("refused publication recovery evidence drifted", (context) => Object.freeze({ ...context, recovery: { ...(context.recovery as Record<string, unknown>), tagCreated: true } }));

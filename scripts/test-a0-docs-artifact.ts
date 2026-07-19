@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import {
   createA0DocumentationArtifactReceipt,
+  isA0DocumentationPath,
   validateA0DocumentationArtifactReceipt,
   validateA0DocumentationArtifactTree,
   type A0DocumentationManifest,
@@ -12,6 +13,11 @@ import {
 
 const temporary = mkdtempSync(join(tmpdir(), "fadeno-a0-docs-contract-"));
 try {
+  if (!isA0DocumentationPath("PROJECT_INVARIANTS.md")
+    || !isA0DocumentationPath("ROADMAP_LEDGER.md")
+    || isA0DocumentationPath("package.json")) {
+    throw new Error("A0 root documentation selection drifted");
+  }
   const readme = Buffer.from("# Fadeno\n");
   const release = Buffer.from("# First alpha\n");
   mkdirSync(join(temporary, "docs/releases"), { recursive: true });

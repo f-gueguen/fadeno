@@ -1,13 +1,10 @@
-import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  createA0DocumentationArtifactReceipt,
   createA0DocumentationManifest,
-  validateA0DocumentationArtifactReceipt,
   validateA0DocumentationArtifactTree,
   validateA0DocumentationManifest,
   type A0DocumentationManifest,
@@ -67,18 +64,20 @@ const findAsset = (name: string): JsonRecord => {
 };
 const archiveBytes = await download(requiredString(findAsset(filename), "url"));
 const receiptBytes = await download(requiredString(findAsset(`${filename}.json`), "url"));
-const receipt = JSON.parse(receiptBytes.toString("utf8")) as unknown;
 const manifest = JSON.parse(readFileSync(join(root, "evidence/a0/release/docs-manifest.json"), "utf8")) as A0DocumentationManifest;
-const expectedReceipt = createA0DocumentationArtifactReceipt(
-  sourceCommit,
-  createHash("sha256").update(archiveBytes).digest("hex"),
-  manifest,
-);
-const receiptErrors = validateA0DocumentationArtifactReceipt(receipt, expectedReceipt);
-if (receiptErrors.length > 0) throw new Error(receiptErrors.join("\n"));
 
 const temporary = mkdtempSync(join(tmpdir(), "fadeno-a0-release-event-"));
 try {
+  const expected = join(temporary, "expected");
+  run(process.execPath, [
+    "--no-warnings", "--experimental-strip-types", "scripts/build-a0-docs-artifact.ts",
+    "--ref", A0_FIRST_ALPHA_TAG, "--output", expected,
+  ], root);
+  const expectedArchive = readFileSync(join(expected, filename));
+  const expectedReceipt = readFileSync(join(expected, `${filename}.json`));
+  if (!archiveBytes.equals(expectedArchive) || !receiptBytes.equals(expectedReceipt)) {
+    throw new Error("FADENO_A0_RELEASE_EVENT_DETERMINISTIC_ARTIFACT");
+  }
   const archive = join(temporary, filename);
   const extracted = join(temporary, "extracted");
   writeFileSync(archive, archiveBytes);

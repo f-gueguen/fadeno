@@ -236,6 +236,8 @@ const distribution = record(metadata["dist"], "FADENO_A0_PUBLIC_DIST");
 const integrity = requiredString(distribution, "integrity", "FADENO_A0_PUBLIC_DIST");
 const shasum = requiredString(distribution, "shasum", "FADENO_A0_PUBLIC_DIST");
 const tarballUrl = requiredString(distribution, "tarball", "FADENO_A0_PUBLIC_DIST");
+const attestationMetadata = record(distribution["attestations"], "FADENO_A0_PUBLIC_PROVENANCE");
+const attestations = await requestJson(requiredString(attestationMetadata, "url", "FADENO_A0_PUBLIC_PROVENANCE"));
 const tags = record(await requestJson(`https://registry.npmjs.org/-/package/${encodedPackage}/dist-tags`), "FADENO_A0_PUBLIC_DIST_TAG");
 assert.equal(tags[A0_DISTRIBUTION_TAG], A0_FIRST_ALPHA_VERSION);
 
@@ -314,6 +316,7 @@ try {
   const identityErrors = validateA0PublicAlphaIdentity({
     sourceCommit,
     metadata,
+    attestations,
     distributionTags: tags,
     tagCommit,
     release,
@@ -321,6 +324,7 @@ try {
     receipt,
     packageIntegrity: `sha512-${createHash("sha512").update(packageTarball).digest("base64")}`,
     packageShasum: createHash("sha1").update(packageTarball).digest("hex"),
+    packageSha512: createHash("sha512").update(packageTarball).digest("hex"),
     documentationSha256: createHash("sha256").update(docsBytes).digest("hex"),
     documentationManifest: manifest,
   });

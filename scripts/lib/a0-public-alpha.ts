@@ -11,6 +11,7 @@ type JsonRecord = Record<string, unknown>;
 export interface A0PublicAlphaIdentityContext {
   readonly sourceCommit: string;
   readonly metadata: unknown;
+  readonly attestations: unknown;
   readonly distributionTags: unknown;
   readonly tagCommit: string;
   readonly release: unknown;
@@ -18,6 +19,7 @@ export interface A0PublicAlphaIdentityContext {
   readonly receipt: unknown;
   readonly packageIntegrity: string;
   readonly packageShasum: string;
+  readonly packageSha512: string;
   readonly documentationSha256: string;
   readonly documentationManifest: A0DocumentationManifest;
 }
@@ -48,6 +50,60 @@ function validProvenanceAttestation(value: unknown): boolean {
     return parsed.protocol === "https:"
       && parsed.hostname === "registry.npmjs.org"
       && decodeURIComponent(parsed.pathname) === `/-/npm/v1/attestations/${A0_PACKAGE_NAME}@${A0_FIRST_ALPHA_VERSION}`;
+  } catch {
+    return false;
+  }
+}
+
+function validProvenanceIdentity(context: A0PublicAlphaIdentityContext): boolean {
+  try {
+    const root = record(context.attestations);
+    const entries = root?.["attestations"];
+    if (!Array.isArray(entries)) return false;
+    const matches = entries.filter((value) => record(value)?.["predicateType"] === "https://slsa.dev/provenance/v1");
+    if (matches.length !== 1) return false;
+    const attestation = record(matches[0]);
+    const bundle = attestation ? record(attestation["bundle"]) : undefined;
+    const envelope = bundle ? record(bundle["dsseEnvelope"]) : undefined;
+    if (envelope?.["payloadType"] !== "application/vnd.in-toto+json"
+      || typeof envelope["payload"] !== "string") return false;
+    const statement = record(JSON.parse(Buffer.from(envelope["payload"], "base64").toString("utf8")) as unknown);
+    const predicate = statement ? record(statement["predicate"]) : undefined;
+    const definition = predicate ? record(predicate["buildDefinition"]) : undefined;
+    const external = definition ? record(definition["externalParameters"]) : undefined;
+    const workflow = external ? record(external["workflow"]) : undefined;
+    const runDetails = predicate ? record(predicate["runDetails"]) : undefined;
+    const builder = runDetails ? record(runDetails["builder"]) : undefined;
+    const runMetadata = runDetails ? record(runDetails["metadata"]) : undefined;
+    const subject = statement?.["subject"];
+    const dependencies = definition?.["resolvedDependencies"];
+    const expectedRef = `refs/tags/${A0_FIRST_ALPHA_TAG}`;
+    if (statement?.["_type"] !== "https://in-toto.io/Statement/v1"
+      || statement["predicateType"] !== "https://slsa.dev/provenance/v1"
+      || definition?.["buildType"] !== "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1"
+      || workflow?.["repository"] !== "https://github.com/f-gueguen/fadeno"
+      || workflow["path"] !== ".github/workflows/publish.yml"
+      || workflow["ref"] !== expectedRef
+      || builder?.["id"] !== "https://github.com/actions/runner/github-hosted"
+      || typeof runMetadata?.["invocationId"] !== "string"
+      || !runMetadata["invocationId"].startsWith("https://github.com/f-gueguen/fadeno/actions/runs/")) return false;
+    if (!Array.isArray(subject) || subject.length !== 1) return false;
+    const packageSubject = record(subject[0]);
+    const packageDigest = packageSubject ? record(packageSubject["digest"]) : undefined;
+    if (packageSubject?.["name"] !== `pkg:npm/%40fadeno/framework@${A0_FIRST_ALPHA_VERSION}`
+      || packageDigest?.["sha512"] !== context.packageSha512) return false;
+    if (!Array.isArray(dependencies) || dependencies.length !== 1) return false;
+    const dependency = record(dependencies[0]);
+    const dependencyDigest = dependency ? record(dependency["digest"]) : undefined;
+    if (dependency?.["uri"] !== `git+https://github.com/f-gueguen/fadeno@${expectedRef}`
+      || dependencyDigest?.["gitCommit"] !== context.sourceCommit) return false;
+    const verification = bundle ? record(bundle["verificationMaterial"]) : undefined;
+    const certificate = verification ? record(verification["certificate"]) : undefined;
+    if (typeof certificate?.["rawBytes"] !== "string") return false;
+    const certificateBytes = Buffer.from(certificate["rawBytes"], "base64");
+    return certificateBytes.includes(Buffer.from(
+      `https://github.com/f-gueguen/fadeno/.github/workflows/publish.yml@${expectedRef}`,
+    )) && certificateBytes.includes(Buffer.from("repo:f-gueguen/fadeno:environment:npm-production"));
   } catch {
     return false;
   }
@@ -84,12 +140,16 @@ export function validateA0PublicAlphaIdentity(context: A0PublicAlphaIdentityCont
     || distribution["signatures"].length === 0) {
     errors.push("FADENO_A0_PUBLIC_PACKAGE_INTEGRITY");
   }
-  if (!distribution || !validProvenanceAttestation(distribution["attestations"])) {
+  if (!distribution
+    || !validProvenanceAttestation(distribution["attestations"])
+    || !validProvenanceIdentity(context)) {
     errors.push("FADENO_A0_PUBLIC_PROVENANCE");
   }
 
   const tags = record(context.distributionTags);
-  if (!tags || tags[A0_DISTRIBUTION_TAG] !== A0_FIRST_ALPHA_VERSION) {
+  if (!tags
+    || Object.keys(tags).sort().join("\0") !== A0_DISTRIBUTION_TAG
+    || tags[A0_DISTRIBUTION_TAG] !== A0_FIRST_ALPHA_VERSION) {
     errors.push("FADENO_A0_PUBLIC_DIST_TAG");
   }
   if (context.tagCommit !== context.sourceCommit) errors.push("FADENO_A0_PUBLIC_TAG");
@@ -106,7 +166,7 @@ export function validateA0PublicAlphaIdentity(context: A0PublicAlphaIdentityCont
   }
   const docsFilename = `fadeno-docs-${A0_FIRST_ALPHA_VERSION}.tar.gz`;
   const names = release ? assetNames(release) : [];
-  if (!names.includes(docsFilename) || !names.includes(`${docsFilename}.json`)) {
+  if (JSON.stringify(names) !== JSON.stringify([docsFilename, `${docsFilename}.json`].sort())) {
     errors.push("FADENO_A0_PUBLIC_RELEASE_ASSETS");
   }
 

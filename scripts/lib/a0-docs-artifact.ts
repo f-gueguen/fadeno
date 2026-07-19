@@ -50,8 +50,7 @@ function safePath(path: string): boolean {
 }
 
 export function isA0DocumentationPath(path: string): boolean {
-  return path === "README.md"
-    || path === "SUPPORT.md"
+  return (!path.includes("/") && path.endsWith(".md"))
     || path === "packages/framework/README.md"
     || path === "packages/framework/CHANGELOG.md"
     || (path.startsWith("docs/") && path.endsWith(".md"));

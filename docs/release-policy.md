@@ -54,7 +54,8 @@ Trusted-publisher configuration requires an existing package. The first public
 version therefore bootstraps from a supported hosted release runner using
 explicit public access, provenance, and one package-scoped, time-bounded
 credential held only in the protected release environment. That credential is
-revoked immediately after publication. The exact repository/workflow/
+revoked immediately after publication, and the workflow proves that the
+registry rejects it before the job can succeed. The exact repository/workflow/
 environment trusted publisher then owns every later publication without a
 long-lived token. ADR 0037 fixes that identity as repository
 `f-gueguen/fadeno`, workflow `publish.yml`, environment `npm-production`, and
@@ -84,7 +85,8 @@ candidate qualification, changelog, SBOM, release notes, publication-only
 workflow, and tracked documentation manifest before any tag exists. On a clean
 commit it builds the documentation archive twice from `HEAD`, requires
 identical bytes, extracts it, and proves every archived file against the
-manifest, including refusal of unlisted files and unsafe entries. A wrong seed
+manifest, including referenced root Markdown, and refuses unlisted files and
+unsafe entries. A wrong seed
 version is a deliberate executable refusal; correcting
 the mechanical prerelease transition clears the diagnostic without publishing
 or creating a stale tag.
@@ -93,12 +95,15 @@ After the exact merged commit passes local CI, the release must be created from
 its immutable tag with the exact source release notes and exactly the generated
 documentation archive and receipt. The hosted `pnpm verify:a0-release-event`
 gate downloads and validates those inputs before `npm publish` can run. It
-ignores the mutable release target field and resolves the tag itself as the
-source authority.
+rebuilds the deterministic archive from the checked-out tag and requires exact
+uploaded archive and receipt bytes. It ignores the mutable release target field
+and resolves the tag itself as the source authority.
 
 After publication, `pnpm verify:a0-public-alpha` is the separate public
-transport verifier. It must resolve the registry version and `alpha` tag,
-repository tag and release, the framework package's own registry provenance,
+transport verifier. It must resolve the registry version and sole `alpha` tag,
+reject extra release assets, and verify the repository tag and release. It opens
+the framework package's own signed provenance and checks its repository,
+workflow, protected environment, tagged commit, package digest, and hosted builder,
 rebuild and pack the immutable tagged source to compare every published package
 file and byte, and verify documentation artifact identity. It then installs in
 a fresh directory and replays create, test, check, build, development,

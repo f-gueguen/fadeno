@@ -3,12 +3,42 @@
   "packageVersion": "0.1.0-alpha.0",
   "sourceTag": "v0.1.0-alpha.0",
   "artifactFilename": "fadeno-docs-0.1.0-alpha.0.tar.gz",
-  "aggregateSha256": "a2998b5a2c1525f09b8c675bd727df93d89dae1d6ff27ffbd07e551aef56bdd9",
+  "aggregateSha256": "d86fc7501c02ab3fb0c3e130b7864304fcd2542d4c14ef410a7b71bc7d78e935",
   "files": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 2852,
+      "sha256": "9d0d4eed144becf268b5961c1c00ddd8bf2d86bfa0f86a04e1905c6bbbc5bffb"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 513,
+      "sha256": "562dd6f34bb3b6638cfb317d8aaa1d1815f110a4e51543de5c3e7be2dbc66d8c"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 1349,
+      "sha256": "b2c6e5a151eb1e8d3ad5ed6ae28cd9aa7f0d87b908ffcb304b14b9e6ec87eaf9"
+    },
+    {
+      "path": "PROJECT_INVARIANTS.md",
+      "bytes": 4442,
+      "sha256": "5085f6f4fc05ebd7879f1c19e6e59055cfa2023b900e5c910650690ba1e6c02b"
+    },
     {
       "path": "README.md",
       "bytes": 4607,
       "sha256": "2ef25fc2c265be3c1ec4b48e4f70a742b9681e6000fd4f472086948fab83e258"
+    },
+    {
+      "path": "ROADMAP_LEDGER.md",
+      "bytes": 23094,
+      "sha256": "35abeb4741b257a1b3268597e9e016f72ab4841523811404504d3f160a7b8309"
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 573,
+      "sha256": "0715ead5c9e017e23c9678e4ab5f2c7b909afe81f4d22690fd33b42619f08f91"
     },
     {
       "path": "SUPPORT.md",
@@ -317,8 +347,8 @@
     },
     {
       "path": "docs/product/scope.md",
-      "bytes": 14281,
-      "sha256": "19be4889c0cef37238cb6ca5db9d9cde5caa70a78c1c6a051f052c054cb2b158"
+      "bytes": 14338,
+      "sha256": "ad687f58e02e63dc11f3515fa4507754c5556c63c5c6fc42caad887b8ecd49d2"
     },
     {
       "path": "docs/reference/v1-api.md",
@@ -327,8 +357,8 @@
     },
     {
       "path": "docs/release-policy.md",
-      "bytes": 7468,
-      "sha256": "770e1b6af92788a901be832e7d0f38c0405118cbda14ca0f63d7a486e6b8cdac"
+      "bytes": 7860,
+      "sha256": "c045ac0007b38687f17d97e3d2dbd96f11c74cf5c2c899b80d0bf37792d97ad9"
     },
     {
       "path": "docs/releases/0.1.0-alpha.0.md",
@@ -392,8 +422,8 @@
     },
     {
       "path": "docs/spec/build-adapters-testing.md",
-      "bytes": 49761,
-      "sha256": "234dc1770f93e72d0340366d6d4d92c0c803d3b738a75f7823055a4f23134c92"
+      "bytes": 50410,
+      "sha256": "bf714a16b59316d0f0556cd37e657f68d805720c8fba85051d44505a93d5ef23"
     },
     {
       "path": "docs/spec/compiler-analyzer.md",
@@ -447,8 +477,8 @@
     },
     {
       "path": "docs/traceability.md",
-      "bytes": 17906,
-      "sha256": "90fafcd964b7d32b7f463ba5e69fd8d226075840aa61e3945af2738ac135834e"
+      "bytes": 17951,
+      "sha256": "73ccc9758f68c0a684f6f0066712b903c7513d5f2afea392cf28f8e5668d3649"
     },
     {
       "path": "packages/framework/CHANGELOG.md",

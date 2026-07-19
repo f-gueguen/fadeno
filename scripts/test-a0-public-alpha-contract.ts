@@ -9,6 +9,34 @@ import type { A0DocumentationManifest } from "./lib/a0-docs-artifact.ts";
 const sourceCommit = "1".repeat(40);
 const bytes = Buffer.from("public package bytes");
 const documentation = Buffer.from("documentation bytes");
+const packageSha512 = createHash("sha512").update(bytes).digest("hex");
+const provenanceStatement = {
+  _type: "https://in-toto.io/Statement/v1",
+  subject: [{ name: "pkg:npm/%40fadeno/framework@0.1.0-alpha.0", digest: { sha512: packageSha512 } }],
+  predicateType: "https://slsa.dev/provenance/v1",
+  predicate: {
+    buildDefinition: {
+      buildType: "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1",
+      externalParameters: { workflow: {
+        ref: "refs/tags/v0.1.0-alpha.0",
+        repository: "https://github.com/f-gueguen/fadeno",
+        path: ".github/workflows/publish.yml",
+      } },
+      resolvedDependencies: [{
+        uri: "git+https://github.com/f-gueguen/fadeno@refs/tags/v0.1.0-alpha.0",
+        digest: { gitCommit: sourceCommit },
+      }],
+    },
+    runDetails: {
+      builder: { id: "https://github.com/actions/runner/github-hosted" },
+      metadata: { invocationId: "https://github.com/f-gueguen/fadeno/actions/runs/1/attempts/1" },
+    },
+  },
+};
+const certificateIdentity = [
+  "https://github.com/f-gueguen/fadeno/.github/workflows/publish.yml@refs/tags/v0.1.0-alpha.0",
+  "repo:f-gueguen/fadeno:environment:npm-production",
+].join("\0");
 const manifest = {
   schemaVersion: 1,
   packageVersion: "0.1.0-alpha.0",
@@ -35,6 +63,16 @@ const context = Object.freeze({
       },
     },
   },
+  attestations: { attestations: [{
+    predicateType: "https://slsa.dev/provenance/v1",
+    bundle: {
+      verificationMaterial: { certificate: { rawBytes: Buffer.from(certificateIdentity).toString("base64") } },
+      dsseEnvelope: {
+        payloadType: "application/vnd.in-toto+json",
+        payload: Buffer.from(JSON.stringify(provenanceStatement)).toString("base64"),
+      },
+    },
+  }] },
   distributionTags: { alpha: "0.1.0-alpha.0" },
   tagCommit: sourceCommit,
   release: {
@@ -61,6 +99,7 @@ const context = Object.freeze({
   },
   packageIntegrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
   packageShasum: createHash("sha1").update(bytes).digest("hex"),
+  packageSha512,
   documentationSha256: createHash("sha256").update(documentation).digest("hex"),
   documentationManifest: manifest,
 }) satisfies A0PublicAlphaIdentityContext;
@@ -82,10 +121,35 @@ mutation("FADENO_A0_PUBLIC_PROVENANCE", {
     dist: { ...((context.metadata as Record<string, unknown>)["dist"] as Record<string, unknown>), attestations: undefined },
   },
 });
+mutation("FADENO_A0_PUBLIC_PROVENANCE", { attestations: { attestations: [] } });
+mutation("FADENO_A0_PUBLIC_PROVENANCE", {
+  attestations: { attestations: [{
+    predicateType: "https://slsa.dev/provenance/v1",
+    bundle: {
+      verificationMaterial: { certificate: { rawBytes: Buffer.from("wrong environment").toString("base64") } },
+      dsseEnvelope: {
+        payloadType: "application/vnd.in-toto+json",
+        payload: Buffer.from(JSON.stringify(provenanceStatement)).toString("base64"),
+      },
+    },
+  }] },
+});
 mutation("FADENO_A0_PUBLIC_DIST_TAG", { distributionTags: { alpha: "0.1.0-alpha.1" } });
+mutation("FADENO_A0_PUBLIC_DIST_TAG", {
+  distributionTags: { alpha: "0.1.0-alpha.0", latest: "0.1.0-alpha.0" },
+});
 mutation("FADENO_A0_PUBLIC_TAG", { tagCommit: "5".repeat(40) });
 mutation("FADENO_A0_PUBLIC_RELEASE", {
   release: { ...(context.release as Record<string, unknown>), prerelease: false },
+});
+mutation("FADENO_A0_PUBLIC_RELEASE_ASSETS", {
+  release: {
+    ...(context.release as Record<string, unknown>),
+    assets: [
+      ...((context.release as Record<string, unknown>)["assets"] as unknown[]),
+      { name: "unapproved.txt" },
+    ],
+  },
 });
 mutation("FADENO_A0_PUBLIC_RELEASE_NOTES", { expectedReleaseNotes: "different" });
 mutation("FADENO_A0_PUBLIC_RELEASE_ASSETS", {
