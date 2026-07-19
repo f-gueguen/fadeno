@@ -6,41 +6,38 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-01 — resolve the experimental update protocol and scroll boundary
+V2-01A — decide the optional browser-entrypoint package boundary
 
 ## Exit criteria
 
-- [x] Accept one patch-protocol ADR resolving DG-V2-01 without publishing an
-  implementation or stable external protocol.
-- [x] Retain versioned accepted/refused fixtures for identity, ordering,
-  redirects, errors, recovery, cache, limits, and compatibility.
-- [x] Choose and qualify one explicit scroll boundary in Chromium, Firefox,
-  and WebKit against ADR 0014's narrowed evidence.
-- [x] Align the decision gate, specification, traceability, risks, and roadmap
-  state with the accepted decision.
+- [ ] Accept one browser-entrypoint package-boundary ADR without adding the
+  implementation or changing the published package.
+- [ ] Prove the exact public subpath, dependency direction, loading boundary,
+  compatibility rule, and rollback through a disposable packed consumer.
+- [ ] Prove private browser deep imports remain unavailable and the current
+  package export surface remains unchanged before V2-02.
+- [ ] Align the specification, scope, traceability, risks, and roadmap state.
 - [ ] Pass all affected gates, full local CI, and independent review.
 
 ## Active sub-slice
 
-V2-01 decision and evidence only. ADR 0045 resolves the private update protocol
-and conservative scroll-refusal policy before implementation. It does not add
-browser runtime code, create the separate browser entrypoint, expose an
-analyzer schema, or claim enhanced behavior. Release impact: none — no package
-behavior changes and no Changeset is required.
+V2-01A decision and disposable evidence only. It decides how the optional
+browser entrypoint fits inside the existing logical package before V2-02 adds
+runtime behavior. It does not add a browser runtime, change the published
+package, expose an analyzer schema, or claim enhanced behavior. Release impact:
+none — no package behavior changes and no Changeset is required.
 
 ## In progress
 
-- DG-V2-01 is resolved by ADR 0045 and leaves the open decision-gate ledger.
-- The versioned corpus retains accepted/refused identity, ordering, redirect,
-  error, recovery, cache, limit, and compatibility outcomes. Three-engine
-  controls admit only proven-unaffected scroll boundaries.
-- The V1 action round trip and verified public native application remain the
-  outcome and recovery authorities; uncertain mutation recovery never retries.
+- Select the narrowest browser-only subpath and dependency direction consistent
+  with ADR 0024's one-logical-package boundary.
+- Demonstrate the proposed boundary from a clean installed tarball while the
+  real public export remains absent until V2-02 implementation.
 
 ## Blockers
 
-- V2-02 remains blocked on the separate V2-01A browser-entrypoint
-  package-boundary decision even though DG-V2-01 is resolved.
+- V2-02 remains blocked until this package-boundary decision and its disposable
+  packed-consumer evidence are accepted.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -50,6 +47,11 @@ behavior changes and no Changeset is required.
   compatibility decision.
 
 ## Completed slices
+
+- V2-01 — Merge commit `d9718c0` accepts ADR 0045's private exact-version
+  update protocol and conservative scroll-refusal boundary, retains 40
+  semantics-bound accepted/refused fixtures and nine three-engine controls,
+  resolves DG-V2-01, and introduces no browser runtime or public schema.
 
 - V2-00 — decompose browser enhancement. Merge commit `7ec3f1a` records
   nineteen dependency-ordered slices, retains every native, security,
