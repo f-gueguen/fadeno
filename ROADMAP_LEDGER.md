@@ -24,7 +24,8 @@ A0-08 — explicitly defer external analyzer/editor tooling
 A0-08 durable deferral decision only. ADR 0043 supersedes A0's participant
 sequencing rule while preserving the later collection contract, requires an
 explicit first-alpha usability caveat, retains the private analyzer, and
-removes DG-A0-02 by deferring rather than accepting an external surface.
+removes the former A0 tooling gate by deferring rather than accepting an
+external surface.
 
 ## In progress
 

@@ -18,7 +18,8 @@ the private analyzer transport or crossing the external-schema gate.
 - One command must use the same project authority as later build and watch work.
 - Project-root discovery must be explicit and reproducible.
 - Human diagnostics and semantic flow inspection are required now.
-- Machine-readable diagnostics remain gated by DG-A0-02 and ADR 0011.
+- Machine-readable diagnostics remain refused; ADR 0043 defers an external
+  analyzer schema and ADR 0011 requires demonstrated need.
 - Usage errors, expected project errors, and internal failures need distinct
   automation outcomes without exposing stacks or absolute paths.
 
@@ -70,8 +71,9 @@ Explanation never changes the exit status and never reruns application behavior.
 
 `--format`, JSON, analyzer serialization, diagnostic serialization, stable
 diagnostic-code lifecycle, and any other machine-readable command report are
-refused. Private normalized fixtures remain conformance evidence only. DG-A0-02
-and ADR 0011 continue to gate a compatibility-controlled external schema.
+refused. Private normalized fixtures remain conformance evidence only. ADR 0043
+defers a compatibility-controlled external schema, and ADR 0011 still requires
+demonstrated need.
 
 ## Alternatives considered
 
@@ -80,7 +82,7 @@ and ADR 0011 continue to gate a compatibility-controlled external schema.
 - Publish analyzer modules or a tooling subpath: rejected because B7B needs one
   command consumer, not a second public analyzer API.
 - Add JSON by projecting private diagnostics: rejected because any documented
-  machine report becomes a compatibility surface before DG-A0-02 is resolved.
+  machine report becomes a compatibility surface while ADR 0043 defers it.
 - Apply planned artifacts during check: rejected because validation and
   filesystem replacement have different rollback and freshness contracts.
 - Expose deep explanation and budget knobs: rejected because B7B needs one

@@ -7,6 +7,7 @@ export type A0ToolingDeferralContext = Readonly<{
   adr42: string;
   adr43: string;
   adrIndex: string;
+  effectiveAdrSchemaClauses: readonly string[];
   roadmap: string;
   ledger: string;
   decisionGates: string;
@@ -52,6 +53,12 @@ export function loadA0ToolingDeferralContext(
     adr42: read("docs/adr/0042-independent-usability-evidence-contract.md"),
     adr43: read("docs/adr/0043-defer-independent-usability-and-external-tooling.md"),
     adrIndex: read("docs/adr/README.md"),
+    effectiveAdrSchemaClauses: Object.freeze([
+      read("docs/adr/0015-accept-bounded-interaction-extraction.md"),
+      read("docs/adr/0027-generated-route-module-and-production-routing.md"),
+      read("docs/adr/0032-project-check-command-contract.md"),
+      read("docs/adr/0033-build-and-development-lifecycle.md"),
+    ]),
     roadmap: read("docs/roadmap/a0.md"),
     ledger: read("ROADMAP_LEDGER.md"),
     decisionGates: read("docs/ledgers/decision-gates.md"),
@@ -92,6 +99,7 @@ export function validateA0ToolingDeferral(
     "no participant outcome or usability claim is accepted by default",
     "automated packed workflows",
     "changes no package bytes",
+    "does not retroactively qualify the first alpha",
   ]) {
     if (!includesProse(context.adr43, fragment)) {
       errors.push(`ADR 0043 is missing ${fragment}`);
@@ -101,6 +109,10 @@ export function validateA0ToolingDeferral(
     || !context.adrIndex.includes("ADR 0042 — Independent usability evidence contract")
     || !context.adrIndex.includes("superseded by ADR 0043")) {
     errors.push("ADR index does not preserve A0 tooling-deferral authority");
+  }
+  if (context.effectiveAdrSchemaClauses.some((adr) => adr.includes("DG-A0-02")
+    || !adr.includes("ADR 0043"))) {
+    errors.push("effective ADR retains the retired analyzer gate");
   }
 
   if (context.decisionGates.includes("| DG-A0-02 |")) {
@@ -190,11 +202,5 @@ export function validateA0ToolingDeferral(
     errors.push("workspace check does not enforce A0 tooling deferral");
   }
 
-  for (const path of context.tracked) {
-    if (path === "evidence/a0/independent-usability/evidence-manifest.json"
-      || path.startsWith("evidence/a0/independent-usability/attempts/")) {
-      errors.push(`unavailable participant evidence was added: ${path}`);
-    }
-  }
   return Object.freeze(errors);
 }

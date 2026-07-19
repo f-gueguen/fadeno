@@ -130,8 +130,9 @@ for (const duplicate of duplicates(gateIds)) {
 }
 
 const gateSet = new Set(gateIds);
+const retiredGateDecisionPath = "docs/adr/0043-defer-independent-usability-and-external-tooling.md";
 const retiredGateIds = new Set(
-  [...read("docs/adr/0043-defer-independent-usability-and-external-tooling.md")
+  [...read(retiredGateDecisionPath)
     .matchAll(/\b(DG-[A-Z0-9]+-\d{2}) is removed\b/g)]
     .map((match) => match[1]),
 );
@@ -152,9 +153,13 @@ function collectMarkdown(directory) {
 
 for (const file of collectMarkdown(root)) {
   const content = readFileSync(file, "utf8");
+  const relativeFile = file.slice(root.length + 1);
+  const permitsRetiredGateReference = relativeFile === retiredGateDecisionPath
+    || (relativeFile.startsWith("docs/adr/") && content.includes("- Status: Superseded"));
   for (const match of content.matchAll(/\b(DG-[A-Z0-9]+-\d{2})\b/g)) {
-    if (!gateSet.has(match[1]) && !retiredGateIds.has(match[1])) {
-      errors.push(`${file.slice(root.length + 1)}: references unknown gate ${match[1]}`);
+    if (!gateSet.has(match[1])
+      && !(retiredGateIds.has(match[1]) && permitsRetiredGateReference)) {
+      errors.push(`${relativeFile}: references unknown gate ${match[1]}`);
     }
   }
 

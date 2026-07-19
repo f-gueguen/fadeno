@@ -46,6 +46,8 @@ A0-08 resolves to no supported editor product and no public analyzer schema.
 The existing analyzer stays private and tool-neutral. DG-A0-02 is removed as an
 A0 blocker; external analyzer consumers remain deferred until a real consumer
 and product-specific lifecycle evidence justify a new compatibility decision.
+References in earlier effective decisions to the former external-schema gate
+are replaced by this deferral; they do not keep a removed gate authoritative.
 
 The ADR 0042 task packet and verifier remain the contract for any later
 collection using that packet version. A later usability claim must still use

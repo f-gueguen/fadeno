@@ -37,6 +37,17 @@ expectMutation("deferred analyzer gate returned", (context) => Object.freeze({
   ...context,
   decisionGates: `${context.decisionGates}\n| DG-A0-02 | restored | restored | restored | restored | Open |`,
 }));
+expectMutation("effective ADR retains the retired analyzer gate", (context) => Object.freeze({
+  ...context,
+  effectiveAdrSchemaClauses: Object.freeze([
+    `${context.effectiveAdrSchemaClauses[0]}\nDG-A0-02 remains authoritative.`,
+    ...context.effectiveAdrSchemaClauses.slice(1),
+  ]),
+}));
+expectMutation("ADR 0043 is missing does not retroactively qualify the first alpha", (context) => Object.freeze({
+  ...context,
+  adr43: context.adr43.replace("does not\n  retroactively qualify", "does\n  retroactively qualify"),
+}));
 expectMutation("release policy is missing first alpha release notes", (context) => Object.freeze({
   ...context,
   releasePolicy: context.releasePolicy.replace("first alpha release notes", "future notes"),
@@ -68,9 +79,16 @@ expectMutation("current A0 ledger is missing A0-08 — explicitly defer external
     "A0-08 — publish analyzer tooling",
   ),
 }));
-expectMutation("unavailable participant evidence was added: evidence/a0/independent-usability/evidence-manifest.json", (context) => Object.freeze({
-  ...context,
-  tracked: new Set([...context.tracked, "evidence/a0/independent-usability/evidence-manifest.json"]),
+const retainedEvidenceErrors = validateA0ToolingDeferral(Object.freeze({
+  ...source,
+  tracked: new Set([
+    ...source.tracked,
+    "evidence/a0/independent-usability/evidence-manifest.json",
+    "evidence/a0/independent-usability/attempts/participant-example/attempt.json",
+  ]),
 }));
+if (retainedEvidenceErrors.length > 0) {
+  throw new Error(`retained participant evidence was refused:\n${retainedEvidenceErrors.join("\n")}`);
+}
 
-console.log("A0 tooling-deferral mutation tests passed (fabrication, restored gate, disclosure, exports, workspace gate, ledger, participant evidence)");
+console.log("A0 tooling-deferral mutation tests passed (fabrication, retired gate, later evidence, disclosure, exports, workspace gate, ledger)");
