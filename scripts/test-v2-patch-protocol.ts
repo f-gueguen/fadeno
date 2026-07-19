@@ -4,7 +4,9 @@ import { join } from "node:path";
 
 import {
   decidePrivateScrollBoundary,
+  encodePrivateUpdateEnvelope,
   evaluatePrivateUpdate,
+  evaluatePrivateUpdateBytes,
   parseV2PatchProtocolCorpus,
   runV2PatchProtocolFixture,
   V2_PATCH_PROTOCOL_LIMITS,
@@ -192,4 +194,76 @@ const sensitive = structuredClone(envelope);
 assert.equal(JSON.stringify(evaluatePrivateUpdate(sensitive, context)).includes("secret-cookie"), false);
 assert.deepEqual(parseV2PatchProtocolCorpus(JSON.parse(JSON.stringify(source))), corpus, "decision fixtures round trip without losing evidence");
 
-console.log("V2 patch-protocol mutation tests passed (fixture schema, boundaries, scroll refusal, redaction, and round trip)");
+const { boundary: _fixtureBoundary, ...byteContext } = structuredClone(corpus.baseContext);
+const encodedEnvelope = encodePrivateUpdateEnvelope(corpus.baseEnvelope);
+const decodedEnvelope = evaluatePrivateUpdateBytes(encodedEnvelope, byteContext, { now: () => 10 });
+assert.equal(decodedEnvelope.decision.status, "accepted");
+assert.equal(decodedEnvelope.boundary.bytes, encodedEnvelope.byteLength);
+assert.equal(decodedEnvelope.boundary.records > 0, true);
+assert.equal(decodedEnvelope.boundary.depth > 0, true);
+assert.equal(decodedEnvelope.boundary.durationMilliseconds, 0);
+
+assert.equal(
+  evaluatePrivateUpdateBytes(new Uint8Array([0xc3, 0x28]), byteContext, { now: () => 10 }).decision.code,
+  "FADENO_UPDATE_SCHEMA",
+  "invalid UTF-8 is refused before schema use",
+);
+assert.equal(
+  evaluatePrivateUpdateBytes(new TextEncoder().encode("{not-json}"), byteContext, { now: () => 10 }).decision.code,
+  "FADENO_UPDATE_SCHEMA",
+  "malformed JSON is refused",
+);
+assert.equal(
+  evaluatePrivateUpdateBytes(new Uint8Array(V2_PATCH_PROTOCOL_LIMITS.maximumBytes + 1), byteContext, { now: () => 10 }).decision.code,
+  "FADENO_UPDATE_LIMIT",
+  "raw bytes are measured before decoding",
+);
+
+let deepValue: unknown = null;
+for (let index = 0; index < V2_PATCH_PROTOCOL_LIMITS.maximumDepth; index += 1) deepValue = { child: deepValue };
+assert.equal(
+  evaluatePrivateUpdateBytes(new TextEncoder().encode(JSON.stringify(deepValue)), byteContext, { now: () => 10 }).decision.code,
+  "FADENO_UPDATE_LIMIT",
+  "parsed depth is measured independently",
+);
+const manyRecords = Array.from({ length: V2_PATCH_PROTOCOL_LIMITS.maximumRecords }, () => null);
+assert.equal(
+  evaluatePrivateUpdateBytes(new TextEncoder().encode(JSON.stringify(manyRecords)), byteContext, { now: () => 10 }).decision.code,
+  "FADENO_UPDATE_LIMIT",
+  "parsed record count is measured independently",
+);
+
+const clock = [0, V2_PATCH_PROTOCOL_LIMITS.maximumDurationMilliseconds + 1];
+assert.equal(
+  evaluatePrivateUpdateBytes(encodedEnvelope, byteContext, { now: () => clock.shift() ?? 0 }).decision.code,
+  "FADENO_UPDATE_TIMEOUT",
+  "elapsed decoder work is measured independently",
+);
+const cancellation = new AbortController();
+cancellation.abort("superseded");
+assert.equal(
+  evaluatePrivateUpdateBytes(encodedEnvelope, byteContext, { signal: cancellation.signal, now: () => 10 }).decision.code,
+  "FADENO_UPDATE_CANCELLED",
+  "superseded work is refused without publication",
+);
+
+const otherGeneration = structuredClone(corpus.baseEnvelope);
+otherGeneration["applicationGeneration"] = "generation:other-user";
+const isolated = evaluatePrivateUpdateBytes(encodePrivateUpdateEnvelope(otherGeneration), byteContext, { now: () => 10 });
+assert.equal(isolated.decision.code, "FADENO_UPDATE_GENERATION");
+assert.equal(JSON.stringify(isolated).includes("other-user"), false, "cross-user identity is absent from the decision and metrics");
+const hostileMarkup = structuredClone(corpus.baseEnvelope);
+((hostileMarkup["outcome"] as Record<string, unknown>)["root"] as Record<string, unknown>)["html"] = "<script>secret-cookie</script>";
+const hostileDecision = evaluatePrivateUpdateBytes(encodePrivateUpdateEnvelope(hostileMarkup), byteContext, { now: () => 10 });
+assert.equal(JSON.stringify(hostileDecision).includes("script"), false, "transported strings are never executable decision output");
+assert.equal(JSON.stringify(hostileDecision).includes("secret-cookie"), false, "transported strings are never logged by the decoder result");
+
+let encoderGetterRan = false;
+const accessorEnvelope = Object.defineProperty({}, "protocol", { enumerable: true, get() { encoderGetterRan = true; return "fadeno.private.update"; } });
+assert.throws(() => encodePrivateUpdateEnvelope(accessorEnvelope), /FADENO_UPDATE_ENCODE_SCHEMA/u);
+assert.equal(encoderGetterRan, false, "encoder validation never invokes accessors");
+const unknownEnvelope = structuredClone(corpus.baseEnvelope);
+unknownEnvelope["command"] = "execute";
+assert.throws(() => encodePrivateUpdateEnvelope(unknownEnvelope), /FADENO_UPDATE_ENCODE_SCHEMA/u, "encoder refuses command-shaped extensions");
+
+console.log("V2 patch-protocol mutation tests passed (fixture schema, byte transport, boundaries, cancellation, isolation, redaction, and round trip)");

@@ -119,8 +119,18 @@ export const V2_PATCH_PROTOCOL_REQUIRED_CASE_IDS = Object.freeze([
 ]);
 
 const encoder = new TextEncoder();
+const decoder = new TextDecoder("utf-8", { fatal: true });
 const identityPattern = /^[a-zA-Z0-9][a-zA-Z0-9:._/-]*$/u;
 const errorCodePattern = /^[A-Z][A-Z0-9_]{1,63}$/u;
+
+export type PrivateUpdateByteContext = Omit<PrivateUpdateDecisionContext, "boundary">;
+
+export type PrivateUpdateByteResult = Readonly<{
+  decision: PrivateUpdateDecision;
+  boundary: PrivateUpdateDecisionContext["boundary"];
+}>;
+
+type JsonStructure = Readonly<{ records: number; depth: number }>;
 
 function byteLength(value: string): number {
   return encoder.encode(value).byteLength;
@@ -162,6 +172,34 @@ function boundedIdentity(value: unknown): value is string {
 
 function finiteInteger(value: unknown, minimum = 0): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= minimum;
+}
+
+function measureJsonStructure(value: unknown): JsonStructure | undefined {
+  let records = 0;
+  let maximumDepth = 0;
+  const active = new WeakSet<object>();
+  const visit = (item: unknown, depth: number): boolean => {
+    records += 1;
+    maximumDepth = Math.max(maximumDepth, depth);
+    if (records > V2_PATCH_PROTOCOL_LIMITS.maximumRecords || depth > V2_PATCH_PROTOCOL_LIMITS.maximumDepth) return false;
+    if (item === null || typeof item === "string" || typeof item === "boolean") return true;
+    if (typeof item === "number") return Number.isFinite(item);
+    if (typeof item !== "object" || active.has(item)) return false;
+    active.add(item);
+    let children: readonly unknown[];
+    if (Array.isArray(item)) {
+      const keys = Object.keys(item);
+      if (keys.length !== item.length || keys.some((key, index) => key !== String(index))) return false;
+      children = item;
+    } else {
+      if (!plainRecord(item)) return false;
+      children = Object.values(item);
+    }
+    for (const child of children) if (!visit(child, depth + 1)) return false;
+    active.delete(item);
+    return true;
+  };
+  return visit(value, 1) ? Object.freeze({ records, depth: maximumDepth }) : undefined;
 }
 
 function stringLiteral<const Values extends readonly string[]>(
@@ -370,6 +408,65 @@ function decodeEnvelope(value: unknown): { envelope?: DecodedEnvelope; code?: st
       outcome,
     }),
   };
+}
+
+/** Encodes one server-owned private update envelope after closed-shape validation. */
+export function encodePrivateUpdateEnvelope(value: unknown): Uint8Array {
+  if (!decodeEnvelope(value).envelope) throw new TypeError("FADENO_UPDATE_ENCODE_SCHEMA");
+  const structure = measureJsonStructure(value);
+  if (!structure) throw new TypeError("FADENO_UPDATE_ENCODE_LIMIT");
+  const source = JSON.stringify(value);
+  const bytes = encoder.encode(source);
+  if (bytes.byteLength > V2_PATCH_PROTOCOL_LIMITS.maximumBytes) throw new TypeError("FADENO_UPDATE_ENCODE_LIMIT");
+  return bytes;
+}
+
+/**
+ * Measures and decodes untrusted response bytes before applying the private
+ * protocol decision. The returned value intentionally contains no response
+ * fields, markup, credentials, or failure prose.
+ */
+export function evaluatePrivateUpdateBytes(
+  bytes: Uint8Array,
+  context: PrivateUpdateByteContext,
+  options: Readonly<{ signal?: AbortSignal; now?: () => number }> = {},
+): PrivateUpdateByteResult {
+  const now = options.now ?? (() => performance.now());
+  const started = now();
+  const finish = (value: unknown, structure: JsonStructure = { records: 0, depth: 0 }): PrivateUpdateByteResult => {
+    const finished = now();
+    const measuredDuration = Number.isFinite(started) && Number.isFinite(finished)
+      ? Math.max(0, Math.ceil(finished - started))
+      : V2_PATCH_PROTOCOL_LIMITS.maximumDurationMilliseconds + 1;
+    const boundary = Object.freeze({
+      bytes: bytes.byteLength,
+      records: structure.records,
+      depth: structure.depth,
+      durationMilliseconds: measuredDuration,
+    });
+    const decisionContext: PrivateUpdateDecisionContext = Object.freeze({ ...context, boundary });
+    const decision = options.signal?.aborted
+      ? refused("FADENO_UPDATE_CANCELLED", decisionContext)
+      : evaluatePrivateUpdate(value, decisionContext);
+    return Object.freeze({ decision, boundary });
+  };
+
+  if (options.signal?.aborted) return finish(undefined);
+  if (bytes.byteLength > V2_PATCH_PROTOCOL_LIMITS.maximumBytes) return finish(undefined);
+  let value: unknown;
+  try {
+    value = JSON.parse(decoder.decode(bytes)) as unknown;
+  } catch {
+    return finish(undefined);
+  }
+  const structure = measureJsonStructure(value);
+  if (!structure) {
+    return finish(undefined, {
+      records: V2_PATCH_PROTOCOL_LIMITS.maximumRecords + 1,
+      depth: V2_PATCH_PROTOCOL_LIMITS.maximumDepth + 1,
+    });
+  }
+  return finish(value, structure);
 }
 
 export function evaluatePrivateUpdate(
