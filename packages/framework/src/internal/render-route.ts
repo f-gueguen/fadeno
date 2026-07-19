@@ -73,6 +73,7 @@ async function renderNotFound(
   cleanup: () => void,
   action: RenderDocumentOptions["action"],
   frameworkModule: string | undefined,
+  frameworkGeneration: string | undefined,
 ): Promise<Response> {
   const child = page ? await page(context) : safeDocument("Not found", "Not found", "The requested page does not exist.");
   return renderDocument(await composeLayouts(layouts, context, child), {
@@ -80,6 +81,7 @@ async function renderNotFound(
     status: 404,
     ...(action ? { action } : {}),
     ...(frameworkModule ? { frameworkModule } : {}),
+    ...(frameworkGeneration ? { frameworkGeneration } : {}),
     cleanup,
   });
 }
@@ -93,6 +95,7 @@ async function renderFailure(
   expected: Readonly<{ code: string; status: ResourceStatus }> | undefined,
   action: RenderDocumentOptions["action"],
   frameworkModule: string | undefined,
+  frameworkGeneration: string | undefined,
 ): Promise<Response> {
   try {
     const child = page
@@ -105,6 +108,7 @@ async function renderFailure(
       status: expected?.status ?? 500,
       ...(action ? { action } : {}),
       ...(frameworkModule ? { frameworkModule } : {}),
+      ...(frameworkGeneration ? { frameworkGeneration } : {}),
       cleanup,
     });
   } catch {
@@ -116,6 +120,7 @@ async function renderFailure(
       status: expected?.status ?? 500,
       ...(action ? { action } : {}),
       ...(frameworkModule ? { frameworkModule } : {}),
+      ...(frameworkGeneration ? { frameworkGeneration } : {}),
       cleanup,
     });
   }
@@ -172,7 +177,7 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
     const pageOutcome = typeof pageResult === "object" && pageResult !== null ? outcomes.get(pageResult) : undefined;
     if (pageOutcome?.kind === "not-found") {
       return attachProjectionEvidence(
-        await renderNotFound(input.notFound, context, input.layouts, closeResources, action, input.browserModule),
+        await renderNotFound(input.notFound, context, input.layouts, closeResources, action, input.browserModule, input.generation),
         "not-found",
         "FADENO_ROUTE_NOT_FOUND",
       );
@@ -192,6 +197,7 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
       request: input.request,
       ...(action ? { action } : {}),
       ...(input.browserModule ? { frameworkModule: input.browserModule } : {}),
+      ...(input.browserModule && input.generation ? { frameworkGeneration: input.generation } : {}),
       cleanup: closeResources,
     }), "document");
   } catch (cause) {
@@ -199,7 +205,7 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
     const expected = readResourceError(cause);
     if (!expected) reportFrameworkFailure(failureObserver, input.request, incidentId, "pre-publication", "FADENO_RENDER_UNEXPECTED", cause);
     return attachProjectionEvidence(
-      await renderFailure(input.error, context, input.layouts, incidentId, closeResources, expected, action, input.browserModule),
+      await renderFailure(input.error, context, input.layouts, incidentId, closeResources, expected, action, input.browserModule, input.generation),
       expected ? "expected-error" : "unexpected-error",
       expected?.code,
     );

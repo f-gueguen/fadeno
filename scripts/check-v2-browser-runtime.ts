@@ -157,6 +157,8 @@ catch (cause) {
   const installed = join(consumer, "node_modules", packageName);
   cpSync(join(installed, "dist/browser.js"), join(siteRoot, "_fadeno/framework/browser.js"));
   cpSync(join(installed, "dist/internal/browser-runtime.js"), join(siteRoot, "_fadeno/framework/internal/browser-runtime.js"));
+  cpSync(join(installed, "dist/internal/browser-navigation.js"), join(siteRoot, "_fadeno/framework/internal/browser-navigation.js"));
+  cpSync(join(installed, "dist/internal/browser-update.js"), join(siteRoot, "_fadeno/framework/internal/browser-update.js"));
   const authoredEntry = readFileSync(join(scenarioRoot, "browser-entry.ts"), "utf8");
   const packageImport = 'from "@fadeno/framework/browser"';
   assert.equal(authoredEntry.split(packageImport).length - 1, 1, "generated source has one static public-package import");
