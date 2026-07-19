@@ -61,6 +61,14 @@ mutation("V2 roadmap V2-06 artifact contract mismatch", (context) => Object.free
   ...context,
   roadmap: context.roadmap.replace(/^\| V2-06 \|.*$/mu, (line) => line.replace("form-interception threat-model update; ", "")),
 }));
+mutation("V2 roadmap V2-04 artifact contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-04 \|.*$/mu, (line) => line.replace("explicit eligibility matrix retaining native activation for external, target, download, modifier-click, and same-document-fragment links; ", "")),
+}));
+mutation("V2 roadmap V2-10B validation contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-10B \|.*$/mu, (line) => line.replace("pending feedback and validation-error association regressions; ", "")),
+}));
 mutation("V2 roadmap V2-11B artifact contract mismatch", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace(/^\| V2-11B \|.*$/mu, (line) => line.replace("historical alpha.1 checks remain byte- and identity-exact; ", "")),
@@ -94,4 +102,4 @@ mutation("V2 entry package identity drifted", (context) => Object.freeze({
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("V2 plan mutation tests passed (19 slices, exact outcomes/contracts, form security, relative baseline, historical/current release identity, and traceability)");
+console.log("V2 plan mutation tests passed (19 slices, exact outcomes/contracts, native fallback, accessibility feedback, form security, relative baseline, historical/current release identity, and traceability)");
