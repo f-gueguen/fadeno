@@ -139,7 +139,12 @@ const retiredGateIds = new Set(
 );
 const resolvedGateIds = new Set(
   collectMarkdown(join(root, "docs/adr"))
-    .flatMap((file) => [...readFileSync(file, "utf8").matchAll(/\b(DG-[A-Z0-9]+-\d{2}) is resolved\b/g)])
+    .flatMap((file) => {
+      const content = readFileSync(file, "utf8");
+      return content.includes("- Status: Accepted")
+        ? [...content.matchAll(/\b(DG-[A-Z0-9]+-\d{2}) is resolved\b/g)]
+        : [];
+    })
     .map((match) => match[1]),
 );
 if (gateSet.size === 0) {
