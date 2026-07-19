@@ -22,8 +22,8 @@ A0-09 — qualify the complete public-alpha candidate
 
 ## Active sub-slice
 
-A0-09 qualification and remediation. The current worker replays 2,020 bounded
-cases over nine exact production decoder surfaces, while the fail-closed audit
+A0-09 qualification and remediation. The current worker replays 2,100 bounded
+cases over thirteen exact production decoder surfaces, while the fail-closed audit
 manifest derives every alpha claim from current packed gates and tracked
 evidence. A0-10 remains the only publication slice.
 

@@ -5,20 +5,30 @@ import { fileURLToPath } from "node:url";
 
 import {
   defineAction,
+  fileField,
   redirect,
   renderRoute,
   textField,
   type Handler,
   type Page,
 } from "../packages/framework/src/index.ts";
-import { ActionServerRuntime } from "../packages/framework/src/internal/action-server.ts";
+import {
+  ActionServerRuntime,
+  decodeSessionCookieHeader,
+} from "../packages/framework/src/internal/action-server.ts";
 import {
   parsePrivateBuildDevArguments,
   parsePrivateEnvironmentFile,
 } from "../packages/framework/src/internal/build-dev-decision.ts";
-import { loadConfigFromSource } from "../packages/framework/src/internal/config.ts";
+import {
+  decodeConfigSourceBytes,
+  loadConfigFromSource,
+} from "../packages/framework/src/internal/config.ts";
 import { FadenoDiagnosticError } from "../packages/framework/src/internal/diagnostic.ts";
 import { decodeNodeRequestTarget } from "../packages/framework/src/internal/node-http.ts";
+import { parseProjectCheckArguments } from "../packages/framework/src/internal/project-check.ts";
+import { parseProjectCreateArguments } from "../packages/framework/src/internal/project-create.ts";
+import { parseProjectDeployArguments } from "../packages/framework/src/internal/project-deploy.ts";
 import type { RouteManifest } from "../packages/framework/src/internal/routing/discovery.ts";
 import { decodeRouteArtifactManifest } from "../packages/framework/src/internal/routing/generator.ts";
 import { matchRoutePathname } from "../packages/framework/src/internal/routing/matcher.ts";
@@ -26,8 +36,6 @@ import {
   createDecisionSession,
   createDecisionSessionKeyring,
   openDecisionSession,
-  signDecisionActionProof,
-  verifyDecisionActionProof,
 } from "../packages/framework/src/internal/session-decision.ts";
 import { jsx } from "../packages/framework/src/jsx-runtime.ts";
 import {
@@ -93,6 +101,22 @@ function stringCorpus(seedOffset: number, randomCases: number, fixed: readonly s
   return Object.freeze([
     ...fixed.map(stringCase),
     ...Array.from({ length: randomCases }, () => stringCase(randomString(random))),
+  ]);
+}
+
+function bytesCase(value: Uint8Array): FuzzCase<Uint8Array> {
+  return Object.freeze({ value: value.slice(), bytes: value.byteLength });
+}
+
+function bytesCorpus(
+  seedOffset: number,
+  randomCases: number,
+  fixed: readonly Uint8Array[],
+): readonly FuzzCase<Uint8Array>[] {
+  const random = new DeterministicRandom((A0_DECODER_FUZZ_SEED + seedOffset) >>> 0);
+  return Object.freeze([
+    ...fixed.map(bytesCase),
+    ...Array.from({ length: randomCases }, () => bytesCase(random.bytes(random.integer(513)))),
   ]);
 }
 
@@ -173,8 +197,24 @@ surfaces.push(await summarize(
 ));
 
 surfaces.push(await summarize(
+  "configuration-file-bytes",
+  bytesCorpus(4, 64, [
+    encoder.encode(configSource),
+    encoder.encode("export default {};\n"),
+    Uint8Array.of(0xff),
+    new Uint8Array(4_096).fill(0xff),
+  ]),
+  (value) => {
+    try {
+      loadConfigFromSource(exampleRoot, decodeConfigSourceBytes(value));
+      return "accepted:configuration";
+    } catch (error) { return classifyError(error, /^FADENO_CONFIG_[A-Z0-9_]+$/u); }
+  },
+));
+
+surfaces.push(await summarize(
   "environment-file",
-  stringCorpus(4, 256, ["A=one\nB='two'\n", "# empty\n", "A=${B}\n", "A=" + "x".repeat(4_094)]),
+  stringCorpus(5, 256, ["A=one\nB='two'\n", "# empty\n", "A=${B}\n", "A=" + "x".repeat(4_094)]),
   (value) => {
     try {
       parsePrivateEnvironmentFile(value);
@@ -183,27 +223,76 @@ surfaces.push(await summarize(
   },
 ));
 
-const commandRandom = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 5) >>> 0);
-const commandCases: FuzzCase<readonly string[]>[] = [
-  ["build", "--project-root", "."],
-  ["dev", "--project-root", ".", "--port", "4173"],
-  [],
-  ["build", "--project-root", "x".repeat(4_067)],
-].map((value) => Object.freeze({ value: Object.freeze(value), bytes: encoder.encode(value.join("\0")).byteLength }));
-for (let index = 0; index < 256; index += 1) {
-  const value = Array.from({ length: commandRandom.integer(8) }, () => randomString(commandRandom));
-  const bounded = value.map((part) => part.slice(0, 480));
-  commandCases.push(Object.freeze({ value: Object.freeze(bounded), bytes: encoder.encode(bounded.join("\0")).byteLength }));
+function commandCase(value: readonly string[]): FuzzCase<readonly string[]> {
+  return Object.freeze({
+    value: Object.freeze([...value]),
+    bytes: encoder.encode(value.join("\0")).byteLength,
+  });
 }
+
+function commandCorpus(
+  seedOffset: number,
+  fixed: readonly (readonly string[])[],
+): readonly FuzzCase<readonly string[]>[] {
+  const random = new DeterministicRandom((A0_DECODER_FUZZ_SEED + seedOffset) >>> 0);
+  return Object.freeze([
+    ...fixed.map(commandCase),
+    ...Array.from({ length: 64 }, () => commandCase(
+      Array.from({ length: random.integer(8) }, () => randomString(random).slice(0, 480)),
+    )),
+  ]);
+}
+
 surfaces.push(await summarize(
-  "command-arguments",
-  commandCases,
-  (value) => parsePrivateBuildDevArguments(value, exampleRoot) ? "accepted:command" : "refused:usage",
+  "build-dev-command-arguments",
+  commandCorpus(6, [
+    ["build", "--project-root", "."],
+    ["dev", "--project-root", ".", "--port", "4173"],
+    [],
+    ["build", "--project-root", "x".repeat(4_060)],
+  ]),
+  (value) => {
+    const parsed = parsePrivateBuildDevArguments(value, exampleRoot);
+    return parsed ? `accepted:${parsed.command}` : "refused:usage";
+  },
+));
+
+surfaces.push(await summarize(
+  "check-command-arguments",
+  commandCorpus(7, [
+    ["check", "--project-root", "."],
+    ["check", "--project-root", ".", "--explain"],
+    [],
+    ["check", "--project-root", "x".repeat(4_060)],
+  ]),
+  (value) => parseProjectCheckArguments(value, exampleRoot) ? "accepted:check" : "refused:usage",
+));
+
+surfaces.push(await summarize(
+  "create-command-arguments",
+  commandCorpus(8, [
+    ["create", "--project-root", "alpha-app"],
+    ["create", "--project-root", "alpha-app", "extra"],
+    [],
+    ["create", "--project-root", "x".repeat(4_060)],
+  ]),
+  (value) => parseProjectCreateArguments(value, exampleRoot) ? "accepted:create" : "refused:usage",
+));
+
+surfaces.push(await summarize(
+  "deploy-command-arguments",
+  commandCorpus(9, [
+    ["deploy", "--project-root", ".", "--output", "../release"],
+    ["deploy", "--project-root", "."],
+    [],
+    ["deploy", "--project-root", ".", "--output", "x".repeat(4_040)],
+  ]),
+  (value) => parseProjectDeployArguments(value, exampleRoot) ? "accepted:deploy" : "refused:usage",
 ));
 
 surfaces.push(await summarize(
   "route-artifact-manifest",
-  stringCorpus(6, 256, [manifestBytes, "{}", "{", "x".repeat(4_096)]),
+  stringCorpus(10, 256, [manifestBytes, "{}", "{", "x".repeat(4_096)]),
   (value) => {
     try {
       decodeRouteArtifactManifest(value);
@@ -215,52 +304,37 @@ surfaces.push(await summarize(
 const keyring = createDecisionSessionKeyring([Object.freeze({ id: "active", key: new Uint8Array(32).fill(17) })]);
 const now = 1_700_000_000_000;
 const validSession = createDecisionSession(keyring, Object.freeze({ viewer: "owner" }), now);
-const cookieCases: FuzzCase<string | undefined>[] = [
-  Object.freeze({ value: validSession.envelope, bytes: encoder.encode(validSession.envelope).byteLength }),
-  Object.freeze({ value: undefined, bytes: 0 }),
-  ...stringCorpus(7, 256, ["", "x".repeat(4_096)]),
+const sessionCookie = `__Host-fadeno-session=${validSession.envelope}`;
+const cookieCases: FuzzCase<string | null>[] = [
+  Object.freeze({ value: null, bytes: 0 }),
+  ...stringCorpus(11, 254, [
+    sessionCookie,
+    `other=one; ${sessionCookie}`,
+    `  other = one ;  ${sessionCookie}  `,
+    `${sessionCookie}; ${sessionCookie}`,
+    "x".repeat(16 * 1_024 + 1),
+  ]),
 ];
 surfaces.push(await summarize(
   "session-cookie",
   cookieCases,
-  (value) => {
-    const opened = openDecisionSession(keyring, value, now + 1);
-    return opened.status === "invalid" || opened.status === "expired"
-      ? `refused:${opened.status}`
-      : `accepted:${opened.status}`;
+  (header) => {
+    try {
+      const opened = openDecisionSession(keyring, decodeSessionCookieHeader(header), now + 1);
+      return opened.status === "invalid" || opened.status === "expired"
+        ? `refused:${opened.status}`
+        : `accepted:${opened.status}`;
+    } catch (error) {
+      return classifyError(error, /^FADENO_SESSION_COOKIE$/u);
+    }
   },
 ));
 
-const validProof = signDecisionActionProof(keyring, "route:projects");
-const proofRandom = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 8) >>> 0);
-const proofCases: FuzzCase<Readonly<{ keyId: string; message: string; signature: Uint8Array }>>[] = [
-  Object.freeze({
-    value: Object.freeze({ keyId: validProof.keyId, message: "route:projects", signature: validProof.signature }),
-    bytes: encoder.encode(validProof.keyId + "route:projects").byteLength + validProof.signature.byteLength,
-  }),
-  Object.freeze({ value: Object.freeze({ keyId: "missing", message: "route:projects", signature: validProof.signature }), bytes: 53 }),
-  Object.freeze({ value: Object.freeze({ keyId: validProof.keyId, message: "wrong", signature: validProof.signature }), bytes: 43 }),
-  Object.freeze({ value: Object.freeze({ keyId: validProof.keyId, message: "x".repeat(4_058), signature: validProof.signature }), bytes: 4_096 }),
-];
-for (let index = 0; index < 256; index += 1) {
-  const keyId = randomString(proofRandom).slice(0, 64);
-  const message = randomString(proofRandom).slice(0, 512);
-  const signature = proofRandom.bytes(proofRandom.integer(65));
-  proofCases.push(Object.freeze({
-    value: Object.freeze({ keyId, message, signature }),
-    bytes: encoder.encode(keyId + message).byteLength + signature.byteLength,
-  }));
-}
-surfaces.push(await summarize(
-  "action-proof",
-  proofCases,
-  ({ keyId, message, signature }) => verifyDecisionActionProof(keyring, keyId, message, signature)
-    ? "accepted:proof"
-    : "refused:proof",
-));
-
 const fuzzAction = defineAction({
-  fields: { title: textField({ maximumBytes: 128 }) },
+  fields: {
+    title: textField({ maximumBytes: 128 }),
+    attachment: fileField({ required: false, maximumBytes: 128, acceptedTypes: ["text/plain"] }),
+  },
   authorize: () => true,
   run: () => redirect("/projects"),
 });
@@ -271,6 +345,7 @@ const actionDocument = () => jsx("html", {
       action: fuzzAction,
       children: [
         jsx("input", { name: fuzzAction.fields.title, type: "text" }),
+        jsx("input", { name: fuzzAction.fields.attachment, type: "file" }),
         jsx("button", { type: "submit", children: "Save" }),
       ],
     }),
@@ -287,54 +362,136 @@ const handler: Handler = (request) => renderRoute({
   notFound: actionDocument,
   error: actionDocument,
 });
-const actionRuntime = new ActionServerRuntime({
-  canonicalOrigin: "https://app.example",
-  generation: "a0-decoder-fuzz",
-  sessionKeys: `active:${Buffer.alloc(32, 19).toString("base64url")}`,
-  now: Date.now,
-});
-const initial = await actionRuntime.serve(new Request("https://app.example/projects"), async (request) => await handler(request));
-const initialHtml = await initial.text();
-const action = /<form action="([^"]+)"/u.exec(initialHtml)?.[1]?.replaceAll("&amp;", "&");
-const proof = /name="__fadeno_proof" value="([^"]+)"/u.exec(initialHtml)?.[1];
-const fieldName = /<input name="([^"]+)" type="text">/u.exec(initialHtml)?.[1];
-const cookie = initial.headers.getSetCookie()[0]?.split(";", 1)[0];
-if (!action || !proof || !fieldName || !cookie) throw new Error("FADENO_A0_FUZZ_ACTION_SETUP");
 
-type ActionBodyCase = Readonly<{ mediaType: string; body: string | Uint8Array }>;
-function actionBodyCase(mediaType: string, body: string | Uint8Array): FuzzCase<ActionBodyCase> {
-  const bytes = typeof body === "string" ? encoder.encode(body).byteLength : body.byteLength;
-  return Object.freeze({ value: Object.freeze({ mediaType, body }), bytes });
+type ActionFixture = Readonly<{
+  runtime: ActionServerRuntime;
+  action: string;
+  proof: string;
+  fieldName: string;
+  fileFieldName: string;
+  cookie: string;
+}>;
+
+async function createActionFixture(): Promise<ActionFixture> {
+  const runtime = new ActionServerRuntime({
+    canonicalOrigin: "https://app.example",
+    generation: "a0-decoder-fuzz",
+    sessionKeys: `active:${Buffer.alloc(32, 19).toString("base64url")}`,
+    now: Date.now,
+  });
+  const initial = await runtime.serve(
+    new Request("https://app.example/projects"),
+    async (request) => await handler(request),
+  );
+  const html = await initial.text();
+  const action = /<form action="([^"]+)"/u.exec(html)?.[1]?.replaceAll("&amp;", "&");
+  const proof = /name="__fadeno_proof" value="([^"]+)"/u.exec(html)?.[1];
+  const fieldName = /<input name="([^"]+)" type="text">/u.exec(html)?.[1];
+  const fileFieldName = /<input name="([^"]+)" type="file">/u.exec(html)?.[1];
+  const cookie = initial.headers.getSetCookie()[0]?.split(";", 1)[0];
+  if (!action || !proof || !fieldName || !fileFieldName || !cookie) {
+    throw new Error("FADENO_A0_FUZZ_ACTION_SETUP");
+  }
+  return Object.freeze({ runtime, action, proof, fieldName, fileFieldName, cookie });
 }
-const validBody = new URLSearchParams({ __fadeno_proof: proof, [fieldName]: "accepted" }).toString();
+
+async function submitAction(
+  fixture: ActionFixture,
+  mediaType: string,
+  body: string | Uint8Array,
+): Promise<Readonly<{ status: number; body: string }>> {
+  const response = await fixture.runtime.serve(new Request(new URL(fixture.action, "https://app.example"), {
+    method: "POST",
+    headers: { origin: "https://app.example", cookie: fixture.cookie, "content-type": mediaType },
+    body: typeof body === "string" ? body : body.slice().buffer as ArrayBuffer,
+  }), async (request) => await handler(request));
+  return Object.freeze({ status: response.status, body: await response.text() });
+}
+
+const proofFixture = await createActionFixture();
+surfaces.push(await summarize(
+  "action-proof",
+  stringCorpus(12, 254, [
+    proofFixture.proof,
+    "",
+    "v1",
+    "v1.active.0.invalid.invalid",
+    ".".repeat(320),
+    "x".repeat(4_096),
+  ]),
+  async (proof) => {
+    const body = new URLSearchParams({
+      __fadeno_proof: proof,
+      [proofFixture.fieldName]: "accepted",
+    }).toString();
+    const response = await submitAction(proofFixture, "application/x-www-form-urlencoded", body);
+    if (response.status === 303) return "accepted:proof";
+    const code = /FADENO_[A-Z0-9_]+/u.exec(response.body)?.[0];
+    if (!code || !code.startsWith("FADENO_ACTION_PROOF")) {
+      return `unexpected:${code ?? `status-${response.status}`}`;
+    }
+    return `refused:${code}`;
+  },
+));
+
+type ActionBodyCase = Readonly<{
+  fixture: ActionFixture;
+  mediaType: string;
+  body: string | Uint8Array;
+}>;
+function actionBodyCase(
+  fixture: ActionFixture,
+  mediaType: string,
+  body: string | Uint8Array,
+): FuzzCase<ActionBodyCase> {
+  const bytes = typeof body === "string" ? encoder.encode(body).byteLength : body.byteLength;
+  return Object.freeze({ value: Object.freeze({ fixture, mediaType, body }), bytes });
+}
+
+function multipartBody(fixture: ActionFixture, boundary: string): string {
+  return [
+    `--${boundary}\r\nContent-Disposition: form-data; name="__fadeno_proof"\r\n\r\n${fixture.proof}\r\n`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="${fixture.fieldName}"\r\n\r\naccepted\r\n`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="${fixture.fileFieldName}"; filename="accepted.txt"\r\nContent-Type: text/plain\r\n\r\naccepted-file\r\n`,
+    `--${boundary}--\r\n`,
+  ].join("");
+}
+
+const bodyFixture = await createActionFixture();
+const multipartFixture = await createActionFixture();
+const validBody = new URLSearchParams({
+  __fadeno_proof: bodyFixture.proof,
+  [bodyFixture.fieldName]: "accepted",
+}).toString();
+const multipartBoundary = "fadeno-a0-valid-boundary";
 const actionBodyCases: FuzzCase<ActionBodyCase>[] = [
-  actionBodyCase("application/x-www-form-urlencoded", validBody),
-  actionBodyCase("application/x-www-form-urlencoded", `${fieldName}=${sentinel}`),
-  actionBodyCase("application/x-www-form-urlencoded", `__fadeno_proof=${proof}&__fadeno_proof=${proof}&${fieldName}=${sentinel}`),
-  actionBodyCase("application/json", `{"value":"${sentinel}"}`),
+  actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", validBody),
+  actionBodyCase(
+    multipartFixture,
+    `multipart/form-data; boundary=${multipartBoundary}`,
+    multipartBody(multipartFixture, multipartBoundary),
+  ),
+  actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", `${bodyFixture.fieldName}=${sentinel}`),
+  actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", `__fadeno_proof=${bodyFixture.proof}&__fadeno_proof=${bodyFixture.proof}&${bodyFixture.fieldName}=${sentinel}`),
+  actionBodyCase(bodyFixture, "application/json", `{"value":"${sentinel}"}`),
 ];
-const bodyRandom = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 9) >>> 0);
-for (let index = 0; index < 128; index += 1) {
+const bodyRandom = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 13) >>> 0);
+for (let index = 0; index < 127; index += 1) {
   const random = `${sentinel}:${randomString(bodyRandom)}`.slice(0, 1_024);
   const kind = bodyRandom.integer(4);
-  if (kind === 0) actionBodyCases.push(actionBodyCase("application/x-www-form-urlencoded", random));
-  else if (kind === 1) actionBodyCases.push(actionBodyCase(`multipart/form-data; boundary=fuzz-${index}`, random));
-  else if (kind === 2) actionBodyCases.push(actionBodyCase("text/plain", random));
-  else actionBodyCases.push(actionBodyCase("application/x-www-form-urlencoded", bodyRandom.bytes(bodyRandom.integer(1_025))));
+  if (kind === 0) actionBodyCases.push(actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", random));
+  else if (kind === 1) actionBodyCases.push(actionBodyCase(bodyFixture, `multipart/form-data; boundary=fuzz-${index}`, random));
+  else if (kind === 2) actionBodyCases.push(actionBodyCase(bodyFixture, "text/plain", random));
+  else actionBodyCases.push(actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", bodyRandom.bytes(bodyRandom.integer(1_025))));
 }
 surfaces.push(await summarize(
   "action-body",
   actionBodyCases,
-  async ({ mediaType, body }) => {
-    const response = await actionRuntime.serve(new Request(new URL(action, "https://app.example"), {
-      method: "POST",
-      headers: { origin: "https://app.example", cookie, "content-type": mediaType },
-      body: typeof body === "string" ? body : body.slice().buffer as ArrayBuffer,
-    }), async (request) => await handler(request));
-    const responseBody = await response.text();
-    if (responseBody.includes(sentinel)) return "unexpected:secret-leakage";
+  async ({ fixture, mediaType, body }) => {
+    const response = await submitAction(fixture, mediaType, body);
+    if (response.body.includes(sentinel)) return "unexpected:secret-leakage";
     if (response.status === 303) return "accepted:redirect";
-    const code = /FADENO_[A-Z0-9_]+/u.exec(responseBody)?.[0];
+    const code = /FADENO_[A-Z0-9_]+/u.exec(response.body)?.[0];
     if (!code || code === "FADENO_ACTION_INTERNAL") return `unexpected:${code ?? `status-${response.status}`}`;
     return `refused:${code}`;
   },

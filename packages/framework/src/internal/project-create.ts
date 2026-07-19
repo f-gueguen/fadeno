@@ -301,26 +301,30 @@ function refusal(code: string, message: string): ProjectCreateCommandResult {
   return Object.freeze({ exitCode: 1 as const, stdout: "", stderr: `${code}: ${message}\n` });
 }
 
+export function parseProjectCreateArguments(arguments_: readonly string[], cwd: string): string | null {
+  if (
+    !Array.isArray(arguments_) || arguments_.length !== 3 || arguments_[0] !== "create" ||
+    arguments_[1] !== "--project-root" || !arguments_[2] || typeof cwd !== "string"
+  ) return null;
+  return arguments_[2];
+}
+
 export function runProjectCreateCommand(
   arguments_: readonly string[],
   context: ProjectCreateCommandContext,
 ): ProjectCreateCommandResult {
-  if (!Array.isArray(arguments_)
-    || arguments_.length !== 3
-    || arguments_[0] !== "create"
-    || arguments_[1] !== "--project-root"
-    || !arguments_[2]
-    || typeof context.cwd !== "string") {
+  const targetArgument = parseProjectCreateArguments(arguments_, context.cwd);
+  if (targetArgument === null) {
     return Object.freeze({ exitCode: 2 as const, stdout: "", stderr: usage });
   }
-  const unresolvedTarget = resolve(context.cwd, arguments_[2]);
+  const unresolvedTarget = resolve(context.cwd, targetArgument);
   const name = basename(unresolvedTarget);
   if (!packageNamePattern.test(name)) {
     return refusal("FADENO_CREATE_NAME", "Project directory name must be a lowercase package name.");
   }
   let target: string;
   try {
-    target = resolve(realpathSync.native(context.cwd), arguments_[2]);
+    target = resolve(realpathSync.native(context.cwd), targetArgument);
   } catch {
     return refusal("FADENO_CREATE_PARENT", "Project parent and ancestors must be ordinary non-symlink directories.");
   }

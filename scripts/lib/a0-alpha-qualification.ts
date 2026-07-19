@@ -272,7 +272,7 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
   }
 
   for (const [name, content, fragments] of [
-    ["alpha threat review", context.alphaThreatReview, ["2,020 cases", "nine surfaces", "FADENO_CONFIG_SYNTAX", "FADENO_ACTION_BODY", "No known critical or high-severity issue", "not the independent security review"]],
+    ["alpha threat review", context.alphaThreatReview, ["2,100 cases", "thirteen surfaces", "FADENO_CONFIG_SYNTAX", "FADENO_ACTION_BODY", "No known critical or high-severity issue", "not the independent security review"]],
     ["security requirements", context.securityRequirements, ["pnpm check:a0-decoder-fuzz", "first-alpha threat review"]],
     ["action threat model", context.actionThreatModel, ["pnpm check:a0-decoder-fuzz", "FADENO_ACTION_BODY"]],
     ["migration index", context.migrationIndex, ["First-alpha candidate adoption guide", "not a released compatibility migration"]],

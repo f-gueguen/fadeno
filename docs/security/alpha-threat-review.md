@@ -52,22 +52,27 @@ therefore not hidden decoder surfaces.
 
 `pnpm check:a0-decoder-fuzz` runs the exact production decoders twice in fresh
 child processes with a fixed seed and a 30-second process deadline. The checked
-corpus covers 2,020 cases over nine surfaces:
+corpus covers 2,100 cases over thirteen surfaces:
 
 1. adapter request targets;
 2. route pathnames;
-3. configuration sources;
-4. environment files;
-5. command arguments;
-6. generated route manifests;
-7. session cookies;
-8. action proofs;
-9. action bodies and media types.
+3. unsaved configuration sources;
+4. configuration file bytes;
+5. environment files;
+6. build and development command arguments;
+7. check command arguments;
+8. create command arguments;
+9. deploy command arguments;
+10. generated route manifests;
+11. complete session Cookie headers;
+12. serialized action proofs;
+13. action bodies, media types, and valid multipart file decoding.
 
-Every surface has at least one accepted and one refused control. Inputs are
-bounded to 4,096 bytes, every outcome is classified, the two complete result
-documents must be byte-identical, and a submitted secret canary must never
-appear in action responses. The normalized checked output is
+Every surface has at least one accepted and one refused control. Every input is
+bounded: the over-limit Cookie-header control is at most 16,385 bytes and every
+other surface is at most 4,096 bytes. Every outcome is classified, the two
+complete result documents must be byte-identical, and a submitted secret canary
+must never appear in action responses. The normalized checked output is
 [`decoder-fuzz.json`](../../evidence/a0/security/decoder-fuzz.json). Mutation
 tests refuse missing controls, surface reordering, a changed seed, an
 unexpected outcome, an input over the bound, nondeterministic replay, or an

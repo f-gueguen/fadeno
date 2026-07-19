@@ -99,8 +99,7 @@ function parseKeyring(source: string): DecisionSessionKeyring {
 function objectValues(value: DecisionSessionValue): Readonly<Record<string, DecisionSessionValue>> | null {
   return plain(value) ? value as Readonly<Record<string, DecisionSessionValue>> : null;
 }
-function cookieValue(request: Request): string | undefined {
-  const header = request.headers.get("cookie");
+export function decodeSessionCookieHeader(header: string | null): string | undefined {
   if (header === null) return undefined;
   if (Buffer.byteLength(header) > maximumCookieHeaderBytes) fail("FADENO_SESSION_COOKIE");
   let found: string | undefined;
@@ -114,6 +113,10 @@ function cookieValue(request: Request): string | undefined {
     found = pair.slice(separator + 1);
   }
   return found;
+}
+
+function cookieValue(request: Request): string | undefined {
+  return decodeSessionCookieHeader(request.headers.get("cookie"));
 }
 function safeKey(key: string): void {
   if (typeof key !== "string" || key.length === 0 || encoder.encode(key).byteLength > maximumSessionKeyBytes || key.includes("\0")) {
