@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.browser-runtime-recovery",
+  "version": 1,
+  "blockedModule": "native page remains usable",
+  "missingNonce": "module does not execute",
+  "wrongNonce": "module does not execute",
+  "javascriptDisabled": "native link and form still navigate",
+  "rollback": "stop emitting the generated module"
+}

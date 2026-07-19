@@ -1,0 +1,21 @@
+{
+  "schema": "fadeno.example.browser-runtime-flow",
+  "version": 1,
+  "cause": "rendered route opts into the generated application browser module",
+  "ownership": [
+    "request-owned CSP nonce",
+    "generated application browser module",
+    "same-version framework browser artifact"
+  ],
+  "decisions": [
+    "emit one nonce-bearing external module",
+    "start enhancement explicitly",
+    "reuse the active runtime handle"
+  ],
+  "skipped": [
+    "link interception",
+    "form interception",
+    "document reconciliation"
+  ],
+  "outcome": "optional runtime active; native controls remain authoritative"
+}
