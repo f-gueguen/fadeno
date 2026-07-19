@@ -397,9 +397,19 @@ registry hashes cannot hide stale, extra, or changed package content. Public
 observations are retained only after they exist; source qualification never
 fabricates them.
 
-If the first publication uses bootstrap credentials, the hosted workflow
-revokes the one-use token after `npm publish` and polls the registry until that
-same credential is refused. Trusted publication does not allocate that token.
+ADR 0044 makes the observed first-package alias rule explicit: exactly `alpha`
+and the registry-mandated `latest` must resolve to `0.1.0-alpha.1`. Every other
+channel or target is refused.
+
+The first publication used one package-scoped bootstrap credential. That
+permission could not administer or revoke tokens, so a separately
+maintainer-authenticated registry session revoked it immediately and verified
+zero active tokens. The hosted secret was then removed and the exact trusted
+publisher configured. Current hosted publication contains neither a bootstrap
+secret nor an impossible self-revocation step. `pnpm check:a0-public-release`
+retains normalized post-publication success, refusal, correction, flow, and
+recovery without changing the immutable documentation manifest. Trusted
+publication does not allocate that token.
 
 ## Diagnostics and support
 
