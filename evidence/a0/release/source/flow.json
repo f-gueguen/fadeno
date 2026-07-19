@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "operation": "first-alpha-release-source",
+  "causes": [
+    "qualified-alpha-candidate",
+    "five-reviewed-changesets",
+    "mechanical-alpha-transition"
+  ],
+  "ownership": {
+    "version": "changesets",
+    "sourceQualification": "local-ci",
+    "documentation": "tracked-documentation-manifest",
+    "publicationTransport": "publish.yml",
+    "publicVerification": "verify:a0-public-alpha"
+  },
+  "skippedWork": [
+    {
+      "work": "registry-publication",
+      "reason": "release-source-pr-cannot-publish"
+    },
+    {
+      "work": "source-tag",
+      "reason": "exact-merged-main-commit-not-yet-qualified"
+    },
+    {
+      "work": "trusted-publisher-configuration",
+      "reason": "first-package-version-does-not-yet-exist"
+    }
+  ],
+  "observableOutcome": "locally-qualified-first-alpha-release-source"
+}

@@ -77,6 +77,24 @@ checkpoint does not publish, change the `0.0.0` seed, create a tag, or claim
 production support. A0-10 remains the mechanical publication and public
 identity-verification slice.
 
+`pnpm check:a0-first-alpha-release` is the fail-closed A0-10 source gate. It
+binds the exact `0.1.0-alpha.0` manifest, reviewed prerelease intent, prior
+candidate qualification, changelog, SBOM, release notes, publication-only
+workflow, and tracked documentation manifest before any tag exists. On a clean
+commit it builds the documentation archive twice from `HEAD`, requires
+identical bytes, extracts it, and proves every archived file against the
+manifest. A wrong seed version is a deliberate executable refusal; correcting
+the mechanical prerelease transition clears the diagnostic without publishing
+or creating a stale tag.
+
+After the exact merged commit passes local CI and is published under its
+immutable tag, `pnpm verify:a0-public-alpha` is the separate public transport
+verifier. It must resolve the registry version and `alpha` tag, repository tag
+and release, provenance and documentation artifact identity, then install in a
+fresh directory and replay create, test, check, build, development, deployment,
+and rollback through public package entrypoints. Public verification is not a
+pre-publication merge gate and may not be replaced by workspace artifacts.
+
 Non-registry artifacts include verifiable source identity and a software bill
 of materials before stable release.
 

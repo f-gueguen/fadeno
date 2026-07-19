@@ -107,9 +107,9 @@ expectPolicyFailure("empty A0 artifacts", "check-project-model.ts", "A0-05 artif
   writeFileSync(path, content);
 });
 
-expectPolicyFailure("missing A0 validation command", "check-project-model.ts", "A0-10 missing validation command pnpm ci:local", (copy) => {
+expectPolicyFailure("missing A0 validation command", "check-project-model.ts", "A0-10 missing validation command pnpm verify:a0-public-alpha", (copy) => {
   const path = join(copy, "docs/roadmap/a0.md");
-  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-10 \|.*$/m, (line) => line.replace("; `pnpm ci:local`", "")));
+  writeFileSync(path, readFileSync(path, "utf8").replace(/^\| A0-10 \|.*$/m, (line) => line.replace("; `pnpm verify:a0-public-alpha`", "")));
 });
 
 expectPolicyFailure("A0 gate used as prerequisite", "check-project-model.ts", "A0-02 lists an owned decision gate as a prerequisite", (copy) => {

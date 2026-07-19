@@ -343,6 +343,33 @@ rollback paths. Automated packed evidence does not establish newcomer or
 assistive-technology usability. The package remains the unpublished `0.0.0`
 seed; publication, immutable tag and registry/docs identity remain A0-10 only.
 
+## A0-10 first-alpha release and public replay
+
+A0-10 mechanically consumes the reviewed Changesets into exactly
+`@fadeno/framework@0.1.0-alpha.0`. The private example workspaces remain
+`0.0.0`. `pnpm check:a0-first-alpha-release` owns the pre-publication contract:
+it binds the prior alpha-candidate qualification, exact prerelease state,
+package metadata, changelog, SBOM, release notes, publication workflow, and an
+immutable manifest of every tracked release-documentation file. A clean source
+commit must produce the same documentation archive bytes twice and must round
+trip every extracted file against that manifest.
+
+The gate includes permanent normalized success, deliberate wrong-version
+refusal, human diagnostic, correction, flow, and recovery evidence under
+`evidence/a0/release/source`. The flow records which release inputs own each
+decision and why registry publication, tagging, and trusted-publisher setup are
+skipped during source review. Recovery proves the seed-version diagnostic is
+removed and that no incorrect version or premature tag was created.
+
+`pnpm verify:a0-public-alpha` begins only after publication. It refuses any
+version or source identity other than the immutable first alpha, retrieves the
+package from the public registry into a clean consumer, and replays create,
+test, check, build, development, deployment, and rollback without a workspace
+or packed-tarball shortcut. It separately verifies the registry distribution
+tag, package metadata and provenance, source tag/release, documentation archive
+and release-note identities. Public observations are retained only after they
+exist; source qualification never fabricates them.
+
 ## Diagnostics and support
 
 - User errors provide a stable identifier, source location, concise reason,

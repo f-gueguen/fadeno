@@ -30,6 +30,7 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:a0-release
+      - run: pnpm check:a0-first-alpha-release
       - run: npm publish ./packages/framework --access public --tag alpha
         env:
           FADENO_RELEASE_MODE: ${{ vars.NPM_RELEASE_MODE }}

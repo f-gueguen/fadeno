@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "milestone": "A0-10",
+  "phase": "release-source",
+  "status": "qualified-release-source",
+  "package": "@fadeno/framework",
+  "version": "0.1.0-alpha.0",
+  "sourceTag": "v0.1.0-alpha.0",
+  "distributionTag": "alpha",
+  "priorQualification": "qualified-alpha-candidate",
+  "publicationAttempted": false,
+  "exactCommitQualificationRequired": true,
+  "changesets": [
+    "application-test-workflow",
+    "create-fadeno-project",
+    "early-fadeno-alpha",
+    "immutable-deployment-artifact",
+    "quiet-boundaries-refuse"
+  ],
+  "documentationManifest": "evidence/a0/release/docs-manifest.json",
+  "documentationArtifact": "fadeno-docs-0.1.0-alpha.0.tar.gz",
+  "publicationWorkflow": ".github/workflows/publish.yml",
+  "publicationEnvironment": "npm-production",
+  "postPublicationVerification": "pnpm verify:a0-public-alpha"
+}

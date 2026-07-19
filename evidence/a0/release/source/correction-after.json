@@ -1,0 +1,6 @@
+{
+  "packageVersion": "0.1.0-alpha.0",
+  "prereleaseMode": "alpha",
+  "sourceTag": "v0.1.0-alpha.0",
+  "publicationAllowed": "only-after-exact-main-local-ci"
+}
