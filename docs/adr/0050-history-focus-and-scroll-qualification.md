@@ -59,7 +59,10 @@ numeric position into newly rendered content is not treated as proof that the
 preceding layout is unchanged. V2-08 remains responsible for broader structural
 preservation. After that current-truth reload, an exact supported runtime-owned
 entry may resume enhancement; an application-owned, malformed, or unsupported
-entry still refuses runtime ownership.
+entry still refuses runtime ownership. Before initiating native recovery, the
+runtime restores the scroll-restoration mode that existed before enhancement,
+so a restarted runtime does not mistake its predecessor's `manual` mode for the
+browser's original setting.
 
 A non-collapsed selection, caret or focused control with unresolved ownership,
 dirty control, disclosure/top-layer state, media, client-owned identity, and
@@ -79,10 +82,16 @@ Traversal supersession uses ADR 0049's existing operation cancellation and
 newest-only publication. Scroll-write suppression remains owned by the newest
 traversal until that traversal finishes; an older traversal's cleanup cannot
 release it. Every entry has a bounded private identity; `popstate` inspects the
-still-present outgoing document and conservatively marks that identity unsafe
-before adopting the selected entry, covering scroll changes whose event has not
-yet been delivered. A late response cannot commit document, history, focus,
-selection, or scroll after a newer click or traversal. Flow evidence
+still-present outgoing document and conservatively marks its displayed identity
+unsafe. The displayed identity changes only after a successful document commit,
+not when an intermediate traversal merely selects another entry. If the bounded
+unsafe-identity tracker fills, every later traversal reloads rather than
+forgetting an older unsafe entry. The selected URL and complete exact private
+state are revalidated after asynchronous work and immediately before commit.
+These rules cover scroll changes whose event has not yet been delivered,
+application state replacement during a request, and multi-entry traversal. A
+late response cannot commit document, history, focus, selection, or scroll after
+a newer click or traversal. Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
 

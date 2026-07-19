@@ -33,6 +33,11 @@ export interface PrivateBrowserNavigation {
   close(): void;
 }
 
+export interface PrivateUnsafeHistoryEntryTracker {
+  mark(entry: string): void;
+  requiresReload(entry: string): boolean;
+}
+
 export type PrivateLinkNavigationFlow = Readonly<{
   schema: "fadeno.private.link-navigation-flow";
   version: 1;
@@ -67,6 +72,29 @@ export function readPrivateLinkNavigationFlows(): readonly PrivateLinkNavigation
     }),
     skipped: Object.freeze([...flow.skipped]),
   })));
+}
+
+export function createPrivateUnsafeHistoryEntryTracker(
+  maximumEntries = 256,
+): PrivateUnsafeHistoryEntryTracker {
+  if (!Number.isSafeInteger(maximumEntries) || maximumEntries < 1) {
+    throw new TypeError("FADENO_HISTORY_UNSAFE_ENTRY_LIMIT");
+  }
+  const entries = new Set<string>();
+  let overflowed = false;
+  return Object.freeze({
+    mark(entry: string): void {
+      if (overflowed) return;
+      entries.add(entry);
+      if (entries.size > maximumEntries) {
+        entries.clear();
+        overflowed = true;
+      }
+    },
+    requiresReload(entry: string): boolean {
+      return overflowed || entries.has(entry);
+    },
+  });
 }
 
 function metadata(owner: Document): Metadata | undefined {
@@ -224,6 +252,14 @@ function privateHistoryState(value: unknown): PrivateHistoryState | undefined {
   return Object.freeze({ version: 1, entry, scrollX: x, scrollY: y, elementScroll });
 }
 
+function samePrivateHistoryState(left: PrivateHistoryState, right: PrivateHistoryState): boolean {
+  return left.version === right.version
+    && left.entry === right.entry
+    && left.scrollX === right.scrollX
+    && left.scrollY === right.scrollY
+    && left.elementScroll === right.elementScroll;
+}
+
 function applyDocument(next: Document, url: string, replace: boolean): void {
   const oldHead = document.head.cloneNode(true) as HTMLHeadElement;
   const oldBody = document.body.cloneNode(true) as HTMLBodyElement;
@@ -264,25 +300,24 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   let historyWriteFailed = false;
   const consumedResultIds: string[] = [];
   const previousScrollRestoration = history.scrollRestoration;
+  const restoreScrollRestoration = (): void => {
+    try { history.scrollRestoration = previousScrollRestoration; } catch { /* native owner remains authoritative */ }
+  };
   try {
     history.scrollRestoration = "manual";
     if (existingHistoryState === null) {
       history.replaceState(createHistoryState(scrollX, scrollY, false), "", location.href);
     }
   } catch {
-    try { history.scrollRestoration = previousScrollRestoration; } catch { /* native owner remains authoritative */ }
+    restoreScrollRestoration();
     return undefined;
   }
-  let activeHistoryEntry = privateHistoryState(history.state)?.entry;
-  const unsafeHistoryEntries = new Set<string>();
+  let displayedHistoryEntry = privateHistoryState(history.state)?.entry;
+  const unsafeHistoryEntries = createPrivateUnsafeHistoryEntryTracker();
 
   const markHistoryUnsafe = (entry: string | undefined): void => {
     if (!entry) return;
-    unsafeHistoryEntries.add(entry);
-    if (unsafeHistoryEntries.size > 256) {
-      const oldest = unsafeHistoryEntries.values().next().value as string | undefined;
-      if (oldest) unsafeHistoryEntries.delete(oldest);
-    }
+    unsafeHistoryEntries.mark(entry);
   };
 
   const flushCurrentScroll = (force: boolean): boolean => {
@@ -319,16 +354,22 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       && target !== document.body
       && (target.scrollTop !== 0 || target.scrollLeft !== 0);
     pendingElementScroll ||= elementOwnsScroll;
-    if (scrollX !== 0 || scrollY !== 0 || elementOwnsScroll) markHistoryUnsafe(activeHistoryEntry);
+    if (scrollX !== 0 || scrollY !== 0 || elementOwnsScroll) markHistoryUnsafe(displayedHistoryEntry);
     void flushCurrentScroll(false);
   };
 
   const fallback = (destination: URL, replace: boolean): void => {
+    restoreScrollRestoration();
     if (replace) location.replace(destination.href);
     else location.assign(destination.href);
   };
 
-  const navigate = async (destination: URL, replace: boolean, initiator?: HTMLAnchorElement): Promise<void> => {
+  const navigate = async (
+    destination: URL,
+    replace: boolean,
+    initiator?: HTMLAnchorElement,
+    selectedHistoryState?: PrivateHistoryState,
+  ): Promise<void> => {
     if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) {
       fallback(destination, replace);
       return;
@@ -377,6 +418,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         throw new TypeError(admission.decision.code);
       }
       if (!privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      if (selectedHistoryState) {
+        const currentHistoryState = privateHistoryState(history.state);
+        if (location.href !== operation.currentTruthUrl
+          || !currentHistoryState
+          || !samePrivateHistoryState(currentHistoryState, selectedHistoryState)) {
+          throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+        }
+      }
       if (admission.outcome.kind === "redirect") {
         const redirect = new URL(admission.outcome.location, location.origin);
         fallback(redirect, replace);
@@ -390,7 +439,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
       if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       applyDocument(next, operation.destination.href, replace);
-      activeHistoryEntry = privateHistoryState(history.state)?.entry;
+      displayedHistoryEntry = privateHistoryState(history.state)?.entry;
       consumedResultIds.push(admission.resultId);
       if (consumedResultIds.length > 256) consumedResultIds.shift();
       currentMetadata = metadata(document);
@@ -459,21 +508,21 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const outgoingElementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
       && (element.scrollTop !== 0 || element.scrollLeft !== 0));
     if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || outgoingElementScroll) {
-      markHistoryUnsafe(activeHistoryEntry);
+      markHistoryUnsafe(displayedHistoryEntry);
     }
     pendingElementScroll = false;
     traversalSequence += 1;
     const traversal = traversalSequence;
     const state = privateHistoryState(history.state);
-    activeHistoryEntry = state?.entry;
     traversing = true;
-    if (!state || unsafeHistoryEntries.has(state.entry)
+    if (!state || unsafeHistoryEntries.requiresReload(state.entry)
       || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
       active?.cancellation.abort(new DOMException("History traversal requires native recovery", "AbortError"));
+      restoreScrollRestoration();
       location.reload();
       return;
     }
-    void navigate(new URL(location.href), true).finally(() => {
+    void navigate(new URL(location.href), true, undefined, state).finally(() => {
       if (traversal === traversalSequence) traversing = false;
     });
   };
@@ -488,7 +537,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       document.removeEventListener("click", click);
       document.removeEventListener("scroll", recordCurrentScroll, true);
       globalThis.removeEventListener("popstate", popstate);
-      history.scrollRestoration = previousScrollRestoration;
+      restoreScrollRestoration();
     },
   });
 }

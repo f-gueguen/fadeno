@@ -167,9 +167,14 @@ zero-scroll entries without observed element-scroll ownership; malformed,
 unowned, nonzero-scroll, or element-scroll entries reload their selected current
 URL. An exact supported owned entry can resume enhancement after that current-
 truth reload; application-owned or malformed state cannot. Traversal scroll
-suppression remains tied to the newest traversal generation. Non-collapsed
-selection and unresolved focus/state still refuse. No transition work is
-allocated in either normal or reduced-motion mode.
+suppression remains tied to the newest traversal generation. The runtime keeps
+the identity of the document actually displayed separate from a merely selected
+entry, changes it only after commit, and becomes fail-closed for traversal if
+its bounded unsafe-identity tracker fills. The selected URL and exact private
+state are revalidated immediately before commit. Native recovery restores the
+pre-enhancement scroll-restoration mode before reload. Non-collapsed selection
+and unresolved focus/state still refuse. No transition work is allocated in
+either normal or reduced-motion mode.
 
 ## Narrowed H1 result and V2 conformance
 

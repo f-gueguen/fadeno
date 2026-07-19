@@ -114,9 +114,11 @@ try {
     "history-startup-recovery.json",
     "history-scroll-refusal.json",
     "history-write-recovery.json",
+    "history-overflow-recovery.json",
     "history-element-recovery.json",
     "history-pending-scroll-recovery.json",
     "history-late-scroll-recovery.json",
+    "history-selected-state-recovery.json",
     "history-recovery.json",
     "history-refusal-human.txt",
   ]) {

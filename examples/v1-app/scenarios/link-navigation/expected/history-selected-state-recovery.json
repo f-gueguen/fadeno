@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-selected-state-recovery",
+  "version": 1,
+  "privateStateOverwritePrevented": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}

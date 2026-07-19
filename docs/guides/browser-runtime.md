@@ -551,6 +551,8 @@ FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhan
   "nativeRecovery": true,
   "staleDocumentRemoved": true,
   "scrolledOriginEnhanced": true,
+  "recoveredActiveRestoration": "manual",
+  "recoveredClosedRestoration": "auto",
   "runtimeRestarted": true
 }
 ```
@@ -567,6 +569,18 @@ remains native without an uncaught failure:
   "coalescedWrites": 1,
   "nativeRecovery": true,
   "uncaughtErrors": 0
+}
+```
+
+If the bounded unsafe-entry tracker fills, it becomes globally conservative
+for that document instead of forgetting an older unsafe entry:
+
+```json
+{
+  "schema": "fadeno.example.history-overflow-recovery",
+  "version": 1,
+  "evictedEntryReloads": true,
+  "unknownEntryReloads": true
 }
 ```
 
@@ -602,6 +616,20 @@ server truth instead of associating the scroll with another entry:
 }
 ```
 
+The selected URL and exact private history state are checked again after an
+asynchronous response. If application code changes that state, the runtime
+does not overwrite it before reloading current server truth:
+
+```json
+{
+  "schema": "fadeno.example.history-selected-state-recovery",
+  "version": 1,
+  "privateStateOverwritePrevented": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
 Malformed and application-owned history state is never interpreted as Fadeno
 ownership. The selected URL reloads, so stale markup from the previous entry
 disappears and enhancement remains native for that page:
@@ -620,6 +648,6 @@ disappears and enhancement remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 69 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 75 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

@@ -138,7 +138,9 @@
       "scenarios/link-navigation/expected/history-recovery.json",
       "scenarios/link-navigation/expected/history-element-recovery.json",
       "scenarios/link-navigation/expected/history-pending-scroll-recovery.json",
-      "scenarios/link-navigation/expected/history-late-scroll-recovery.json"
+      "scenarios/link-navigation/expected/history-late-scroll-recovery.json",
+      "scenarios/link-navigation/expected/history-overflow-recovery.json",
+      "scenarios/link-navigation/expected/history-selected-state-recovery.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -157,7 +159,8 @@
       "scenarios/link-navigation/expected/history-recovery.json",
       "scenarios/link-navigation/expected/history-element-recovery.json",
       "scenarios/link-navigation/expected/history-pending-scroll-recovery.json",
-      "scenarios/link-navigation/expected/history-late-scroll-recovery.json"
+      "scenarios/link-navigation/expected/history-late-scroll-recovery.json",
+      "scenarios/link-navigation/expected/history-selected-state-recovery.json"
     ]
   }
 }

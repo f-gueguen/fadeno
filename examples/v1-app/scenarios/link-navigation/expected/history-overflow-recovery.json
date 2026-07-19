@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-overflow-recovery",
+  "version": 1,
+  "evictedEntryReloads": true,
+  "unknownEntryReloads": true
+}

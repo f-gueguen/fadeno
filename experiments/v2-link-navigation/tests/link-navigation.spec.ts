@@ -316,6 +316,18 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
   const nativeRecovery = await page.evaluate(() => typeof history.state === "object"
     && history.state !== null
     && Number(Reflect.get(history.state as object, "scrollY")) > 0);
+  const restorationLifecycle = await page.evaluate(async () => {
+    const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void; state(): string };
+    const recoveredActiveRestoration = history.scrollRestoration;
+    enhancement.close();
+    const recoveredClosedRestoration = history.scrollRestoration;
+    const modulePath: string = "/_fadeno/framework/browser.js";
+    const runtime = await import(modulePath) as Readonly<{
+      startBrowserEnhancement(): { close(): void; state(): string };
+    }>;
+    Reflect.set(globalThis, "__fadenoExampleEnhancement", runtime.startBrowserEnhancement());
+    return { recoveredActiveRestoration, recoveredClosedRestoration };
+  });
   const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
@@ -327,6 +339,7 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
     nativeRecovery,
     staleDocumentRemoved: recoveredHeading !== "Next",
     scrolledOriginEnhanced,
+    ...restorationLifecycle,
     runtimeRestarted: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
   };
   expect(result).toEqual(expected("history-scroll-refusal"));
@@ -363,6 +376,28 @@ test("coalesces history writes and keeps mutation-limit failure native", async (
     uncaughtErrors: pageErrors.length,
   };
   expect(result).toEqual(expected("history-write-recovery"));
+});
+
+test("keeps unsafe history tracking fail closed after its bound", async ({ page }) => {
+  await page.goto(origin);
+  const result = await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      createPrivateUnsafeHistoryEntryTracker(): {
+        mark(entry: string): void;
+        requiresReload(entry: string): boolean;
+      };
+    }>;
+    const tracker = runtime.createPrivateUnsafeHistoryEntryTracker();
+    for (let index = 0; index <= 256; index += 1) tracker.mark(`history:overflow-${index}`);
+    return {
+      schema: "fadeno.example.history-overflow-recovery",
+      version: 1,
+      evictedEntryReloads: tracker.requiresReload("history:overflow-0"),
+      unknownEntryReloads: tracker.requiresReload("history:not-observed"),
+    };
+  });
+  expect(result).toEqual(expected("history-overflow-recovery"));
 });
 
 test("reloads application-owned and malformed history instead of showing stale markup", async ({ page }) => {
@@ -522,6 +557,40 @@ test("flushes late outgoing document scroll before commit", async ({ page }) => 
   }).toEqual(expected("history-late-scroll-recovery"));
 });
 
+test("revalidates selected history ownership before traversal commit", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  enhancedHomeDelay = 250;
+  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  await page.evaluate(() => {
+    const original = history.replaceState.bind(history);
+    sessionStorage.setItem("fadeno-test-private-history-overwrite", "0");
+    sessionStorage.setItem("fadeno-test-private-history-armed", "0");
+    history.replaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
+      if (sessionStorage.getItem("fadeno-test-private-history-armed") === "1"
+        && typeof data === "object" && data !== null
+        && Reflect.get(data, "fadeno.private.navigation.v1") === true) {
+        sessionStorage.setItem("fadeno-test-private-history-overwrite", "1");
+      }
+      original(data, unused, url);
+    };
+    history.back();
+    setTimeout(() => {
+      original({ application: true }, "", location.href);
+      sessionStorage.setItem("fadeno-test-private-history-armed", "1");
+    }, 20);
+  });
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-selected-state-recovery",
+    version: 1,
+    privateStateOverwritePrevented: await page.evaluate(() => sessionStorage.getItem("fadeno-test-private-history-overwrite") === "0"),
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
+    staleDocumentRemoved: await page.locator("h1").textContent() !== "Slow",
+  }).toEqual(expected("history-selected-state-recovery"));
+});
+
 test("cancels an obsolete history traversal and publishes only the newest entry", async ({ page }) => {
   await page.goto(origin);
   await page.locator("#slow-link").click();
@@ -529,24 +598,29 @@ test("cancels an obsolete history traversal and publishes only the newest entry"
   await page.locator("#home-link").click();
   await expect(page.locator("h1")).toHaveText("Home");
   enhancedHomeDelay = 250;
+  const nativeHomeBeforeRapidTraversal = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.evaluate(() => {
     const original = history.replaceState.bind(history);
-    Reflect.set(globalThis, "__fadenoStaleHistoryWrites", 0);
+    sessionStorage.setItem("fadeno-test-stale-history-writes", "0");
     history.replaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
       if (typeof data === "object" && data !== null && Number(Reflect.get(data, "scrollY")) > 0) {
-        Reflect.set(globalThis, "__fadenoStaleHistoryWrites", Number(Reflect.get(globalThis, "__fadenoStaleHistoryWrites")) + 1);
+        sessionStorage.setItem(
+          "fadeno-test-stale-history-writes",
+          String(Number(sessionStorage.getItem("fadeno-test-stale-history-writes")) + 1),
+        );
       }
       original(data, unused, url);
     };
     history.back();
+    setTimeout(() => scrollTo(0, 100), 10);
     setTimeout(() => history.forward(), 20);
-    setTimeout(() => scrollTo(0, 100), 60);
   });
   await expect(page.locator("h1")).toHaveText("Home");
-  await expect.poll(() => requests.filter(({ path, enhanced }) => enhanced && path === "/").length).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length)
+    .toBeGreaterThan(nativeHomeBeforeRapidTraversal);
   expect(new URL(page.url()).pathname).toBe("/");
   expect(await page.locator("h1").textContent()).not.toBe("Slow");
-  expect(await page.evaluate(() => Number(Reflect.get(globalThis, "__fadenoStaleHistoryWrites")))).toBe(0);
+  expect(await page.evaluate(() => Number(sessionStorage.getItem("fadeno-test-stale-history-writes")))).toBe(0);
 });
 
 test("keeps request ownership, hostile correlations, limits, and logs isolated", async () => {
