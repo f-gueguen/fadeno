@@ -33,9 +33,10 @@ evidence. A0-10 remains the only publication slice.
   findings: malformed configuration UTF‑16 now refuses before compiler
   admission, and malformed action encoding now receives the stable
   `FADENO_ACTION_BODY` boundary code.
-- The complete audit manifest, threat review, alpha adoption guide, package and
-  support disclosures, traceability, and negative qualification controls are
-  being integrated on the same branch before full current-packed replay.
+- Commits through `6438036` add the complete audit manifest, threat review,
+  alpha adoption guide, package and support disclosures, traceability, and
+  negative qualification controls. The full root `pnpm check` passes; the
+  clean-commit local CI and required review own final merge acceptance.
 
 ## Blockers
 
