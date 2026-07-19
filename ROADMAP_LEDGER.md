@@ -55,6 +55,12 @@ evidence. A0-10 remains the only publication slice.
   editor product or public analyzer schema, and removes the former A0 tooling
   blocker without fabricating evidence.
 
+- A0-07 — prepare independent-user qualification without fabricating
+  observations. A0-07A merge commit `3be74fa` freezes the task packet and
+  privacy/evidence contract; A0-07B1 merge commit `b572673` proves exact-source
+  reconstruction and replay; A0-07B2 merge commit `a39bcfe` adds the real-attempt
+  verifier. Real participation remains `deferred-unqualified` under ADR 0043.
+
 - A0-06 — add the first supported deployment workflow. Merge commit `0272684`
   accepts ADR 0041 and adds the exact public deployment command,
   source-free production-only artifact, runtime identity verification, external
