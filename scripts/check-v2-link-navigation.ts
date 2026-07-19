@@ -110,6 +110,7 @@ try {
     "recovery.json",
     "history-focus.json",
     "history-scroll-refusal.json",
+    "history-write-recovery.json",
     "history-recovery.json",
     "history-refusal-human.txt",
   ]) {

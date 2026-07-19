@@ -29,6 +29,9 @@ const implementation = read("packages/framework/src/internal/browser-navigation.
 for (const fragment of [
   'history.scrollRestoration = "manual"',
   "existingHistoryState !== null && !existingPrivateState",
+  "element === documentScroller",
+  "historyWriteFailed = true",
+  "traversal === traversalSequence",
   "createHistoryState(scrollX, scrollY, false)",
   "privateHistoryState(history.state)",
   "target.focus({ preventScroll: true })",
@@ -41,6 +44,7 @@ for (const fragment of [
   "commits focus and top scroll without animation under reduced motion",
   "allows a scrolled origin and reloads that unsafe history entry on return",
   "runtimeRestarted",
+  "coalesces history writes and keeps mutation-limit failure native",
   "reloads an application-owned history entry instead of showing stale markup",
   "discards only a collapsed old-document selection",
   "keeps a non-collapsed selection and element scroll on the native path",
@@ -48,7 +52,7 @@ for (const fragment of [
 ]) assert.equal(tests.includes(fragment), true, `V2-05 browser corpus is missing ${fragment}`);
 
 const guide = read("docs/guides/browser-runtime.md");
-for (const name of ["history-focus", "history-scroll-refusal", "history-recovery"]) {
+for (const name of ["history-focus", "history-scroll-refusal", "history-write-recovery", "history-recovery"]) {
   const evidence = read(`examples/v1-app/scenarios/link-navigation/expected/${name}.json`).trim();
   assert.equal(guide.includes(evidence), true, `generated guide is missing executed ${name} evidence`);
 }
@@ -63,4 +67,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 48-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 51-case corpus, executable guidance)");

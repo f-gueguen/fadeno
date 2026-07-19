@@ -36,14 +36,19 @@ previous browser setting on close. Application-owned, malformed, unsupported,
 or preservation-unsafe entries are not interpreted; traversal reloads the
 selected current URL so URL and document cannot diverge.
 
-Each owned entry records the current document scroll position as it changes.
-Any observed nonzero element scroll marks that entry as unsafe for enhanced
-restoration. A new eligible link may depart from a scrolled document after all
-other V2-04 preservation checks pass: the outgoing entry is recorded, the new
-entry is committed at document scroll `(0, 0)`, and the destination heading or
-main landmark receives focus with scroll prevention. This matches ordinary
-cross-document navigation without attempting to preserve outgoing scroll in
-the new document.
+Each owned entry starts with the current document scroll position. The first
+observed nonzero document or element scroll makes that entry monotonically
+unsafe for enhanced restoration, so later scroll events do not keep rewriting
+history. An
+eligible click performs one guarded final flush before interception. If that
+history write is refused or rate-limited, further writes stop and the link
+remains native. A new
+eligible link may depart from a scrolled document after all other V2-04
+preservation checks pass: the document scroller is not misclassified as element
+scroll, the outgoing entry is recorded, the new entry is committed at document
+scroll `(0, 0)`, and the destination heading or main landmark receives focus
+with scroll prevention. This matches ordinary cross-document navigation without
+attempting to preserve outgoing scroll in the new document.
 
 Back or forward traversal is enhanced only when the selected owned entry has
 zero document scroll and no observed element-scroll ownership. Nonzero document
@@ -70,8 +75,10 @@ allocate no transition work. A later optional transition requires a separate
 decision and must retain this no-animation reduced-motion baseline.
 
 Traversal supersession uses ADR 0049's existing operation cancellation and
-newest-only publication. A late response cannot commit document, history,
-focus, selection, or scroll after a newer click or traversal. Flow evidence
+newest-only publication. Scroll-write suppression remains owned by the newest
+traversal until that traversal finishes; an older traversal's cleanup cannot
+release it. A late response cannot commit document, history, focus, selection,
+or scroll after a newer click or traversal. Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
 

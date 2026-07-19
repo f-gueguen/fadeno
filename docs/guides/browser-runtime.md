@@ -511,7 +511,23 @@ FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhan
   "heading": "Home",
   "nativeRecovery": true,
   "staleDocumentRemoved": true,
+  "scrolledOriginEnhanced": true,
   "runtimeRestarted": true
+}
+```
+
+The first observed nonzero document or element scroll marks the entry unsafe,
+so continuous scrolling does not keep rewriting history. The final pre-
+interception write is guarded; if the browser refuses it, the ordinary link
+remains native without an uncaught failure:
+
+```json
+{
+  "schema": "fadeno.example.history-write-recovery",
+  "version": 1,
+  "coalescedWrites": 1,
+  "nativeRecovery": true,
+  "uncaughtErrors": 0
 }
 ```
 
@@ -532,6 +548,6 @@ disappears and enhancement remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 48 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 51 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

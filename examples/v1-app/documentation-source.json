@@ -84,7 +84,8 @@
       "scenarios/link-navigation/expected/refusal-human.txt",
       "scenarios/link-navigation/expected/refusal.json",
       "scenarios/link-navigation/expected/history-refusal-human.txt",
-      "scenarios/link-navigation/expected/history-scroll-refusal.json"
+      "scenarios/link-navigation/expected/history-scroll-refusal.json",
+      "scenarios/link-navigation/expected/history-write-recovery.json"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",

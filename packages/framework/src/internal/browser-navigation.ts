@@ -131,7 +131,9 @@ export function privateLinkPreservationSafe(
     && active === (document.querySelector("h1") ?? document.querySelector("main"))
     && active.getAttribute("data-fadeno-navigation-focus") === "";
   if (active && active !== document.body && active !== document.documentElement && active !== initiator && !runtimeFocus) return false;
+  const documentScroller = document.scrollingElement;
   for (const element of document.querySelectorAll("*")) {
+    if (options.allowDocumentScroll && element === documentScroller) continue;
     if (element.scrollTop !== 0 || element.scrollLeft !== 0) return false;
   }
   return true;
@@ -247,6 +249,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   let sequence = 0;
   let closed = false;
   let traversing = false;
+  let traversalSequence = 0;
+  let pendingElementScroll = false;
+  let historyWriteFailed = false;
   const consumedResultIds: string[] = [];
   const previousScrollRestoration = history.scrollRestoration;
   history.scrollRestoration = "manual";
@@ -254,20 +259,41 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     history.replaceState(createHistoryState(scrollX, scrollY, false), "", location.href);
   }
 
-  const recordCurrentScroll = (event?: Event): void => {
-    if (closed || traversing) return;
+  const flushCurrentScroll = (force: boolean): boolean => {
+    if (closed || traversing || historyWriteFailed) return false;
     const state = privateHistoryState(history.state);
-    if (!state) return;
+    if (!state) return false;
+    const elementScroll = state.elementScroll || pendingElementScroll;
+    if (!force) {
+      if (state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
+        pendingElementScroll = false;
+        return true;
+      }
+      if (scrollX === 0 && scrollY === 0 && !elementScroll) return true;
+    }
+    try {
+      history.replaceState(
+        createHistoryState(scrollX, scrollY, elementScroll),
+        "",
+        location.href,
+      );
+      pendingElementScroll = false;
+      return true;
+    } catch {
+      historyWriteFailed = true;
+      return false;
+    }
+  };
+
+  const recordCurrentScroll = (event: Event): void => {
+    if (closed || traversing) return;
     const target = event?.target;
     const elementOwnsScroll = target instanceof Element
       && target !== document.documentElement
       && target !== document.body
       && (target.scrollTop !== 0 || target.scrollLeft !== 0);
-    history.replaceState(
-      createHistoryState(scrollX, scrollY, state.elementScroll || elementOwnsScroll),
-      "",
-      location.href,
-    );
+    pendingElementScroll ||= elementOwnsScroll;
+    void flushCurrentScroll(false);
   };
 
   const fallback = (destination: URL, replace: boolean): void => {
@@ -396,11 +422,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (!(target instanceof HTMLAnchorElement)) return;
     const destination = privateSafeLinkDestination(target);
     if (!destination || !currentMetadata || !privateLinkPreservationSafe(target, { allowDocumentScroll: true })) return;
-    recordCurrentScroll();
+    if (!flushCurrentScroll(true)) return;
     event.preventDefault();
     void navigate(destination, false, target);
   };
   const popstate = (): void => {
+    pendingElementScroll = false;
+    traversalSequence += 1;
+    const traversal = traversalSequence;
     const state = privateHistoryState(history.state);
     traversing = true;
     if (!state || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
@@ -408,7 +437,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       location.reload();
       return;
     }
-    void navigate(new URL(location.href), true).finally(() => { traversing = false; });
+    void navigate(new URL(location.href), true).finally(() => {
+      if (traversal === traversalSequence) traversing = false;
+    });
   };
   document.addEventListener("click", click);
   document.addEventListener("scroll", recordCurrentScroll, true);

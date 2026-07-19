@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-write-recovery",
+  "version": 1,
+  "coalescedWrites": 1,
+  "nativeRecovery": true,
+  "uncaughtErrors": 0
+}

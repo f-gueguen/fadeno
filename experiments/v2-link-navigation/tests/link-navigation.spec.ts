@@ -21,6 +21,7 @@ type NodeModule = Readonly<{
 let origin = "";
 let closeServer: (() => Promise<void>) | undefined;
 const requests: { path: string; enhanced: boolean; cookie: string | null }[] = [];
+let enhancedHomeDelay = 0;
 
 test.beforeAll(async () => {
   const application = await import(pathToFileURL(join(consumer, "dist/application.js")).href) as Application;
@@ -40,6 +41,11 @@ test.beforeAll(async () => {
         return new Response("not found", { status: 404 });
       }
     }
+    if (enhancedHomeDelay > 0
+      && url.pathname === "/"
+      && request.headers.get("accept") === "application/vnd.fadeno.private-update+json; version=1") {
+      await new Promise((resolve) => setTimeout(resolve, enhancedHomeDelay));
+    }
     return application.handler(request);
   };
   const server = await node.listenNodeHttp({
@@ -53,7 +59,10 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => closeServer?.());
-test.beforeEach(() => { requests.length = 0; });
+test.beforeEach(() => {
+  requests.length = 0;
+  enhancedHomeDelay = 0;
+});
 
 test("enhances one safe link with document, title, URL, history, and focus", async ({ page }) => {
   await page.goto(origin);
@@ -259,8 +268,10 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
   await page.goto(origin);
   await page.locator("#bottom-next-link").scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0);
+  const enhancedNextBeforeScroll = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
   await page.locator("#bottom-next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
+  const scrolledOriginEnhanced = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBeforeScroll;
   expect(await page.evaluate(() => scrollY)).toBe(0);
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
@@ -279,9 +290,43 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
     heading: recoveredHeading,
     nativeRecovery,
     staleDocumentRemoved: recoveredHeading !== "Next",
+    scrolledOriginEnhanced,
     runtimeRestarted: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
   };
   expect(result).toEqual(expected("history-scroll-refusal"));
+});
+
+test("coalesces history writes and keeps mutation-limit failure native", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.name));
+  await page.goto(origin);
+  const coalescedWrites = await page.evaluate(async () => {
+    const original = history.replaceState.bind(history);
+    let writes = 0;
+    history.replaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
+      writes += 1;
+      original(data, unused, url);
+    };
+    scrollTo(0, 100);
+    for (let frame = 0; frame < 5; frame += 1) {
+      for (let index = 0; index < 20; index += 1) document.dispatchEvent(new Event("scroll"));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
+    return writes;
+  });
+  await page.evaluate(() => {
+    history.replaceState = (): never => { throw new DOMException("history mutation limited", "SecurityError"); };
+  });
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  const result = {
+    schema: "fadeno.example.history-write-recovery",
+    version: 1,
+    coalescedWrites,
+    nativeRecovery: requests.filter(({ path }) => path === "/next").at(-1)?.enhanced === false,
+    uncaughtErrors: pageErrors.length,
+  };
+  expect(result).toEqual(expected("history-write-recovery"));
 });
 
 test("reloads an application-owned history entry instead of showing stale markup", async ({ page }) => {
@@ -359,14 +404,25 @@ test("cancels an obsolete history traversal and publishes only the newest entry"
   await expect(page.locator("h1")).toHaveText("Slow");
   await page.locator("#home-link").click();
   await expect(page.locator("h1")).toHaveText("Home");
+  enhancedHomeDelay = 250;
   await page.evaluate(() => {
+    const original = history.replaceState.bind(history);
+    Reflect.set(globalThis, "__fadenoStaleHistoryWrites", 0);
+    history.replaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
+      if (typeof data === "object" && data !== null && Number(Reflect.get(data, "scrollY")) > 0) {
+        Reflect.set(globalThis, "__fadenoStaleHistoryWrites", Number(Reflect.get(globalThis, "__fadenoStaleHistoryWrites")) + 1);
+      }
+      original(data, unused, url);
+    };
     history.back();
     setTimeout(() => history.forward(), 20);
+    setTimeout(() => scrollTo(0, 100), 60);
   });
   await expect(page.locator("h1")).toHaveText("Home");
   await expect.poll(() => requests.filter(({ path, enhanced }) => enhanced && path === "/").length).toBeGreaterThanOrEqual(2);
   expect(new URL(page.url()).pathname).toBe("/");
   expect(await page.locator("h1").textContent()).not.toBe("Slow");
+  expect(await page.evaluate(() => Number(Reflect.get(globalThis, "__fadenoStaleHistoryWrites")))).toBe(0);
 });
 
 test("keeps request ownership, hostile correlations, limits, and logs isolated", async () => {

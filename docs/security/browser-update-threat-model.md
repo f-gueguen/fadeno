@@ -48,6 +48,7 @@ preserving reconciliation; those remain later slices.
 | History state is malformed or application-owned | Only the exact private marker/version and bounded scroll record are interpreted; every other selected entry reloads current URL truth | Three-engine malformed/unowned traversal recovery |
 | Browser restoration races runtime focus or scroll | Runtime temporarily selects manual restoration, focuses with scroll prevention, commits new links at the top, and restores the prior setting on close | Focus/scroll ordering and teardown checks |
 | Numeric scroll is restored into changed layout | Enhanced traversal accepts only owned zero-scroll entries without observed element scroll; every nonzero or unsafe entry reloads | Document/element scroll refusal fixtures |
+| Scroll events exhaust or cross history ownership | The first observed nonzero scroll makes an entry monotonically unsafe, a guarded final flush stops after browser refusal, and traversal suppression remains tied to the newest traversal generation | Mutation-limit refusal and rapid traversal stale-write checks |
 | Motion preference changes correctness | V2-05 allocates no animation or transition work in either preference mode | Normal/reduced-motion no-animation checks |
 
 ## Native fallback and rollback
