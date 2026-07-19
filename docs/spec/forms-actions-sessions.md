@@ -52,6 +52,9 @@ Every partial or complete upload has framework-owned exactly-once cleanup.
    multipart media type. It validates exact HTTPS origin, action and route,
    rendered form instance, current application generation, session, signed proof, replay, fields,
    files, freshness, and limits before application code.
+   URL-encoded names and values must remain well-formed UTF-8 after percent
+   decoding; multipart headers and non-file field values must be well-formed
+   UTF-8 before the platform form parser can replace malformed bytes.
 3. Application authorization is evaluated after complete decoding through the
    declaration's mandatory `authorize` callback; successful decoding never
    implies authorization. The callback receives a read-only session view and a

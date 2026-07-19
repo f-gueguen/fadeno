@@ -133,6 +133,9 @@ try {
     "9VALUE=bad\n",
   ]) assert.throws(() => { parsePrivateEnvironmentFile(invalid); }, /FADENO_BUILD_ENV/u);
   assert.equal(parsePrivateEnvironmentFile("__proto__=plain-data\n")["__proto__"], "plain-data");
+  writeFileSync(join(projectRoot, ".env.local"), Buffer.from([0x42, 0x41, 0x44, 0x3d, 0xff, 0x0a]));
+  assert.throws(() => { capturePrivateEnvironment(projectRoot, {}); }, /FADENO_BUILD_ENV/u);
+  writeFileSync(join(projectRoot, ".env.local"), "SHARED=changed\nLOCAL=enabled\n");
   assert.throws(() => { capturePrivateEnvironment(projectRoot, { "BAD-NAME": "bad" }); }, /FADENO_BUILD_ENV/u);
   assert.throws(() => { capturePrivateEnvironment(projectRoot, { INVALID_VALUE: 1 } as never); }, /FADENO_BUILD_ENV/u);
   rmSync(join(projectRoot, ".env.local"));

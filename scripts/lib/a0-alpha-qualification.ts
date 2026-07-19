@@ -44,7 +44,24 @@ const auditContract = Object.freeze([
   Object.freeze({
     id: "security",
     outcome: "qualified-first-alpha-boundaries",
-    gates: Object.freeze(["check:a0-decoder-fuzz", "check:v1-rendering-security", "check:v1-action-session-decision", "check:v1-action-runtime", "check:v1-running-example", "check:a0-deploy"]),
+    gates: Object.freeze([
+      "check:a0-decoder-fuzz",
+      "check:v1-toolchain",
+      "check:a0-create",
+      "check:a0-deploy",
+      "check:v1-routing",
+      "check:v1-analyzer-workflow",
+      "check:v1-adapter",
+      "check:v1-action-session-decision",
+      "check:v1-action-runtime",
+      "check:v1-rendering-security",
+      "check:v1-renderer",
+      "check:v1-running-example",
+      "check:v1-resource-decision",
+      "check:v1-resources",
+      "check:v1-independent-workflow",
+      "check:a0-release",
+    ]),
     evidence: Object.freeze([
       "docs/security/alpha-threat-review.md",
       "evidence/a0/security/decoder-fuzz.json",
@@ -333,7 +350,7 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
   }
 
   for (const [name, content, fragments] of [
-    ["alpha threat review", context.alphaThreatReview, ["2,100 cases", "thirteen surfaces", "FADENO_CONFIG_SYNTAX", "FADENO_ACTION_BODY", "No known critical or high-severity issue", "not the independent security review"]],
+    ["alpha threat review", context.alphaThreatReview, ["2,360 cases", "fourteen", "FADENO_CONFIG_SYNTAX", "FADENO_ACTION_BODY", "No known critical or high-severity issue", "not the independent security review"]],
     ["security requirements", context.securityRequirements, ["pnpm check:a0-decoder-fuzz", "first-alpha threat review"]],
     ["action threat model", context.actionThreatModel, ["pnpm check:a0-decoder-fuzz", "FADENO_ACTION_BODY"]],
     ["migration index", context.migrationIndex, ["First-alpha candidate adoption guide", "not a released compatibility migration"]],
@@ -373,7 +390,7 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
     context.scripts["check:a0-alpha-qualification"]
       !== "node --no-warnings --experimental-strip-types scripts/check-a0-alpha-qualification.ts && node --no-warnings --experimental-strip-types scripts/test-a0-alpha-qualification.ts"
     || context.scripts["check:a0-decoder-fuzz"]
-      !== "node --no-warnings --experimental-strip-types scripts/check-a0-decoder-fuzz.ts && node --no-warnings --experimental-strip-types scripts/test-a0-decoder-fuzz.ts"
+      !== "pnpm --filter @fadeno/framework build && node --no-warnings --experimental-strip-types scripts/check-a0-decoder-fuzz.ts && node --no-warnings --experimental-strip-types scripts/test-a0-decoder-fuzz.ts"
     || !context.rootGates.has("check:a0-alpha-qualification")
     || !context.rootGates.has("check:a0-decoder-fuzz")
   ) errors.push("workspace check does not enforce A0 alpha qualification");

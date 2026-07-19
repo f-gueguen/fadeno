@@ -1,7 +1,17 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   defineAction,
@@ -17,8 +27,8 @@ import {
   decodeSessionCookieHeader,
 } from "../packages/framework/src/internal/action-server.ts";
 import {
+  capturePrivateEnvironment,
   parsePrivateBuildDevArguments,
-  parsePrivateEnvironmentFile,
 } from "../packages/framework/src/internal/build-dev-decision.ts";
 import {
   decodeConfigSourceBytes,
@@ -29,9 +39,10 @@ import { decodeNodeRequestTarget } from "../packages/framework/src/internal/node
 import { parseProjectCheckArguments } from "../packages/framework/src/internal/project-check.ts";
 import { parseProjectCreateArguments } from "../packages/framework/src/internal/project-create.ts";
 import { parseProjectDeployArguments } from "../packages/framework/src/internal/project-deploy.ts";
-import type { RouteManifest } from "../packages/framework/src/internal/routing/discovery.ts";
-import { decodeRouteArtifactManifest } from "../packages/framework/src/internal/routing/generator.ts";
-import { matchRoutePathname } from "../packages/framework/src/internal/routing/matcher.ts";
+import {
+  createRouteArtifactPlan,
+  decodeRouteArtifactManifest,
+} from "../packages/framework/src/internal/routing/generator.ts";
 import {
   createDecisionSession,
   createDecisionSessionKeyring,
@@ -158,10 +169,53 @@ async function summarize<Value>(
 }
 
 const manifestBytes = readFileSync(join(exampleRoot, ".fadeno/routes/manifest.json"), "utf8");
-const manifest = JSON.parse(manifestBytes) as RouteManifest;
 const configSource = readFileSync(join(exampleRoot, "fadeno.config.ts"), "utf8");
 
 const surfaces: A0DecoderFuzzSurface[] = [];
+
+function run(command: string, arguments_: readonly string[], cwd: string): void {
+  const result = spawnSync(command, arguments_, { cwd, encoding: "utf8" });
+  if (result.error) throw result.error;
+  if (result.status !== 0 || result.signal !== null) {
+    throw new Error(`FADENO_A0_FUZZ_CHILD:${command}:${result.status ?? result.signal ?? "unknown"}`);
+  }
+}
+
+async function withGeneratedRouteHandler<Result>(
+  use: (handler: Handler) => Promise<Result>,
+): Promise<Result> {
+  const project = mkdtempSync(join(tmpdir(), "fadeno-a0-generated-router-"));
+  try {
+    const routeRoot = join(project, "src/routes");
+    mkdirSync(join(routeRoot, "raw"), { recursive: true });
+    writeFileSync(
+      join(routeRoot, "raw/handler.ts"),
+      "export default function handler(): Response { return new Response('accepted'); }\n",
+    );
+    const plan = createRouteArtifactPlan(project, { routes: { root: "src/routes" } });
+    const generatedRoot = join(project, ".fadeno/routes");
+    mkdirSync(generatedRoot, { recursive: true });
+    writeFileSync(join(generatedRoot, "app.ts"), plan.files["app.ts"]);
+    const tarballs = join(project, "tarballs");
+    const extracted = join(project, "extracted");
+    mkdirSync(tarballs);
+    mkdirSync(extracted);
+    run("pnpm", ["pack", "--pack-destination", tarballs], join(root, "packages/framework"));
+    const tarball = readdirSync(tarballs).find((name) => name.endsWith(".tgz"));
+    if (!tarball) throw new Error("FADENO_A0_FUZZ_PACKAGE_SETUP");
+    run("tar", ["-xzf", join(tarballs, tarball), "-C", extracted], project);
+    const packageScope = join(project, "node_modules/@fadeno");
+    mkdirSync(packageScope, { recursive: true });
+    renameSync(join(extracted, "package"), join(packageScope, "framework"));
+    const loaded = await import(`${pathToFileURL(join(generatedRoot, "app.ts")).href}?${plan.sourceSha256}`) as {
+      handler?: unknown;
+    };
+    if (typeof loaded.handler !== "function") throw new Error("FADENO_A0_FUZZ_GENERATED_ROUTER_SETUP");
+    return await use(loaded.handler as Handler);
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+}
 
 surfaces.push(await summarize(
   "adapter-request-target",
@@ -174,11 +228,21 @@ surfaces.push(await summarize(
   },
 ));
 
-surfaces.push(await summarize(
-  "route-pathname",
-  stringCorpus(2, 256, ["/", "/projects", "/hello/Fadeno", "/" + "x".repeat(4_095)]),
-  (value) => matchRoutePathname(manifest, value) ? "accepted:match" : "refused:no-match",
-));
+await withGeneratedRouteHandler(async (generatedHandler) => {
+  surfaces.push(await summarize(
+    "route-pathname",
+    stringCorpus(2, 256, ["/raw", "/missing", "/%", "/" + "x".repeat(4_095)]),
+    async (value) => {
+      let request: Request;
+      try { request = new Request(new URL(value, "https://app.example/")); }
+      catch { return "refused:request-target"; }
+      const response = await generatedHandler(request);
+      const classification = response.status < 400 ? "accepted:generated-route" : "refused:no-match";
+      await response.body?.cancel();
+      return classification;
+    },
+  ));
+});
 
 surfaces.push(await summarize(
   "configuration-source",
@@ -213,16 +277,27 @@ surfaces.push(await summarize(
   },
 ));
 
-surfaces.push(await summarize(
-  "environment-file",
-  stringCorpus(5, 256, ["A=one\nB='two'\n", "# empty\n", "A=${B}\n", "A=" + "x".repeat(4_094)]),
-  (value) => {
-    try {
-      parsePrivateEnvironmentFile(value);
-      return "accepted:environment";
-    } catch (error) { return classifyError(error, /^FADENO_BUILD_ENV(?::[0-9]+)?$/u); }
-  },
-));
+const environmentRoot = mkdtempSync(join(tmpdir(), "fadeno-a0-environment-"));
+try {
+  surfaces.push(await summarize(
+    "environment-file",
+    bytesCorpus(5, 256, [
+      encoder.encode("A=one\nB='two'\n"),
+      encoder.encode("# empty\n"),
+      Uint8Array.of(0x41, 0x3d, 0xff, 0x0a),
+      encoder.encode("A=" + "x".repeat(4_094)),
+    ]),
+    (value) => {
+      try {
+        writeFileSync(join(environmentRoot, ".env"), value);
+        capturePrivateEnvironment(environmentRoot, {});
+        return "accepted:environment";
+      } catch (error) { return classifyError(error, /^FADENO_BUILD_ENV(?::[0-9]+)?$/u); }
+    },
+  ));
+} finally {
+  rmSync(environmentRoot, { recursive: true, force: true });
+}
 
 function commandCase(value: readonly string[]): FuzzCase<readonly string[]> {
   return Object.freeze({
@@ -400,8 +475,9 @@ async function submitAction(
   fixture: ActionFixture,
   mediaType: string,
   body: string | Uint8Array,
+  action: string = fixture.action,
 ): Promise<Readonly<{ status: number; body: string }>> {
-  const response = await fixture.runtime.serve(new Request(new URL(fixture.action, "https://app.example"), {
+  const response = await fixture.runtime.serve(new Request(new URL(action, "https://app.example"), {
     method: "POST",
     headers: { origin: "https://app.example", cookie: fixture.cookie, "content-type": mediaType },
     body: typeof body === "string" ? body : body.slice().buffer as ArrayBuffer,
@@ -409,10 +485,68 @@ async function submitAction(
   return Object.freeze({ status: response.status, body: await response.text() });
 }
 
+function actionEndpointCorpus(fixture: ActionFixture): readonly FuzzCase<string>[] {
+  const valid = new URL(fixture.action, "https://app.example");
+  const prefix = valid.pathname.slice(0, valid.pathname.lastIndexOf("/") + 1);
+  const duplicate = new URL(valid);
+  duplicate.searchParams.append("route", "duplicate");
+  const externalReturn = new URL(valid);
+  externalReturn.searchParams.set("return", "https://other.example/");
+  const invalidForm = new URL(valid);
+  invalidForm.searchParams.set("form", "-1");
+  const fixed = [
+    `${valid.pathname}${valid.search}`,
+    `${prefix}unknown${valid.search}`,
+    valid.pathname,
+    `${duplicate.pathname}${duplicate.search}`,
+    `${externalReturn.pathname}${externalReturn.search}`,
+    `${invalidForm.pathname}${invalidForm.search}`,
+  ];
+  const random = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 12) >>> 0);
+  const generated = Array.from({ length: 254 }, (_, index) => {
+    const candidate = new URL(valid);
+    const value = randomString(random).slice(0, 480);
+    switch (random.integer(6)) {
+      case 0: {
+        let encoded: string;
+        try { encoded = encodeURIComponent(value); }
+        catch { encoded = "%ED%A0%80"; }
+        candidate.pathname = `${prefix}${encoded}`;
+        break;
+      }
+      case 1: candidate.searchParams.set("route", value); break;
+      case 2: candidate.searchParams.set("return", value); break;
+      case 3: candidate.searchParams.set("form", value); break;
+      case 4: candidate.searchParams.delete(["route", "return", "form"][index % 3]!); break;
+      default: candidate.searchParams.append(["route", "return", "form"][index % 3]!, value); break;
+    }
+    return `${candidate.pathname}${candidate.search}`;
+  });
+  return Object.freeze([...fixed, ...generated].map(stringCase));
+}
+
+const endpointFixture = await createActionFixture();
+surfaces.push(await summarize(
+  "action-endpoint",
+  actionEndpointCorpus(endpointFixture),
+  async (action) => {
+    const body = new URLSearchParams({
+      __fadeno_proof: endpointFixture.proof,
+      [endpointFixture.fieldName]: "accepted",
+    }).toString();
+    const response = await submitAction(endpointFixture, "application/x-www-form-urlencoded", body, action);
+    const code = /FADENO_[A-Z0-9_]+/u.exec(response.body)?.[0];
+    if (response.status === 303) return "accepted:endpoint";
+    if (code === "FADENO_ACTION_ROUTE") return `refused:${code}`;
+    if (code && code !== "FADENO_ACTION_INTERNAL") return `accepted:passed-endpoint:${code}`;
+    return `unexpected:${code ?? `status-${response.status}`}`;
+  },
+));
+
 const proofFixture = await createActionFixture();
 surfaces.push(await summarize(
   "action-proof",
-  stringCorpus(12, 254, [
+  stringCorpus(13, 254, [
     proofFixture.proof,
     "",
     "v1",
@@ -474,6 +608,7 @@ function invalidMultipartTextBody(fixture: ActionFixture, boundary: string): Uin
 const bodyFixture = await createActionFixture();
 const multipartFixture = await createActionFixture();
 const invalidMultipartFixture = await createActionFixture();
+const invalidPercentFixture = await createActionFixture();
 const validBody = new URLSearchParams({
   __fadeno_proof: bodyFixture.proof,
   [bodyFixture.fieldName]: "accepted",
@@ -492,12 +627,17 @@ const actionBodyCases: FuzzCase<ActionBodyCase>[] = [
     `multipart/form-data; boundary=${invalidMultipartBoundary}`,
     invalidMultipartTextBody(invalidMultipartFixture, invalidMultipartBoundary),
   ),
+  actionBodyCase(
+    invalidPercentFixture,
+    "application/x-www-form-urlencoded",
+    `__fadeno_proof=${invalidPercentFixture.proof}&${invalidPercentFixture.fieldName}=%FF`,
+  ),
   actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", `${bodyFixture.fieldName}=${sentinel}`),
   actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", `__fadeno_proof=${bodyFixture.proof}&__fadeno_proof=${bodyFixture.proof}&${bodyFixture.fieldName}=${sentinel}`),
   actionBodyCase(bodyFixture, "application/json", `{"value":"${sentinel}"}`),
 ];
-const bodyRandom = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 13) >>> 0);
-for (let index = 0; index < 126; index += 1) {
+const bodyRandom = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 14) >>> 0);
+for (let index = 0; index < 125; index += 1) {
   const random = `${sentinel}:${randomString(bodyRandom)}`.slice(0, 1_024);
   const kind = bodyRandom.integer(4);
   if (kind === 0) actionBodyCases.push(actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", random));

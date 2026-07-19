@@ -433,6 +433,20 @@ function assertBoundedPartFraming(type: string, contentType: string, body: Uint8
   }
 }
 
+function assertUrlEncodedTextEncoding(source: string): void {
+  for (const field of source.split("&")) {
+    const separator = field.indexOf("=");
+    const name = separator < 0 ? field : field.slice(0, separator);
+    const value = separator < 0 ? "" : field.slice(separator + 1);
+    try {
+      decodeURIComponent(name.replaceAll("+", " "));
+      decodeURIComponent(value.replaceAll("+", " "));
+    } catch {
+      fail("FADENO_ACTION_BODY");
+    }
+  }
+}
+
 async function parseBody(request: Request, state: ActionState, startedAt: number): Promise<ParsedBody> {
   const declared = declaredLength(request);
   const body = await readBody(request, startedAt);
@@ -444,6 +458,7 @@ async function parseBody(request: Request, state: ActionState, startedAt: number
   if (type === "application/x-www-form-urlencoded") {
     let source: string;
     try { source = decoder.decode(body); } catch { fail("FADENO_ACTION_BODY"); }
+    assertUrlEncodedTextEncoding(source);
     for (const entry of new URLSearchParams(source)) values.push(entry);
   } else if (type === "multipart/form-data") {
     assertMultipartTextEncoding(contentType, body);

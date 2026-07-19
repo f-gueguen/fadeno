@@ -38,4 +38,4 @@ if (`${JSON.stringify(first.document, null, 2)}\n` !== expectedBytes) {
   throw new Error("FADENO_A0_DECODER_FUZZ_EVIDENCE_DRIFT");
 }
 
-console.log("A0 decoder fuzz passed (2 deterministic replays, 13 external surfaces, 2,100 bounded cases, zero unexpected outcomes or leaks)");
+console.log("A0 decoder fuzz passed (2 deterministic replays, 14 external surfaces, 2,360 bounded cases, zero unexpected outcomes or leaks)");

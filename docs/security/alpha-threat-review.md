@@ -17,14 +17,16 @@ left open in the reviewed first-alpha boundary. This is a maintainer-operated
 qualification, not the independent security review required before stable
 release.
 
-The review discovered and repaired two malformed-input classification gaps:
+The review discovered and repaired three malformed-input classification gaps:
 
 - an unmatched UTF‑16 surrogate in an unsaved configuration source is now
   refused as `FADENO_CONFIG_SYNTAX` before entering the compiler bridge;
-- invalid UTF-8 or malformed multipart form bytes are now refused as
-  `FADENO_ACTION_BODY` instead of appearing as an internal framework failure.
+- invalid UTF-8 environment-file bytes refuse before precedence is applied;
+- invalid UTF-8, percent-decoded form bytes, or malformed multipart form bytes
+  are now refused as `FADENO_ACTION_BODY` instead of reaching application code
+  or appearing as an internal framework failure.
 
-Both outcomes are exercised by `pnpm check:a0-decoder-fuzz` and are part of the
+These outcomes are exercised by `pnpm check:a0-decoder-fuzz` and are part of the
 checked normalized result, not prose-only claims.
 
 ## Complete supported boundary inventory
@@ -50,23 +52,26 @@ therefore not hidden decoder surfaces.
 
 ## Bounded deterministic fuzz result
 
-`pnpm check:a0-decoder-fuzz` runs the exact production decoders twice in fresh
-child processes with a fixed seed and a 30-second process deadline. The checked
-corpus covers 2,100 cases over thirteen surfaces:
+`pnpm check:a0-decoder-fuzz` builds and packs the current package and runs the
+exact production decoders twice in fresh child processes with a fixed seed and a
+30-second process deadline. The checked corpus covers 2,360 cases over fourteen
+surfaces:
 
 1. adapter request targets;
-2. route pathnames;
+2. pathnames through a generated application handler;
 3. unsaved configuration sources;
 4. configuration file bytes;
-5. environment files;
+5. environment file bytes through file ownership and precedence capture;
 6. build and development command arguments;
 7. check command arguments;
 8. create command arguments;
 9. deploy command arguments;
 10. generated route manifests;
 11. complete session Cookie headers;
-12. serialized action proofs;
-13. action bodies, media types, and valid multipart file decoding.
+12. generated action endpoints and their exact query set;
+13. serialized action proofs;
+14. action bodies, media types, percent-decoded text, and valid multipart file
+    decoding.
 
 Every surface has at least one accepted and one refused control. Every input is
 bounded: the over-limit Cookie-header control is at most 16,385 bytes and every

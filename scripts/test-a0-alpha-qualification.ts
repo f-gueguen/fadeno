@@ -51,6 +51,10 @@ expectMutation("A0 alpha audit gates drifted: security", (context) => {
   security["gates"] = (security["gates"] as string[]).filter((gate) => gate !== "check:a0-decoder-fuzz");
   return Object.freeze({ ...context, document });
 });
+expectMutation("A0 alpha audit gate is outside root check: check:v1-adapter", (context) => Object.freeze({
+  ...context,
+  rootGates: new Set([...context.rootGates].filter((gate) => gate !== "check:v1-adapter")),
+}));
 expectMutation("A0 alpha audit evidence drifted: security", (context) => {
   const document = cloneDocument();
   const security = (document["audits"] as Record<string, unknown>[])[0]!;

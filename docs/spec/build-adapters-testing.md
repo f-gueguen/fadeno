@@ -38,8 +38,10 @@ remains refused; ADR 0043 defers every external analyzer schema and consumer.
 
 Optional `.env` and `.env.local` files load in that order before the existing
 process environment, which has final precedence. The strict line grammar and
-refusals are defined by ADR 0022. Loaded values remain server-only unless a
-future explicit public-input schema validates their release.
+refusals are defined by ADR 0022. Each file is a bounded owned ordinary file
+decoded with fatal UTF-8; malformed bytes refuse as `FADENO_BUILD_ENV` before
+precedence is applied. Loaded values remain server-only unless a future explicit
+public-input schema validates their release.
 
 A production build:
 

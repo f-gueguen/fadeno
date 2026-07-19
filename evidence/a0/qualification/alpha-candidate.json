@@ -24,11 +24,21 @@
       "outcome": "qualified-first-alpha-boundaries",
       "gates": [
         "check:a0-decoder-fuzz",
-        "check:v1-rendering-security",
+        "check:v1-toolchain",
+        "check:a0-create",
+        "check:a0-deploy",
+        "check:v1-routing",
+        "check:v1-analyzer-workflow",
+        "check:v1-adapter",
         "check:v1-action-session-decision",
         "check:v1-action-runtime",
+        "check:v1-rendering-security",
+        "check:v1-renderer",
         "check:v1-running-example",
-        "check:a0-deploy"
+        "check:v1-resource-decision",
+        "check:v1-resources",
+        "check:v1-independent-workflow",
+        "check:a0-release"
       ],
       "evidence": [
         "docs/security/alpha-threat-review.md",
