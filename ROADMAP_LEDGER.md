@@ -43,7 +43,7 @@ pending minor Changeset.
 
 ## Blockers
 
-- V2-06 handoff remains blocked until V2-05's browser-state qualification and
+- V2-07 handoff remains blocked until V2-05's browser-state qualification and
   rollback evidence is accepted.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.

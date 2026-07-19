@@ -153,7 +153,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     || !context.ledger.includes("V2-04 — Merge commit `9d526b8`")
     || !context.ledger.includes("V2-01A — Merge commit `46c7ab0`")
     || !context.ledger.includes("V2-01 — Merge commit `d9718c0`")
-    || !context.ledger.includes("V2-06 handoff remains blocked")
+    || !context.ledger.includes("V2-07 handoff remains blocked")
     || !context.ledger.includes("resolves DG-V2-01")) {
     errors.push("V2 roadmap ledger state drifted");
   }
