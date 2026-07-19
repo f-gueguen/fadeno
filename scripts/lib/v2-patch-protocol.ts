@@ -30,6 +30,10 @@ export type PrivateUpdateDecision = Readonly<{
 
 export type PrivateUpdateDecisionContext = Readonly<{
   origin: string;
+  transport: Readonly<{
+    requestCache: string;
+    responseCacheControl: string | null;
+  }>;
   generation: string;
   documentEpoch: string;
   currentOperation: Readonly<{
@@ -107,10 +111,19 @@ function safeSameOriginUrl(value: unknown, origin: string): boolean {
   try {
     const expected = new URL(origin);
     const received = new URL(value, expected);
-    return expected.protocol === "https:" && received.protocol === "https:" && received.origin === expected.origin;
+    const trustworthyLoopback = expected.protocol === "http:"
+      && new Set(["127.0.0.1", "localhost", "[::1]"]).has(expected.hostname);
+    return (expected.protocol === "https:" || trustworthyLoopback)
+      && received.protocol === expected.protocol
+      && received.origin === expected.origin;
   } catch {
     return false;
   }
+}
+
+function hasNoStoreDirective(value: string | null): boolean {
+  return value !== null
+    && value.split(",").some((directive) => directive.trim().toLowerCase() === "no-store");
 }
 
 function recoveryFor(context: PrivateUpdateDecisionContext): "native-navigation" | "reload-current-truth" {
@@ -266,6 +279,10 @@ export function evaluatePrivateUpdate(
   if (boundary.durationMilliseconds > V2_PATCH_PROTOCOL_LIMITS.maximumDurationMilliseconds) {
     return refused("FADENO_UPDATE_TIMEOUT", context);
   }
+  if (context.transport.requestCache !== "no-store"
+    || !hasNoStoreDirective(context.transport.responseCacheControl)) {
+    return refused("FADENO_UPDATE_CACHE", context);
+  }
   const decoded = decodeEnvelope(value);
   if (!decoded.envelope) return refused(decoded.code ?? "FADENO_UPDATE_SCHEMA", context);
   const envelope = decoded.envelope;
@@ -332,9 +349,15 @@ function parseExpected(value: unknown, label: string): PrivateUpdateDecision {
 
 function parseContext(value: unknown): PrivateUpdateDecisionContext {
   const record = requireRecord(value, "baseContext");
-  if (!exactKeys(record, ["origin", "generation", "documentEpoch", "currentOperation", "consumedResultIds", "requestCommitted", "boundary"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext keys");
+  if (!exactKeys(record, ["origin", "transport", "generation", "documentEpoch", "currentOperation", "consumedResultIds", "requestCommitted", "boundary"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext keys");
+  const transport = requireRecord(record["transport"], "baseContext transport");
   const operation = requireRecord(record["currentOperation"], "baseContext currentOperation");
   const boundary = requireRecord(record["boundary"], "baseContext boundary");
+  if (!exactKeys(transport, ["requestCache", "responseCacheControl"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext transport keys");
+  const requestCache = transport["requestCache"];
+  const responseCacheControl = transport["responseCacheControl"];
+  if (typeof requestCache !== "string") throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext transport values");
+  if (responseCacheControl !== null && typeof responseCacheControl !== "string") throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext transport values");
   if (!exactKeys(operation, ["id", "sequence", "kind"]) || !exactKeys(boundary, ["bytes", "records", "depth", "durationMilliseconds"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext nested keys");
   if (!Array.isArray(record["consumedResultIds"]) || !record["consumedResultIds"].every((item) => typeof item === "string")) throw new Error("FADENO_V2_FIXTURE_SCHEMA: consumed results");
   if (typeof record["requestCommitted"] !== "boolean" || !finiteInteger(operation["sequence"], 1) || !new Set(["navigation", "mutation"]).has(String(operation["kind"]))) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext operation");
@@ -345,6 +368,7 @@ function parseContext(value: unknown): PrivateUpdateDecisionContext {
   if (!finiteInteger(bytes) || !finiteInteger(records) || !finiteInteger(depth) || !finiteInteger(durationMilliseconds)) throw new Error("FADENO_V2_FIXTURE_SCHEMA: boundary metrics");
   return Object.freeze({
     origin: requireString(record["origin"], "baseContext origin"),
+    transport: Object.freeze({ requestCache, responseCacheControl: responseCacheControl as string | null }),
     generation: requireString(record["generation"], "baseContext generation"),
     documentEpoch: requireString(record["documentEpoch"], "baseContext documentEpoch"),
     currentOperation: Object.freeze({ id: requireString(operation["id"], "operation id"), sequence: operation["sequence"], kind: operation["kind"] as "navigation" | "mutation" }),

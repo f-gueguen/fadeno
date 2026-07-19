@@ -3,6 +3,10 @@
   "operation": "fadeno.private.v2-patch-protocol-decision",
   "baseContext": {
     "origin": "https://example.test",
+    "transport": {
+      "requestCache": "no-store",
+      "responseCacheControl": "private, no-store"
+    },
     "generation": "generation-7",
     "documentEpoch": "document-3",
     "currentOperation": {
@@ -172,6 +176,22 @@
       "category": "cache",
       "changes": [
         { "target": "envelope", "operation": "set", "path": ["cache"], "value": "private" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "transport-request-cache-refused",
+      "category": "cache",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["transport", "requestCache"], "value": "default" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "transport-response-cache-refused",
+      "category": "cache",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["transport", "responseCacheControl"], "value": "private, max-age=60" }
       ],
       "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
     },
