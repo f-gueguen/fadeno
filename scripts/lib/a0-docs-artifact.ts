@@ -69,7 +69,7 @@ export function a0DocumentationFiles(root: string, tracked: ReadonlySet<string>)
       sha256: createHash("sha256").update(bytes).digest("hex"),
     });
   });
-  if (!files.some(({ path }) => path === "docs/releases/0.1.0-alpha.0.md")) {
+  if (!files.some(({ path }) => path === `docs/releases/${A0_FIRST_ALPHA_VERSION}.md`)) {
     throw new TypeError("FADENO_A0_DOCS_RELEASE_NOTES");
   }
   return Object.freeze(files);

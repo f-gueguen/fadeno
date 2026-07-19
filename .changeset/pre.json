@@ -11,6 +11,7 @@
     "create-fadeno-project",
     "early-fadeno-alpha",
     "immutable-deployment-artifact",
-    "quiet-boundaries-refuse"
+    "quiet-boundaries-refuse",
+    "recover-first-alpha-transport"
   ]
 }

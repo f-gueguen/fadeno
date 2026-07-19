@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "operation": "first-alpha-release-source",
+  "operation": "first-alpha-transport-recovery-source",
   "causes": [
-    "qualified-alpha-candidate",
-    "five-reviewed-changesets",
-    "mechanical-alpha-transition"
+    "immutable-alpha.0-source-release",
+    "registry-transport-visibility-refusal",
+    "reviewed-alpha.1-recovery-transition"
   ],
   "ownership": {
     "version": "changesets",
@@ -15,11 +15,11 @@
   },
   "skippedWork": [
     {
-      "work": "registry-publication",
-      "reason": "release-source-pr-cannot-publish"
+      "work": "registry-retry",
+      "reason": "corrected-release-source-not-yet-merged"
     },
     {
-      "work": "source-tag",
+      "work": "alpha.1-source-tag",
       "reason": "exact-merged-main-commit-not-yet-qualified"
     },
     {
@@ -27,5 +27,5 @@
       "reason": "first-package-version-does-not-yet-exist"
     }
   ],
-  "observableOutcome": "locally-qualified-first-alpha-release-source"
+  "observableOutcome": "locally-qualified-alpha-transport-recovery-source"
 }

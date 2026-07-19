@@ -1,5 +1,13 @@
 # @fadeno/framework
 
+## 0.1.0-alpha.1
+
+### Patch Changes
+
+- Publish the unchanged first public alpha package from a new immutable source
+  after the initial registry transport refused incomplete hosted repository
+  visibility evidence.
+
 ## 0.1.0-alpha.0
 
 ### Minor Changes

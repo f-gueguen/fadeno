@@ -8,6 +8,7 @@ import {
 import {
   A0_DISTRIBUTION_TAG,
   A0_ALPHA_CANDIDATE_COMMIT,
+  A0_EXPECTED_FIRST_ALPHA_VERSION,
   A0_FIRST_ALPHA_CHANGESETS,
   A0_FIRST_ALPHA_TAG,
   A0_FIRST_ALPHA_VERSION,
@@ -56,7 +57,7 @@ const requiredPaths = Object.freeze([
   ".changeset/pre.json",
   ...A0_FIRST_ALPHA_CHANGESETS.map((id) => `.changeset/${id}.md`),
   ".github/workflows/publish.yml",
-  "docs/releases/0.1.0-alpha.0.md",
+  "docs/releases/0.1.0-alpha.1.md",
   "evidence/a0/qualification/alpha-candidate.json",
   "evidence/a0/release/docs-manifest.json",
   "evidence/a0/release/source/qualification.json",
@@ -126,7 +127,7 @@ export function loadA0FirstAlphaReleaseContext(
     flow: readJson(read, "evidence/a0/release/source/flow.json"),
     recovery: readJson(read, "evidence/a0/release/source/recovery.json"),
     docsManifest: readJson(read, "evidence/a0/release/docs-manifest.json"),
-    releaseNotes: read("docs/releases/0.1.0-alpha.0.md"),
+    releaseNotes: read("docs/releases/0.1.0-alpha.1.md"),
     migration: read("docs/migrations/first-alpha-candidate.md"),
     rootReadme: read("README.md"),
     packageReadme: read("packages/framework/README.md"),
@@ -186,7 +187,7 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
     || candidate["status"] !== "qualified-alpha-candidate"
     || candidate["sourceCommit"] !== A0_ALPHA_CANDIDATE_COMMIT
     || candidate["sourceVersion"] !== A0_SEED_VERSION
-    || candidate["expectedReleaseVersion"] !== A0_FIRST_ALPHA_VERSION
+    || candidate["expectedReleaseVersion"] !== A0_EXPECTED_FIRST_ALPHA_VERSION
     || candidate["publicationAttempted"] !== false) {
     errors.push("A0 first-alpha prior qualification drifted");
   }
@@ -213,29 +214,33 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   if (!exact(context.qualification, expectedQualification)) errors.push("A0 first-alpha source qualification drifted");
 
   if (!isRecord(context.diagnostic)
-    || context.diagnostic["code"] !== "FADENO_A0_RELEASE_SOURCE_VERSION"
-    || context.diagnostic["observedVersion"] !== A0_SEED_VERSION
-    || context.diagnostic["expectedVersion"] !== A0_FIRST_ALPHA_VERSION
+    || context.diagnostic["code"] !== "FADENO_RELEASE_PUBLIC_REPOSITORY"
+    || context.diagnostic["observedVisibility"] !== "missing"
+    || context.diagnostic["expectedVisibility"] !== "public"
+    || context.diagnostic["failedSourceVersion"] !== A0_EXPECTED_FIRST_ALPHA_VERSION
     || context.diagnostic["publicationAttempted"] !== false
-    || !context.diagnosticHuman.startsWith("FADENO_A0_RELEASE_SOURCE_VERSION:")) {
+    || !context.diagnosticHuman.startsWith("FADENO_RELEASE_PUBLIC_REPOSITORY:")) {
     errors.push("A0 first-alpha refusal evidence drifted");
   }
   if (!exact(context.correctionBefore, {
-    packageVersion: A0_SEED_VERSION, prereleaseMode: null, sourceTag: null, publicationAllowed: false,
+    packageVersion: A0_EXPECTED_FIRST_ALPHA_VERSION,
+    sourceTag: `v${A0_EXPECTED_FIRST_ALPHA_VERSION}`,
+    repositoryVisibilityEvidence: null,
+    publicationAllowed: false,
   }) || !exact(context.correctionAfter, {
     packageVersion: A0_FIRST_ALPHA_VERSION,
-    prereleaseMode: A0_DISTRIBUTION_TAG,
     sourceTag: A0_FIRST_ALPHA_TAG,
+    repositoryVisibilityEvidence: "github.repository_visibility",
     publicationAllowed: "only-after-exact-main-local-ci",
   })) errors.push("A0 first-alpha correction evidence drifted");
   if (!isRecord(context.flow)
-    || context.flow["observableOutcome"] !== "locally-qualified-first-alpha-release-source"
+    || context.flow["observableOutcome"] !== "locally-qualified-alpha-transport-recovery-source"
     || !Array.isArray(context.flow["skippedWork"])
     || context.flow["skippedWork"].length !== 3) errors.push("A0 first-alpha flow evidence drifted");
   if (!isRecord(context.recovery)
-    || context.recovery["refusedCode"] !== "FADENO_A0_RELEASE_SOURCE_VERSION"
-    || context.recovery["incorrectVersionPublished"] !== false
-    || context.recovery["tagCreatedBeforeQualification"] !== false
+    || context.recovery["refusedCode"] !== "FADENO_RELEASE_PUBLIC_REPOSITORY"
+    || context.recovery["failedRegistryVersionCreated"] !== false
+    || context.recovery["immutableFailedTagPreserved"] !== true
     || context.recovery["staleDiagnosticPresent"] !== false
     || context.recovery["correctedVersion"] !== A0_FIRST_ALPHA_VERSION) {
     errors.push("A0 first-alpha recovery evidence drifted");
@@ -307,7 +312,7 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   }
   for (const fragment of [
     "At A0-09 qualification the package was the unpublished `0.0.0` seed",
-    "The current A0-10 release source is `@fadeno/framework@0.1.0-alpha.0`",
+    "The current A0-10 release source is `@fadeno/framework@0.1.0-alpha.1`",
     "fresh deterministic build from the checked-out tag",
     "same credential is refused",
   ]) {
@@ -320,7 +325,7 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
     ["generated getting-started guide", context.generatedGuide],
   ] as const) {
     const prose = normalized(content);
-    if (!prose.includes("first public alpha release source, `@fadeno/framework@0.1.0-alpha.0`")
+    if (!prose.includes("first public alpha registry release source, `@fadeno/framework@0.1.0-alpha.1`")
       || !prose.includes("registry availability and provenance are accepted only when `pnpm verify:a0-public-alpha` passes")
       || prose.includes("working private framework, not yet a registry release")
       || prose.includes("no registry version")) {
@@ -336,12 +341,12 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   }
   const scopeRelease = context.scope.split("\n").find((line) => line.startsWith("| REL-01 |")) ?? "";
   const traceRelease = context.traceability.split("\n").find((line) => line.startsWith("| REL-01 |")) ?? "";
-  if (!scopeRelease.includes("current `0.1.0-alpha.0` release source")
+  if (!scopeRelease.includes("current `0.1.0-alpha.1` recovery release source")
     || !scopeRelease.includes("every consumed Changeset")
     || !scopeRelease.includes("verify:a0-release-event")) {
     errors.push("REL-01 scope does not describe the current first-alpha source");
   }
-  if (!traceRelease.includes("current `0.1.0-alpha.0` release source")
+  if (!traceRelease.includes("current `0.1.0-alpha.1` recovery release source")
     || !traceRelease.includes("every consumed Changeset")
     || !traceRelease.includes("verify:a0-release-event")) {
     errors.push("REL-01 traceability does not describe the current first-alpha source");

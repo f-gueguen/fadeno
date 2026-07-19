@@ -2,9 +2,10 @@
   "schemaVersion": 1,
   "command": "pnpm check:a0-first-alpha-release",
   "exitCode": 1,
-  "code": "FADENO_A0_RELEASE_SOURCE_VERSION",
-  "message": "The release source must use @fadeno/framework@0.1.0-alpha.0.",
-  "observedVersion": "0.0.0",
-  "expectedVersion": "0.1.0-alpha.0",
+  "code": "FADENO_RELEASE_PUBLIC_REPOSITORY",
+  "message": "Hosted publication requires explicit public repository visibility evidence.",
+  "observedVisibility": "missing",
+  "expectedVisibility": "public",
+  "failedSourceVersion": "0.1.0-alpha.0",
   "publicationAttempted": false
 }

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "scenario": "release-source-version-refusal-and-recovery",
-  "refusedCode": "FADENO_A0_RELEASE_SOURCE_VERSION",
-  "incorrectVersionPublished": false,
-  "tagCreatedBeforeQualification": false,
+  "scenario": "hosted-visibility-refusal-and-new-version-recovery",
+  "refusedCode": "FADENO_RELEASE_PUBLIC_REPOSITORY",
+  "failedRegistryVersionCreated": false,
+  "immutableFailedTagPreserved": true,
   "priorQualifiedCandidatePreserved": true,
-  "correctedVersion": "0.1.0-alpha.0",
+  "correctedVersion": "0.1.0-alpha.1",
   "staleDiagnosticPresent": false,
-  "outcome": "corrected-release-source-awaits-exact-main-qualification"
+  "outcome": "corrected-alpha.1-source-awaits-exact-main-qualification"
 }

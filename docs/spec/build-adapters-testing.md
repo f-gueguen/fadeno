@@ -343,15 +343,17 @@ rollback paths. Automated packed evidence does not establish newcomer or
 assistive-technology usability. At A0-09 qualification the package was the
 unpublished `0.0.0` seed; that checkpoint did not publish, tag, or establish
 registry/docs identity. The current A0-10 release source is
-`@fadeno/framework@0.1.0-alpha.0` and owns those remaining checks.
+`@fadeno/framework@0.1.0-alpha.1` and owns those remaining checks. The immutable
+`0.1.0-alpha.0` source release stopped before registry upload because hosted
+repository visibility evidence was incomplete.
 The retained A0-09 qualification remains bound to the immutable source commit
 that contained the `0.0.0` package seed; the current working-tree version is
 not retroactively presented as the input to that historical qualification.
 
 ## A0-10 first-alpha release and public replay
 
-A0-10 mechanically consumes the reviewed Changesets into exactly
-`@fadeno/framework@0.1.0-alpha.0`. The private example workspaces remain
+A0-10 mechanically advances the reviewed failed transport recovery into exactly
+`@fadeno/framework@0.1.0-alpha.1`. The private example workspaces remain
 `0.0.0`. `pnpm check:a0-first-alpha-release` owns the pre-publication contract:
 it binds the prior alpha-candidate qualification, exact prerelease state,
 package metadata, changelog, SBOM, release notes, publication workflow, and an

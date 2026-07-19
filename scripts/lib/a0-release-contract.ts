@@ -215,6 +215,8 @@ export function validateA0Release(context: A0ReleaseContext): readonly string[] 
     "npm publish ./packages/framework --access public --tag alpha",
     "pnpm revoke:a0-bootstrap-token",
     "vars.NPM_RELEASE_MODE", "vars.FADENO_QUALIFIED_COMMIT", "secrets.NPM_BOOTSTRAP_TOKEN",
+    "FADENO_RELEASE_REPOSITORY_VISIBILITY", "github.repository_visibility",
+    "always() && vars.NPM_RELEASE_MODE == 'bootstrap'",
   ]) {
     if (!context.workflow.includes(required)) errors.push(`publication workflow is missing ${required}`);
   }

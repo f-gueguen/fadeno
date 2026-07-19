@@ -1,8 +1,9 @@
 # @fadeno/framework
 
 This is the selected public Fadeno package. The qualified first-alpha candidate
-is Fadeno's first public alpha (`0.1.0-alpha.0`). It is experimental and not
-production-supported.
+remains the A0-09 evidence input. The qualified registry release
+source is Fadeno's first public alpha (`0.1.0-alpha.1`) and first
+registry-installable version. It is experimental and not production-supported.
 
 The runtime-neutral `.` facade exports the standard Web `Handler` type,
 configuration, rendering and route outcomes, and the request-scoped resource

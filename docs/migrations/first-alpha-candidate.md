@@ -1,16 +1,18 @@
 # First-alpha candidate adoption guide
 
 - From: No released Fadeno version
-- To: `0.1.0-alpha.0`
+- To: `0.1.0-alpha.1`
 - Affected package: `@fadeno/framework`
-- Release tag: [`v0.1.0-alpha.0`](https://github.com/f-gueguen/fadeno/releases/tag/v0.1.0-alpha.0)
+- Release tag: [`v0.1.0-alpha.1`](https://github.com/f-gueguen/fadeno/releases/tag/v0.1.0-alpha.1)
 - Changesets: `.changeset/early-fadeno-alpha.md` and reviewed A0-09 intent
 - Changelog: [`packages/framework/CHANGELOG.md`](../../packages/framework/CHANGELOG.md#010-alpha0)
 - Executable application: `examples/v1-app`
 
 This is the release-checkpoint adoption guide required before the first alpha.
 It is not a compatibility migration between released versions: no Fadeno
-package had been published before this version. A0-10 binds these release links
+package had been published before this version. The immutable `0.1.0-alpha.0`
+source release stopped before registry upload; `0.1.0-alpha.1` corrects only
+that transport evidence. A0-10 binds these release links
 to the mechanically generated version without changing the reviewed workflow.
 
 ## Who is affected
@@ -57,7 +59,7 @@ pnpm check:a0-alpha-qualification
 These commands rebuild and pack the exact release package, install consumers through
 public entrypoints, assert success and deliberate failure behavior, repair the
 source, and prove stale diagnostics or artifacts disappear. Public registry
-verification repeats the workflow from `@fadeno/framework@0.1.0-alpha.0`.
+verification repeats the workflow from `@fadeno/framework@0.1.0-alpha.1`.
 
 ## Known alpha limitations
 

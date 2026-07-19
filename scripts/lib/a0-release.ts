@@ -37,7 +37,7 @@ export function validatePublicationEnvironment(
   if (!/^[0-9a-f]{40}$/u.test(git.head)) errors.push("FADENO_RELEASE_SOURCE_COMMIT");
   if (environment["GITHUB_ACTIONS"] !== "true"
     || environment["GITHUB_REPOSITORY"] !== "f-gueguen/fadeno"
-    || environment["GITHUB_REPOSITORY_VISIBILITY"] !== "public") {
+    || environment["FADENO_RELEASE_REPOSITORY_VISIBILITY"] !== "public") {
     errors.push("FADENO_RELEASE_PUBLIC_REPOSITORY");
   }
   if (!environment["GITHUB_WORKFLOW_REF"]?.startsWith("f-gueguen/fadeno/.github/workflows/publish.yml@refs/tags/")) {

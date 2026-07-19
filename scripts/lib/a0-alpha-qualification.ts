@@ -4,7 +4,7 @@ import { isAbsolute, join, normalize, relative, sep } from "node:path";
 
 import {
   A0_ALPHA_CANDIDATE_COMMIT,
-  A0_FIRST_ALPHA_VERSION,
+  A0_EXPECTED_FIRST_ALPHA_VERSION,
   A0_SEED_VERSION,
 } from "./a0-release-identity.ts";
 
@@ -298,7 +298,7 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
     document["package"] !== "@fadeno/framework"
     || document["sourceCommit"] !== A0_ALPHA_CANDIDATE_COMMIT
     || document["sourceVersion"] !== A0_SEED_VERSION
-    || document["expectedReleaseVersion"] !== A0_FIRST_ALPHA_VERSION
+    || document["expectedReleaseVersion"] !== A0_EXPECTED_FIRST_ALPHA_VERSION
     || document["canonicalApplication"] !== "examples/v1-app"
     || document["publicationAttempted"] !== false
   ) errors.push("A0 alpha package identity or publication boundary drifted");

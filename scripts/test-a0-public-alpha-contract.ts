@@ -12,18 +12,18 @@ const documentation = Buffer.from("documentation bytes");
 const packageSha512 = createHash("sha512").update(bytes).digest("hex");
 const provenanceStatement = {
   _type: "https://in-toto.io/Statement/v1",
-  subject: [{ name: "pkg:npm/%40fadeno/framework@0.1.0-alpha.0", digest: { sha512: packageSha512 } }],
+  subject: [{ name: "pkg:npm/%40fadeno/framework@0.1.0-alpha.1", digest: { sha512: packageSha512 } }],
   predicateType: "https://slsa.dev/provenance/v1",
   predicate: {
     buildDefinition: {
       buildType: "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1",
       externalParameters: { workflow: {
-        ref: "refs/tags/v0.1.0-alpha.0",
+        ref: "refs/tags/v0.1.0-alpha.1",
         repository: "https://github.com/f-gueguen/fadeno",
         path: ".github/workflows/publish.yml",
       } },
       resolvedDependencies: [{
-        uri: "git+https://github.com/f-gueguen/fadeno@refs/tags/v0.1.0-alpha.0",
+        uri: "git+https://github.com/f-gueguen/fadeno@refs/tags/v0.1.0-alpha.1",
         digest: { gitCommit: sourceCommit },
       }],
     },
@@ -34,14 +34,14 @@ const provenanceStatement = {
   },
 };
 const certificateIdentity = [
-  "https://github.com/f-gueguen/fadeno/.github/workflows/publish.yml@refs/tags/v0.1.0-alpha.0",
+  "https://github.com/f-gueguen/fadeno/.github/workflows/publish.yml@refs/tags/v0.1.0-alpha.1",
   "repo:f-gueguen/fadeno:environment:npm-production",
 ].join("\0");
 const manifest = {
   schemaVersion: 1,
-  packageVersion: "0.1.0-alpha.0",
-  sourceTag: "v0.1.0-alpha.0",
-  artifactFilename: "fadeno-docs-0.1.0-alpha.0.tar.gz",
+  packageVersion: "0.1.0-alpha.1",
+  sourceTag: "v0.1.0-alpha.1",
+  artifactFilename: "fadeno-docs-0.1.0-alpha.1.tar.gz",
   aggregateSha256: "2".repeat(64),
   files: [{ path: "README.md", bytes: 1, sha256: "3".repeat(64) }],
 } satisfies A0DocumentationManifest;
@@ -49,16 +49,16 @@ const context = Object.freeze({
   sourceCommit,
   metadata: {
     name: "@fadeno/framework",
-    version: "0.1.0-alpha.0",
+    version: "0.1.0-alpha.1",
     gitHead: sourceCommit,
     repository: { type: "git", url: "git+https://github.com/f-gueguen/fadeno.git", directory: "packages/framework" },
     dist: {
       integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
       shasum: createHash("sha1").update(bytes).digest("hex"),
-      tarball: "https://registry.npmjs.org/@fadeno/framework/-/framework-0.1.0-alpha.0.tgz",
+      tarball: "https://registry.npmjs.org/@fadeno/framework/-/framework-0.1.0-alpha.1.tgz",
       signatures: [{ keyid: "fixture", sig: "fixture" }],
       attestations: {
-        url: "https://registry.npmjs.org/-/npm/v1/attestations/@fadeno%2fframework@0.1.0-alpha.0",
+        url: "https://registry.npmjs.org/-/npm/v1/attestations/@fadeno%2fframework@0.1.0-alpha.1",
         provenance: { predicateType: "https://slsa.dev/provenance/v1" },
       },
     },
@@ -73,26 +73,26 @@ const context = Object.freeze({
       },
     },
   }] },
-  distributionTags: { alpha: "0.1.0-alpha.0" },
+  distributionTags: { alpha: "0.1.0-alpha.1" },
   tagCommit: sourceCommit,
   release: {
-    tag_name: "v0.1.0-alpha.0",
+    tag_name: "v0.1.0-alpha.1",
     target_commitish: "main",
     prerelease: true,
     draft: false,
     body: "release notes\n",
     assets: [
-      { name: "fadeno-docs-0.1.0-alpha.0.tar.gz" },
-      { name: "fadeno-docs-0.1.0-alpha.0.tar.gz.json" },
+      { name: "fadeno-docs-0.1.0-alpha.1.tar.gz" },
+      { name: "fadeno-docs-0.1.0-alpha.1.tar.gz.json" },
     ],
   },
   expectedReleaseNotes: "release notes",
   receipt: {
     schemaVersion: 1,
     sourceCommit,
-    sourceTag: "v0.1.0-alpha.0",
-    packageVersion: "0.1.0-alpha.0",
-    artifactFilename: "fadeno-docs-0.1.0-alpha.0.tar.gz",
+    sourceTag: "v0.1.0-alpha.1",
+    packageVersion: "0.1.0-alpha.1",
+    artifactFilename: "fadeno-docs-0.1.0-alpha.1.tar.gz",
     artifactSha256: createHash("sha256").update(documentation).digest("hex"),
     documentationAggregateSha256: manifest.aggregateSha256,
     fileCount: 1,
@@ -134,9 +134,9 @@ mutation("FADENO_A0_PUBLIC_PROVENANCE", {
     },
   }] },
 });
-mutation("FADENO_A0_PUBLIC_DIST_TAG", { distributionTags: { alpha: "0.1.0-alpha.1" } });
+mutation("FADENO_A0_PUBLIC_DIST_TAG", { distributionTags: { alpha: "0.1.0-alpha.2" } });
 mutation("FADENO_A0_PUBLIC_DIST_TAG", {
-  distributionTags: { alpha: "0.1.0-alpha.0", latest: "0.1.0-alpha.0" },
+  distributionTags: { alpha: "0.1.0-alpha.1", latest: "0.1.0-alpha.1" },
 });
 mutation("FADENO_A0_PUBLIC_TAG", { tagCommit: "5".repeat(40) });
 mutation("FADENO_A0_PUBLIC_RELEASE", {

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "0.1.0-alpha.0",
-  "sourceTag": "v0.1.0-alpha.0",
-  "artifactFilename": "fadeno-docs-0.1.0-alpha.0.tar.gz",
-  "aggregateSha256": "d86fc7501c02ab3fb0c3e130b7864304fcd2542d4c14ef410a7b71bc7d78e935",
+  "packageVersion": "0.1.0-alpha.1",
+  "sourceTag": "v0.1.0-alpha.1",
+  "artifactFilename": "fadeno-docs-0.1.0-alpha.1.tar.gz",
+  "aggregateSha256": "30e7da6db6872e23a70a2decf28e937d98bd93763355d578c11fb746d8927f4f",
   "files": [
     {
       "path": "AGENTS.md",
@@ -27,13 +27,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 4607,
-      "sha256": "2ef25fc2c265be3c1ec4b48e4f70a742b9681e6000fd4f472086948fab83e258"
+      "bytes": 4796,
+      "sha256": "ef506b7a8fc63e0c9ac5f7e050317a9b9231413e146e81da184620160eafcd26"
     },
     {
       "path": "ROADMAP_LEDGER.md",
-      "bytes": 23094,
-      "sha256": "35abeb4741b257a1b3268597e9e016f72ab4841523811404504d3f160a7b8309"
+      "bytes": 23087,
+      "sha256": "9446a49c04826a8c266766d642bb6a516a3889115c4b668ff38cbfbeb1c7c48c"
     },
     {
       "path": "SECURITY.md",
@@ -292,8 +292,8 @@
     },
     {
       "path": "docs/guides/getting-started.md",
-      "bytes": 16818,
-      "sha256": "9ac895e33ce26bbdd134ec01a43d6cf638c0c213372c71187f87429ac81559b2"
+      "bytes": 16827,
+      "sha256": "9a2bf69e9154a162f6865f459a95301c233c3114b22d084b095446f85b7b625c"
     },
     {
       "path": "docs/guides/resources-actions.md",
@@ -327,8 +327,8 @@
     },
     {
       "path": "docs/migrations/first-alpha-candidate.md",
-      "bytes": 3377,
-      "sha256": "0718f3a6117e0b6ee79aaa2ae111874f69f83679f523611f856493dd792ce8d0"
+      "bytes": 3509,
+      "sha256": "67f7222dd0118b9f35be2ed6e78efa45464f4a9fac813b936fcb758feae1e418"
     },
     {
       "path": "docs/migrations/fixtures/README.md",
@@ -347,8 +347,8 @@
     },
     {
       "path": "docs/product/scope.md",
-      "bytes": 14338,
-      "sha256": "ad687f58e02e63dc11f3515fa4507754c5556c63c5c6fc42caad887b8ecd49d2"
+      "bytes": 14378,
+      "sha256": "1263c42407412c4ba0170fc38ab3d4db3be3092d6fcdf3c4b83a4ef6a0dfe569"
     },
     {
       "path": "docs/reference/v1-api.md",
@@ -357,13 +357,18 @@
     },
     {
       "path": "docs/release-policy.md",
-      "bytes": 7860,
-      "sha256": "c045ac0007b38687f17d97e3d2dbd96f11c74cf5c2c899b80d0bf37792d97ad9"
+      "bytes": 8257,
+      "sha256": "c905ea11d94e40e011b7bdf25e0b686290799e71e97d8bc917c933edf53c986d"
     },
     {
       "path": "docs/releases/0.1.0-alpha.0.md",
       "bytes": 1624,
       "sha256": "2d7ec937c8d4bbba1b5dcb6df6081c64ed76a51993c423271e58edc52d07b2d9"
+    },
+    {
+      "path": "docs/releases/0.1.0-alpha.1.md",
+      "bytes": 1781,
+      "sha256": "19da2a0e88bbd5df34667bae7e6719ae441d45a0755c95fb0619f98c150c356c"
     },
     {
       "path": "docs/roadmap.md",
@@ -422,8 +427,8 @@
     },
     {
       "path": "docs/spec/build-adapters-testing.md",
-      "bytes": 50410,
-      "sha256": "bf714a16b59316d0f0556cd37e657f68d805720c8fba85051d44505a93d5ef23"
+      "bytes": 50563,
+      "sha256": "3736d10165e3242d593997abba5d7201a88ba6d4e1af773aaaca08d10fa15b74"
     },
     {
       "path": "docs/spec/compiler-analyzer.md",
@@ -477,18 +482,18 @@
     },
     {
       "path": "docs/traceability.md",
-      "bytes": 17951,
-      "sha256": "73ccc9758f68c0a684f6f0066712b903c7513d5f2afea392cf28f8e5668d3649"
+      "bytes": 17990,
+      "sha256": "9be0e2a5ccbe3857d2fa037b4daaa902fe071b601376342f134ec08584a6e714"
     },
     {
       "path": "packages/framework/CHANGELOG.md",
-      "bytes": 1139,
-      "sha256": "b47c5d2b90c2360f77218f320ececd7f20fcbedcb13c9fcf5bd017adb4e793e2"
+      "bytes": 1355,
+      "sha256": "5e8e71b1dfce5c0872cf43b2b2fa1aae6598aacdb9c7a4090239a65ec5a2245d"
     },
     {
       "path": "packages/framework/README.md",
-      "bytes": 5092,
-      "sha256": "1d4a9759725ac481a62a8ca1175692e5c71d6759997a46f89ff5a4dca6c2166a"
+      "bytes": 5203,
+      "sha256": "a4617bff4ce40904e80b1bf52fab5fac80f91f2ff11f73040bfa9db50607f6db"
     }
   ]
 }
