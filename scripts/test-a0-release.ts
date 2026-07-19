@@ -22,6 +22,10 @@ expectMutation("publication workflow is missing pnpm revoke:a0-bootstrap-token",
   ...context,
   workflow: context.workflow.replace("pnpm revoke:a0-bootstrap-token", "removed-bootstrap-revocation"),
 }));
+expectMutation("publication workflow is missing github.repository_visibility", (context) => Object.freeze({
+  ...context,
+  workflow: context.workflow.replace("github.repository_visibility", "removed-repository-visibility"),
+}));
 expectMutation("prepublication rollback fixture drifted", (context) => Object.freeze({ ...context, rollbackPrivate: { ...(context.rollbackPrivate as Record<string, unknown>), publicationAttempted: true } }));
 expectMutation("human publication refusal evidence drifted", (context) => Object.freeze({ ...context, publicationRefusalHuman: "stale" }));
 expectMutation("refused publication recovery evidence drifted", (context) => Object.freeze({ ...context, recovery: { ...(context.recovery as Record<string, unknown>), tagCreated: true } }));
@@ -31,7 +35,7 @@ const head = "0123456789abcdef0123456789abcdef01234567";
 const environment = {
   GITHUB_ACTIONS: "true",
   GITHUB_REPOSITORY: "f-gueguen/fadeno",
-  GITHUB_REPOSITORY_VISIBILITY: "public",
+  FADENO_RELEASE_REPOSITORY_VISIBILITY: "public",
   GITHUB_WORKFLOW_REF: "f-gueguen/fadeno/.github/workflows/publish.yml@refs/tags/v0.1.0-alpha.0",
   GITHUB_REF_TYPE: "tag",
   GITHUB_REF_NAME: "v0.1.0-alpha.0",
@@ -50,8 +54,12 @@ const manifest = {
 if (validatePublicationEnvironment(environment, manifest, { head, clean: true }).length > 0) throw new Error("valid trusted publication environment refused");
 const withToken = validatePublicationEnvironment({ ...environment, NODE_AUTH_TOKEN: "unexpected-token-value" }, manifest, { head, clean: true });
 if (!withToken.includes("FADENO_RELEASE_TRUSTED_TOKEN_PRESENT")) throw new Error("trusted publication token was not refused");
-const privateSource = validatePublicationEnvironment({ ...environment, GITHUB_REPOSITORY_VISIBILITY: "private" }, manifest, { head, clean: true });
+const privateSource = validatePublicationEnvironment({ ...environment, FADENO_RELEASE_REPOSITORY_VISIBILITY: "private" }, manifest, { head, clean: true });
 if (!privateSource.includes("FADENO_RELEASE_PUBLIC_REPOSITORY")) throw new Error("private source publication was not refused");
+const missingVisibility = { ...environment, FADENO_RELEASE_REPOSITORY_VISIBILITY: undefined };
+if (!validatePublicationEnvironment(missingVisibility, manifest, { head, clean: true }).includes("FADENO_RELEASE_PUBLIC_REPOSITORY")) {
+  throw new Error("missing hosted visibility evidence was not refused");
+}
 const bootstrap = validatePublicationEnvironment({ ...environment, FADENO_RELEASE_MODE: "bootstrap", NODE_AUTH_TOKEN: "one-use-bootstrap-token" }, manifest, { head, clean: true });
 if (bootstrap.length > 0) throw new Error(`valid bootstrap environment refused:\n${bootstrap.join("\n")}`);
 

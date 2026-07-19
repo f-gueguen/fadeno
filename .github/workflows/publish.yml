@@ -38,6 +38,7 @@ jobs:
         env:
           FADENO_RELEASE_MODE: ${{ vars.NPM_RELEASE_MODE }}
           FADENO_QUALIFIED_COMMIT: ${{ vars.FADENO_QUALIFIED_COMMIT }}
+          FADENO_RELEASE_REPOSITORY_VISIBILITY: ${{ github.repository_visibility }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
       - if: vars.NPM_RELEASE_MODE == 'bootstrap'
         run: pnpm revoke:a0-bootstrap-token
