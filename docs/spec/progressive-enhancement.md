@@ -33,6 +33,13 @@ JavaScript is disabled, the nonce is wrong or missing, the artifact is absent,
 or module emission is rolled back, the complete native document remains
 authoritative. The initial handle does not intercept links or forms.
 
+ADR 0048 adds the server half of one private outcome path. It projects the
+already-complete native route or action response, with construction-time
+route/resource/action provenance, into the closed private envelope. Exact
+request ownership, generation, cancellation, single consumption, redaction,
+and limits fail closed. This still does not intercept a control or apply an
+update; those authorities remain later V2 work.
+
 When enhancement code is available, it may intercept a link or form only when
 it can preserve the baseline semantics. It may then:
 

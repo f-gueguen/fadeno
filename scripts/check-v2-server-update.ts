@@ -49,6 +49,7 @@ function responseFor(
     headers?: HeadersInit;
     outcome?: "document" | "not-found" | "expected-error" | "redirect" | "unexpected-error";
     expectedCode?: string;
+    generation?: string;
   }> = {},
 ): Readonly<{ request: Request; response: Response }> {
   const request = new Request(`${authority.origin}${authority.operation.url}`);
@@ -59,7 +60,7 @@ function responseFor(
   });
   attachPrivateServerUpdateRouteEvidence(response, request, {
     routeId: "route:projects:index",
-    generation: authority.applicationGeneration,
+    generation: input.generation ?? authority.applicationGeneration,
     outcome: input.outcome ?? "document",
     ...(input.expectedCode ? { expectedCode: input.expectedCode } : {}),
     resources: () => Object.freeze([Object.freeze({
@@ -110,6 +111,13 @@ assert.deepEqual(admitted.decision, {
   recovery: "none",
   mutationResubmission: "never",
 });
+const staleOperation = operation({ resultId: "result-stale" });
+const staleResponse = responseFor(staleOperation).response;
+assert.equal((await projectPrivateServerUpdate(staleResponse, staleOperation)).status, "projected");
+const stale = await projectPrivateServerUpdate(staleResponse, staleOperation);
+assert.equal(stale.status, "refused");
+if (stale.status !== "refused") throw new Error("stale projection completed");
+assert.equal(stale.code, "FADENO_UPDATE_PROJECTION_STALE");
 
 let pageRuns = 0;
 let resourceRuns = 0;
@@ -297,6 +305,22 @@ const forged = await projectPrivateServerUpdate(
 assert.equal(forged.status, "refused");
 assert.equal(forged.code, "FADENO_UPDATE_PROJECTION_AUTHORITY");
 assert.equal(JSON.stringify(forged.record).includes(forgedSecret), false);
+
+const generationOperation = operation({ resultId: "result-generation" });
+const generationRefusal = await projectPrivateServerUpdate(responseFor(generationOperation, {
+  generation: "generation-other",
+}).response, generationOperation);
+assert.equal(generationRefusal.status, "refused");
+if (generationRefusal.status !== "refused") throw new Error("generation mismatch projected");
+assert.equal(generationRefusal.code, "FADENO_UPDATE_PROJECTION_GENERATION");
+
+const mediaOperation = operation({ resultId: "result-media" });
+const mediaRefusal = await projectPrivateServerUpdate(responseFor(mediaOperation, {
+  headers: { "content-type": "application/json" },
+}).response, mediaOperation);
+assert.equal(mediaRefusal.status, "refused");
+if (mediaRefusal.status !== "refused") throw new Error("unsupported media projected");
+assert.equal(mediaRefusal.code, "FADENO_UPDATE_PROJECTION_MEDIA_TYPE");
 
 const refusedOperation = operation({ resultId: "result-refused" });
 const refusedPair = responseFor(refusedOperation, { status: 403 });

@@ -95,6 +95,38 @@ function cookie(response: Response): string {
   return value;
 }
 
+const adr = readFileSync(join(root, "docs/adr/0048-server-owned-update-outcome-projection.md"), "utf8").replace(/\s+/gu, " ");
+for (const fragment of [
+  "consumes exactly one native `Response`",
+  "cannot call the route, page, layout, resource, action, or authorization function again",
+  "opaque authorization owner",
+  "Construction-time evidence",
+  "separate private redacted projection record",
+  "introduces no new public export",
+]) assert.equal(adr.includes(fragment), true, `ADR 0048 is missing ${fragment}`);
+
+const threatModel = readFileSync(join(root, "docs/security/browser-update-threat-model.md"), "utf8").replace(/\s+/gu, " ");
+for (const fragment of [
+  "One user or representation projects another response",
+  "Projection recreates application policy",
+  "Provenance is reconstructed after cleanup",
+  "Server evidence leaks protected data",
+  "Failure repeats a mutation",
+]) assert.equal(threatModel.includes(fragment), true, `browser threat model is missing ${fragment}`);
+
+const packageDocument = readJson(join(packageRoot, "package.json")) as { exports: Record<string, unknown> };
+assert.deepEqual(Object.keys(packageDocument.exports).sort(), [".", "./browser", "./jsx-runtime", "./node"]);
+assert.equal(
+  readFileSync(join(root, ".changeset/server-update-projection.md"), "utf8"),
+  '---\n"@fadeno/framework": minor\n---\n\nProject native route, resource, and action outcomes into the bounded private\nbrowser update envelope without repeating application execution.\n',
+);
+const scope = readFileSync(join(root, "docs/product/scope.md"), "utf8");
+const traceability = readFileSync(join(root, "docs/traceability.md"), "utf8");
+for (const feature of ["WEB-01", "WEB-02", "DATA-01", "DATA-02", "ENH-01", "PATCH-01", "SEC-01"]) {
+  assert.equal(scope.includes(`shared by WEB-01, WEB-02, DATA-01, DATA-02, ENH-01, PATCH-01, and\nSEC-01`), true, `${feature} scope is missing ADR 0048`);
+  assert.equal(traceability.includes("`pnpm check:v2-server-update` is their shared packed proof"), true, `${feature} traceability is missing V2-03 evidence`);
+}
+
 const temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-v2-server-update-"));
 try {
   run("pnpm", ["--filter", packageName, "build"], root);
@@ -184,6 +216,9 @@ try {
     executions: Object.freeze({ ...application.executionCounts }),
   });
   assert.deepEqual(success, readJson(join(scenarioRoot, "expected/success.json")));
+  const staleProjection = await serverUpdate.projectPrivateServerUpdate(navigationResponse, navigation);
+  assert.equal(staleProjection.status, "refused");
+  if (staleProjection.status !== "refused") throw new Error("FADENO_V2_SERVER_UPDATE_STALE");
 
   const submittedForm = form(navigationHtml);
   const beforeFailure = { ...application.executionCounts };
@@ -295,6 +330,7 @@ try {
   const recovery = Object.freeze({
     schema: "fadeno.example.server-update-recovery",
     version: 1,
+    staleProjectionCode: staleProjection.code,
     rollbackCode: rollbackRefusal.code,
     nativeResponseRemainedUsable: true,
     currentOutcome: recovered.record.outcome,

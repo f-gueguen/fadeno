@@ -134,7 +134,9 @@ session; renewal never throws past the response boundary.
   unauthorized actions, replay, unsafe redirects, session fixation, rotation,
   tampering, expiry, and cross-user isolation.
 - Enhanced and native submissions produce equivalent accepted application
-  outcomes once enhancement exists; V1-13 qualifies the native outcome first.
+  outcomes once enhancement exists; V1-13 qualifies the native outcome first,
+  and ADR 0048 projects that same action response without invoking the action,
+  authorization, revalidation, resource, page, or renderer a second time.
 - Logs and diagnostics prove that secret and sensitive values are redacted.
 - The V1-12 normalized success, refusal, correction, flow, and recovery files
   are private evidence, not a supported wire schema or public runtime output.

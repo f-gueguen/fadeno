@@ -1,6 +1,7 @@
 {
   "schema": "fadeno.example.server-update-recovery",
   "version": 1,
+  "staleProjectionCode": "FADENO_UPDATE_PROJECTION_STALE",
   "rollbackCode": "FADENO_UPDATE_PROJECTION_OWNERSHIP",
   "nativeResponseRemainedUsable": true,
   "currentOutcome": "document",

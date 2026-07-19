@@ -37,6 +37,12 @@ document owns cross-document coverage.
 | PPR-01 | [Deferral ledger](ledgers/deferrals.md) | None until accepted | Deferred trigger | After 1.0 evidence | Cache/stream correctness suite if accepted |
 | TOOL-01 | [ADR 0043](adr/0043-defer-independent-usability-and-external-tooling.md), [Deferral ledger](ledgers/deferrals.md) | None until accepted | No editor product or public analyzer schema is selected for the first alpha; private evidence does not satisfy the later consumer trigger | After A0 need | `pnpm check:a0-tooling-deferral`; later independent-user need and a product-specific acceptance suite if accepted |
 
+V2-03 cross-cuts WEB-01, WEB-02, DATA-01, DATA-02, ENH-01, PATCH-01,
+and SEC-01 under [ADR 0048](adr/0048-server-owned-update-outcome-projection.md).
+`pnpm check:v2-server-update` is their shared packed proof for one-pass native
+equivalence, construction-time provenance, authorization and cross-user
+refusal, bounded serialization, redaction, rollback, and stale-result recovery.
+
 ## Maintenance rules
 
 1. Every feature row in `docs/product/scope.md` appears exactly once here.

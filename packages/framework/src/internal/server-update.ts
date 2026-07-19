@@ -99,6 +99,7 @@ type JsonRecord = Record<string, unknown>;
 const operations = new WeakSet<object>();
 const requestOperations = new WeakMap<Request, PrivateServerUpdateOperation>();
 const responseEvidence = new WeakMap<Response, MutableResponseEvidence>();
+const consumedResponses = new WeakSet<Response>();
 
 function byteLength(value: string): number {
   return encoder.encode(value).byteLength;
@@ -343,6 +344,8 @@ async function readBoundedBody(response: Response, signal?: AbortSignal): Promis
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
+  const cancel = () => { void reader.cancel("FADENO_UPDATE_PROJECTION_CANCELLED").catch(() => undefined); };
+  signal?.addEventListener("abort", cancel, { once: true });
   try {
     for (;;) {
       if (signal?.aborted) return undefined;
@@ -358,6 +361,7 @@ async function readBoundedBody(response: Response, signal?: AbortSignal): Promis
   } catch {
     return undefined;
   } finally {
+    signal?.removeEventListener("abort", cancel);
     reader.releaseLock();
   }
   const bytes = new Uint8Array(total);
@@ -451,11 +455,15 @@ export async function projectPrivateServerUpdate(
   if (evidence.action?.status === "refused") {
     return refusal(operation, evidence, "FADENO_UPDATE_PROJECTION_AUTHORIZATION", "refused", ["action:refused"]);
   }
+  if (consumedResponses.has(response)) {
+    return refusal(operation, evidence, "FADENO_UPDATE_PROJECTION_STALE", "refused", ["response:consumed"]);
+  }
   const redirect = evidence.route.outcome === "redirect";
   const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
   if (!redirect && contentType !== "text/html") {
     return refusal(operation, evidence, "FADENO_UPDATE_PROJECTION_MEDIA_TYPE");
   }
+  consumedResponses.add(response);
   const body = redirect ? new Uint8Array() : await readBoundedBody(response, options.signal);
   if (!body || options.signal?.aborted) {
     return refusal(operation, evidence, options.signal?.aborted
