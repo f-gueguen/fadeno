@@ -39,6 +39,7 @@ const documents = [
   ["docs/templates/v1/getting-started.md.tmpl", "docs/guides/getting-started.md"],
   ["docs/templates/v1/resources-actions.md.tmpl", "docs/guides/resources-actions.md"],
   ["docs/templates/v1/diagnostics-recovery.md.tmpl", "docs/guides/diagnostics-recovery.md"],
+  ["docs/templates/v1/browser-runtime.md.tmpl", "docs/guides/browser-runtime.md"],
   ["docs/templates/v1/migration-seed.md.tmpl", "docs/migrations/v1-private-preview.md"],
 ] as const;
 const check = process.argv.includes("--check");

@@ -163,6 +163,14 @@ surface.
 
 ## Test layers
 
+ADR 0047 adds one browser-only public facade inside the existing package. A
+generated application browser entry statically imports that facade, and the
+link step maps it to browser files from the same packed framework version and
+application build. The neutral root and Node adapter remain isolated. V2-02's
+clean consumer renders and executes this artifact through the real nonce-owned
+path; normal build/dev/start/deploy workflow replay remains V2-11 work before a
+later alpha release.
+
 | Layer | Required evidence |
 | --- | --- |
 | Unit | Pure renderer, decoder, identity, ordering, and analyzer rules |

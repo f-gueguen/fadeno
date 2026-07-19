@@ -21,6 +21,15 @@ fadeno build --project-root ./my-project
 fadeno dev --project-root ./my-project --port 4173
 ```
 
+The optional `./browser` facade exports explicit `startBrowserEnhancement()`
+startup and its closable handle. Importing it has no side effect. The current
+runtime only establishes generated nonce-owned loading and a private bounded
+update transport; it does not yet intercept links or forms. The permanent
+packed example and wrong/missing-nonce, disabled-JavaScript, missing-artifact,
+environment-refusal, and rollback evidence live under
+`examples/v1-app/scenarios/browser-runtime` and run through
+`pnpm check:v2-browser-runtime`.
+
 `check` validates current configuration and route framework semantics, reports
 human diagnostics, and plans artifacts without writing them. `build` analyzes
 and validates one current generation, emits into a contained stage, verifies a

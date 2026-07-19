@@ -32,6 +32,45 @@ function run(command: string, arguments_: readonly string[], cwd: string): strin
   return `${result.stdout}${result.stderr}`;
 }
 
+const adr = readFileSync(join(root, "docs/adr/0047-initial-browser-runtime-and-private-transport.md"), "utf8").replace(/\s+/gu, " ");
+for (const fragment of [
+  "exports exactly `startBrowserEnhancement`, `BrowserEnhancement`, and `BrowserEnhancementState`",
+  "does not start work or mutate global state",
+  "root-relative same-origin path",
+  "same request nonce",
+  "fatal UTF-8 decoding",
+  "one structural record",
+  "checks cancellation",
+  "remain private package internals",
+  "does not yet make navigation faster",
+]) assert.equal(adr.includes(fragment), true, `ADR 0047 is missing ${fragment}`);
+
+const threatModel = readFileSync(join(root, "docs/security/browser-update-threat-model.md"), "utf8").replace(/\s+/gu, " ");
+for (const fragment of [
+  "wrong/missing nonce",
+  "Cross-user or stale result applies",
+  "Decode mistaken for authorization",
+  "Hostile input leaks through logging",
+  "Failure repeats a mutation",
+  "rollback",
+]) assert.equal(threatModel.includes(fragment), true, `browser threat model is missing ${fragment}`);
+
+const scope = readFileSync(join(root, "docs/product/scope.md"), "utf8");
+const traceability = readFileSync(join(root, "docs/traceability.md"), "utf8");
+for (const feature of ["WEB-02", "BUILD-01", "ENH-01", "PATCH-01", "SEC-01", "TEST-01"]) {
+  const scopeRow = scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+  const traceabilityRow = traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+  assert.equal(scopeRow.includes("ADR 0047"), true, `${feature} scope is missing ADR 0047`);
+  assert.equal(traceabilityRow.includes("ADR 0047") && traceabilityRow.includes("check:v2-browser-runtime"), true, `${feature} traceability is missing V2-02 evidence`);
+}
+
+const packageDocument = readJson(join(packageRoot, "package.json")) as { exports: Record<string, unknown> };
+assert.deepEqual(Object.keys(packageDocument.exports).sort(), [".", "./browser", "./jsx-runtime", "./node"]);
+assert.equal(
+  readFileSync(join(root, ".changeset/browser-runtime-boundary.md"), "utf8"),
+  '---\n"@fadeno/framework": minor\n---\n\nAdd the explicit browser enhancement entrypoint and the bounded private update\ntransport boundary while preserving native links and forms as the fallback.\n',
+);
+
 const temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-v2-browser-runtime-"));
 try {
   run("pnpm", ["--filter", packageName, "build"], root);

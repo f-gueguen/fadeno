@@ -25,6 +25,14 @@ deferred until application evidence earns a separate decision.
 
 ## Enhanced contract
 
+ADR 0047 establishes the first optional browser bootstrap without beginning
+enhancement behavior. `@fadeno/framework/browser` starts only when called by a
+generated application module. The renderer loads that module through one
+same-origin external script using its existing request-owned CSP nonce. If
+JavaScript is disabled, the nonce is wrong or missing, the artifact is absent,
+or module emission is rolled back, the complete native document remains
+authoritative. The initial handle does not intercept links or forms.
+
 When enhancement code is available, it may intercept a link or form only when
 it can preserve the baseline semantics. It may then:
 

@@ -51,6 +51,15 @@ root and Node facade cannot reach browser code. V2-01A adds no real export or
 runtime; V2-02 must demonstrate the concrete bootstrap and current packed
 consumer before enhancement can claim ownership.
 
+ADR 0047 supplies that concrete bootstrap and packed consumer. Importing the
+facade has no side effect; explicit start is idempotent until close. Generated
+route execution may provide one root-relative same-origin browser module, which
+the renderer emits once with its existing request nonce. Wrong or missing
+nonce, missing artifact, disabled JavaScript, environment refusal, and rollback
+execute no enhancement and preserve native controls. This is a loading
+boundary only: link/form interception and document reconciliation remain
+unimplemented.
+
 ## Preservation contract
 
 An update preserves state not owned by the server result:
@@ -106,6 +115,14 @@ match an independently trusted current-truth URL and cannot select a route from
 transported data. Navigation may return to its native request before
 commit; uncertain mutation recovery performs a safe GET and **never repeats a
 mutation**.
+
+The V2-02 production byte boundary uses fatal UTF-8 decoding, checks aggregate
+raw bytes before parsing, counts every JSON value as one structural record,
+measures maximum depth and elapsed processing time independently, and checks
+cancellation before publication. Its result contains stable decisions and
+metrics only; transported markup, identity, credentials, and failure prose are
+not returned. The exact encoder/decoder and envelope remain private package
+internals under ADR 0047.
 
 ## Narrowed H1 result and V2 conformance
 
