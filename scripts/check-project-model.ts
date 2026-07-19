@@ -631,6 +631,55 @@ const openA0Gates = new Set(gateIds.filter((gate) => gate.startsWith("DG-A0-")))
 for (const gate of openA0Gates) {
   errors.push(`docs/roadmap/a0.md: no atomic slice owns ${gate}`);
 }
+
+const expectedV2 = [
+  { id: "V2-00", features: ["GOV-01", "ENH-01", "PATCH-01", "TEST-01", "DOC-01"], dependencies: "A0-10, ADR 0014" },
+  { id: "V2-01", features: ["GOV-01", "ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"], dependencies: "DG-V2-01; V2-00; ADR 0014; V1 action round trip" },
+  { id: "V2-02", features: ["BUILD-01", "ENH-01", "PATCH-01", "SEC-01", "TEST-01"], dependencies: "V2-01" },
+  { id: "V2-03", features: ["WEB-01", "WEB-02", "DATA-01", "DATA-02", "ENH-01", "PATCH-01"], dependencies: "V2-02" },
+  { id: "V2-04", features: ["ENH-01", "STATE-01", "TEST-01", "DOC-01"], dependencies: "V2-03" },
+  { id: "V2-05", features: ["ENH-01", "PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-04; ADR 0014" },
+  { id: "V2-06", features: ["DATA-02", "ENH-01", "STATE-01", "SEC-01", "TEST-01"], dependencies: "V2-03, V2-04" },
+  { id: "V2-07", features: ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01"], dependencies: "V2-05, V2-06" },
+  { id: "V2-08", features: ["PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-05, V2-07; K0-04" },
+  { id: "V2-09", features: ["ENH-01", "PATCH-01", "DATA-01", "DATA-02", "STATE-01", "SEC-01", "ACCESS-01", "TEST-01"], dependencies: "V2-07, V2-08" },
+  { id: "V2-10", features: ["PERF-01", "SEC-01", "ACCESS-01", "TEST-01", "DOC-01"], dependencies: "V2-09" },
+  { id: "V2-11", features: ["BUILD-01", "CLI-01", "DOC-01", "REL-01", "TEST-01"], dependencies: "V2-09, V2-10" },
+] as const;
+const v2 = read("docs/roadmap/v2.md");
+const v2Rows = tableRows(v2, /^\| V2-\d{2} \|/);
+const v2Ids = v2Rows.map((cells) => cells[0]);
+const expectedV2Ids = expectedV2.map((entry) => entry.id);
+if (JSON.stringify(v2Ids) !== JSON.stringify(expectedV2Ids)) {
+  errors.push(`docs/roadmap/v2.md: expected ordered slices ${expectedV2Ids.join(", ")}`);
+}
+for (const duplicate of duplicates(v2Ids)) errors.push(`docs/roadmap/v2.md: duplicate slice ${duplicate}`);
+for (const [index, expected] of expectedV2.entries()) {
+  const cells = v2Rows[index];
+  if (!cells || cells[0] !== expected.id) continue;
+  if (cells.length !== 6) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} must have exactly 6 columns`);
+    continue;
+  }
+  const features = [...cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)].map((match) => match[1]);
+  if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} feature ownership differs from the accepted plan`);
+  }
+  for (const feature of features) {
+    if (!scopeSet.has(feature)) errors.push(`docs/roadmap/v2.md: ${expected.id} references unknown feature ${feature}`);
+  }
+  if (cells[3] !== expected.dependencies) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} dependency contract differs from the accepted plan`);
+  }
+  if (!cells[4] || !cells[5]) errors.push(`docs/roadmap/v2.md: ${expected.id} is missing artifacts or validation`);
+  const gates = [...`${cells[1]} ${cells[3]} ${cells[4]}`.matchAll(/\bDG-V2-\d{2}\b/g)].map((match) => match[0]);
+  const expectedGates = expected.id === "V2-00" || expected.id === "V2-01" ? ["DG-V2-01"] : [];
+  if (JSON.stringify(gates) !== JSON.stringify(expectedGates)) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} decision ownership differs from the accepted plan`);
+  }
+}
+if (!gateIds.includes("DG-V2-01")) errors.push("docs/roadmap/v2.md: DG-V2-01 must remain open for V2-01");
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],

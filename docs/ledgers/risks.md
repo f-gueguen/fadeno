@@ -5,7 +5,7 @@ scope. It is not a feature list.
 
 | Risk | Current control | Escalation trigger |
 | --- | --- | --- |
-| Browser updates destroy user state | ADR 0014 narrows structural reuse; DG-V2-01 must own affected scroll | V2 proceeds without explicit scroll management or patch-boundary refusal |
+| Browser updates destroy user state | ADR 0014 narrows structural reuse; V2-00 assigns DG-V2-01 and all affected scroll, native-equivalence, ordering, and recovery evidence before implementation | V2 proceeds without explicit scroll management or patch-boundary refusal, or enhancement overwrites user/browser-owned state |
 | Handler extraction is too magical or too narrow | ADR 0015 accepts only the bounded corpus and conservative refusal; implementation stays V3 | Useful interactions require hidden hydration or broader capture than the accepted contract |
 | Security semantics drift behind runtime work | Each trust boundary ships with threat and negative tests | A boundary is implemented without size, origin, authorization, and logging behavior |
 | External decoder failures escape classification or resource bounds | The A0-09 threat inventory and fixed-seed `check:a0-decoder-fuzz` gate exercise fourteen exact production surfaces twice with accepted/refused controls, declared per-surface input bounds, a child-process deadline, complete classifications, deterministic digests, and an action-response secret canary | A supported public input reaches an unreviewed parser, produces an internal failure instead of a stable refusal, exceeds its declared bounds, changes between identical replays, or leaks submitted bytes |
