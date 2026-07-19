@@ -635,7 +635,7 @@ for (const gate of openA0Gates) {
 
 const expectedV2 = V2_PLAN_ROWS;
 const v2 = read("docs/roadmap/v2.md");
-const v2Rows = tableRows(v2, /^\| V2-\d{2} \|/);
+const v2Rows = tableRows(v2, /^\| V2-\d{2}[A-Z]? \|/);
 const v2Ids = v2Rows.map((cells) => cells[0]);
 const expectedV2Ids = expectedV2.map((entry) => entry.id);
 if (JSON.stringify(v2Ids) !== JSON.stringify(expectedV2Ids)) {

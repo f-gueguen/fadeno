@@ -7,4 +7,4 @@ const tracked = new Set(execFileSync("git", ["ls-files", "--cached"], { cwd: roo
 const errors = validateV2Plan(loadV2PlanContext(root, tracked));
 if (errors.length > 0) throw new Error(errors.join("\n"));
 
-console.log("V2 plan passed (12 ordered slices, native equivalence retained, DG-V2-01 owns protocol entry)");
+console.log("V2 plan passed (13 ordered slices, separate decisions, security and benchmark evidence retained)");

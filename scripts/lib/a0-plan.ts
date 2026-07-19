@@ -82,6 +82,10 @@ export function validateA0Plan(context: A0PlanContext): readonly string[] {
     || !isRecord(packageDocument["publishConfig"])) {
     errors.push("A0 first-alpha package identity drifted");
   }
-  if (!context.readme.includes("completed its qualified private V1") || !context.readme.includes("current A0 plan")) errors.push("A0 repository status is stale");
+  const currentA0Status = context.readme.includes("current A0 plan");
+  const completedA0Handoff = context.readme.includes("[completed A0 plan](docs/roadmap/a0.md)")
+    && context.readme.includes("[current V2 plan](docs/roadmap/v2.md)");
+  if (!context.readme.includes("completed its qualified private V1")
+    || (!currentA0Status && !completedA0Handoff)) errors.push("A0 repository status is stale");
   return errors;
 }

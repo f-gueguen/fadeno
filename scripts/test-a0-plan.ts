@@ -44,5 +44,11 @@ expectMutation("A0 first-alpha package identity drifted", (context) => Object.fr
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
+expectMutation("A0 repository status is stale", (context) => Object.freeze({
+  ...context,
+  readme: context.readme
+    .replace("[completed A0 plan](docs/roadmap/a0.md)", "[old A0 plan](docs/roadmap/a0.md)")
+    .replace("[current V2 plan](docs/roadmap/v2.md)", "[future V2 plan](docs/roadmap/v2.md)"),
+}));
 
-console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, resolved ownership, deferral, first-alpha package)");
+console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, resolved ownership, deferral, first-alpha package, handoff)");

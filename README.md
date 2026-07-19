@@ -9,9 +9,11 @@ than becoming application vocabulary.
 
 ## Status
 
-Fadeno has completed its qualified private V1. The qualified first-alpha candidate
-remains the immutable A0-09 input. Its corrected first-alpha
-registry source is versioned as `@fadeno/framework@0.1.0-alpha.1` for A0-10.
+Fadeno has completed its qualified private V1 and public A0. The corrected
+first alpha is published as `@fadeno/framework@0.1.0-alpha.1`, and V2-00 now
+owns the browser-enhancement plan from that verified native baseline.
+The qualified first-alpha candidate remains recorded as the immutable A0-09
+input, and A0-10 records the corrected public release derived from it.
 The immutable `0.1.0-alpha.0` source release stopped before registry upload
 when hosted visibility evidence was incomplete. The package can analyze, build,
 and run the canonical routed application through generated route bindings and a
@@ -27,18 +29,19 @@ Packed creation, application testing, immutable deployment, deterministic
 external-decoder fuzzing, and the complete public command workflow now pass
 automated qualification. Independent newcomer
 usability has not been qualified and no editor product or public analyzer
-schema is supported; those remain explicitly deferred. A0-10 owns the
+schema is supported; those remain explicitly deferred. A0-10 completed the
 immutable tag, provenance publication, documentation artifact, and public
-install verification for this exact release source.
-Browser enhancement remains V2 and islands remain V3.
+install verification for this exact release source. Browser enhancement is the
+current V2 plan, remains blocked on its protocol decision before implementation,
+and leaves islands in V3.
 
 The four K0 kill-risk investigations are complete: structural preservation and
 incremental declaration generation were narrowed, while bounded interaction
 extraction and correctness-first revalidation were accepted within their
 measured evidence.
 
-See [the roadmap](docs/roadmap.md), [completed V1 plan](docs/roadmap/v1.md), and
-[current A0 plan](docs/roadmap/a0.md).
+See [the roadmap](docs/roadmap.md), [completed V1 plan](docs/roadmap/v1.md),
+[completed A0 plan](docs/roadmap/a0.md), and [current V2 plan](docs/roadmap/v2.md).
 
 Current V1 documentation is generated from executed source and verified
 output:
@@ -50,7 +53,7 @@ output:
 
 For a complete view of planned capabilities, use the
 [feature matrix](docs/product/scope.md), [traceability matrix](docs/traceability.md),
-and [detailed V1 plan](docs/roadmap/v1.md).
+and [current V2 plan](docs/roadmap/v2.md).
 
 The current adapter integration can be replayed with:
 
