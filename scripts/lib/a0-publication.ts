@@ -99,11 +99,13 @@ export function validateA0Publication(context: A0PublicationContext): readonly s
   } else {
     const exports = packageDocument["exports"];
     const bin = packageDocument["bin"];
+    const exportKeys = isRecord(exports) ? Object.keys(exports).join(",") : "";
     if (!isRecord(exports)
-      || Object.keys(exports).join(",") !== ".,./node,./jsx-runtime"
+      || ![".,./node,./jsx-runtime", ".,./node,./jsx-runtime,./browser"].includes(exportKeys)
       || !exactConditionalExport(exports["."], "./dist/index.d.ts", "./dist/index.js")
       || !exactConditionalExport(exports["./node"], "./dist/node.d.ts", "./dist/node.js")
-      || !exactConditionalExport(exports["./jsx-runtime"], "./dist/jsx-runtime.d.ts", "./dist/jsx-runtime.js")) {
+      || !exactConditionalExport(exports["./jsx-runtime"], "./dist/jsx-runtime.d.ts", "./dist/jsx-runtime.js")
+      || (exportKeys.endsWith("./browser") && !exactConditionalExport(exports["./browser"], "./dist/browser.d.ts", "./dist/browser.js"))) {
       errors.push("accepted public export mapping drifted");
     }
     if (!isRecord(bin)
