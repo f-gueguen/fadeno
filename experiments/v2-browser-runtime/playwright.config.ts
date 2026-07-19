@@ -7,6 +7,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: join(root, "tests"),
+  globalTeardown: join(root, "teardown.ts"),
   fullyParallel: false,
   workers: 1,
   retries: 0,
