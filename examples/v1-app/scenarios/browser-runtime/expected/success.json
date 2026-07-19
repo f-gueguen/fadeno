@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.browser-runtime",
+  "version": 1,
+  "module": "loaded",
+  "state": "active",
+  "idempotent": true,
+  "restarted": true,
+  "nativeLink": true,
+  "nativeForm": true
+}

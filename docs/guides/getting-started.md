@@ -517,5 +517,6 @@ cleanup: no operation lock or request ownership retained
 ## What to read next
 
 - [Resources, actions, and sessions](resources-actions.md)
+- [Optional browser runtime](browser-runtime.md)
 - [Diagnostics and recovery](diagnostics-recovery.md)
 - [Generated V1 API reference](../reference/v1-api.md)

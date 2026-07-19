@@ -207,6 +207,15 @@ export function encodeUrl(value: string, sink: UrlSink): string {
   return replaceHtmlDelimiters(value, true);
 }
 
+/** Internal-only encoder for the generated same-origin browser module. */
+export function encodeFrameworkModuleUrl(value: string): string {
+  if (typeof value !== "string") throw new TypeError("FADENO_RENDER_URL_VALUE");
+  if (urlKind(value) !== "relative" || !value.startsWith("/") || value.startsWith("//")) {
+    throw new TypeError("FADENO_RENDER_URL_SCHEME");
+  }
+  return replaceHtmlDelimiters(value, true);
+}
+
 export function encodeBoolean(element: string, attribute: string, value: boolean): string {
   if (classifySink(element, attribute) !== "boolean-attribute") throw new TypeError("FADENO_RENDER_BOOLEAN_SINK");
   if (typeof value !== "boolean") throw new TypeError("FADENO_RENDER_BOOLEAN_VALUE");

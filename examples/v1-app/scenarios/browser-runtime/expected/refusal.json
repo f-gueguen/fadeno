@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.browser-runtime-refusal",
+  "version": 1,
+  "code": "FADENO_BROWSER_ENVIRONMENT",
+  "cause": "browser entrypoint started without a document",
+  "outcome": "refused"
+}

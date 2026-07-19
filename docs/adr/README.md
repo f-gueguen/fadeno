@@ -54,6 +54,7 @@ effective decision.
 42. [ADR 0044 — Reconcile first-alpha registry transport](0044-first-alpha-registry-transport-reconciliation.md)
 43. [ADR 0045 — Private update protocol and conservative scroll refusal](0045-private-update-protocol-and-scroll-refusal.md)
 44. [ADR 0046 — Browser entrypoint package boundary](0046-browser-entrypoint-package-boundary.md)
+45. [ADR 0047 — Initial browser runtime and private transport](0047-initial-browser-runtime-and-private-transport.md)
 
 ## Superseded decisions
 

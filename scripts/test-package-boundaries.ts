@@ -105,6 +105,7 @@ try {
     ".": "./dist/index.js",
     "./node": "./dist/node.js",
     "./jsx-runtime": "./dist/jsx-runtime.js",
+    "./browser": "./dist/browser.js",
   } }));
   const violations = inspectPackageBoundaries(acceptedManifest.root);
   if (violations.length !== 0) throw new Error(`accepted manifest failed: ${JSON.stringify(violations)}`);

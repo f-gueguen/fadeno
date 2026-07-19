@@ -157,7 +157,7 @@ export function inspectPackageBoundaries(repositoryRoot: string): PackageBoundar
         violations.push({ code: "FADENO_PACKAGE_EXPORTS", file: relative(repositoryRoot, manifestPath), kind: "manifest", specifier: "missing explicit exports object" });
       } else {
         const subpaths = Object.keys(exports);
-        const exactPublicSubpaths = [".", "./node", "./jsx-runtime"];
+        const exactPublicSubpaths = [".", "./node", "./jsx-runtime", "./browser"];
         for (const required of exactPublicSubpaths) {
           if (!subpaths.includes(required)) {
             violations.push({ code: "FADENO_PACKAGE_EXPORTS", file: relative(repositoryRoot, manifestPath), kind: "manifest", specifier: `missing ${required}` });

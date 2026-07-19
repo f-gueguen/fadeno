@@ -77,6 +77,15 @@ the neutral root, Node adapter, server, compiler, and analyzer graphs cannot
 depend outward on browser code. V2-01A proves only this topology with a
 disposable packed consumer. The real export and runtime remain V2-02 work.
 
+ADR 0047 implements that boundary. The exact `./browser` facade exposes an
+explicit, side-effect-free bootstrap whose active handle is idempotent and
+closable. A generated application entry links that facade to browser files from
+the same packed package, while renderer-owned external module markup carries
+the request nonce. The neutral root and Node graphs remain unable to reach the
+browser closure. The bounded update encoder and byte decoder remain private;
+the public facade exposes no protocol or analyzer schema. This initial runtime
+does not intercept links or forms and owns no application state.
+
 ## Dependency direction
 
 The initial package has a runtime-neutral `.` facade and a Node-specific

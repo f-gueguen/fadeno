@@ -10,7 +10,7 @@ making the package name, version, or publication status public or stable.
 
 Exports: `ActionAuthorizationContext`, `ActionDeclaration`, `ActionError`, `ActionField`, `ActionFieldToken`, `ActionInput`, `ActionOptions`, `ActionRedirectOutcome`, `ActionRunContext`, `ActionUpload`, `Boundary`, `BoundaryProps`, `ErrorPage`, `FadenoConfig`, `Handler`, `Layout`, `MatchedRouteRender`, `NotFoundPage`, `Page`, `PageContext`, `RedirectOutcome`, `RenderChild`, `RenderNode`, `ResourceDeclaration`, `ResourceError`, `ResourceInput`, `ResourceInputObject`, `ResourceLoader`, `ResourceReadContext`, `ResourceStatus`, `RouteConfig`, `RouteOutcome`, `Session`, `SessionValue`, `SessionValueObject`, `SessionView`, `UnsafeHtml`, `actionError`, `checkboxField`, `defineAction`, `defineConfig`, `defineResource`, `fileField`, `integerField`, `notFound`, `redirect`, `renderRoute`, `resourceError`, `textField`, `unsafeHtml`.
 
-Emitted declaration byte SHA-256: `888f5dbbb6c411c1938a24d2a28196b5f0e393ae986005f56c659fa7461b0480`.
+Emitted declaration byte SHA-256: `949a76b53f2cf90a86be6963dac83a01ab30a624bc56d750cdbcada1f64b2b3b`.
 
 ```ts
 export interface ResourceInputObject {
@@ -169,6 +169,8 @@ export interface MatchedRouteRender {
     readonly routeId?: string;
     /** Generated application identity used by the action runtime. Application code does not author this value. */
     readonly generation?: string;
+    /** Generated same-origin browser entry used by the enhancement runtime. Application code does not author this value. */
+    readonly browserModule?: string;
 }
 export interface BoundaryProps {
     readonly children: RenderChild | ((signal: AbortSignal) => RenderChild | Promise<RenderChild>);
@@ -201,6 +203,21 @@ type ExactConfig<Config extends FadenoConfig> = NoExtra<Config, FadenoConfig> & 
 } : unknown);
 export declare function defineConfig<const Config extends FadenoConfig>(config: ExactConfig<Config>): Config;
 export {};
+```
+## `@fadeno/framework/browser`
+
+Exports: `BrowserEnhancement`, `BrowserEnhancementState`, `startBrowserEnhancement`.
+
+Emitted declaration byte SHA-256: `335954f5e59965500516900ae3eab8ff5e0ec0ca33c761abaa6d5f0302fe57ad`.
+
+```ts
+export type BrowserEnhancementState = "active" | "closed";
+export interface BrowserEnhancement {
+    state(): BrowserEnhancementState;
+    close(): void;
+}
+/** Starts Fadeno's optional document enhancement runtime. */
+export declare function startBrowserEnhancement(): BrowserEnhancement;
 ```
 ## `@fadeno/framework/jsx-runtime`
 

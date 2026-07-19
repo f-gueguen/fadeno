@@ -49,6 +49,16 @@ packed runtime integrates the exact-origin proof, replay, upload cleanup,
 protected cookie, rotation, redirect, and complete-revalidation path while
 retaining the explicit single-process limit.
 
+ADR 0047 establishes the initial browser loading and private update byte
+boundary. The generated same-origin external module uses the renderer's
+request-owned nonce without broadening application script sinks. Raw bytes,
+fatal UTF-8/JSON decoding, structural record count, depth, duration, cache,
+origin, operation identity, cancellation, and generation isolation fail closed
+before any later document mutation. Decoder results contain stable codes and
+metrics rather than transported values. The companion
+[browser update threat model](browser-update-threat-model.md) records native
+fallback, cross-user isolation, safe logging, rollback, and later-slice risks.
+
 ADR 0041 carries those controls into the first deployment boundary. The
 immutable release contains no environment file or secret value, accepts only
 process-injected `FADENO_ORIGIN` and `FADENO_SESSION_KEYS`, keeps the application

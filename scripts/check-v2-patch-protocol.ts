@@ -85,6 +85,6 @@ for (const feature of ["ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"]) {
   assert.equal(row.includes("check:v2-patch-protocol"), true, `${feature} traceability is missing the V2-01 gate`);
 }
 const packageDocument = JSON.parse(read("packages/framework/package.json")) as { exports?: Record<string, unknown> };
-assert.deepEqual(Object.keys(packageDocument.exports ?? {}).sort(), [".", "./jsx-runtime", "./node"], "V2-01 must not add a public entrypoint");
+assert.deepEqual(Object.keys(packageDocument.exports ?? {}).sort(), [".", "./browser", "./jsx-runtime", "./node"], "V2 package exports must remain explicitly bounded");
 
 console.log(`V2 private patch-protocol decision passed (${corpus.cases.length} fixtures, exact v1, bounded no-store recovery, no mutation replay)`);

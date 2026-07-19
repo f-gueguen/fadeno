@@ -4,6 +4,7 @@ import {
   encodeAttribute,
   encodeBoolean,
   encodeEnumerated,
+  encodeFrameworkModuleUrl,
   encodeText,
   encodeUrl,
   type TextContext,
@@ -25,6 +26,7 @@ export interface RenderDocumentOptions {
   readonly request: Request;
   readonly status?: number;
   readonly frameworkExecutable?: boolean;
+  readonly frameworkModule?: string;
   readonly cleanup?: () => void;
   readonly action?: Readonly<{
     context: ActionRequestContext;
@@ -39,6 +41,23 @@ type ActiveActionForm = Readonly<{
   rendering: ActionFormRendering;
   selectedValue?: string | number;
 }>;
+
+type FrameworkModule = { source: string; emitted: boolean };
+
+function validateFrameworkModule(source: string): string {
+  if (typeof source !== "string" || !source.startsWith("/") || source.startsWith("//") || source.includes("\\") || source.includes("\0")) {
+    throw new TypeError("FADENO_RENDER_FRAMEWORK_MODULE");
+  }
+  const parsed = new URL(source, "https://fadeno.invalid");
+  if (parsed.origin !== "https://fadeno.invalid" || parsed.hash !== "") throw new TypeError("FADENO_RENDER_FRAMEWORK_MODULE");
+  return `${parsed.pathname}${parsed.search}`;
+}
+
+function frameworkModuleMarkup(module: FrameworkModule, nonce: string | undefined): string {
+  if (nonce === undefined || !/^[A-Za-z0-9_-]+$/u.test(nonce)) throw new TypeError("FADENO_RENDER_NONCE_REQUIRED");
+  module.emitted = true;
+  return `<script nonce="${nonce}" src="${encodeFrameworkModuleUrl(module.source)}" type="module"></script>`;
+}
 
 function optionValue(properties: Readonly<Record<string, unknown>>, children: RenderChild): string | undefined {
   const explicit = properties["value"];
@@ -96,10 +115,11 @@ async function collect(
   nonce: string | undefined,
   action: RenderDocumentOptions["action"],
   form: ActiveActionForm | null,
+  frameworkModule: FrameworkModule | undefined,
 ): Promise<readonly string[]> {
   const chunks: string[] = [];
   let bytes = 0;
-  for await (const chunk of renderChild(child, context, signal, nonce, action, form)) {
+  for await (const chunk of renderChild(child, context, signal, nonce, action, form, frameworkModule)) {
     bytes += encoder.encode(chunk).byteLength;
     if (bytes > maximumBoundaryBytes) throw new TypeError("FADENO_RENDER_BOUNDARY_LIMIT");
     chunks.push(chunk);
@@ -114,6 +134,7 @@ async function renderBoundary(
   nonce: string | undefined,
   action: RenderDocumentOptions["action"],
   form: ActiveActionForm | null,
+  frameworkModule: FrameworkModule | undefined,
 ): Promise<readonly string[]> {
   const cancellation = new AbortController();
   const cancelFromParent = (): void => cancellation.abort(parentSignal.reason ?? abortError());
@@ -133,12 +154,12 @@ async function renderBoundary(
     }, payload.timeoutMilliseconds);
   }
   const child = typeof payload.children === "function" ? payload.children(cancellation.signal) : payload.children;
-  const work = Promise.resolve(child).then((value) => collect(value, context, cancellation.signal, nonce, action, form));
+  const work = Promise.resolve(child).then((value) => collect(value, context, cancellation.signal, nonce, action, form, frameworkModule));
   try {
     return timeout === undefined ? await work : await Promise.race([work, timedOut]);
   } catch {
     void work.catch(() => undefined);
-    return collect(payload.fallback, context, parentSignal, nonce, action, form);
+    return collect(payload.fallback, context, parentSignal, nonce, action, form, frameworkModule);
   } finally {
     if (timeout !== undefined) clearTimeout(timeout);
     parentSignal.removeEventListener("abort", cancelFromParent);
@@ -153,6 +174,7 @@ async function* renderChild(
   nonce: string | undefined,
   action: RenderDocumentOptions["action"],
   form: ActiveActionForm | null,
+  frameworkModule: FrameworkModule | undefined,
 ): AsyncGenerator<string, void, void> {
   if (signal.aborted) throw abortError();
   if (child === undefined || child === null || typeof child === "boolean") return;
@@ -169,7 +191,7 @@ async function* renderChild(
     throw new TypeError("FADENO_RENDER_CHILD");
   }
   if (Array.isArray(child)) {
-    for (const item of child) yield* renderChild(item, context, signal, nonce, action, form);
+    for (const item of child) yield* renderChild(item, context, signal, nonce, action, form, frameworkModule);
     return;
   }
   const raw = readUnsafeHtml(child);
@@ -180,15 +202,15 @@ async function* renderChild(
   const payload = readRenderNode(child);
   if (!payload) throw new TypeError("FADENO_RENDER_CHILD");
   if (payload.kind === "fragment") {
-    yield* renderChild(payload.children, context, signal, nonce, action, form);
+    yield* renderChild(payload.children, context, signal, nonce, action, form, frameworkModule);
     return;
   }
   if (payload.kind === "async") {
-    yield* renderChild(await payload.value, context, signal, nonce, action, form);
+    yield* renderChild(await payload.value, context, signal, nonce, action, form, frameworkModule);
     return;
   }
   if (payload.kind === "boundary") {
-    for (const chunk of await renderBoundary(payload, context, signal, nonce, action, form)) yield chunk;
+    for (const chunk of await renderBoundary(payload, context, signal, nonce, action, form, frameworkModule)) yield chunk;
     return;
   }
   if (payload.kind === "framework-executable") {
@@ -263,6 +285,7 @@ async function* renderChild(
   }
   const attributes = renderAttributes(payload.element, properties);
   yield `<${payload.element}${attributes}>`;
+  if (payload.element === "body" && frameworkModule && !frameworkModule.emitted) yield frameworkModuleMarkup(frameworkModule, nonce);
   if (payload.element === "form" && childForm) {
     yield `<input type="hidden" name="${proofFieldName()}" value="${encodeAttribute("input", "value", childForm.rendering.proof)}">`;
     const formErrors = childForm.rendering.failure?.formErrors ?? [];
@@ -276,7 +299,9 @@ async function* renderChild(
     if (fieldError && childForm) yield `<p id="fadeno-error-${action?.context.fieldName(payload.properties["name"] as never)}">${encodeText(fieldError, "html-text")}</p>`;
     return;
   }
-  yield* renderChild(children, childContext(payload.element), signal, nonce, action, childForm);
+  yield* renderChild(children, childContext(payload.element), signal, nonce, action, childForm, frameworkModule);
+  if (payload.element === "head" && frameworkModule && !frameworkModule.emitted) yield frameworkModuleMarkup(frameworkModule, nonce);
+  if (payload.element === "html" && frameworkModule && !frameworkModule.emitted) throw new TypeError("FADENO_RENDER_FRAMEWORK_MODULE_TARGET");
   yield `</${payload.element}>`;
   if (fieldError && childForm) yield `<p id="fadeno-error-${action?.context.fieldName(payload.properties["name"] as never)}">${encodeText(fieldError, "html-text")}</p>`;
 }
@@ -297,6 +322,9 @@ function contentSecurityPolicy(nonce: string | undefined): string {
 
 export function renderDocument(node: RenderChild, options: RenderDocumentOptions): Response {
   assertDocument(node);
+  const frameworkModule = options.frameworkModule === undefined
+    ? undefined
+    : { source: validateFrameworkModule(options.frameworkModule), emitted: false };
   const failureObserver = captureRequestFailureObserver(options.request);
   let terminalCause: unknown;
   let terminalIncidentId: string | undefined;
@@ -359,7 +387,7 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
   }, { highWaterMark: 0 });
   const head = lifecycle.publishHead({
     status: options.status ?? 200,
-    executableMarkup: options.frameworkExecutable === true,
+    executableMarkup: options.frameworkExecutable === true || frameworkModule !== undefined,
     headers: (nonce) => ({
       "content-type": "text/html; charset=utf-8",
       "content-security-policy": contentSecurityPolicy(nonce),
@@ -368,7 +396,7 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
   });
   iterator = (async function* document(): AsyncGenerator<string, void, void> {
     yield "<!doctype html>";
-    yield* renderChild(node, "html-text", options.request.signal, head.nonce, options.action, null);
+    yield* renderChild(node, "html-text", options.request.signal, head.nonce, options.action, null, frameworkModule);
   })();
   return new Response(stream, { status: head.status, headers: head.headers });
 }

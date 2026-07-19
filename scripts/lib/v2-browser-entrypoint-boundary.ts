@@ -66,8 +66,8 @@ export function validateV2BrowserEntrypointBoundary(context: V2BrowserEntrypoint
     ["build specification", context.specification, ["ADR 0046", "generated application browser module", "real `@fadeno/framework` manifest", "V2-02 owns"]],
     ["navigation specification", context.navigation, ["ADR 0046", "`@fadeno/framework/browser`", "request-nonce path", "adds no real export"]],
     ["V2 roadmap", context.roadmap, ["ADR 0046", "disposable packed consumer", "future `./browser` facade"]],
-    ["risk ledger", context.risks, ["ADR 0046", "real export remains absent until V2-02", "second browser version owner"]],
-    ["roadmap ledger", context.ledger, ["V2-01A — decide the optional browser-entrypoint package boundary", "Release impact: none", "V2-01 — Merge commit `d9718c0`"]],
+    ["risk ledger", context.risks, ["ADR 0046", "ADR 0047", "second browser version owner"]],
+    ["roadmap ledger", context.ledger, ["V2-01A — Merge commit `46c7ab0`", "leaves the published export map unchanged for V2-02 implementation", "V2-01 — Merge commit `d9718c0`"]],
   ] as const) {
     const normalized = text.replace(/\s+/gu, " ");
     for (const fragment of fragments) if (!normalized.includes(fragment)) errors.push(`${name} is missing ${fragment}`);
@@ -86,8 +86,15 @@ export function validateV2BrowserEntrypointBoundary(context: V2BrowserEntrypoint
     errors.push("current package exports are missing");
   } else {
     const subpaths = Object.keys(context.packageDocument["exports"]).sort();
-    if (JSON.stringify(subpaths) !== JSON.stringify(V2_BROWSER_ENTRYPOINT_EXISTING_SUBPATHS)) {
-      errors.push("V2-01A must not add the real browser export");
+    const acceptedBeforeImplementation = JSON.stringify([...V2_BROWSER_ENTRYPOINT_EXISTING_SUBPATHS].sort());
+    const acceptedAfterImplementation = JSON.stringify([...V2_BROWSER_ENTRYPOINT_EXISTING_SUBPATHS, V2_BROWSER_ENTRYPOINT_SUBPATH].sort());
+    if (![acceptedBeforeImplementation, acceptedAfterImplementation].includes(JSON.stringify(subpaths))) {
+      errors.push("browser boundary must expose only the accepted exact subpaths");
+    }
+    if (subpaths.includes(V2_BROWSER_ENTRYPOINT_SUBPATH)) {
+      for (const path of ["packages/framework/src/browser.ts", "packages/framework/src/internal/browser-runtime.ts"]) {
+        if (!context.tracked.has(path)) errors.push(`real browser export is missing its implementation: ${path}`);
+      }
     }
   }
 

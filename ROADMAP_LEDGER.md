@@ -6,41 +6,43 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-01A — decide the optional browser-entrypoint package boundary
+V2-02 — establish the optional browser runtime and server-update boundary
 
 ## Exit criteria
 
-- [x] Accept one browser-entrypoint package-boundary ADR without adding the
-  implementation or changing the published package.
-- [x] Prove the exact public subpath, dependency direction, loading boundary,
-  compatibility rule, and rollback through a disposable packed consumer.
-- [x] Prove private browser deep imports remain unavailable and the current
-  package export surface remains unchanged before V2-02.
-- [x] Align the specification, scope, traceability, risks, and roadmap state.
+- [x] Add the exact `./browser` export and minimum explicit bootstrap selected
+  by ADR 0046 without changing native application authority.
+- [x] Load the real packed browser artifact through renderer-owned external
+  module markup and the existing request-owned CSP nonce policy.
+- [x] Implement the private update encoder/decoder with exact version, byte,
+  depth, record-count, duration, origin, authorization-isolation, and logging
+  boundaries from ADR 0045.
+- [x] Retain native fallback for disabled, blocked, incompatible, malformed,
+  unauthorized, cross-user, or stale browser work with cleanup and rollback.
+- [x] Add one pending Changeset with explicit semantic version intent and align
+  package, specification, security, traceability, risk, and example evidence.
 - [x] Pass all affected gates and full local CI; complete the required remote
   review trigger and exhaustive review-thread triage.
 
 ## Active sub-slice
 
-V2-01A decision and disposable evidence only. It decides how the optional
-browser entrypoint fits inside the existing logical package before V2-02 adds
-runtime behavior. It does not add a browser runtime, change the published
-package, expose an analyzer schema, or claim enhanced behavior. Release impact:
-none — no package behavior changes and no Changeset is required.
+V2-02 is the first package-changing browser slice. It implements only the
+accepted loading and private transport boundary; it does not yet intercept
+links or forms, project route outcomes, reconcile documents, expose an analyzer
+schema, or claim usable enhancement. Release impact: additive prerelease
+feature, requiring exactly one pending minor Changeset.
 
 ## In progress
 
-- ADR 0046 accepts one future `./browser` facade inside the existing logical
-  package, a generated application module as its sole loading direction, and
-  the existing request-owned nonce path without fixing runtime symbols early.
-- The disposable packed consumer resolves the proposed facade, proves browser
-  graph isolation and private deep-import refusal, and confirms the real public
-  export remains absent until V2-02 implementation.
+- Complete the required remote review and merge boundary without extending
+  V2-02 into navigation, form, projection, or reconciliation behavior.
+- Keep V2-03 blocked until this accepted package, loading, decoder, isolation,
+  fallback, rollback, and Changeset evidence reaches `main`.
 
 ## Blockers
 
-- V2-02 remains blocked until this package-boundary decision and its disposable
-  packed-consumer evidence are accepted.
+- V2-03 remains blocked until the real V2-02 package, loading, decoder,
+  isolation, fallback, rollback, and Changeset evidence is accepted.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -50,6 +52,11 @@ none — no package behavior changes and no Changeset is required.
   compatibility decision.
 
 ## Completed slices
+
+- V2-01A — Merge commit `46c7ab0` accepts ADR 0046's single future
+  `./browser` facade in the existing logical package, proves it through a
+  disposable packed consumer with graph isolation and deep-import refusal, and
+  leaves the published export map unchanged for V2-02 implementation.
 
 - V2-01 — Merge commit `d9718c0` accepts ADR 0045's private exact-version
   update protocol and conservative scroll-refusal boundary, retains 40

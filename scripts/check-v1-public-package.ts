@@ -102,6 +102,8 @@ try {
     "package/CHANGELOG.md",
     "package/LICENSE",
     "package/README.md",
+    "package/dist/browser.d.ts",
+    "package/dist/browser.js",
     "package/dist/cli.d.ts",
     "package/dist/cli.js",
     "package/dist/index.d.ts",
@@ -146,6 +148,10 @@ try {
     "package/dist/internal/build-dev-decision.js",
     "package/dist/internal/build-dev-generation-child.d.ts",
     "package/dist/internal/build-dev-generation-child.js",
+    "package/dist/internal/browser-runtime.d.ts",
+    "package/dist/internal/browser-runtime.js",
+    "package/dist/internal/browser-update.d.ts",
+    "package/dist/internal/browser-update.js",
     "package/dist/internal/config.d.ts",
     "package/dist/internal/config.js",
     "package/dist/internal/diagnostic.d.ts",
@@ -240,6 +246,7 @@ try {
     ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
     "./node": { types: "./dist/node.d.ts", import: "./dist/node.js" },
     "./jsx-runtime": { types: "./dist/jsx-runtime.d.ts", import: "./dist/jsx-runtime.js" },
+    "./browser": { types: "./dist/browser.d.ts", import: "./dist/browser.js" },
   };
   const expectedPublishConfig = {
     access: "public",
@@ -256,7 +263,7 @@ try {
   ) {
     throw new Error("FADENO_PUBLIC_PACKAGE_MANIFEST");
   }
-  for (const subpath of [".", "./node", "./jsx-runtime"]) {
+  for (const subpath of [".", "./node", "./jsx-runtime", "./browser"]) {
     const target = manifest.exports?.[subpath];
     const importTarget = resolve(installedPackage, target?.import ?? "../missing");
     const typesTarget = resolve(installedPackage, target?.types ?? "../missing");
@@ -274,6 +281,8 @@ try {
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["."]?.types ?? ""));
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["./jsx-runtime"]?.import ?? ""));
   assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["./jsx-runtime"]?.types ?? ""));
+  assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["./browser"]?.import ?? ""));
+  assertNeutralClosure(installedPackage, join(installedPackage, manifest.exports?.["./browser"]?.types ?? ""));
   const rootDeclaration = readFileSync(join(installedPackage, manifest.exports?.["."]?.types ?? ""), "utf8");
   if (rootDeclaration.includes("/accounts/") || rootDeclaration.includes("fadeno:routes") || scanModuleReferences(rootDeclaration).some((reference) => reference.specifier.includes("/internal/"))) {
     throw new Error("FADENO_PUBLIC_PACKAGE_ROOT_ROUTE_LEAK");
