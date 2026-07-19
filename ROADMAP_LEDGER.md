@@ -36,11 +36,15 @@ behavior.
 
 - No V2 implementation may begin before DG-V2-01 resolves patch identity,
   scroll, ordering, redirects, errors, recovery, cache, and version negotiation.
+- Independent newcomer usability remains deferred and must not be claimed by
+  V2 automation.
 
 ## Open questions
 
 - V2-01 must choose between explicit affected-scroll management and refusal or
   replacement of layout-affecting patch boundaries.
+- Later external analyzer consumers require new evidence and a new
+  compatibility decision.
 
 ## Completed slices
 

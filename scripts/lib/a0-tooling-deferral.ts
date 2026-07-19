@@ -146,7 +146,7 @@ export function validateA0ToolingDeferral(
   for (const fragment of [
     "A0-08 — explicitly defer external analyzer/editor tooling",
     "`deferred-unqualified`",
-    "None in the mechanical release source",
+    "V2-00 — decompose browser enhancement",
     "Later external analyzer consumers require new evidence",
     "Independent newcomer usability remains deferred",
   ]) {
