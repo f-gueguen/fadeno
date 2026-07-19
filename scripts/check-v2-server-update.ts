@@ -4,6 +4,7 @@ import {
   actionError,
   defineAction,
   defineResource,
+  redirect as routeRedirect,
   renderRoute,
   textField,
 } from "../packages/framework/dist/index.js";
@@ -175,6 +176,7 @@ const renameProject = defineAction({
         formErrors: ["The project was not renamed."],
       });
     }
+    return routeRedirect("/projects");
   },
 });
 const actionRuntime = new ActionServerRuntime({
@@ -236,6 +238,8 @@ const actionRequest = new Request(new URL(actionLocation, mutationOperation.orig
 const actionRelease = bindPrivateServerUpdateOperation(actionRequest, mutationOperation);
 const actionResponse = await actionRuntime.serve(actionRequest, invokeActionPage);
 actionRelease();
+const actionResponseCopy = actionResponse.clone();
+const actionResponseHtml = await actionResponseCopy.text();
 const actionProjection = await projectPrivateServerUpdate(actionResponse, mutationOperation);
 assert.equal(actionProjection.status, "projected");
 assert.equal(actionRuns, 1, "projection must not execute the action again");
@@ -249,6 +253,47 @@ assert.deepEqual(actionProjection.record.provenance.action, {
 assert.equal(actionProjection.record.provenance.route?.id, "route:projects:index");
 assert.equal(JSON.stringify(actionProjection.record).includes(actionProof), false);
 assert.equal(JSON.stringify(actionProjection.record).includes(actionCookie), false);
+
+const redirectActionLocation = /<form[^>]* action="([^"]+)"/u.exec(actionResponseHtml)?.[1]?.replaceAll("&amp;", "&");
+const redirectActionProof = /<input type="hidden" name="__fadeno_proof" value="([^"]+)">/u.exec(actionResponseHtml)?.[1];
+const redirectActionTitle = /<input[^>]*id="rename-title"[^>]*>/u.exec(actionResponseHtml)?.[0];
+const redirectActionTitleName = redirectActionTitle ? / name="([^"]+)"/u.exec(redirectActionTitle)?.[1] : undefined;
+assert.ok(redirectActionLocation);
+assert.ok(redirectActionProof);
+assert.ok(redirectActionTitleName);
+const realRedirectOperation = operation({
+  currentTruthUrl: "/projects",
+  operation: Object.freeze({ id: "operation-action-redirect", sequence: 11, kind: "mutation", url: "/projects" }),
+  resultId: "result-real-action-redirect",
+});
+const redirectActionRequest = new Request(new URL(redirectActionLocation, realRedirectOperation.origin), {
+  method: "POST",
+  headers: {
+    cookie: actionCookie,
+    "content-type": "application/x-www-form-urlencoded",
+    origin: realRedirectOperation.origin,
+  },
+  body: new URLSearchParams({
+    __fadeno_proof: redirectActionProof,
+    [redirectActionTitleName]: "Renamed project",
+  }),
+});
+const redirectActionRelease = bindPrivateServerUpdateOperation(redirectActionRequest, realRedirectOperation);
+const redirectActionResponse = await actionRuntime.serve(redirectActionRequest, invokeActionPage);
+redirectActionRelease();
+assert.equal(redirectActionResponse.status, 303);
+assert.equal(redirectActionResponse.headers.get("location"), "/projects");
+const redirectActionProjection = await projectPrivateServerUpdate(redirectActionResponse, realRedirectOperation);
+assert.equal(redirectActionProjection.status, "projected");
+if (redirectActionProjection.status !== "projected") throw new Error("real action redirect projection refused");
+assert.equal(actionRuns, 2, "redirect projection must not execute the action again");
+assert.equal(actionPageRuns, 3, "redirect projection must not repeat action revalidation");
+assert.equal(redirectActionProjection.record.outcome, "redirect");
+assert.equal(redirectActionProjection.record.provenance.action?.status, "success");
+assert.equal(
+  (JSON.parse(new TextDecoder().decode(redirectActionProjection.bytes)) as { outcome: { location: string } }).outcome.location,
+  "/projects",
+);
 
 const expectedOperation = operation({ resultId: "result-expected" });
 const expectedPair = responseFor(expectedOperation, { status: 409 });
