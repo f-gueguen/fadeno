@@ -65,6 +65,10 @@ for (const [key, maximum] of [
   assert.equal(evaluatePrivateUpdate(envelope, acceptedContext).status, "accepted", `${key} inclusive limit`);
   const refusedContext: PrivateUpdateDecisionContext = { ...context, boundary: { ...context.boundary, [key]: maximum + 1 } };
   assert.equal(evaluatePrivateUpdate(envelope, refusedContext).status, "refused", `${key} over limit`);
+  for (const invalid of [-1, Number.NaN, Number.POSITIVE_INFINITY, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const invalidContext = { ...context, boundary: { ...context.boundary, [key]: invalid } };
+    assert.equal(evaluatePrivateUpdate(envelope, invalidContext).code, "FADENO_UPDATE_LIMIT", `${key} invalid ${String(invalid)}`);
+  }
 }
 
 const boundaryCases = [
@@ -98,16 +102,25 @@ const boundaryCases = [
 for (const boundaryCase of boundaryCases) {
   const inclusive = structuredClone(envelope);
   boundaryCase.set(inclusive, boundaryCase.maximum);
-  assert.equal(evaluatePrivateUpdate(inclusive, context).status, "accepted", `${boundaryCase.label} inclusive limit`);
+  const inclusiveContext = boundaryCase.label === "URL"
+    ? { ...context, currentOperation: { ...context.currentOperation, url: (inclusive["outcome"] as Record<string, unknown>)["url"] as string } }
+    : context;
+  assert.equal(evaluatePrivateUpdate(inclusive, inclusiveContext).status, "accepted", `${boundaryCase.label} inclusive limit`);
   const exceeded = structuredClone(envelope);
   boundaryCase.set(exceeded, boundaryCase.maximum + 1);
-  assert.equal(evaluatePrivateUpdate(exceeded, context).status, "refused", `${boundaryCase.label} over limit`);
+  const exceededContext = boundaryCase.label === "URL"
+    ? { ...context, currentOperation: { ...context.currentOperation, url: (exceeded["outcome"] as Record<string, unknown>)["url"] as string } }
+    : context;
+  assert.equal(evaluatePrivateUpdate(exceeded, exceededContext).status, "refused", `${boundaryCase.label} over limit`);
 }
 
 for (const origin of ["http://127.0.0.1:4173", "http://localhost:4173", "http://[::1]:4173"]) {
   assert.equal(evaluatePrivateUpdate(envelope, { ...context, origin }).status, "accepted", `${origin} loopback development origin`);
 }
 assert.equal(evaluatePrivateUpdate(envelope, { ...context, origin: "http://example.test" }).code, "FADENO_UPDATE_URL");
+const differentDocument = structuredClone(envelope);
+(differentDocument["outcome"] as Record<string, unknown>)["url"] = "/other-route";
+assert.equal(evaluatePrivateUpdate(differentDocument, context).code, "FADENO_UPDATE_URL");
 assert.equal(evaluatePrivateUpdate(envelope, { ...context, transport: { ...context.transport, requestCache: "default" } }).code, "FADENO_UPDATE_CACHE");
 assert.equal(evaluatePrivateUpdate(envelope, { ...context, transport: { ...context.transport, responseCacheControl: null } }).code, "FADENO_UPDATE_CACHE");
 assert.equal(evaluatePrivateUpdate(envelope, { ...context, transport: { ...context.transport, responseCacheControl: 'private="foo,no-store,bar", max-age=3600' } }).code, "FADENO_UPDATE_CACHE");

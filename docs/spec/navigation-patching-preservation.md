@@ -36,8 +36,10 @@ transport envelopes may differ.
 
 ADR 0045 selects an **exact private version 1 envelope** for V2 implementation
 evidence. It binds application generation, document epoch, the current
-operation and sequence, a single-use result identity, and a server-owned
-structural root. It is `no-store`, strict about unknown fields and versions,
+operation, normalized request URL, and sequence, a single-use result identity,
+and a server-owned structural root. Document and expected-error outcomes must
+match that operation URL exactly; route changes use typed redirects. It is
+`no-store`, strict about unknown fields and versions,
 and remains private; an external consumer still requires a separate ADR and
 demonstrated compatibility evidence.
 
@@ -79,7 +81,8 @@ not imply that K0's or V2-01's private identity format is public.
 
 ADR 0045 makes these rules exact for the private V2 boundary: only the matching
 application generation, document epoch, operation ID, sequence, operation kind,
-and unconsumed result may apply. Document/error URLs and typed `303`/`307`/`308`
+normalized operation URL, and unconsumed result may apply. Document/error URLs
+must match that operation URL; typed `303`/`307`/`308`
 redirects are same-origin HTTPS in deployed contexts, with same-origin HTTP
 limited to trustworthy loopback development hosts; mutation redirects are
 `303` and retain the native exact same-origin HTTPS and no-credentials
@@ -87,7 +90,8 @@ restriction even during loopback development. The consumer verifies `no-store`
 in both its fetch mode and quote-aware parsing of observed response
 `Cache-Control` metadata rather than trusting the envelope alone. Malformed,
 unsupported, stale, duplicate, unsafe, cached, oversized, or over-time results
-change no document state. Navigation may return to its native request before
+change no document state. Boundary measurements must be nonnegative safe
+integers before their maxima are checked. Navigation may return to its native request before
 commit; uncertain mutation recovery performs a safe GET and **never repeats a
 mutation**.
 

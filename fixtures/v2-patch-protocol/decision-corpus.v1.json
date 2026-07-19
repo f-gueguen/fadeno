@@ -12,7 +12,8 @@
     "currentOperation": {
       "id": "operation-9",
       "sequence": 9,
-      "kind": "navigation"
+      "kind": "navigation",
+      "url": "/projects?view=active"
     },
     "consumedResultIds": [],
     "requestCommitted": false,
@@ -241,6 +242,14 @@
       "expected": { "status": "refused", "code": "FADENO_UPDATE_URL", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
     },
     {
+      "id": "different-operation-url-refused",
+      "category": "ordering",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome", "url"], "value": "/other-route" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_URL", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
       "id": "cross-origin-redirect-refused",
       "category": "origin",
       "changes": [
@@ -280,6 +289,14 @@
       "category": "limit",
       "changes": [
         { "target": "context", "operation": "set", "path": ["boundary", "bytes"], "value": 2097153 }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_LIMIT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "negative-boundary-refused",
+      "category": "limit",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["boundary", "bytes"], "value": -1 }
       ],
       "expected": { "status": "refused", "code": "FADENO_UPDATE_LIMIT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
     },

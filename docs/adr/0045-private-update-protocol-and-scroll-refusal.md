@@ -42,11 +42,14 @@ stable wire surface.
 V2 uses one **private exact-version envelope** identified by
 `fadeno.private.update` and version `1`. Every result binds the current
 application generation, document epoch, operation ID, monotonic sequence,
-operation kind, and single-use result ID. Document outcomes additionally carry
-one server-owned structural root identity. Applications do not author CSS
+operation kind, operation-owned normalized request URL, and single-use result
+ID. Document outcomes additionally carry one server-owned structural root
+identity. Applications do not author CSS
 selectors, commands, operation IDs, result IDs, or protocol records.
 
-Only a result matching the current operation may apply. A newer navigation
+Only a result matching the current operation may apply. Document and
+expected-error outcome URLs must exactly match the operation's normalized URL;
+route changes remain typed redirects. A newer navigation
 supersedes cancellable older navigation work; late and differently sequenced
 results are refused. An already consumed result ID is a duplicate and is
 refused. A state-changing request is never inferred from a navigation result,
@@ -107,7 +110,8 @@ The v1 boundary limits encoded input to 2 MiB, 4,096 structural records, depth
 16, and 50 milliseconds of boundary processing. Identities are at most 128
 UTF-8 bytes, URLs 8 KiB, titles 4 KiB, and transported root markup 2 MiB. V2-02
 must measure raw bytes, record count, depth, and duration independently rather
-than trusting fields inside the message.
+than trusting fields inside the message. Every measurement must be a
+nonnegative safe integer before its maximum is evaluated.
 
 Unknown fields, malformed shape, unsupported older or newer versions, invalid
 identity, limit exhaustion, cache drift, unsafe URL, generation/document/

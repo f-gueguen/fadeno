@@ -40,6 +40,7 @@ export type PrivateUpdateDecisionContext = Readonly<{
     id: string;
     sequence: number;
     kind: "navigation" | "mutation";
+    url: string;
   }>;
   consumedResultIds: readonly string[];
   requestCommitted: boolean;
@@ -118,6 +119,15 @@ function safeSameOriginUrl(value: unknown, origin: string, httpsOnly = false): b
       && received.origin === expected.origin
       && received.username === ""
       && received.password === "";
+  } catch {
+    return false;
+  }
+}
+
+function matchesOperationUrl(value: string, expectedValue: string, origin: string): boolean {
+  if (!safeSameOriginUrl(value, origin) || !safeSameOriginUrl(expectedValue, origin)) return false;
+  try {
+    return new URL(value, origin).href === new URL(expectedValue, origin).href;
   } catch {
     return false;
   }
@@ -298,7 +308,11 @@ export function evaluatePrivateUpdate(
   context: PrivateUpdateDecisionContext,
 ): PrivateUpdateDecision {
   const boundary = context.boundary;
-  if (boundary.bytes > V2_PATCH_PROTOCOL_LIMITS.maximumBytes
+  if (!finiteInteger(boundary.bytes)
+    || !finiteInteger(boundary.records)
+    || !finiteInteger(boundary.depth)
+    || !finiteInteger(boundary.durationMilliseconds)
+    || boundary.bytes > V2_PATCH_PROTOCOL_LIMITS.maximumBytes
     || boundary.records > V2_PATCH_PROTOCOL_LIMITS.maximumRecords
     || boundary.depth > V2_PATCH_PROTOCOL_LIMITS.maximumDepth) {
     return refused("FADENO_UPDATE_LIMIT", context);
@@ -339,7 +353,7 @@ export function evaluatePrivateUpdate(
       mutationResubmission: "never",
     });
   }
-  if (!safeSameOriginUrl(outcome.url, context.origin)) return refused("FADENO_UPDATE_URL", context);
+  if (!matchesOperationUrl(outcome.url, context.currentOperation.url, context.origin)) return refused("FADENO_UPDATE_URL", context);
   const scroll = decidePrivateScrollBoundary(outcome.scrollBoundary);
   if (scroll.decision === "refuse") return refused(scroll.code, context);
   return accepted(
@@ -385,7 +399,7 @@ function parseContext(value: unknown): PrivateUpdateDecisionContext {
   const responseCacheControl = transport["responseCacheControl"];
   if (typeof requestCache !== "string") throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext transport values");
   if (responseCacheControl !== null && typeof responseCacheControl !== "string") throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext transport values");
-  if (!exactKeys(operation, ["id", "sequence", "kind"]) || !exactKeys(boundary, ["bytes", "records", "depth", "durationMilliseconds"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext nested keys");
+  if (!exactKeys(operation, ["id", "sequence", "kind", "url"]) || !exactKeys(boundary, ["bytes", "records", "depth", "durationMilliseconds"])) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext nested keys");
   if (!Array.isArray(record["consumedResultIds"]) || !record["consumedResultIds"].every((item) => typeof item === "string")) throw new Error("FADENO_V2_FIXTURE_SCHEMA: consumed results");
   if (typeof record["requestCommitted"] !== "boolean" || !finiteInteger(operation["sequence"], 1) || !new Set(["navigation", "mutation"]).has(String(operation["kind"]))) throw new Error("FADENO_V2_FIXTURE_SCHEMA: baseContext operation");
   const bytes = boundary["bytes"];
@@ -398,7 +412,7 @@ function parseContext(value: unknown): PrivateUpdateDecisionContext {
     transport: Object.freeze({ requestCache, responseCacheControl: responseCacheControl as string | null }),
     generation: requireString(record["generation"], "baseContext generation"),
     documentEpoch: requireString(record["documentEpoch"], "baseContext documentEpoch"),
-    currentOperation: Object.freeze({ id: requireString(operation["id"], "operation id"), sequence: operation["sequence"], kind: operation["kind"] as "navigation" | "mutation" }),
+    currentOperation: Object.freeze({ id: requireString(operation["id"], "operation id"), sequence: operation["sequence"], kind: operation["kind"] as "navigation" | "mutation", url: requireString(operation["url"], "operation url") }),
     consumedResultIds: Object.freeze([...record["consumedResultIds"]] as string[]),
     requestCommitted: record["requestCommitted"],
     boundary: Object.freeze({ bytes, records, depth, durationMilliseconds }),
