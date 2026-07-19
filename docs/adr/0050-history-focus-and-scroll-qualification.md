@@ -51,7 +51,9 @@ scroll, any element-scroll ownership, malformed state, or an unowned entry
 reloads the selected URL. This is an explicit conservative refusal: restoring a
 numeric position into newly rendered content is not treated as proof that the
 preceding layout is unchanged. V2-08 remains responsible for broader structural
-preservation.
+preservation. After that current-truth reload, an exact supported runtime-owned
+entry may resume enhancement; an application-owned, malformed, or unsupported
+entry still refuses runtime ownership.
 
 A non-collapsed selection, caret or focused control with unresolved ownership,
 dirty control, disclosure/top-layer state, media, client-owned identity, and

@@ -157,9 +157,10 @@ New cross-document links may leave a document-scrolled origin and commit the
 destination at the top with focus moved without scrolling. Back/forward remains
 enhanced only for owned zero-scroll entries without observed element-scroll
 ownership; malformed, unowned, nonzero-scroll, or element-scroll entries reload
-their selected current URL. Non-collapsed selection and unresolved focus/state
-still refuse. No transition work is allocated in either normal or reduced-
-motion mode.
+their selected current URL. An exact supported owned entry can resume enhancement
+after that current-truth reload; application-owned or malformed state cannot.
+Non-collapsed selection and unresolved focus/state still refuse. No transition
+work is allocated in either normal or reduced-motion mode.
 
 ## Narrowed H1 result and V2 conformance
 

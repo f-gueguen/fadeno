@@ -28,6 +28,7 @@ assert.deepEqual(Object.keys(packageDocument.exports).sort(), [".", "./browser",
 const implementation = read("packages/framework/src/internal/browser-navigation.ts");
 for (const fragment of [
   'history.scrollRestoration = "manual"',
+  "existingHistoryState !== null && !existingPrivateState",
   "createHistoryState(scrollX, scrollY, false)",
   "privateHistoryState(history.state)",
   "target.focus({ preventScroll: true })",
@@ -39,6 +40,7 @@ const tests = read("experiments/v2-link-navigation/tests/link-navigation.spec.ts
 for (const fragment of [
   "commits focus and top scroll without animation under reduced motion",
   "allows a scrolled origin and reloads that unsafe history entry on return",
+  "runtimeRestarted",
   "reloads an application-owned history entry instead of showing stale markup",
   "discards only a collapsed old-document selection",
   "keeps a non-collapsed selection and element scroll on the native path",

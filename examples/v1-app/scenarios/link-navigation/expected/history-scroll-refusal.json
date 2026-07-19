@@ -4,5 +4,6 @@
   "path": "/",
   "heading": "Home",
   "nativeRecovery": true,
-  "staleDocumentRemoved": true
+  "staleDocumentRemoved": true,
+  "runtimeRestarted": true
 }

@@ -238,7 +238,11 @@ function applyDocument(next: Document, url: string, replace: boolean): void {
 
 export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefined {
   let currentMetadata = metadata(document);
-  if (!currentMetadata || history.state !== null) return undefined;
+  const existingHistoryState = history.state;
+  const existingPrivateState = existingHistoryState === null
+    ? undefined
+    : privateHistoryState(existingHistoryState);
+  if (!currentMetadata || (existingHistoryState !== null && !existingPrivateState)) return undefined;
   let active: ActiveOperation | undefined;
   let sequence = 0;
   let closed = false;
@@ -246,7 +250,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const consumedResultIds: string[] = [];
   const previousScrollRestoration = history.scrollRestoration;
   history.scrollRestoration = "manual";
-  history.replaceState(createHistoryState(scrollX, scrollY, false), "", location.href);
+  if (existingHistoryState === null) {
+    history.replaceState(createHistoryState(scrollX, scrollY, false), "", location.href);
+  }
 
   const recordCurrentScroll = (event?: Event): void => {
     if (closed || traversing) return;

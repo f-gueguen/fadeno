@@ -496,7 +496,8 @@ no animation under either motion preference:
 
 A link may leave a document-scrolled origin, but returning to a nonzero-scroll
 or element-scroll entry is not treated as safe numeric restoration. The runtime
-returns that selected URL to browser-native recovery:
+returns that selected URL to browser-native recovery. An exact supported
+Fadeno-owned entry resumes enhancement after the reload:
 
 ```text
 FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhanced restoration; reload the current URL.
@@ -509,13 +510,14 @@ FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhan
   "path": "/",
   "heading": "Home",
   "nativeRecovery": true,
-  "staleDocumentRemoved": true
+  "staleDocumentRemoved": true,
+  "runtimeRestarted": true
 }
 ```
 
 Malformed and application-owned history state is never interpreted as Fadeno
 ownership. The selected URL reloads, so stale markup from the previous entry
-disappears:
+disappears and enhancement remains native for that page:
 
 ```json
 {

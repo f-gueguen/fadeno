@@ -264,15 +264,22 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
   expect(await page.evaluate(() => scrollY)).toBe(0);
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
+  const recoveredPath = new URL(page.url()).pathname;
+  const recoveredHeading = await page.locator("h1").textContent();
+  const nativeRecovery = await page.evaluate(() => typeof history.state === "object"
+    && history.state !== null
+    && Number(Reflect.get(history.state as object, "scrollY")) > 0);
+  const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
   const result = {
     schema: "fadeno.example.history-scroll-refusal",
     version: 1,
-    path: new URL(page.url()).pathname,
-    heading: await page.locator("h1").textContent(),
-    nativeRecovery: await page.evaluate(() => typeof history.state === "object"
-      && history.state !== null
-      && Number(Reflect.get(history.state as object, "scrollY")) > 0),
-    staleDocumentRemoved: await page.locator("h1").textContent() !== "Next",
+    path: recoveredPath,
+    heading: recoveredHeading,
+    nativeRecovery,
+    staleDocumentRemoved: recoveredHeading !== "Next",
+    runtimeRestarted: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
   };
   expect(result).toEqual(expected("history-scroll-refusal"));
 });
