@@ -43,6 +43,14 @@ match that operation URL exactly; route changes use typed redirects. It is
 and remains private; an external consumer still requires a separate ADR and
 demonstrated compatibility evidence.
 
+ADR 0046 accepts the package and loading direction for the later browser
+runtime. A generated application browser module will statically import the
+explicit `@fadeno/framework/browser` facade and may be emitted only through the
+framework-owned external module-script and request-nonce path. The neutral
+root and Node facade cannot reach browser code. V2-01A adds no real export or
+runtime; V2-02 must demonstrate the concrete bootstrap and current packed
+consumer before enhancement can claim ownership.
+
 ## Preservation contract
 
 An update preserves state not owned by the server result:

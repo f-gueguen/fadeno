@@ -53,6 +53,7 @@ effective decision.
 41. [ADR 0043 — Defer independent usability and external tooling for first alpha](0043-defer-independent-usability-and-external-tooling.md)
 42. [ADR 0044 — Reconcile first-alpha registry transport](0044-first-alpha-registry-transport-reconciliation.md)
 43. [ADR 0045 — Private update protocol and conservative scroll refusal](0045-private-update-protocol-and-scroll-refusal.md)
+44. [ADR 0046 — Browser entrypoint package boundary](0046-browser-entrypoint-package-boundary.md)
 
 ## Superseded decisions
 
