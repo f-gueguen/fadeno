@@ -10,16 +10,16 @@ V2-03 — generate server-owned update outcomes through existing authorities
 
 ## Exit criteria
 
-- [ ] Project navigation and action results from the existing route, resource,
+- [x] Project navigation and action results from the existing route, resource,
   action, and renderer authorities into the private update envelope.
-- [ ] Preserve construction-time provenance, typed redirects, expected
+- [x] Preserve construction-time provenance, typed redirects, expected
   failures, and causal ownership without a selector command or second render
   policy.
-- [ ] Refuse unauthorized, cross-user, stale, malformed, or unowned projection
+- [x] Refuse unauthorized, cross-user, stale, malformed, or unowned projection
   input before serialization and retain redacted structured logging.
-- [ ] Prove lossless private serialization, rollback, and stale-output recovery
+- [x] Prove lossless private serialization, rollback, and stale-output recovery
   against current packed framework bytes.
-- [ ] Extend the canonical application with executable success, refusal,
+- [x] Extend the canonical application with executable success, refusal,
   normalized machine output, flow inspection, and recovery evidence.
 - [ ] Add exactly one pending Changeset with semantic version intent and pass
   all affected gates, full local CI, and remote review-thread triage.
@@ -35,10 +35,8 @@ prerelease feature, requiring exactly one pending minor Changeset.
 
 ## In progress
 
-- Find the narrowest private projection boundary shared by native route and
-  action outcomes without recreating their policy.
-- Freeze the projection decision, threat model, executable corpus, and packed
-  application evidence before V2-04 may acquire link-interception authority.
+- Complete the required remote review and merge workflow for the qualified
+  V2-03 branch before V2-04 acquires link-interception authority.
 
 ## Blockers
 
