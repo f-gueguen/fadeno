@@ -94,6 +94,13 @@ either the closed private envelope or a redacted refusal. It never calls
 application behavior again, adds no public export, and does not yet transport,
 intercept, or apply an update.
 
+ADR 0049 connects that projection to the explicit browser runtime for one
+conservative enhanced-link path. A pre- and post-request preservation predicate
+admits only simple same-origin GET navigation; every unsupported or unsafe link
+remains native. The Node adapter creates the opaque request authority, the
+existing handler produces one native response, and the private projector and
+decoder transport and admit it without adding a public schema or second router.
+
 ## Dependency direction
 
 The initial package has a runtime-neutral `.` facade and a Node-specific

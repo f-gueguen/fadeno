@@ -136,6 +136,20 @@ incomplete output, unsupported status or media type, cancellation, and limit
 exhaustion produce no envelope. Request transport and interception remain
 unimplemented until V2-04 and V2-06.
 
+ADR 0049 implements V2-04's first link path. The runtime decides eligibility
+before preventing native activation and admits only ordinary same-origin GET
+links in the current browsing context. It refuses dirty controls, disclosure or
+top-layer state, media, selection/caret, mounted client identity, scroll, and
+unknown preservation boundaries both before interception and before commit.
+The Node adapter binds bounded browser correlation to a fresh opaque server
+owner, invokes the existing native handler once, and projects that response
+once. Browser admission independently checks current generation, document
+epoch, operation, sequence, URL, cache, cancellation, and result consumption.
+Only then may one inert complete document or typed redirect update URL, title,
+history, focus, and the next document epoch. Superseded, malformed, refused, or
+failed GET work returns to native destination or current-truth navigation.
+Forms and general state-preserving reconciliation remain later V2 work.
+
 ## Narrowed H1 result and V2 conformance
 
 K0-04 established cross-engine structural viability for focus/selection/caret,
