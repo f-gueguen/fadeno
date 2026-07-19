@@ -154,7 +154,13 @@ try {
   requireSuccess("pnpm", ["install", "--frozen-lockfile", "--offline", "--ignore-scripts"], project);
   const installedPackage = join(project, "node_modules/@fadeno/framework");
   assert.equal(existsSync(join(installedPackage, "dist", basename(localCanary))), false);
-  assert.match(readFileSync(join(installedPackage, "README.md"), "utf8"), /unpublished release seed/u);
+  const sourcePackageManifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as { version?: unknown };
+  const installedPackageManifest = JSON.parse(readFileSync(join(installedPackage, "package.json"), "utf8")) as { version?: unknown };
+  assert.equal(typeof sourcePackageManifest.version, "string");
+  assert.equal(installedPackageManifest.version, sourcePackageManifest.version);
+  const installedReadme = readFileSync(join(installedPackage, "README.md"), "utf8");
+  assert.equal(installedReadme.includes(`\`${sourcePackageManifest.version}\``), true);
+  assert.match(installedReadme, /experimental and not\s+production-supported/u);
 
   requireSuccess(process.execPath, ["--input-type=module", "--eval", [
     'await import("@fadeno/framework");',
