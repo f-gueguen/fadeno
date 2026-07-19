@@ -34,7 +34,7 @@ ADR 0032 fixes the first packed check invocation as
 explicit; semantic explanation is the only option. Complete success exits `0`,
 expected project diagnostics exit `1`, usage exits `2`, and redacted unexpected
 failure exits `3`. Human output is public now. Machine-readable command output
-remains refused while DG-A0-02 is open.
+remains refused; ADR 0043 defers every external analyzer schema and consumer.
 
 Optional `.env` and `.env.local` files load in that order before the existing
 process environment, which has final precedence. The strict line grammar and
@@ -245,8 +245,15 @@ stale generated-route removal evidence.
 
 ## Independent usability evidence
 
-ADR 0042 splits A0-07 into a frozen collection contract and later real-user
-evidence. The versioned packet covers install/create/test/check/dev/build/deploy,
+ADR 0043 records the first alpha's independent-newcomer status as
+`deferred-unqualified`. Automated packed workflows qualify mechanical behavior
+only: they do not establish onboarding, discoverability, correction, editor, or
+assistive-technology usability. First-alpha status, support, and release notes
+must disclose that limitation. No editor product or public analyzer schema is
+selected.
+
+ADR 0042's superseded A0 sequencing still provides the retained later
+collection contract. The versioned packet covers install/create/test/check/dev/build/deploy,
 separate successful and failed explanation tasks, exact seeded
 configuration/route/generation failures, correction, stale-state recovery, and
 a missing-workflow report. At least two participants who have never contributed
@@ -259,8 +266,9 @@ every started attempt is retained with its outcome and assistance category.
 Synthetic fixtures, omitted attempts, facilitator intervention
 presented as independent success, changed instruction bytes or tasks, and
 artifact mismatch are refused. `pnpm check:a0-usability-contract` validates the
-pre-observation packet and its negative controls; a later A0-07B command must
-replay real attempts before A0-08 may interpret tooling needs.
+pre-observation packet and its negative controls. Later real attempts qualify
+only the exact artifact they name and do not retroactively qualify the first
+alpha.
 
 A0-07B1 derives replay status rather than trusting a participant or facilitator
 success flag. One closed manifest must enumerate every started and retained
@@ -714,5 +722,6 @@ incremental-performance claim.
   direct and transitive dependencies, regenerates artifacts, reloads
   configuration, cancels or supersedes expensive work, rejects obsolete
   publication, closes and reopens documents, and verifies cleanup.
-- Independent users repeat the intended workflow and seeded failure recovery
-  before A0 chooses whether any supported editor product is justified.
+- Independent newcomer collection remains deferred for the first alpha. Later
+  users repeat the intended workflow and seeded failure recovery before a new
+  decision can justify any supported editor product.

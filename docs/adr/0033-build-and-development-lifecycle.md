@@ -198,7 +198,7 @@ complete batch for each accepted diagnostic generation; a repair clears stale
 diagnostics before reporting the new generation active. Expected diagnostics
 do not stop a last-good development child. Unexpected failures are redacted and
 carry an internal incident identity. Machine-readable command output and a
-stable external diagnostic schema remain refused by DG-A0-02.
+stable external diagnostic schema remain refused under ADR 0043's deferral.
 
 Exit statuses are:
 

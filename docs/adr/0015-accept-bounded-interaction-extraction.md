@@ -96,8 +96,8 @@ authoring syntax, a package entrypoint, or an external analyzer schema.
 - Any shared browser-dependency emission expands this decision and therefore
   requires a pre-locked positive/negative corpus and a follow-up ADR; it cannot
   be inferred from K0's module-graph wording.
-- Diagnostic codes remain internal until DG-A0-02 resolves their external
-  lifecycle and schema.
+- Diagnostic codes remain internal. ADR 0043 defers their external lifecycle
+  and schema until later demonstrated consumer evidence and a new decision.
 - ADR 0014's scroll narrowing remains authoritative; extraction does not imply
   a broader patch or scroll guarantee.
 - Release impact: none — no published package.

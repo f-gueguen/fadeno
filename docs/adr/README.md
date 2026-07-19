@@ -50,11 +50,12 @@ effective decision.
 38. [ADR 0039 — Public project creation](0039-public-project-creation.md)
 39. [ADR 0040 — Stock application test workflow](0040-stock-application-test-workflow.md)
 40. [ADR 0041 — Immutable loopback deployment artifact](0041-immutable-loopback-deployment-artifact.md)
-41. [ADR 0042 — Independent usability evidence contract](0042-independent-usability-evidence-contract.md)
+41. [ADR 0043 — Defer independent usability and external tooling for first alpha](0043-defer-independent-usability-and-external-tooling.md)
 
 ## Superseded decisions
 
 1. [ADR 0026 — Route filesystem and generated links](0026-route-filesystem-and-links.md), superseded by ADR 0027.
+2. [ADR 0042 — Independent usability evidence contract](0042-independent-usability-evidence-contract.md), superseded by ADR 0043.
 
 ## Writing an ADR
 

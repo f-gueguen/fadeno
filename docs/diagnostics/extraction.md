@@ -1,7 +1,7 @@
 # Private extraction diagnostics
 
 These K0-06 identifiers and corrections are internal experiment evidence. They
-are not an externally versioned analyzer schema; DG-A0-02 remains open.
+are not an externally versioned analyzer schema; ADR 0043 defers that surface.
 
 ## FADENO_K0_EXTRACT_SERVER_IMPORT
 

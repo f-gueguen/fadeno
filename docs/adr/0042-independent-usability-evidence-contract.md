@@ -1,10 +1,11 @@
 # ADR 0042: Independent usability evidence contract
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-07-18
 - Owners: Fadeno maintainers
 - Related specifications: [Build and diagnostics](../spec/build-adapters-testing.md), [A0 roadmap](../roadmap/a0.md)
 - Supersedes: None
+- Superseded by: ADR 0043
 
 ## Context
 

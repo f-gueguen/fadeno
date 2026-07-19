@@ -65,6 +65,11 @@ Every publication requires a public source repository and an exact matching
 the required provenance. Hosted publication transports only an immutable
 source commit that already passed local CI and never becomes merge authority.
 
+The first alpha release notes and support text must disclose that independent
+newcomer usability has not been qualified. They must also state that no editor
+product or public analyzer schema is supported. Automated packed conformance
+must not be described as observed user evidence.
+
 Non-registry artifacts include verifiable source identity and a software bill
 of materials before stable release.
 

@@ -102,7 +102,8 @@ existing configuration loader without changing environment precedence.
 
 Diagnostics are internal structured values with identifier, severity, concise
 message, deterministic project-relative locations, explanation link, and
-correction. Their external schema and compatibility remain gated by DG-A0-02.
+correction. ADR 0043 defers their external schema and compatibility until later
+demonstrated consumer evidence and a new decision.
 Expected route errors do not expose absolute paths, source contents, secrets,
 or internal stack noise.
 
