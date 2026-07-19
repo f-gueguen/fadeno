@@ -29,6 +29,10 @@ import {
   A0_FIRST_ALPHA_VERSION,
   A0_PACKAGE_NAME,
 } from "./lib/a0-release-identity.ts";
+import {
+  createA0PackageArtifactIdentity,
+  validateA0PackageArtifactIdentity,
+} from "./lib/a0-package-artifact.ts";
 import { validateA0PublicAlphaIdentity } from "./lib/a0-public-alpha.ts";
 
 type JsonRecord = Record<string, unknown>;
@@ -270,6 +274,39 @@ assert.equal(receipt["artifactSha256"], createHash("sha256").update(docsBytes).d
 const temporary = realpathSync.native(mkdtempSync(join(tmpdir(), "fadeno-a0-public-alpha-")));
 let running: RunningCommand | null = null;
 try {
+  const publishedPackageArchive = join(temporary, "published-package.tgz");
+  const publishedPackageOutput = join(temporary, "published-package");
+  writeFileSync(publishedPackageArchive, packageTarball);
+  mkdirSync(publishedPackageOutput);
+  requireSuccess("tar", ["-xzf", publishedPackageArchive, "-C", publishedPackageOutput], root);
+
+  const sourceArchive = join(temporary, "source.tar");
+  const sourceRoot = join(temporary, "source");
+  requireSuccess("git", ["archive", "--format=tar", `--output=${sourceArchive}`, sourceCommit], root);
+  mkdirSync(sourceRoot);
+  requireSuccess("tar", ["-xf", sourceArchive, "-C", sourceRoot], root);
+  requireSuccess("pnpm", ["install", "--frozen-lockfile", "--ignore-scripts"], sourceRoot);
+  requireSuccess("pnpm", ["--filter", A0_PACKAGE_NAME, "build"], sourceRoot);
+  const expectedTarballs = join(temporary, "expected-tarballs");
+  mkdirSync(expectedTarballs);
+  requireSuccess("npm", [
+    "pack", "./packages/framework", "--ignore-scripts", "--pack-destination", expectedTarballs,
+  ], sourceRoot);
+  const expectedTarballNames = readdirSync(expectedTarballs).filter((name) => name.endsWith(".tgz"));
+  if (expectedTarballNames.length !== 1 || !expectedTarballNames[0]) {
+    throw new TypeError("FADENO_A0_PUBLIC_PACKAGE_RECONSTRUCTION");
+  }
+  const expectedPackageOutput = join(temporary, "expected-package");
+  mkdirSync(expectedPackageOutput);
+  requireSuccess("tar", [
+    "-xzf", join(expectedTarballs, expectedTarballNames[0]), "-C", expectedPackageOutput,
+  ], sourceRoot);
+  const packageIdentityErrors = validateA0PackageArtifactIdentity(
+    createA0PackageArtifactIdentity(join(publishedPackageOutput, "package")),
+    createA0PackageArtifactIdentity(join(expectedPackageOutput, "package")),
+  );
+  if (packageIdentityErrors.length > 0) throw new Error(packageIdentityErrors.join("\n"));
+
   const manifest = JSON.parse(execFileSync("git", ["show", `${sourceCommit}:evidence/a0/release/docs-manifest.json`], {
     cwd: root,
     encoding: "utf8",
@@ -388,6 +425,7 @@ try {
     distributionTag: A0_DISTRIBUTION_TAG,
     provenancePresent: true,
     packageTarballIntegrityVerified: true,
+    packageSourceContentVerified: true,
     documentationArtifactVerified: true,
     publicWorkflows: Object.freeze(["install", "create", "test", "check", "build", "development", "start", "deploy", "rollback"]),
     corruptedCandidateRefused: true,

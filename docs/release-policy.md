@@ -73,8 +73,9 @@ must not be described as observed user evidence.
 A0-09 records a `qualified-alpha-candidate` only after its complete audit
 manifest, external-decoder fuzz result, packed workflows, documentation,
 reproducibility, rollback, and explicit limitations pass the root check. That
-checkpoint does not publish, change the `0.0.0` seed, create a tag, or claim
-production support. A0-10 remains the mechanical publication and public
+checkpoint is retained against its immutable `0.0.0` source commit; it does not
+publish, change the seed, create a tag, or claim production support. A0-10 owns
+the later mechanical version transition, publication, and public
 identity-verification slice.
 
 `pnpm check:a0-first-alpha-release` is the fail-closed A0-10 source gate. It
@@ -98,9 +99,10 @@ source authority.
 After publication, `pnpm verify:a0-public-alpha` is the separate public
 transport verifier. It must resolve the registry version and `alpha` tag,
 repository tag and release, the framework package's own registry provenance,
-and documentation artifact identity, then install in a fresh directory and
-replay create, test, check, build, development, deployment, and rollback
-through public package entrypoints. Public verification is not a
+rebuild and pack the immutable tagged source to compare every published package
+file and byte, and verify documentation artifact identity. It then installs in
+a fresh directory and replays create, test, check, build, development,
+deployment, and rollback through public package entrypoints. Public verification is not a
 pre-publication merge gate and may not be replaced by workspace artifacts.
 
 Non-registry artifacts include verifiable source identity and a software bill

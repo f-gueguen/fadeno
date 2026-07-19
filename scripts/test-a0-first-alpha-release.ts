@@ -32,6 +32,10 @@ expectMutation("A0 first-alpha prior qualification drifted", (context) => Object
   ...context,
   alphaCandidate: { ...(context.alphaCandidate as Record<string, unknown>), status: "incomplete" },
 }));
+expectMutation("A0 first-alpha prior qualification drifted", (context) => Object.freeze({
+  ...context,
+  alphaCandidate: { ...(context.alphaCandidate as Record<string, unknown>), sourceCommit: "0".repeat(40) },
+}));
 expectMutation("A0 first-alpha changelog is missing changeset application-test-workflow", (context) => Object.freeze({
   ...context,
   changelog: context.changelog.replace("Add the scaffolded stock-TypeScript application-test workflow", "Omitted application-test outcome"),

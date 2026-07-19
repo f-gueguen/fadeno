@@ -77,10 +77,15 @@ expectMutation("A0 alpha audit evidence is not tracked: evidence/a0/qualificatio
   ((document["audits"] as Record<string, unknown>[])[0]!["evidence"] as string[])[0] = "evidence/a0/qualification/missing.json";
   return Object.freeze({ ...context, document });
 });
-expectMutation("A0 alpha qualification is not bound to the first-alpha release version", (context) => Object.freeze({
+expectMutation("A0 alpha qualification is not bound to its qualified seed source", (context) => Object.freeze({
   ...context,
-  packageManifest: { ...(context.packageManifest as Record<string, unknown>), version: "0.0.0" },
+  packageManifest: { ...(context.packageManifest as Record<string, unknown>), version: "0.1.0-alpha.0" },
 }));
+expectMutation("A0 alpha package identity or publication boundary drifted", (context) => {
+  const document = cloneDocument();
+  document["sourceCommit"] = "0".repeat(40);
+  return Object.freeze({ ...context, document });
+});
 expectMutation("A0 alpha qualification introduced a public tooling surface", (context) => Object.freeze({
   ...context,
   packageManifest: {

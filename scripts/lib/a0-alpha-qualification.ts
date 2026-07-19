@@ -2,7 +2,11 @@ import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, normalize, relative, sep } from "node:path";
 
-import { A0_FIRST_ALPHA_VERSION } from "./a0-release-identity.ts";
+import {
+  A0_ALPHA_CANDIDATE_COMMIT,
+  A0_FIRST_ALPHA_VERSION,
+  A0_SEED_VERSION,
+} from "./a0-release-identity.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -253,7 +257,9 @@ export function loadA0AlphaQualificationContext(
     rootGates,
     trackedEvidence,
     workspace,
-    packageManifest: JSON.parse(read("packages/framework/package.json")) as unknown,
+    packageManifest: JSON.parse(execFileSync("git", [
+      "show", `${A0_ALPHA_CANDIDATE_COMMIT}:packages/framework/package.json`,
+    ], { cwd: root, encoding: "utf8" })) as unknown,
     packageReadme: read("packages/framework/README.md"),
     rootReadme: read("README.md"),
     support: read("SUPPORT.md"),
@@ -281,7 +287,7 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
   const document = context.document;
   if (!isRecord(document)) return Object.freeze(["A0 alpha qualification must be an object"]);
   if (!exactKeys(document, [
-    "schemaVersion", "milestone", "status", "package", "sourceVersion", "expectedReleaseVersion",
+    "schemaVersion", "milestone", "status", "package", "sourceCommit", "sourceVersion", "expectedReleaseVersion",
     "canonicalApplication", "publicationAttempted", "claims", "audits", "releaseImpact",
   ])) errors.push("A0 alpha qualification keys drifted");
   if (document["schemaVersion"] !== 1) errors.push("A0 alpha qualification schemaVersion must be 1");
@@ -290,8 +296,9 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
   }
   if (
     document["package"] !== "@fadeno/framework"
-    || document["sourceVersion"] !== "0.0.0"
-    || document["expectedReleaseVersion"] !== "0.1.0-alpha.0"
+    || document["sourceCommit"] !== A0_ALPHA_CANDIDATE_COMMIT
+    || document["sourceVersion"] !== A0_SEED_VERSION
+    || document["expectedReleaseVersion"] !== A0_FIRST_ALPHA_VERSION
     || document["canonicalApplication"] !== "examples/v1-app"
     || document["publicationAttempted"] !== false
   ) errors.push("A0 alpha package identity or publication boundary drifted");
@@ -367,8 +374,8 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
 
   const packageManifest = context.packageManifest;
   const exports = isRecord(packageManifest) ? packageManifest["exports"] : null;
-  if (!isRecord(packageManifest) || packageManifest["version"] !== A0_FIRST_ALPHA_VERSION) {
-    errors.push("A0 alpha qualification is not bound to the first-alpha release version");
+  if (!isRecord(packageManifest) || packageManifest["version"] !== A0_SEED_VERSION) {
+    errors.push("A0 alpha qualification is not bound to its qualified seed source");
   }
   if (!isRecord(exports) || Object.keys(exports).some((key) => /analy|editor|language|protocol/iu.test(key))) {
     errors.push("A0 alpha qualification introduced a public tooling surface");

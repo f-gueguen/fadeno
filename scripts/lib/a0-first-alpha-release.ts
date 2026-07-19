@@ -7,6 +7,7 @@ import {
 } from "./a0-docs-artifact.ts";
 import {
   A0_DISTRIBUTION_TAG,
+  A0_ALPHA_CANDIDATE_COMMIT,
   A0_FIRST_ALPHA_CHANGESETS,
   A0_FIRST_ALPHA_TAG,
   A0_FIRST_ALPHA_VERSION,
@@ -70,11 +71,13 @@ const requiredPaths = Object.freeze([
   "scripts/generate-a0-docs-manifest.ts",
   "scripts/lib/a0-docs-artifact.ts",
   "scripts/lib/a0-first-alpha-release.ts",
+  "scripts/lib/a0-package-artifact.ts",
   "scripts/lib/a0-public-alpha.ts",
   "scripts/lib/a0-release-event.ts",
   "scripts/lib/a0-release-identity.ts",
   "scripts/test-a0-docs-artifact.ts",
   "scripts/test-a0-first-alpha-release.ts",
+  "scripts/test-a0-package-artifact.ts",
   "scripts/test-a0-public-alpha-contract.ts",
   "scripts/test-a0-release-event-contract.ts",
   "scripts/verify-a0-release-event.ts",
@@ -180,6 +183,7 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   const candidate = context.alphaCandidate;
   if (!isRecord(candidate)
     || candidate["status"] !== "qualified-alpha-candidate"
+    || candidate["sourceCommit"] !== A0_ALPHA_CANDIDATE_COMMIT
     || candidate["sourceVersion"] !== A0_SEED_VERSION
     || candidate["expectedReleaseVersion"] !== A0_FIRST_ALPHA_VERSION
     || candidate["publicationAttempted"] !== false) {
@@ -271,7 +275,7 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   const workspace = context.workspace;
   const scripts = isRecord(workspace) && isRecord(workspace["scripts"]) ? workspace["scripts"] : null;
   if (!scripts
-    || scripts["check:a0-first-alpha-release"] !== "node --no-warnings --experimental-strip-types scripts/check-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-docs-artifact.ts && node --no-warnings --experimental-strip-types scripts/test-a0-release-event-contract.ts && node --no-warnings --experimental-strip-types scripts/test-a0-public-alpha-contract.ts && node --no-warnings --experimental-strip-types scripts/generate-a0-docs-manifest.ts --check"
+    || scripts["check:a0-first-alpha-release"] !== "node --no-warnings --experimental-strip-types scripts/check-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-docs-artifact.ts && node --no-warnings --experimental-strip-types scripts/test-a0-package-artifact.ts && node --no-warnings --experimental-strip-types scripts/test-a0-release-event-contract.ts && node --no-warnings --experimental-strip-types scripts/test-a0-public-alpha-contract.ts && node --no-warnings --experimental-strip-types scripts/generate-a0-docs-manifest.ts --check"
     || scripts["verify:a0-release-event"] !== "node --no-warnings --experimental-strip-types scripts/verify-a0-release-event.ts"
     || typeof scripts["verify:a0-public-alpha"] !== "string"
     || typeof scripts["check"] !== "string"

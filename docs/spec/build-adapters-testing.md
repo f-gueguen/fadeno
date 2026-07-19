@@ -344,6 +344,9 @@ assistive-technology usability. At A0-09 qualification the package was the
 unpublished `0.0.0` seed; that checkpoint did not publish, tag, or establish
 registry/docs identity. The current A0-10 release source is
 `@fadeno/framework@0.1.0-alpha.0` and owns those remaining checks.
+The retained A0-09 qualification remains bound to the immutable source commit
+that contained the `0.0.0` package seed; the current working-tree version is
+not retroactively presented as the input to that historical qualification.
 
 ## A0-10 first-alpha release and public replay
 
@@ -380,8 +383,12 @@ or packed-tarball shortcut. It separately verifies the registry distribution
 tag, package metadata and provenance, source tag/release, documentation archive
 and release-note identities. Registry provenance is accepted only from the
 framework version's own `dist.attestations` metadata; the aggregate registry
-signature audit remains a secondary transport check. Public observations are
-retained only after they exist; source qualification never fabricates them.
+signature audit remains a secondary transport check. The verifier also rebuilds
+and packs the immutable tagged source, then compares the complete path, byte
+length, and digest set with the downloaded registry package so self-consistent
+registry hashes cannot hide stale, extra, or changed package content. Public
+observations are retained only after they exist; source qualification never
+fabricates them.
 
 ## Diagnostics and support
 
