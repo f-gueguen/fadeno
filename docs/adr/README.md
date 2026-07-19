@@ -56,6 +56,7 @@ effective decision.
 44. [ADR 0046 — Browser entrypoint package boundary](0046-browser-entrypoint-package-boundary.md)
 45. [ADR 0047 — Initial browser runtime and private transport](0047-initial-browser-runtime-and-private-transport.md)
 46. [ADR 0048 — Server-owned update outcome projection](0048-server-owned-update-outcome-projection.md)
+47. [ADR 0049 — Conservative enhanced link navigation](0049-conservative-enhanced-link-navigation.md)
 
 ## Superseded decisions
 

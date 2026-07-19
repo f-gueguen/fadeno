@@ -9,6 +9,7 @@ import {
 } from "./action-server-hook.ts";
 import { bindRequestFailureObserver, type FrameworkFailureObserver } from "./failure-observer.ts";
 import { nodeHttpCapabilities } from "./node-http-capabilities.ts";
+import { servePrivateServerUpdate } from "./server-update-transport.ts";
 
 export interface NodeHttpServer {
   readonly origin: string;
@@ -141,6 +142,7 @@ function handleRequest(
   handler: Handler,
   actionRuntime: InstalledActionServerRuntime | null,
   failureObserver: FrameworkFailureObserver | undefined,
+  applicationGeneration: string | undefined,
   requestOrigin: () => string,
   request: IncomingMessage,
   response: ServerResponse,
@@ -160,9 +162,14 @@ function handleRequest(
         const releaseObserver = bindRequestFailureObserver(nextRequest, failureObserver);
         try { return await handler(nextRequest); } finally { releaseObserver(); }
       };
-      const webResponse = actionRuntime
-        ? await actionRuntime.serve(webRequest, invoke, failureObserver)
-        : await invoke(webRequest);
+      const serve = (nextRequest: Request): Promise<Response> => actionRuntime
+        ? actionRuntime.serve(nextRequest, invoke, failureObserver)
+        : invoke(nextRequest);
+      const webResponse = await servePrivateServerUpdate(webRequest, {
+        origin: requestOrigin(),
+        ...(applicationGeneration === undefined ? {} : { applicationGeneration }),
+        invoke: serve,
+      }) ?? await serve(webRequest);
       await writeWebResponse(webResponse, response);
     } catch (error: unknown) {
       response.destroy(error instanceof Error ? error : new Error(String(error)));
@@ -207,7 +214,7 @@ export async function listenNodeHttp(options: ListenNodeHttpOptions): Promise<No
     response.once("finish", () => {
       if (draining) server.closeIdleConnections();
     });
-    handleRequest(options.handler, actionRuntime, options.failureObserver, () => {
+    handleRequest(options.handler, actionRuntime, options.failureObserver, options.applicationGeneration, () => {
       if (!origin) throw new Error("FADENO_ADAPTER_NOT_LISTENING");
       return options.canonicalOrigin ?? origin;
     }, request, response);

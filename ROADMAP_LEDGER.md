@@ -6,42 +6,50 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-03 — generate server-owned update outcomes through existing authorities
+V2-04 — enhance link navigation under the accepted request and URL ownership contract
 
 ## Exit criteria
 
-- [x] Project navigation and action results from the existing route, resource,
-  action, and renderer authorities into the private update envelope.
-- [x] Preserve construction-time provenance, typed redirects, expected
-  failures, and causal ownership without a selector command or second render
-  policy.
-- [x] Refuse unauthorized, cross-user, stale, malformed, or unowned projection
-  input before serialization and retain redacted structured logging.
-- [x] Prove lossless private serialization, rollback, and stale-output recovery
-  against current packed framework bytes.
-- [x] Extend the canonical application with executable success, refusal,
-  normalized machine output, flow inspection, and recovery evidence.
-- [x] Add exactly one pending Changeset with semantic version intent and pass
+- [ ] Accept one exact link-eligibility, request, cancellation, commit, history,
+  title, focus, fallback, and rollback decision before interception begins.
+- [ ] Keep external, credentialed, targeted, downloaded, modifier-activated,
+  non-primary, and same-document-fragment links native before `preventDefault()`.
+- [ ] Refuse interception before request ownership when dirty controls,
+  disclosure/top-layer state, media, selection/caret, mounted client identity,
+  or relevant scroll/layout preservation is not yet proven safe.
+- [ ] Fetch and admit the private server-owned outcome with same-origin,
+  authorization, cache, size, cancellation, ordering, duplicate, stale, and
+  cross-user isolation controls.
+- [ ] Apply only an admitted document or typed redirect with correct URL,
+  history, title, and focus; retain native destination or current-truth recovery
+  without repeating a mutation.
+- [ ] Extend the packed canonical application with executable link success,
+  deliberate refusals, normalized machine output, causal flow, cancellation,
+  back/forward smoke, rollback, and stale-result recovery in three engines.
+- [ ] Add exactly one pending Changeset with semantic version intent and pass
   all affected gates, full local CI, and remote review-thread triage.
 
 ## Active sub-slice
 
-V2-03 adds only the server-owned projection that produces the already accepted
-private update outcome. It reuses current route matching, resource execution,
-action execution, rendering, authorization, and provenance owners. It does not
-intercept links or forms, apply a document update, expose a public update or
-analyzer schema, or claim usable enhancement. Release impact: additive
-prerelease feature, requiring exactly one pending minor Changeset.
+V2-04 adds only safe enhanced navigation for ordinary eligible links. Native
+activation remains authoritative for every ineligible link and every browser-
+or user-owned state boundary that V2-04 cannot preserve before interception.
+It does not enhance forms, reconcile unsafe state, expose the private update
+schema, add an analyzer/editor product, or claim complete V2 usability. Release
+impact: additive prerelease feature, requiring exactly one pending minor
+Changeset.
 
 ## In progress
 
-- Complete the required remote review and merge workflow for the qualified
-  V2-03 branch before V2-04 acquires link-interception authority.
+- Freeze the smallest request and interception boundary that can connect the
+  accepted private server outcome to an eligible same-origin link.
+- Prove refusal before native behavior is prevented, then add one complete
+  enhanced navigation flow without broadening preservation claims.
 
 ## Blockers
 
-- V2-04 remains blocked until V2-03's outcome projection, provenance,
-  isolation, serialization, rollback, and Changeset evidence is accepted.
+- V2-05 remains blocked until V2-04's link eligibility, ordering, history,
+  focus, fallback, security, and rollback evidence is accepted.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -51,6 +59,12 @@ prerelease feature, requiring exactly one pending minor Changeset.
   compatibility decision.
 
 ## Completed slices
+
+- V2-03 — Merge commit `583e046` adds private one-pass projection from native
+  route/resource/action responses, exact request authority, construction-time
+  provenance, redacted causal records, typed redirects/errors/recovery,
+  current-packed examples, cancellation/stale/authorization isolation, and one
+  pending minor Changeset without intercepting controls or exposing a schema.
 
 - V2-02 — Merge commit `3705b7d` adds the explicit browser facade, generated
   nonce-owned module loading, bounded private byte transport, current-packed

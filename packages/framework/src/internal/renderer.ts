@@ -27,6 +27,7 @@ export interface RenderDocumentOptions {
   readonly status?: number;
   readonly frameworkExecutable?: boolean;
   readonly frameworkModule?: string;
+  readonly frameworkGeneration?: string;
   readonly cleanup?: () => void;
   readonly action?: Readonly<{
     context: ActionRequestContext;
@@ -42,7 +43,14 @@ type ActiveActionForm = Readonly<{
   selectedValue?: string | number;
 }>;
 
-type FrameworkModule = { source: string; emitted: boolean };
+type FrameworkModule = { source: string; generation?: string; documentEpoch?: string; emitted: boolean };
+
+function validateFrameworkIdentity(value: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9:._/-]*$/u.test(value) || encoder.encode(value).byteLength > 128) {
+    throw new TypeError("FADENO_RENDER_FRAMEWORK_IDENTITY");
+  }
+  return value;
+}
 
 function validateFrameworkModule(source: string): string {
   if (typeof source !== "string" || !source.startsWith("/") || source.startsWith("//") || source.includes("\\") || source.includes("\0")) {
@@ -56,7 +64,10 @@ function validateFrameworkModule(source: string): string {
 function frameworkModuleMarkup(module: FrameworkModule, nonce: string | undefined): string {
   if (nonce === undefined || !/^[A-Za-z0-9_-]+$/u.test(nonce)) throw new TypeError("FADENO_RENDER_NONCE_REQUIRED");
   module.emitted = true;
-  return `<script nonce="${nonce}" src="${encodeFrameworkModuleUrl(module.source)}" type="module"></script>`;
+  const metadata = module.generation && module.documentEpoch
+    ? `<meta name="fadeno-application-generation" content="${encodeAttribute("meta", "content", module.generation)}"><meta name="fadeno-document-epoch" content="${encodeAttribute("meta", "content", module.documentEpoch)}">`
+    : "";
+  return `${metadata}<script nonce="${nonce}" src="${encodeFrameworkModuleUrl(module.source)}" type="module"></script>`;
 }
 
 function optionValue(properties: Readonly<Record<string, unknown>>, children: RenderChild): string | undefined {
@@ -315,16 +326,24 @@ function assertDocument(node: RenderChild): void {
   }
 }
 
-function contentSecurityPolicy(nonce: string | undefined): string {
+function contentSecurityPolicy(nonce: string | undefined, updateTransport: boolean): string {
   const script = nonce === undefined ? "script-src 'none'; " : `script-src 'nonce-${nonce}'; `;
-  return `default-src 'none'; ${script}style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`;
+  const connect = updateTransport ? "connect-src 'self'; " : "";
+  return `default-src 'none'; ${script}${connect}style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`;
 }
 
 export function renderDocument(node: RenderChild, options: RenderDocumentOptions): Response {
   assertDocument(node);
   const frameworkModule = options.frameworkModule === undefined
     ? undefined
-    : { source: validateFrameworkModule(options.frameworkModule), emitted: false };
+    : {
+        source: validateFrameworkModule(options.frameworkModule),
+        ...(options.frameworkGeneration === undefined ? {} : {
+          generation: validateFrameworkIdentity(options.frameworkGeneration),
+          documentEpoch: validateFrameworkIdentity(globalThis.crypto.randomUUID()),
+        }),
+        emitted: false,
+      };
   const failureObserver = captureRequestFailureObserver(options.request);
   let terminalCause: unknown;
   let terminalIncidentId: string | undefined;
@@ -390,7 +409,7 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
     executableMarkup: options.frameworkExecutable === true || frameworkModule !== undefined,
     headers: (nonce) => ({
       "content-type": "text/html; charset=utf-8",
-      "content-security-policy": contentSecurityPolicy(nonce),
+      "content-security-policy": contentSecurityPolicy(nonce, frameworkModule !== undefined),
       "x-content-type-options": "nosniff",
     }),
   });

@@ -331,13 +331,13 @@ function decodeRoot(value: unknown): Readonly<{ identity: string; html: string }
   return Object.freeze({ identity: value["identity"], html: value["html"] });
 }
 
-type DecodedOutcome =
+export type PrivateDecodedUpdateOutcome =
   | Readonly<{ kind: "document"; url: string; title: string; root: Readonly<{ identity: string; html: string }>; scrollBoundary: PrivateScrollBoundaryInput }>
   | Readonly<{ kind: "expected-error"; code: string; url: string; title: string; root: Readonly<{ identity: string; html: string }>; scrollBoundary: PrivateScrollBoundaryInput }>
   | Readonly<{ kind: "redirect"; status: 303 | 307 | 308; location: string }>
   | Readonly<{ kind: "recover"; reason: "desynchronized" | "server-current-truth"; location: string }>;
 
-function decodeOutcome(value: unknown): DecodedOutcome | undefined {
+function decodeOutcome(value: unknown): PrivateDecodedUpdateOutcome | undefined {
   if (!plainRecord(value) || typeof value["kind"] !== "string") return undefined;
   if (value["kind"] === "document" || value["kind"] === "expected-error") {
     const expectedKeys = value["kind"] === "document"
@@ -374,7 +374,7 @@ type DecodedEnvelope = Readonly<{
   operation: Readonly<{ id: string; sequence: number; kind: "navigation" | "mutation" }>;
   resultId: string;
   cache: "no-store" | string;
-  outcome: DecodedOutcome;
+  outcome: PrivateDecodedUpdateOutcome;
 }>;
 
 function decodeEnvelope(value: unknown): { envelope?: DecodedEnvelope; code?: string } {
@@ -467,6 +467,41 @@ export function evaluatePrivateUpdateBytes(
     });
   }
   return finish(value, structure);
+}
+
+export type PrivateUpdateAdmissionResult = Readonly<{
+  decision: PrivateUpdateDecision;
+  boundary: PrivateUpdateDecisionContext["boundary"];
+  resultId?: string;
+  outcome?: PrivateDecodedUpdateOutcome;
+}>;
+
+/** Private browser-only admission that exposes a typed payload after the public-neutral decision remains accepted. */
+export function admitPrivateUpdateBytes(
+  bytes: Uint8Array,
+  context: PrivateUpdateByteContext,
+  options: Readonly<{ signal?: AbortSignal; now?: () => number }> = {},
+): PrivateUpdateAdmissionResult {
+  const now = options.now ?? (() => performance.now());
+  const started = now();
+  const measured = evaluatePrivateUpdateBytes(bytes, context, { ...options, now });
+  if (measured.decision.status === "refused" || options.signal?.aborted) return measured;
+  let decoded: ReturnType<typeof decodeEnvelope>;
+  try { decoded = decodeEnvelope(JSON.parse(decoder.decode(bytes)) as unknown); }
+  catch { return Object.freeze({ ...measured, decision: refused("FADENO_UPDATE_SCHEMA", { ...context, boundary: measured.boundary }) }); }
+  const elapsed = Math.max(measured.boundary.durationMilliseconds, Math.ceil(now() - started));
+  if (!Number.isFinite(elapsed) || elapsed > V2_PATCH_PROTOCOL_LIMITS.maximumDurationMilliseconds) {
+    const boundary = Object.freeze({ ...measured.boundary, durationMilliseconds: V2_PATCH_PROTOCOL_LIMITS.maximumDurationMilliseconds + 1 });
+    return Object.freeze({ decision: refused("FADENO_UPDATE_TIMEOUT", { ...context, boundary }), boundary });
+  }
+  if (!decoded.envelope) {
+    return Object.freeze({ ...measured, decision: refused(decoded.code ?? "FADENO_UPDATE_SCHEMA", { ...context, boundary: measured.boundary }) });
+  }
+  return Object.freeze({
+    ...measured,
+    resultId: decoded.envelope.resultId,
+    outcome: decoded.envelope.outcome,
+  });
 }
 
 export function evaluatePrivateUpdate(

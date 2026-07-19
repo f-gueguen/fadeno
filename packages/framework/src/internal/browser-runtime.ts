@@ -13,14 +13,17 @@ export function startPrivateBrowserRuntime(): BrowserRuntimeHandle {
   }
   if (current?.state() === "active") return current;
   let state: BrowserRuntimeState = "active";
+  const navigation = startPrivateLinkNavigation();
   const handle = Object.freeze({
     state: () => state,
     close() {
       if (state === "closed") return;
       state = "closed";
+      navigation?.close();
       if (current === handle) current = undefined;
     },
   });
   current = handle;
   return handle;
 }
+import { startPrivateLinkNavigation } from "./browser-navigation.ts";

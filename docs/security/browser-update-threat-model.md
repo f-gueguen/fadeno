@@ -1,9 +1,9 @@
 # Browser runtime and private update threat model
 
-This model covers the V2-02 loading and decode boundary selected by ADR 0047
-and the V2-03 server projection selected by ADR 0048. It does not claim link or
-form interception, reconciliation, or browser-side application of an outcome;
-those remain later slices.
+This model covers the V2-02 loading and decode boundary selected by ADR 0047,
+the V2-03 server projection selected by ADR 0048, and V2-04's conservative link
+interception selected by ADR 0049. It does not claim form interception or
+general state-preserving reconciliation; those remain later slices.
 
 ## Assets and owners
 
@@ -39,18 +39,23 @@ those remain later slices.
 | Hostile input leaks through logging | Decision and metric output contain stable codes/counts only and never echo transported markup, identity, credentials, or prose | Secret-canary and cross-user redaction cases |
 | Cancellation publishes obsolete work | Aborted work returns a stable refusal and does not expose a decoded envelope | Cancellation test |
 | Failure repeats a mutation | Every decision records `mutationResubmission: "never"`; uncertain committed work reloads current server truth | Recovery corpus |
+| Hostile link acquires request ownership | Exact primary-click eligibility rejects credentials, other origins/schemes, target, download, modifiers, non-primary activation, and same-document fragments before `preventDefault()` | Packed pre-interception matrix |
+| Browser correlation is mistaken for authorization | Private request headers are bounded freshness values only; the adapter creates a fresh opaque owner and binds the exact server `Request` before native handling | Integrated transport ownership and cross-user cases |
+| User-owned state changes during fetch | The complete conservative preservation predicate runs before interception and again before commit; unsafe GET work returns to native destination | Dirty/top-layer/media/selection/client-identity/scroll race cases |
+| Late or duplicate response overwrites current state | A newer sequence aborts its predecessor; generation, epoch, operation, URL, cancellation, and consumed-result identity are rechecked before one atomic commit | Permuted, cancelled, stale, and duplicate response cases |
+| Transported markup executes code | Complete HTML is parsed inertly; the commit admits one framework document root and does not execute transported scripts | Hostile markup and rollback cases |
 
 ## Native fallback and rollback
 
-Before any later interception, blocked or disabled JavaScript simply leaves the
-native document active. V2-02 performs no document update. Operational rollback
-stops providing `browserModule`; the renderer emits no script, the CSP returns
-to `script-src 'none'`, no browser artifact is requested, and native links and
-forms still navigate.
+Blocked or disabled JavaScript leaves the native document active. V2-04 refuses
+ineligible or preservation-unsafe links before preventing native behavior.
+Operational rollback stops providing `browserModule`; the renderer emits no
+script or private freshness metadata, the CSP returns to `script-src 'none'`,
+no browser artifact is requested, and native links and forms still navigate.
 
 ## Residual risks
 
-- V2-04 and V2-06 must prove interception eligibility before preventing native
+- V2-06 must prove form interception eligibility before preventing native
   behavior and must retain non-repeating mutation recovery.
 - V2-05 through V2-09 must qualify actual reconciliation and preservation.
 - The private schema may change before those consumers exist; it is not a

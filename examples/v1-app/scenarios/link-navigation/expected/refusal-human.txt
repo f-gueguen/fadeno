@@ -1,0 +1,1 @@
+Fadeno kept the link native because the page contained browser-owned state that this update could not yet preserve.

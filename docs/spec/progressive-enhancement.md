@@ -40,6 +40,13 @@ request ownership, generation, cancellation, single consumption, redaction,
 and limits fail closed. This still does not intercept a control or apply an
 update; those authorities remain later V2 work.
 
+ADR 0049 adds the first deliberately narrow link enhancement. Explicit startup
+may intercept an ordinary same-origin GET link only after a preflight proves
+that native destination, browsing-context, and currently observed browser/user
+state can be owned safely. The preflight repeats before commit. Every other
+link remains native, including target, download, modifier, fragment, hostile
+URL, and preservation-unsafe cases. Forms remain native.
+
 When enhancement code is available, it may intercept a link or form only when
 it can preserve the baseline semantics. It may then:
 

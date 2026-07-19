@@ -1,0 +1,19 @@
+{
+  "schema": "fadeno.private.link-navigation-flow",
+  "version": 1,
+  "status": "applied",
+  "code": "FADENO_UPDATE_DOCUMENT",
+  "redaction": "applied",
+  "decisions": [
+    "eligible same-origin GET acquired browser operation ownership",
+    "exact native server response was projected once",
+    "current generation, epoch, operation, URL, cache, and result were admitted",
+    "document, title, URL, history, and focus committed"
+  ],
+  "ownership": {
+    "browser": ["activation", "operation", "history", "focus"],
+    "server": ["authorization", "route", "resources", "rendered outcome"]
+  },
+  "skipped": ["form interception", "general state reconciliation", "transported script execution"],
+  "outcome": "enhanced-document"
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.link-navigation-refusal",
+  "version": 1,
+  "code": "FADENO_LINK_PRESERVATION_NATIVE",
+  "cause": "dirty control remained browser-owned",
+  "outcome": "native-navigation"
+}
