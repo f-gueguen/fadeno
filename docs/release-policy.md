@@ -70,6 +70,13 @@ newcomer usability has not been qualified. They must also state that no editor
 product or public analyzer schema is supported. Automated packed conformance
 must not be described as observed user evidence.
 
+A0-09 records a `qualified-alpha-candidate` only after its complete audit
+manifest, external-decoder fuzz result, packed workflows, documentation,
+reproducibility, rollback, and explicit limitations pass the root check. That
+checkpoint does not publish, change the `0.0.0` seed, create a tag, or claim
+production support. A0-10 remains the mechanical publication and public
+identity-verification slice.
+
 Non-registry artifacts include verifiable source identity and a software bill
 of materials before stable release.
 

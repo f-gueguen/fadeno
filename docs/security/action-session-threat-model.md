@@ -101,6 +101,9 @@ bodies. V1-13 performance evidence measures the complete native action path.
 - AES-GCM key material remains present in server process memory. V1 does not
   select hardware key custody or distributed key delivery.
 
-Before public alpha, the complete external decoder surface must receive
-fuzzing. Before stable release, independent security review must remediate all
-known critical and high-severity findings.
+The A0-09 `pnpm check:a0-decoder-fuzz` corpus exercises action bodies, media
+types, proofs, and session cookies together with the other supported external
+decoders. It requires classified refusal and records malformed UTF-8 or
+multipart bytes as `FADENO_ACTION_BODY`, never a generic internal failure.
+Before stable release, independent security review must remediate all known
+critical and high-severity findings.

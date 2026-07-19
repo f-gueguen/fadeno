@@ -315,6 +315,32 @@ checked facilitator-only retention procedure is
 [`COLLECTION.md`](../../evidence/a0/independent-usability/COLLECTION.md); it is
 not added to the participant bundle and cannot change the frozen task bytes.
 
+## A0-09 alpha qualification
+
+A0-09 derives one `qualified-alpha-candidate` record from the complete current
+gate set. `pnpm check:a0-alpha-qualification` accepts only the exact security,
+native-accessibility, existing-performance, package, documentation,
+clean-machine, reproducibility, rollback, and deferred-usability/tooling audit
+set. Each audit names root-check gates and contained tracked evidence; mutation
+tests refuse an omitted gate, unsafe or untracked evidence, a published seed,
+an unsupported claim, or a public analyzer/editor export.
+
+The security audit includes a deterministic two-replay fuzz worker with a
+fixed seed, bounded input bytes, a process deadline, accepted and refused
+controls for every surface, complete outcome classification, and action-response
+secret-canary checking. The complete threat inventory distinguishes public
+decoders from integrity-checked framework-owned artifacts and from private
+analyzer transports. Qualification preserves the recorded narrow or
+baseline-only performance conclusions and introduces no new budget.
+
+The clean-machine audit reuses the current packed package gates rather than a
+workspace shortcut: the canonical application covers install/check/build/dev/
+start, and the A0 creation, application-test, and immutable-deployment gates
+cover their isolated success, failure, correction, recovery, stale-removal, and
+rollback paths. Automated packed evidence does not establish newcomer or
+assistive-technology usability. The package remains the unpublished `0.0.0`
+seed; publication, immutable tag and registry/docs identity remain A0-10 only.
+
 ## Diagnostics and support
 
 - User errors provide a stable identifier, source location, concise reason,
@@ -708,9 +734,9 @@ incremental-performance claim.
 - All applicable test layers run through one repository check entrypoint, with
   expensive qualification suites callable explicitly and required at release
   gates.
-- A stranger following only repository documentation can run the supported
-  application and understand a seeded route, form, security, and boundary
-  failure.
+- Current packed synthetic consumers following only repository documentation
+  mechanically run the supported application and recover seeded route, form,
+  security, and boundary failures. This is not newcomer-usability evidence.
 - Analyzer package and lifecycle checks rebuild and install the current packed
   framework before executing consumers; stale distribution output cannot
   satisfy conformance.
