@@ -232,4 +232,48 @@ const nonce = /script-src 'nonce-([^']+)'/u.exec(policy)?.[1];
 assert.ok(nonce);
 assert.match(await body(executable), new RegExp(`<script nonce="${nonce}">`, "u"));
 
-console.log("V1 renderer passed (document, sinks, outcomes, boundaries, streaming, CSP correlation)");
+const browserRoute = await renderRoute({
+  request: new Request("https://example.test/browser"),
+  parameters: Object.freeze({}),
+  layouts: [],
+  browserModule: "/_fadeno/browser-entry.js?generation=one&mode=active",
+  page: () => document(jsx("h1", { children: "Native page" })),
+});
+const browserPolicy = browserRoute.headers.get("content-security-policy") ?? "";
+const browserNonce = /script-src 'nonce-([^']+)'/u.exec(browserPolicy)?.[1];
+assert.ok(browserNonce);
+assert.match(
+  await body(browserRoute),
+  new RegExp(`<script nonce="${browserNonce}" src="/_fadeno/browser-entry\\.js\\?generation=one&amp;mode=active" type="module"></script></head>`, "u"),
+);
+
+const bodyOnlyBrowserRoute = await renderRoute({
+  request: new Request("https://example.test/browser-body"),
+  parameters: Object.freeze({}),
+  layouts: [],
+  browserModule: "/_fadeno/browser-entry.js",
+  page: () => jsx("html", { lang: "en", children: jsx("body", { children: jsx("h1", { children: "Body fallback" }) }) }),
+});
+assert.match(await body(bodyOnlyBrowserRoute), /<body><script nonce="[A-Za-z0-9_-]+" src="\/_fadeno\/browser-entry\.js" type="module"><\/script><h1>Body fallback/u);
+
+const missingBrowserTarget = await renderRoute({
+  request: new Request("https://example.test/browser-missing-target"),
+  parameters: Object.freeze({}),
+  layouts: [],
+  browserModule: "/_fadeno/browser-entry.js",
+  page: () => jsx("html", { lang: "en", children: jsx("main", { children: "Invalid document shape" }) }),
+});
+await assert.rejects(body(missingBrowserTarget), /FADENO_RENDER_STREAM_LATE_UNEXPECTED/u);
+
+await assert.rejects(
+  renderRoute({
+    request: new Request("https://example.test/browser-invalid"),
+    parameters: Object.freeze({}),
+    layouts: [],
+    browserModule: "https://outside.example/browser.js",
+    page: () => document("unreachable"),
+  }),
+  /FADENO_RENDER_FRAMEWORK_MODULE/u,
+);
+
+console.log("V1 renderer passed (document, sinks, outcomes, boundaries, streaming, CSP correlation, generated browser module)");

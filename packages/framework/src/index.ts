@@ -208,6 +208,8 @@ export interface MatchedRouteRender {
   readonly routeId?: string;
   /** Generated application identity used by the action runtime. Application code does not author this value. */
   readonly generation?: string;
+  /** Generated same-origin browser entry used by the enhancement runtime. Application code does not author this value. */
+  readonly browserModule?: string;
 }
 
 export interface BoundaryProps {

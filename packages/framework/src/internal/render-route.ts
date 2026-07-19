@@ -68,12 +68,14 @@ async function renderNotFound(
   layouts: readonly Layout<Record<string, string | readonly string[]>>[],
   resources: ResourceRequestScope,
   action: RenderDocumentOptions["action"],
+  frameworkModule: string | undefined,
 ): Promise<Response> {
   const child = page ? await page(context) : safeDocument("Not found", "Not found", "The requested page does not exist.");
   return renderDocument(await composeLayouts(layouts, context, child), {
     request: context.request,
     status: 404,
     ...(action ? { action } : {}),
+    ...(frameworkModule ? { frameworkModule } : {}),
     cleanup: () => resources.close(),
   });
 }
@@ -86,6 +88,7 @@ async function renderFailure(
   resources: ResourceRequestScope,
   expected: Readonly<{ code: string; status: ResourceStatus }> | undefined,
   action: RenderDocumentOptions["action"],
+  frameworkModule: string | undefined,
 ): Promise<Response> {
   try {
     const child = page
@@ -97,6 +100,7 @@ async function renderFailure(
       request: context.request,
       status: expected?.status ?? 500,
       ...(action ? { action } : {}),
+      ...(frameworkModule ? { frameworkModule } : {}),
       cleanup: () => resources.close(),
     });
   } catch {
@@ -107,6 +111,7 @@ async function renderFailure(
       request: context.request,
       status: expected?.status ?? 500,
       ...(action ? { action } : {}),
+      ...(frameworkModule ? { frameworkModule } : {}),
       cleanup: () => resources.close(),
     });
   }
@@ -139,7 +144,9 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
   try {
     const pageResult = await input.page(context);
     const pageOutcome = typeof pageResult === "object" && pageResult !== null ? outcomes.get(pageResult) : undefined;
-    if (pageOutcome?.kind === "not-found") return await renderNotFound(input.notFound, context, input.layouts, resources, action);
+    if (pageOutcome?.kind === "not-found") {
+      return await renderNotFound(input.notFound, context, input.layouts, resources, action, input.browserModule);
+    }
     if (pageOutcome?.kind === "redirect") {
       const target = new URL(pageOutcome.location, input.request.url);
       if (target.origin !== new URL(input.request.url).origin || target.username !== "" || target.password !== "") {
@@ -151,12 +158,13 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
     return renderDocument(await composeLayouts(input.layouts, context, pageResult as RenderChild), {
       request: input.request,
       ...(action ? { action } : {}),
+      ...(input.browserModule ? { frameworkModule: input.browserModule } : {}),
       cleanup: () => resources.close(),
     });
   } catch (cause) {
     const incidentId = globalThis.crypto.randomUUID();
     const expected = readResourceError(cause);
     if (!expected) reportFrameworkFailure(failureObserver, input.request, incidentId, "pre-publication", "FADENO_RENDER_UNEXPECTED", cause);
-    return renderFailure(input.error, context, input.layouts, incidentId, resources, expected, action);
+    return renderFailure(input.error, context, input.layouts, incidentId, resources, expected, action, input.browserModule);
   }
 }
