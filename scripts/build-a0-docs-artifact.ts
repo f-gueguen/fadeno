@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
 import {
+  createA0DocumentationArtifactReceipt,
   createA0DocumentationManifest,
+  validateA0DocumentationArtifactTree,
   validateA0DocumentationManifest,
   type A0DocumentationManifest,
 } from "./lib/a0-docs-artifact.ts";
@@ -59,20 +61,19 @@ try {
   const extractedRoot = join(extracted, prefix.slice(0, -1));
   const tracked = new Set<string>(paths);
   const reconstructed = createA0DocumentationManifest(extractedRoot, tracked);
-  const errors = validateA0DocumentationManifest(manifest, reconstructed);
+  const errors = [
+    ...validateA0DocumentationArtifactTree(extractedRoot, manifest),
+    ...validateA0DocumentationManifest(manifest, reconstructed),
+  ];
   if (errors.length > 0) throw new TypeError(errors.join("\n"));
   const artifact = join(output, filename);
   writeFileSync(artifact, firstBytes);
-  const receipt = {
-    schemaVersion: 1,
-    packageVersion: A0_FIRST_ALPHA_VERSION,
-    sourceTag: A0_FIRST_ALPHA_TAG,
+  const receipt = createA0DocumentationArtifactReceipt(
     sourceCommit,
-    artifactFilename: basename(artifact),
-    artifactSha256: createHash("sha256").update(firstBytes).digest("hex"),
-    documentationAggregateSha256: manifest.aggregateSha256,
-    fileCount: paths.length,
-  };
+    createHash("sha256").update(firstBytes).digest("hex"),
+    manifest,
+  );
+  if (receipt.artifactFilename !== basename(artifact)) throw new TypeError("FADENO_A0_DOCS_ARTIFACT_FILENAME");
   writeFileSync(join(output, `${filename}.json`), `${JSON.stringify(receipt, null, 2)}\n`);
   console.log(`A0 documentation artifact passed (${filename}, ${paths.length} files, ${sourceCommit})`);
 } finally {

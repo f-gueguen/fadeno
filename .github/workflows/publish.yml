@@ -31,6 +31,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:a0-release
       - run: pnpm check:a0-first-alpha-release
+      - run: pnpm verify:a0-release-event
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - run: npm publish ./packages/framework --access public --tag alpha
         env:
           FADENO_RELEASE_MODE: ${{ vars.NPM_RELEASE_MODE }}

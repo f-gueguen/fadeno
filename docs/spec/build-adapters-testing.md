@@ -354,7 +354,8 @@ it binds the prior alpha-candidate qualification, exact prerelease state,
 package metadata, changelog, SBOM, release notes, publication workflow, and an
 immutable manifest of every tracked release-documentation file. A clean source
 commit must produce the same documentation archive bytes twice and must round
-trip every extracted file against that manifest.
+trip every extracted file against that manifest. Closed-tree validation rejects
+missing, additional, linked, or otherwise unsafe extracted entries.
 
 The gate includes permanent normalized success, deliberate wrong-version
 refusal, human diagnostic, correction, flow, and recovery evidence under
@@ -363,14 +364,24 @@ decision and why registry publication, tagging, and trusted-publisher setup are
 skipped during source review. Recovery proves the seed-version diagnostic is
 removed and that no incorrect version or premature tag was created.
 
+The release publication job checks out the immutable tag and runs
+`pnpm verify:a0-release-event` before the irreversible registry step. That gate
+resolves the tag commit directly, requires the exact source release notes and
+the closed set of documentation assets, downloads both assets, and validates
+their receipt and contents. The release target field is descriptive and is not
+used as source identity because it can retain a mutable branch name even when
+the release owns an immutable tag.
+
 `pnpm verify:a0-public-alpha` begins only after publication. It refuses any
 version or source identity other than the immutable first alpha, retrieves the
 package from the public registry into a clean consumer, and replays create,
 test, check, build, development, deployment, and rollback without a workspace
 or packed-tarball shortcut. It separately verifies the registry distribution
 tag, package metadata and provenance, source tag/release, documentation archive
-and release-note identities. Public observations are retained only after they
-exist; source qualification never fabricates them.
+and release-note identities. Registry provenance is accepted only from the
+framework version's own `dist.attestations` metadata; the aggregate registry
+signature audit remains a secondary transport check. Public observations are
+retained only after they exist; source qualification never fabricates them.
 
 ## Diagnostics and support
 

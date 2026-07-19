@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   createA0DocumentationManifest,
+  validateA0DocumentationArtifactTree,
   validateA0DocumentationManifest,
   type A0DocumentationManifest,
 } from "./lib/a0-docs-artifact.ts";
@@ -242,7 +243,6 @@ assert.equal(tagCommit, sourceCommit);
 
 const release = record(await requestJson(`https://api.github.com/repos/f-gueguen/fadeno/releases/tags/${A0_FIRST_ALPHA_TAG}`), "FADENO_A0_PUBLIC_RELEASE");
 assert.equal(release["tag_name"], A0_FIRST_ALPHA_TAG);
-assert.equal(release["target_commitish"], sourceCommit);
 assert.equal(release["prerelease"], true);
 assert.equal(release["draft"], false);
 const expectedReleaseNotes = execFileSync("git", ["show", `${sourceCommit}:docs/releases/${A0_FIRST_ALPHA_VERSION}.md`], {
@@ -297,6 +297,7 @@ try {
   requireSuccess("tar", ["-xzf", archive, "-C", extracted], root);
   const extractedRoot = join(extracted, `fadeno-docs-${A0_FIRST_ALPHA_VERSION}`);
   const reconstructed = createA0DocumentationManifest(extractedRoot, new Set(manifest.files.map(({ path }) => path)));
+  assert.deepEqual(validateA0DocumentationArtifactTree(extractedRoot, manifest), []);
   assert.deepEqual(validateA0DocumentationManifest(manifest, reconstructed), []);
 
   const runner = join(temporary, "runner");

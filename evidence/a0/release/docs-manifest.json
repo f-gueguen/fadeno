@@ -3,7 +3,7 @@
   "packageVersion": "0.1.0-alpha.0",
   "sourceTag": "v0.1.0-alpha.0",
   "artifactFilename": "fadeno-docs-0.1.0-alpha.0.tar.gz",
-  "aggregateSha256": "a8d649327fc0e7847b5c409a3deca377106d446a7bfc4308784c963399eb9e4f",
+  "aggregateSha256": "961d6b5c873831b2b41c24dec687c7fc9ebec349cdb5e711fb3876842e83bf79",
   "files": [
     {
       "path": "README.md",
@@ -317,8 +317,8 @@
     },
     {
       "path": "docs/product/scope.md",
-      "bytes": 14100,
-      "sha256": "230d1fba63f4135b30d07daaf590c06eb751360cc9cfcc50dda22522443cacec"
+      "bytes": 14234,
+      "sha256": "1546b0cc1ad1cfcac9f77778377a29f458e7816bd5778b8c2363476331af798e"
     },
     {
       "path": "docs/reference/v1-api.md",
@@ -327,8 +327,8 @@
     },
     {
       "path": "docs/release-policy.md",
-      "bytes": 6853,
-      "sha256": "abb6d9cbbc039bae21f2bf9b7adbfab6c94cfc4514e1bd61c45c8962347886dc"
+      "bytes": 7285,
+      "sha256": "ded636755a42ea56772578d9d30f90bf8d2f4bc14bb6d60a78837b63283a2f74"
     },
     {
       "path": "docs/releases/0.1.0-alpha.0.md",
@@ -342,8 +342,8 @@
     },
     {
       "path": "docs/roadmap/a0.md",
-      "bytes": 7396,
-      "sha256": "f2db0f144b5335a531f27e30e1c3fd16b90168bf8967df8e234db9558b5c4925"
+      "bytes": 7428,
+      "sha256": "e7be2d929a8efc47784c50ea4cf585f7de019af73ad40bb0aa1219dd54d614b8"
     },
     {
       "path": "docs/roadmap/k0.md",
@@ -392,8 +392,8 @@
     },
     {
       "path": "docs/spec/build-adapters-testing.md",
-      "bytes": 48509,
-      "sha256": "de553ba60b068cb51e3125536ad7775522583ebb1817fe9789249c5055f6f24a"
+      "bytes": 49278,
+      "sha256": "ca1fa3d50c41c181ccbae4bca0e1f4383d52faa136e0ce8fbd9a0173fb1d89ca"
     },
     {
       "path": "docs/spec/compiler-analyzer.md",
@@ -447,8 +447,8 @@
     },
     {
       "path": "docs/traceability.md",
-      "bytes": 17765,
-      "sha256": "c2cd363432c245ee41581d95526e1733598ecf575cc6e65c72d1c963a713f7d2"
+      "bytes": 17847,
+      "sha256": "c6a6f2ba8db9e00d689a51b5cb5e14031923c065ba5a8c205d8cae149b52e5e0"
     },
     {
       "path": "packages/framework/CHANGELOG.md",

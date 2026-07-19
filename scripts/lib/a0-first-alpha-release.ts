@@ -71,9 +71,13 @@ const requiredPaths = Object.freeze([
   "scripts/lib/a0-docs-artifact.ts",
   "scripts/lib/a0-first-alpha-release.ts",
   "scripts/lib/a0-public-alpha.ts",
+  "scripts/lib/a0-release-event.ts",
   "scripts/lib/a0-release-identity.ts",
+  "scripts/test-a0-docs-artifact.ts",
   "scripts/test-a0-first-alpha-release.ts",
   "scripts/test-a0-public-alpha-contract.ts",
+  "scripts/test-a0-release-event-contract.ts",
+  "scripts/verify-a0-release-event.ts",
   "scripts/verify-a0-public-alpha.ts",
 ]);
 
@@ -258,7 +262,7 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
     ["root README", context.rootReadme, [A0_FIRST_ALPHA_VERSION, "experimental", "immutable tag", "public install verification"]],
     ["package README", context.packageReadme, [A0_FIRST_ALPHA_VERSION, "experimental", "not production-supported", "Independent newcomer usability"]],
     ["support", context.support, ["first public alpha", "not supported for production", "Independent newcomer usability", "not a supported protocol or public schema"]],
-    ["release policy", context.releasePolicy, ["A0-10", "pnpm check:a0-first-alpha-release", "pnpm verify:a0-public-alpha"]],
+    ["release policy", context.releasePolicy, ["A0-10", "pnpm check:a0-first-alpha-release", "pnpm verify:a0-release-event", "pnpm verify:a0-public-alpha"]],
   ] as const) {
     const prose = normalized(content);
     for (const fragment of fragments) if (!prose.includes(fragment)) errors.push(`${name} is missing ${fragment}`);
@@ -267,19 +271,27 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   const workspace = context.workspace;
   const scripts = isRecord(workspace) && isRecord(workspace["scripts"]) ? workspace["scripts"] : null;
   if (!scripts
-    || scripts["check:a0-first-alpha-release"] !== "node --no-warnings --experimental-strip-types scripts/check-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-public-alpha-contract.ts && node --no-warnings --experimental-strip-types scripts/generate-a0-docs-manifest.ts --check"
+    || scripts["check:a0-first-alpha-release"] !== "node --no-warnings --experimental-strip-types scripts/check-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-docs-artifact.ts && node --no-warnings --experimental-strip-types scripts/test-a0-release-event-contract.ts && node --no-warnings --experimental-strip-types scripts/test-a0-public-alpha-contract.ts && node --no-warnings --experimental-strip-types scripts/generate-a0-docs-manifest.ts --check"
+    || scripts["verify:a0-release-event"] !== "node --no-warnings --experimental-strip-types scripts/verify-a0-release-event.ts"
     || typeof scripts["verify:a0-public-alpha"] !== "string"
     || typeof scripts["check"] !== "string"
     || !scripts["check"].includes("pnpm check:a0-first-alpha-release")) {
     errors.push("workspace check does not enforce A0 first-alpha release source");
   }
-  if (!context.workflow.includes("pnpm check:a0-first-alpha-release")
+  const sourceGate = context.workflow.indexOf("pnpm check:a0-first-alpha-release");
+  const eventGate = context.workflow.indexOf("pnpm verify:a0-release-event");
+  const publish = context.workflow.indexOf("npm publish ./packages/framework --access public --tag alpha");
+  if (sourceGate < 0
+    || eventGate <= sourceGate
+    || publish <= eventGate
     || !context.workflow.includes("release:")
     || /^\s+(?:push|pull_request|workflow_dispatch|schedule):/mu.test(context.workflow)) {
     errors.push("A0 first-alpha publication workflow drifted");
   }
   const roadmapRow = context.roadmap.split("\n").find((line) => line.startsWith("| A0-10 |")) ?? "";
-  if (!roadmapRow.includes("check:a0-first-alpha-release") || !roadmapRow.includes("verify:a0-public-alpha")) {
+  if (!roadmapRow.includes("check:a0-first-alpha-release")
+    || !roadmapRow.includes("verify:a0-release-event")
+    || !roadmapRow.includes("verify:a0-public-alpha")) {
     errors.push("A0-10 roadmap validation drifted");
   }
   if (!normalized(context.ledger).includes("A0-10 — publish and verify the first immutable alpha release")) {
@@ -315,11 +327,13 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   const scopeRelease = context.scope.split("\n").find((line) => line.startsWith("| REL-01 |")) ?? "";
   const traceRelease = context.traceability.split("\n").find((line) => line.startsWith("| REL-01 |")) ?? "";
   if (!scopeRelease.includes("current `0.1.0-alpha.0` release source")
-    || !scopeRelease.includes("every consumed Changeset")) {
+    || !scopeRelease.includes("every consumed Changeset")
+    || !scopeRelease.includes("verify:a0-release-event")) {
     errors.push("REL-01 scope does not describe the current first-alpha source");
   }
   if (!traceRelease.includes("current `0.1.0-alpha.0` release source")
-    || !traceRelease.includes("every consumed Changeset")) {
+    || !traceRelease.includes("every consumed Changeset")
+    || !traceRelease.includes("verify:a0-release-event")) {
     errors.push("REL-01 traceability does not describe the current first-alpha source");
   }
   return Object.freeze(errors);

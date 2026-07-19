@@ -29,13 +29,17 @@ const context = Object.freeze({
       shasum: createHash("sha1").update(bytes).digest("hex"),
       tarball: "https://registry.npmjs.org/@fadeno/framework/-/framework-0.1.0-alpha.0.tgz",
       signatures: [{ keyid: "fixture", sig: "fixture" }],
+      attestations: {
+        url: "https://registry.npmjs.org/-/npm/v1/attestations/@fadeno%2fframework@0.1.0-alpha.0",
+        provenance: { predicateType: "https://slsa.dev/provenance/v1" },
+      },
     },
   },
   distributionTags: { alpha: "0.1.0-alpha.0" },
   tagCommit: sourceCommit,
   release: {
     tag_name: "v0.1.0-alpha.0",
-    target_commitish: sourceCommit,
+    target_commitish: "main",
     prerelease: true,
     draft: false,
     body: "release notes\n",
@@ -72,6 +76,12 @@ mutation("FADENO_A0_PUBLIC_REGISTRY_IDENTITY", {
   metadata: { ...(context.metadata as Record<string, unknown>), gitHead: "4".repeat(40) },
 });
 mutation("FADENO_A0_PUBLIC_PACKAGE_INTEGRITY", { packageIntegrity: "sha512-invalid" });
+mutation("FADENO_A0_PUBLIC_PROVENANCE", {
+  metadata: {
+    ...(context.metadata as Record<string, unknown>),
+    dist: { ...((context.metadata as Record<string, unknown>)["dist"] as Record<string, unknown>), attestations: undefined },
+  },
+});
 mutation("FADENO_A0_PUBLIC_DIST_TAG", { distributionTags: { alpha: "0.1.0-alpha.1" } });
 mutation("FADENO_A0_PUBLIC_TAG", { tagCommit: "5".repeat(40) });
 mutation("FADENO_A0_PUBLIC_RELEASE", {

@@ -37,6 +37,22 @@ function assetNames(release: JsonRecord): readonly string[] {
   }).sort());
 }
 
+function validProvenanceAttestation(value: unknown): boolean {
+  const attestations = record(value);
+  const provenance = attestations ? record(attestations["provenance"]) : undefined;
+  const url = attestations?.["url"];
+  if (typeof url !== "string" || !provenance
+    || provenance["predicateType"] !== "https://slsa.dev/provenance/v1") return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:"
+      && parsed.hostname === "registry.npmjs.org"
+      && decodeURIComponent(parsed.pathname) === `/-/npm/v1/attestations/${A0_PACKAGE_NAME}@${A0_FIRST_ALPHA_VERSION}`;
+  } catch {
+    return false;
+  }
+}
+
 export function validateA0PublicAlphaIdentity(context: A0PublicAlphaIdentityContext): readonly string[] {
   const errors: string[] = [];
   if (!/^[0-9a-f]{40}$/u.test(context.sourceCommit)) errors.push("FADENO_A0_PUBLIC_SOURCE_COMMIT");
@@ -68,6 +84,9 @@ export function validateA0PublicAlphaIdentity(context: A0PublicAlphaIdentityCont
     || distribution["signatures"].length === 0) {
     errors.push("FADENO_A0_PUBLIC_PACKAGE_INTEGRITY");
   }
+  if (!distribution || !validProvenanceAttestation(distribution["attestations"])) {
+    errors.push("FADENO_A0_PUBLIC_PROVENANCE");
+  }
 
   const tags = record(context.distributionTags);
   if (!tags || tags[A0_DISTRIBUTION_TAG] !== A0_FIRST_ALPHA_VERSION) {
@@ -78,7 +97,6 @@ export function validateA0PublicAlphaIdentity(context: A0PublicAlphaIdentityCont
   const release = record(context.release);
   if (!release
     || release["tag_name"] !== A0_FIRST_ALPHA_TAG
-    || release["target_commitish"] !== context.sourceCommit
     || release["prerelease"] !== true
     || release["draft"] !== false) {
     errors.push("FADENO_A0_PUBLIC_RELEASE");

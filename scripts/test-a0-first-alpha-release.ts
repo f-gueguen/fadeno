@@ -64,6 +64,17 @@ expectMutation("A0 first-alpha publication workflow drifted", (context) => Objec
   ...context,
   workflow: `${context.workflow}\n  pull_request:\n`,
 }));
+expectMutation("A0 first-alpha publication workflow drifted", (context) => Object.freeze({
+  ...context,
+  workflow: context.workflow.replace("      - run: pnpm verify:a0-release-event\n", ""),
+}));
+expectMutation("A0 first-alpha publication workflow drifted", (context) => Object.freeze({
+  ...context,
+  workflow: context.workflow.replace(
+    "      - run: pnpm verify:a0-release-event\n        env:\n          GITHUB_TOKEN: ${{ github.token }}\n      - run: npm publish ./packages/framework --access public --tag alpha",
+    "      - run: npm publish ./packages/framework --access public --tag alpha\n      - run: pnpm verify:a0-release-event",
+  ),
+}));
 expectMutation("REL-01 is missing A0 first-alpha release traceability", (context) => Object.freeze({
   ...context,
   traceability: context.traceability.replace(/^\| REL-01 \|.*$/mu, (line) => line.replace("`pnpm check:a0-first-alpha-release`", "removed")),
