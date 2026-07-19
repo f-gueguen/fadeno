@@ -10,18 +10,18 @@ V2-02 — establish the optional browser runtime and server-update boundary
 
 ## Exit criteria
 
-- [ ] Add the exact `./browser` export and minimum explicit bootstrap selected
+- [x] Add the exact `./browser` export and minimum explicit bootstrap selected
   by ADR 0046 without changing native application authority.
-- [ ] Load the real packed browser artifact through renderer-owned external
+- [x] Load the real packed browser artifact through renderer-owned external
   module markup and the existing request-owned CSP nonce policy.
-- [ ] Implement the private update encoder/decoder with exact version, byte,
+- [x] Implement the private update encoder/decoder with exact version, byte,
   depth, record-count, duration, origin, authorization-isolation, and logging
   boundaries from ADR 0045.
-- [ ] Retain native fallback for disabled, blocked, incompatible, malformed,
+- [x] Retain native fallback for disabled, blocked, incompatible, malformed,
   unauthorized, cross-user, or stale browser work with cleanup and rollback.
-- [ ] Add one pending Changeset with explicit semantic version intent and align
+- [x] Add one pending Changeset with explicit semantic version intent and align
   package, specification, security, traceability, risk, and example evidence.
-- [ ] Pass all affected gates and full local CI; complete the required remote
+- [x] Pass all affected gates and full local CI; complete the required remote
   review trigger and exhaustive review-thread triage.
 
 ## Active sub-slice
@@ -34,10 +34,10 @@ feature, requiring exactly one pending minor Changeset.
 
 ## In progress
 
-- Implement the minimum explicit browser bootstrap and private transport while
-  preserving the neutral root, Node adapter, renderer, and protocol authorities.
-- Extend the canonical packed application with isolated success, refusal,
-  machine-output, flow, recovery, cleanup, and nonce-policy evidence.
+- Complete the required remote review and merge boundary without extending
+  V2-02 into navigation, form, projection, or reconciliation behavior.
+- Keep V2-03 blocked until this accepted package, loading, decoder, isolation,
+  fallback, rollback, and Changeset evidence reaches `main`.
 
 ## Blockers
 
