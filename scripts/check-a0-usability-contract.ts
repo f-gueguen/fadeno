@@ -35,7 +35,7 @@ for (const path of [
 ]) assert.equal(tracked.has(path), true, `FADENO_A0_USABILITY_TRACKING:${path}`);
 const adr = read("docs/adr/0042-independent-usability-evidence-contract.md");
 for (const text of [
-  "- Status: Accepted", "at least two independent participants", "Every started", "cannot satisfy participant",
+  "- Status: Superseded", "- Superseded by: ADR 0043", "at least two independent participants", "Every started", "cannot satisfy participant",
   "supported-editor", "pnpm check:a0-usability-contract",
 ]) assert.equal(adr.includes(text), true, `FADENO_A0_USABILITY_ADR:${text}`);
 const instructions = read("evidence/a0/independent-usability/task-packet.md");

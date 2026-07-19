@@ -36,13 +36,13 @@ expectMutation("A0 roadmap A0-06 decision ownership mismatch", (context) => Obje
   ...context,
   roadmap: context.roadmap.replace(/^(\| A0-06 \|.*?\| A0-04 \|)(.*)$/mu, "$1 DG-A0-04; $2"),
 }));
-expectMutation("A0 unresolved decision gate drifted: DG-A0-02", (context) => Object.freeze({
+expectMutation("A0 deferred decision gate returned: DG-A0-02", (context) => Object.freeze({
   ...context,
-  decisionGates: context.decisionGates.replace("| DG-A0-02 |", "| DG-A0-X2 |"),
+  decisionGates: `${context.decisionGates}\n| DG-A0-02 | restored | restored | restored | restored | Open |`,
 }));
 expectMutation("A0 publishable package seed drifted", (context) => Object.freeze({
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, resolved ownership, gates, package seed)");
+console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, resolved ownership, deferral, package seed)");

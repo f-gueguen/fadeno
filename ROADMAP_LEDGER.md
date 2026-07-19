@@ -6,26 +6,25 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-07 — collect independent public-workflow evidence
+A0-08 — explicitly defer external analyzer/editor tooling
 
 ## Exit criteria
 
-- [x] Freeze the versioned independent-user task, privacy, retention, artifact
-  identity, and synthetic-evidence refusal contract through ADR 0042.
-- [ ] Retain at least two real independent participant attempts over one exact
-  packed artifact without private guidance or omitted attempts.
-- [ ] Verify install/create/test/check/dev/build/deploy, seeded failures,
-  corrections, flow inspection, stale-state recovery, and missing workflows.
-- [ ] Pass exact evidence replay, full local CI, and independent review gates.
+- [x] Preserve the versioned packet, exact-artifact reconstruction, privacy,
+  retention, and synthetic-evidence refusal controls for later collection.
+- [x] Record unavailable real participant evidence as
+  `deferred-unqualified`, never accepted success.
+- [x] Select no supported editor product, public analyzer schema, or external
+  compatibility promise for the first alpha.
+- [ ] Pass decision, deferral, model, full local CI, and independent review
+  gates.
 
 ## Active sub-slice
 
-A0-07B2 real participant collection. The merged-source bundle and private real
-replay command verify exact artifact and attempt identity, all-started
-retention, privacy, task evidence, and synthetic refusal. This slice cannot
-claim user evidence before two qualifying non-contributors finish, select
-editor tooling, expose an analyzer schema, publish a package, or treat
-synthetic fixtures as participants.
+A0-08 durable deferral decision only. ADR 0043 supersedes A0's participant
+sequencing rule while preserving the later collection contract, requires an
+explicit first-alpha usability caveat, retains the private analyzer, and
+removes DG-A0-02 by deferring rather than accepting an external surface.
 
 ## In progress
 
@@ -40,17 +39,19 @@ synthetic fixtures as participants.
   from that exact merged source is retained outside the repository with package
   SHA-256 `9ee8190e456b552a325733896ec17709f9ba9048e43dd5c60595254733070cd7`.
   A0-07B2 now adds the fail-closed real-evidence command before collection.
+- Merge commit `a39bcfe` completes the collection-ready A0-07B2 verifier. Real
+  participants remain unavailable, so ADR 0043 records A0-07 as
+  `deferred-unqualified` and moves A0-08 to an explicit no-product decision.
 
 ## Blockers
 
-- A0-07B2 acceptance requires at least two real independent non-contributors.
-  Implementation and synthetic contract testing can continue, but no automated
-  fixture or maintainer replay can satisfy that external evidence gate.
+- None for the first alpha. Independent newcomer usability remains deferred and
+  must not be claimed by A0-09 or A0-10.
 
 ## Open questions
 
-- DG-A0-02: compatibility-controlled external analyzer and diagnostic schema
-  after a demonstrated supported consumer.
+- None in A0-08. Later external analyzer consumers require new evidence and a
+  new compatibility decision.
 
 ## Completed slices
 

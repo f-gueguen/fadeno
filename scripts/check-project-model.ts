@@ -130,6 +130,11 @@ for (const duplicate of duplicates(gateIds)) {
 }
 
 const gateSet = new Set(gateIds);
+const retiredGateIds = new Set(
+  [...read("docs/adr/0043-defer-independent-usability-and-external-tooling.md")
+    .matchAll(/\b(DG-[A-Z0-9]+-\d{2}) is removed\b/g)]
+    .map((match) => match[1]),
+);
 if (gateSet.size === 0) {
   errors.push("docs/ledgers/decision-gates.md: expected at least one open gate");
 }
@@ -148,7 +153,7 @@ function collectMarkdown(directory) {
 for (const file of collectMarkdown(root)) {
   const content = readFileSync(file, "utf8");
   for (const match of content.matchAll(/\b(DG-[A-Z0-9]+-\d{2})\b/g)) {
-    if (!gateSet.has(match[1])) {
+    if (!gateSet.has(match[1]) && !retiredGateIds.has(match[1])) {
       errors.push(`${file.slice(root.length + 1)}: references unknown gate ${match[1]}`);
     }
   }
@@ -567,9 +572,9 @@ const expectedA0 = [
   { id: "A0-04", features: ["CLI-01", "BUILD-01", "DOC-01", "TEST-01"], dependencies: "A0-03", artifacts: "Accepted create command, bounded arguments/refusals, canonical template sourced from the tested application, clean generated consumer", validation: "`pnpm check:a0-create`; public package install; create success/refusal; check/build/dev/start; byte-stable scaffold; docs snippets; `pnpm ci:local`", commands: ["pnpm check:a0-create", "pnpm ci:local"] },
   { id: "A0-05", features: ["CLI-01", "TEST-01", "DOC-01"], dependencies: "A0-04", artifacts: "Scaffolded test command and public helpers only if demonstrated; success/failure/recovery fixtures", validation: "`pnpm check:a0-test`; clean created project; stock test execution; package-boundary and example gates; `pnpm ci:local`", commands: ["pnpm check:a0-test", "pnpm ci:local"] },
   { id: "A0-06", features: ["CLI-01", "BUILD-01", "SEC-01", "DOC-01"], dependencies: "A0-04", artifacts: "ADR 0041; production-only artifact; configuration/secrets boundary; health/start/stop/rollback example; generated guide", validation: "`pnpm check:a0-deploy`; clean artifact deployment; HTTPS/origin/session controls; failure/rollback; no source/dev dependency; `pnpm ci:local`", commands: ["pnpm check:a0-deploy", "pnpm ci:local"] },
-  { id: "A0-07", features: ["CLI-01", "DX-01", "DOC-01", "ACCESS-01", "TEST-01"], dependencies: "A0-05, A0-06", artifacts: "ADR 0042; versioned task packet and anonymized observations for install/create/test/check/dev/build/deploy, seeded diagnostics/corrections/flows/recovery, and missing workflows", validation: "`pnpm check:a0-usability-contract`; `pnpm check:a0-usability-replay-contract`; `pnpm check:a0-usability-artifact`; independent real replay; exact artifact identity; all attempts retained; no fabricated success; `pnpm ci:local`", commands: ["pnpm check:a0-usability-contract", "pnpm check:a0-usability-replay-contract", "pnpm check:a0-usability-artifact", "pnpm ci:local"] },
-  { id: "A0-08", features: ["DX-01", "TOOL-01", "DOC-01"], dependencies: "A0-07", gate: "DG-A0-02", artifacts: "Resolve DG-A0-02 through an analyzer-schema/tooling ADR and fixtures, or an explicit deferral retaining the private analyzer", validation: "Consumer-specific lifecycle suite if accepted; otherwise decision/deferral/model gates; `pnpm ci:local`", commands: ["pnpm ci:local"] },
-  { id: "A0-09", features: ["SEC-01", "ACCESS-01", "PERF-01", "TEST-01", "DOC-01", "REL-01"], dependencies: "A0-01 through A0-08", artifacts: "Threat review, decoder fuzzing, package/readme/docs audit, clean-machine workflow, reproducibility and rollback evidence, alpha migration guide", validation: "Full security/accessibility/package/docs/performance/reproducibility gates; `pnpm check`; `pnpm ci:local`", commands: ["pnpm check", "pnpm ci:local"] },
+  { id: "A0-07", features: ["CLI-01", "DX-01", "DOC-01", "ACCESS-01", "TEST-01"], dependencies: "A0-05, A0-06", artifacts: "ADR 0043; retained ADR 0042 packet, replay, reconstruction, privacy, and synthetic-refusal controls; explicit `deferred-unqualified` outcome", validation: "`pnpm check:a0-usability-contract`; `pnpm check:a0-usability-replay-contract`; `pnpm check:a0-usability-artifact`; `pnpm check:a0-tooling-deferral`; no participant claim; `pnpm ci:local`", commands: ["pnpm check:a0-usability-contract", "pnpm check:a0-usability-replay-contract", "pnpm check:a0-usability-artifact", "pnpm check:a0-tooling-deferral", "pnpm ci:local"] },
+  { id: "A0-08", features: ["DX-01", "TOOL-01", "DOC-01"], dependencies: "A0-07", artifacts: "ADR 0043; no editor product, public analyzer schema, or external compatibility promise; deferred re-entry trigger", validation: "`pnpm check:a0-tooling-deferral`; decision/deferral/model gates; `pnpm ci:local`", commands: ["pnpm check:a0-tooling-deferral", "pnpm ci:local"] },
+  { id: "A0-09", features: ["SEC-01", "ACCESS-01", "PERF-01", "TEST-01", "DOC-01", "REL-01"], dependencies: "A0-01 through A0-08", artifacts: "Threat review, decoder fuzzing, package/readme/docs audit, clean-machine workflow, reproducibility and rollback evidence, alpha migration guide, explicit independent-usability/tooling caveat", validation: "Full security/accessibility/package/docs/performance/reproducibility gates; `pnpm check:a0-tooling-deferral`; `pnpm check`; `pnpm ci:local`", commands: ["pnpm check:a0-tooling-deferral", "pnpm check", "pnpm ci:local"] },
   { id: "A0-10", features: ["CLI-01", "DOC-01", "REL-01"], dependencies: "A0-09", artifacts: "Mechanical release commit, exact tag, public package, immutable docs artifact, install verification, release notes", validation: "Tag/source/package/docs identity; clean public install/create/test/check/build/deploy; rollback drill; `pnpm ci:local`", commands: ["pnpm ci:local"] },
 ] as const;
 const a0 = read("docs/roadmap/a0.md");
@@ -581,7 +586,6 @@ if (JSON.stringify(a0Ids) !== JSON.stringify(expectedA0Ids)) {
 }
 for (const duplicate of duplicates(a0Ids)) errors.push(`docs/roadmap/a0.md: duplicate slice ${duplicate}`);
 
-const ownedA0Gates = new Set<string>();
 for (const [index, expected] of expectedA0.entries()) {
   const cells = a0Rows[index];
   if (!cells || cells[0] !== expected.id) continue;
@@ -606,11 +610,9 @@ for (const [index, expected] of expectedA0.entries()) {
     errors.push(`docs/roadmap/a0.md: ${expected.id} artifact contract differs from the accepted plan`);
   }
   const rowGates = [...`${cells[1]} ${cells[4]} ${cells[5]}`.matchAll(/\b(DG-A0-\d{2})\b/g)].map((match) => match[1]);
-  const expectedGates = "gate" in expected ? [expected.gate] : [];
-  if (JSON.stringify(rowGates) !== JSON.stringify(expectedGates)) {
+  if (rowGates.length !== 0) {
     errors.push(`docs/roadmap/a0.md: ${expected.id} decision ownership differs from the accepted plan`);
   }
-  if ("gate" in expected) ownedA0Gates.add(expected.gate);
   if (cells[5] !== expected.validation) {
     errors.push(`docs/roadmap/a0.md: ${expected.id} validation contract differs from the accepted plan`);
   }
@@ -621,13 +623,9 @@ for (const [index, expected] of expectedA0.entries()) {
   }
 }
 const openA0Gates = new Set(gateIds.filter((gate) => gate.startsWith("DG-A0-")));
-for (const gate of setDifference(openA0Gates, ownedA0Gates)) {
+for (const gate of openA0Gates) {
   errors.push(`docs/roadmap/a0.md: no atomic slice owns ${gate}`);
 }
-for (const gate of setDifference(ownedA0Gates, openA0Gates)) {
-  errors.push(`docs/roadmap/a0.md: owns unknown or resolved gate ${gate}`);
-}
-
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],

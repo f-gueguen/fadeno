@@ -14,7 +14,8 @@ ownership, diagnostic, correction, or explanation policy.
 
 The session is not a public package entrypoint or supported protocol. Its wire
 representation and concrete TypeScript interfaces remain implementation
-details until a demonstrated consumer and DG-A0-02 justify compatibility.
+details. ADR 0043 defers every external analyzer consumer and compatibility
+surface until later demonstrated need and a new decision.
 
 The analyzer owns only framework configuration and workspace ownership, route
 and generated-artifact relationships, execution-boundary facts, framework
@@ -134,8 +135,8 @@ Serialize/deserialize/serialize is byte stable for accepted snapshots. Absent
 facets, opaque unknown or newer facets, workspace and document identity,
 ownership, completeness, interruption, and truncation survive round trips.
 Alternate serialization or snapshot versions and malformed evidence are
-refused. These numbers and interfaces remain private implementation contracts
-under DG-A0-02.
+refused. These numbers and interfaces remain private implementation contracts;
+they are not a public schema.
 
 ## Invalidation, recomputation, and publication
 
@@ -389,7 +390,7 @@ before scenarios run. Canonical
 success, collision, correction guidance, semantic flow, and recovery execute
 only through `node_modules/.bin/fadeno` and leave no project output. JSON and
 other machine-output options remain usage errors; private analyzer transports
-and DG-A0-02 are unchanged.
+remain implementation evidence under ADR 0043's external-tooling deferral.
 
 V1-DX-B7C gives the originating project analyzer the only private authority to
 apply a route publication. Disk application accepts exactly the current,
@@ -483,9 +484,10 @@ than inventing a line number.
 Expected user errors omit internal stack noise. Internal defects retain an
 incident identity and reproduction context without leaking source secrets.
 
-Diagnostic identifiers become compatibility-controlled only when DG-A0-02
-accepts the external schema. Until then they remain internal but are still
-snapshot-tested to prevent accidental churn.
+Diagnostic identifiers remain internal under ADR 0043's external-schema
+deferral. A later demonstrated consumer and compatibility decision are required
+before any identifier or transport becomes a public contract; internal
+snapshot tests still prevent accidental churn.
 
 Analyzer diagnostic results add structured parameters, module and phase,
 primary and related locations, exact ranges or an explicit null-range reason,
@@ -512,8 +514,8 @@ facts rather than repairing it during deserialization.
 
 This facet is a static analyzer record family. Existing build and runtime
 exceptions remain separate and are not retrofitted or parsed to construct it.
-Its version and fixtures are private evidence, not the compatibility-controlled
-external diagnostic schema gated by DG-A0-02.
+Its version and fixtures are private evidence, not a compatibility-controlled
+external diagnostic schema.
 
 ## Corrections
 
@@ -1016,8 +1018,9 @@ gate refuses a partial directory.
 The disposable consumer and private machine fixtures are packed conformance
 evidence only. They add no package export, public command, generic protocol,
 editor metadata, supported editor product, or compatibility-controlled schema.
-Deep imports remain refused and DG-A0-02 remains open. Public examples continue
-to use public entrypoints and are not documentation for this private consumer.
+Deep imports remain refused, and ADR 0043 explicitly defers those external
+surfaces. Public examples continue to use public entrypoints and are not
+documentation for this private consumer.
 
 ## Conformance
 

@@ -36,10 +36,6 @@ expectMutation("public-package identity gate remains open after ADR 0037", (cont
   ...context,
   decisionGates: `${context.decisionGates}\n| DG-A0-01 | restored |`,
 }));
-expectMutation("unrelated decision gate disappeared: DG-A0-02", (context) => Object.freeze({
-  ...context,
-  decisionGates: context.decisionGates.replace(/^\| DG-A0-02 \|.*\n/mu, ""),
-}));
 expectMutation("ADR 0037 is missing source repository must be public", (context) => Object.freeze({
   ...context,
   adr: context.adr.replace("source repository must be public", "source repository visibility is unspecified"),

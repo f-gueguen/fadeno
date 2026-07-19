@@ -54,9 +54,7 @@ export function validateA0Plan(context: A0PlanContext): readonly string[] {
     "A0-01 through A0-08",
     "A0-09",
   ];
-  const expectedOwners = new Map([
-    ["A0-08", "DG-A0-02"],
-  ]);
+  const expectedOwners = new Map<string, string>();
   for (const [index, row] of rows.entries()) {
     const slice = row[0] ?? `A0-${String(index).padStart(2, "0")}`;
     if (row.length !== 6) {
@@ -71,9 +69,8 @@ export function validateA0Plan(context: A0PlanContext): readonly string[] {
       errors.push(`A0 roadmap ${slice} decision ownership mismatch`);
     }
   }
-  for (const gate of ["DG-A0-02"]) {
-    const line = context.decisionGates.split("\n").find((candidate) => candidate.startsWith(`| ${gate} |`));
-    if (!line?.endsWith("| Open |")) errors.push(`A0 unresolved decision gate drifted: ${gate}`);
+  if (context.decisionGates.includes("| DG-A0-02 |")) {
+    errors.push("A0 deferred decision gate returned: DG-A0-02");
   }
 
   const packageDocument = context.packageDocument;

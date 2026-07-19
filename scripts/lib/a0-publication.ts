@@ -84,9 +84,6 @@ export function validateA0Publication(context: A0PublicationContext): readonly s
   }
   if (!context.adrIndex.includes("0037-public-package-identity-and-publication.md")) errors.push("ADR 0037 is not indexed");
   if (context.decisionGates.includes("| DG-A0-01 |")) errors.push("public-package identity gate remains open after ADR 0037");
-  for (const gate of ["DG-A0-02"]) {
-    if (!context.decisionGates.includes(`| ${gate} |`)) errors.push(`unrelated decision gate disappeared: ${gate}`);
-  }
 
   const packageDocument = context.packageDocument;
   if (!isRecord(packageDocument)
