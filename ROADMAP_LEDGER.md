@@ -6,50 +6,45 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-04 — enhance link navigation under the accepted request and URL ownership contract
+V2-05 — qualify history, focus, selection, and explicit scroll-boundary behavior
 
 ## Exit criteria
 
-- [ ] Accept one exact link-eligibility, request, cancellation, commit, history,
-  title, focus, fallback, and rollback decision before interception begins.
-- [ ] Keep external, credentialed, targeted, downloaded, modifier-activated,
-  non-primary, and same-document-fragment links native before `preventDefault()`.
-- [ ] Refuse interception before request ownership when dirty controls,
-  disclosure/top-layer state, media, selection/caret, mounted client identity,
-  or relevant scroll/layout preservation is not yet proven safe.
-- [ ] Fetch and admit the private server-owned outcome with same-origin,
-  authorization, cache, size, cancellation, ordering, duplicate, stale, and
-  cross-user isolation controls.
-- [ ] Apply only an admitted document or typed redirect with correct URL,
-  history, title, and focus; retain native destination or current-truth recovery
-  without repeating a mutation.
-- [ ] Extend the packed canonical application with executable link success,
-  deliberate refusals, normalized machine output, causal flow, cancellation,
-  back/forward smoke, rollback, and stale-result recovery in three engines.
+- [ ] Accept one exact history traversal, focus, selection, reduced-motion,
+  document-scroll, and element-scroll decision before broadening ownership.
+- [ ] Prove push, replace, back, forward, interrupted traversal, and direct-load
+  equivalence in Chromium, Firefox, and WebKit.
+- [ ] Keep focus and selection native or refuse before interception wherever
+  accessible ownership cannot be preserved exactly.
+- [ ] Manage only explicitly accepted scroll boundaries and retain native
+  navigation for affected or unknown preceding layout.
+- [ ] Extend the packed canonical application with executable success,
+  deliberate refusal, normalized machine output, causal flow, rollback, and
+  stale-result recovery for every newly observable behavior.
 - [ ] Add exactly one pending Changeset with semantic version intent and pass
   all affected gates, full local CI, and remote review-thread triage.
 
 ## Active sub-slice
 
-V2-04 adds only safe enhanced navigation for ordinary eligible links. Native
-activation remains authoritative for every ineligible link and every browser-
-or user-owned state boundary that V2-04 cannot preserve before interception.
-It does not enhance forms, reconcile unsafe state, expose the private update
-schema, add an analyzer/editor product, or claim complete V2 usability. Release
-impact: additive prerelease feature, requiring exactly one pending minor
-Changeset.
+V2-05 qualifies the browser-owned navigation state around the V2-04 link path.
+It may broaden only history, focus, selection, motion, or scroll behavior that
+the three-engine corpus proves equivalent; every unknown boundary stays native.
+It does not enhance forms, add general structural reconciliation, expose the
+private update schema, add an analyzer/editor product, or claim complete V2
+usability. Release impact: additive prerelease behavior, requiring exactly one
+pending minor Changeset.
 
 ## In progress
 
-- Freeze the smallest request and interception boundary that can connect the
-  accepted private server outcome to an eligible same-origin link.
-- Prove refusal before native behavior is prevented, then add one complete
-  enhanced navigation flow without broadening preservation claims.
+- Freeze the exact history, focus, selection, motion, and scroll matrix before
+  changing the V2-04 conservative predicate.
+- Qualify the smallest safe ownership increase through the current packed
+  application in all three engines.
 
 ## Blockers
 
-- V2-05 remains blocked until V2-04's link eligibility, ordering, history,
-  focus, fallback, security, and rollback evidence is accepted.
+- V2-06 handoff remains blocked until V2-05's browser-state qualification and
+  rollback evidence is accepted.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -59,6 +54,12 @@ Changeset.
   compatibility decision.
 
 ## Completed slices
+
+- V2-04 — Merge commit `9d526b8` adds conservative same-origin link
+  interception, cancellable private requests, current-generation admission,
+  URL/title/history/focus application, native refusal and recovery, bounded
+  redacted flow evidence, and current-packed three-engine examples without
+  enhancing forms, exposing a schema, or claiming broad reconciliation.
 
 - V2-03 — Merge commit `583e046` adds private one-pass projection from native
   route/resource/action responses, exact request authority, construction-time
