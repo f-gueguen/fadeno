@@ -105,6 +105,23 @@ route registry. Private build output statically binds discovered route modules
 to the matched-route renderer and remains correlated with the generated route
 manifest.
 
+ADR 0046 accepts exactly one future `./browser` facade in the same logical
+package. The facade is browser-only and cannot depend on Node, server,
+compiler, analyzer, application source, or private deep imports; `.`, `./node`,
+and `./jsx-runtime` cannot reach it. A generated application browser module
+will statically import the facade, and the renderer may load that built module
+only through its framework-owned external module-script path under the current
+request's CSP nonce. Import resolution alone has no startup side effect.
+
+V2-01A demonstrates this proposed topology with a disposable packed package
+and clean consumer while requiring the real `@fadeno/framework` manifest to
+retain only `.`, `./node`, and `./jsx-runtime`. V2-02 owns the actual
+`./browser` export, its minimum explicit bootstrap symbol, the real generated
+consumer, and release intent. Browser/server bytes share one package version
+and application-build identity; the private update envelope retains its
+separate exact compatibility version. Native behavior remains authoritative
+when loading or compatibility is refused.
+
 The same decision extends `ListenNodeHttpOptions` with a request-scoped
 `failureObserver` and exports its structured report type. Pre-publication
 failure pages and post-publication termination share incident correlation. The

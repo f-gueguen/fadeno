@@ -70,6 +70,13 @@ and disposable lifecycle evidence. Stock TypeScript remains the authority for
 ordinary TypeScript and JSX language behavior. The analyzer session, facets,
 and snapshots are not public exports or supported protocols.
 
+ADR 0046 selects one future `./browser` facade inside the same logical package.
+It is an application-build input, not a second package or neutral-root export.
+The generated application browser module may depend inward on that facade;
+the neutral root, Node adapter, server, compiler, and analyzer graphs cannot
+depend outward on browser code. V2-01A proves only this topology with a
+disposable packed consumer. The real export and runtime remain V2-02 work.
+
 ## Dependency direction
 
 The initial package has a runtime-neutral `.` facade and a Node-specific
@@ -78,6 +85,12 @@ the neutral root cannot reach Node, compiler, or browser-only graphs. Private
 zones may be reorganized without becoming independent public packages.
 Adapters depend on the server contract. Examples depend only on public
 entrypoints.
+
+The accepted browser direction is a generated application browser module into
+the explicit `./browser` facade. That facade cannot reach Node, server,
+compiler, analyzer, or application-source modules, and no other facade may
+reach it. Browser and server artifacts retain one package version and one
+application build identity.
 
 Private analyzer modules depend inward on shared workspace ownership,
 configuration, route generation, diagnostics, and later compiler semantics.

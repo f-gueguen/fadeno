@@ -129,6 +129,8 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     "optional browser delivery path",
     "same server-owned application outcome",
     "ADR 0045 resolves DG-V2-01",
+    "ADR 0046",
+    "future `./browser` facade",
     "Native links and forms remain the correctness baseline",
     "Islands remain V3",
     "Every user-observable slice extends the canonical application",
@@ -145,8 +147,9 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   }
   if (!context.ledger.includes("V2-00 — decompose browser enhancement")
     || !context.ledger.includes("A0-10 — Merge commit `60d55c7`")
-    || !context.ledger.includes("V2-01 — resolve the experimental update protocol")
-    || !context.ledger.includes("DG-V2-01 is resolved by ADR 0045")) {
+    || !context.ledger.includes("V2-01A — decide the optional browser-entrypoint package boundary")
+    || !context.ledger.includes("V2-01 — Merge commit `d9718c0`")
+    || !context.ledger.includes("resolves DG-V2-01")) {
     errors.push("V2 roadmap ledger state drifted");
   }
 
