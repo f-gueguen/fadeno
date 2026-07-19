@@ -86,3 +86,42 @@ usable when projection rolls back:
 Run `pnpm check:v2-server-update` for direct boundary tests plus the clean
 packed application. The projector, its record, and the envelope remain private;
 V2-04 owns the first enhanced link navigation.
+
+## Conservative enhanced links
+
+V2-04 connects the explicit browser runtime to the existing native GET path.
+The application and browser entry still use only public package entrypoints:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/application.ts","language":"ts"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/browser-entry.ts","language":"ts"} -->
+
+For a simple same-origin link, the same native route response is projected
+once, admitted against the current document and operation, and applied with its
+title, URL, history entry, and focus:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/success.json","language":"json"} -->
+
+Fadeno deliberately keeps native behavior when it cannot yet preserve state.
+There is no source correction to apply: the safe correction is to leave the
+ordinary link intact and let the browser navigate it.
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/refusal-human.txt","language":"text"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/refusal.json","language":"json"} -->
+
+The private redacted flow distinguishes browser ownership from server
+authorization and lists work that this slice intentionally skips:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/flow.json","language":"json"} -->
+
+Superseded work is cancelled, late output cannot overwrite the latest page,
+and an outcome that cannot be projected returns to native GET navigation:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/recovery.json","language":"json"} -->
+
+Run `pnpm check:v2-link-navigation` for the clean packed application and the
+Chromium, Firefox, and WebKit success, refusal, cancellation, hostile-input,
+authorization-isolation, redirect, fallback, history, flow, and recovery
+corpus. Forms and general state-preserving reconciliation remain native and
+deferred to later V2 slices. The transport and flow shapes remain private.

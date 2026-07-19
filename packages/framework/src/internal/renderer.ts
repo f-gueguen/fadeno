@@ -326,9 +326,10 @@ function assertDocument(node: RenderChild): void {
   }
 }
 
-function contentSecurityPolicy(nonce: string | undefined): string {
+function contentSecurityPolicy(nonce: string | undefined, updateTransport: boolean): string {
   const script = nonce === undefined ? "script-src 'none'; " : `script-src 'nonce-${nonce}'; `;
-  return `default-src 'none'; ${script}style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`;
+  const connect = updateTransport ? "connect-src 'self'; " : "";
+  return `default-src 'none'; ${script}${connect}style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`;
 }
 
 export function renderDocument(node: RenderChild, options: RenderDocumentOptions): Response {
@@ -408,7 +409,7 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
     executableMarkup: options.frameworkExecutable === true || frameworkModule !== undefined,
     headers: (nonce) => ({
       "content-type": "text/html; charset=utf-8",
-      "content-security-policy": contentSecurityPolicy(nonce),
+      "content-security-policy": contentSecurityPolicy(nonce, frameworkModule !== undefined),
       "x-content-type-options": "nosniff",
     }),
   });

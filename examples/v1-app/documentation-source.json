@@ -20,7 +20,8 @@
     "check:v1-actions",
     "check:v1-action-runtime",
     "check:v2-browser-runtime",
-    "check:v2-server-update"
+    "check:v2-server-update",
+    "check:v2-link-navigation"
   ],
   "evidence": {
     "success": [
@@ -51,7 +52,8 @@
       "scenarios/deployment/expected/success.txt",
       "scenarios/deployment/expected/artifact.json",
       "scenarios/browser-runtime/expected/success.json",
-      "scenarios/server-update/expected/success.json"
+      "scenarios/server-update/expected/success.json",
+      "scenarios/link-navigation/expected/success.json"
     ],
     "failure": [
       "expected/action-failure.txt",
@@ -76,7 +78,9 @@
       "scenarios/browser-runtime/expected/refusal.json",
       "scenarios/server-update/expected/expected-failure.json",
       "scenarios/server-update/expected/refusal-human.txt",
-      "scenarios/server-update/expected/refusal.json"
+      "scenarios/server-update/expected/refusal.json",
+      "scenarios/link-navigation/expected/refusal-human.txt",
+      "scenarios/link-navigation/expected/refusal.json"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -105,7 +109,8 @@
       "scenarios/route-role-collision/expected/flow.json",
       "scenarios/deployment/expected/flow.json",
       "scenarios/browser-runtime/expected/flow.json",
-      "scenarios/server-update/expected/flow.json"
+      "scenarios/server-update/expected/flow.json",
+      "scenarios/link-navigation/expected/flow.json"
     ],
     "recovery": [
       "expected/resource-recovery.txt",
@@ -120,7 +125,8 @@
       "scenarios/route-role-collision/expected/recovery.json",
       "scenarios/deployment/expected/recovery.json",
       "scenarios/browser-runtime/expected/recovery.json",
-      "scenarios/server-update/expected/recovery.json"
+      "scenarios/server-update/expected/recovery.json",
+      "scenarios/link-navigation/expected/recovery.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -134,7 +140,8 @@
       "scenarios/route-role-collision/expected/recovery.json",
       "scenarios/deployment/expected/recovery.json",
       "scenarios/browser-runtime/expected/recovery.json",
-      "scenarios/server-update/expected/recovery.json"
+      "scenarios/server-update/expected/recovery.json",
+      "scenarios/link-navigation/expected/recovery.json"
     ]
   }
 }

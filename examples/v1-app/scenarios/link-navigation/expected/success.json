@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.link-navigation-success",
+  "version": 1,
+  "heading": "Next",
+  "title": "Next project",
+  "path": "/next",
+  "documentLoads": 1,
+  "focus": "H1"
+}

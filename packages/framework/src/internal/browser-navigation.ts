@@ -25,6 +25,42 @@ export interface PrivateBrowserNavigation {
   close(): void;
 }
 
+export type PrivateLinkNavigationFlow = Readonly<{
+  schema: "fadeno.private.link-navigation-flow";
+  version: 1;
+  status: "applied" | "cancelled" | "refused";
+  code: string;
+  redaction: "applied";
+  decisions: readonly string[];
+  ownership: Readonly<{ browser: readonly string[]; server: readonly string[] }>;
+  skipped: readonly string[];
+  outcome: "enhanced-document" | "native-navigation" | "none";
+}>;
+
+const flows: PrivateLinkNavigationFlow[] = [];
+
+function recordFlow(input: Omit<PrivateLinkNavigationFlow, "schema" | "version" | "redaction">): void {
+  flows.push(Object.freeze({
+    schema: "fadeno.private.link-navigation-flow",
+    version: 1,
+    redaction: "applied",
+    ...input,
+  }));
+  if (flows.length > 64) flows.shift();
+}
+
+export function readPrivateLinkNavigationFlows(): readonly PrivateLinkNavigationFlow[] {
+  return Object.freeze(flows.map((flow) => Object.freeze({
+    ...flow,
+    decisions: Object.freeze([...flow.decisions]),
+    ownership: Object.freeze({
+      browser: Object.freeze([...flow.ownership.browser]),
+      server: Object.freeze([...flow.ownership.server]),
+    }),
+    skipped: Object.freeze([...flow.skipped]),
+  })));
+}
+
 function metadata(owner: Document): Metadata | undefined {
   const generation = owner.querySelectorAll(`meta[name="${generationMeta}"]`);
   const epoch = owner.querySelectorAll(`meta[name="${epochMeta}"]`);
@@ -38,7 +74,7 @@ function metadata(owner: Document): Metadata | undefined {
   return Object.freeze({ generation: generationValue, epoch: epochValue });
 }
 
-function safeDestination(anchor: HTMLAnchorElement): URL | undefined {
+export function privateSafeLinkDestination(anchor: HTMLAnchorElement): URL | undefined {
   if (!anchor.hasAttribute("href")
     || anchor.hasAttribute("download")
     || !["", "_self"].includes(anchor.getAttribute("target")?.toLowerCase() ?? "")
@@ -72,7 +108,7 @@ function dirtyControl(control: Element): boolean {
   return false;
 }
 
-function preservationSafe(initiator?: HTMLAnchorElement): boolean {
+export function privateLinkPreservationSafe(initiator?: HTMLAnchorElement): boolean {
   if (scrollX !== 0 || scrollY !== 0) return false;
   if ([...document.querySelectorAll("input, textarea, select")].some(dirtyControl)) return false;
   if (document.querySelector("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])") !== null) return false;
@@ -80,7 +116,10 @@ function preservationSafe(initiator?: HTMLAnchorElement): boolean {
   const selection = document.getSelection();
   if (selection && !selection.isCollapsed) return false;
   const active = document.activeElement;
-  if (active && active !== document.body && active !== document.documentElement && active !== initiator) return false;
+  const runtimeFocus = active instanceof HTMLElement
+    && active === (document.querySelector("h1") ?? document.querySelector("main"))
+    && active.getAttribute("data-fadeno-navigation-focus") === "";
+  if (active && active !== document.body && active !== document.documentElement && active !== initiator && !runtimeFocus) return false;
   for (const element of document.querySelectorAll("*")) {
     if (element.scrollTop !== 0 || element.scrollLeft !== 0) return false;
   }
@@ -132,11 +171,10 @@ function replaceAttributes(target: Element, source: Element): void {
 }
 
 function focusNewDocument(): void {
-  const target = document.querySelector<HTMLElement>("h1, main") ?? document.body;
-  const authored = target.hasAttribute("tabindex");
-  if (!authored) target.setAttribute("tabindex", "-1");
+  const target = document.querySelector<HTMLElement>("h1") ?? document.querySelector<HTMLElement>("main") ?? document.body;
+  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  target.setAttribute("data-fadeno-navigation-focus", "");
   target.focus({ preventScroll: true });
-  if (!authored) target.removeAttribute("tabindex");
 }
 
 function applyDocument(next: Document, url: string, replace: boolean): void {
@@ -178,7 +216,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   };
 
   const navigate = async (destination: URL, replace: boolean, initiator?: HTMLAnchorElement): Promise<void> => {
-    if (closed || !currentMetadata || !preservationSafe(initiator)) {
+    if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator)) {
       fallback(destination, replace);
       return;
     }
@@ -225,7 +263,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (active !== operation || operation.cancellation.signal.aborted || admission.decision.status !== "accepted" || !admission.outcome || !admission.resultId) {
         throw new TypeError(admission.decision.code);
       }
-      if (!preservationSafe(initiator)) throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      if (!privateLinkPreservationSafe(initiator)) throw new TypeError("FADENO_UPDATE_PRESERVATION");
       if (admission.outcome.kind === "redirect") {
         const redirect = new URL(admission.outcome.location, location.origin);
         fallback(redirect, replace);
@@ -242,8 +280,49 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (consumedResultIds.length > 256) consumedResultIds.shift();
       currentMetadata = metadata(document);
       if (!currentMetadata) throw new TypeError("FADENO_UPDATE_DOCUMENT_METADATA");
+      recordFlow({
+        status: "applied",
+        code: admission.decision.code,
+        decisions: Object.freeze([
+          "eligible same-origin GET acquired browser operation ownership",
+          "exact native server response was projected once",
+          "current generation, epoch, operation, URL, cache, and result were admitted",
+          "document, title, URL, history, and focus committed",
+        ]),
+        ownership: Object.freeze({
+          browser: Object.freeze(["activation", "operation", "history", "focus"]),
+          server: Object.freeze(["authorization", "route", "resources", "rendered outcome"]),
+        }),
+        skipped: Object.freeze(["form interception", "general state reconciliation", "transported script execution"]),
+        outcome: "enhanced-document",
+      });
     } catch {
-      if (active === operation && !operation.cancellation.signal.aborted) fallback(destination, replace);
+      if (active === operation && !operation.cancellation.signal.aborted) {
+        recordFlow({
+          status: "refused",
+          code: "FADENO_UPDATE_NATIVE_RECOVERY",
+          decisions: Object.freeze(["enhanced GET could not commit", "native destination retained"]),
+          ownership: Object.freeze({
+            browser: Object.freeze(["activation", "operation"]),
+            server: Object.freeze(["authorization", "rendered outcome"]),
+          }),
+          skipped: Object.freeze(["document commit"]),
+          outcome: "native-navigation",
+        });
+        fallback(destination, replace);
+      } else if (operation.cancellation.signal.aborted) {
+        recordFlow({
+          status: "cancelled",
+          code: "FADENO_UPDATE_CANCELLED",
+          decisions: Object.freeze(["older operation was superseded", "obsolete result was not published"]),
+          ownership: Object.freeze({
+            browser: Object.freeze(["operation", "cancellation"]),
+            server: Object.freeze(["request cancellation"]),
+          }),
+          skipped: Object.freeze(["document commit", "history commit", "focus commit"]),
+          outcome: "none",
+        });
+      }
     } finally {
       if (active === operation) active = undefined;
     }
@@ -254,8 +333,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (!(target instanceof HTMLAnchorElement)) return;
-    const destination = safeDestination(target);
-    if (!destination || !currentMetadata || !preservationSafe(target)) return;
+    const destination = privateSafeLinkDestination(target);
+    if (!destination || !currentMetadata || !privateLinkPreservationSafe(target)) return;
     event.preventDefault();
     void navigate(destination, false, target);
   };

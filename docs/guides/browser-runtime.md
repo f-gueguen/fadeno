@@ -282,3 +282,185 @@ usable when projection rolls back:
 Run `pnpm check:v2-server-update` for direct boundary tests plus the clean
 packed application. The projector, its record, and the envelope remain private;
 V2-04 owns the first enhanced link navigation.
+
+## Conservative enhanced links
+
+V2-04 connects the explicit browser runtime to the existing native GET path.
+The application and browser entry still use only public package entrypoints:
+
+```ts
+import { redirect, renderRoute, type Handler, type RenderChild } from "@fadeno/framework";
+import { jsx, jsxs } from "@fadeno/framework/jsx-runtime";
+
+export const applicationGeneration = "v2-link-navigation-example-v1";
+export const browserModule = "/_fadeno/browser-entry.js";
+
+const links = (): RenderChild => jsxs("nav", { "aria-label": "Example navigation", children: [
+  jsx("a", { id: "home-link", href: "/", children: "Home" }),
+  " ",
+  jsx("a", { id: "next-link", href: "/next", children: "Next" }),
+  " ",
+  jsx("a", { id: "slow-link", href: "/slow", children: "Slow" }),
+  " ",
+  jsx("a", { id: "redirect-link", href: "/redirect", children: "Redirect" }),
+  " ",
+  jsx("a", { id: "recovery-link", href: "/unprojectable", children: "Recovery" }),
+  " ",
+  jsx("a", { id: "target-link", href: "/target", target: "_blank", children: "New tab" }),
+  " ",
+  jsx("a", { id: "download-link", href: "/download", download: "example.txt", children: "Download" }),
+  " ",
+  jsx("a", { id: "fragment-link", href: "#details", children: "Details" }),
+] });
+
+function document(title: string, heading: string, content: RenderChild = null): RenderChild {
+  return jsxs("html", { lang: "en", children: [
+    jsx("head", { children: jsx("title", { children: title }) }),
+    jsx("body", { children: jsxs("main", { children: [
+      jsx("h1", { children: heading }),
+      links(),
+      content,
+      jsx("p", { id: "details", children: "The native fragment target remains available." }),
+    ] }) }),
+  ] });
+}
+
+function render(request: Request, routeId: string, title: string, heading: string, content?: RenderChild): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId,
+    generation: applicationGeneration,
+    browserModule,
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => document(title, heading, content),
+  });
+}
+
+function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, milliseconds);
+    signal.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }, { once: true });
+  });
+}
+
+export const handler: Handler = async (request) => {
+  const url = new URL(request.url);
+  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home");
+  if (url.pathname === "/next") return render(request, "next", "Next project", "Next");
+  if (url.pathname === "/owner") {
+    return render(request, "owner", "Owned project", "Owner", jsx("p", { id: "owner", children: request.headers.get("cookie") ?? "anonymous" }));
+  }
+  if (url.pathname === "/slow") {
+    await wait(500, request.signal);
+    return render(request, "slow", "Slow project", "Slow");
+  }
+  if (url.pathname === "/redirect") {
+    return renderRoute({
+      request,
+      routeId: "redirect",
+      generation: applicationGeneration,
+      browserModule,
+      parameters: Object.freeze({}),
+      layouts: [],
+      page: () => redirect("/next", 303),
+    });
+  }
+  if (url.pathname === "/unprojectable") {
+    return new Response("<!doctype html><html><head><title>Native recovery</title></head><body><h1>Native recovery</h1></body></html>", {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+  if (url.pathname === "/target") return render(request, "target", "New browsing context", "New browsing context");
+  if (url.pathname === "/download") return new Response("downloaded example", { headers: { "content-type": "text/plain" } });
+  return new Response("not found", { status: 404 });
+};
+```
+
+```ts
+import { startBrowserEnhancement } from "@fadeno/framework/browser";
+
+startBrowserEnhancement();
+```
+
+For a simple same-origin link, the same native route response is projected
+once, admitted against the current document and operation, and applied with its
+title, URL, history entry, and focus:
+
+```json
+{
+  "schema": "fadeno.example.link-navigation-success",
+  "version": 1,
+  "heading": "Next",
+  "title": "Next project",
+  "path": "/next",
+  "documentLoads": 1,
+  "focus": "H1"
+}
+```
+
+Fadeno deliberately keeps native behavior when it cannot yet preserve state.
+There is no source correction to apply: the safe correction is to leave the
+ordinary link intact and let the browser navigate it.
+
+```text
+Fadeno kept the link native because the page contained browser-owned state that this update could not yet preserve.
+```
+
+```json
+{
+  "schema": "fadeno.example.link-navigation-refusal",
+  "version": 1,
+  "code": "FADENO_LINK_PRESERVATION_NATIVE",
+  "cause": "dirty control remained browser-owned",
+  "outcome": "native-navigation"
+}
+```
+
+The private redacted flow distinguishes browser ownership from server
+authorization and lists work that this slice intentionally skips:
+
+```json
+{
+  "schema": "fadeno.private.link-navigation-flow",
+  "version": 1,
+  "status": "applied",
+  "code": "FADENO_UPDATE_DOCUMENT",
+  "redaction": "applied",
+  "decisions": [
+    "eligible same-origin GET acquired browser operation ownership",
+    "exact native server response was projected once",
+    "current generation, epoch, operation, URL, cache, and result were admitted",
+    "document, title, URL, history, and focus committed"
+  ],
+  "ownership": {
+    "browser": ["activation", "operation", "history", "focus"],
+    "server": ["authorization", "route", "resources", "rendered outcome"]
+  },
+  "skipped": ["form interception", "general state reconciliation", "transported script execution"],
+  "outcome": "enhanced-document"
+}
+```
+
+Superseded work is cancelled, late output cannot overwrite the latest page,
+and an outcome that cannot be projected returns to native GET navigation:
+
+```json
+{
+  "schema": "fadeno.example.link-navigation-recovery",
+  "version": 1,
+  "cancelledHeadingAbsent": true,
+  "latestHeading": "Next",
+  "unprojectableOutcome": "native-navigation",
+  "staleUpdateApplied": false
+}
+```
+
+Run `pnpm check:v2-link-navigation` for the clean packed application and the
+Chromium, Firefox, and WebKit success, refusal, cancellation, hostile-input,
+authorization-isolation, redirect, fallback, history, flow, and recovery
+corpus. Forms and general state-preserving reconciliation remain native and
+deferred to later V2 slices. The transport and flow shapes remain private.
