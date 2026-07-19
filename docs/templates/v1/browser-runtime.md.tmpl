@@ -125,3 +125,33 @@ Chromium, Firefox, and WebKit success, refusal, cancellation, hostile-input,
 authorization-isolation, redirect, fallback, history, flow, and recovery
 corpus. Forms and general state-preserving reconciliation remain native and
 deferred to later V2 slices. The transport and flow shapes remain private.
+
+## History, focus, and scroll qualification
+
+V2-05 keeps the same public application and browser entry while making the
+browser-owned state around an enhanced document change explicit. Direct load
+does not move focus. An enhanced destination focuses its primary heading or
+main landmark without scrolling it into view, commits at the top, and allocates
+no animation under either motion preference:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-focus.json","language":"json"} -->
+
+A link may leave a document-scrolled origin, but returning to a nonzero-scroll
+or element-scroll entry is not treated as safe numeric restoration. The runtime
+returns that selected URL to browser-native recovery:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-refusal-human.txt","language":"text"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-refusal.json","language":"json"} -->
+
+Malformed and application-owned history state is never interpreted as Fadeno
+ownership. The selected URL reloads, so stale markup from the previous entry
+disappears:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-recovery.json","language":"json"} -->
+
+The same executed flow record above now names scroll ownership and explicitly
+records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
+for all 48 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
+and a public history or update schema remain outside this slice.

@@ -313,6 +313,11 @@ const links = (): RenderChild => jsxs("nav", { "aria-label": "Example navigation
   jsx("a", { id: "fragment-link", href: "#details", children: "Details" }),
 ] });
 
+const longContent = (): RenderChild => jsxs("section", { id: "history-content", children: [
+  ...Array.from({ length: 80 }, (_, index) => jsx("p", { children: `History qualification row ${index + 1}.` })),
+  jsx("a", { id: "bottom-next-link", href: "/next", children: "Next from a scrolled document" }),
+] });
+
 function document(title: string, heading: string, content: RenderChild = null): RenderChild {
   return jsxs("html", { lang: "en", children: [
     jsx("head", { children: jsx("title", { children: title }) }),
@@ -349,7 +354,7 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
 
 export const handler: Handler = async (request) => {
   const url = new URL(request.url);
-  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home");
+  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home", longContent());
   if (url.pathname === "/next") return render(request, "next", "Next project", "Next");
   if (url.pathname === "/owner") {
     return render(request, "owner", "Owned project", "Owner", jsx("p", { id: "owner", children: request.headers.get("cookie") ?? "anonymous" }));
@@ -434,13 +439,14 @@ authorization and lists work that this slice intentionally skips:
     "eligible same-origin GET acquired browser operation ownership",
     "exact native server response was projected once",
     "current generation, epoch, operation, URL, cache, and result were admitted",
-    "document, title, URL, history, and focus committed"
+    "document, title, URL, history, and focus committed",
+    "destination scroll committed at the native top boundary without transition work"
   ],
   "ownership": {
-    "browser": ["activation", "operation", "history", "focus"],
+    "browser": ["activation", "operation", "history", "focus", "scroll"],
     "server": ["authorization", "route", "resources", "rendered outcome"]
   },
-  "skipped": ["form interception", "general state reconciliation", "transported script execution"],
+  "skipped": ["form interception", "general state reconciliation", "transported script execution", "animation"],
   "outcome": "enhanced-document"
 }
 ```
@@ -464,3 +470,66 @@ Chromium, Firefox, and WebKit success, refusal, cancellation, hostile-input,
 authorization-isolation, redirect, fallback, history, flow, and recovery
 corpus. Forms and general state-preserving reconciliation remain native and
 deferred to later V2 slices. The transport and flow shapes remain private.
+
+## History, focus, and scroll qualification
+
+V2-05 keeps the same public application and browser entry while making the
+browser-owned state around an enhanced document change explicit. Direct load
+does not move focus. An enhanced destination focuses its primary heading or
+main landmark without scrolling it into view, commits at the top, and allocates
+no animation under either motion preference:
+
+```json
+{
+  "schema": "fadeno.example.history-focus-success",
+  "version": 1,
+  "path": "/next",
+  "heading": "Next",
+  "focus": "H1",
+  "scrollX": 0,
+  "scrollY": 0,
+  "reducedMotion": true,
+  "animations": 0,
+  "transitions": 0
+}
+```
+
+A link may leave a document-scrolled origin, but returning to a nonzero-scroll
+or element-scroll entry is not treated as safe numeric restoration. The runtime
+returns that selected URL to browser-native recovery:
+
+```text
+FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhanced restoration; reload the current URL.
+```
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-refusal",
+  "version": 1,
+  "path": "/",
+  "heading": "Home",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+Malformed and application-owned history state is never interpreted as Fadeno
+ownership. The selected URL reloads, so stale markup from the previous entry
+disappears:
+
+```json
+{
+  "schema": "fadeno.example.history-state-recovery",
+  "version": 1,
+  "path": "/next",
+  "heading": "Next",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+The same executed flow record above now names scroll ownership and explicitly
+records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
+for all 48 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
+and a public history or update schema remain outside this slice.

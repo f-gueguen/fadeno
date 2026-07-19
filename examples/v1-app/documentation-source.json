@@ -21,7 +21,8 @@
     "check:v1-action-runtime",
     "check:v2-browser-runtime",
     "check:v2-server-update",
-    "check:v2-link-navigation"
+    "check:v2-link-navigation",
+    "check:v2-history-focus-scroll"
   ],
   "evidence": {
     "success": [
@@ -53,7 +54,8 @@
       "scenarios/deployment/expected/artifact.json",
       "scenarios/browser-runtime/expected/success.json",
       "scenarios/server-update/expected/success.json",
-      "scenarios/link-navigation/expected/success.json"
+      "scenarios/link-navigation/expected/success.json",
+      "scenarios/link-navigation/expected/history-focus.json"
     ],
     "failure": [
       "expected/action-failure.txt",
@@ -80,7 +82,9 @@
       "scenarios/server-update/expected/refusal-human.txt",
       "scenarios/server-update/expected/refusal.json",
       "scenarios/link-navigation/expected/refusal-human.txt",
-      "scenarios/link-navigation/expected/refusal.json"
+      "scenarios/link-navigation/expected/refusal.json",
+      "scenarios/link-navigation/expected/history-refusal-human.txt",
+      "scenarios/link-navigation/expected/history-scroll-refusal.json"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -126,7 +130,8 @@
       "scenarios/deployment/expected/recovery.json",
       "scenarios/browser-runtime/expected/recovery.json",
       "scenarios/server-update/expected/recovery.json",
-      "scenarios/link-navigation/expected/recovery.json"
+      "scenarios/link-navigation/expected/recovery.json",
+      "scenarios/link-navigation/expected/history-recovery.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -141,7 +146,8 @@
       "scenarios/deployment/expected/recovery.json",
       "scenarios/browser-runtime/expected/recovery.json",
       "scenarios/server-update/expected/recovery.json",
-      "scenarios/link-navigation/expected/recovery.json"
+      "scenarios/link-navigation/expected/recovery.json",
+      "scenarios/link-navigation/expected/history-recovery.json"
     ]
   }
 }
