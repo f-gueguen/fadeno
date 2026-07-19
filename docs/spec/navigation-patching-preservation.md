@@ -124,6 +124,18 @@ metrics only; transported markup, identity, credentials, and failure prose are
 not returned. The exact encoder/decoder and envelope remain private package
 internals under ADR 0047.
 
+ADR 0048 adds the private server projection that produces those bytes. It
+consumes the one native `Response` already created by the route, resource,
+action, session, and renderer authorities and never executes application
+behavior again. An opaque request-bound authorization owner and exact operation
+authority must match the construction evidence attached to the response.
+Document, expected-error, redirect, and recovery outcomes retain a separate
+redacted causal record; markup and authorization identity remain absent from
+that record. Missing ownership, cross-user or cross-generation input,
+incomplete output, unsupported status or media type, cancellation, and limit
+exhaustion produce no envelope. Request transport and interception remain
+unimplemented until V2-04 and V2-06.
+
 ## Narrowed H1 result and V2 conformance
 
 K0-04 established cross-engine structural viability for focus/selection/caret,
