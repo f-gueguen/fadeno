@@ -86,6 +86,14 @@ browser closure. The bounded update encoder and byte decoder remain private;
 the public facade exposes no protocol or analyzer schema. This initial runtime
 does not intercept links or forms and owns no application state.
 
+ADR 0048 adds one private server projection behind the existing route,
+resource, action, session, and renderer authorities. A trusted operation is
+bound to the exact request object; construction-time evidence follows the
+resulting native response. Projection consumes that response once and emits
+either the closed private envelope or a redacted refusal. It never calls
+application behavior again, adds no public export, and does not yet transport,
+intercept, or apply an update.
+
 ## Dependency direction
 
 The initial package has a runtime-neutral `.` facade and a Node-specific

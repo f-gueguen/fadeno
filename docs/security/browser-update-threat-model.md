@@ -1,8 +1,9 @@
 # Browser runtime and private update threat model
 
-This model covers the V2-02 loading and decode boundary selected by ADR 0047.
-It does not claim navigation, form, reconciliation, or authorization outcome
-projection; those remain later slices.
+This model covers the V2-02 loading and decode boundary selected by ADR 0047
+and the V2-03 server projection selected by ADR 0048. It does not claim link or
+form interception, reconciliation, or browser-side application of an outcome;
+those remain later slices.
 
 ## Assets and owners
 
@@ -15,6 +16,8 @@ projection; those remain later slices.
   application generation, and consumed result identities.
 - Application authorization remains on the server. Protocol validity never
   implies authorization.
+- A private request-bound opaque authority owns projection. Its object identity,
+  not a transported string, binds the authorization and representation context.
 
 ## Boundary controls
 
@@ -28,7 +31,11 @@ projection; those remain later slices.
 | Protocol downgrade or extension smuggling | Exact protocol/version and closed keys; older/newer versions, selectors, commands, and unknown fields refuse | Versioned corpus and mutation tests |
 | Cached private result crosses a request | Fetch policy, response `no-store`, and envelope `no-store` are all required; result identities are single use | Protocol corpus |
 | Cross-user or stale result applies | Current generation, document epoch, operation ID/kind/sequence/URL, origin, and result identity must all match independent context | Cross-generation, cross-origin, stale, and duplicate cases |
-| Decode mistaken for authorization | Decoder returns only protocol admission; it has no authorization callback or application mutation authority | Boundary types and V2-03 deferral |
+| Decode mistaken for authorization | Decoder returns only protocol admission; it has no authorization callback or application mutation authority | Boundary types and projector isolation |
+| One user or representation projects another response | The exact opaque request authority must match construction evidence attached by routing/rendering/action code; it is never serialized or logged | V2-03 cross-user and copied-value refusals |
+| Projection recreates application policy | The projector consumes the existing native response once and never calls routes, resources, actions, authorization, layouts, or rendering again | Invocation counters and native/projection equivalence |
+| Provenance is reconstructed after cleanup | Route outcome is attached during construction; resource and action evidence is snapshotted before request cleanup | Route/resource/action causal fixtures and round trip |
+| Server evidence leaks protected data | The transported envelope remains closed; the separate record retains only stable codes, ownership, causes, skipped work, and redaction state | Secret-canary record and logging tests |
 | Hostile input leaks through logging | Decision and metric output contain stable codes/counts only and never echo transported markup, identity, credentials, or prose | Secret-canary and cross-user redaction cases |
 | Cancellation publishes obsolete work | Aborted work returns a stable refusal and does not expose a decoded envelope | Cancellation test |
 | Failure repeats a mutation | Every decision records `mutationResubmission: "never"`; uncertain committed work reloads current server truth | Recovery corpus |
@@ -43,8 +50,6 @@ forms still navigate.
 
 ## Residual risks
 
-- V2-03 must prove that server outcome projection cannot cross authorization
-  or representation boundaries.
 - V2-04 and V2-06 must prove interception eligibility before preventing native
   behavior and must retain non-repeating mutation recovery.
 - V2-05 through V2-09 must qualify actual reconciliation and preservation.

@@ -58,6 +58,12 @@ before any later document mutation. Decoder results contain stable codes and
 metrics rather than transported values. The companion
 [browser update threat model](browser-update-threat-model.md) records native
 fallback, cross-user isolation, safe logging, rollback, and later-slice risks.
+ADR 0048 binds projection to the exact request-owned opaque authority and to
+route/resource/action evidence captured during native construction. Copied,
+cross-user, stale, unowned, malformed, oversized, cancelled, or unauthorized
+work publishes no private envelope. Projection records retain stable codes and
+causes but exclude markup, proofs, credentials, sessions, submitted values, and
+the opaque authorization owner.
 
 ADR 0041 carries those controls into the first deployment boundary. The
 immutable release contains no environment file or secret value, accepts only

@@ -103,3 +103,182 @@ three-engine cases. Run `pnpm check:v2-patch-protocol` for exact envelope,
 malformed input, raw byte, structural depth/count, duration, cancellation,
 cross-generation isolation, and redaction evidence. The update protocol remains
 private, and no analyzer/editor schema is added.
+
+## Server-owned outcome projection
+
+V2-03 can turn the complete native response already produced by routing,
+resources, actions, sessions, and rendering into the private update envelope.
+It does not run any of that application work a second time. This remains server
+infrastructure: no link or form is intercepted and no browser document is
+changed yet.
+
+The canonical scenario is ordinary application code using only public package
+entrypoints:
+
+```ts
+import {
+  actionError,
+  defineAction,
+  defineResource,
+  renderRoute,
+  textField,
+  type Handler,
+} from "@fadeno/framework";
+import { jsx, jsxs } from "@fadeno/framework/jsx-runtime";
+
+let projectTitle = "Alpha";
+export const executionCounts = { pages: 0, resources: 0, actions: 0 };
+
+const project = defineResource({
+  read: () => {
+    executionCounts.resources += 1;
+    return Object.freeze({ title: projectTitle });
+  },
+});
+
+const renameProject = defineAction({
+  fields: { title: textField({ maximumBytes: 64 }) },
+  authorize: ({ request }) => request.headers.get("authorization") === "Bearer owner",
+  run: ({ input }) => {
+    executionCounts.actions += 1;
+    if (input.title === null || input.title.trim() === "") {
+      throw actionError({
+        code: "PROJECT_TITLE_REQUIRED",
+        fieldErrors: { title: "Enter a project title." },
+        formErrors: ["The project was not renamed."],
+      });
+    }
+    projectTitle = input.title;
+  },
+});
+
+export const handler: Handler = (request) => renderRoute({
+  request,
+  routeId: "route:projects:index",
+  generation: "server-update-example-v1",
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: async (context) => {
+    executionCounts.pages += 1;
+    const current = await context.read(project, Object.freeze({ project: "alpha" }));
+    return jsxs("html", { children: [
+      jsx("head", { children: jsx("title", { children: "Project settings" }) }),
+      jsx("body", { children: jsxs("main", { children: [
+        jsx("h1", { children: current.title }),
+        jsx("form", { action: renameProject, children: [
+          jsx("label", { for: "project-title", children: "Project title" }),
+          jsx("input", { id: "project-title", name: renameProject.fields.title }),
+          jsx("button", { type: "submit", children: "Rename" }),
+        ] }),
+      ] }) }),
+    ] });
+  },
+});
+```
+
+The packed gate compares the native response with the projected document and
+records the application invocation counts:
+
+```json
+{
+  "schema": "fadeno.example.server-update-success",
+  "version": 1,
+  "nativeStatus": 200,
+  "projectedOutcome": "document",
+  "url": "/projects",
+  "title": "Project settings",
+  "rootIdentity": "fadeno-document-root",
+  "nativeAndProjectedHtmlEqual": true,
+  "executions": {
+    "pages": 1,
+    "resources": 1,
+    "actions": 0
+  }
+}
+```
+
+An expected action failure retains its accessible server-rendered messages and
+stable action code:
+
+```json
+{
+  "schema": "fadeno.example.server-update-expected-failure",
+  "version": 1,
+  "nativeStatus": 200,
+  "humanMessagePresent": true,
+  "projectedOutcome": "expected-error",
+  "code": "PROJECT_TITLE_REQUIRED",
+  "actionStatus": "expected-failure",
+  "executionDelta": {
+    "pages": 1,
+    "resources": 1,
+    "actions": 1
+  }
+}
+```
+
+Authorization or ownership refusal publishes no envelope. There is no safe
+automatic correction for an ownership refusal: the native response remains the
+authority, and a mutation must never be repeated to manufacture projection
+ownership.
+
+```text
+FADENO_UPDATE_PROJECTION_AUTHORIZATION: update projection refused; the native response remains authoritative.
+```
+
+```json
+{
+  "schema": "fadeno.example.server-update-refusal",
+  "version": 1,
+  "nativeStatus": 403,
+  "code": "FADENO_UPDATE_PROJECTION_AUTHORIZATION",
+  "envelopePublished": false,
+  "redaction": "applied",
+  "submittedValuePresent": false,
+  "proofPresent": false,
+  "sessionPresent": false
+}
+```
+
+The redacted flow record preserves causes and ownership without markup,
+credentials, proofs, session values, or submitted fields:
+
+```json
+{
+  "schema": "fadeno.example.server-update-flow",
+  "version": 1,
+  "causes": [
+    "route:document",
+    "resource:value:loader-completed"
+  ],
+  "ownership": [
+    "exact request-bound operation authority",
+    "generated route and application generation",
+    "request-owned resource evidence"
+  ],
+  "skipped": [],
+  "outcome": "one native document projected without rerunning application code"
+}
+```
+
+Duplicate results and cross-owner responses refuse. A fresh navigation contains
+no stale action failure or result identity, while the native response remains
+usable when projection rolls back:
+
+```json
+{
+  "schema": "fadeno.example.server-update-recovery",
+  "version": 1,
+  "staleProjectionCode": "FADENO_UPDATE_PROJECTION_STALE",
+  "rollbackCode": "FADENO_UPDATE_PROJECTION_OWNERSHIP",
+  "nativeResponseRemainedUsable": true,
+  "currentOutcome": "document",
+  "staleActionEvidencePresent": false,
+  "staleFailureCodePresent": false,
+  "staleResultPresent": false
+}
+```
+
+Run `pnpm check:v2-server-update` for direct boundary tests plus the clean
+packed application. The projector, its record, and the envelope remain private;
+V2-04 owns the first enhanced link navigation.

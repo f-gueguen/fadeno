@@ -6,43 +6,42 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-02 — establish the optional browser runtime and server-update boundary
+V2-03 — generate server-owned update outcomes through existing authorities
 
 ## Exit criteria
 
-- [x] Add the exact `./browser` export and minimum explicit bootstrap selected
-  by ADR 0046 without changing native application authority.
-- [x] Load the real packed browser artifact through renderer-owned external
-  module markup and the existing request-owned CSP nonce policy.
-- [x] Implement the private update encoder/decoder with exact version, byte,
-  depth, record-count, duration, origin, authorization-isolation, and logging
-  boundaries from ADR 0045.
-- [x] Retain native fallback for disabled, blocked, incompatible, malformed,
-  unauthorized, cross-user, or stale browser work with cleanup and rollback.
-- [x] Add one pending Changeset with explicit semantic version intent and align
-  package, specification, security, traceability, risk, and example evidence.
-- [x] Pass all affected gates and full local CI; complete the required remote
-  review trigger and exhaustive review-thread triage.
+- [x] Project navigation and action results from the existing route, resource,
+  action, and renderer authorities into the private update envelope.
+- [x] Preserve construction-time provenance, typed redirects, expected
+  failures, and causal ownership without a selector command or second render
+  policy.
+- [x] Refuse unauthorized, cross-user, stale, malformed, or unowned projection
+  input before serialization and retain redacted structured logging.
+- [x] Prove lossless private serialization, rollback, and stale-output recovery
+  against current packed framework bytes.
+- [x] Extend the canonical application with executable success, refusal,
+  normalized machine output, flow inspection, and recovery evidence.
+- [x] Add exactly one pending Changeset with semantic version intent and pass
+  all affected gates, full local CI, and remote review-thread triage.
 
 ## Active sub-slice
 
-V2-02 is the first package-changing browser slice. It implements only the
-accepted loading and private transport boundary; it does not yet intercept
-links or forms, project route outcomes, reconcile documents, expose an analyzer
-schema, or claim usable enhancement. Release impact: additive prerelease
-feature, requiring exactly one pending minor Changeset.
+V2-03 adds only the server-owned projection that produces the already accepted
+private update outcome. It reuses current route matching, resource execution,
+action execution, rendering, authorization, and provenance owners. It does not
+intercept links or forms, apply a document update, expose a public update or
+analyzer schema, or claim usable enhancement. Release impact: additive
+prerelease feature, requiring exactly one pending minor Changeset.
 
 ## In progress
 
-- Complete the required remote review and merge boundary without extending
-  V2-02 into navigation, form, projection, or reconciliation behavior.
-- Keep V2-03 blocked until this accepted package, loading, decoder, isolation,
-  fallback, rollback, and Changeset evidence reaches `main`.
+- Complete the required remote review and merge workflow for the qualified
+  V2-03 branch before V2-04 acquires link-interception authority.
 
 ## Blockers
 
-- V2-03 remains blocked until the real V2-02 package, loading, decoder,
-  isolation, fallback, rollback, and Changeset evidence is accepted.
+- V2-04 remains blocked until V2-03's outcome projection, provenance,
+  isolation, serialization, rollback, and Changeset evidence is accepted.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -52,6 +51,12 @@ feature, requiring exactly one pending minor Changeset.
   compatibility decision.
 
 ## Completed slices
+
+- V2-02 — Merge commit `3705b7d` adds the explicit browser facade, generated
+  nonce-owned module loading, bounded private byte transport, current-packed
+  three-engine success/refusal/recovery evidence, native rollback, and one
+  pending minor Changeset without intercepting links or forms or exposing a
+  public update schema.
 
 - V2-01A — Merge commit `46c7ab0` accepts ADR 0046's single future
   `./browser` facade in the existing logical package, proves it through a

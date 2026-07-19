@@ -39,3 +39,50 @@ three-engine cases. Run `pnpm check:v2-patch-protocol` for exact envelope,
 malformed input, raw byte, structural depth/count, duration, cancellation,
 cross-generation isolation, and redaction evidence. The update protocol remains
 private, and no analyzer/editor schema is added.
+
+## Server-owned outcome projection
+
+V2-03 can turn the complete native response already produced by routing,
+resources, actions, sessions, and rendering into the private update envelope.
+It does not run any of that application work a second time. This remains server
+infrastructure: no link or form is intercepted and no browser document is
+changed yet.
+
+The canonical scenario is ordinary application code using only public package
+entrypoints:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/server-update/application.ts","language":"ts"} -->
+
+The packed gate compares the native response with the projected document and
+records the application invocation counts:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/server-update/expected/success.json","language":"json"} -->
+
+An expected action failure retains its accessible server-rendered messages and
+stable action code:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/server-update/expected/expected-failure.json","language":"json"} -->
+
+Authorization or ownership refusal publishes no envelope. There is no safe
+automatic correction for an ownership refusal: the native response remains the
+authority, and a mutation must never be repeated to manufacture projection
+ownership.
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/server-update/expected/refusal-human.txt","language":"text"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/server-update/expected/refusal.json","language":"json"} -->
+
+The redacted flow record preserves causes and ownership without markup,
+credentials, proofs, session values, or submitted fields:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/server-update/expected/flow.json","language":"json"} -->
+
+Duplicate results and cross-owner responses refuse. A fresh navigation contains
+no stale action failure or result identity, while the native response remains
+usable when projection rolls back:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/server-update/expected/recovery.json","language":"json"} -->
+
+Run `pnpm check:v2-server-update` for direct boundary tests plus the clean
+packed application. The projector, its record, and the envelope remain private;
+V2-04 owns the first enhanced link navigation.

@@ -112,6 +112,10 @@ mutation("README handoff is missing current V2 plan", (context) => Object.freeze
   ...context,
   readme: context.readme.replaceAll("current V2 plan", "future V2 plan"),
 }));
+mutation("V2 roadmap ledger state drifted", (context) => Object.freeze({
+  ...context,
+  ledger: context.ledger.replace("V2-02 — Merge commit `3705b7d`", "V2-02 — merge identity removed"),
+}));
 mutation("V2 entry package identity drifted", (context) => Object.freeze({
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },

@@ -18,6 +18,25 @@ export type PackageBoundaryViolation = Readonly<{
 type Token = Readonly<{ kind: SyntaxKind; precedingLineBreak: boolean; value: string }>;
 
 const sourceExtensions = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
+const expressionEndTokens = new Set<SyntaxKind>([
+  SyntaxKind.Identifier,
+  SyntaxKind.PrivateIdentifier,
+  SyntaxKind.NumericLiteral,
+  SyntaxKind.BigIntLiteral,
+  SyntaxKind.StringLiteral,
+  SyntaxKind.RegularExpressionLiteral,
+  SyntaxKind.NoSubstitutionTemplateLiteral,
+  SyntaxKind.TemplateTail,
+  SyntaxKind.TrueKeyword,
+  SyntaxKind.FalseKeyword,
+  SyntaxKind.NullKeyword,
+  SyntaxKind.ThisKeyword,
+  SyntaxKind.CloseParenToken,
+  SyntaxKind.CloseBracketToken,
+  SyntaxKind.CloseBraceToken,
+  SyntaxKind.PlusPlusToken,
+  SyntaxKind.MinusMinusToken,
+]);
 
 export function scanModuleReferences(source: string): ModuleReference[] {
   const scanner = createScanner(true, undefined, source);
@@ -25,6 +44,9 @@ export function scanModuleReferences(source: string): ModuleReference[] {
   const templateExpressionDepth: number[] = [];
   let previousTokenEnd = -1;
   for (let kind = scanner.scan(); kind !== SyntaxKind.EndOfFile; kind = scanner.scan()) {
+    if (kind === SyntaxKind.SlashToken && !expressionEndTokens.has(tokens.at(-1)?.kind ?? SyntaxKind.Unknown)) {
+      kind = scanner.reScanSlashToken();
+    }
     const templateIndex = templateExpressionDepth.length - 1;
     if (kind === SyntaxKind.CloseBraceToken && templateIndex >= 0) {
       if (templateExpressionDepth[templateIndex] === 0) kind = scanner.reScanTemplateToken(false);

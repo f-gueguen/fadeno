@@ -19,7 +19,8 @@
     "check:v1-resources",
     "check:v1-actions",
     "check:v1-action-runtime",
-    "check:v2-browser-runtime"
+    "check:v2-browser-runtime",
+    "check:v2-server-update"
   ],
   "evidence": {
     "success": [
@@ -49,7 +50,8 @@
       "scenarios/application-test/expected/success.txt",
       "scenarios/deployment/expected/success.txt",
       "scenarios/deployment/expected/artifact.json",
-      "scenarios/browser-runtime/expected/success.json"
+      "scenarios/browser-runtime/expected/success.json",
+      "scenarios/server-update/expected/success.json"
     ],
     "failure": [
       "expected/action-failure.txt",
@@ -71,7 +73,10 @@
       "scenarios/resource-lifecycle/expected/refusal.json",
       "scenarios/deployment/expected/diagnostic-human.txt",
       "scenarios/deployment/expected/diagnostic.json",
-      "scenarios/browser-runtime/expected/refusal.json"
+      "scenarios/browser-runtime/expected/refusal.json",
+      "scenarios/server-update/expected/expected-failure.json",
+      "scenarios/server-update/expected/refusal-human.txt",
+      "scenarios/server-update/expected/refusal.json"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -99,7 +104,8 @@
       "scenarios/resource-lifecycle/expected/flow.json",
       "scenarios/route-role-collision/expected/flow.json",
       "scenarios/deployment/expected/flow.json",
-      "scenarios/browser-runtime/expected/flow.json"
+      "scenarios/browser-runtime/expected/flow.json",
+      "scenarios/server-update/expected/flow.json"
     ],
     "recovery": [
       "expected/resource-recovery.txt",
@@ -113,7 +119,8 @@
       "scenarios/resource-lifecycle/expected/recovery.json",
       "scenarios/route-role-collision/expected/recovery.json",
       "scenarios/deployment/expected/recovery.json",
-      "scenarios/browser-runtime/expected/recovery.json"
+      "scenarios/browser-runtime/expected/recovery.json",
+      "scenarios/server-update/expected/recovery.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -126,7 +133,8 @@
       "scenarios/resource-lifecycle/expected/recovery.json",
       "scenarios/route-role-collision/expected/recovery.json",
       "scenarios/deployment/expected/recovery.json",
-      "scenarios/browser-runtime/expected/recovery.json"
+      "scenarios/browser-runtime/expected/recovery.json",
+      "scenarios/server-update/expected/recovery.json"
     ]
   }
 }

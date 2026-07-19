@@ -41,6 +41,13 @@ import { installActionServerRuntimeFactory } from "./action-server-hook.ts";
 import { reportFrameworkFailure, type FrameworkFailureObserver } from "./failure-observer.ts";
 import { readRedirectOutcome } from "./render-route.ts";
 import {
+  attachPrivateServerUpdateActionEvidence,
+  attachPrivateServerUpdateRouteEvidence,
+  copyPrivateServerUpdateEvidence,
+  forwardPrivateServerUpdateOperation,
+  type PrivateServerUpdateActionEvidence,
+} from "./server-update.ts";
+import {
   createDecisionSession,
   createDecisionSessionKeyring,
   formatDecisionSessionCookie,
@@ -665,7 +672,10 @@ function withCookie(response: Response, cookie: string | null): Response {
   if (cookie === null) return response;
   const headers = new Headers(response.headers);
   headers.append("set-cookie", cookie);
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  return copyPrivateServerUpdateEvidence(
+    response,
+    new Response(response.body, { status: response.status, statusText: response.statusText, headers }),
+  );
 }
 
 export class ActionServerRuntime {
@@ -933,6 +943,25 @@ export class ActionServerRuntime {
       );
     }
     this.#record(outcome.code, outcome.status, outcome.revalidation, routeId, outcome.flow.at(-1)?.decision ?? outcome.status);
+    const actionEvidence: PrivateServerUpdateActionEvidence = Object.freeze({
+      code: outcome.code,
+      status: outcome.status === "unauthorized" || outcome.status === "refused" ? "refused" : outcome.status,
+      revalidation: outcome.revalidation,
+      outcome: outcome.flow.at(-1)?.decision ?? outcome.status,
+    });
+    const attachActionEvidence = (
+      response: Response,
+      routeOutcome: "document" | "expected-error" | "redirect" | "unexpected-error",
+    ): Response => {
+      attachPrivateServerUpdateRouteEvidence(response, request, {
+        routeId,
+        generation: this.#generation,
+        outcome: routeOutcome,
+        ...(outcome.status === "expected-failure" ? { expectedCode: outcome.code } : {}),
+        resources: () => Object.freeze([]),
+      });
+      return attachPrivateServerUpdateActionEvidence(response, request, actionEvidence);
+    };
 
     const failure = outcome.status === "expected-failure" && outcome.expectedFailure && outcome.fields
       ? Object.freeze({
@@ -949,24 +978,42 @@ export class ActionServerRuntime {
       headers: this.#pageHeaders(request),
       signal: request.signal,
     });
-    if (outcome.status === "expected-failure") {
-      return this.#invokeBound(pageRequest, invoke, session, failure, false, failureObserver);
+    const releaseProjection = forwardPrivateServerUpdateOperation(request, pageRequest);
+    try {
+      if (outcome.status === "expected-failure") {
+        return attachActionEvidence(
+          await this.#invokeBound(pageRequest, invoke, session, failure, false, failureObserver),
+          "expected-error",
+        );
+      }
+      if (outcome.revalidation === "complete") {
+        const revalidated = await this.#invokeBound(pageRequest, invoke, session, null, false, failureObserver);
+        if (outcome.status === "success" && outcome.redirect === null) {
+          return attachActionEvidence(revalidated, "document");
+        }
+        if (revalidated.status >= 400) {
+          return attachActionEvidence(
+            revalidated,
+            outcome.status === "unexpected-failure" ? "unexpected-error" : "expected-error",
+          );
+        }
+        await consume(revalidated);
+      }
+      if (outcome.status === "success" && outcome.redirect !== null) {
+        return attachActionEvidence(
+          new Response(null, { status: 303, headers: { location: outcome.redirect } }),
+          "redirect",
+        );
+      }
+      return attachActionEvidence(safePage(
+        outcome.status === "unexpected-failure" ? "Action failed" : "Action refused",
+        outcome.status === "unexpected-failure" ? "Action failed" : "Action refused",
+        incidentId === null ? outcome.code : `Incident ${incidentId}`,
+        responseStatus(outcome.code, outcome.status),
+      ), outcome.status === "unexpected-failure" ? "unexpected-error" : "expected-error");
+    } finally {
+      releaseProjection();
     }
-    if (outcome.revalidation === "complete") {
-      const revalidated = await this.#invokeBound(pageRequest, invoke, session, null, false, failureObserver);
-      if (outcome.status === "success" && outcome.redirect === null) return revalidated;
-      if (revalidated.status >= 400) return revalidated;
-      await consume(revalidated);
-    }
-    if (outcome.status === "success" && outcome.redirect !== null) {
-      return new Response(null, { status: 303, headers: { location: outcome.redirect } });
-    }
-    return safePage(
-      outcome.status === "unexpected-failure" ? "Action failed" : "Action refused",
-      outcome.status === "unexpected-failure" ? "Action failed" : "Action refused",
-      incidentId === null ? outcome.code : `Incident ${incidentId}`,
-      responseStatus(outcome.code, outcome.status),
-    );
   }
 
   #pageHeaders(request: Request): Headers {

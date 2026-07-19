@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.server-update-refusal",
+  "version": 1,
+  "nativeStatus": 403,
+  "code": "FADENO_UPDATE_PROJECTION_AUTHORIZATION",
+  "envelopePublished": false,
+  "redaction": "applied",
+  "submittedValuePresent": false,
+  "proofPresent": false,
+  "sessionPresent": false
+}

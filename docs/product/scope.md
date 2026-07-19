@@ -62,6 +62,12 @@ a signal to choose a client-first framework.
 | PPR-01 | Partial prerendering | After 1.0 evidence | Deferred | [Deferral ledger](../ledgers/deferrals.md) |
 | TOOL-01 | Supported editor, agent-protocol, hosted-playground, and CI-integration products | After A0 need | Deferred by [ADR 0043](../adr/0043-defer-independent-usability-and-external-tooling.md); a disposable private lifecycle consumer and its accepted-event fixtures are conformance evidence, not a supported product, schema, or compatibility promise | [Deferral ledger](../ledgers/deferrals.md) |
 
+[ADR 0048](../adr/0048-server-owned-update-outcome-projection.md) is the V2-03
+authority shared by WEB-01, WEB-02, DATA-01, DATA-02, ENH-01, PATCH-01, and
+SEC-01. It adds private one-pass projection and redacted causal evidence only;
+it adds no supported browser update protocol, interception surface, analyzer
+schema, or editor product.
+
 ## Release scope
 
 - **K0** proves or rejects PATCH-01, INT-01, TYPE-01, and DATA-03.
