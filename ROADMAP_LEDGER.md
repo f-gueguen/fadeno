@@ -21,7 +21,7 @@ V2-03 — generate server-owned update outcomes through existing authorities
   against current packed framework bytes.
 - [x] Extend the canonical application with executable success, refusal,
   normalized machine output, flow inspection, and recovery evidence.
-- [ ] Add exactly one pending Changeset with semantic version intent and pass
+- [x] Add exactly one pending Changeset with semantic version intent and pass
   all affected gates, full local CI, and remote review-thread triage.
 
 ## Active sub-slice
