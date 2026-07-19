@@ -44,6 +44,9 @@ their semantics. Cross-browser conformance covers preservation, history,
 focus, duplicate submission, stale responses, cancellation, and recovery. The
 runtime's measured cost is published.
 
+Implementation order and the native-equivalence checkpoints are defined in the
+[V2 plan](roadmap/v2.md).
+
 ## V3 — Interaction ownership
 
 Outcome: evidence from K0 determines the supported extracted-handler boundary.

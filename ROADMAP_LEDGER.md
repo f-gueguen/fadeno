@@ -6,52 +6,50 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-10 — publish and verify the first immutable alpha release
+V2-00 — decompose browser enhancement from the verified public native baseline
 
 ## Exit criteria
 
-- [x] Mechanically preserve the immutable failed `0.1.0-alpha.0` source release
-  and advance the corrected registry source to `@fadeno/framework@0.1.0-alpha.1`
-  without versioning private examples.
-- [x] Bind the exact release source, tag, package, changelog, SBOM, release
-  notes, and documentation artifact through a fail-closed A0-10 gate.
-- [x] Pass all affected gates, full local CI, and independent review at the
-  final release-source commit.
-- [x] Make the source repository public with explicit owner authorization,
-  publish through the accepted provenance bootstrap, and revoke its credential.
-- [x] Verify the registry package and immutable tag from a clean public install,
-  including create, test, check, build, development, deployment, and rollback.
+- [ ] Freeze one dependency-ordered V2 plan with reviewable outcomes and exact
+  native/enhanced checkpoints.
+- [ ] Assign DG-V2-01 to a decision/evidence slice before ENH-01 implementation.
+- [ ] Preserve the native no-JavaScript baseline, public-package authority,
+  private analyzer boundary, V3 island boundary, and explicit deferrals.
+- [ ] Bind V2 scope, traceability, risks, roadmap state, and plan validation.
+- [ ] Pass all affected gates, full local CI, and independent review.
 
 ## Active sub-slice
 
-A0-10 public-evidence reconciliation. The exact alpha.1 source, release,
-documentation assets, signed package provenance, and public registry package
-exist. ADR 0044 records the registry-mandated first-package alias and completed
-credential cleanup; the remaining work runs the corrected clean public replay,
-qualifies `check:a0-public-release`, and merges its permanent evidence.
+V2-00 planning only. It decomposes the accepted browser-enhancement outcome and
+ADR 0014's narrowed preservation evidence. It does not choose the patch
+protocol, add browser code, expose an analyzer schema, or claim enhanced
+behavior.
 
 ## In progress
 
-- `@fadeno/framework@0.1.0-alpha.1` is a verified public alpha with `alpha` and
-  `latest` resolving to the same exact version.
-- Signed hosted provenance binds source commit
-  `4f30236d9734053cca0138ecfff5da1bbbdd1e18`; immutable release documentation
-  asset hashes remain recorded.
-- The bootstrap credential is revoked, the hosted secret is absent, zero active
-  registry tokens remain, and the exact trusted publisher owns later transport.
-- Private example workspace versions remain `0.0.0`.
+- The verified public native application is the V2 success/failure/recovery
+  corpus; V2 does not create a disconnected example application.
+- DG-V2-01 remains open and blocks browser enhancement implementation until an
+  accepted ADR and versioned executable fixtures resolve it.
 
 ## Blockers
 
-- Independent newcomer usability remains deferred and must not be claimed by
-  A0-10.
+- No V2 implementation may begin before DG-V2-01 resolves patch identity,
+  scroll, ordering, redirects, errors, recovery, cache, and version negotiation.
 
 ## Open questions
 
-- None in the mechanical release source. Later external analyzer consumers
-  require new evidence and a new compatibility decision.
+- V2-01 must choose between explicit affected-scroll management and refusal or
+  replacement of layout-affecting patch boundaries.
 
 ## Completed slices
+
+- A0-10 — Merge commit `60d55c7` publishes and verifies
+  `@fadeno/framework@0.1.0-alpha.1`, retains exact source/package/release/docs
+  identity and signed provenance, reconciles the registry-mandated first-package
+  alias and bootstrap authority boundaries through ADR 0044, records zero
+  active tokens and trusted publication, and passes the clean public
+  create/test/check/build/dev/start/deploy/rollback replay.
 
 - A0-09 — qualify the complete public-alpha candidate. Merge commit `eb21ec9`
   records the `qualified-alpha-candidate`, replays 2,360 bounded cases over
