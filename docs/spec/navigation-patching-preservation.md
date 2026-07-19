@@ -64,7 +64,8 @@ content inside a scroller. ADR 0045 therefore admits an in-place update only
 when both relevant document and element preceding layout are proven unaffected.
 Any **affected or unknown preceding layout** refuses in-place mutation and
 returns to current server truth through the native path. This restriction does
-not imply that K0's or V2-01's private identity format is public.
+not imply that K0's or V2-01's private identity format is public. Scroll
+classifications must be exact strings and are not coerced from other values.
 
 ## Ordering, errors, and recovery
 
@@ -91,7 +92,8 @@ in both its fetch mode and quote-aware parsing of observed response
 `Cache-Control` metadata rather than trusting the envelope alone. Malformed,
 unsupported, stale, duplicate, unsafe, cached, oversized, or over-time results
 change no document state. Boundary measurements must be nonnegative safe
-integers before their maxima are checked. Navigation may return to its native request before
+integers before their maxima are checked, and the measured aggregate envelope
+cap still applies when an individual field is at its own cap. Navigation may return to its native request before
 commit; uncertain mutation recovery performs a safe GET and **never repeats a
 mutation**.
 

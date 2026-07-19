@@ -82,6 +82,19 @@ function byteLength(value: string): number {
   return encoder.encode(value).byteLength;
 }
 
+export function withinPrivateUpdateFieldLimit(
+  field: "identity" | "url" | "title" | "html",
+  value: string,
+): boolean {
+  const maximum = {
+    identity: V2_PATCH_PROTOCOL_LIMITS.maximumIdentityBytes,
+    url: V2_PATCH_PROTOCOL_LIMITS.maximumUrlBytes,
+    title: V2_PATCH_PROTOCOL_LIMITS.maximumTitleBytes,
+    html: V2_PATCH_PROTOCOL_LIMITS.maximumHtmlBytes,
+  }[field];
+  return byteLength(value) <= maximum;
+}
+
 function plainRecord(value: unknown): value is JsonRecord {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
@@ -100,7 +113,7 @@ function exactKeys(value: JsonRecord, keys: readonly string[]): boolean {
 function boundedIdentity(value: unknown): value is string {
   return typeof value === "string"
     && identityPattern.test(value)
-    && byteLength(value) <= V2_PATCH_PROTOCOL_LIMITS.maximumIdentityBytes;
+    && withinPrivateUpdateFieldLimit("identity", value);
 }
 
 function finiteInteger(value: unknown, minimum = 0): value is number {
@@ -108,7 +121,7 @@ function finiteInteger(value: unknown, minimum = 0): value is number {
 }
 
 function safeSameOriginUrl(value: unknown, origin: string, httpsOnly = false): boolean {
-  if (typeof value !== "string" || byteLength(value) > V2_PATCH_PROTOCOL_LIMITS.maximumUrlBytes) return false;
+  if (typeof value !== "string" || !withinPrivateUpdateFieldLimit("url", value)) return false;
   try {
     const expected = new URL(origin);
     const received = new URL(value, expected);
@@ -210,17 +223,22 @@ export function decidePrivateScrollBoundary(
 function decodeScrollBoundary(value: unknown): PrivateScrollBoundaryInput | undefined {
   if (!plainRecord(value) || !exactKeys(value, ["documentPrecedingLayout", "elementPrecedingLayout"])) return undefined;
   const allowed = new Set(["unaffected", "affected", "unknown"]);
-  if (!allowed.has(String(value["documentPrecedingLayout"])) || !allowed.has(String(value["elementPrecedingLayout"]))) return undefined;
+  const documentPrecedingLayout = value["documentPrecedingLayout"];
+  const elementPrecedingLayout = value["elementPrecedingLayout"];
+  if (typeof documentPrecedingLayout !== "string"
+    || typeof elementPrecedingLayout !== "string"
+    || !allowed.has(documentPrecedingLayout)
+    || !allowed.has(elementPrecedingLayout)) return undefined;
   return Object.freeze({
-    documentPrecedingLayout: value["documentPrecedingLayout"] as PrivateScrollBoundaryInput["documentPrecedingLayout"],
-    elementPrecedingLayout: value["elementPrecedingLayout"] as PrivateScrollBoundaryInput["elementPrecedingLayout"],
+    documentPrecedingLayout: documentPrecedingLayout as PrivateScrollBoundaryInput["documentPrecedingLayout"],
+    elementPrecedingLayout: elementPrecedingLayout as PrivateScrollBoundaryInput["elementPrecedingLayout"],
   });
 }
 
 function decodeRoot(value: unknown): Readonly<{ identity: string; html: string }> | undefined {
   if (!plainRecord(value) || !exactKeys(value, ["identity", "html"])) return undefined;
   if (!boundedIdentity(value["identity"]) || typeof value["html"] !== "string") return undefined;
-  if (byteLength(value["html"]) > V2_PATCH_PROTOCOL_LIMITS.maximumHtmlBytes) return undefined;
+  if (!withinPrivateUpdateFieldLimit("html", value["html"])) return undefined;
   return Object.freeze({ identity: value["identity"], html: value["html"] });
 }
 
@@ -238,7 +256,7 @@ function decodeOutcome(value: unknown): DecodedOutcome | undefined {
       : ["kind", "code", "url", "title", "root", "scrollBoundary"];
     if (!exactKeys(value, expectedKeys)) return undefined;
     if (typeof value["url"] !== "string" || typeof value["title"] !== "string") return undefined;
-    if (byteLength(value["title"]) > V2_PATCH_PROTOCOL_LIMITS.maximumTitleBytes) return undefined;
+    if (!withinPrivateUpdateFieldLimit("title", value["title"])) return undefined;
     const root = decodeRoot(value["root"]);
     const scrollBoundary = decodeScrollBoundary(value["scrollBoundary"]);
     if (!root || !scrollBoundary) return undefined;

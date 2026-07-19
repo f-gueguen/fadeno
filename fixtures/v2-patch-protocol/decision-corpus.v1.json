@@ -285,6 +285,14 @@
       "expected": { "status": "refused", "code": "FADENO_UPDATE_SCROLL_BOUNDARY", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
     },
     {
+      "id": "array-scroll-classification-refused",
+      "category": "decoder",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome", "scrollBoundary", "documentPrecedingLayout"], "value": ["affected"] }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_SCHEMA", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
       "id": "byte-limit-refused",
       "category": "limit",
       "changes": [

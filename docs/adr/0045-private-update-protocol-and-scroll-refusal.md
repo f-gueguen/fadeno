@@ -85,7 +85,8 @@ numeric scroll management. An in-place result may apply only when both relevant
 document-preceding and element-preceding layout are **proven unaffected**.
 When either boundary is **affected or unknown**, the in-place result is refused
 before mutation and recovery requests current server truth through the native
-path. Later evidence may supersede this choice with explicit scroll management;
+path. Classifications are exact transported strings and are never coerced from
+arrays, objects, or other values. Later evidence may supersede this choice with explicit scroll management;
 node reuse alone cannot do so.
 
 The V2-01 controls exercise document refusal, element refusal, and one
@@ -112,6 +113,8 @@ UTF-8 bytes, URLs 8 KiB, titles 4 KiB, and transported root markup 2 MiB. V2-02
 must measure raw bytes, record count, depth, and duration independently rather
 than trusting fields inside the message. Every measurement must be a
 nonnegative safe integer before its maximum is evaluated.
+Individual field caps do not override the 2 MiB aggregate cap; executable
+envelope cases measure their actual encoded total.
 
 Unknown fields, malformed shape, unsupported older or newer versions, invalid
 identity, limit exhaustion, cache drift, unsafe URL, generation/document/

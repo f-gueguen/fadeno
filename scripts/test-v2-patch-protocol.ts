@@ -8,6 +8,7 @@ import {
   parseV2PatchProtocolCorpus,
   runV2PatchProtocolFixture,
   V2_PATCH_PROTOCOL_LIMITS,
+  withinPrivateUpdateFieldLimit,
 } from "./lib/v2-patch-protocol.ts";
 import type { PrivateUpdateDecisionContext } from "./lib/v2-patch-protocol.ts";
 
@@ -71,48 +72,85 @@ for (const [key, maximum] of [
   }
 }
 
-const boundaryCases = [
+const encodedBytes = (value: unknown): number => new TextEncoder().encode(JSON.stringify(value)).byteLength;
+const withMeasuredBytes = (base: PrivateUpdateDecisionContext, value: unknown): PrivateUpdateDecisionContext => ({
+  ...base,
+  boundary: { ...base.boundary, bytes: encodedBytes(value) },
+});
+
+const fieldCases = [
   {
+    field: "identity",
     label: "identity",
     maximum: V2_PATCH_PROTOCOL_LIMITS.maximumIdentityBytes,
-    set: (value: Record<string, unknown>, size: number) => { value["resultId"] = "a".repeat(size); },
+    sample: (size: number) => "a".repeat(size),
+    set: (value: Record<string, unknown>, sample: string) => { value["resultId"] = sample; },
   },
   {
+    field: "url",
     label: "URL",
     maximum: V2_PATCH_PROTOCOL_LIMITS.maximumUrlBytes,
-    set: (value: Record<string, unknown>, size: number) => {
-      (value["outcome"] as Record<string, unknown>)["url"] = `/${"a".repeat(size - 1)}`;
+    sample: (size: number) => `/${"a".repeat(size - 1)}`,
+    set: (value: Record<string, unknown>, sample: string) => {
+      (value["outcome"] as Record<string, unknown>)["url"] = sample;
     },
   },
   {
+    field: "title",
     label: "title",
     maximum: V2_PATCH_PROTOCOL_LIMITS.maximumTitleBytes,
-    set: (value: Record<string, unknown>, size: number) => {
-      (value["outcome"] as Record<string, unknown>)["title"] = "a".repeat(size);
+    sample: (size: number) => "a".repeat(size),
+    set: (value: Record<string, unknown>, sample: string) => {
+      (value["outcome"] as Record<string, unknown>)["title"] = sample;
     },
   },
   {
+    field: "html",
     label: "HTML",
     maximum: V2_PATCH_PROTOCOL_LIMITS.maximumHtmlBytes,
-    set: (value: Record<string, unknown>, size: number) => {
-      ((value["outcome"] as Record<string, unknown>)["root"] as Record<string, unknown>)["html"] = "a".repeat(size);
+    sample: (size: number) => "a".repeat(size),
+    set: (value: Record<string, unknown>, sample: string) => {
+      ((value["outcome"] as Record<string, unknown>)["root"] as Record<string, unknown>)["html"] = sample;
     },
   },
 ] as const;
-for (const boundaryCase of boundaryCases) {
+for (const fieldCase of fieldCases) {
+  const inclusiveSample = fieldCase.sample(fieldCase.maximum);
+  const exceededSample = fieldCase.sample(fieldCase.maximum + 1);
+  assert.equal(withinPrivateUpdateFieldLimit(fieldCase.field, inclusiveSample), true, `${fieldCase.label} field inclusive limit`);
+  assert.equal(withinPrivateUpdateFieldLimit(fieldCase.field, exceededSample), false, `${fieldCase.label} field over limit`);
+  if (fieldCase.field === "html") continue;
+
   const inclusive = structuredClone(envelope);
-  boundaryCase.set(inclusive, boundaryCase.maximum);
-  const inclusiveContext = boundaryCase.label === "URL"
-    ? { ...context, currentOperation: { ...context.currentOperation, url: (inclusive["outcome"] as Record<string, unknown>)["url"] as string } }
+  fieldCase.set(inclusive, inclusiveSample);
+  const inclusiveBase = fieldCase.field === "url"
+    ? { ...context, currentOperation: { ...context.currentOperation, url: inclusiveSample } }
     : context;
-  assert.equal(evaluatePrivateUpdate(inclusive, inclusiveContext).status, "accepted", `${boundaryCase.label} inclusive limit`);
+  assert.equal(evaluatePrivateUpdate(inclusive, withMeasuredBytes(inclusiveBase, inclusive)).status, "accepted", `${fieldCase.label} inclusive limit`);
   const exceeded = structuredClone(envelope);
-  boundaryCase.set(exceeded, boundaryCase.maximum + 1);
-  const exceededContext = boundaryCase.label === "URL"
-    ? { ...context, currentOperation: { ...context.currentOperation, url: (exceeded["outcome"] as Record<string, unknown>)["url"] as string } }
+  fieldCase.set(exceeded, exceededSample);
+  const exceededBase = fieldCase.field === "url"
+    ? { ...context, currentOperation: { ...context.currentOperation, url: exceededSample } }
     : context;
-  assert.equal(evaluatePrivateUpdate(exceeded, exceededContext).status, "refused", `${boundaryCase.label} over limit`);
+  assert.equal(evaluatePrivateUpdate(exceeded, withMeasuredBytes(exceededBase, exceeded)).status, "refused", `${fieldCase.label} over limit`);
 }
+
+const htmlFieldMaximum = structuredClone(envelope);
+const htmlRoot = (htmlFieldMaximum["outcome"] as Record<string, unknown>)["root"] as Record<string, unknown>;
+htmlRoot["html"] = "a".repeat(V2_PATCH_PROTOCOL_LIMITS.maximumHtmlBytes);
+const htmlFieldMaximumContext = withMeasuredBytes(context, htmlFieldMaximum);
+assert.equal(htmlFieldMaximumContext.boundary.bytes > V2_PATCH_PROTOCOL_LIMITS.maximumBytes, true, "HTML field cap includes envelope overhead");
+assert.equal(evaluatePrivateUpdate(htmlFieldMaximum, htmlFieldMaximumContext).code, "FADENO_UPDATE_LIMIT", "aggregate cap precedes an individually valid HTML field");
+
+const aggregateEnvelope = structuredClone(envelope);
+const aggregateRoot = (aggregateEnvelope["outcome"] as Record<string, unknown>)["root"] as Record<string, unknown>;
+aggregateRoot["html"] = "";
+const aggregateHtmlBytes = V2_PATCH_PROTOCOL_LIMITS.maximumBytes - encodedBytes(aggregateEnvelope);
+aggregateRoot["html"] = "a".repeat(aggregateHtmlBytes);
+assert.equal(encodedBytes(aggregateEnvelope), V2_PATCH_PROTOCOL_LIMITS.maximumBytes, "HTML aggregate fixture reaches the exact measured maximum");
+assert.equal(evaluatePrivateUpdate(aggregateEnvelope, withMeasuredBytes(context, aggregateEnvelope)).status, "accepted", "HTML aggregate inclusive limit");
+aggregateRoot["html"] = "a".repeat(aggregateHtmlBytes + 1);
+assert.equal(evaluatePrivateUpdate(aggregateEnvelope, withMeasuredBytes(context, aggregateEnvelope)).code, "FADENO_UPDATE_LIMIT", "HTML aggregate over limit");
 
 for (const origin of ["http://127.0.0.1:4173", "http://localhost:4173", "http://[::1]:4173"]) {
   assert.equal(evaluatePrivateUpdate(envelope, { ...context, origin }).status, "accepted", `${origin} loopback development origin`);
