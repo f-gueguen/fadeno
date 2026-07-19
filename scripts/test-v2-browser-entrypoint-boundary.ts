@@ -46,11 +46,11 @@ mutation("ADR 0046 is missing removing the public subpath requires a separately 
   ...context,
   adr: context.adr.replace(/removing the public subpath requires a\s+separately versioned compatibility decision/u, "removal is unversioned"),
 }));
-mutation("V2-01A must not add the real browser export", (context) => Object.freeze({
+mutation("browser boundary must expose only the accepted exact subpaths", (context) => Object.freeze({
   ...context,
   packageDocument: {
     ...(context.packageDocument as Record<string, unknown>),
-    exports: { ...((context.packageDocument as { exports: Record<string, unknown> }).exports), "./browser": "./dist/browser.js" },
+    exports: { ...((context.packageDocument as { exports: Record<string, unknown> }).exports), "./internal/*": "./dist/internal/*.js" },
   },
 }));
 mutation("ENH-01 traceability is missing the V2-01A gate", (context) => Object.freeze({
@@ -58,4 +58,4 @@ mutation("ENH-01 traceability is missing the V2-01A gate", (context) => Object.f
   traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-browser-entrypoint-boundary", "removed")),
 }));
 
-console.log("V2 browser-entrypoint boundary mutation tests passed (subpath, graph, loading, identity, rollback, and export absence)");
+console.log("V2 browser-entrypoint boundary mutation tests passed (subpath, graph, loading, identity, rollback, and exact exports)");
