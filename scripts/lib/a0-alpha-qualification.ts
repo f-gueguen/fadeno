@@ -68,6 +68,10 @@ const auditContract = Object.freeze([
       "examples/v1-app/scenarios/action-lifecycle/expected/diagnostic.json",
       "examples/v1-app/scenarios/deployment/expected/flow.json",
     ]),
+    residual: Object.freeze([
+      "single-process-action-and-session-owner",
+      "independent-security-review-before-stable-release",
+    ]),
   }),
   Object.freeze({
     id: "accessibility",
@@ -77,6 +81,7 @@ const auditContract = Object.freeze([
       "examples/v1-app/expected/accessibility-baseline.json",
       "examples/v1-app/src/styles.ts",
     ]),
+    residual: Object.freeze(["independent-newcomer-and-assistive-technology-usability-unqualified"]),
   }),
   Object.freeze({
     id: "performance",
@@ -86,6 +91,11 @@ const auditContract = Object.freeze([
       "experiments/type-spine/results/20260712T022123Z-122ba57-a1/decision.json",
       "experiments/revalidation/results/qualification-result.json",
       "evidence/v1-analyzer-feedback/results/20260717T090059Z-4d57a69-a4/summary.json",
+    ]),
+    residual: Object.freeze([
+      "incremental-generation-result-remains-narrow",
+      "analyzer-feedback-result-has-no-accepted-budget",
+      "server-and-browser-budgets-remain-later",
     ]),
   }),
   Object.freeze({
@@ -98,6 +108,7 @@ const auditContract = Object.freeze([
       "packages/framework/sbom.spdx.json",
       "evidence/a0/release/first-alpha-plan.json",
     ]),
+    residual: Object.freeze(["registry-publication-remains-a0-10"]),
   }),
   Object.freeze({
     id: "documentation",
@@ -109,6 +120,7 @@ const auditContract = Object.freeze([
       "examples/v1-app/documentation-source.json",
       "examples/v1-app/expected/independent-workflow.txt",
     ]),
+    residual: Object.freeze(["immutable-release-documentation-remains-a0-10"]),
   }),
   Object.freeze({
     id: "clean-machine",
@@ -120,6 +132,7 @@ const auditContract = Object.freeze([
       "examples/v1-app/scenarios/deployment/expected/flow.json",
       "examples/v1-app/scenarios/deployment/expected/recovery.json",
     ]),
+    residual: Object.freeze(["automated-consumers-do-not-establish-newcomer-usability"]),
   }),
   Object.freeze({
     id: "reproducibility",
@@ -130,6 +143,7 @@ const auditContract = Object.freeze([
       "examples/v1-app/scenarios/deployment/expected/artifact.json",
       "packages/framework/sbom.spdx.json",
     ]),
+    residual: Object.freeze(["public-registry-bytes-and-tag-identity-remain-a0-10"]),
   }),
   Object.freeze({
     id: "rollback",
@@ -141,6 +155,7 @@ const auditContract = Object.freeze([
       "examples/v1-app/scenarios/deployment/expected/recovery.json",
       "examples/v1-app/scenarios/development-lifecycle/expected/recovery.json",
     ]),
+    residual: Object.freeze(["published-versions-and-tags-are-never-replaced"]),
   }),
   Object.freeze({
     id: "usability-tooling",
@@ -150,6 +165,11 @@ const auditContract = Object.freeze([
       "docs/adr/0043-defer-independent-usability-and-external-tooling.md",
       "evidence/a0/independent-usability/task-packet.json",
       "SUPPORT.md",
+    ]),
+    residual: Object.freeze([
+      "independent-newcomer-usability-unqualified",
+      "assistive-technology-usability-unqualified",
+      "no-editor-product-or-public-analyzer-schema",
     ]),
   }),
 ] as const);
@@ -303,6 +323,9 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
     if (JSON.stringify(audit["evidence"]) !== JSON.stringify(expected.evidence)) {
       errors.push(`A0 alpha audit evidence drifted: ${expected.id}`);
     }
+    if (JSON.stringify(audit["residual"]) !== JSON.stringify(expected.residual)) {
+      errors.push(`A0 alpha audit residual drifted: ${expected.id}`);
+    }
     for (const gate of expected.gates) {
       if (!Object.hasOwn(context.scripts, gate)) errors.push(`A0 alpha audit gate is unknown: ${gate}`);
       if (!context.rootGates.has(gate)) errors.push(`A0 alpha audit gate is outside root check: ${gate}`);
@@ -334,7 +357,7 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
     || !exactKeys(releaseImpact, ["changeset", "intent", "outcome", "publicSurfaceAdded"])
     || releaseImpact["changeset"] !== ".changeset/quiet-boundaries-refuse.md"
     || releaseImpact["intent"] !== "patch"
-    || releaseImpact["outcome"] !== "classify-malformed-configuration-and-action-body-input"
+    || releaseImpact["outcome"] !== "classify-malformed-configuration-environment-and-action-body-input"
     || releaseImpact["publicSurfaceAdded"] !== false
   ) errors.push("A0 alpha release impact drifted");
   if (!context.changeset.startsWith("---\n\"@fadeno/framework\": patch\n---\n")

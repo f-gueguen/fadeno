@@ -61,6 +61,12 @@ expectMutation("A0 alpha audit evidence drifted: security", (context) => {
   security["evidence"] = ["README.md"];
   return Object.freeze({ ...context, document });
 });
+expectMutation("A0 alpha audit residual drifted: security", (context) => {
+  const document = cloneDocument();
+  const security = (document["audits"] as Record<string, unknown>[])[0]!;
+  security["residual"] = ["none"];
+  return Object.freeze({ ...context, document });
+});
 expectMutation("A0 alpha audit evidence path is unsafe: ../outside.json", (context) => {
   const document = cloneDocument();
   ((document["audits"] as Record<string, unknown>[])[0]!["evidence"] as string[])[0] = "../outside.json";
@@ -85,6 +91,11 @@ expectMutation("A0 alpha qualification introduced a public tooling surface", (co
     },
   },
 }));
+expectMutation("A0 alpha release impact drifted", (context) => {
+  const document = cloneDocument();
+  (document["releaseImpact"] as Record<string, unknown>)["outcome"] = "classify-malformed-configuration-and-action-body-input";
+  return Object.freeze({ ...context, document });
+});
 expectMutation("package README is missing Independent newcomer usability", (context) => Object.freeze({
   ...context,
   packageReadme: context.packageReadme.replace("Independent newcomer usability", "Onboarding"),
@@ -94,4 +105,4 @@ expectMutation("A0-09 roadmap validation drifted", (context) => Object.freeze({
   roadmap: context.roadmap.replace("`pnpm check:a0-decoder-fuzz`; ", ""),
 }));
 
-console.log("A0 alpha qualification mutation tests passed (claims, gates, evidence, seed, exports, disclosure, roadmap)");
+console.log("A0 alpha qualification mutation tests passed (claims, gates, evidence, residuals, release impact, seed, exports, disclosure, roadmap)");

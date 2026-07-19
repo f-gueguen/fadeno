@@ -200,7 +200,7 @@
   "releaseImpact": {
     "changeset": ".changeset/quiet-boundaries-refuse.md",
     "intent": "patch",
-    "outcome": "classify-malformed-configuration-and-action-body-input",
+    "outcome": "classify-malformed-configuration-environment-and-action-body-input",
     "publicSurfaceAdded": false
   }
 }

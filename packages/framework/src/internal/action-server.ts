@@ -347,9 +347,58 @@ async function readBody(request: Request, startedAt: number): Promise<Uint8Array
 
 type ParsedBody = Readonly<{ proof: string; parts: readonly DecisionSubmissionPart[]; bytes: number }>;
 
+type SemicolonParameter = Readonly<{ name: string; value: string }>;
+
+function semicolonParameters(source: string, code: string): readonly SemicolonParameter[] {
+  const parameters: SemicolonParameter[] = [];
+  let cursor = source.indexOf(";");
+  while (cursor >= 0 && cursor < source.length) {
+    cursor += 1;
+    while (source[cursor] === " " || source[cursor] === "\t") cursor += 1;
+    if (cursor === source.length) break;
+    const nameStart = cursor;
+    while (cursor < source.length && source[cursor] !== "=" && source[cursor] !== ";") cursor += 1;
+    if (source[cursor] !== "=") fail(code);
+    const name = source.slice(nameStart, cursor).trim().toLowerCase();
+    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u.test(name)) fail(code);
+    cursor += 1;
+    while (source[cursor] === " " || source[cursor] === "\t") cursor += 1;
+    let value = "";
+    if (source[cursor] === "\"") {
+      cursor += 1;
+      let closed = false;
+      while (cursor < source.length) {
+        const character = source[cursor]!;
+        cursor += 1;
+        if (character === "\"") { closed = true; break; }
+        if (character === "\\") {
+          if (cursor >= source.length || source[cursor] === "\r" || source[cursor] === "\n") fail(code);
+          value += source[cursor]!;
+          cursor += 1;
+          continue;
+        }
+        if (character === "\r" || character === "\n") fail(code);
+        value += character;
+      }
+      if (!closed) fail(code);
+      while (source[cursor] === " " || source[cursor] === "\t") cursor += 1;
+      if (cursor < source.length && source[cursor] !== ";") fail(code);
+    } else {
+      const valueStart = cursor;
+      while (cursor < source.length && source[cursor] !== ";") cursor += 1;
+      value = source.slice(valueStart, cursor).trim();
+      if (value.includes("\"") || value.includes("\r") || value.includes("\n")) fail(code);
+    }
+    parameters.push(Object.freeze({ name, value }));
+  }
+  return Object.freeze(parameters);
+}
+
 function multipartBoundary(contentType: string): string {
-  const match = /(?:^|;)\s*boundary=(?:"([^"\r\n]{1,70})"|([^;\s]{1,70}))/iu.exec(contentType);
-  const boundary = match?.[1] ?? match?.[2];
+  const boundaries = semicolonParameters(contentType, "FADENO_ACTION_MEDIA_TYPE")
+    .filter(({ name }) => name === "boundary")
+    .map(({ value }) => value);
+  const boundary = boundaries.length === 1 ? boundaries[0] : undefined;
   if (
     !boundary ||
     !/^[A-Za-z0-9'()+_,./:=?-](?:[A-Za-z0-9'()+_,./:=? -]{0,68}[A-Za-z0-9'()+_,./:=?-])?$/u.test(boundary)
@@ -372,6 +421,42 @@ function findBytes(source: Uint8Array, expected: Uint8Array, start: number): num
   return -1;
 }
 
+function findMultipartOpeningBoundary(source: Uint8Array, marker: Uint8Array): number {
+  for (let index = 0; index <= source.byteLength - marker.byteLength; index += 1) {
+    if (!bytesAt(source, marker, index)) continue;
+    if (index !== 0 && (index < 2 || source[index - 2] !== 0x0d || source[index - 1] !== 0x0a)) continue;
+    const suffix = index + marker.byteLength;
+    if (
+      (source[suffix] === 0x0d && source[suffix + 1] === 0x0a)
+      || (source[suffix] === 0x2d && source[suffix + 1] === 0x2d)
+    ) return index;
+  }
+  return -1;
+}
+
+function multipartPartIsFile(headers: string): boolean {
+  let contentDisposition: string | undefined;
+  let activeName: string | undefined;
+  for (const line of headers.split("\r\n")) {
+    if (/^[\t ]/u.test(line)) {
+      if (activeName === "content-disposition" && contentDisposition !== undefined) {
+        contentDisposition += ` ${line.trim()}`;
+      }
+      continue;
+    }
+    const separator = line.indexOf(":");
+    if (separator <= 0) fail("FADENO_ACTION_BODY");
+    activeName = line.slice(0, separator).trim().toLowerCase();
+    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u.test(activeName)) fail("FADENO_ACTION_BODY");
+    if (activeName !== "content-disposition") continue;
+    if (contentDisposition !== undefined) fail("FADENO_ACTION_BODY");
+    contentDisposition = line.slice(separator + 1).trim();
+  }
+  if (contentDisposition === undefined) return false;
+  return semicolonParameters(contentDisposition, "FADENO_ACTION_BODY")
+    .some(({ name }) => name === "filename" || name === "filename*");
+}
+
 function assertMultipartTextEncoding(contentType: string, body: Uint8Array): void {
   if (body.byteLength === 0) return;
   const marker = encoder.encode(`--${multipartBoundary(contentType)}`);
@@ -379,15 +464,17 @@ function assertMultipartTextEncoding(contentType: string, body: Uint8Array): voi
   delimiter.set([0x0d, 0x0a]);
   delimiter.set(marker, 2);
   const headerEndMarker = Uint8Array.of(0x0d, 0x0a, 0x0d, 0x0a);
-  let cursor = 0;
+  let cursor = findMultipartOpeningBoundary(body, marker);
+  if (cursor < 0) fail("FADENO_ACTION_BODY");
   let parts = 0;
   for (;;) {
     if (!bytesAt(body, marker, cursor)) fail("FADENO_ACTION_BODY");
     cursor += marker.byteLength;
     if (body[cursor] === 0x2d && body[cursor + 1] === 0x2d) {
       cursor += 2;
+      while (body[cursor] === 0x20 || body[cursor] === 0x09) cursor += 1;
       if (cursor === body.byteLength) return;
-      if (cursor + 2 === body.byteLength && body[cursor] === 0x0d && body[cursor + 1] === 0x0a) return;
+      if (body[cursor] === 0x0d && body[cursor + 1] === 0x0a) return;
       fail("FADENO_ACTION_BODY");
     }
     if (body[cursor] !== 0x0d || body[cursor + 1] !== 0x0a) fail("FADENO_ACTION_BODY");
@@ -400,7 +487,7 @@ function assertMultipartTextEncoding(contentType: string, body: Uint8Array): voi
     const valueStart = headerEnd + headerEndMarker.byteLength;
     const valueEnd = findBytes(body, delimiter, valueStart);
     if (valueEnd < 0) fail("FADENO_ACTION_BODY");
-    if (!/(?:^|;)[\t ]*filename\*?=/iu.test(headers)) {
+    if (!multipartPartIsFile(headers)) {
       try { decoder.decode(body.subarray(valueStart, valueEnd)); }
       catch { fail("FADENO_ACTION_BODY"); }
     }

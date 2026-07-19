@@ -476,13 +476,16 @@ async function submitAction(
   mediaType: string,
   body: string | Uint8Array,
   action: string = fixture.action,
-): Promise<Readonly<{ status: number; body: string }>> {
+): Promise<Readonly<{ status: number; body: string; headers: string }>> {
   const response = await fixture.runtime.serve(new Request(new URL(action, "https://app.example"), {
     method: "POST",
     headers: { origin: "https://app.example", cookie: fixture.cookie, "content-type": mediaType },
     body: typeof body === "string" ? body : body.slice().buffer as ArrayBuffer,
   }), async (request) => await handler(request));
-  return Object.freeze({ status: response.status, body: await response.text() });
+  const headers = [...response.headers]
+    .map(([name, value]) => `${name}: ${value}`)
+    .join("\n");
+  return Object.freeze({ status: response.status, body: await response.text(), headers });
 }
 
 function actionEndpointCorpus(fixture: ActionFixture): readonly FuzzCase<string>[] {
@@ -605,10 +608,26 @@ function invalidMultipartTextBody(fixture: ActionFixture, boundary: string): Uin
   return body;
 }
 
+function invalidMultipartTextBodyWithUnrelatedFilename(fixture: ActionFixture, boundary: string): Uint8Array {
+  const before = encoder.encode([
+    `--${boundary}\r\nContent-Disposition: form-data; name="__fadeno_proof"\r\n\r\n${fixture.proof}\r\n`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="${fixture.fieldName}"\r\nX-Foo: x; filename=ignored\r\n\r\n`,
+  ].join(""));
+  const after = encoder.encode(`\r\n--${boundary}--\r\n`);
+  const body = new Uint8Array(before.byteLength + 1 + after.byteLength);
+  body.set(before);
+  body[before.byteLength] = 0xff;
+  body.set(after, before.byteLength + 1);
+  return body;
+}
+
 const bodyFixture = await createActionFixture();
 const multipartFixture = await createActionFixture();
 const invalidMultipartFixture = await createActionFixture();
 const invalidPercentFixture = await createActionFixture();
+const unrelatedFilenameFixture = await createActionFixture();
+const preambleFixture = await createActionFixture();
+const quotedParameterFixture = await createActionFixture();
 const validBody = new URLSearchParams({
   __fadeno_proof: bodyFixture.proof,
   [bodyFixture.fieldName]: "accepted",
@@ -628,6 +647,21 @@ const actionBodyCases: FuzzCase<ActionBodyCase>[] = [
     invalidMultipartTextBody(invalidMultipartFixture, invalidMultipartBoundary),
   ),
   actionBodyCase(
+    unrelatedFilenameFixture,
+    "multipart/form-data; boundary=fadeno-a0-unrelated-filename",
+    invalidMultipartTextBodyWithUnrelatedFilename(unrelatedFilenameFixture, "fadeno-a0-unrelated-filename"),
+  ),
+  actionBodyCase(
+    preambleFixture,
+    "multipart/form-data; boundary=fadeno-a0-preamble",
+    `ignored preamble\r\n${multipartBody(preambleFixture, "fadeno-a0-preamble")}ignored epilogue`,
+  ),
+  actionBodyCase(
+    quotedParameterFixture,
+    'multipart/form-data; note="abc; boundary=wrong "; boundary=fadeno-a0-quoted-parameter',
+    multipartBody(quotedParameterFixture, "fadeno-a0-quoted-parameter"),
+  ),
+  actionBodyCase(
     invalidPercentFixture,
     "application/x-www-form-urlencoded",
     `__fadeno_proof=${invalidPercentFixture.proof}&${invalidPercentFixture.fieldName}=%FF`,
@@ -637,7 +671,7 @@ const actionBodyCases: FuzzCase<ActionBodyCase>[] = [
   actionBodyCase(bodyFixture, "application/json", `{"value":"${sentinel}"}`),
 ];
 const bodyRandom = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 14) >>> 0);
-for (let index = 0; index < 125; index += 1) {
+for (let index = 0; index < 122; index += 1) {
   const random = `${sentinel}:${randomString(bodyRandom)}`.slice(0, 1_024);
   const kind = bodyRandom.integer(4);
   if (kind === 0) actionBodyCases.push(actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", random));
@@ -650,7 +684,7 @@ surfaces.push(await summarize(
   actionBodyCases,
   async ({ fixture, mediaType, body }) => {
     const response = await submitAction(fixture, mediaType, body);
-    if (response.body.includes(sentinel)) return "unexpected:secret-leakage";
+    if (response.body.includes(sentinel) || response.headers.includes(sentinel)) return "unexpected:secret-leakage";
     if (response.status === 303) return "accepted:redirect";
     const code = /FADENO_[A-Z0-9_]+/u.exec(response.body)?.[0];
     if (!code || code === "FADENO_ACTION_INTERNAL") return `unexpected:${code ?? `status-${response.status}`}`;
