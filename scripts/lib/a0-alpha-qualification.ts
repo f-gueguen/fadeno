@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, normalize, relative, sep } from "node:path";
 
@@ -44,46 +45,95 @@ const auditContract = Object.freeze([
     id: "security",
     outcome: "qualified-first-alpha-boundaries",
     gates: Object.freeze(["check:a0-decoder-fuzz", "check:v1-rendering-security", "check:v1-action-session-decision", "check:v1-action-runtime", "check:v1-running-example", "check:a0-deploy"]),
+    evidence: Object.freeze([
+      "docs/security/alpha-threat-review.md",
+      "evidence/a0/security/decoder-fuzz.json",
+      "examples/v1-app/scenarios/action-lifecycle/expected/diagnostic.json",
+      "examples/v1-app/scenarios/deployment/expected/flow.json",
+    ]),
   }),
   Object.freeze({
     id: "accessibility",
     outcome: "qualified-native-baseline",
     gates: Object.freeze(["check:v1-running-example", "check:a0-css"]),
+    evidence: Object.freeze([
+      "examples/v1-app/expected/accessibility-baseline.json",
+      "examples/v1-app/src/styles.ts",
+    ]),
   }),
   Object.freeze({
     id: "performance",
     outcome: "qualified-existing-evidence-only",
     gates: Object.freeze(["check:type-spine-qualification-evidence", "check:revalidation-qualification-evidence", "check:v1-analyzer-feedback"]),
+    evidence: Object.freeze([
+      "experiments/type-spine/results/20260712T022123Z-122ba57-a1/decision.json",
+      "experiments/revalidation/results/qualification-result.json",
+      "evidence/v1-analyzer-feedback/results/20260717T090059Z-4d57a69-a4/summary.json",
+    ]),
   }),
   Object.freeze({
     id: "package",
     outcome: "qualified-current-packed-seed",
     gates: Object.freeze(["check:a0-publication", "check:a0-release", "check:v1-analyzer-package"]),
+    evidence: Object.freeze([
+      "packages/framework/package.json",
+      "packages/framework/README.md",
+      "packages/framework/sbom.spdx.json",
+      "evidence/a0/release/first-alpha-plan.json",
+    ]),
   }),
   Object.freeze({
     id: "documentation",
     outcome: "qualified-executable-authority",
     gates: Object.freeze(["check:docs", "check:v1-documentation-source", "check:v1-documentation"]),
+    evidence: Object.freeze([
+      "README.md",
+      "docs/migrations/first-alpha-candidate.md",
+      "examples/v1-app/documentation-source.json",
+      "examples/v1-app/expected/independent-workflow.txt",
+    ]),
   }),
   Object.freeze({
     id: "clean-machine",
     outcome: "qualified-automated-packed-workflows",
     gates: Object.freeze(["check:v1-independent-workflow", "check:a0-create", "check:a0-test", "check:a0-deploy"]),
+    evidence: Object.freeze([
+      "examples/v1-app/expected/independent-workflow.txt",
+      "examples/v1-app/scenarios/application-test/expected/flow.json",
+      "examples/v1-app/scenarios/deployment/expected/flow.json",
+      "examples/v1-app/scenarios/deployment/expected/recovery.json",
+    ]),
   }),
   Object.freeze({
     id: "reproducibility",
     outcome: "qualified-identical-current-source",
     gates: Object.freeze(["check:v1-independent-workflow", "check:v1-development", "check:a0-release", "check:a0-deploy"]),
+    evidence: Object.freeze([
+      "examples/v1-app/expected/build-manifest-normalized.json",
+      "examples/v1-app/scenarios/deployment/expected/artifact.json",
+      "packages/framework/sbom.spdx.json",
+    ]),
   }),
   Object.freeze({
     id: "rollback",
     outcome: "qualified-prepublication-and-deployment",
     gates: Object.freeze(["check:a0-release", "check:a0-deploy", "check:v1-development"]),
+    evidence: Object.freeze([
+      "evidence/a0/release/rollback-public-seed.json",
+      "evidence/a0/release/recovery.json",
+      "examples/v1-app/scenarios/deployment/expected/recovery.json",
+      "examples/v1-app/scenarios/development-lifecycle/expected/recovery.json",
+    ]),
   }),
   Object.freeze({
     id: "usability-tooling",
     outcome: "deferred-unqualified",
     gates: Object.freeze(["check:a0-usability-contract", "check:a0-usability-replay-contract", "check:a0-usability-artifact", "check:a0-tooling-deferral"]),
+    evidence: Object.freeze([
+      "docs/adr/0043-defer-independent-usability-and-external-tooling.md",
+      "evidence/a0/independent-usability/task-packet.json",
+      "SUPPORT.md",
+    ]),
   }),
 ] as const);
 
@@ -125,6 +175,14 @@ function safeEvidencePath(path: string): boolean {
     && relative(".", path) === path
     && path !== ".."
     && !path.startsWith(`..${sep}`);
+}
+
+export function trackedA0QualificationFiles(root: string): ReadonlySet<string> {
+  const output = execFileSync("git", ["ls-files", "--cached", "-z"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  return new Set(output.split("\0").filter(Boolean));
 }
 
 export function loadA0AlphaQualificationContext(
@@ -224,6 +282,9 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
     }
     if (JSON.stringify(audit["gates"]) !== JSON.stringify(expected.gates)) {
       errors.push(`A0 alpha audit gates drifted: ${expected.id}`);
+    }
+    if (JSON.stringify(audit["evidence"]) !== JSON.stringify(expected.evidence)) {
+      errors.push(`A0 alpha audit evidence drifted: ${expected.id}`);
     }
     for (const gate of expected.gates) {
       if (!Object.hasOwn(context.scripts, gate)) errors.push(`A0 alpha audit gate is unknown: ${gate}`);

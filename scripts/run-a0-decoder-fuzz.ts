@@ -182,10 +182,11 @@ surfaces.push(await summarize(
 
 surfaces.push(await summarize(
   "configuration-source",
-  stringCorpus(3, 64, [
+  stringCorpus(3, 63, [
     configSource,
     "export default {};\n",
     "export default (() => ({}))();\n",
+    "export default {};\ud800",
     "x".repeat(4_096),
   ]),
   (value) => {
@@ -457,13 +458,28 @@ function multipartBody(fixture: ActionFixture, boundary: string): string {
   ].join("");
 }
 
+function invalidMultipartTextBody(fixture: ActionFixture, boundary: string): Uint8Array {
+  const before = encoder.encode([
+    `--${boundary}\r\nContent-Disposition: form-data; name="__fadeno_proof"\r\n\r\n${fixture.proof}\r\n`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="${fixture.fieldName}"\r\n\r\n`,
+  ].join(""));
+  const after = encoder.encode(`\r\n--${boundary}--\r\n`);
+  const body = new Uint8Array(before.byteLength + 1 + after.byteLength);
+  body.set(before);
+  body[before.byteLength] = 0xff;
+  body.set(after, before.byteLength + 1);
+  return body;
+}
+
 const bodyFixture = await createActionFixture();
 const multipartFixture = await createActionFixture();
+const invalidMultipartFixture = await createActionFixture();
 const validBody = new URLSearchParams({
   __fadeno_proof: bodyFixture.proof,
   [bodyFixture.fieldName]: "accepted",
 }).toString();
 const multipartBoundary = "fadeno-a0-valid-boundary";
+const invalidMultipartBoundary = "fadeno-a0-invalid-text";
 const actionBodyCases: FuzzCase<ActionBodyCase>[] = [
   actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", validBody),
   actionBodyCase(
@@ -471,12 +487,17 @@ const actionBodyCases: FuzzCase<ActionBodyCase>[] = [
     `multipart/form-data; boundary=${multipartBoundary}`,
     multipartBody(multipartFixture, multipartBoundary),
   ),
+  actionBodyCase(
+    invalidMultipartFixture,
+    `multipart/form-data; boundary=${invalidMultipartBoundary}`,
+    invalidMultipartTextBody(invalidMultipartFixture, invalidMultipartBoundary),
+  ),
   actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", `${bodyFixture.fieldName}=${sentinel}`),
   actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", `__fadeno_proof=${bodyFixture.proof}&__fadeno_proof=${bodyFixture.proof}&${bodyFixture.fieldName}=${sentinel}`),
   actionBodyCase(bodyFixture, "application/json", `{"value":"${sentinel}"}`),
 ];
 const bodyRandom = new DeterministicRandom((A0_DECODER_FUZZ_SEED + 13) >>> 0);
-for (let index = 0; index < 127; index += 1) {
+for (let index = 0; index < 126; index += 1) {
   const random = `${sentinel}:${randomString(bodyRandom)}`.slice(0, 1_024);
   const kind = bodyRandom.integer(4);
   if (kind === 0) actionBodyCases.push(actionBodyCase(bodyFixture, "application/x-www-form-urlencoded", random));

@@ -32,7 +32,7 @@
       "refused": 66,
       "unexpected": 0,
       "largestInputBytes": 4096,
-      "classificationSha256": "8adc357b173c4d4101c6b01c8a58f66c7fd012661c05d6a6e1aa1fa553b528e9"
+      "classificationSha256": "1a61b11e4889e3903ef81c744098a4bdb9d0bf8e1ff9baceff676592424b90c2"
     },
     {
       "id": "configuration-file-bytes",
@@ -122,7 +122,7 @@
       "refused": 130,
       "unexpected": 0,
       "largestInputBytes": 991,
-      "classificationSha256": "699454f95777cc769e599a3423c2b3266e24b55cd5c4fdf8aa9063d730e84a45"
+      "classificationSha256": "3debc97d31c4b23d5468f9480249901c413e08f83188de3934556c16d53943ff"
     }
   ]
 }

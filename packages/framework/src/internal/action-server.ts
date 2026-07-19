@@ -347,6 +347,69 @@ async function readBody(request: Request, startedAt: number): Promise<Uint8Array
 
 type ParsedBody = Readonly<{ proof: string; parts: readonly DecisionSubmissionPart[]; bytes: number }>;
 
+function multipartBoundary(contentType: string): string {
+  const match = /(?:^|;)\s*boundary=(?:"([^"\r\n]{1,70})"|([^;\s]{1,70}))/iu.exec(contentType);
+  const boundary = match?.[1] ?? match?.[2];
+  if (
+    !boundary ||
+    !/^[A-Za-z0-9'()+_,./:=?-](?:[A-Za-z0-9'()+_,./:=? -]{0,68}[A-Za-z0-9'()+_,./:=?-])?$/u.test(boundary)
+  ) fail("FADENO_ACTION_MEDIA_TYPE");
+  return boundary;
+}
+
+function bytesAt(source: Uint8Array, expected: Uint8Array, index: number): boolean {
+  if (index < 0 || index + expected.byteLength > source.byteLength) return false;
+  for (let offset = 0; offset < expected.byteLength; offset += 1) {
+    if (source[index + offset] !== expected[offset]) return false;
+  }
+  return true;
+}
+
+function findBytes(source: Uint8Array, expected: Uint8Array, start: number): number {
+  for (let index = start; index <= source.byteLength - expected.byteLength; index += 1) {
+    if (bytesAt(source, expected, index)) return index;
+  }
+  return -1;
+}
+
+function assertMultipartTextEncoding(contentType: string, body: Uint8Array): void {
+  if (body.byteLength === 0) return;
+  const marker = encoder.encode(`--${multipartBoundary(contentType)}`);
+  const delimiter = new Uint8Array(2 + marker.byteLength);
+  delimiter.set([0x0d, 0x0a]);
+  delimiter.set(marker, 2);
+  const headerEndMarker = Uint8Array.of(0x0d, 0x0a, 0x0d, 0x0a);
+  let cursor = 0;
+  let parts = 0;
+  for (;;) {
+    if (!bytesAt(body, marker, cursor)) fail("FADENO_ACTION_BODY");
+    cursor += marker.byteLength;
+    if (body[cursor] === 0x2d && body[cursor + 1] === 0x2d) {
+      cursor += 2;
+      if (cursor === body.byteLength) return;
+      if (cursor + 2 === body.byteLength && body[cursor] === 0x0d && body[cursor + 1] === 0x0a) return;
+      fail("FADENO_ACTION_BODY");
+    }
+    if (body[cursor] !== 0x0d || body[cursor + 1] !== 0x0a) fail("FADENO_ACTION_BODY");
+    const headerStart = cursor + 2;
+    const headerEnd = findBytes(body, headerEndMarker, headerStart);
+    if (headerEnd < 0) fail("FADENO_ACTION_BODY");
+    let headers: string;
+    try { headers = decoder.decode(body.subarray(headerStart, headerEnd)); }
+    catch { fail("FADENO_ACTION_BODY"); }
+    const valueStart = headerEnd + headerEndMarker.byteLength;
+    const valueEnd = findBytes(body, delimiter, valueStart);
+    if (valueEnd < 0) fail("FADENO_ACTION_BODY");
+    if (!/(?:^|;)[\t ]*filename\*?=/iu.test(headers)) {
+      try { decoder.decode(body.subarray(valueStart, valueEnd)); }
+      catch { fail("FADENO_ACTION_BODY"); }
+    }
+    parts += 1;
+    if (parts > maximumParts + 1) fail("FADENO_ACTION_BODY_LIMIT");
+    cursor = valueEnd + 2;
+  }
+}
+
 function assertBoundedPartFraming(type: string, contentType: string, body: Uint8Array): void {
   if (body.byteLength === 0) return;
   const maximumFramedParts = maximumParts + 1; // Application fields plus the framework proof.
@@ -357,12 +420,7 @@ function assertBoundedPartFraming(type: string, contentType: string, body: Uint8
     }
     return;
   }
-  const match = /(?:^|;)\s*boundary=(?:"([^"\r\n]{1,70})"|([^;\s]{1,70}))/iu.exec(contentType);
-  const boundary = match?.[1] ?? match?.[2];
-  if (
-    !boundary ||
-    !/^[A-Za-z0-9'()+_,./:=?-](?:[A-Za-z0-9'()+_,./:=? -]{0,68}[A-Za-z0-9'()+_,./:=?-])?$/u.test(boundary)
-  ) fail("FADENO_ACTION_MEDIA_TYPE");
+  const boundary = multipartBoundary(contentType);
   const marker = encoder.encode(`--${boundary}`);
   let delimiters = 0;
   for (let index = 0; index <= body.byteLength - marker.byteLength; index += 1) {
@@ -388,6 +446,7 @@ async function parseBody(request: Request, state: ActionState, startedAt: number
     try { source = decoder.decode(body); } catch { fail("FADENO_ACTION_BODY"); }
     for (const entry of new URLSearchParams(source)) values.push(entry);
   } else if (type === "multipart/form-data") {
+    assertMultipartTextEncoding(contentType, body);
     let parsed: FormData;
     try {
       parsed = await new Request(request.url, {

@@ -1,18 +1,27 @@
-import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
 
 import {
   loadA0AlphaQualificationContext,
+  trackedA0QualificationFiles,
   validateA0AlphaQualification,
   type A0AlphaQualificationContext,
 } from "./lib/a0-alpha-qualification.ts";
 
 const root = process.cwd();
-const tracked = new Set(execFileSync(
-  "git",
-  ["ls-files", "--cached", "--others", "--exclude-standard"],
-  { cwd: root, encoding: "utf8" },
-).trim().split("\n"));
+const tracked = trackedA0QualificationFiles(root);
 const source = loadA0AlphaQualificationContext(root, tracked);
+
+const untrackedDirectory = mkdtempSync(join(root, ".a0-qualification-untracked-"));
+try {
+  writeFileSync(join(untrackedDirectory, "evidence.json"), "{}\n");
+  const current = trackedA0QualificationFiles(root);
+  if ([...current].some((path) => path.startsWith(`${basename(untrackedDirectory)}/`))) {
+    throw new Error("A0 alpha qualification admitted untracked evidence");
+  }
+} finally {
+  rmSync(untrackedDirectory, { recursive: true, force: true });
+}
 
 function cloneDocument(): Record<string, unknown> {
   return JSON.parse(JSON.stringify(source.document)) as Record<string, unknown>;
@@ -40,6 +49,12 @@ expectMutation("A0 alpha audit gates drifted: security", (context) => {
   const document = cloneDocument();
   const security = (document["audits"] as Record<string, unknown>[])[0]!;
   security["gates"] = (security["gates"] as string[]).filter((gate) => gate !== "check:a0-decoder-fuzz");
+  return Object.freeze({ ...context, document });
+});
+expectMutation("A0 alpha audit evidence drifted: security", (context) => {
+  const document = cloneDocument();
+  const security = (document["audits"] as Record<string, unknown>[])[0]!;
+  security["evidence"] = ["README.md"];
   return Object.freeze({ ...context, document });
 });
 expectMutation("A0 alpha audit evidence path is unsafe: ../outside.json", (context) => {
