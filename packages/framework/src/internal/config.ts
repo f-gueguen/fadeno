@@ -27,6 +27,20 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   }
 }
 
+function isWellFormedUtf16(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const current = value.charCodeAt(index);
+    if (current >= 0xd800 && current <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (next < 0xdc00 || next > 0xdfff) return false;
+      index += 1;
+    } else if (current >= 0xdc00 && current <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function normalizeConfig(value: unknown): FadenoConfig {
   try {
     if (!isPlainRecord(value)) fail("SHAPE");
@@ -162,6 +176,7 @@ function configPathForProject(projectRoot: string): string {
 
 export function loadConfigFromSource(projectRoot: string, source: string): LoadedConfig {
   if (typeof source !== "string") fail("SOURCE_CHANGED");
+  if (!isWellFormedUtf16(source)) fail("SYNTAX");
   const configPath = configPathForProject(projectRoot);
   return Object.freeze({ config: staticConfiguration(projectRoot, configPath, source), source });
 }

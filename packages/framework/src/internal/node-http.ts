@@ -34,7 +34,7 @@ function assertSupportedRuntime(): void {
   }
 }
 
-function requestUrl(rawTarget: string | undefined, origin: string): URL {
+export function decodeNodeRequestTarget(rawTarget: string | undefined, origin: string): URL {
   if (!rawTarget || !rawTarget.startsWith("/") || rawTarget.startsWith("//")) {
     throw new Error("FADENO_ADAPTER_REQUEST_TARGET");
   }
@@ -73,7 +73,7 @@ function toWebRequest(request: IncomingMessage, origin: string, signal: AbortSig
     init.body = body;
     init.duplex = "half";
   }
-  return new Request(requestUrl(request.url, origin), init);
+  return new Request(decodeNodeRequestTarget(request.url, origin), init);
 }
 
 function copyResponseHead(response: Response, target: ServerResponse): void {

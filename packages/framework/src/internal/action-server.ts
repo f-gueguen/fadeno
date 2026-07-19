@@ -381,13 +381,20 @@ async function parseBody(request: Request, state: ActionState, startedAt: number
   assertBoundedPartFraming(type, contentType, body);
   const values: [string, string | File][] = [];
   if (type === "application/x-www-form-urlencoded") {
-    for (const entry of new URLSearchParams(decoder.decode(body))) values.push(entry);
+    let source: string;
+    try { source = decoder.decode(body); } catch { fail("FADENO_ACTION_BODY"); }
+    for (const entry of new URLSearchParams(source)) values.push(entry);
   } else if (type === "multipart/form-data") {
-    const parsed = await new Request(request.url, {
-      method: "POST",
-      headers: { "content-type": contentType },
-      body: body.slice().buffer as ArrayBuffer,
-    }).formData();
+    let parsed: FormData;
+    try {
+      parsed = await new Request(request.url, {
+        method: "POST",
+        headers: { "content-type": contentType },
+        body: body.slice().buffer as ArrayBuffer,
+      }).formData();
+    } catch {
+      fail("FADENO_ACTION_BODY");
+    }
     if (Date.now() - startedAt > maximumBoundaryDurationMilliseconds) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
     for (const entry of parsed) values.push(entry);
   } else fail("FADENO_ACTION_MEDIA_TYPE");
