@@ -28,9 +28,12 @@ assert.deepEqual(Object.keys(packageDocument.exports).sort(), [".", "./browser",
 const implementation = read("packages/framework/src/internal/browser-navigation.ts");
 for (const fragment of [
   'history.scrollRestoration = "manual"',
+  "history.scrollRestoration = previousScrollRestoration",
   "existingHistoryState !== null && !existingPrivateState",
+  "unsafeHistoryEntries",
   "element === documentScroller",
   "historyWriteFailed = true",
+  "initiator && !flushCurrentScroll(true)",
   "traversal === traversalSequence",
   "createHistoryState(scrollX, scrollY, false)",
   "privateHistoryState(history.state)",
@@ -41,18 +44,34 @@ for (const fragment of [
 
 const tests = read("experiments/v2-link-navigation/tests/link-navigation.spec.ts");
 for (const fragment of [
-  "commits focus and top scroll without animation under reduced motion",
+  "commits focus and top scroll without animation under ${motion} motion",
+  "restores automatic scroll ownership when the runtime closes",
+  "restores automatic scroll ownership when initial history acquisition fails",
   "allows a scrolled origin and reloads that unsafe history entry on return",
   "runtimeRestarted",
   "coalesces history writes and keeps mutation-limit failure native",
-  "reloads an application-owned history entry instead of showing stale markup",
+  "reloads application-owned and malformed history instead of showing stale markup",
   "discards only a collapsed old-document selection",
-  "keeps a non-collapsed selection and element scroll on the native path",
+  "keeps a non-collapsed selection on the native path",
+  "reloads an owned element-scrolled entry during traversal",
+  "marks an outgoing scroll before a same-task traversal",
+  "flushes late outgoing document scroll before commit",
   "cancels an obsolete history traversal and publishes only the newest entry",
 ]) assert.equal(tests.includes(fragment), true, `V2-05 browser corpus is missing ${fragment}`);
 
 const guide = read("docs/guides/browser-runtime.md");
-for (const name of ["history-focus", "history-scroll-refusal", "history-write-recovery", "history-recovery"]) {
+for (const name of [
+  "history-focus",
+  "history-focus-normal",
+  "history-teardown",
+  "history-startup-recovery",
+  "history-scroll-refusal",
+  "history-write-recovery",
+  "history-element-recovery",
+  "history-pending-scroll-recovery",
+  "history-late-scroll-recovery",
+  "history-recovery",
+]) {
   const evidence = read(`examples/v1-app/scenarios/link-navigation/expected/${name}.json`).trim();
   assert.equal(guide.includes(evidence), true, `generated guide is missing executed ${name} evidence`);
 }
@@ -67,4 +86,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 51-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 69-case corpus, executable guidance)");

@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.history-focus-success",
+  "version": 1,
+  "path": "/next",
+  "heading": "Next",
+  "focus": "H1",
+  "scrollX": 0,
+  "scrollY": 0,
+  "reducedMotion": false,
+  "animations": 0,
+  "transitions": 0
+}

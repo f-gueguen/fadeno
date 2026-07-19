@@ -155,7 +155,11 @@ history entries carry a private exact-version marker and recorded document
 scroll state while automatic restoration is disabled for the active runtime.
 The first observed nonzero document or element scroll makes the entry
 monotonically unsafe, avoiding repeated History API writes; an eligible click
-performs one guarded final flush and stays native if the browser refuses it.
+performs guarded flushes before interception and immediately before commit, and
+stays native if the browser refuses either. A bounded private entry identity
+allows traversal to mark the outgoing document unsafe even when its scroll event
+has not yet been delivered. Initial history-acquisition failure restores native
+scroll restoration.
 New cross-document links may leave a document-scrolled origin without treating
 the document scroller as element state, then commit the destination at the top
 with focus moved without scrolling. Back/forward remains enhanced only for owned

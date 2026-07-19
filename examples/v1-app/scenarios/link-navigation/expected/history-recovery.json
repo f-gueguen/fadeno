@@ -4,5 +4,6 @@
   "path": "/next",
   "heading": "Next",
   "nativeRecovery": true,
-  "staleDocumentRemoved": true
+  "staleDocumentRemoved": true,
+  "malformedRecoveries": 5
 }

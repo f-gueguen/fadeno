@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-startup-recovery",
+  "version": 1,
+  "restoration": "auto",
+  "nativeRecovery": true
+}

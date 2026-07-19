@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-teardown",
+  "version": 1,
+  "activeRestoration": "manual",
+  "closedState": "closed",
+  "restoredRestoration": "auto"
+}

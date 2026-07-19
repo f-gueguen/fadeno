@@ -1,3 +1,3 @@
 import { startBrowserEnhancement } from "@fadeno/framework/browser";
 
-startBrowserEnhancement();
+Reflect.set(globalThis, "__fadenoExampleEnhancement", startBrowserEnhancement());

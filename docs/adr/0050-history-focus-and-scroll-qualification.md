@@ -30,19 +30,20 @@ reconciliation acquire authority.
 ## Decision
 
 The browser runtime owns only history entries that carry its exact private
-marker, private state version, and nonnegative finite document-scroll record.
-It installs manual browser scroll restoration while active and restores the
-previous browser setting on close. Application-owned, malformed, unsupported,
-or preservation-unsafe entries are not interpreted; traversal reloads the
-selected current URL so URL and document cannot diverge.
+marker, private state version, bounded entry identity, and nonnegative finite
+document-scroll record. It installs manual browser scroll restoration while
+active and restores the previous browser setting on close. If initial history
+ownership cannot be recorded, startup also restores the prior setting and
+returns to native ownership. Application-owned, malformed, unsupported, or
+preservation-unsafe entries are not interpreted; traversal reloads the selected
+current URL so URL and document cannot diverge.
 
 Each owned entry starts with the current document scroll position. The first
 observed nonzero document or element scroll makes that entry monotonically
 unsafe for enhanced restoration, so later scroll events do not keep rewriting
-history. An
-eligible click performs one guarded final flush before interception. If that
-history write is refused or rate-limited, further writes stop and the link
-remains native. A new
+history. An eligible click performs guarded flushes before interception and
+immediately before document commit. If either history write is refused or
+rate-limited, further writes stop and the link remains native. A new
 eligible link may depart from a scrolled document after all other V2-04
 preservation checks pass: the document scroller is not misclassified as element
 scroll, the outgoing entry is recorded, the new entry is committed at document
@@ -77,8 +78,11 @@ decision and must retain this no-animation reduced-motion baseline.
 Traversal supersession uses ADR 0049's existing operation cancellation and
 newest-only publication. Scroll-write suppression remains owned by the newest
 traversal until that traversal finishes; an older traversal's cleanup cannot
-release it. A late response cannot commit document, history, focus, selection,
-or scroll after a newer click or traversal. Flow evidence
+release it. Every entry has a bounded private identity; `popstate` inspects the
+still-present outgoing document and conservatively marks that identity unsafe
+before adopting the selected entry, covering scroll changes whose event has not
+yet been delivered. A late response cannot commit document, history, focus,
+selection, or scroll after a newer click or traversal. Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
 

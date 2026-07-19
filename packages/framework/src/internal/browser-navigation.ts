@@ -14,6 +14,7 @@ const historyStateVersion = 1;
 type Metadata = Readonly<{ generation: string; epoch: string }>;
 type PrivateHistoryState = Readonly<{
   version: 1;
+  entry: string;
   scrollX: number;
   scrollY: number;
   elementScroll: boolean;
@@ -190,10 +191,16 @@ function focusNewDocument(): void {
   target.focus({ preventScroll: true });
 }
 
-function createHistoryState(x: number, y: number, elementScroll: boolean): Readonly<Record<string, unknown>> {
+function createHistoryState(
+  x: number,
+  y: number,
+  elementScroll: boolean,
+  entry = `history:${globalThis.crypto.randomUUID()}`,
+): Readonly<Record<string, unknown>> {
   return Object.freeze({
     [marker]: true,
     version: historyStateVersion,
+    entry,
     scrollX: x,
     scrollY: y,
     elementScroll,
@@ -202,17 +209,19 @@ function createHistoryState(x: number, y: number, elementScroll: boolean): Reado
 
 function privateHistoryState(value: unknown): PrivateHistoryState | undefined {
   if (typeof value !== "object" || value === null
-    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([marker, "elementScroll", "scrollX", "scrollY", "version"].sort())
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([marker, "elementScroll", "entry", "scrollX", "scrollY", "version"].sort())
     || Reflect.get(value, marker) !== true
     || Reflect.get(value, "version") !== historyStateVersion) return undefined;
   const x = Reflect.get(value, "scrollX");
   const y = Reflect.get(value, "scrollY");
+  const entry = Reflect.get(value, "entry");
   const elementScroll = Reflect.get(value, "elementScroll");
-  if (typeof x !== "number" || typeof y !== "number"
+  if (typeof entry !== "string" || !identityPattern.test(entry) || new TextEncoder().encode(entry).byteLength > 128
+    || typeof x !== "number" || typeof y !== "number"
     || !Number.isFinite(x) || !Number.isFinite(y)
     || x < 0 || y < 0 || x > Number.MAX_SAFE_INTEGER || y > Number.MAX_SAFE_INTEGER
     || typeof elementScroll !== "boolean") return undefined;
-  return Object.freeze({ version: 1, scrollX: x, scrollY: y, elementScroll });
+  return Object.freeze({ version: 1, entry, scrollX: x, scrollY: y, elementScroll });
 }
 
 function applyDocument(next: Document, url: string, replace: boolean): void {
@@ -226,7 +235,8 @@ function applyDocument(next: Document, url: string, replace: boolean): void {
     document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
     focusNewDocument();
     scrollTo({ left: 0, top: 0, behavior: "instant" });
-    const state = createHistoryState(0, 0, false);
+    const selectedEntry = replace ? privateHistoryState(history.state)?.entry : undefined;
+    const state = createHistoryState(0, 0, false, selectedEntry);
     if (replace) history.replaceState(state, "", url);
     else history.pushState(state, "", url);
   } catch (cause) {
@@ -254,10 +264,26 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   let historyWriteFailed = false;
   const consumedResultIds: string[] = [];
   const previousScrollRestoration = history.scrollRestoration;
-  history.scrollRestoration = "manual";
-  if (existingHistoryState === null) {
-    history.replaceState(createHistoryState(scrollX, scrollY, false), "", location.href);
+  try {
+    history.scrollRestoration = "manual";
+    if (existingHistoryState === null) {
+      history.replaceState(createHistoryState(scrollX, scrollY, false), "", location.href);
+    }
+  } catch {
+    try { history.scrollRestoration = previousScrollRestoration; } catch { /* native owner remains authoritative */ }
+    return undefined;
   }
+  let activeHistoryEntry = privateHistoryState(history.state)?.entry;
+  const unsafeHistoryEntries = new Set<string>();
+
+  const markHistoryUnsafe = (entry: string | undefined): void => {
+    if (!entry) return;
+    unsafeHistoryEntries.add(entry);
+    if (unsafeHistoryEntries.size > 256) {
+      const oldest = unsafeHistoryEntries.values().next().value as string | undefined;
+      if (oldest) unsafeHistoryEntries.delete(oldest);
+    }
+  };
 
   const flushCurrentScroll = (force: boolean): boolean => {
     if (closed || traversing || historyWriteFailed) return false;
@@ -273,7 +299,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     }
     try {
       history.replaceState(
-        createHistoryState(scrollX, scrollY, elementScroll),
+        createHistoryState(scrollX, scrollY, elementScroll, state.entry),
         "",
         location.href,
       );
@@ -293,6 +319,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       && target !== document.body
       && (target.scrollTop !== 0 || target.scrollLeft !== 0);
     pendingElementScroll ||= elementOwnsScroll;
+    if (scrollX !== 0 || scrollY !== 0 || elementOwnsScroll) markHistoryUnsafe(activeHistoryEntry);
     void flushCurrentScroll(false);
   };
 
@@ -361,7 +388,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
+      if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       applyDocument(next, operation.destination.href, replace);
+      activeHistoryEntry = privateHistoryState(history.state)?.entry;
       consumedResultIds.push(admission.resultId);
       if (consumedResultIds.length > 256) consumedResultIds.shift();
       currentMetadata = metadata(document);
@@ -427,12 +456,19 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     void navigate(destination, false, target);
   };
   const popstate = (): void => {
+    const outgoingElementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
+      && (element.scrollTop !== 0 || element.scrollLeft !== 0));
+    if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || outgoingElementScroll) {
+      markHistoryUnsafe(activeHistoryEntry);
+    }
     pendingElementScroll = false;
     traversalSequence += 1;
     const traversal = traversalSequence;
     const state = privateHistoryState(history.state);
+    activeHistoryEntry = state?.entry;
     traversing = true;
-    if (!state || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
+    if (!state || unsafeHistoryEntries.has(state.entry)
+      || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
       active?.cancellation.abort(new DOMException("History traversal requires native recovery", "AbortError"));
       location.reload();
       return;
