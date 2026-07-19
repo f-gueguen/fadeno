@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 
 import {
+  actionError,
+  defineAction,
+  defineResource,
+  renderRoute,
+  textField,
+} from "../packages/framework/dist/index.js";
+import { ActionServerRuntime } from "../packages/framework/dist/internal/action-server.js";
+import {
   evaluatePrivateUpdateBytes,
   V2_PATCH_PROTOCOL_LIMITS,
 } from "../packages/framework/dist/internal/browser-update.js";
@@ -14,6 +22,7 @@ import {
   serializePrivateServerUpdateRecord,
   type PrivateServerUpdateOperation,
 } from "../packages/framework/dist/internal/server-update.js";
+import { jsx, jsxs } from "../packages/framework/dist/jsx-runtime.js";
 
 const html = "<!doctype html><html><head><title>Active &amp; safe</title></head><body><main><h1>Active projects</h1></main></body></html>";
 const authorizationOwner = Object.freeze({});
@@ -56,6 +65,7 @@ function responseFor(
     resources: () => Object.freeze([Object.freeze({
       operation: "resource-read" as const,
       outcome: "value" as const,
+      cache: "miss" as const,
       ownership: "request" as const,
       dependencyRecorded: true,
       cause: "loader-complete",
@@ -100,6 +110,137 @@ assert.deepEqual(admitted.decision, {
   recovery: "none",
   mutationResubmission: "never",
 });
+
+let pageRuns = 0;
+let resourceRuns = 0;
+const projects = defineResource({
+  read: () => {
+    resourceRuns += 1;
+    return Object.freeze(["Alpha", "Beta"]);
+  },
+});
+const routeOperation = operation({ resultId: "result-real-route" });
+const routeRequest = new Request(`${routeOperation.origin}${routeOperation.operation.url}`);
+const routeRelease = bindPrivateServerUpdateOperation(routeRequest, routeOperation);
+const routeResponse = await renderRoute({
+  request: routeRequest,
+  routeId: "route:projects:index",
+  generation: routeOperation.applicationGeneration,
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: async (context) => {
+    pageRuns += 1;
+    const values = await context.read(projects, Object.freeze({ view: "active" }));
+    return jsxs("html", { children: [
+      jsx("head", { children: jsx("title", { children: "Active projects" }) }),
+      jsx("body", { children: jsx("main", { children: values.join(", ") }) }),
+    ] });
+  },
+});
+routeRelease();
+const routeProjection = await projectPrivateServerUpdate(routeResponse, routeOperation);
+assert.equal(routeProjection.status, "projected");
+assert.equal(pageRuns, 1, "projection must not execute the page again");
+assert.equal(resourceRuns, 1, "projection must not execute a resource again");
+assert.deepEqual(routeProjection.record.provenance.resources, [
+  {
+    operation: "resource-read",
+    outcome: "value",
+    cache: "miss",
+    ownership: "request",
+    dependencyRecorded: true,
+    cause: "loader-completed",
+  },
+]);
+
+let actionRuns = 0;
+let actionPageRuns = 0;
+const renameProject = defineAction({
+  fields: { title: textField({ maximumBytes: 64 }) },
+  authorize: () => true,
+  run: ({ input }) => {
+    actionRuns += 1;
+    if (input.title === null || input.title.trim() === "") {
+      throw actionError({
+        code: "PROJECT_TITLE_REQUIRED",
+        fieldErrors: { title: "Enter a project title." },
+        formErrors: ["The project was not renamed."],
+      });
+    }
+  },
+});
+const actionRuntime = new ActionServerRuntime({
+  canonicalOrigin: "https://example.test",
+  generation: "generation-7",
+  sessionKeys: `active:${Buffer.alloc(32, 11).toString("base64url")}`,
+});
+const invokeActionPage = (request: Request) => renderRoute({
+  request,
+  routeId: "route:projects:index",
+  generation: "generation-7",
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: () => {
+    actionPageRuns += 1;
+    return jsxs("html", { children: [
+      jsx("head", { children: jsx("title", { children: "Rename project" }) }),
+      jsx("body", { children: jsx("form", {
+        action: renameProject,
+        children: [
+          jsx("input", { id: "rename-title", name: renameProject.fields.title }),
+          jsx("button", { type: "submit", children: "Rename" }),
+        ],
+      }) }),
+    ] });
+  },
+});
+const actionPage = await actionRuntime.serve(
+  new Request("https://example.test/projects"),
+  invokeActionPage,
+);
+const actionCookie = actionPage.headers.getSetCookie()[0]?.split(";", 1)[0];
+assert.ok(actionCookie);
+const actionHtml = await actionPage.text();
+const actionLocation = /<form[^>]* action="([^"]+)"/u.exec(actionHtml)?.[1]?.replaceAll("&amp;", "&");
+const actionProof = /<input type="hidden" name="__fadeno_proof" value="([^"]+)">/u.exec(actionHtml)?.[1];
+const actionTitle = /<input[^>]*id="rename-title"[^>]*>/u.exec(actionHtml)?.[0];
+const actionTitleName = actionTitle ? / name="([^"]+)"/u.exec(actionTitle)?.[1] : undefined;
+assert.ok(actionLocation);
+assert.ok(actionProof);
+assert.ok(actionTitleName);
+const mutationOperation = operation({
+  currentTruthUrl: "/projects",
+  operation: Object.freeze({ id: "operation-action", sequence: 10, kind: "mutation", url: "/projects" }),
+  resultId: "result-real-action",
+});
+const actionRequest = new Request(new URL(actionLocation, mutationOperation.origin), {
+  method: "POST",
+  headers: {
+    cookie: actionCookie,
+    "content-type": "application/x-www-form-urlencoded",
+    origin: mutationOperation.origin,
+  },
+  body: new URLSearchParams({
+    __fadeno_proof: actionProof,
+    [actionTitleName]: "",
+  }),
+});
+const actionRelease = bindPrivateServerUpdateOperation(actionRequest, mutationOperation);
+const actionResponse = await actionRuntime.serve(actionRequest, invokeActionPage);
+actionRelease();
+const actionProjection = await projectPrivateServerUpdate(actionResponse, mutationOperation);
+assert.equal(actionProjection.status, "projected");
+assert.equal(actionRuns, 1, "projection must not execute the action again");
+assert.equal(actionPageRuns, 2, "projection must not render the recovery page again");
+assert.deepEqual(actionProjection.record.provenance.action, {
+  code: "PROJECT_TITLE_REQUIRED",
+  status: "expected-failure",
+  revalidation: "none",
+  outcome: "expected-failure",
+});
+assert.equal(actionProjection.record.provenance.route?.id, "route:projects:index");
+assert.equal(JSON.stringify(actionProjection.record).includes(actionProof), false);
+assert.equal(JSON.stringify(actionProjection.record).includes(actionCookie), false);
 
 const expectedOperation = operation({ resultId: "result-expected" });
 const expectedPair = responseFor(expectedOperation, { status: 409 });

@@ -16,6 +16,10 @@ import { renderDocument, type RenderDocumentOptions } from "./renderer.ts";
 import { captureRequestFailureObserver, reportFrameworkFailure } from "./failure-observer.ts";
 import { readResourceError, ResourceRequestScope } from "./resource.ts";
 import { captureActionRequestContext } from "./action-request.ts";
+import {
+  attachPrivateServerUpdateRouteEvidence,
+  type PrivateServerUpdateResourceEvidence,
+} from "./server-update.ts";
 
 type OutcomePayload = Readonly<{ kind: "not-found" }> | Readonly<{ kind: "redirect"; location: string; status: 303 | 307 | 308 }>;
 const outcomes = new WeakMap<object, OutcomePayload>();
@@ -66,7 +70,7 @@ async function renderNotFound(
   page: NotFoundPage<Record<string, string | readonly string[]>> | undefined,
   context: PageContext<Record<string, string | readonly string[]>>,
   layouts: readonly Layout<Record<string, string | readonly string[]>>[],
-  resources: ResourceRequestScope,
+  cleanup: () => void,
   action: RenderDocumentOptions["action"],
   frameworkModule: string | undefined,
 ): Promise<Response> {
@@ -76,7 +80,7 @@ async function renderNotFound(
     status: 404,
     ...(action ? { action } : {}),
     ...(frameworkModule ? { frameworkModule } : {}),
-    cleanup: () => resources.close(),
+    cleanup,
   });
 }
 
@@ -85,7 +89,7 @@ async function renderFailure(
   context: PageContext<Record<string, string | readonly string[]>>,
   layouts: readonly Layout<Record<string, string | readonly string[]>>[],
   incidentId: string,
-  resources: ResourceRequestScope,
+  cleanup: () => void,
   expected: Readonly<{ code: string; status: ResourceStatus }> | undefined,
   action: RenderDocumentOptions["action"],
   frameworkModule: string | undefined,
@@ -101,7 +105,7 @@ async function renderFailure(
       status: expected?.status ?? 500,
       ...(action ? { action } : {}),
       ...(frameworkModule ? { frameworkModule } : {}),
-      cleanup: () => resources.close(),
+      cleanup,
     });
   } catch {
     const child = expected
@@ -112,7 +116,7 @@ async function renderFailure(
       status: expected?.status ?? 500,
       ...(action ? { action } : {}),
       ...(frameworkModule ? { frameworkModule } : {}),
-      cleanup: () => resources.close(),
+      cleanup,
     });
   }
 }
@@ -130,6 +134,28 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
       })
     : undefined;
   const resources = new ResourceRequestScope(input.request, "omit");
+  let resourceEvidence: readonly PrivateServerUpdateResourceEvidence[] = Object.freeze([]);
+  let resourcesCaptured = false;
+  const closeResources = (): void => {
+    if (!resourcesCaptured) {
+      resourcesCaptured = true;
+      resourceEvidence = Object.freeze(resources.flows.map((flow) => Object.freeze({ ...flow })));
+    }
+    resources.close();
+  };
+  const attachProjectionEvidence = (
+    response: Response,
+    outcome: "document" | "not-found" | "expected-error" | "redirect" | "unexpected-error",
+    expectedCode?: string,
+  ): Response => input.routeId && input.generation
+    ? attachPrivateServerUpdateRouteEvidence(response, input.request, {
+        routeId: input.routeId,
+        generation: input.generation,
+        outcome,
+        ...(expectedCode ? { expectedCode } : {}),
+        resources: () => resourceEvidence,
+      })
+    : response;
   const context: PageContext<Record<string, string | readonly string[]>> = Object.freeze({
     request: input.request,
     parameters: input.parameters,
@@ -145,26 +171,37 @@ export async function renderMatchedRoute(input: MatchedRouteRender): Promise<Res
     const pageResult = await input.page(context);
     const pageOutcome = typeof pageResult === "object" && pageResult !== null ? outcomes.get(pageResult) : undefined;
     if (pageOutcome?.kind === "not-found") {
-      return await renderNotFound(input.notFound, context, input.layouts, resources, action, input.browserModule);
+      return attachProjectionEvidence(
+        await renderNotFound(input.notFound, context, input.layouts, closeResources, action, input.browserModule),
+        "not-found",
+        "FADENO_ROUTE_NOT_FOUND",
+      );
     }
     if (pageOutcome?.kind === "redirect") {
       const target = new URL(pageOutcome.location, input.request.url);
       if (target.origin !== new URL(input.request.url).origin || target.username !== "" || target.password !== "") {
         throw new TypeError("FADENO_RENDER_REDIRECT_ORIGIN");
       }
-      resources.close();
-      return new Response(null, { status: pageOutcome.status, headers: { location: `${target.pathname}${target.search}${target.hash}` } });
+      closeResources();
+      return attachProjectionEvidence(
+        new Response(null, { status: pageOutcome.status, headers: { location: `${target.pathname}${target.search}${target.hash}` } }),
+        "redirect",
+      );
     }
-    return renderDocument(await composeLayouts(input.layouts, context, pageResult as RenderChild), {
+    return attachProjectionEvidence(renderDocument(await composeLayouts(input.layouts, context, pageResult as RenderChild), {
       request: input.request,
       ...(action ? { action } : {}),
       ...(input.browserModule ? { frameworkModule: input.browserModule } : {}),
-      cleanup: () => resources.close(),
-    });
+      cleanup: closeResources,
+    }), "document");
   } catch (cause) {
     const incidentId = globalThis.crypto.randomUUID();
     const expected = readResourceError(cause);
     if (!expected) reportFrameworkFailure(failureObserver, input.request, incidentId, "pre-publication", "FADENO_RENDER_UNEXPECTED", cause);
-    return renderFailure(input.error, context, input.layouts, incidentId, resources, expected, action, input.browserModule);
+    return attachProjectionEvidence(
+      await renderFailure(input.error, context, input.layouts, incidentId, closeResources, expected, action, input.browserModule),
+      expected ? "expected-error" : "unexpected-error",
+      expected?.code,
+    );
   }
 }

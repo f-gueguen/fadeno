@@ -3,7 +3,7 @@ import {
   V2_PATCH_PROTOCOL_LIMITS,
   withinPrivateUpdateFieldLimit,
   type PrivateScrollBoundaryInput,
-} from "./browser-update.js";
+} from "./browser-update.ts";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -16,6 +16,7 @@ const maximumRecordBytes = 64 * 1024;
 export type PrivateServerUpdateResourceEvidence = Readonly<{
   operation: "resource-read";
   outcome: "value" | "expected-error" | "unexpected-error" | "cancelled" | "refused";
+  cache: "miss" | "request-hit" | "none";
   ownership: "request";
   dependencyRecorded: boolean;
   cause: string;
@@ -208,6 +209,7 @@ export function attachPrivateServerUpdateRouteEvidence(
     || (input.expectedCode !== undefined && !boundedCode(input.expectedCode))) {
     return response;
   }
+  if (responseEvidence.has(response)) return response;
   responseEvidence.set(response, {
     route: Object.freeze({
       authority,
@@ -246,6 +248,7 @@ function safeResources(value: readonly PrivateServerUpdateResourceEvidence[]): r
   for (const item of value) {
     if (item.operation !== "resource-read"
       || !["value", "expected-error", "unexpected-error", "cancelled", "refused"].includes(item.outcome)
+      || !["miss", "request-hit", "none"].includes(item.cache)
       || item.ownership !== "request"
       || typeof item.dependencyRecorded !== "boolean"
       || !boundedIdentity(item.cause)) return undefined;
@@ -498,9 +501,10 @@ function exactKeys(value: JsonRecord, keys: readonly string[]): boolean {
 
 function parseResource(value: unknown): PrivateServerUpdateResourceEvidence | undefined {
   if (!plainRecord(value)
-    || !exactKeys(value, ["cause", "dependencyRecorded", "operation", "outcome", "ownership"])
+    || !exactKeys(value, ["cache", "cause", "dependencyRecorded", "operation", "outcome", "ownership"])
     || value["operation"] !== "resource-read"
     || !["value", "expected-error", "unexpected-error", "cancelled", "refused"].includes(String(value["outcome"]))
+    || !["miss", "request-hit", "none"].includes(String(value["cache"]))
     || value["ownership"] !== "request"
     || typeof value["dependencyRecorded"] !== "boolean"
     || !boundedIdentity(value["cause"])) return undefined;
