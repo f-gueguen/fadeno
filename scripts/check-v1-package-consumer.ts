@@ -92,6 +92,9 @@ try {
   cpSync(join(adapterRoot, "action-server-hook.ts"), join(internalRoot, "action-server-hook.ts"));
   cpSync(join(adapterRoot, "rendering-security.ts"), join(internalRoot, "rendering-security.ts"));
   cpSync(join(adapterRoot, "failure-observer.ts"), join(internalRoot, "failure-observer.ts"));
+  cpSync(join(adapterRoot, "browser-update.ts"), join(internalRoot, "browser-update.ts"));
+  cpSync(join(adapterRoot, "server-update.ts"), join(internalRoot, "server-update.ts"));
+  cpSync(join(adapterRoot, "server-update-transport.ts"), join(internalRoot, "server-update-transport.ts"));
   cpSync(join(adapterRoot, "node-http.ts"), join(internalRoot, "node-http.ts"));
   writeFileSync(join(sourceRoot, "node.ts"), 'export { listenNodeHttp as prototypeListen } from "./internal/node-http.ts";\n');
   writeJson(join(packageRoot, "package.json"), {

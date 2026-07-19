@@ -89,6 +89,7 @@ export function privateSafeLinkDestination(anchor: HTMLAnchorElement): URL | und
     || destination.origin !== current.origin
     || destination.username !== ""
     || destination.password !== "") return undefined;
+  if (destination.hash !== "") return undefined;
   if (destination.pathname === current.pathname
     && destination.search === current.search
     && destination.hash !== current.hash) return undefined;
@@ -185,10 +186,10 @@ function applyDocument(next: Document, url: string, replace: boolean): void {
     replaceAttributes(document.documentElement, next.documentElement);
     document.head.replaceChildren(...[...next.head.childNodes].map((node) => document.importNode(node, true)));
     document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
+    focusNewDocument();
     const state = Object.freeze({ [marker]: true });
     if (replace) history.replaceState(state, "", url);
     else history.pushState(state, "", url);
-    focusNewDocument();
   } catch (cause) {
     replaceAttributes(document.documentElement, oldAttributes);
     document.head.replaceChildren(...[...oldHead.childNodes].map((node) => document.importNode(node, true)));
@@ -203,7 +204,7 @@ function markedHistoryState(value: unknown): boolean {
 
 export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefined {
   let currentMetadata = metadata(document);
-  if (!currentMetadata) return undefined;
+  if (!currentMetadata || history.state !== null) return undefined;
   let active: ActiveOperation | undefined;
   let sequence = 0;
   let closed = false;

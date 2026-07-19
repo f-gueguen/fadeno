@@ -37,6 +37,18 @@ for (const fragment of [
 
 const packageDocument = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as { exports: Record<string, unknown> };
 assert.deepEqual(Object.keys(packageDocument.exports).sort(), [".", "./browser", "./jsx-runtime", "./node"]);
+assert.equal(
+  readFileSync(join(root, ".changeset/conservative-link-navigation.md"), "utf8"),
+  '---\n"@fadeno/framework": minor\n---\n\nEnhance eligible same-origin links with cancellable server-owned document\nupdates while retaining native navigation for every unsafe boundary.\n',
+);
+const scope = readFileSync(join(root, "docs/product/scope.md"), "utf8");
+const traceability = readFileSync(join(root, "docs/traceability.md"), "utf8");
+for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "DOC-01"]) {
+  const scopeRow = scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+  const traceabilityRow = traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+  assert.equal(scopeRow.includes("ADR 0049"), true, `${feature} scope is missing ADR 0049`);
+  assert.equal(traceabilityRow.includes("ADR 0049") && traceabilityRow.includes("check:v2-link-navigation"), true, `${feature} traceability is missing V2-04 evidence`);
+}
 
 const temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-v2-link-navigation-"));
 try {

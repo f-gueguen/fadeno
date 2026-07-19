@@ -42,6 +42,7 @@ function refusal(code: string, status = 400): Response {
     headers: {
       "cache-control": "private, no-store",
       "content-type": "text/plain; charset=utf-8",
+      vary: "accept",
       "x-content-type-options": "nosniff",
       "x-fadeno-update-code": code,
     },
@@ -102,6 +103,7 @@ export async function servePrivateServerUpdate(
       headers: {
         "cache-control": "private, no-store",
         "content-type": privateUpdateMediaType,
+        vary: "accept",
         "x-content-type-options": "nosniff",
       },
     });

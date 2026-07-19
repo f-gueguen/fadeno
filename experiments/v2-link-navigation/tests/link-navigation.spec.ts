@@ -187,6 +187,7 @@ test("refuses hostile links and unqualified preservation boundaries before inter
         target: classify("/next", { target: "_blank" }),
         download: classify("/next", { download: "file" }),
         fragment: classify("#details"),
+        crossDocumentFragment: classify("/next#details"),
       },
       state: {
         disclosure: state("<details open><summary>Open</summary></details>"),
@@ -200,7 +201,7 @@ test("refuses hostile links and unqualified preservation boundaries before inter
     };
   });
   expect(result).toEqual({
-    links: { external: false, credentials: false, scheme: false, target: false, download: false, fragment: false },
+    links: { external: false, credentials: false, scheme: false, target: false, download: false, fragment: false, crossDocumentFragment: false },
     state: { disclosure: false, topLayer: false, media: false, island: false, contentEditable: false, selection: false, elementScroll: false },
   });
 });
