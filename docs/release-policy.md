@@ -80,7 +80,7 @@ the later mechanical version transition, publication, and public
 identity-verification slice.
 
 `pnpm check:a0-first-alpha-release` is the fail-closed A0-10 source gate. It
-binds the exact `0.1.0-alpha.0` manifest, reviewed prerelease intent, prior
+binds the exact current `0.1.0-alpha.1` manifest, reviewed prerelease intent, prior
 candidate qualification, changelog, SBOM, release notes, publication-only
 workflow, and tracked documentation manifest before any tag exists. On a clean
 commit it builds the documentation archive twice from `HEAD`, requires
@@ -90,6 +90,12 @@ unsafe entries. A wrong seed
 version is a deliberate executable refusal; correcting
 the mechanical prerelease transition clears the diagnostic without publishing
 or creating a stale tag.
+
+The immutable `0.1.0-alpha.0` source release passed local qualification but its
+hosted job refused missing public-repository visibility evidence before registry
+upload. The recovery keeps that tag unchanged, passes the hosted visibility
+context explicitly, records the refusal and stale-diagnostic recovery, and uses
+the new `0.1.0-alpha.1` version required by the failed-release policy.
 
 After the exact merged commit passes local CI, the release must be created from
 its immutable tag with the exact source release notes and exactly the generated

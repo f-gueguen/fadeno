@@ -40,21 +40,21 @@ expectMutation("A0 first-alpha changelog is missing changeset application-test-w
   ...context,
   changelog: context.changelog.replace("Add the scaffolded stock-TypeScript application-test workflow", "Omitted application-test outcome"),
 }));
-expectMutation("A0 first-alpha build specification is missing The current A0-10 release source is `@fadeno/framework@0.1.0-alpha.0`", (context) => Object.freeze({
+expectMutation("A0 first-alpha build specification is missing The current A0-10 release source is `@fadeno/framework@0.1.0-alpha.1`", (context) => Object.freeze({
   ...context,
   buildSpecification: context.buildSpecification.replace("The current A0-10 release source is", "A stale release source was"),
 }));
 expectMutation("getting-started template does not describe the current first-alpha source", (context) => Object.freeze({
   ...context,
-  guideTemplate: context.guideTemplate.replace("public alpha release source", "private registry-less source"),
+  guideTemplate: context.guideTemplate.replace("public alpha registry release source", "private registry-less source"),
 }));
 expectMutation("REL-01 scope does not describe the current first-alpha source", (context) => Object.freeze({
   ...context,
-  scope: context.scope.replace("current `0.1.0-alpha.0` release source", "unpublished seed"),
+  scope: context.scope.replace("current `0.1.0-alpha.1` recovery release source", "unpublished seed"),
 }));
 expectMutation("REL-01 traceability does not describe the current first-alpha source", (context) => Object.freeze({
   ...context,
-  traceability: context.traceability.replace("current `0.1.0-alpha.0` release source", "unpublished seed"),
+  traceability: context.traceability.replace("current `0.1.0-alpha.1` recovery release source", "unpublished seed"),
 }));
 expectMutation("A0 documentation aggregate drifted", (context) => Object.freeze({
   ...context,

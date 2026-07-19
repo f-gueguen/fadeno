@@ -10,8 +10,9 @@ A0-10 — publish and verify the first immutable alpha release
 
 ## Exit criteria
 
-- [x] Mechanically consume every reviewed Changeset into
-  `@fadeno/framework@0.1.0-alpha.0` without versioning private examples.
+- [x] Mechanically preserve the immutable failed `0.1.0-alpha.0` source release
+  and advance the corrected registry source to `@fadeno/framework@0.1.0-alpha.1`
+  without versioning private examples.
 - [ ] Bind the exact release source, tag, package, changelog, SBOM, release
   notes, and documentation artifact through a fail-closed A0-10 gate.
 - [ ] Pass all affected gates, full local CI, and independent review at the
@@ -23,18 +24,16 @@ A0-10 — publish and verify the first immutable alpha release
 
 ## Active sub-slice
 
-A0-10 release-source construction. Changesets produced the exact alpha version;
-the remaining work binds immutable release and documentation identity, reviews
-that source, then performs and independently verifies the public transport.
+A0-10 release-transport recovery. The immutable alpha.0 source passed local
+qualification but hosted publication refused missing visibility evidence before
+registry upload. Alpha.1 carries the reviewed fail-closed correction; the
+remaining work requalifies, publishes, and independently verifies it.
 
 ## In progress
 
-- The mechanical Changesets prerelease transition produced only
-  `@fadeno/framework@0.1.0-alpha.0`; the private example workspace versions
-  remain `0.0.0`.
-- Repository visibility and registry authentication are deliberately outside
-  local source construction and will be rechecked immediately before
-  publication.
+- The failed alpha.0 tag remains immutable and no registry version was created.
+- The corrected alpha.1 transition still leaves private example workspace
+  versions at `0.0.0`.
 
 ## Blockers
 

@@ -26,4 +26,4 @@ if (clean) {
   }
 }
 
-console.log(`A0 first-alpha release source passed (0.1.0-alpha.0, documentation artifact ${clean ? "replayed" : "deferred until clean commit"})`);
+console.log(`A0 first-alpha release source passed (0.1.0-alpha.1 recovery, documentation artifact ${clean ? "replayed" : "deferred until clean commit"})`);

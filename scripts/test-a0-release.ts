@@ -26,6 +26,10 @@ expectMutation("publication workflow is missing github.repository_visibility", (
   ...context,
   workflow: context.workflow.replace("github.repository_visibility", "removed-repository-visibility"),
 }));
+expectMutation("publication workflow is missing always() && vars.NPM_RELEASE_MODE == 'bootstrap'", (context) => Object.freeze({
+  ...context,
+  workflow: context.workflow.replace("always() && vars.NPM_RELEASE_MODE == 'bootstrap'", "vars.NPM_RELEASE_MODE == 'bootstrap'"),
+}));
 expectMutation("prepublication rollback fixture drifted", (context) => Object.freeze({ ...context, rollbackPrivate: { ...(context.rollbackPrivate as Record<string, unknown>), publicationAttempted: true } }));
 expectMutation("human publication refusal evidence drifted", (context) => Object.freeze({ ...context, publicationRefusalHuman: "stale" }));
 expectMutation("refused publication recovery evidence drifted", (context) => Object.freeze({ ...context, recovery: { ...(context.recovery as Record<string, unknown>), tagCreated: true } }));
@@ -36,9 +40,9 @@ const environment = {
   GITHUB_ACTIONS: "true",
   GITHUB_REPOSITORY: "f-gueguen/fadeno",
   FADENO_RELEASE_REPOSITORY_VISIBILITY: "public",
-  GITHUB_WORKFLOW_REF: "f-gueguen/fadeno/.github/workflows/publish.yml@refs/tags/v0.1.0-alpha.0",
+  GITHUB_WORKFLOW_REF: "f-gueguen/fadeno/.github/workflows/publish.yml@refs/tags/v0.1.0-alpha.1",
   GITHUB_REF_TYPE: "tag",
-  GITHUB_REF_NAME: "v0.1.0-alpha.0",
+  GITHUB_REF_NAME: "v0.1.0-alpha.1",
   GITHUB_SHA: head,
   FADENO_QUALIFIED_COMMIT: head,
   ACTIONS_ID_TOKEN_REQUEST_URL: "https://oidc.example.invalid",
@@ -48,7 +52,7 @@ const environment = {
 };
 const manifest = {
   name: "@fadeno/framework",
-  version: "0.1.0-alpha.0",
+  version: "0.1.0-alpha.1",
   publishConfig: { access: "public", provenance: true, registry: "https://registry.npmjs.org/", tag: "alpha" },
 };
 if (validatePublicationEnvironment(environment, manifest, { head, clean: true }).length > 0) throw new Error("valid trusted publication environment refused");

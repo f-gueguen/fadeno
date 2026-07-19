@@ -4,21 +4,21 @@ import {
 } from "./lib/a0-release-event.ts";
 
 const sourceCommit = "1".repeat(40);
-const filename = "fadeno-docs-0.1.0-alpha.0.tar.gz";
+const filename = "fadeno-docs-0.1.0-alpha.1.tar.gz";
 const asset = (name: string, id: number): Record<string, unknown> => ({
   id,
   name,
   state: "uploaded",
   size: 100,
   url: `https://api.github.com/repos/f-gueguen/fadeno/releases/assets/${id}`,
-  browser_download_url: `https://github.com/f-gueguen/fadeno/releases/download/v0.1.0-alpha.0/${name}`,
+  browser_download_url: `https://github.com/f-gueguen/fadeno/releases/download/v0.1.0-alpha.1/${name}`,
 });
 const context = Object.freeze({
   event: {
     action: "published",
     repository: { full_name: "f-gueguen/fadeno", private: false },
     release: {
-      tag_name: "v0.1.0-alpha.0",
+      tag_name: "v0.1.0-alpha.1",
       target_commitish: "main",
       prerelease: true,
       draft: false,

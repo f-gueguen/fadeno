@@ -1,1 +1,1 @@
-FADENO_A0_RELEASE_SOURCE_VERSION: The release source must use @fadeno/framework@0.1.0-alpha.0. Run the reviewed Changesets alpha transition, regenerate the changelog and SBOM, and qualify the corrected source before creating a tag or publishing.
+FADENO_RELEASE_PUBLIC_REPOSITORY: Hosted publication did not receive explicit public repository visibility evidence. Preserve the immutable failed source tag, pass the hosted visibility context into the release guard, advance to a new prerelease, and qualify that corrected source before publishing.

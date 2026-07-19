@@ -9,9 +9,11 @@ than becoming application vocabulary.
 
 ## Status
 
-Fadeno has completed its qualified private V1. Its qualified first-alpha
-candidate is versioned as `@fadeno/framework@0.1.0-alpha.0` for the A0-10
-release. The package can analyze, build,
+Fadeno has completed its qualified private V1. The qualified first-alpha candidate
+remains the immutable A0-09 input. Its corrected first-alpha
+registry source is versioned as `@fadeno/framework@0.1.0-alpha.1` for A0-10.
+The immutable `0.1.0-alpha.0` source release stopped before registry upload
+when hosted visibility evidence was incomplete. The package can analyze, build,
 and run the canonical routed application through generated route bindings and a
 verified production bootstrap. The application includes request-owned
 resources and an authenticated native-form CRUD workflow with protected
