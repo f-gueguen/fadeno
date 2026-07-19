@@ -365,7 +365,7 @@ try {
   });
   assert.equal(hasVerifiedRegistryAttestation(provenanceAudit.stdout), true);
 
-  const project = join(runner, "public-alpha-app");
+  const project = join(temporary, "public-alpha-app");
   requireSuccess(executable, ["create", "--project-root", project], runner);
   requireSuccess("pnpm", ["install", "--ignore-scripts"], project, { npm_config_registry: "https://registry.npmjs.org/" });
   const projectManifest = JSON.parse(readFileSync(join(project, "package.json"), "utf8")) as JsonRecord;
