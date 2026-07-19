@@ -148,8 +148,9 @@ export function validateA0PublicAlphaIdentity(context: A0PublicAlphaIdentityCont
 
   const tags = record(context.distributionTags);
   if (!tags
-    || Object.keys(tags).sort().join("\0") !== A0_DISTRIBUTION_TAG
-    || tags[A0_DISTRIBUTION_TAG] !== A0_FIRST_ALPHA_VERSION) {
+    || Object.keys(tags).sort().join("\0") !== `${A0_DISTRIBUTION_TAG}\0latest`
+    || tags[A0_DISTRIBUTION_TAG] !== A0_FIRST_ALPHA_VERSION
+    || tags["latest"] !== A0_FIRST_ALPHA_VERSION) {
     errors.push("FADENO_A0_PUBLIC_DIST_TAG");
   }
   if (context.tagCommit !== context.sourceCommit) errors.push("FADENO_A0_PUBLIC_TAG");

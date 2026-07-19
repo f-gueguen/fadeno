@@ -73,7 +73,7 @@ const context = Object.freeze({
       },
     },
   }] },
-  distributionTags: { alpha: "0.1.0-alpha.1" },
+  distributionTags: { alpha: "0.1.0-alpha.1", latest: "0.1.0-alpha.1" },
   tagCommit: sourceCommit,
   release: {
     tag_name: "v0.1.0-alpha.1",
@@ -136,7 +136,13 @@ mutation("FADENO_A0_PUBLIC_PROVENANCE", {
 });
 mutation("FADENO_A0_PUBLIC_DIST_TAG", { distributionTags: { alpha: "0.1.0-alpha.2" } });
 mutation("FADENO_A0_PUBLIC_DIST_TAG", {
-  distributionTags: { alpha: "0.1.0-alpha.1", latest: "0.1.0-alpha.1" },
+  distributionTags: { alpha: "0.1.0-alpha.1" },
+});
+mutation("FADENO_A0_PUBLIC_DIST_TAG", {
+  distributionTags: { alpha: "0.1.0-alpha.1", latest: "0.1.0-alpha.2" },
+});
+mutation("FADENO_A0_PUBLIC_DIST_TAG", {
+  distributionTags: { alpha: "0.1.0-alpha.1", latest: "0.1.0-alpha.1", beta: "0.1.0-alpha.1" },
 });
 mutation("FADENO_A0_PUBLIC_TAG", { tagCommit: "5".repeat(40) });
 mutation("FADENO_A0_PUBLIC_RELEASE", {
