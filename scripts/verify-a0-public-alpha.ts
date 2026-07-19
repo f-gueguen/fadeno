@@ -33,7 +33,7 @@ import {
   createA0PackageArtifactIdentity,
   validateA0PackageArtifactIdentity,
 } from "./lib/a0-package-artifact.ts";
-import { validateA0PublicAlphaIdentity } from "./lib/a0-public-alpha.ts";
+import { hasVerifiedRegistryAttestation, validateA0PublicAlphaIdentity } from "./lib/a0-public-alpha.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -363,7 +363,7 @@ try {
   const provenanceAudit = requireSuccess("npm", ["audit", "signatures"], provenanceRoot, {
     npm_config_registry: "https://registry.npmjs.org/",
   });
-  assert.match(provenanceAudit.stdout, /[1-9]\d* packages? (?:have|has) verified attestations?/u);
+  assert.equal(hasVerifiedRegistryAttestation(provenanceAudit.stdout), true);
 
   const project = join(runner, "public-alpha-app");
   requireSuccess(executable, ["create", "--project-root", project], runner);

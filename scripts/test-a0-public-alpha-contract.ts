@@ -1,12 +1,29 @@
 import { createHash } from "node:crypto";
 
 import {
+  hasVerifiedRegistryAttestation,
   validateA0PublicAlphaIdentity,
   type A0PublicAlphaIdentityContext,
 } from "./lib/a0-public-alpha.ts";
 import type { A0DocumentationManifest } from "./lib/a0-docs-artifact.ts";
 
 const sourceCommit = "1".repeat(40);
+
+for (const output of [
+  "1 package has a verified attestation",
+  "2 packages have verified attestations",
+  "10 packages have verified attestations",
+]) {
+  if (!hasVerifiedRegistryAttestation(output)) throw new Error(`verified attestation audit was refused: ${output}`);
+}
+for (const output of [
+  "0 packages have verified attestations",
+  "1 packages have verified attestations",
+  "2 package has a verified attestation",
+  "1 package has an unverified attestation",
+]) {
+  if (hasVerifiedRegistryAttestation(output)) throw new Error(`invalid attestation audit was accepted: ${output}`);
+}
 const bytes = Buffer.from("public package bytes");
 const documentation = Buffer.from("documentation bytes");
 const packageSha512 = createHash("sha512").update(bytes).digest("hex");

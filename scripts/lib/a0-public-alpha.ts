@@ -39,6 +39,10 @@ function assetNames(release: JsonRecord): readonly string[] {
   }).sort());
 }
 
+export function hasVerifiedRegistryAttestation(output: string): boolean {
+  return /(?:1 package has a verified attestation|(?:[2-9]|[1-9]\d+) packages have verified attestations)/u.test(output);
+}
+
 function validProvenanceAttestation(value: unknown): boolean {
   const attestations = record(value);
   const provenance = attestations ? record(attestations["provenance"]) : undefined;
