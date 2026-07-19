@@ -23,7 +23,15 @@ mutation("V2 roadmap V2-04 dependency contract mismatch", (context) => Object.fr
 }));
 mutation("V2 roadmap V2-02 decision ownership mismatch", (context) => Object.freeze({
   ...context,
-  roadmap: context.roadmap.replace(/^\| V2-02 \|.*$/mu, (line) => line.replace("| V2-01 |", "| DG-V2-01; V2-01 |")),
+  roadmap: context.roadmap.replace(/^\| V2-02 \|.*$/mu, (line) => line.replace("| V2-01; accepted browser-entrypoint package-boundary ADR |", "| DG-V2-01; V2-01; accepted browser-entrypoint package-boundary ADR |")),
+}));
+mutation("V2 roadmap V2-09 validation contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-09 \|.*$/mu, (line) => line.replace(/\| [^|]+ \|$/u, "| TBD |")),
+}));
+mutation("V2 roadmap V2-02 artifact contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-02 \|.*$/mu, (line) => line.replace("; one pending Changeset with semantic version intent", "")),
 }));
 mutation("DG-V2-01 is missing Open", (context) => Object.freeze({
   ...context,
@@ -37,9 +45,13 @@ mutation("ENH-01 traceability is missing V2-00 ownership", (context) => Object.f
   ...context,
   traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("V2 plan", "removed plan")),
 }));
+mutation("ACCESS-01 scope is missing V2 ownership", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace(/^\| ACCESS-01 \|.*$/mu, (line) => line.replaceAll("V2", "removed")),
+}));
 mutation("V2 entry package identity drifted", (context) => Object.freeze({
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("V2 plan mutation tests passed (ordering, dependencies, decision ownership, boundaries, traceability, package entry)");
+console.log("V2 plan mutation tests passed (ordering, exact artifacts/validation, dependencies, decisions, release, traceability, package entry)");

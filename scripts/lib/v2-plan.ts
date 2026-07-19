@@ -3,6 +3,21 @@ import { join } from "node:path";
 
 type JsonRecord = Record<string, unknown>;
 
+export const V2_PLAN_ROWS = Object.freeze([
+  { id: "V2-00", features: ["GOV-01", "ENH-01", "PATCH-01", "TEST-01", "DOC-01"], dependencies: "A0-10, ADR 0014", artifacts: "Detailed V2 plan; current ledger; explicit DG-V2-01 ownership; aligned scope, traceability, risks, and project model", validation: "Documentation/model/ledger gates; `pnpm check:v2-plan`; `pnpm check`; `pnpm ci:local`" },
+  { id: "V2-01", features: ["GOV-01", "ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"], dependencies: "DG-V2-01; V2-00; ADR 0014; V1 action round trip", artifacts: "Accepted patch-protocol ADR; accepted browser-entrypoint package-boundary ADR backed by a disposable packed consumer; versioned accepted/refused fixtures; identity, ordering, redirect, error, recovery, cache, limits, and compatibility decisions; resolved decision gate; explicit no-release-impact declaration", validation: "Decision/specification/model gates; package-boundary consumer proof; fixture decoder mutations; three-engine scroll-boundary controls; `pnpm ci:local`" },
+  { id: "V2-02", features: ["BUILD-01", "ENH-01", "PATCH-01", "SEC-01", "TEST-01"], dependencies: "V2-01; accepted browser-entrypoint package-boundary ADR", artifacts: "Explicit browser entrypoint; CSP-compatible loading; update encoder/decoder; version and size refusal; native fallback; clean packed consumer; one pending Changeset with semantic version intent", validation: "Package/public-surface and Changeset checks; malformed/cross-origin/version/size refusals; no executable strings; clean install; `pnpm ci:local`" },
+  { id: "V2-03", features: ["WEB-01", "WEB-02", "DATA-01", "DATA-02", "ENH-01", "PATCH-01"], dependencies: "V2-02", artifacts: "Navigation/action outcome projection; provenance; redirects and expected failures; no selector-command or second render policy; one pending Changeset with semantic version intent", validation: "Native/update outcome equivalence; route/resource/action causal fixtures; serialization round trips; stale-output recovery; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-04", features: ["ENH-01", "STATE-01", "TEST-01", "DOC-01"], dependencies: "V2-03", artifacts: "Link interception boundary; cancellable requests; stale/duplicate suppression; URL/title/history/focus application; native fallback; one pending Changeset with semantic version intent", validation: "Packed link success/refusal/cancellation/ordering/recovery; back/forward smoke; public example; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-05", features: ["ENH-01", "PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-04; ADR 0014", artifacts: "History traversal matrix; focus/selection rules; reduced-motion handling; document/element scroll management or refusal fixtures; one pending Changeset with semantic version intent", validation: "Chromium/Firefox/WebKit navigation corpus; keyboard/focus review; accepted scroll signature; native equivalence; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-06", features: ["DATA-02", "ENH-01", "STATE-01", "SEC-01", "TEST-01"], dependencies: "V2-03, V2-04", artifacts: "Form interception boundary; exact successful controls; pending ownership; expected validation; uncertain-mutation refusal; teardown; one pending Changeset with semantic version intent", validation: "Native/enhanced payload and outcome equivalence; duplicate/replay/cancel/network failure; safe fallback and recovery; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-07", features: ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01"], dependencies: "V2-05, V2-06", artifacts: "Redirect and error outcomes; current-server-truth recovery; resource refresh; late-response suppression; complete CRUD enhancement; one pending Changeset with semantic version intent", validation: "Packed authenticated CRUD success/failure/correction/flow/recovery; permuted delayed duplicate responses; no repeated mutation; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-08", features: ["PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-05, V2-07; K0-04", artifacts: "Stable identity; declared replacement; dirty-control, disclosure/top-layer, media, focus, selection, caret, and future island preservation; scroll boundary enforcement; one pending Changeset with semantic version intent", validation: "Complete K0 corpus for navigation and action updates in three engines; ownership/refusal/recovery fixtures; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-09", features: ["ENH-01", "PATCH-01", "DATA-01", "DATA-02", "STATE-01", "SEC-01", "ACCESS-01", "TEST-01"], dependencies: "V2-07, V2-08", artifacts: "Three-engine canonical workflows; no-JavaScript baseline replay; interruption and recovery scenarios; normalized flow evidence; explicit no-release-impact declaration for qualification-only work", validation: "Public packed install; native/enhanced CRUD equivalence; history/focus/scroll/order/cancel/recovery; no-JavaScript regression; release-impact check; `pnpm ci:local`" },
+  { id: "V2-10", features: ["PERF-01", "SEC-01", "ACCESS-01", "TEST-01", "DOC-01"], dependencies: "V2-09", artifacts: "Runtime byte and execution-cost records; decoder/threat review; leak/cleanup evidence; manual accessibility boundaries; explicit unsupported claims; one pending Changeset for shipped hardening with semantic version intent", validation: "Reproducible cost harness; fuzz/security gates; repeated navigation/action cleanup; three-engine accessibility checks; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-11", features: ["BUILD-01", "CLI-01", "DOC-01", "REL-01", "TEST-01"], dependencies: "V2-09, V2-10", artifacts: "Generated guides/API reference; executable success/failure/correction/flow/recovery examples; migration and rollback fixtures; exit manifest; explicit no-release-impact declaration unless package behavior changes", validation: "Clean public install/build/test/dev/start/deploy; documentation/source checks; package/reproducibility/rollback; release-impact check; `pnpm check`; `pnpm ci:local`" },
+] as const);
+
 export type V2PlanContext = Readonly<{
   roadmap: string;
   outcomeRoadmap: string;
@@ -48,36 +63,25 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     .filter((line) => /^\| V2-\d{2} \|/u.test(line))
     .map((line) => line.slice(1, -1).split("|").map((cell) => cell.trim()));
   const ids = rows.map((row) => row[0]);
-  const expectedIds = Array.from({ length: 12 }, (_value, index) => `V2-${String(index).padStart(2, "0")}`);
+  const expectedIds = V2_PLAN_ROWS.map((row) => row.id);
   if (JSON.stringify(ids) !== JSON.stringify(expectedIds)) errors.push("V2 roadmap slices must be exactly V2-00 through V2-11 in order");
 
-  const dependencies = [
-    "A0-10, ADR 0014",
-    "DG-V2-01; V2-00; ADR 0014; V1 action round trip",
-    "V2-01",
-    "V2-02",
-    "V2-03",
-    "V2-04; ADR 0014",
-    "V2-03, V2-04",
-    "V2-05, V2-06",
-    "V2-05, V2-07; K0-04",
-    "V2-07, V2-08",
-    "V2-09",
-    "V2-09, V2-10",
-  ];
   for (const [index, row] of rows.entries()) {
     const id = row[0] ?? expectedIds[index] ?? "V2-unknown";
+    const expected = V2_PLAN_ROWS[index];
     if (row.length !== 6) {
       errors.push(`V2 roadmap ${id} must have exactly 6 columns`);
       continue;
     }
-    if (row[3] !== dependencies[index]) errors.push(`V2 roadmap ${id} dependency contract mismatch`);
+    if (!expected) continue;
+    if (row[3] !== expected.dependencies) errors.push(`V2 roadmap ${id} dependency contract mismatch`);
+    if (row[4] !== expected.artifacts) errors.push(`V2 roadmap ${id} artifact contract mismatch`);
+    if (row[5] !== expected.validation) errors.push(`V2 roadmap ${id} validation contract mismatch`);
     const gates = [...`${row[1]} ${row[3]} ${row[4]}`.matchAll(/\bDG-V2-\d{2}\b/gu)].map((match) => match[0]);
     const expectedGates = id === "V2-00" || id === "V2-01" ? ["DG-V2-01"] : [];
     if (JSON.stringify(gates) !== JSON.stringify(expectedGates)) {
       errors.push(`V2 roadmap ${id} decision ownership mismatch`);
     }
-    if (!(row[4] ?? "").length || !(row[5] ?? "").length) errors.push(`V2 roadmap ${id} is missing artifacts or validation`);
   }
 
   const roadmap = context.roadmap.replace(/\s+/gu, " ");
@@ -108,6 +112,12 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     const trace = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
     if (!scope.includes("V2 plan") || !scope.includes("DG-V2-01")) errors.push(`${feature} scope is missing V2-00 ownership`);
     if (!trace.includes("V2 plan") || !trace.includes("DG-V2-01")) errors.push(`${feature} traceability is missing V2-00 ownership`);
+  }
+  for (const feature of ["REL-01", "ACCESS-01", "PERF-01"]) {
+    const scope = context.scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    const trace = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    if (!scope.includes("V2")) errors.push(`${feature} scope is missing V2 ownership`);
+    if (!trace.includes("V2 plan") || !trace.includes("V2")) errors.push(`${feature} traceability is missing V2 ownership`);
   }
   const risk = context.risks.split("\n").find((line) => line.startsWith("| Browser updates destroy user state")) ?? "";
   if (!risk.includes("V2-00") || !risk.includes("DG-V2-01")) errors.push("V2 browser-state risk is missing plan ownership");
