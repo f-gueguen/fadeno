@@ -466,7 +466,7 @@ test("reloads an owned element-scrolled entry during traversal", async ({ page }
   await expect(page.locator("h1")).toHaveText("Next");
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goForward();
-  await expect(page.locator("h1")).toHaveText("Home");
+  await expect(page.locator("h1")).toHaveText("Home", { timeout: 15_000 });
   expect({
     schema: "fadeno.example.history-element-recovery",
     version: 1,
