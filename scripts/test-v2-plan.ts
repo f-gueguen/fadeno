@@ -85,21 +85,20 @@ mutation("V2 roadmap V2-11 artifact contract mismatch", (context) => Object.free
   ...context,
   roadmap: context.roadmap.replace(/^\| V2-11 \|.*$/mu, (line) => line.replace("post-hardening replay that supersedes V2-09 on the exact V2-10C artifact; ", "")),
 }));
-mutation("DG-V2-01 is missing Open", (context) => Object.freeze({
+mutation("resolved DG-V2-01 must leave the open decision-gate ledger", (context) => Object.freeze({
   ...context,
-  decisionGates: context.decisionGates.replace(/^\| DG-V2-01 \|.*$/mu, (line) => line.replace("| Open |", "| Resolved |")),
-}));
-mutation("DG-V2-01 is missing cache policy", (context) => Object.freeze({
-  ...context,
-  decisionGates: context.decisionGates.replace(/, cache policy/u, ""),
+  decisionGates: context.decisionGates.replace(
+    "| DG-V3-02 |",
+    "| DG-V2-01 | ENH-01 implementation | removed decision | removed evidence | removed artifact | Open |\n| DG-V3-02 |",
+  ),
 }));
 mutation("V2 roadmap is missing Islands remain V3", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace("Islands remain V3", "Islands move into V2"),
 }));
-mutation("ENH-01 traceability is missing V2-00 ownership", (context) => Object.freeze({
+mutation("ENH-01 traceability is missing the V2-01 decision boundary", (context) => Object.freeze({
   ...context,
-  traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("V2 plan", "removed plan")),
+  traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-patch-protocol", "removed gate")),
 }));
 mutation("ACCESS-01 scope is missing V2 ownership", (context) => Object.freeze({
   ...context,

@@ -128,7 +128,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   for (const fragment of [
     "optional browser delivery path",
     "same server-owned application outcome",
-    "DG-V2-01 remains open",
+    "ADR 0045 resolves DG-V2-01",
     "Native links and forms remain the correctness baseline",
     "Islands remain V3",
     "Every user-observable slice extends the canonical application",
@@ -136,10 +136,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     "ownership/causal flow inspection",
   ]) if (!roadmap.includes(fragment)) errors.push(`V2 roadmap is missing ${fragment}`);
 
-  const gateRow = context.decisionGates.split("\n").find((line) => line.startsWith("| DG-V2-01 |")) ?? "";
-  for (const fragment of ["ENH-01 implementation", "patch identity", "scroll boundary", "ordering", "redirects", "errors", "recovery", "cache policy", "version negotiation", "Open"]) {
-    if (!gateRow.includes(fragment)) errors.push(`DG-V2-01 is missing ${fragment}`);
-  }
+  if (context.decisionGates.includes("| DG-V2-01 |")) errors.push("resolved DG-V2-01 must leave the open decision-gate ledger");
   for (const fragment of ["completed [detailed A0 plan](roadmap/a0.md)", "current [detailed V2 plan](roadmap/v2.md)", "Status: complete through A0-10"]) {
     if (!context.outcomeRoadmap.includes(fragment)) errors.push(`outcome roadmap handoff is missing ${fragment}`);
   }
@@ -148,15 +145,16 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   }
   if (!context.ledger.includes("V2-00 — decompose browser enhancement")
     || !context.ledger.includes("A0-10 — Merge commit `60d55c7`")
-    || !context.ledger.includes("No V2 implementation may begin before DG-V2-01")) {
+    || !context.ledger.includes("V2-01 — resolve the experimental update protocol")
+    || !context.ledger.includes("DG-V2-01 is resolved by ADR 0045")) {
     errors.push("V2 roadmap ledger state drifted");
   }
 
   for (const feature of ["ENH-01", "PATCH-01"]) {
     const scope = context.scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
     const trace = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
-    if (!scope.includes("V2 plan") || !scope.includes("DG-V2-01")) errors.push(`${feature} scope is missing V2-00 ownership`);
-    if (!trace.includes("V2 plan") || !trace.includes("DG-V2-01")) errors.push(`${feature} traceability is missing V2-00 ownership`);
+    if (!scope.includes("ADR 0045")) errors.push(`${feature} scope is missing the V2-01 decision boundary`);
+    if (!trace.includes("ADR 0045") || !trace.includes("check:v2-patch-protocol")) errors.push(`${feature} traceability is missing the V2-01 decision boundary`);
   }
   const v2Features = [...new Set(V2_PLAN_ROWS.flatMap((row) => row.features))];
   for (const feature of v2Features) {
@@ -170,7 +168,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     }
   }
   const risk = context.risks.split("\n").find((line) => line.startsWith("| Browser updates destroy user state")) ?? "";
-  if (!risk.includes("V2-00") || !risk.includes("DG-V2-01")) errors.push("V2 browser-state risk is missing plan ownership");
+  if (!risk.includes("ADR 0045") || !risk.includes("affected/unknown refusal")) errors.push("V2 browser-state risk is missing the accepted decision boundary");
 
   const packageDocument = context.packageDocument;
   if (!isRecord(packageDocument)

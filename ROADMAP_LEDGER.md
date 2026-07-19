@@ -10,41 +10,42 @@ V2-01 — resolve the experimental update protocol and scroll boundary
 
 ## Exit criteria
 
-- [ ] Accept one patch-protocol ADR resolving DG-V2-01 without publishing an
+- [x] Accept one patch-protocol ADR resolving DG-V2-01 without publishing an
   implementation or stable external protocol.
-- [ ] Retain versioned accepted/refused fixtures for identity, ordering,
+- [x] Retain versioned accepted/refused fixtures for identity, ordering,
   redirects, errors, recovery, cache, limits, and compatibility.
-- [ ] Choose and qualify one explicit scroll boundary in Chromium, Firefox,
+- [x] Choose and qualify one explicit scroll boundary in Chromium, Firefox,
   and WebKit against ADR 0014's narrowed evidence.
-- [ ] Align the decision gate, specification, traceability, risks, and roadmap
+- [x] Align the decision gate, specification, traceability, risks, and roadmap
   state with the accepted decision.
 - [ ] Pass all affected gates, full local CI, and independent review.
 
 ## Active sub-slice
 
-V2-01 decision and evidence only. It resolves the private update protocol and
-scroll policy before implementation. It does not add browser code, create the
-separate browser entrypoint, expose an analyzer schema, or claim enhanced
-behavior.
+V2-01 decision and evidence only. ADR 0045 resolves the private update protocol
+and conservative scroll-refusal policy before implementation. It does not add
+browser runtime code, create the separate browser entrypoint, expose an
+analyzer schema, or claim enhanced behavior. Release impact: none — no package
+behavior changes and no Changeset is required.
 
 ## In progress
 
-- DG-V2-01 remains open while the decision fixtures and three-engine scroll
-  controls are constructed and reviewed.
+- DG-V2-01 is resolved by ADR 0045 and leaves the open decision-gate ledger.
+- The versioned corpus retains accepted/refused identity, ordering, redirect,
+  error, recovery, cache, limit, and compatibility outcomes. Three-engine
+  controls admit only proven-unaffected scroll boundaries.
 - The V1 action round trip and verified public native application remain the
-  protocol outcome and recovery authorities.
+  outcome and recovery authorities; uncertain mutation recovery never retries.
 
 ## Blockers
 
-- No V2 implementation may begin before DG-V2-01 resolves in this slice, and
-  V2-02 also remains blocked on the separate V2-01A package-boundary decision.
+- V2-02 remains blocked on the separate V2-01A browser-entrypoint
+  package-boundary decision even though DG-V2-01 is resolved.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
 ## Open questions
 
-- The evidence must choose between explicit affected-scroll management and
-  refusal or replacement of layout-affecting patch boundaries.
 - Later external analyzer consumers require new evidence and a new
   compatibility decision.
 

@@ -137,6 +137,11 @@ const retiredGateIds = new Set(
     .matchAll(/\b(DG-[A-Z0-9]+-\d{2}) is removed\b/g)]
     .map((match) => match[1]),
 );
+const resolvedGateIds = new Set(
+  collectMarkdown(join(root, "docs/adr"))
+    .flatMap((file) => [...readFileSync(file, "utf8").matchAll(/\b(DG-[A-Z0-9]+-\d{2}) is resolved\b/g)])
+    .map((match) => match[1]),
+);
 if (gateSet.size === 0) {
   errors.push("docs/ledgers/decision-gates.md: expected at least one open gate");
 }
@@ -159,6 +164,7 @@ for (const file of collectMarkdown(root)) {
     || (relativeFile.startsWith("docs/adr/") && content.includes("- Status: Superseded"));
   for (const match of content.matchAll(/\b(DG-[A-Z0-9]+-\d{2})\b/g)) {
     if (!gateSet.has(match[1])
+      && !resolvedGateIds.has(match[1])
       && !(retiredGateIds.has(match[1]) && permitsRetiredGateReference)) {
       errors.push(`${relativeFile}: references unknown gate ${match[1]}`);
     }
@@ -671,7 +677,7 @@ for (const [index, expected] of expectedV2.entries()) {
     errors.push(`docs/roadmap/v2.md: ${expected.id} decision ownership differs from the accepted plan`);
   }
 }
-if (!gateIds.includes("DG-V2-01")) errors.push("docs/roadmap/v2.md: DG-V2-01 must remain open for V2-01");
+if (gateIds.includes("DG-V2-01")) errors.push("docs/roadmap/v2.md: resolved DG-V2-01 must leave the open gate ledger");
 
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
