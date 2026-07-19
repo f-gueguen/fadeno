@@ -65,8 +65,10 @@ const requiredPaths = Object.freeze([
   "scripts/generate-a0-docs-manifest.ts",
   "scripts/lib/a0-docs-artifact.ts",
   "scripts/lib/a0-first-alpha-release.ts",
+  "scripts/lib/a0-public-alpha.ts",
   "scripts/lib/a0-release-identity.ts",
   "scripts/test-a0-first-alpha-release.ts",
+  "scripts/test-a0-public-alpha-contract.ts",
   "scripts/verify-a0-public-alpha.ts",
 ]);
 
@@ -245,7 +247,7 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   const workspace = context.workspace;
   const scripts = isRecord(workspace) && isRecord(workspace["scripts"]) ? workspace["scripts"] : null;
   if (!scripts
-    || scripts["check:a0-first-alpha-release"] !== "node --no-warnings --experimental-strip-types scripts/check-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/generate-a0-docs-manifest.ts --check"
+    || scripts["check:a0-first-alpha-release"] !== "node --no-warnings --experimental-strip-types scripts/check-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-public-alpha-contract.ts && node --no-warnings --experimental-strip-types scripts/generate-a0-docs-manifest.ts --check"
     || typeof scripts["verify:a0-public-alpha"] !== "string"
     || typeof scripts["check"] !== "string"
     || !scripts["check"].includes("pnpm check:a0-first-alpha-release")) {

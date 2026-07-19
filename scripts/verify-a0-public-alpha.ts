@@ -28,6 +28,7 @@ import {
   A0_FIRST_ALPHA_VERSION,
   A0_PACKAGE_NAME,
 } from "./lib/a0-release-identity.ts";
+import { validateA0PublicAlphaIdentity } from "./lib/a0-public-alpha.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -152,11 +153,14 @@ async function reservePort(): Promise<number> {
 }
 
 async function request(url: string): Promise<Response> {
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json, application/json",
-    "User-Agent": "fadeno-a0-public-verifier",
-  };
-  if (process.env["GITHUB_TOKEN"]) headers["Authorization"] = `Bearer ${process.env["GITHUB_TOKEN"]}`;
+  const host = new URL(url).hostname;
+  const github = host === "api.github.com" || host === "github.com";
+  const headers: Record<string, string> = { Accept: github ? "application/vnd.github+json" : "application/json" };
+  if (github) {
+    headers["User-Agent"] = "fadeno-a0-public-verifier";
+    headers["X-GitHub-Api-Version"] = "2026-03-10";
+    if (process.env["GITHUB_TOKEN"]) headers["Authorization"] = `Bearer ${process.env["GITHUB_TOKEN"]}`;
+  }
   const response = await fetch(url, { headers, redirect: "follow", signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new TypeError(`FADENO_A0_PUBLIC_FETCH:${response.status}:${url}`);
   return response;
@@ -216,26 +220,25 @@ const metadata = record(await requestJson(`https://registry.npmjs.org/${encodedP
 assert.equal(metadata["name"], A0_PACKAGE_NAME);
 assert.equal(metadata["version"], A0_FIRST_ALPHA_VERSION);
 assert.equal(metadata["gitHead"], sourceCommit);
-assert.deepEqual(metadata["repository"], {
-  type: "git",
-  url: "git+https://github.com/f-gueguen/fadeno.git",
-  directory: "packages/framework",
-});
+const repository = record(metadata["repository"], "FADENO_A0_PUBLIC_REPOSITORY");
+assert.equal(repository["type"], "git");
+assert.equal(repository["directory"], "packages/framework");
+assert.ok([
+  "https://github.com/f-gueguen/fadeno.git",
+  "git+https://github.com/f-gueguen/fadeno.git",
+].includes(repository["url"] as string));
 const distribution = record(metadata["dist"], "FADENO_A0_PUBLIC_DIST");
 const integrity = requiredString(distribution, "integrity", "FADENO_A0_PUBLIC_DIST");
 const shasum = requiredString(distribution, "shasum", "FADENO_A0_PUBLIC_DIST");
 const tarballUrl = requiredString(distribution, "tarball", "FADENO_A0_PUBLIC_DIST");
-const attestations = record(distribution["attestations"], "FADENO_A0_PUBLIC_PROVENANCE");
-requiredString(attestations, "url", "FADENO_A0_PUBLIC_PROVENANCE");
-const provenance = record(attestations["provenance"], "FADENO_A0_PUBLIC_PROVENANCE");
-assert.equal(provenance["predicateType"], "https://slsa.dev/provenance/v1");
 const tags = record(await requestJson(`https://registry.npmjs.org/-/package/${encodedPackage}/dist-tags`), "FADENO_A0_PUBLIC_DIST_TAG");
 assert.equal(tags[A0_DISTRIBUTION_TAG], A0_FIRST_ALPHA_VERSION);
 
 const packageTarball = Buffer.from(await (await request(tarballUrl)).arrayBuffer());
 assert.equal(integrity, `sha512-${createHash("sha512").update(packageTarball).digest("base64")}`);
 assert.equal(shasum, createHash("sha1").update(packageTarball).digest("hex"));
-assert.equal(await resolveTagCommit(A0_FIRST_ALPHA_TAG), sourceCommit);
+const tagCommit = await resolveTagCommit(A0_FIRST_ALPHA_TAG);
+assert.equal(tagCommit, sourceCommit);
 
 const release = record(await requestJson(`https://api.github.com/repos/f-gueguen/fadeno/releases/tags/${A0_FIRST_ALPHA_TAG}`), "FADENO_A0_PUBLIC_RELEASE");
 assert.equal(release["tag_name"], A0_FIRST_ALPHA_TAG);
@@ -271,6 +274,20 @@ try {
     cwd: root,
     encoding: "utf8",
   })) as A0DocumentationManifest;
+  const identityErrors = validateA0PublicAlphaIdentity({
+    sourceCommit,
+    metadata,
+    distributionTags: tags,
+    tagCommit,
+    release,
+    expectedReleaseNotes,
+    receipt,
+    packageIntegrity: `sha512-${createHash("sha512").update(packageTarball).digest("base64")}`,
+    packageShasum: createHash("sha1").update(packageTarball).digest("hex"),
+    documentationSha256: createHash("sha256").update(docsBytes).digest("hex"),
+    documentationManifest: manifest,
+  });
+  if (identityErrors.length > 0) throw new Error(identityErrors.join("\n"));
   assert.equal(receipt["documentationAggregateSha256"], manifest.aggregateSha256);
   assert.equal(receipt["fileCount"], manifest.files.length);
   const archive = join(temporary, docsFilename);
@@ -293,6 +310,18 @@ try {
   assert.equal(installedManifest["version"], A0_FIRST_ALPHA_VERSION);
   const executable = join(runner, "node_modules/.bin/fadeno");
   assert.equal(existsSync(executable), true);
+
+  const provenanceRoot = join(temporary, "provenance");
+  mkdirSync(provenanceRoot);
+  writeFileSync(join(provenanceRoot, "package.json"), `${JSON.stringify({
+    private: true,
+    dependencies: { [A0_PACKAGE_NAME]: A0_FIRST_ALPHA_VERSION },
+  }, null, 2)}\n`);
+  requireSuccess("npm", ["install", "--ignore-scripts"], provenanceRoot, { npm_config_registry: "https://registry.npmjs.org/" });
+  const provenanceAudit = requireSuccess("npm", ["audit", "signatures"], provenanceRoot, {
+    npm_config_registry: "https://registry.npmjs.org/",
+  });
+  assert.match(provenanceAudit.stdout, /[1-9]\d* packages? (?:have|has) verified attestations?/u);
 
   const project = join(runner, "public-alpha-app");
   requireSuccess(executable, ["create", "--project-root", project], runner);
