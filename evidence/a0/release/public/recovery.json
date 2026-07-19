@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "scenario": "public-alias-and-bootstrap-cleanup-recovery",
+  "staleDistributionDiagnosticPresent": false,
+  "activeRegistryTokens": 0,
+  "hostedBootstrapSecretPresent": false,
+  "trustedPublisher": {
+    "repository": "f-gueguen/fadeno",
+    "workflow": "publish.yml",
+    "environment": "npm-production",
+    "packageScope": "@fadeno",
+    "permission": "createPackage"
+  },
+  "immutableReleaseChanged": false,
+  "outcome": "trusted-tokenless-publication-ready"
+}

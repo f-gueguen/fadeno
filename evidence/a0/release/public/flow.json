@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "operation": "first-alpha-public-transport-reconciliation",
+  "causes": [
+    "registry-mandated-first-package-latest-alias",
+    "package-token-administration-boundary",
+    "completed-trusted-publisher-cutover"
+  ],
+  "ownership": {
+    "sourceQualification": "local-ci-at-immutable-commit",
+    "packageAndAliases": "public-registry",
+    "provenance": "hosted-release-transport",
+    "bootstrapRevocation": "maintainer-authenticated-registry-session",
+    "laterPublication": "trusted-publisher"
+  },
+  "skippedWork": [
+    {
+      "work": "remove-latest-alias",
+      "reason": "registry-requires-latest-for-every-package"
+    },
+    {
+      "work": "hosted-token-self-revocation",
+      "reason": "package-publication-permission-excludes-token-administration"
+    },
+    {
+      "work": "rewrite-immutable-release-assets",
+      "reason": "published-release-identities-remain-unchanged"
+    }
+  ],
+  "observableOutcome": "public-alpha-verified-and-bootstrap-credential-removed"
+}

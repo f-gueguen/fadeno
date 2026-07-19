@@ -1,0 +1,8 @@
+{
+  "expectedDistributionAliases": {
+    "alpha": "0.1.0-alpha.1"
+  },
+  "credentialCleanupOwner": "hosted-package-token",
+  "bootstrapSecretPresent": true,
+  "trustedPublisherConfigured": false
+}

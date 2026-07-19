@@ -18,17 +18,17 @@ expectMutation("first-alpha prerelease state drifted", (context) => Object.freez
 expectMutation("public package release metadata drifted", (context) => Object.freeze({ ...context, manifest: { ...(context.manifest as Record<string, unknown>), private: true } }));
 expectMutation("normalized SPDX SBOM drifted", (context) => Object.freeze({ ...context, sbom: { ...(context.sbom as Record<string, unknown>), documentNamespace: "stale" } }));
 expectMutation("publication workflow became merge CI", (context) => Object.freeze({ ...context, workflow: `${context.workflow}\n  pull_request:\n` }));
-expectMutation("publication workflow is missing pnpm revoke:a0-bootstrap-token", (context) => Object.freeze({
+expectMutation("publication workflow retains bootstrap authority: revoke:a0-bootstrap-token", (context) => Object.freeze({
   ...context,
-  workflow: context.workflow.replace("pnpm revoke:a0-bootstrap-token", "removed-bootstrap-revocation"),
+  workflow: `${context.workflow}\n# revoke:a0-bootstrap-token`,
 }));
 expectMutation("publication workflow is missing github.repository_visibility", (context) => Object.freeze({
   ...context,
   workflow: context.workflow.replace("github.repository_visibility", "removed-repository-visibility"),
 }));
-expectMutation("publication workflow is missing always() && vars.NPM_RELEASE_MODE == 'bootstrap'", (context) => Object.freeze({
+expectMutation("publication workflow retains bootstrap authority: NPM_BOOTSTRAP_TOKEN", (context) => Object.freeze({
   ...context,
-  workflow: context.workflow.replace("always() && vars.NPM_RELEASE_MODE == 'bootstrap'", "vars.NPM_RELEASE_MODE == 'bootstrap'"),
+  workflow: `${context.workflow}\n# NPM_BOOTSTRAP_TOKEN`,
 }));
 expectMutation("prepublication rollback fixture drifted", (context) => Object.freeze({ ...context, rollbackPrivate: { ...(context.rollbackPrivate as Record<string, unknown>), publicationAttempted: true } }));
 expectMutation("human publication refusal evidence drifted", (context) => Object.freeze({ ...context, publicationRefusalHuman: "stale" }));

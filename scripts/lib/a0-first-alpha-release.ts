@@ -2,10 +2,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
-  createA0DocumentationManifest,
-  validateA0DocumentationManifest,
-} from "./a0-docs-artifact.ts";
-import {
   A0_DISTRIBUTION_TAG,
   A0_ALPHA_CANDIDATE_COMMIT,
   A0_EXPECTED_FIRST_ALPHA_VERSION,
@@ -76,7 +72,6 @@ const requiredPaths = Object.freeze([
   "scripts/lib/a0-public-alpha.ts",
   "scripts/lib/a0-release-event.ts",
   "scripts/lib/a0-release-identity.ts",
-  "scripts/revoke-a0-bootstrap-token.ts",
   "scripts/test-a0-docs-artifact.ts",
   "scripts/test-a0-first-alpha-release.ts",
   "scripts/test-a0-package-artifact.ts",
@@ -246,10 +241,14 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
     errors.push("A0 first-alpha recovery evidence drifted");
   }
 
-  let expectedDocs;
-  try { expectedDocs = createA0DocumentationManifest(context.documentationRoot, context.tracked); }
-  catch { errors.push("A0 first-alpha documentation source invalid"); }
-  if (expectedDocs) errors.push(...validateA0DocumentationManifest(context.docsManifest, expectedDocs));
+  if (!isRecord(context.docsManifest)
+    || context.docsManifest["packageVersion"] !== A0_FIRST_ALPHA_VERSION
+    || context.docsManifest["sourceTag"] !== A0_FIRST_ALPHA_TAG
+    || !/^[0-9a-f]{64}$/u.test(String(context.docsManifest["aggregateSha256"]))
+    || !Array.isArray(context.docsManifest["files"])
+    || context.docsManifest["files"].length === 0) {
+    errors.push("A0 documentation aggregate drifted");
+  }
 
   const changelog = normalized(context.changelog);
   for (const id of A0_FIRST_ALPHA_CHANGESETS) {
@@ -283,7 +282,6 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   if (!scripts
     || scripts["check:a0-first-alpha-release"] !== "node --no-warnings --experimental-strip-types scripts/check-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-first-alpha-release.ts && node --no-warnings --experimental-strip-types scripts/test-a0-docs-artifact.ts && node --no-warnings --experimental-strip-types scripts/test-a0-package-artifact.ts && node --no-warnings --experimental-strip-types scripts/test-a0-release-event-contract.ts && node --no-warnings --experimental-strip-types scripts/test-a0-public-alpha-contract.ts && node --no-warnings --experimental-strip-types scripts/generate-a0-docs-manifest.ts --check"
     || scripts["verify:a0-release-event"] !== "node --no-warnings --experimental-strip-types scripts/verify-a0-release-event.ts"
-    || scripts["revoke:a0-bootstrap-token"] !== "node --no-warnings --experimental-strip-types scripts/revoke-a0-bootstrap-token.ts"
     || typeof scripts["verify:a0-public-alpha"] !== "string"
     || typeof scripts["check"] !== "string"
     || !scripts["check"].includes("pnpm check:a0-first-alpha-release")) {
@@ -292,11 +290,9 @@ export function validateA0FirstAlphaRelease(context: A0FirstAlphaReleaseContext)
   const sourceGate = context.workflow.indexOf("pnpm check:a0-first-alpha-release");
   const eventGate = context.workflow.indexOf("pnpm verify:a0-release-event");
   const publish = context.workflow.indexOf("npm publish ./packages/framework --access public --tag alpha");
-  const revoke = context.workflow.indexOf("pnpm revoke:a0-bootstrap-token");
   if (sourceGate < 0
     || eventGate <= sourceGate
     || publish <= eventGate
-    || revoke <= publish
     || !context.workflow.includes("release:")
     || /^\s+(?:push|pull_request|workflow_dispatch|schedule):/mu.test(context.workflow)) {
     errors.push("A0 first-alpha publication workflow drifted");

@@ -54,12 +54,15 @@ Trusted-publisher configuration requires an existing package. The first public
 version therefore bootstraps from a supported hosted release runner using
 explicit public access, provenance, and one package-scoped, time-bounded
 credential held only in the protected release environment. That credential is
-revoked immediately after publication, and the workflow proves that the
-registry rejects it before the job can succeed. The exact repository/workflow/
-environment trusted publisher then owns every later publication without a
-long-lived token. ADR 0037 fixes that identity as repository
+revoked immediately after publication by a separately authenticated maintainer
+session, because package publication permission does not grant token
+administration. Recovery requires zero active tokens and no protected
+bootstrap secret. The exact repository/workflow/environment trusted publisher
+then owns every later publication without a long-lived token. ADR 0037 fixes
+that identity as repository
 `f-gueguen/fadeno`, workflow `publish.yml`, environment `npm-production`, and
-the publish operation only.
+the publish operation only. ADR 0044 records the observed bootstrap cleanup and
+first-package alias boundary.
 
 Every publication requires a public source repository and an exact matching
 `repository.url`; a private repository is a refusal because it cannot produce
@@ -79,7 +82,8 @@ publish, change the seed, create a tag, or claim production support. A0-10 owns
 the later mechanical version transition, publication, and public
 identity-verification slice.
 
-`pnpm check:a0-first-alpha-release` is the fail-closed A0-10 source gate. It
+At the immutable release tag, `pnpm check:a0-first-alpha-release` was the
+fail-closed A0-10 source gate. It
 binds the exact current `0.1.0-alpha.1` manifest, reviewed prerelease intent, prior
 candidate qualification, changelog, SBOM, release notes, publication-only
 workflow, and tracked documentation manifest before any tag exists. On a clean
@@ -106,7 +110,8 @@ uploaded archive and receipt bytes. It ignores the mutable release target field
 and resolves the tag itself as the source authority.
 
 After publication, `pnpm verify:a0-public-alpha` is the separate public
-transport verifier. It must resolve the registry version and sole `alpha` tag,
+transport verifier. Under ADR 0044 it must resolve exactly the `alpha` and
+`latest` aliases, require both to identify `0.1.0-alpha.1`,
 reject extra release assets, and verify the repository tag and release. It opens
 the framework package's own signed provenance and checks its repository,
 workflow, protected environment, tagged commit, package digest, and hosted builder,
@@ -115,6 +120,11 @@ file and byte, and verify documentation artifact identity. It then installs in
 a fresh directory and replays create, test, check, build, development,
 deployment, and rollback through public package entrypoints. Public verification is not a
 pre-publication merge gate and may not be replaced by workspace artifacts.
+`pnpm check:a0-public-release` retains the normalized successful observation,
+the deliberate alias and self-revocation refusals, correction, ownership flow,
+stale-diagnostic removal, zero active tokens, absent bootstrap secret, and
+trusted publisher. It does not rewrite the immutable release documentation
+manifest.
 
 Non-registry artifacts include verifiable source identity and a software bill
 of materials before stable release.

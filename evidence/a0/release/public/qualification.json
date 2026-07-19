@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "milestone": "A0-10",
+  "phase": "public-transport",
+  "status": "verified-public-alpha",
+  "package": "@fadeno/framework",
+  "version": "0.1.0-alpha.1",
+  "sourceCommit": "4f30236d9734053cca0138ecfff5da1bbbdd1e18",
+  "sourceTag": "v0.1.0-alpha.1",
+  "releaseUrl": "https://github.com/f-gueguen/fadeno/releases/tag/v0.1.0-alpha.1",
+  "distributionAliases": {
+    "alpha": "0.1.0-alpha.1",
+    "latest": "0.1.0-alpha.1"
+  },
+  "packageAccess": "public",
+  "provenance": "signed-hosted-publication",
+  "documentationArtifactSha256": "920e20617497196433b67395b75b7b146f723cf24f3183c9031b9f791a6164d5",
+  "documentationReceiptSha256": "25df4167d4e48bd4627be0abd12d0112e423d8949cc80d93c37a49e933c4c7e5",
+  "verificationCommand": "pnpm verify:a0-public-alpha -- --source-commit 4f30236d9734053cca0138ecfff5da1bbbdd1e18"
+}

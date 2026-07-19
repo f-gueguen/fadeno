@@ -39,6 +39,10 @@ function assetNames(release: JsonRecord): readonly string[] {
   }).sort());
 }
 
+export function hasVerifiedRegistryAttestation(output: string): boolean {
+  return /(?:1 package has a verified attestation|(?:[2-9]|[1-9]\d+) packages have verified attestations)/u.test(output);
+}
+
 function validProvenanceAttestation(value: unknown): boolean {
   const attestations = record(value);
   const provenance = attestations ? record(attestations["provenance"]) : undefined;
@@ -148,8 +152,9 @@ export function validateA0PublicAlphaIdentity(context: A0PublicAlphaIdentityCont
 
   const tags = record(context.distributionTags);
   if (!tags
-    || Object.keys(tags).sort().join("\0") !== A0_DISTRIBUTION_TAG
-    || tags[A0_DISTRIBUTION_TAG] !== A0_FIRST_ALPHA_VERSION) {
+    || Object.keys(tags).sort().join("\0") !== `${A0_DISTRIBUTION_TAG}\0latest`
+    || tags[A0_DISTRIBUTION_TAG] !== A0_FIRST_ALPHA_VERSION
+    || tags["latest"] !== A0_FIRST_ALPHA_VERSION) {
     errors.push("FADENO_A0_PUBLIC_DIST_TAG");
   }
   if (context.tagCommit !== context.sourceCommit) errors.push("FADENO_A0_PUBLIC_TAG");

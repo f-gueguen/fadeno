@@ -1,0 +1,9 @@
+{
+  "expectedDistributionAliases": {
+    "alpha": "0.1.0-alpha.1",
+    "latest": "0.1.0-alpha.1"
+  },
+  "credentialCleanupOwner": "maintainer-authenticated-registry-session",
+  "bootstrapSecretPresent": false,
+  "trustedPublisherConfigured": true
+}

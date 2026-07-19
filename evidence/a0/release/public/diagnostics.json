@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "code": "FADENO_A0_PUBLIC_DIST_TAG",
+      "observed": {
+        "alpha": "0.1.0-alpha.1"
+      },
+      "expected": {
+        "alpha": "0.1.0-alpha.1",
+        "latest": "0.1.0-alpha.1"
+      },
+      "reason": "The registry requires a latest alias for every package.",
+      "publicationAffected": false
+    },
+    {
+      "code": "FADENO_A0_BOOTSTRAP_SELF_REVOCATION",
+      "observed": "package-scoped-token-cannot-administer-tokens",
+      "expected": "separately-authenticated-maintainer-revocation",
+      "reason": "Publication permission does not grant token-administration permission.",
+      "publicationAffected": false
+    }
+  ]
+}

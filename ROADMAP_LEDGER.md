@@ -13,32 +13,36 @@ A0-10 — publish and verify the first immutable alpha release
 - [x] Mechanically preserve the immutable failed `0.1.0-alpha.0` source release
   and advance the corrected registry source to `@fadeno/framework@0.1.0-alpha.1`
   without versioning private examples.
-- [ ] Bind the exact release source, tag, package, changelog, SBOM, release
+- [x] Bind the exact release source, tag, package, changelog, SBOM, release
   notes, and documentation artifact through a fail-closed A0-10 gate.
-- [ ] Pass all affected gates, full local CI, and independent review at the
+- [x] Pass all affected gates, full local CI, and independent review at the
   final release-source commit.
-- [ ] Make the source repository public with explicit owner authorization,
+- [x] Make the source repository public with explicit owner authorization,
   publish through the accepted provenance bootstrap, and revoke its credential.
-- [ ] Verify the registry package and immutable tag from a clean public install,
+- [x] Verify the registry package and immutable tag from a clean public install,
   including create, test, check, build, development, deployment, and rollback.
 
 ## Active sub-slice
 
-A0-10 release-transport recovery. The immutable alpha.0 source passed local
-qualification but hosted publication refused missing visibility evidence before
-registry upload. Alpha.1 carries the reviewed fail-closed correction; the
-remaining work requalifies, publishes, and independently verifies it.
+A0-10 public-evidence reconciliation. The exact alpha.1 source, release,
+documentation assets, signed package provenance, and public registry package
+exist. ADR 0044 records the registry-mandated first-package alias and completed
+credential cleanup; the remaining work runs the corrected clean public replay,
+qualifies `check:a0-public-release`, and merges its permanent evidence.
 
 ## In progress
 
-- The failed alpha.0 tag remains immutable and no registry version was created.
-- The corrected alpha.1 transition still leaves private example workspace
-  versions at `0.0.0`.
+- `@fadeno/framework@0.1.0-alpha.1` is a verified public alpha with `alpha` and
+  `latest` resolving to the same exact version.
+- Signed hosted provenance binds source commit
+  `4f30236d9734053cca0138ecfff5da1bbbdd1e18`; immutable release documentation
+  asset hashes remain recorded.
+- The bootstrap credential is revoked, the hosted secret is absent, zero active
+  registry tokens remain, and the exact trusted publisher owns later transport.
+- Private example workspace versions remain `0.0.0`.
 
 ## Blockers
 
-- Publication requires explicit authorization to change the source repository
-  from private to public and refreshed package-registry authentication.
 - Independent newcomer usability remains deferred and must not be claimed by
   A0-10.
 

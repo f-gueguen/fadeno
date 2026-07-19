@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   readdirSync,
   realpathSync,
   rmSync,
@@ -14,7 +15,7 @@ import {
 } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -33,7 +34,7 @@ import {
   createA0PackageArtifactIdentity,
   validateA0PackageArtifactIdentity,
 } from "./lib/a0-package-artifact.ts";
-import { validateA0PublicAlphaIdentity } from "./lib/a0-public-alpha.ts";
+import { hasVerifiedRegistryAttestation, validateA0PublicAlphaIdentity } from "./lib/a0-public-alpha.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -190,18 +191,19 @@ async function resolveTagCommit(tag: string): Promise<string> {
 }
 
 function treeIdentity(root: string): string {
-  const digest = createHash("sha256");
+  const records: string[] = [];
   const visit = (directory: string): void => {
     for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
       const path = join(directory, entry.name);
-      const relative = path.slice(root.length + 1).split("\\").join("/");
+      const owned = relative(root, path).split("\\").join("/");
       if (entry.isDirectory()) visit(path);
-      else if (entry.isFile()) digest.update(relative).update("\0").update(readFileSync(path)).update("\0");
+      else if (entry.isFile()) records.push(`file\0${owned}\0${createHash("sha256").update(readFileSync(path)).digest("hex")}`);
+      else if (entry.isSymbolicLink()) records.push(`link\0${owned}\0${readlinkSync(path)}`);
       else throw new TypeError("FADENO_A0_PUBLIC_ARTIFACT_ENTRY");
     }
   };
   visit(root);
-  return digest.digest("hex");
+  return createHash("sha256").update(records.join("\n")).digest("hex");
 }
 
 async function observe(origin: string): Promise<void> {
@@ -363,9 +365,9 @@ try {
   const provenanceAudit = requireSuccess("npm", ["audit", "signatures"], provenanceRoot, {
     npm_config_registry: "https://registry.npmjs.org/",
   });
-  assert.match(provenanceAudit.stdout, /[1-9]\d* packages? (?:have|has) verified attestations?/u);
+  assert.equal(hasVerifiedRegistryAttestation(provenanceAudit.stdout), true);
 
-  const project = join(runner, "public-alpha-app");
+  const project = join(temporary, "public-alpha-app");
   requireSuccess(executable, ["create", "--project-root", project], runner);
   requireSuccess("pnpm", ["install", "--ignore-scripts"], project, { npm_config_registry: "https://registry.npmjs.org/" });
   const projectManifest = JSON.parse(readFileSync(join(project, "package.json"), "utf8")) as JsonRecord;
@@ -426,7 +428,10 @@ try {
     version: A0_FIRST_ALPHA_VERSION,
     sourceTag: A0_FIRST_ALPHA_TAG,
     sourceCommit,
-    distributionTag: A0_DISTRIBUTION_TAG,
+    distributionAliases: Object.freeze({
+      [A0_DISTRIBUTION_TAG]: A0_FIRST_ALPHA_VERSION,
+      latest: A0_FIRST_ALPHA_VERSION,
+    }),
     provenancePresent: true,
     packageTarballIntegrityVerified: true,
     packageSourceContentVerified: true,

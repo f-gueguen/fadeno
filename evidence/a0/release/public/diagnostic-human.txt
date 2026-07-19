@@ -1,0 +1,2 @@
+FADENO_A0_PUBLIC_DIST_TAG: The first public package must expose both registry-required aliases, and both must resolve to 0.1.0-alpha.1.
+FADENO_A0_BOOTSTRAP_SELF_REVOCATION: A package-scoped publication credential cannot revoke itself; use a separately authenticated maintainer session and verify that no token remains.

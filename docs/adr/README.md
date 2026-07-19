@@ -51,6 +51,7 @@ effective decision.
 39. [ADR 0040 — Stock application test workflow](0040-stock-application-test-workflow.md)
 40. [ADR 0041 — Immutable loopback deployment artifact](0041-immutable-loopback-deployment-artifact.md)
 41. [ADR 0043 — Defer independent usability and external tooling for first alpha](0043-defer-independent-usability-and-external-tooling.md)
+42. [ADR 0044 — Reconcile first-alpha registry transport](0044-first-alpha-registry-transport-reconciliation.md)
 
 ## Superseded decisions
 
