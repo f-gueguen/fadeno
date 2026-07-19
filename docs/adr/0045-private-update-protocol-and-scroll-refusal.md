@@ -159,7 +159,8 @@ recovery and provides rolling-deploy rollback without accepting mixed versions.
 ## Validation
 
 `pnpm check:v2-patch-protocol` type-checks the private model, decodes and replays
-the versioned corpus, locks its exact required case IDs, rejects fixture-schema mutations, checks inclusive and
+the versioned corpus, locks its exact required case IDs and normalized semantic
+SHA-256, rejects fixture-schema and weakened-semantics mutations, checks inclusive and
 exceeded limits, malicious object shapes, redaction, serialization round trips,
 and runs the scroll admission controls in Chromium, Firefox, and WebKit.
 `pnpm check:v2-plan`, decision, ledger, model, documentation, and full local CI

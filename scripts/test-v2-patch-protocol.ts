@@ -10,10 +10,12 @@ import {
   V2_PATCH_PROTOCOL_LIMITS,
   withinPrivateUpdateFieldLimit,
 } from "./lib/v2-patch-protocol.ts";
+import { assertV2PatchProtocolCaseSemantics } from "./lib/v2-patch-protocol-evidence.ts";
 import type { PrivateUpdateDecisionContext } from "./lib/v2-patch-protocol.ts";
 
 const source = JSON.parse(readFileSync(join(process.cwd(), "fixtures/v2-patch-protocol/decision-corpus.v1.json"), "utf8")) as Record<string, unknown>;
 const corpus = parseV2PatchProtocolCorpus(source);
+assert.doesNotThrow(() => assertV2PatchProtocolCaseSemantics(corpus.cases));
 
 function rejects(mutate: (value: Record<string, unknown>) => void, pattern: RegExp): void {
   const value = structuredClone(source);
@@ -46,6 +48,17 @@ rejects((value) => {
 rejects((value) => {
   value["cases"] = (value["cases"] as Record<string, unknown>[]).filter((fixture) => fixture["id"] !== "credential-redirect-refused");
 }, /required case IDs/u);
+
+const weakened = structuredClone(source);
+const weakenedCredential = (weakened["cases"] as Record<string, unknown>[])
+  .find((fixture) => fixture["id"] === "credential-redirect-refused");
+assert.ok(weakenedCredential);
+weakenedCredential["changes"] = [
+  { target: "envelope", operation: "set", path: ["outcome"], value: { kind: "redirect", status: 307, location: "/projects/7" } },
+];
+weakenedCredential["expected"] = { status: "accepted", code: "FADENO_UPDATE_REDIRECT", outcome: "redirect", recovery: "none", mutationResubmission: "never" };
+const weakenedCorpus = parseV2PatchProtocolCorpus(weakened);
+assert.throws(() => assertV2PatchProtocolCaseSemantics(weakenedCorpus.cases), /FADENO_V2_FIXTURE_SEMANTICS/u);
 
 for (const fixture of corpus.cases) assert.deepEqual(runV2PatchProtocolFixture(corpus, fixture), fixture.expected);
 assert.deepEqual(decidePrivateScrollBoundary({ documentPrecedingLayout: "unaffected", elementPrecedingLayout: "unaffected" }), {

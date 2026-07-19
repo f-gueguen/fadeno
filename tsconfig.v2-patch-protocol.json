@@ -9,6 +9,7 @@
   },
   "include": [
     "scripts/lib/v2-patch-protocol.ts",
+    "scripts/lib/v2-patch-protocol-evidence.ts",
     "scripts/check-v2-patch-protocol.ts",
     "scripts/test-v2-patch-protocol.ts",
     "experiments/v2-patch-protocol/**/*.ts"

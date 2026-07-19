@@ -8,11 +8,13 @@ import {
   V2_PATCH_PROTOCOL_LIMITS,
   V2_PATCH_PROTOCOL_REQUIRED_CASE_IDS,
 } from "./lib/v2-patch-protocol.ts";
+import { assertV2PatchProtocolCaseSemantics } from "./lib/v2-patch-protocol-evidence.ts";
 
 const root = process.cwd();
 const read = (path: string): string => readFileSync(join(root, path), "utf8");
 const corpusDocument = JSON.parse(read("fixtures/v2-patch-protocol/decision-corpus.v1.json")) as unknown;
 const corpus = parseV2PatchProtocolCorpus(corpusDocument);
+assertV2PatchProtocolCaseSemantics(corpus.cases);
 const observed = corpus.cases.map((fixture) => Object.freeze({
   id: fixture.id,
   category: fixture.category,
