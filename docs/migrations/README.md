@@ -3,7 +3,10 @@
 Migration documents exist only for released compatibility changes. There are no
 released migrations yet. The [V1 private-preview seed](v1-private-preview.md)
 is generated from verified correction evidence to establish the future format;
-it is not a released migration.
+it is not a released migration. The
+[First-alpha candidate adoption guide](first-alpha-candidate.md) is the A0
+release-checkpoint guide from no released version; it is also not a released
+compatibility migration.
 
 ## Location and naming
 
@@ -52,3 +55,10 @@ belongs in specifications and released declarations.
 ## Current migrations
 
 None. The private-preview seed is non-release guidance.
+
+## First release checkpoint
+
+The [first-alpha candidate adoption guide](first-alpha-candidate.md) explains
+how an unpublished private-preview collaborator moves to the reviewed public
+package boundary and names the packed verification commands. A0-10 fills its
+immutable release links after the exact package and tag exist.

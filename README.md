@@ -9,8 +9,8 @@ than becoming application vocabulary.
 
 ## Status
 
-Fadeno has completed its qualified private V1 and is implementing A0
-public-alpha work. The selected `@fadeno/framework` package can analyze, build,
+Fadeno has completed its qualified private V1 and has a qualified first-alpha
+candidate awaiting A0-10 publication. The selected `@fadeno/framework` package can analyze, build,
 and run the canonical routed application through generated route bindings and a
 verified production bootstrap. The application includes request-owned
 resources and an authenticated native-form CRUD workflow with protected
@@ -19,11 +19,13 @@ revalidation. Deliberate failures, flow inspection, rollback, stale-output
 recovery, three-browser JavaScript-disabled operation, and production-only
 startup run as executable repository evidence. The package has public metadata
 and guarded release machinery but no registry version or production support.
-Packed creation, application testing, immutable deployment, and the complete
-public command workflow now pass automated qualification. Independent newcomer
+Packed creation, application testing, immutable deployment, deterministic
+external-decoder fuzzing, and the complete public command workflow now pass
+automated qualification. Independent newcomer
 usability has not been qualified and no editor product or public analyzer
-schema is supported; those remain explicitly deferred while final alpha
-qualification and release remain A0 work.
+schema is supported; those remain explicitly deferred. A0-10 still owns the
+actual registry package, immutable tag, release notes, and public install
+verification.
 Browser enhancement remains V2 and islands remain V3.
 
 The four K0 kill-risk investigations are complete: structural preservation and

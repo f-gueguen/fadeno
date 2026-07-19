@@ -1,8 +1,9 @@
 # @fadeno/framework
 
-This is the selected public Fadeno package. Its `0.0.0` manifest is an
-unpublished release seed; the first qualified registry version will be an
-alpha prerelease. It is not yet published or production-supported.
+This is the selected public Fadeno package and qualified first-alpha candidate.
+Its `0.0.0` manifest is an unpublished release seed; the first qualified
+registry version will be an alpha prerelease. It is not yet published or
+production-supported.
 
 The runtime-neutral `.` facade exports the standard Web `Handler` type,
 configuration, rendering and route outcomes, and the request-scoped resource
@@ -86,3 +87,8 @@ and coordinate compiler/build freshness. Those modules are not package exports.
 Publication is guarded by the repository release process. A supported analyzer
 or editor schema remains later work; analyzer and action decision schemas stay
 private package internals.
+
+Independent newcomer usability and assistive-technology usability have not
+been qualified. There is no editor product or public analyzer schema. The
+private analyzer is implementation machinery, and automated packed consumers
+must not be presented as observed user evidence.

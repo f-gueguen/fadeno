@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "milestone": "A0-09",
+  "status": "qualified-alpha-candidate",
+  "package": "@fadeno/framework",
+  "sourceVersion": "0.0.0",
+  "expectedReleaseVersion": "0.1.0-alpha.0",
+  "canonicalApplication": "examples/v1-app",
+  "publicationAttempted": false,
+  "claims": {
+    "alphaCandidateQualified": true,
+    "packagePublished": false,
+    "productionSupported": false,
+    "independentNewcomerUsability": false,
+    "assistiveTechnologyUsability": false,
+    "supportedEditorProduct": false,
+    "publicAnalyzerSchema": false,
+    "incrementalPerformanceBound": false,
+    "independentStableSecurityReview": false
+  },
+  "audits": [
+    {
+      "id": "security",
+      "outcome": "qualified-first-alpha-boundaries",
+      "gates": [
+        "check:a0-decoder-fuzz",
+        "check:v1-toolchain",
+        "check:a0-create",
+        "check:a0-deploy",
+        "check:v1-routing",
+        "check:v1-analyzer-workflow",
+        "check:v1-adapter",
+        "check:v1-action-session-decision",
+        "check:v1-action-runtime",
+        "check:v1-rendering-security",
+        "check:v1-renderer",
+        "check:v1-running-example",
+        "check:v1-resource-decision",
+        "check:v1-resources",
+        "check:v1-independent-workflow",
+        "check:a0-release"
+      ],
+      "evidence": [
+        "docs/security/alpha-threat-review.md",
+        "evidence/a0/security/decoder-fuzz.json",
+        "examples/v1-app/scenarios/action-lifecycle/expected/diagnostic.json",
+        "examples/v1-app/scenarios/deployment/expected/flow.json"
+      ],
+      "residual": [
+        "single-process-action-and-session-owner",
+        "independent-security-review-before-stable-release"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "outcome": "qualified-native-baseline",
+      "gates": [
+        "check:v1-running-example",
+        "check:a0-css"
+      ],
+      "evidence": [
+        "examples/v1-app/expected/accessibility-baseline.json",
+        "examples/v1-app/src/styles.ts"
+      ],
+      "residual": [
+        "independent-newcomer-and-assistive-technology-usability-unqualified"
+      ]
+    },
+    {
+      "id": "performance",
+      "outcome": "qualified-existing-evidence-only",
+      "gates": [
+        "check:type-spine-qualification-evidence",
+        "check:revalidation-qualification-evidence",
+        "check:v1-analyzer-feedback"
+      ],
+      "evidence": [
+        "experiments/type-spine/results/20260712T022123Z-122ba57-a1/decision.json",
+        "experiments/revalidation/results/qualification-result.json",
+        "evidence/v1-analyzer-feedback/results/20260717T090059Z-4d57a69-a4/summary.json"
+      ],
+      "residual": [
+        "incremental-generation-result-remains-narrow",
+        "analyzer-feedback-result-has-no-accepted-budget",
+        "server-and-browser-budgets-remain-later"
+      ]
+    },
+    {
+      "id": "package",
+      "outcome": "qualified-current-packed-seed",
+      "gates": [
+        "check:a0-publication",
+        "check:a0-release",
+        "check:v1-analyzer-package"
+      ],
+      "evidence": [
+        "packages/framework/package.json",
+        "packages/framework/README.md",
+        "packages/framework/sbom.spdx.json",
+        "evidence/a0/release/first-alpha-plan.json"
+      ],
+      "residual": [
+        "registry-publication-remains-a0-10"
+      ]
+    },
+    {
+      "id": "documentation",
+      "outcome": "qualified-executable-authority",
+      "gates": [
+        "check:docs",
+        "check:v1-documentation-source",
+        "check:v1-documentation"
+      ],
+      "evidence": [
+        "README.md",
+        "docs/migrations/first-alpha-candidate.md",
+        "examples/v1-app/documentation-source.json",
+        "examples/v1-app/expected/independent-workflow.txt"
+      ],
+      "residual": [
+        "immutable-release-documentation-remains-a0-10"
+      ]
+    },
+    {
+      "id": "clean-machine",
+      "outcome": "qualified-automated-packed-workflows",
+      "gates": [
+        "check:v1-independent-workflow",
+        "check:a0-create",
+        "check:a0-test",
+        "check:a0-deploy"
+      ],
+      "evidence": [
+        "examples/v1-app/expected/independent-workflow.txt",
+        "examples/v1-app/scenarios/application-test/expected/flow.json",
+        "examples/v1-app/scenarios/deployment/expected/flow.json",
+        "examples/v1-app/scenarios/deployment/expected/recovery.json"
+      ],
+      "residual": [
+        "automated-consumers-do-not-establish-newcomer-usability"
+      ]
+    },
+    {
+      "id": "reproducibility",
+      "outcome": "qualified-identical-current-source",
+      "gates": [
+        "check:v1-independent-workflow",
+        "check:v1-development",
+        "check:a0-release",
+        "check:a0-deploy"
+      ],
+      "evidence": [
+        "examples/v1-app/expected/build-manifest-normalized.json",
+        "examples/v1-app/scenarios/deployment/expected/artifact.json",
+        "packages/framework/sbom.spdx.json"
+      ],
+      "residual": [
+        "public-registry-bytes-and-tag-identity-remain-a0-10"
+      ]
+    },
+    {
+      "id": "rollback",
+      "outcome": "qualified-prepublication-and-deployment",
+      "gates": [
+        "check:a0-release",
+        "check:a0-deploy",
+        "check:v1-development"
+      ],
+      "evidence": [
+        "evidence/a0/release/rollback-public-seed.json",
+        "evidence/a0/release/recovery.json",
+        "examples/v1-app/scenarios/deployment/expected/recovery.json",
+        "examples/v1-app/scenarios/development-lifecycle/expected/recovery.json"
+      ],
+      "residual": [
+        "published-versions-and-tags-are-never-replaced"
+      ]
+    },
+    {
+      "id": "usability-tooling",
+      "outcome": "deferred-unqualified",
+      "gates": [
+        "check:a0-usability-contract",
+        "check:a0-usability-replay-contract",
+        "check:a0-usability-artifact",
+        "check:a0-tooling-deferral"
+      ],
+      "evidence": [
+        "docs/adr/0043-defer-independent-usability-and-external-tooling.md",
+        "evidence/a0/independent-usability/task-packet.json",
+        "SUPPORT.md"
+      ],
+      "residual": [
+        "independent-newcomer-usability-unqualified",
+        "assistive-technology-usability-unqualified",
+        "no-editor-product-or-public-analyzer-schema"
+      ]
+    }
+  ],
+  "releaseImpact": {
+    "changeset": ".changeset/quiet-boundaries-refuse.md",
+    "intent": "patch",
+    "outcome": "classify-malformed-configuration-environment-and-action-body-input",
+    "publicSurfaceAdded": false
+  }
+}

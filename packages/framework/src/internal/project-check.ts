@@ -23,7 +23,7 @@ type ParsedProjectCheck = Readonly<{ root: string; explain: boolean }>;
 
 const usage = "FADENO_CHECK_USAGE: fadeno check --project-root <path> [--explain]\n";
 
-function parse(arguments_: readonly string[], cwd: string): ParsedProjectCheck | null {
+export function parseProjectCheckArguments(arguments_: readonly string[], cwd: string): ParsedProjectCheck | null {
   if (!Array.isArray(arguments_) || arguments_[0] !== "check" || typeof cwd !== "string") return null;
   let root: string | null = null;
   let explain = false;
@@ -55,7 +55,7 @@ export async function runProjectCheckCommand(
   arguments_: readonly string[],
   context: ProjectCheckCommandContext,
 ): Promise<ProjectCheckCommandResult> {
-  const parsed = parse(arguments_, context.cwd);
+  const parsed = parseProjectCheckArguments(arguments_, context.cwd);
   if (!parsed) return Object.freeze({ exitCode: 2 as const, stdout: "", stderr: usage });
   try {
     const analyzeProject = context.analyzeProject ?? (async (root: string) => new PrivateProjectAnalyzer(root).analyze().result);

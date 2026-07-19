@@ -6,6 +6,7 @@ const maximumIdentityFiles = 4_096;
 const maximumIdentityFileBytes = 64 * 1024 * 1024;
 const maximumIdentityBytes = 128 * 1024 * 1024;
 const maximumEnvironmentFileBytes = 1024 * 1024;
+const environmentDecoder = new TextDecoder("utf-8", { fatal: true });
 
 export type PrivateBuildDevCommand = Readonly<
   | { command: "build"; projectRoot: string }
@@ -248,6 +249,14 @@ export function parsePrivateEnvironmentFile(source: string): Readonly<Record<str
   return Object.freeze(values);
 }
 
+function decodePrivateEnvironmentFile(bytes: Uint8Array): string {
+  try {
+    return environmentDecoder.decode(bytes);
+  } catch {
+    throw new TypeError("FADENO_BUILD_ENV");
+  }
+}
+
 export function capturePrivateEnvironment(
   projectRoot: string,
   processValues: Readonly<Record<string, string | undefined>>,
@@ -258,7 +267,9 @@ export function capturePrivateEnvironment(
     const path = resolve(root, name);
     if (existsSync(path)) {
       Object.assign(values, parsePrivateEnvironmentFile(
-        readStableOwnedFile(root, path, maximumEnvironmentFileBytes, "FADENO_BUILD_ENV").toString("utf8"),
+        decodePrivateEnvironmentFile(
+          readStableOwnedFile(root, path, maximumEnvironmentFileBytes, "FADENO_BUILD_ENV"),
+        ),
       ));
     }
   }

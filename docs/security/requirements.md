@@ -70,5 +70,8 @@ A vertical slice that introduces a trust boundary includes:
 - rollback behavior.
 
 The first public alpha requires a complete threat-model review and fuzzing of
-all external decoders. Stable release additionally requires an independent
-security review and remediation of all known critical and high-severity issues.
+all external decoders. A0-09 closes that requirement through the
+[first-alpha threat review](alpha-threat-review.md) and the deterministic
+`pnpm check:a0-decoder-fuzz` gate over the exact production decoder paths.
+Stable release additionally requires an independent security review and
+remediation of all known critical and high-severity issues.

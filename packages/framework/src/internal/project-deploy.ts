@@ -131,21 +131,30 @@ function packageManager(
   return Object.freeze({ status: result.status, stdout: result.stdout, stderr: result.stderr });
 }
 
+export function parseProjectDeployArguments(
+  arguments_: readonly string[],
+  cwd: string,
+): Readonly<{ projectRoot: string; output: string }> | null {
+  if (
+    !Array.isArray(arguments_) || arguments_.length !== 5 || arguments_[0] !== "deploy" ||
+    arguments_[1] !== "--project-root" || !arguments_[2] || arguments_[3] !== "--output" || !arguments_[4] ||
+    typeof cwd !== "string"
+  ) return null;
+  return Object.freeze({ projectRoot: arguments_[2], output: arguments_[4] });
+}
+
 export async function runProjectDeployCommand(
   arguments_: readonly string[],
   context: ProjectDeployCommandContext,
 ): Promise<ProjectDeployCommandResult> {
-  if (
-    !Array.isArray(arguments_) || arguments_.length !== 5 || arguments_[0] !== "deploy" ||
-    arguments_[1] !== "--project-root" || !arguments_[2] || arguments_[3] !== "--output" || !arguments_[4] ||
-    typeof context.cwd !== "string"
-  ) return Object.freeze({ exitCode: 2 as const, stdout: "", stderr: usage });
+  const parsed = parseProjectDeployArguments(arguments_, context.cwd);
+  if (parsed === null) return Object.freeze({ exitCode: 2 as const, stdout: "", stderr: usage });
 
   let projectRoot: string;
   let output: string;
   try {
-    projectRoot = realpathSync(resolve(context.cwd, arguments_[2]));
-    output = resolve(realpathSync(context.cwd), arguments_[4]);
+    projectRoot = realpathSync(resolve(context.cwd, parsed.projectRoot));
+    output = resolve(realpathSync(context.cwd), parsed.output);
   } catch {
     return refusal("FADENO_DEPLOY_ROOT", "Project root and output parent must be ordinary existing directories.");
   }

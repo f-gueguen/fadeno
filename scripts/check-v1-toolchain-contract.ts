@@ -44,6 +44,17 @@ try {
   let invalidRejected = false;
   try { await executePrototype(invalid, "check"); } catch (error: unknown) { invalidRejected = error instanceof Error && error.message.startsWith("FADENO_CONFIG_EXPORTS"); }
   if (!invalidRejected) throw new Error("FADENO_TOOLCHAIN_CONFIG_MUTATION");
+  const invalidBytes = join(root, "invalid-bytes");
+  mkdirSync(invalidBytes);
+  writeFileSync(
+    join(invalidBytes, "fadeno.config.ts"),
+    Buffer.concat([Buffer.from("// "), Buffer.from([0xff]), Buffer.from("\nexport default {};\n")]),
+  );
+  let invalidBytesRejected = false;
+  try { await executePrototype(invalidBytes, "check"); } catch (error: unknown) {
+    invalidBytesRejected = error instanceof Error && error.message.startsWith("FADENO_CONFIG_SYNTAX");
+  }
+  if (!invalidBytesRejected) throw new Error("FADENO_TOOLCHAIN_CONFIG_BYTES");
   const unknown = join(root, "unknown");
   mkdirSync(unknown);
   writeFileSync(join(unknown, "fadeno.config.ts"), "export default { routes: './app' };\n");

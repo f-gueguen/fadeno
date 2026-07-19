@@ -6,43 +6,37 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-08 — explicitly defer external analyzer/editor tooling
+A0-09 — qualify the complete public-alpha candidate
 
 ## Exit criteria
 
-- [x] Preserve the versioned packet, exact-artifact reconstruction, privacy,
-  retention, and synthetic-evidence refusal controls for later collection.
-- [x] Record unavailable real participant evidence as
-  `deferred-unqualified`, never accepted success.
-- [x] Select no supported editor product, public analyzer schema, or external
-  compatibility promise for the first alpha.
-- [ ] Pass decision, deferral, model, full local CI, and independent review
-  gates.
+- [x] Complete the supported-boundary threat inventory and deterministic
+  external-decoder fuzzing with no unexpected outcome or secret leak.
+- [x] Bind security, native accessibility, existing performance, package,
+  documentation, clean-machine, reproducibility, rollback, and explicit
+  usability/tooling limitations into one `qualified-alpha-candidate` record.
+- [x] Add the first-alpha adoption guide and package/readme/support caveats
+  without changing the unpublished seed or publishing.
+- [ ] Pass all affected gates, full local CI, and independent review at the
+  final commit.
 
 ## Active sub-slice
 
-A0-08 durable deferral decision only. ADR 0043 supersedes A0's participant
-sequencing rule while preserving the later collection contract, requires an
-explicit first-alpha usability caveat, retains the private analyzer, and
-removes the former A0 tooling gate by deferring rather than accepting an
-external surface.
+A0-09 qualification and remediation. The current worker replays 2,360 bounded
+cases over fourteen exact production decoder surfaces, while the fail-closed audit
+manifest derives every alpha claim from current packed gates and tracked
+evidence. A0-10 remains the only publication slice.
 
 ## In progress
 
-- Merge commit `3be74fa` completes A0-07A with eleven exact ordered
-  public-workflow tasks, a digest-bound instruction packet, a versioned attempt
-  shape, two-participant minimum, anonymous bounded records, all-attempt
-  retention, exact artifact identity, and fail-closed synthetic-evidence
-  refusal. A0-07B1 now adds replay, exact clean-commit package reconstruction,
-  and missing-directory participant-bundle controls before A0-07B2 may retain
-  real observations.
-- Merge commit `b572673` completes A0-07B1. A participant bundle reconstructed
-  from that exact merged source is retained outside the repository with package
-  SHA-256 `9ee8190e456b552a325733896ec17709f9ba9048e43dd5c60595254733070cd7`.
-  A0-07B2 now adds the fail-closed real-evidence command before collection.
-- Merge commit `a39bcfe` completes the collection-ready A0-07B2 verifier. Real
-  participants remain unavailable, so ADR 0043 records A0-07 as
-  `deferred-unqualified` and moves A0-08 to an explicit no-product decision.
+- Commit `39f9a0b` adds the first A0-09 decoder-fuzz unit and remediates two
+  findings: malformed configuration UTF‑16 now refuses before compiler
+  admission, and malformed action encoding now receives the stable
+  `FADENO_ACTION_BODY` boundary code.
+- Commits through `6438036` add the complete audit manifest, threat review,
+  alpha adoption guide, package and support disclosures, traceability, and
+  negative qualification controls. The full root `pnpm check` passes; the
+  clean-commit local CI and required review own final merge acceptance.
 
 ## Blockers
 
@@ -51,10 +45,22 @@ external surface.
 
 ## Open questions
 
-- None in A0-08. Later external analyzer consumers require new evidence and a
+- None in A0-09. Later external analyzer consumers require new evidence and a
   new compatibility decision.
 
 ## Completed slices
+
+- A0-08 — explicitly defer external analyzer/editor tooling. Merge commit
+  `0d3ad98` accepts ADR 0043, records independent newcomer usability as
+  `deferred-unqualified`, preserves later exact-artifact collection, selects no
+  editor product or public analyzer schema, and removes the former A0 tooling
+  blocker without fabricating evidence.
+
+- A0-07 — prepare independent-user qualification without fabricating
+  observations. A0-07A merge commit `3be74fa` freezes the task packet and
+  privacy/evidence contract; A0-07B1 merge commit `b572673` proves exact-source
+  reconstruction and replay; A0-07B2 merge commit `a39bcfe` adds the real-attempt
+  verifier. Real participation remains `deferred-unqualified` under ADR 0043.
 
 - A0-06 — add the first supported deployment workflow. Merge commit `0272684`
   accepts ADR 0041 and adds the exact public deployment command,

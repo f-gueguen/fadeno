@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "milestone": "A0-09",
+  "seed": 1511464998,
+  "outcome": "qualified-bounded-fuzz",
+  "deterministicReplay": true,
+  "secretLeakageObserved": false,
+  "totalCases": 2360,
+  "surfaces": [
+    {
+      "id": "adapter-request-target",
+      "cases": 260,
+      "accepted": 2,
+      "refused": 258,
+      "unexpected": 0,
+      "largestInputBytes": 4096,
+      "classificationSha256": "26db68189cac35fc4485d4bbd2d0095271a957b0dd63cb183eea7e57d25d41d3"
+    },
+    {
+      "id": "route-pathname",
+      "cases": 260,
+      "accepted": 1,
+      "refused": 259,
+      "unexpected": 0,
+      "largestInputBytes": 4096,
+      "classificationSha256": "29a65296693d73f847846221b8c3e13ccc49db925f34f85203c2968138b6657e"
+    },
+    {
+      "id": "configuration-source",
+      "cases": 68,
+      "accepted": 2,
+      "refused": 66,
+      "unexpected": 0,
+      "largestInputBytes": 4096,
+      "classificationSha256": "1a61b11e4889e3903ef81c744098a4bdb9d0bf8e1ff9baceff676592424b90c2"
+    },
+    {
+      "id": "configuration-file-bytes",
+      "cases": 68,
+      "accepted": 2,
+      "refused": 66,
+      "unexpected": 0,
+      "largestInputBytes": 4096,
+      "classificationSha256": "997dc50db938c1a1c42e323d79d1f881f1b932b233c16489dcb5788be8886ddd"
+    },
+    {
+      "id": "environment-file",
+      "cases": 260,
+      "accepted": 4,
+      "refused": 256,
+      "unexpected": 0,
+      "largestInputBytes": 4096,
+      "classificationSha256": "a8fb0602861f8aa185040a7dddaf303bc43825051ddb39f0687a69317ad1fcf1"
+    },
+    {
+      "id": "build-dev-command-arguments",
+      "cases": 68,
+      "accepted": 3,
+      "refused": 65,
+      "unexpected": 0,
+      "largestInputBytes": 4081,
+      "classificationSha256": "bd958420bb6e8753f4bf7669920d501295564f726834439c7ec7b5bbe5cf872c"
+    },
+    {
+      "id": "check-command-arguments",
+      "cases": 68,
+      "accepted": 3,
+      "refused": 65,
+      "unexpected": 0,
+      "largestInputBytes": 4081,
+      "classificationSha256": "8367bb2b3ba55537ca73a4d1a3a7bd8803ad50953bf647c2f105a05c852995a6"
+    },
+    {
+      "id": "create-command-arguments",
+      "cases": 68,
+      "accepted": 2,
+      "refused": 66,
+      "unexpected": 0,
+      "largestInputBytes": 4082,
+      "classificationSha256": "d85561040d6544816d5db20000c1fecefbce61e27baa7f42418314a165bef4d6"
+    },
+    {
+      "id": "deploy-command-arguments",
+      "cases": 68,
+      "accepted": 2,
+      "refused": 66,
+      "unexpected": 0,
+      "largestInputBytes": 4073,
+      "classificationSha256": "cf7bbc24c6e898157d20b6bbed94ca2db341fc1d9c243d1140ba67bb98024583"
+    },
+    {
+      "id": "route-artifact-manifest",
+      "cases": 260,
+      "accepted": 1,
+      "refused": 259,
+      "unexpected": 0,
+      "largestInputBytes": 4096,
+      "classificationSha256": "a4715b7ba919b74b613cb2910f7de825918f45ee77e7536ae719c5c502bdbf9e"
+    },
+    {
+      "id": "session-cookie",
+      "cases": 260,
+      "accepted": 258,
+      "refused": 2,
+      "unexpected": 0,
+      "largestInputBytes": 16385,
+      "classificationSha256": "974721610e28fed14d397a821d1e29695b6667e51c82ebac766a4de0518f2ebb"
+    },
+    {
+      "id": "action-endpoint",
+      "cases": 260,
+      "accepted": 14,
+      "refused": 246,
+      "unexpected": 0,
+      "largestInputBytes": 1084,
+      "classificationSha256": "59167478fae618dfed3fdc40717ae9657fcb6fdb596a460d96ebcb5a83af22b8"
+    },
+    {
+      "id": "action-proof",
+      "cases": 260,
+      "accepted": 1,
+      "refused": 259,
+      "unexpected": 0,
+      "largestInputBytes": 4096,
+      "classificationSha256": "33e73e418382064e7f866e3f68f9a2222b27292c863b7f33b6fb393c766414be"
+    },
+    {
+      "id": "action-body",
+      "cases": 132,
+      "accepted": 4,
+      "refused": 128,
+      "unexpected": 0,
+      "largestInputBytes": 937,
+      "classificationSha256": "71ca90b3d21343ce0e62a65db79a9fec9d4d98ae81a68e36c460a23402a2a9fe"
+    }
+  ]
+}

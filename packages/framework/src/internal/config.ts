@@ -7,6 +7,8 @@ import { API } from "typescript/unstable/sync";
 import type { FadenoConfig } from "../index.ts";
 import { FadenoDiagnosticError } from "./diagnostic.ts";
 
+const configFileDecoder = new TextDecoder("utf-8", { fatal: true });
+
 function fail(code: string): never {
   throw new FadenoDiagnosticError(
     `FADENO_CONFIG_${code}`,
@@ -25,6 +27,20 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   } catch {
     return false;
   }
+}
+
+function isWellFormedUtf16(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const current = value.charCodeAt(index);
+    if (current >= 0xd800 && current <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (index + 1 >= value.length || next < 0xdc00 || next > 0xdfff) return false;
+      index += 1;
+    } else if (current >= 0xdc00 && current <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function normalizeConfig(value: unknown): FadenoConfig {
@@ -162,19 +178,29 @@ function configPathForProject(projectRoot: string): string {
 
 export function loadConfigFromSource(projectRoot: string, source: string): LoadedConfig {
   if (typeof source !== "string") fail("SOURCE_CHANGED");
+  if (!isWellFormedUtf16(source)) fail("SYNTAX");
   const configPath = configPathForProject(projectRoot);
   return Object.freeze({ config: staticConfiguration(projectRoot, configPath, source), source });
 }
 
+export function decodeConfigSourceBytes(bytes: Uint8Array): string {
+  if (!(bytes instanceof Uint8Array)) fail("SYNTAX");
+  try {
+    return configFileDecoder.decode(bytes);
+  } catch {
+    fail("SYNTAX");
+  }
+}
+
 export function readConfigSource(projectRoot: string): string {
-  return readFileSync(configPathForProject(projectRoot), "utf8");
+  return decodeConfigSourceBytes(readFileSync(configPathForProject(projectRoot)));
 }
 
 export async function loadConfigWithSource(projectRoot: string): Promise<LoadedConfig> {
   const configPath = configPathForProject(projectRoot);
   const source = readConfigSource(projectRoot);
   const loaded = loadConfigFromSource(projectRoot, source);
-  if (readFileSync(configPath, "utf8") !== source) fail("SOURCE_CHANGED");
+  if (decodeConfigSourceBytes(readFileSync(configPath)) !== source) fail("SOURCE_CHANGED");
   return loaded;
 }
 
