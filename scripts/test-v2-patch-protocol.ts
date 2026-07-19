@@ -252,6 +252,15 @@ otherGeneration["applicationGeneration"] = "generation:other-user";
 const isolated = evaluatePrivateUpdateBytes(encodePrivateUpdateEnvelope(otherGeneration), byteContext, { now: () => 10 });
 assert.equal(isolated.decision.code, "FADENO_UPDATE_GENERATION");
 assert.equal(JSON.stringify(isolated).includes("other-user"), false, "cross-user identity is absent from the decision and metrics");
+const authorizationClaim = structuredClone(corpus.baseEnvelope);
+authorizationClaim["authorization"] = "granted-by-untrusted-response";
+const authorizationRefusal = evaluatePrivateUpdateBytes(
+  new TextEncoder().encode(JSON.stringify(authorizationClaim)),
+  byteContext,
+  { now: () => 10 },
+);
+assert.equal(authorizationRefusal.decision.code, "FADENO_UPDATE_SCHEMA", "transport cannot claim application authorization");
+assert.equal(JSON.stringify(authorizationRefusal).includes("granted-by-untrusted-response"), false, "authorization claim is absent from refusal output");
 const hostileMarkup = structuredClone(corpus.baseEnvelope);
 ((hostileMarkup["outcome"] as Record<string, unknown>)["root"] as Record<string, unknown>)["html"] = "<script>secret-cookie</script>";
 const hostileDecision = evaluatePrivateUpdateBytes(encodePrivateUpdateEnvelope(hostileMarkup), byteContext, { now: () => 10 });

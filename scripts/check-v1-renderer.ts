@@ -155,11 +155,14 @@ const missing = await renderRoute({
   request,
   parameters: Object.freeze(Object.create(null) as Record<string, never>),
   layouts: [],
+  browserModule: "/_fadeno/browser-entry.js",
   page: () => notFound(),
   notFound: () => document(jsx("h1", { children: "Deliberate missing page" })),
 });
 assert.equal(missing.status, 404);
-assert.match(await body(missing), /Deliberate missing page/u);
+const missingBody = await body(missing);
+assert.match(missingBody, /Deliberate missing page/u);
+assert.match(missingBody, /src="\/_fadeno\/browser-entry\.js"/u);
 
 const moved = await renderRoute({
   request,
@@ -174,6 +177,7 @@ const failed = await renderRoute({
   request,
   parameters: Object.freeze(Object.create(null) as Record<string, never>),
   layouts: [],
+  browserModule: "/_fadeno/browser-entry.js",
   page: () => { throw new Error("secret=must-not-render"); },
   error: ({ incidentId }) => document(jsxs("section", {
     children: [jsx("h1", { children: "Safe failure" }), jsx("p", { children: `Incident ${incidentId}` })],
@@ -182,6 +186,7 @@ const failed = await renderRoute({
 assert.equal(failed.status, 500);
 const failedBody = await body(failed);
 assert.match(failedBody, /Safe failure/u);
+assert.match(failedBody, /src="\/_fadeno\/browser-entry\.js"/u);
 assert.doesNotMatch(failedBody, /must-not-render/u);
 
 const boundary = await renderRoute({
