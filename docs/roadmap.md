@@ -6,10 +6,11 @@ package inventory. Only the current slice appears in detail in
 
 K0 follows its reviewed [detailed plan](roadmap/k0.md), and accepted K0 evidence
 feeds the dependency-ordered [detailed V1 plan](roadmap/v1.md). Qualified V1
-evidence now feeds the [detailed A0 plan](roadmap/a0.md). Later gates
-receive detailed plans only after their entry evidence is accepted, so future
-work is neither forgotten nor specified from guesses. The
-[feature matrix](product/scope.md) preserves full release coverage meanwhile.
+evidence fed the completed [detailed A0 plan](roadmap/a0.md), whose verified
+public alpha now feeds the current [detailed V2 plan](roadmap/v2.md). Later
+gates receive detailed plans only after their entry evidence is accepted, so
+future work is neither forgotten nor specified from guesses. The [feature
+matrix](product/scope.md) preserves full release coverage meanwhile.
 
 ## F0 — Canonical foundation
 
@@ -44,6 +45,9 @@ their semantics. Cross-browser conformance covers preservation, history,
 focus, duplicate submission, stale responses, cancellation, and recovery. The
 runtime's measured cost is published.
 
+Implementation order and the native-equivalence checkpoints are defined in the
+[V2 plan](roadmap/v2.md).
+
 ## V3 — Interaction ownership
 
 Outcome: evidence from K0 determines the supported extracted-handler boundary.
@@ -59,6 +63,8 @@ The public surface remains explicitly pre-1.0.
 
 Implementation order and owner/decision boundaries are defined in the
 [A0 plan](roadmap/a0.md).
+
+Status: complete through A0-10 and the verified public alpha; V2-00 is current.
 
 ## B0 — Beta reliability
 

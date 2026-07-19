@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { loadExperimentRegistry } from "./lib/experiment-validation.ts";
+import { V2_PLAN_ROWS } from "./lib/v2-plan.ts";
 
 const root = process.cwd();
 const errors = [];
@@ -631,6 +632,47 @@ const openA0Gates = new Set(gateIds.filter((gate) => gate.startsWith("DG-A0-")))
 for (const gate of openA0Gates) {
   errors.push(`docs/roadmap/a0.md: no atomic slice owns ${gate}`);
 }
+
+const expectedV2 = V2_PLAN_ROWS;
+const v2 = read("docs/roadmap/v2.md");
+const v2Rows = tableRows(v2, /^\| V2-\d{2}[A-Z]? \|/);
+const v2Ids = v2Rows.map((cells) => cells[0]);
+const expectedV2Ids = expectedV2.map((entry) => entry.id);
+if (JSON.stringify(v2Ids) !== JSON.stringify(expectedV2Ids)) {
+  errors.push(`docs/roadmap/v2.md: expected ordered slices ${expectedV2Ids.join(", ")}`);
+}
+for (const duplicate of duplicates(v2Ids)) errors.push(`docs/roadmap/v2.md: duplicate slice ${duplicate}`);
+for (const [index, expected] of expectedV2.entries()) {
+  const cells = v2Rows[index];
+  if (!cells || cells[0] !== expected.id) continue;
+  if (cells.length !== 6) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} must have exactly 6 columns`);
+    continue;
+  }
+  const features = [...cells[2].matchAll(/\b([A-Z]+-\d{2})\b/g)].map((match) => match[1]);
+  if (JSON.stringify(features) !== JSON.stringify(expected.features)) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} feature ownership differs from the accepted plan`);
+  }
+  for (const feature of features) {
+    if (!scopeSet.has(feature)) errors.push(`docs/roadmap/v2.md: ${expected.id} references unknown feature ${feature}`);
+  }
+  if (cells[3] !== expected.dependencies) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} dependency contract differs from the accepted plan`);
+  }
+  if (cells[4] !== expected.artifacts) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} artifact contract differs from the accepted plan`);
+  }
+  if (cells[5] !== expected.validation) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} validation contract differs from the accepted plan`);
+  }
+  const gates = [...`${cells[1]} ${cells[3]} ${cells[4]}`.matchAll(/\bDG-V2-\d{2}\b/g)].map((match) => match[0]);
+  const expectedGates = expected.id === "V2-00" || expected.id === "V2-01" ? ["DG-V2-01"] : [];
+  if (JSON.stringify(gates) !== JSON.stringify(expectedGates)) {
+    errors.push(`docs/roadmap/v2.md: ${expected.id} decision ownership differs from the accepted plan`);
+  }
+}
+if (!gateIds.includes("DG-V2-01")) errors.push("docs/roadmap/v2.md: DG-V2-01 must remain open for V2-01");
+
 const registryIds = registryEntries.map((entry) => entry.id).filter(Boolean);
 const plannedDirectoryIds = [...k0.matchAll(/^  ([a-z][a-z-]+)\/$/gm)].map(
   (match) => match[1],
