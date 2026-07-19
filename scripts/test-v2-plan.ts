@@ -13,7 +13,7 @@ function mutation(expected: string, mutate: (context: V2PlanContext) => V2PlanCo
 
 const valid = validateV2Plan(source);
 if (valid.length > 0) throw new Error(`valid V2 plan refused:\n${valid.join("\n")}`);
-mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, then V2-11 in order", (context) => Object.freeze({
+mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, V2-11, then V2-12 in order", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace("| V2-06 |", "| V2-16 |"),
 }));
@@ -43,7 +43,7 @@ mutation("V2 roadmap V2-02 validation contract mismatch", (context) => Object.fr
 }));
 mutation("V2 roadmap V2-10 artifact contract mismatch", (context) => Object.freeze({
   ...context,
-  roadmap: context.roadmap.replace(/^\| V2-10 \|.*$/mu, (line) => line.replace(", raw per-sample results", "")),
+  roadmap: context.roadmap.replace(/^\| V2-10 \|.*$/mu, (line) => line.replace("exact source commit, packed-package digest, measured browser-artifact digest, ", "")),
 }));
 mutation("DG-V2-01 is missing Open", (context) => Object.freeze({
   ...context,
@@ -74,4 +74,4 @@ mutation("V2 entry package identity drifted", (context) => Object.freeze({
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("V2 plan mutation tests passed (15 slices, exact feature/contracts, decisions, security, accessibility, performance, handoff, release, traceability)");
+console.log("V2 plan mutation tests passed (16 slices, exact feature/contracts, decisions, preservation, identity, release, and traceability)");
