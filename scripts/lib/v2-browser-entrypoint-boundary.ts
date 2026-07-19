@@ -66,7 +66,7 @@ export function validateV2BrowserEntrypointBoundary(context: V2BrowserEntrypoint
     ["build specification", context.specification, ["ADR 0046", "generated application browser module", "real `@fadeno/framework` manifest", "V2-02 owns"]],
     ["navigation specification", context.navigation, ["ADR 0046", "`@fadeno/framework/browser`", "request-nonce path", "adds no real export"]],
     ["V2 roadmap", context.roadmap, ["ADR 0046", "disposable packed consumer", "future `./browser` facade"]],
-    ["risk ledger", context.risks, ["ADR 0046", "real export remains absent until V2-02", "second browser version owner"]],
+    ["risk ledger", context.risks, ["ADR 0046", "ADR 0047", "second browser version owner"]],
     ["roadmap ledger", context.ledger, ["V2-01A — Merge commit `46c7ab0`", "leaves the published export map unchanged for V2-02 implementation", "V2-01 — Merge commit `d9718c0`"]],
   ] as const) {
     const normalized = text.replace(/\s+/gu, " ");
