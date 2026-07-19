@@ -3,6 +3,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { A0_FIRST_ALPHA_VERSION, A0_PACKAGE_NAME } from "./lib/a0-release-identity.ts";
+
 type JsonRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -21,13 +23,13 @@ if (!isRecord(raw) || raw["spdxVersion"] !== "SPDX-2.3" || !Array.isArray(raw["p
   throw new Error("FADENO_A0_SBOM_INVALID_SOURCE");
 }
 const packages = raw["packages"] as JsonRecord[];
-const framework = packages.find((entry) => entry["name"] === "@fadeno/framework");
+const framework = packages.find((entry) => entry["name"] === A0_PACKAGE_NAME);
 const compiler = packages.find((entry) => entry["name"] === "typescript");
-if (framework?.["versionInfo"] !== "0.0.0" || compiler?.["versionInfo"] !== "7.0.2") {
+if (framework?.["versionInfo"] !== A0_FIRST_ALPHA_VERSION || compiler?.["versionInfo"] !== "7.0.2") {
   throw new Error("FADENO_A0_SBOM_DEPENDENCY_GRAPH");
 }
 
-raw["documentNamespace"] = "https://fadeno.dev/sbom/framework/0.0.0";
+raw["documentNamespace"] = `https://fadeno.dev/sbom/framework/${A0_FIRST_ALPHA_VERSION}`;
 raw["creationInfo"] = {
   created: "2026-07-18T00:00:00Z",
   creators: ["Tool: npm/cli", "Tool: Fadeno deterministic SBOM normalizer"],
@@ -46,4 +48,4 @@ if (process.argv.includes("--check")) {
   writeFileSync(output, normalized, "utf8");
 }
 
-console.log("A0 SPDX SBOM passed (@fadeno/framework@0.0.0, typescript@7.0.2, deterministic normalization)");
+console.log(`A0 SPDX SBOM passed (${A0_PACKAGE_NAME}@${A0_FIRST_ALPHA_VERSION}, typescript@7.0.2, deterministic normalization)`);

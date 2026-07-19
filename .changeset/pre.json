@@ -1,0 +1,16 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "fadeno-adapter-smoke": "0.0.0",
+    "fadeno-v1-app-example": "0.0.0",
+    "@fadeno/framework": "0.0.0"
+  },
+  "changesets": [
+    "application-test-workflow",
+    "create-fadeno-project",
+    "early-fadeno-alpha",
+    "immutable-deployment-artifact",
+    "quiet-boundaries-refuse"
+  ]
+}

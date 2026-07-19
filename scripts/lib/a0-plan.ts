@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { validateRegistryDiscovery } from "./a0-registry.ts";
+import { A0_FIRST_ALPHA_VERSION } from "./a0-release-identity.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -76,10 +77,10 @@ export function validateA0Plan(context: A0PlanContext): readonly string[] {
   const packageDocument = context.packageDocument;
   if (!isRecord(packageDocument)
     || packageDocument["name"] !== "@fadeno/framework"
-    || packageDocument["version"] !== "0.0.0"
+    || packageDocument["version"] !== A0_FIRST_ALPHA_VERSION
     || Object.hasOwn(packageDocument, "private")
     || !isRecord(packageDocument["publishConfig"])) {
-    errors.push("A0 publishable package seed drifted");
+    errors.push("A0 first-alpha package identity drifted");
   }
   if (!context.readme.includes("completed its qualified private V1") || !context.readme.includes("current A0 plan")) errors.push("A0 repository status is stale");
   return errors;

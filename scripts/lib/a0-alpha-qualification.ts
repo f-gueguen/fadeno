@@ -2,6 +2,8 @@ import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, normalize, relative, sep } from "node:path";
 
+import { A0_FIRST_ALPHA_VERSION } from "./a0-release-identity.ts";
+
 type JsonRecord = Record<string, unknown>;
 
 export type A0AlphaQualificationContext = Readonly<{
@@ -365,8 +367,8 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
 
   const packageManifest = context.packageManifest;
   const exports = isRecord(packageManifest) ? packageManifest["exports"] : null;
-  if (!isRecord(packageManifest) || packageManifest["version"] !== "0.0.0") {
-    errors.push("A0 alpha qualification changed the unpublished seed");
+  if (!isRecord(packageManifest) || packageManifest["version"] !== A0_FIRST_ALPHA_VERSION) {
+    errors.push("A0 alpha qualification is not bound to the first-alpha release version");
   }
   if (!isRecord(exports) || Object.keys(exports).some((key) => /analy|editor|language|protocol/iu.test(key))) {
     errors.push("A0 alpha qualification introduced a public tooling surface");
@@ -398,7 +400,7 @@ export function validateA0AlphaQualification(context: A0AlphaQualificationContex
     "qualified-alpha-candidate",
     "A0-10 remains the only publication slice",
     "Independent newcomer usability remains deferred",
-  ]) if (!context.ledger.includes(fragment)) errors.push(`A0-09 ledger is missing ${fragment}`);
+  ]) if (!includesProse(context.ledger, fragment)) errors.push(`A0-09 ledger is missing ${fragment}`);
 
   for (const feature of ["SEC-01", "ACCESS-01", "PERF-01", "TEST-01", "DOC-01", "REL-01"]) {
     if (!row(context.scope, `| ${feature} |`).includes("check:a0-alpha-qualification")) {

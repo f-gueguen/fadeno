@@ -1,9 +1,10 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { loadA0ReleaseContext, validateA0Release } from "./lib/a0-release-contract.ts";
+import { validatePublicationEnvironment } from "./lib/a0-release.ts";
 
 const root = process.cwd();
 const tracked = new Set(execFileSync("git", ["ls-files", "--cached"], { cwd: root, encoding: "utf8" }).trim().split("\n"));
@@ -16,6 +17,9 @@ try {
   mkdirSync(join(temporary, "packages/framework"), { recursive: true });
   cpSync(join(root, ".changeset/config.json"), join(temporary, ".changeset/config.json"));
   cpSync(join(root, "packages/framework/package.json"), join(temporary, "packages/framework/package.json"));
+  const seedManifest = JSON.parse(readFileSync(join(temporary, "packages/framework/package.json"), "utf8")) as Record<string, unknown>;
+  seedManifest["version"] = "0.0.0";
+  writeFileSync(join(temporary, "packages/framework/package.json"), `${JSON.stringify(seedManifest, null, 2)}\n`);
   writeFileSync(join(temporary, "package.json"), JSON.stringify({ name: "fadeno-release-plan", private: true, packageManager: "pnpm@11.7.0" }, null, 2));
   writeFileSync(join(temporary, "pnpm-workspace.yaml"), 'packages:\n  - "packages/*"\n');
   execFileSync("git", ["init", "--initial-branch=main"], { cwd: temporary, encoding: "utf8" });
@@ -34,8 +38,13 @@ try {
   rmSync(temporary, { recursive: true, force: true });
 }
 
-const refusal = spawnSync(process.execPath, ["--no-warnings", "--experimental-strip-types", "scripts/assert-a0-publication.ts"], { cwd: root, encoding: "utf8" });
-if (refusal.status === 0 || !`${refusal.stdout}${refusal.stderr}`.includes("FADENO_RELEASE_PRERELEASE_VERSION")) {
+const currentManifest = JSON.parse(readFileSync(join(root, "packages/framework/package.json"), "utf8")) as Record<string, unknown>;
+const refusal = validatePublicationEnvironment(
+  {},
+  { ...currentManifest, version: "0.0.0" },
+  { head: "0".repeat(40), clean: true },
+);
+if (!refusal.includes("FADENO_RELEASE_PRERELEASE_VERSION")) {
   throw new Error("FADENO_A0_SEED_PUBLICATION_NOT_REFUSED");
 }
 

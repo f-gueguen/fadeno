@@ -1,8 +1,7 @@
 # @fadeno/framework
 
-This is the selected public Fadeno package and qualified first-alpha candidate.
-Its `0.0.0` manifest is an unpublished release seed; the first qualified
-registry version will be an alpha prerelease. It is not yet published or
+This is the selected public Fadeno package. The qualified first-alpha candidate
+is Fadeno's first public alpha (`0.1.0-alpha.0`). It is experimental and not
 production-supported.
 
 The runtime-neutral `.` facade exports the standard Web `Handler` type,

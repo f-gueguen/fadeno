@@ -50,7 +50,7 @@ Next: cd <PROJECT_ROOT> && pnpm install && pnpm check
     "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"
   },
   "dependencies": {
-    "@fadeno/framework": "0.0.0"
+    "@fadeno/framework": "0.1.0-alpha.0"
   },
   "devDependencies": {
     "@types/node": "22.20.1",

@@ -9,4 +9,4 @@ const tracked = trackedA0QualificationFiles(root);
 const errors = validateA0AlphaQualification(loadA0AlphaQualificationContext(root, tracked));
 if (errors.length > 0) throw new Error(errors.join("\n"));
 
-console.log("A0 alpha qualification passed (9 fail-closed audits, packed workflows, caveats retained, publication remains A0-10)");
+console.log("A0 alpha qualification passed (9 fail-closed audits, packed workflows, caveats retained, first-alpha release version bound)");
