@@ -1,0 +1,14 @@
+{
+  "schema": "fadeno.example.server-update-expected-failure",
+  "version": 1,
+  "nativeStatus": 200,
+  "humanMessagePresent": true,
+  "projectedOutcome": "expected-error",
+  "code": "PROJECT_TITLE_REQUIRED",
+  "actionStatus": "expected-failure",
+  "executionDelta": {
+    "pages": 1,
+    "resources": 1,
+    "actions": 1
+  }
+}

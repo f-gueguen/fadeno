@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.server-update-recovery",
+  "version": 1,
+  "rollbackCode": "FADENO_UPDATE_PROJECTION_OWNERSHIP",
+  "nativeResponseRemainedUsable": true,
+  "currentOutcome": "document",
+  "staleActionEvidencePresent": false,
+  "staleFailureCodePresent": false,
+  "staleResultPresent": false
+}

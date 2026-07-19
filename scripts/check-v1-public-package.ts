@@ -192,6 +192,8 @@ try {
     "package/dist/internal/resource.js",
     "package/dist/internal/session-decision.d.ts",
     "package/dist/internal/session-decision.js",
+    "package/dist/internal/server-update.d.ts",
+    "package/dist/internal/server-update.js",
     "package/dist/internal/streaming-lifecycle.d.ts",
     "package/dist/internal/streaming-lifecycle.js",
     "package/dist/internal/unsafe-html.d.ts",

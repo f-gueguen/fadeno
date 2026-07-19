@@ -1,0 +1,15 @@
+{
+  "schema": "fadeno.example.server-update-success",
+  "version": 1,
+  "nativeStatus": 200,
+  "projectedOutcome": "document",
+  "url": "/projects",
+  "title": "Project settings",
+  "rootIdentity": "fadeno-document-root",
+  "nativeAndProjectedHtmlEqual": true,
+  "executions": {
+    "pages": 1,
+    "resources": 1,
+    "actions": 0
+  }
+}

@@ -9,6 +9,7 @@
   },
   "include": [
     "packages/framework/src/**/*.ts",
-    "scripts/check-v2-server-update.ts"
+    "scripts/check-v2-server-update.ts",
+    "scripts/check-v2-server-update-packed.ts"
   ]
 }

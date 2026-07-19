@@ -1,0 +1,15 @@
+{
+  "schema": "fadeno.example.server-update-flow",
+  "version": 1,
+  "causes": [
+    "route:document",
+    "resource:value:loader-completed"
+  ],
+  "ownership": [
+    "exact request-bound operation authority",
+    "generated route and application generation",
+    "request-owned resource evidence"
+  ],
+  "skipped": [],
+  "outcome": "one native document projected without rerunning application code"
+}

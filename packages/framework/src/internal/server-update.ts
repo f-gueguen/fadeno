@@ -320,6 +320,24 @@ function refusal(
   });
 }
 
+function authorityRefusal(): PrivateServerUpdateProjectionResult {
+  const record: PrivateServerUpdateProjectionRecord = Object.freeze({
+    schema: recordSchema,
+    version: 1,
+    operationId: "untrusted-operation",
+    resultId: "untrusted-result",
+    status: "refused",
+    code: "FADENO_UPDATE_PROJECTION_AUTHORITY",
+    outcome: null,
+    completeness: "refused",
+    redaction: "applied",
+    provenance: Object.freeze({ route: null, resources: Object.freeze([]), action: null }),
+    causes: Object.freeze([]),
+    skipped: Object.freeze(["browser-envelope"]),
+  });
+  return Object.freeze({ status: "refused", code: record.code, record });
+}
+
 async function readBoundedBody(response: Response, signal?: AbortSignal): Promise<Uint8Array | undefined> {
   if (!response.body) return new Uint8Array();
   const reader = response.body.getReader();
@@ -420,7 +438,7 @@ export async function projectPrivateServerUpdate(
   options: Readonly<{ signal?: AbortSignal }> = {},
 ): Promise<PrivateServerUpdateProjectionResult> {
   const evidence = responseEvidence.get(response);
-  if (!operations.has(operation)) return refusal(operation, evidence, "FADENO_UPDATE_PROJECTION_AUTHORITY");
+  if (!operations.has(operation)) return authorityRefusal();
   if (!evidence || evidence.route.authority !== operation) {
     return refusal(operation, evidence, "FADENO_UPDATE_PROJECTION_OWNERSHIP");
   }

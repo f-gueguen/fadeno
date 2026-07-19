@@ -289,6 +289,15 @@ if (crossUser.status !== "refused") throw new Error("cross-user projection was a
 assert.equal(crossUser.code, "FADENO_UPDATE_PROJECTION_OWNERSHIP");
 assert.equal(JSON.stringify(crossUser.record).includes("result-owned"), false);
 
+const forgedSecret = "private-forged-operation";
+const forged = await projectPrivateServerUpdate(
+  new Response(html, { headers: { "content-type": "text/html" } }),
+  { ...ownedOperation, operation: { ...ownedOperation.operation, id: forgedSecret } } as PrivateServerUpdateOperation,
+);
+assert.equal(forged.status, "refused");
+assert.equal(forged.code, "FADENO_UPDATE_PROJECTION_AUTHORITY");
+assert.equal(JSON.stringify(forged.record).includes(forgedSecret), false);
+
 const refusedOperation = operation({ resultId: "result-refused" });
 const refusedPair = responseFor(refusedOperation, { status: 403 });
 const refusedRelease = bindPrivateServerUpdateOperation(refusedPair.request, refusedOperation);
