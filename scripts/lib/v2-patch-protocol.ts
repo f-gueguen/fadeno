@@ -106,24 +106,51 @@ function finiteInteger(value: unknown, minimum = 0): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= minimum;
 }
 
-function safeSameOriginUrl(value: unknown, origin: string): boolean {
+function safeSameOriginUrl(value: unknown, origin: string, httpsOnly = false): boolean {
   if (typeof value !== "string" || byteLength(value) > V2_PATCH_PROTOCOL_LIMITS.maximumUrlBytes) return false;
   try {
     const expected = new URL(origin);
     const received = new URL(value, expected);
     const trustworthyLoopback = expected.protocol === "http:"
       && new Set(["127.0.0.1", "localhost", "[::1]"]).has(expected.hostname);
-    return (expected.protocol === "https:" || trustworthyLoopback)
+    return (expected.protocol === "https:" || (!httpsOnly && trustworthyLoopback))
       && received.protocol === expected.protocol
-      && received.origin === expected.origin;
+      && received.origin === expected.origin
+      && received.username === ""
+      && received.password === "";
   } catch {
     return false;
   }
 }
 
 function hasNoStoreDirective(value: string | null): boolean {
-  return value !== null
-    && value.split(",").some((directive) => directive.trim().toLowerCase() === "no-store");
+  if (value === null) return false;
+  const directives: string[] = [];
+  let start = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (quoted && character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      quoted = !quoted;
+      continue;
+    }
+    if (character === "," && !quoted) {
+      directives.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  if (quoted || escaped) return false;
+  directives.push(value.slice(start));
+  return directives.some((directive) => directive.trim().toLowerCase() === "no-store");
 }
 
 function recoveryFor(context: PrivateUpdateDecisionContext): "native-navigation" | "reload-current-truth" {
@@ -298,7 +325,7 @@ export function evaluatePrivateUpdate(
 
   const outcome = envelope.outcome;
   if (outcome.kind === "redirect") {
-    if (!safeSameOriginUrl(outcome.location, context.origin)) return refused("FADENO_UPDATE_REDIRECT", context);
+    if (!safeSameOriginUrl(outcome.location, context.origin, context.currentOperation.kind === "mutation")) return refused("FADENO_UPDATE_REDIRECT", context);
     if (context.currentOperation.kind === "mutation" && outcome.status !== 303) return refused("FADENO_UPDATE_REDIRECT", context);
     return accepted("FADENO_UPDATE_REDIRECT", "redirect");
   }

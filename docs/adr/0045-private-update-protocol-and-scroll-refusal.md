@@ -70,8 +70,10 @@ Redirects are typed and exact same-origin HTTPS in deployed contexts, with
 exact same-origin HTTP admitted only for the trustworthy `localhost`,
 `127.0.0.1`, and `[::1]` loopback development hosts. Navigation may retain the
 framework's accepted `303`, `307`, or `308` result. A mutation redirect is
-exactly `303`, matching ADR 0035. An unsafe destination or status is refused
-without exposing it in the decision result.
+exactly `303`, HTTPS, free of URL credentials, and exact same-origin, matching
+ADR 0035 even when the development document itself uses loopback HTTP. An
+unsafe destination or status is refused without exposing it in the decision
+result.
 
 ### Scroll boundary
 
@@ -93,7 +95,9 @@ remain owned by later V2 slices.
 Every update is `no-store` at both transport boundaries and in the private
 envelope. The consumer requires a `no-store` fetch mode and an observed
 `Cache-Control` response directive containing `no-store`; a body claim alone
-cannot establish this policy. No protocol result, expected error,
+cannot establish this policy. Response directives are parsed without treating
+commas or `no-store` text inside quoted extension values as separate
+directives. No protocol result, expected error,
 authorization-bearing projection, or failure is reused across requests.
 Ordinary native HTTP caching remains outside this private channel. A later
 prefetch or shared-cache policy requires separate ownership and isolation

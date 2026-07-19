@@ -84,6 +84,35 @@
       "expected": { "status": "accepted", "code": "FADENO_UPDATE_REDIRECT", "outcome": "redirect", "recovery": "none", "mutationResubmission": "never" }
     },
     {
+      "id": "loopback-navigation-redirect-accepted",
+      "category": "redirect",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["origin"], "value": "http://127.0.0.1:4173" },
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 307, "location": "/projects/7" } }
+      ],
+      "expected": { "status": "accepted", "code": "FADENO_UPDATE_REDIRECT", "outcome": "redirect", "recovery": "none", "mutationResubmission": "never" }
+    },
+    {
+      "id": "loopback-mutation-redirect-refused",
+      "category": "redirect",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["origin"], "value": "http://127.0.0.1:4173" },
+        { "target": "context", "operation": "set", "path": ["currentOperation", "kind"], "value": "mutation" },
+        { "target": "context", "operation": "set", "path": ["requestCommitted"], "value": true },
+        { "target": "envelope", "operation": "set", "path": ["operation", "kind"], "value": "mutation" },
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 303, "location": "/projects/7" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_REDIRECT", "outcome": null, "recovery": "reload-current-truth", "mutationResubmission": "never" }
+    },
+    {
+      "id": "credential-redirect-refused",
+      "category": "redirect",
+      "changes": [
+        { "target": "envelope", "operation": "set", "path": ["outcome"], "value": { "kind": "redirect", "status": 307, "location": "https://user:password@example.test/projects/7" } }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_REDIRECT", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
       "id": "server-recovery-accepted",
       "category": "recovery",
       "changes": [
@@ -192,6 +221,14 @@
       "category": "cache",
       "changes": [
         { "target": "context", "operation": "set", "path": ["transport", "responseCacheControl"], "value": "private, max-age=60" }
+      ],
+      "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
+    },
+    {
+      "id": "quoted-cache-text-refused",
+      "category": "cache",
+      "changes": [
+        { "target": "context", "operation": "set", "path": ["transport", "responseCacheControl"], "value": "private=\"foo,no-store,bar\", max-age=3600" }
       ],
       "expected": { "status": "refused", "code": "FADENO_UPDATE_CACHE", "outcome": null, "recovery": "native-navigation", "mutationResubmission": "never" }
     },

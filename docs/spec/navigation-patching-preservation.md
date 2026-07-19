@@ -82,8 +82,10 @@ application generation, document epoch, operation ID, sequence, operation kind,
 and unconsumed result may apply. Document/error URLs and typed `303`/`307`/`308`
 redirects are same-origin HTTPS in deployed contexts, with same-origin HTTP
 limited to trustworthy loopback development hosts; mutation redirects are
-`303`. The consumer verifies `no-store` in both its fetch mode and the observed
-response `Cache-Control` metadata rather than trusting the envelope alone. Malformed,
+`303` and retain the native exact same-origin HTTPS and no-credentials
+restriction even during loopback development. The consumer verifies `no-store`
+in both its fetch mode and quote-aware parsing of observed response
+`Cache-Control` metadata rather than trusting the envelope alone. Malformed,
 unsupported, stale, duplicate, unsafe, cached, oversized, or over-time results
 change no document state. Navigation may return to its native request before
 commit; uncertain mutation recovery performs a safe GET and **never repeats a

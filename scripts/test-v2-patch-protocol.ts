@@ -110,6 +110,8 @@ for (const origin of ["http://127.0.0.1:4173", "http://localhost:4173", "http://
 assert.equal(evaluatePrivateUpdate(envelope, { ...context, origin: "http://example.test" }).code, "FADENO_UPDATE_URL");
 assert.equal(evaluatePrivateUpdate(envelope, { ...context, transport: { ...context.transport, requestCache: "default" } }).code, "FADENO_UPDATE_CACHE");
 assert.equal(evaluatePrivateUpdate(envelope, { ...context, transport: { ...context.transport, responseCacheControl: null } }).code, "FADENO_UPDATE_CACHE");
+assert.equal(evaluatePrivateUpdate(envelope, { ...context, transport: { ...context.transport, responseCacheControl: 'private="foo,no-store,bar", max-age=3600' } }).code, "FADENO_UPDATE_CACHE");
+assert.equal(evaluatePrivateUpdate(envelope, { ...context, transport: { ...context.transport, responseCacheControl: 'private="foo,bar", no-store' } }).status, "accepted");
 
 let getterRan = false;
 const accessor = Object.defineProperty({}, "protocol", { enumerable: true, get() { getterRan = true; return "fadeno.private.update"; } });
