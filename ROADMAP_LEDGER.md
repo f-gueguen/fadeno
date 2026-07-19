@@ -17,7 +17,8 @@ V2-01A — decide the optional browser-entrypoint package boundary
 - [x] Prove private browser deep imports remain unavailable and the current
   package export surface remains unchanged before V2-02.
 - [x] Align the specification, scope, traceability, risks, and roadmap state.
-- [ ] Pass all affected gates, full local CI, and independent review.
+- [x] Pass all affected gates and full local CI; complete the required remote
+  review trigger and exhaustive review-thread triage.
 
 ## Active sub-slice
 
