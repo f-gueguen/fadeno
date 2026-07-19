@@ -1,6 +1,6 @@
 {
   "name": "@fadeno/framework",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "A server-owned TypeScript web framework with progressive enhancement by default.",
   "license": "MIT",
   "keywords": [

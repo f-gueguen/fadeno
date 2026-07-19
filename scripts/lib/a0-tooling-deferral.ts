@@ -146,10 +146,11 @@ export function validateA0ToolingDeferral(
   for (const fragment of [
     "A0-08 — explicitly defer external analyzer/editor tooling",
     "`deferred-unqualified`",
-    "None for the first alpha",
+    "None in the mechanical release source",
+    "Later external analyzer consumers require new evidence",
     "Independent newcomer usability remains deferred",
   ]) {
-    if (!context.ledger.includes(fragment)) {
+    if (!includesProse(context.ledger, fragment)) {
       errors.push(`current A0 ledger is missing ${fragment}`);
     }
   }

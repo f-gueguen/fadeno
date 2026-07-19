@@ -6,49 +6,55 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-A0-09 — qualify the complete public-alpha candidate
+A0-10 — publish and verify the first immutable alpha release
 
 ## Exit criteria
 
-- [x] Complete the supported-boundary threat inventory and deterministic
-  external-decoder fuzzing with no unexpected outcome or secret leak.
-- [x] Bind security, native accessibility, existing performance, package,
-  documentation, clean-machine, reproducibility, rollback, and explicit
-  usability/tooling limitations into one `qualified-alpha-candidate` record.
-- [x] Add the first-alpha adoption guide and package/readme/support caveats
-  without changing the unpublished seed or publishing.
+- [x] Mechanically consume every reviewed Changeset into
+  `@fadeno/framework@0.1.0-alpha.0` without versioning private examples.
+- [ ] Bind the exact release source, tag, package, changelog, SBOM, release
+  notes, and documentation artifact through a fail-closed A0-10 gate.
 - [ ] Pass all affected gates, full local CI, and independent review at the
-  final commit.
+  final release-source commit.
+- [ ] Make the source repository public with explicit owner authorization,
+  publish through the accepted provenance bootstrap, and revoke its credential.
+- [ ] Verify the registry package and immutable tag from a clean public install,
+  including create, test, check, build, development, deployment, and rollback.
 
 ## Active sub-slice
 
-A0-09 qualification and remediation. The current worker replays 2,360 bounded
-cases over fourteen exact production decoder surfaces, while the fail-closed audit
-manifest derives every alpha claim from current packed gates and tracked
-evidence. A0-10 remains the only publication slice.
+A0-10 release-source construction. Changesets produced the exact alpha version;
+the remaining work binds immutable release and documentation identity, reviews
+that source, then performs and independently verifies the public transport.
 
 ## In progress
 
-- Commit `39f9a0b` adds the first A0-09 decoder-fuzz unit and remediates two
-  findings: malformed configuration UTF‑16 now refuses before compiler
-  admission, and malformed action encoding now receives the stable
-  `FADENO_ACTION_BODY` boundary code.
-- Commits through `6438036` add the complete audit manifest, threat review,
-  alpha adoption guide, package and support disclosures, traceability, and
-  negative qualification controls. The full root `pnpm check` passes; the
-  clean-commit local CI and required review own final merge acceptance.
+- The mechanical Changesets prerelease transition produced only
+  `@fadeno/framework@0.1.0-alpha.0`; the private example workspace versions
+  remain `0.0.0`.
+- Repository visibility and registry authentication are deliberately outside
+  local source construction and will be rechecked immediately before
+  publication.
 
 ## Blockers
 
-- None for the first alpha. Independent newcomer usability remains deferred and
-  must not be claimed by A0-09 or A0-10.
+- Publication requires explicit authorization to change the source repository
+  from private to public and refreshed package-registry authentication.
+- Independent newcomer usability remains deferred and must not be claimed by
+  A0-10.
 
 ## Open questions
 
-- None in A0-09. Later external analyzer consumers require new evidence and a
-  new compatibility decision.
+- None in the mechanical release source. Later external analyzer consumers
+  require new evidence and a new compatibility decision.
 
 ## Completed slices
+
+- A0-09 — qualify the complete public-alpha candidate. Merge commit `eb21ec9`
+  records the `qualified-alpha-candidate`, replays 2,360 bounded cases over
+  fourteen production decoder surfaces, and preserves every explicit support,
+  performance, usability, tooling, and production limitation. A0-10 remains
+  the only publication slice.
 
 - A0-08 — explicitly defer external analyzer/editor tooling. Merge commit
   `0d3ad98` accepts ADR 0043, records independent newcomer usability as

@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { scanModuleReferences } from "./lib/package-boundaries.ts";
+import { A0_FIRST_ALPHA_VERSION } from "./lib/a0-release-identity.ts";
 
 const packageName = "@fadeno/framework";
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -247,7 +248,7 @@ try {
     tag: "alpha",
   };
   if (
-    manifest.name !== packageName || manifest.version !== "0.0.0" || manifest.private !== undefined ||
+    manifest.name !== packageName || manifest.version !== A0_FIRST_ALPHA_VERSION || manifest.private !== undefined ||
     JSON.stringify(manifest.publishConfig) !== JSON.stringify(expectedPublishConfig) ||
     JSON.stringify(manifest.bin) !== JSON.stringify({ fadeno: "./dist/cli.js" }) ||
     JSON.stringify(manifest.dependencies) !== JSON.stringify({ typescript: "7.0.2" }) ||

@@ -3,6 +3,7 @@
   "milestone": "A0-09",
   "status": "qualified-alpha-candidate",
   "package": "@fadeno/framework",
+  "sourceCommit": "eb21ec96ada6f4752afed087d35f5b3b01fbc92f",
   "sourceVersion": "0.0.0",
   "expectedReleaseVersion": "0.1.0-alpha.0",
   "canonicalApplication": "examples/v1-app",

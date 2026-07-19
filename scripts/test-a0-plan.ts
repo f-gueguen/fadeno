@@ -40,9 +40,9 @@ expectMutation("A0 deferred decision gate returned: DG-A0-02", (context) => Obje
   ...context,
   decisionGates: `${context.decisionGates}\n| DG-A0-02 | restored | restored | restored | restored | Open |`,
 }));
-expectMutation("A0 publishable package seed drifted", (context) => Object.freeze({
+expectMutation("A0 first-alpha package identity drifted", (context) => Object.freeze({
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, resolved ownership, deferral, package seed)");
+console.log("A0 plan mutation tests passed (identity, freshness, ordering, dependencies, resolved ownership, deferral, first-alpha package)");

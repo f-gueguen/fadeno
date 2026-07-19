@@ -156,7 +156,7 @@ export function validateV1ExitDocument(document: unknown, context: V1ExitContext
   }
   compareExact(observedAudits, new Set(Object.keys(auditOutcomes)), "audit", errors);
 
-  if (!context.supportPolicy.includes("not yet published or supported for production use")) errors.push("V1 exit support policy lost the private boundary");
+  if (!context.supportPolicy.includes("not supported for production")) errors.push("V1 exit support policy lost the production boundary");
   if (!context.deferrals.includes("Supported editor product") || !context.deferrals.includes("Public analyzer schema")) {
     errors.push("V1 exit analyzer/editor deferrals are incomplete");
   }

@@ -340,8 +340,64 @@ workspace shortcut: the canonical application covers install/check/build/dev/
 start, and the A0 creation, application-test, and immutable-deployment gates
 cover their isolated success, failure, correction, recovery, stale-removal, and
 rollback paths. Automated packed evidence does not establish newcomer or
-assistive-technology usability. The package remains the unpublished `0.0.0`
-seed; publication, immutable tag and registry/docs identity remain A0-10 only.
+assistive-technology usability. At A0-09 qualification the package was the
+unpublished `0.0.0` seed; that checkpoint did not publish, tag, or establish
+registry/docs identity. The current A0-10 release source is
+`@fadeno/framework@0.1.0-alpha.0` and owns those remaining checks.
+The retained A0-09 qualification remains bound to the immutable source commit
+that contained the `0.0.0` package seed; the current working-tree version is
+not retroactively presented as the input to that historical qualification.
+
+## A0-10 first-alpha release and public replay
+
+A0-10 mechanically consumes the reviewed Changesets into exactly
+`@fadeno/framework@0.1.0-alpha.0`. The private example workspaces remain
+`0.0.0`. `pnpm check:a0-first-alpha-release` owns the pre-publication contract:
+it binds the prior alpha-candidate qualification, exact prerelease state,
+package metadata, changelog, SBOM, release notes, publication workflow, and an
+immutable manifest of every tracked release-documentation file. A clean source
+commit must produce the same documentation archive bytes twice and must round
+trip every extracted file against that manifest. Closed-tree validation rejects
+missing, additional, linked, or otherwise unsafe extracted entries. The archive
+also includes root Markdown files referenced by its README and roadmap documents.
+
+The gate includes permanent normalized success, deliberate wrong-version
+refusal, human diagnostic, correction, flow, and recovery evidence under
+`evidence/a0/release/source`. The flow records which release inputs own each
+decision and why registry publication, tagging, and trusted-publisher setup are
+skipped during source review. Recovery proves the seed-version diagnostic is
+removed and that no incorrect version or premature tag was created.
+
+The release publication job checks out the immutable tag and runs
+`pnpm verify:a0-release-event` before the irreversible registry step. That gate
+resolves the tag commit directly, requires the exact source release notes and
+the closed set of documentation assets, downloads both assets, and validates
+their bytes against a fresh deterministic build from the checked-out tag before
+validating their receipt and contents. The release target field is descriptive and is not
+used as source identity because it can retain a mutable branch name even when
+the release owns an immutable tag.
+
+`pnpm verify:a0-public-alpha` begins only after publication. It refuses any
+version or source identity other than the immutable first alpha, retrieves the
+package from the public registry into a clean consumer, and replays create,
+test, check, build, development, deployment, and rollback without a workspace
+or packed-tarball shortcut. It separately verifies the registry distribution
+tag, package metadata and provenance, source tag/release, documentation archive
+and release-note identities. Registry provenance is accepted only from the
+framework version's own `dist.attestations` metadata; the aggregate registry
+signature audit remains a secondary cryptographic check. The signed statement
+must bind the package digest and tagged commit to the Fadeno repository,
+publication workflow, protected `npm-production` environment, and hosted
+builder. The verifier rejects extra registry channels and release assets, then rebuilds
+and packs the immutable tagged source, then compares the complete path, byte
+length, and digest set with the downloaded registry package so self-consistent
+registry hashes cannot hide stale, extra, or changed package content. Public
+observations are retained only after they exist; source qualification never
+fabricates them.
+
+If the first publication uses bootstrap credentials, the hosted workflow
+revokes the one-use token after `npm publish` and polls the registry until that
+same credential is refused. Trusted publication does not allocate that token.
 
 ## Diagnostics and support
 

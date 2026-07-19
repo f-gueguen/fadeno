@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { A0_FIRST_ALPHA_VERSION } from "./a0-release-identity.ts";
+
 type JsonRecord = Record<string, unknown>;
 
 export type A0PublicationContext = Readonly<{
@@ -88,7 +90,7 @@ export function validateA0Publication(context: A0PublicationContext): readonly s
   const packageDocument = context.packageDocument;
   if (!isRecord(packageDocument)
     || packageDocument["name"] !== "@fadeno/framework"
-    || packageDocument["version"] !== "0.0.0"
+    || packageDocument["version"] !== A0_FIRST_ALPHA_VERSION
     || Object.hasOwn(packageDocument, "private")
     || !isRecord(packageDocument["publishConfig"])
     || packageDocument["publishConfig"]["access"] !== "public"

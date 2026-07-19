@@ -54,7 +54,8 @@ Trusted-publisher configuration requires an existing package. The first public
 version therefore bootstraps from a supported hosted release runner using
 explicit public access, provenance, and one package-scoped, time-bounded
 credential held only in the protected release environment. That credential is
-revoked immediately after publication. The exact repository/workflow/
+revoked immediately after publication, and the workflow proves that the
+registry rejects it before the job can succeed. The exact repository/workflow/
 environment trusted publisher then owns every later publication without a
 long-lived token. ADR 0037 fixes that identity as repository
 `f-gueguen/fadeno`, workflow `publish.yml`, environment `npm-production`, and
@@ -73,9 +74,41 @@ must not be described as observed user evidence.
 A0-09 records a `qualified-alpha-candidate` only after its complete audit
 manifest, external-decoder fuzz result, packed workflows, documentation,
 reproducibility, rollback, and explicit limitations pass the root check. That
-checkpoint does not publish, change the `0.0.0` seed, create a tag, or claim
-production support. A0-10 remains the mechanical publication and public
+checkpoint is retained against its immutable `0.0.0` source commit; it does not
+publish, change the seed, create a tag, or claim production support. A0-10 owns
+the later mechanical version transition, publication, and public
 identity-verification slice.
+
+`pnpm check:a0-first-alpha-release` is the fail-closed A0-10 source gate. It
+binds the exact `0.1.0-alpha.0` manifest, reviewed prerelease intent, prior
+candidate qualification, changelog, SBOM, release notes, publication-only
+workflow, and tracked documentation manifest before any tag exists. On a clean
+commit it builds the documentation archive twice from `HEAD`, requires
+identical bytes, extracts it, and proves every archived file against the
+manifest, including referenced root Markdown, and refuses unlisted files and
+unsafe entries. A wrong seed
+version is a deliberate executable refusal; correcting
+the mechanical prerelease transition clears the diagnostic without publishing
+or creating a stale tag.
+
+After the exact merged commit passes local CI, the release must be created from
+its immutable tag with the exact source release notes and exactly the generated
+documentation archive and receipt. The hosted `pnpm verify:a0-release-event`
+gate downloads and validates those inputs before `npm publish` can run. It
+rebuilds the deterministic archive from the checked-out tag and requires exact
+uploaded archive and receipt bytes. It ignores the mutable release target field
+and resolves the tag itself as the source authority.
+
+After publication, `pnpm verify:a0-public-alpha` is the separate public
+transport verifier. It must resolve the registry version and sole `alpha` tag,
+reject extra release assets, and verify the repository tag and release. It opens
+the framework package's own signed provenance and checks its repository,
+workflow, protected environment, tagged commit, package digest, and hosted builder,
+rebuild and pack the immutable tagged source to compare every published package
+file and byte, and verify documentation artifact identity. It then installs in
+a fresh directory and replays create, test, check, build, development,
+deployment, and rollback through public package entrypoints. Public verification is not a
+pre-publication merge gate and may not be replaced by workspace artifacts.
 
 Non-registry artifacts include verifiable source identity and a software bill
 of materials before stable release.

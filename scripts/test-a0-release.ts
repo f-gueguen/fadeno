@@ -14,9 +14,14 @@ function expectMutation(expected: string, mutate: (context: A0ReleaseContext) =>
 
 if (validateA0Release(source).length > 0) throw new Error(`valid A0 release contract refused:\n${validateA0Release(source).join("\n")}`);
 expectMutation("Changesets configuration drifted", (context) => Object.freeze({ ...context, changesetConfig: { ...(context.changesetConfig as Record<string, unknown>), access: "restricted" } }));
+expectMutation("first-alpha prerelease state drifted", (context) => Object.freeze({ ...context, prerelease: { ...(context.prerelease as Record<string, unknown>), tag: "latest" } }));
 expectMutation("public package release metadata drifted", (context) => Object.freeze({ ...context, manifest: { ...(context.manifest as Record<string, unknown>), private: true } }));
 expectMutation("normalized SPDX SBOM drifted", (context) => Object.freeze({ ...context, sbom: { ...(context.sbom as Record<string, unknown>), documentNamespace: "stale" } }));
 expectMutation("publication workflow became merge CI", (context) => Object.freeze({ ...context, workflow: `${context.workflow}\n  pull_request:\n` }));
+expectMutation("publication workflow is missing pnpm revoke:a0-bootstrap-token", (context) => Object.freeze({
+  ...context,
+  workflow: context.workflow.replace("pnpm revoke:a0-bootstrap-token", "removed-bootstrap-revocation"),
+}));
 expectMutation("prepublication rollback fixture drifted", (context) => Object.freeze({ ...context, rollbackPrivate: { ...(context.rollbackPrivate as Record<string, unknown>), publicationAttempted: true } }));
 expectMutation("human publication refusal evidence drifted", (context) => Object.freeze({ ...context, publicationRefusalHuman: "stale" }));
 expectMutation("refused publication recovery evidence drifted", (context) => Object.freeze({ ...context, recovery: { ...(context.recovery as Record<string, unknown>), tagCreated: true } }));
@@ -50,4 +55,4 @@ if (!privateSource.includes("FADENO_RELEASE_PUBLIC_REPOSITORY")) throw new Error
 const bootstrap = validatePublicationEnvironment({ ...environment, FADENO_RELEASE_MODE: "bootstrap", NODE_AUTH_TOKEN: "one-use-bootstrap-token" }, manifest, { head, clean: true });
 if (bootstrap.length > 0) throw new Error(`valid bootstrap environment refused:\n${bootstrap.join("\n")}`);
 
-console.log("A0 release mutation tests passed (changesets, metadata, SBOM, workflow, refusal/recovery, rollback, OIDC, bootstrap/trusted modes)");
+console.log("A0 release mutation tests passed (changesets, prerelease state, metadata, SBOM, workflow, refusal/recovery, rollback, OIDC, bootstrap/trusted modes)");

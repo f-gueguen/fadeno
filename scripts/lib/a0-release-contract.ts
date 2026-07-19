@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import {
+  A0_FIRST_ALPHA_CHANGESETS,
+  A0_FIRST_ALPHA_VERSION,
+  A0_PACKAGE_NAME,
+  A0_SEED_VERSION,
+} from "./a0-release-identity.ts";
+
 type JsonRecord = Record<string, unknown>;
 
 export type A0ReleaseContext = Readonly<{
@@ -9,6 +16,7 @@ export type A0ReleaseContext = Readonly<{
   manifest: unknown;
   changesetConfig: unknown;
   changeset: string;
+  prerelease: unknown;
   changelog: string;
   packageReadme: string;
   packageLicense: string;
@@ -36,6 +44,7 @@ export type A0ReleaseContext = Readonly<{
 const requiredPaths = Object.freeze([
   ".changeset/config.json",
   ".changeset/early-fadeno-alpha.md",
+  ".changeset/pre.json",
   ".github/workflows/publish.yml",
   "docs/adr/0038-alpha-version-and-release-train.md",
   "packages/framework/CHANGELOG.md",
@@ -79,6 +88,7 @@ export function loadA0ReleaseContext(root: string, tracked: ReadonlySet<string>)
     manifest: JSON.parse(read("packages/framework/package.json")) as unknown,
     changesetConfig: JSON.parse(read(".changeset/config.json")) as unknown,
     changeset: read(".changeset/early-fadeno-alpha.md"),
+    prerelease: JSON.parse(read(".changeset/pre.json")) as unknown,
     changelog: read("packages/framework/CHANGELOG.md"),
     packageReadme: read("packages/framework/README.md"),
     packageLicense: read("packages/framework/LICENSE"),
@@ -129,13 +139,24 @@ export function validateA0Release(context: A0ReleaseContext): readonly string[] 
     || !context.changeset.includes("first public alpha package")) {
     errors.push("first alpha Changeset drifted");
   }
+  const prerelease = context.prerelease;
+  if (!isRecord(prerelease)
+    || prerelease["mode"] !== "pre"
+    || prerelease["tag"] !== "alpha"
+    || !isRecord(prerelease["initialVersions"])
+    || prerelease["initialVersions"][A0_PACKAGE_NAME] !== A0_SEED_VERSION
+    || prerelease["initialVersions"]["fadeno-adapter-smoke"] !== "0.0.0"
+    || prerelease["initialVersions"]["fadeno-v1-app-example"] !== "0.0.0"
+    || JSON.stringify(prerelease["changesets"]) !== JSON.stringify(A0_FIRST_ALPHA_CHANGESETS)) {
+    errors.push("first-alpha prerelease state drifted");
+  }
 
   const manifest = context.manifest;
   const publishConfig = isRecord(manifest) ? manifest["publishConfig"] : null;
   const repository = isRecord(manifest) ? manifest["repository"] : null;
   if (!isRecord(manifest)
-    || manifest["name"] !== "@fadeno/framework"
-    || manifest["version"] !== "0.0.0"
+    || manifest["name"] !== A0_PACKAGE_NAME
+    || manifest["version"] !== A0_FIRST_ALPHA_VERSION
     || Object.hasOwn(manifest, "private")
     || manifest["license"] !== "MIT"
     || !isRecord(repository)
@@ -162,19 +183,26 @@ export function validateA0Release(context: A0ReleaseContext): readonly string[] 
   }
 
   if (context.packageLicense !== context.rootLicense) errors.push("package license differs from repository license");
-  if (!context.changelog.includes("generated from reviewed Changesets") || !context.changelog.includes("No public version")) {
-    errors.push("package changelog seed drifted");
+  if (!context.changelog.includes(`## ${A0_FIRST_ALPHA_VERSION}`)
+    || !context.changelog.includes("### Minor Changes")
+    || !context.changelog.includes("### Patch Changes")
+    || !context.changelog.includes("first public alpha package")
+    || context.changelog.includes("No public version has")) {
+    errors.push("first-alpha changelog drifted");
   }
-  if (!context.packageReadme.includes("unpublished release seed") || !context.packageReadme.includes("not yet published")) {
+  if (!context.packageReadme.includes(`first public alpha (\`${A0_FIRST_ALPHA_VERSION}\`)`)
+    || !context.packageReadme.includes("production-supported")
+    || !context.packageReadme.includes("experimental")
+    || !context.packageReadme.includes("Independent newcomer usability")) {
     errors.push("package README release status drifted");
   }
 
   const sbom = context.sbom;
   if (!isRecord(sbom)
     || sbom["spdxVersion"] !== "SPDX-2.3"
-    || sbom["documentNamespace"] !== "https://fadeno.dev/sbom/framework/0.0.0"
+    || sbom["documentNamespace"] !== `https://fadeno.dev/sbom/framework/${A0_FIRST_ALPHA_VERSION}`
     || !Array.isArray(sbom["packages"])
-    || !(sbom["packages"] as unknown[]).some((entry) => isRecord(entry) && entry["name"] === "@fadeno/framework" && entry["versionInfo"] === "0.0.0")
+    || !(sbom["packages"] as unknown[]).some((entry) => isRecord(entry) && entry["name"] === A0_PACKAGE_NAME && entry["versionInfo"] === A0_FIRST_ALPHA_VERSION)
     || !(sbom["packages"] as unknown[]).some((entry) => isRecord(entry) && entry["name"] === "typescript" && entry["versionInfo"] === "7.0.2")) {
     errors.push("normalized SPDX SBOM drifted");
   }
@@ -185,11 +213,16 @@ export function validateA0Release(context: A0ReleaseContext): readonly string[] 
     "actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
     "pnpm install --frozen-lockfile", "pnpm check:a0-release",
     "npm publish ./packages/framework --access public --tag alpha",
+    "pnpm revoke:a0-bootstrap-token",
     "vars.NPM_RELEASE_MODE", "vars.FADENO_QUALIFIED_COMMIT", "secrets.NPM_BOOTSTRAP_TOKEN",
   ]) {
     if (!context.workflow.includes(required)) errors.push(`publication workflow is missing ${required}`);
   }
   if (/^\s+(?:push|pull_request):/mu.test(context.workflow)) errors.push("publication workflow became merge CI");
+  if (context.workflow.indexOf("pnpm revoke:a0-bootstrap-token")
+    <= context.workflow.indexOf("npm publish ./packages/framework --access public --tag alpha")) {
+    errors.push("publication workflow does not revoke bootstrap credentials after publication");
+  }
 
   for (const [name, content, required] of [
     ["release policy", context.releasePolicy, ["ADR 0038", "`0.1.0-alpha.0`", "pending Changeset", "deterministic SPDX SBOM", "pnpm check:a0-release"]],

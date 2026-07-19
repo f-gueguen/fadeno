@@ -30,8 +30,17 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:a0-release
+      - run: pnpm check:a0-first-alpha-release
+      - run: pnpm verify:a0-release-event
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - run: npm publish ./packages/framework --access public --tag alpha
         env:
           FADENO_RELEASE_MODE: ${{ vars.NPM_RELEASE_MODE }}
           FADENO_QUALIFIED_COMMIT: ${{ vars.FADENO_QUALIFIED_COMMIT }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
+      - if: vars.NPM_RELEASE_MODE == 'bootstrap'
+        run: pnpm revoke:a0-bootstrap-token
+        env:
+          FADENO_RELEASE_MODE: ${{ vars.NPM_RELEASE_MODE }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}

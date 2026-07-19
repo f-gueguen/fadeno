@@ -1,0 +1,494 @@
+{
+  "schemaVersion": 1,
+  "packageVersion": "0.1.0-alpha.0",
+  "sourceTag": "v0.1.0-alpha.0",
+  "artifactFilename": "fadeno-docs-0.1.0-alpha.0.tar.gz",
+  "aggregateSha256": "d86fc7501c02ab3fb0c3e130b7864304fcd2542d4c14ef410a7b71bc7d78e935",
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 2852,
+      "sha256": "9d0d4eed144becf268b5961c1c00ddd8bf2d86bfa0f86a04e1905c6bbbc5bffb"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 513,
+      "sha256": "562dd6f34bb3b6638cfb317d8aaa1d1815f110a4e51543de5c3e7be2dbc66d8c"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 1349,
+      "sha256": "b2c6e5a151eb1e8d3ad5ed6ae28cd9aa7f0d87b908ffcb304b14b9e6ec87eaf9"
+    },
+    {
+      "path": "PROJECT_INVARIANTS.md",
+      "bytes": 4442,
+      "sha256": "5085f6f4fc05ebd7879f1c19e6e59055cfa2023b900e5c910650690ba1e6c02b"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4607,
+      "sha256": "2ef25fc2c265be3c1ec4b48e4f70a742b9681e6000fd4f472086948fab83e258"
+    },
+    {
+      "path": "ROADMAP_LEDGER.md",
+      "bytes": 23094,
+      "sha256": "35abeb4741b257a1b3268597e9e016f72ab4841523811404504d3f160a7b8309"
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 573,
+      "sha256": "0715ead5c9e017e23c9678e4ab5f2c7b909afe81f4d22690fd33b42619f08f91"
+    },
+    {
+      "path": "SUPPORT.md",
+      "bytes": 627,
+      "sha256": "db5c9ee5a3ace9ee863fd7bd59be9886f12659764ecb5a4da929a805533c8382"
+    },
+    {
+      "path": "docs/adr/0001-canonical-repository-and-authority.md",
+      "bytes": 1969,
+      "sha256": "283a29e52f6f4271a3bd62e99c9dddc926d60f8e62ff4720c919ee119d712a9e"
+    },
+    {
+      "path": "docs/adr/0002-standard-typescript-and-html-shaped-jsx.md",
+      "bytes": 1855,
+      "sha256": "b7e10b6cc5f7612e1c6d1656afe65dabcdbc0e3e48208d6c0391279cb057afb8"
+    },
+    {
+      "path": "docs/adr/0003-progressive-enhancement-baseline.md",
+      "bytes": 1854,
+      "sha256": "11e1dae8598d2df5649785b548797370b87cd8e7c7c811cb78877e92ee03dbe3"
+    },
+    {
+      "path": "docs/adr/0004-structural-execution-boundaries.md",
+      "bytes": 2178,
+      "sha256": "6d6238a8ac2e4cbe9d1aa64f818fdcf052ebad6ffe81136d4d3d9e1055d75097"
+    },
+    {
+      "path": "docs/adr/0005-resources-and-actions.md",
+      "bytes": 2035,
+      "sha256": "73f33e9431de62fc4521be388faec42e359add6cf4c34772cad7471727438fea"
+    },
+    {
+      "path": "docs/adr/0006-correctness-first-revalidation.md",
+      "bytes": 2066,
+      "sha256": "414ade4e1d54b940854cf9176ed7991a450ccff4a99388476375ab0dd9dc89d5"
+    },
+    {
+      "path": "docs/adr/0007-tiered-interactivity-direction.md",
+      "bytes": 2072,
+      "sha256": "6975589f5687fbc730f679111079568da7f006cb6560e692cc7130c8ffe22642"
+    },
+    {
+      "path": "docs/adr/0008-web-standard-server-boundary.md",
+      "bytes": 1812,
+      "sha256": "8ae8b2c27695f6eb1202f4505a75298ffb133f7a3ad96b5dbc3ed2ffd6676b18"
+    },
+    {
+      "path": "docs/adr/0009-documentation-and-evidence-authority.md",
+      "bytes": 2163,
+      "sha256": "eb20ef91a857e20bde1b7ac8bd91cf77a809360dfbcb860fd78879889b0fddce"
+    },
+    {
+      "path": "docs/adr/0010-pre-1-0-compatibility-and-releases.md",
+      "bytes": 2120,
+      "sha256": "a1b2b95b545542bb57c1d0ed224026483d575ac677c0560a9b01060106fae477"
+    },
+    {
+      "path": "docs/adr/0011-supported-developer-workflow.md",
+      "bytes": 2729,
+      "sha256": "c0e2adb287a4b4371fc1e386587cb0ab7307d0fbb48f00dfa39e70ecdbb57bf3"
+    },
+    {
+      "path": "docs/adr/0012-evidence-gated-support-and-operations.md",
+      "bytes": 2573,
+      "sha256": "447bdbbaf130adedd5761b22ddb470678b66edcffa3973da4e3267fdb3818560"
+    },
+    {
+      "path": "docs/adr/0013-mit-license.md",
+      "bytes": 2260,
+      "sha256": "2a9dedd413710eb6960392dbc0791e5e3af0cd6c5871df2d305de366c312eb9e"
+    },
+    {
+      "path": "docs/adr/0014-narrow-structural-preservation.md",
+      "bytes": 4516,
+      "sha256": "832bece78f08bfc0661c1f48cac8d7c3aed6640c3468973ed01e7d205380481e"
+    },
+    {
+      "path": "docs/adr/0015-accept-bounded-interaction-extraction.md",
+      "bytes": 6089,
+      "sha256": "819d56fbec0007a837b912b33c3cef7a4c9c7e64dd141c488732f68b1a8822dc"
+    },
+    {
+      "path": "docs/adr/0016-local-repository-merge-validation.md",
+      "bytes": 3198,
+      "sha256": "2c96175a7c89a9d833070e31f9165f22b7831e122266cdd8510b28497ba45785"
+    },
+    {
+      "path": "docs/adr/0017-h3-local-docker-reference.md",
+      "bytes": 5015,
+      "sha256": "8b6ac4201132a1d0857d284b829e1e4f09fbbd4c9cf0aa525687e8607aa09d64"
+    },
+    {
+      "path": "docs/adr/0018-narrow-type-spine-incremental-generation.md",
+      "bytes": 3711,
+      "sha256": "39f14a360d235dca3be98b0ea75e8d0a0ea46fb9684249ff19ad34dac6a92519"
+    },
+    {
+      "path": "docs/adr/0019-h4-local-docker-reference.md",
+      "bytes": 4445,
+      "sha256": "fd070c1ffc8ea48bf1f317b6c307c145735d69f54d56345ef8a426ba1e2543c0"
+    },
+    {
+      "path": "docs/adr/0020-accept-correctness-first-revalidation.md",
+      "bytes": 3740,
+      "sha256": "10dc6afbf7c989df082945ad4b4fb81b83c894f7cb08f817bc67d575bf656099"
+    },
+    {
+      "path": "docs/adr/0021-reconcile-k0-into-v1-delivery.md",
+      "bytes": 3987,
+      "sha256": "e340163a9e9f60adefa498dd4928e7f2baac6866bcaef10acd4662686a334e38"
+    },
+    {
+      "path": "docs/adr/0022-toolchain-and-configuration-contract.md",
+      "bytes": 4377,
+      "sha256": "e0bd7cfb92013d12d4cbfeb587f4bb78c93ba9c20d1e361283c7cee66404a71d"
+    },
+    {
+      "path": "docs/adr/0023-node-http-initial-adapter.md",
+      "bytes": 4827,
+      "sha256": "d66fe1103a2472f1f7fee8cc0bdd79ac9d6969177f9cf444b1585f963ef5dc25"
+    },
+    {
+      "path": "docs/adr/0024-initial-package-boundary.md",
+      "bytes": 5790,
+      "sha256": "c33f0709a8ec51ce84349fc453f54519dd76f72ce257bde4c64e095d14196399"
+    },
+    {
+      "path": "docs/adr/0025-public-node-adapter-smoke-contract.md",
+      "bytes": 5575,
+      "sha256": "ac6af4b71906a23c7dcdb1105c72737462bd9c44d8ba5ffcbd1a040c6da2d797"
+    },
+    {
+      "path": "docs/adr/0026-route-filesystem-and-links.md",
+      "bytes": 6892,
+      "sha256": "11a8139c74c1149eada2c5d518e1d4125a7a129deb0e57211f5757b25dc26fef"
+    },
+    {
+      "path": "docs/adr/0027-generated-route-module-and-production-routing.md",
+      "bytes": 7964,
+      "sha256": "1240f6be49ca66bf0c27a7724580b4fabde048d955feac8a85acef72ae5aa942"
+    },
+    {
+      "path": "docs/adr/0028-contextual-rendering-security.md",
+      "bytes": 8078,
+      "sha256": "877a757a65e77f675336492046199579a93759d3a8bfb2aa6fe15261709b282a"
+    },
+    {
+      "path": "docs/adr/0029-streaming-lifecycle-and-boundary-ownership.md",
+      "bytes": 7616,
+      "sha256": "8a11c128640b5bac8eae92f35e68a074a44cd07c068b702498ebab9cec994969"
+    },
+    {
+      "path": "docs/adr/0030-private-incremental-analyzer-session.md",
+      "bytes": 8643,
+      "sha256": "748393ab7d1a257cebd407698cce80a9e424f051aee8c446f62794c246c45a7c"
+    },
+    {
+      "path": "docs/adr/0031-jsx-renderer-and-generated-route-binding.md",
+      "bytes": 7309,
+      "sha256": "d677045756793ff7037758a84f694b4c854bac4bfdcaaf14d5911dab2ff7797e"
+    },
+    {
+      "path": "docs/adr/0032-project-check-command-contract.md",
+      "bytes": 5669,
+      "sha256": "fefd6e60a9d9fc4abe2b900d25627b9f2ca496cc659a2e9a8d8ef823cce3870d"
+    },
+    {
+      "path": "docs/adr/0033-build-and-development-lifecycle.md",
+      "bytes": 14525,
+      "sha256": "109ab8c95ed4cb1021cc614357aed664da15c241b720c0cd98be012bea198dff"
+    },
+    {
+      "path": "docs/adr/0034-resource-identity-and-request-cache.md",
+      "bytes": 12297,
+      "sha256": "8cc6156eab2913a0a269199159806edee874d23d7a344170db5dbedda6e3aa3f"
+    },
+    {
+      "path": "docs/adr/0035-native-actions-and-protected-sessions.md",
+      "bytes": 16443,
+      "sha256": "ea4c9b6fd750d79ff456ae54bfa2c97586f2606a5b03571ae8da2aa1d5df99c4"
+    },
+    {
+      "path": "docs/adr/0036-native-external-css-for-alpha.md",
+      "bytes": 3862,
+      "sha256": "eedd02bbfe9ef8a2554dd43d5706609df3dc0b8ae15cbb970532e492226c209f"
+    },
+    {
+      "path": "docs/adr/0037-public-package-identity-and-publication.md",
+      "bytes": 5229,
+      "sha256": "f5088c5ba6b2b5ed85a55f52275a91698bcd8d836446126d1aaabbd5bd2e1339"
+    },
+    {
+      "path": "docs/adr/0038-alpha-version-and-release-train.md",
+      "bytes": 4592,
+      "sha256": "f27cd9332d7aa2875025f9d59db7c5693edb917f52a1e09f3d83ddcf7ce623cf"
+    },
+    {
+      "path": "docs/adr/0039-public-project-creation.md",
+      "bytes": 4583,
+      "sha256": "b45b681f2162d4459fc88f03c47a63b083b6ed12c58d5bc03e89a3712c0942da"
+    },
+    {
+      "path": "docs/adr/0040-stock-application-test-workflow.md",
+      "bytes": 4111,
+      "sha256": "3dcb4f5875efb53ce43f06d3099b9e7084ea29f42dc423a13fae01e8ce317c17"
+    },
+    {
+      "path": "docs/adr/0041-immutable-loopback-deployment-artifact.md",
+      "bytes": 6660,
+      "sha256": "3c3d85c20f38051059edee71c0da162a70a3e7ed704f73afae54a7e7299beb13"
+    },
+    {
+      "path": "docs/adr/0042-independent-usability-evidence-contract.md",
+      "bytes": 5133,
+      "sha256": "6fec26fb7b8c04b2efe2d6ec603773b15970dc5acb950d8eac758cf64abc7c56"
+    },
+    {
+      "path": "docs/adr/0043-defer-independent-usability-and-external-tooling.md",
+      "bytes": 4808,
+      "sha256": "31a983b1e6738c976bfcb3a6a075fd65bbc00e3ffa7ad4638cb66d8a0f6a8afc"
+    },
+    {
+      "path": "docs/adr/README.md",
+      "bytes": 5011,
+      "sha256": "a794099bab8c9acc71583f5d35e47a3b49cf3004c6ba749a9ab0abccb33a9d99"
+    },
+    {
+      "path": "docs/adr/template.md",
+      "bytes": 661,
+      "sha256": "d8ec6d620ba3c21fafb965d73a08291d03c43c37fdf3c1f10577bf89e97b1de4"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "bytes": 4645,
+      "sha256": "9c33e69b8fa720feae7791064e219524e41f592766f38150c9b0faed5868bfef"
+    },
+    {
+      "path": "docs/contributor-workflow.md",
+      "bytes": 6558,
+      "sha256": "4a5dcf3af840479ccdf6757e9f763d081a7a1e352c9b516cc08045a44055d56d"
+    },
+    {
+      "path": "docs/diagnostics/extraction.md",
+      "bytes": 1753,
+      "sha256": "847a41eea22314f5f176c3db625f6efa8617403e3465365c2f0a6046aa094b76"
+    },
+    {
+      "path": "docs/guides/diagnostics-recovery.md",
+      "bytes": 6075,
+      "sha256": "6242a46f9195ecdddc6c5d202b5eea918521290404301bb568dda0d74d70a57c"
+    },
+    {
+      "path": "docs/guides/getting-started.md",
+      "bytes": 16818,
+      "sha256": "9ac895e33ce26bbdd134ec01a43d6cf638c0c213372c71187f87429ac81559b2"
+    },
+    {
+      "path": "docs/guides/resources-actions.md",
+      "bytes": 9956,
+      "sha256": "b290746594bced8f8885ff0876b7a651f9cd6d27d712b12f7510d19225846fc3"
+    },
+    {
+      "path": "docs/ledgers/decision-gates.md",
+      "bytes": 1397,
+      "sha256": "7a8c25c6871a62dfbbc5d99a87904751ab84c6948b5249e9158c2e4037ddd822"
+    },
+    {
+      "path": "docs/ledgers/deferrals.md",
+      "bytes": 2845,
+      "sha256": "96cef13ab946f5d025f306be2d2e09c198dbaa08380048b96436054b74b1ea3e"
+    },
+    {
+      "path": "docs/ledgers/hypotheses.md",
+      "bytes": 439,
+      "sha256": "3f599a98acb78cb244446013bbaef32038a108c9610e434cf0bb50f7477c5852"
+    },
+    {
+      "path": "docs/ledgers/risks.md",
+      "bytes": 15554,
+      "sha256": "2b3bed614ff284c4c29b36229dfeb04eb6af87953397c66b4c62b4caf16abe60"
+    },
+    {
+      "path": "docs/migrations/README.md",
+      "bytes": 2291,
+      "sha256": "4ce7ce639fe9b8bf0a5513cde139c26c8c6fc6b516f0b69da4500c559ffb1d0b"
+    },
+    {
+      "path": "docs/migrations/first-alpha-candidate.md",
+      "bytes": 3377,
+      "sha256": "0718f3a6117e0b6ee79aaa2ae111874f69f83679f523611f856493dd792ce8d0"
+    },
+    {
+      "path": "docs/migrations/fixtures/README.md",
+      "bytes": 375,
+      "sha256": "3c05b407a23c4c7f1ae4e6721e4220d02e13957a33fb842f78b7be96b547cb25"
+    },
+    {
+      "path": "docs/migrations/template.md",
+      "bytes": 758,
+      "sha256": "78d4bfc514f69f47dbaea4c344923f539f57810dd3609f3736f6ad27896e408d"
+    },
+    {
+      "path": "docs/migrations/v1-private-preview.md",
+      "bytes": 1766,
+      "sha256": "a2c7ac462d4a230aee5c800145007b73797b21714b2cd04103d49d6b8d31ef4b"
+    },
+    {
+      "path": "docs/product/scope.md",
+      "bytes": 14338,
+      "sha256": "ad687f58e02e63dc11f3515fa4507754c5556c63c5c6fc42caad887b8ecd49d2"
+    },
+    {
+      "path": "docs/reference/v1-api.md",
+      "bytes": 18192,
+      "sha256": "06da6c4cb0fd33acd26e3d83921908799bfdcac49172b980d7fa25405aeb39ea"
+    },
+    {
+      "path": "docs/release-policy.md",
+      "bytes": 7860,
+      "sha256": "c045ac0007b38687f17d97e3d2dbd96f11c74cf5c2c899b80d0bf37792d97ad9"
+    },
+    {
+      "path": "docs/releases/0.1.0-alpha.0.md",
+      "bytes": 1624,
+      "sha256": "2d7ec937c8d4bbba1b5dcb6df6081c64ed76a51993c423271e58edc52d07b2d9"
+    },
+    {
+      "path": "docs/roadmap.md",
+      "bytes": 3416,
+      "sha256": "283192c7bdc64c0c96c56e03e0975a993beee4b07df1951ffd2584cb699919c3"
+    },
+    {
+      "path": "docs/roadmap/a0.md",
+      "bytes": 7428,
+      "sha256": "e7be2d929a8efc47784c50ea4cf585f7de019af73ad40bb0aa1219dd54d614b8"
+    },
+    {
+      "path": "docs/roadmap/k0.md",
+      "bytes": 11472,
+      "sha256": "87129dbc4c895e86d0a7c46809d7c97b6253805a7f987d420789d802b4306140"
+    },
+    {
+      "path": "docs/roadmap/post-r1.md",
+      "bytes": 29202,
+      "sha256": "fb930649abf9e873033fcfe74b7e4621b36c66562584fbe569f5268e1ced4ac2"
+    },
+    {
+      "path": "docs/roadmap/v1.md",
+      "bytes": 26406,
+      "sha256": "8af6032819bf236212416a201a2c77adbf164dafcbb3f5ba4a62dff571edeb68"
+    },
+    {
+      "path": "docs/security/action-session-threat-model.md",
+      "bytes": 8637,
+      "sha256": "3fb86a2a0f73fbc692e9ba34551dd2e1ed6c8c8ff83451758af73c7b7c909725"
+    },
+    {
+      "path": "docs/security/alpha-threat-review.md",
+      "bytes": 7820,
+      "sha256": "ff513bf63f610e873525204687f620b53550f21420b82919b56f5ed0b49ea03a"
+    },
+    {
+      "path": "docs/security/rendering-threat-model.md",
+      "bytes": 2745,
+      "sha256": "aea8d814960cb20101aa5a601ea0f0f976fafe107ecd5a40ffb0a93b849c3f82"
+    },
+    {
+      "path": "docs/security/requirements.md",
+      "bytes": 3839,
+      "sha256": "8979d6ad78080abbdf943450eea17eb0355a7352eadca566934496be04367d2b"
+    },
+    {
+      "path": "docs/security/streaming-threat-model.md",
+      "bytes": 2276,
+      "sha256": "9230769936c253f888e21b991cd696effe86507be11a3e33949c5e5bfc08f023"
+    },
+    {
+      "path": "docs/spec/README.md",
+      "bytes": 1007,
+      "sha256": "5143bca9a84c5137eafdf10a154fb3b96c7ab69c389f8645e0ee6e55c62e2ed7"
+    },
+    {
+      "path": "docs/spec/build-adapters-testing.md",
+      "bytes": 50410,
+      "sha256": "bf714a16b59316d0f0556cd37e657f68d805720c8fba85051d44505a93d5ef23"
+    },
+    {
+      "path": "docs/spec/compiler-analyzer.md",
+      "bytes": 69982,
+      "sha256": "c2da95d6fdd1f0e79abd6b172d728a7179eaad4dde695126d0f00b5419a955b2"
+    },
+    {
+      "path": "docs/spec/data-consistency.md",
+      "bytes": 5258,
+      "sha256": "93196144c0ca4c89d1b220777965fe36ef54783aaf3be0e3d3efda737f89a9e5"
+    },
+    {
+      "path": "docs/spec/execution-boundaries.md",
+      "bytes": 2169,
+      "sha256": "7fdccd5f04ba51aec72964589ec68eda7143821aca2606230cc10535f36f64e3"
+    },
+    {
+      "path": "docs/spec/forms-actions-sessions.md",
+      "bytes": 8779,
+      "sha256": "2b34a046dc54167689b008a7a3f497ae6e29440952d4df6b1ebe389dc0996a68"
+    },
+    {
+      "path": "docs/spec/islands-lifecycle.md",
+      "bytes": 2831,
+      "sha256": "20adff03d9cb049147ef81f7905dfdfa3f956a144e1e04e764e4df7713cdbc6f"
+    },
+    {
+      "path": "docs/spec/navigation-patching-preservation.md",
+      "bytes": 4428,
+      "sha256": "ce35f42cb12f1aa6a529c30b77dfc02a8117aa8e14b104d260c6389ee523881b"
+    },
+    {
+      "path": "docs/spec/progressive-enhancement.md",
+      "bytes": 2584,
+      "sha256": "bb9758150b6dcd71cddf205b3420a6fd48321663b431b64df919a7b7cba4275c"
+    },
+    {
+      "path": "docs/spec/protocol-requirements.md",
+      "bytes": 2037,
+      "sha256": "8667efcab70fc7b1c3446ae608b56fd8d1264a61606ab0bd344514e2ca4e1d4f"
+    },
+    {
+      "path": "docs/spec/public-model.md",
+      "bytes": 4627,
+      "sha256": "394713d350e213fb6ca7c125c272bbc86c85385c0ee6a77229e44244900e168d"
+    },
+    {
+      "path": "docs/spec/routing-rendering-streaming.md",
+      "bytes": 7381,
+      "sha256": "5da038715292f317e479529507c7d9b75de74ea8f2d01bf6e212c85490262d98"
+    },
+    {
+      "path": "docs/traceability.md",
+      "bytes": 17951,
+      "sha256": "73ccc9758f68c0a684f6f0066712b903c7513d5f2afea392cf28f8e5668d3649"
+    },
+    {
+      "path": "packages/framework/CHANGELOG.md",
+      "bytes": 1139,
+      "sha256": "b47c5d2b90c2360f77218f320ececd7f20fcbedcb13c9fcf5bd017adb4e793e2"
+    },
+    {
+      "path": "packages/framework/README.md",
+      "bytes": 5092,
+      "sha256": "1d4a9759725ac481a62a8ca1175692e5c71d6759997a46f89ff5a4dca6c2166a"
+    }
+  ]
+}

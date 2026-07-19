@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "scenario": "release-source-version-refusal-and-recovery",
+  "refusedCode": "FADENO_A0_RELEASE_SOURCE_VERSION",
+  "incorrectVersionPublished": false,
+  "tagCreatedBeforeQualification": false,
+  "priorQualifiedCandidatePreserved": true,
+  "correctedVersion": "0.1.0-alpha.0",
+  "staleDiagnosticPresent": false,
+  "outcome": "corrected-release-source-awaits-exact-main-qualification"
+}
