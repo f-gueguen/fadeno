@@ -52,8 +52,9 @@ behavior.
   `@fadeno/framework@0.1.0-alpha.1`, retains exact source/package/release/docs
   identity and signed provenance, reconciles the registry-mandated first-package
   alias and bootstrap authority boundaries through ADR 0044, records zero
-  active tokens and trusted publication, and passes the clean public
-  create/test/check/build/dev/start/deploy/rollback replay.
+  active registry tokens and trusted publication, and passes the clean public
+  create/test/check/build/dev/start/deploy/rollback replay. The verified public
+  alpha remains enforced by `pnpm check:a0-public-release`.
 
 - A0-09 — qualify the complete public-alpha candidate. Merge commit `eb21ec9`
   records the `qualified-alpha-candidate`, replays 2,360 bounded cases over
