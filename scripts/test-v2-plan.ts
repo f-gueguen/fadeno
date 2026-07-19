@@ -13,7 +13,7 @@ function mutation(expected: string, mutate: (context: V2PlanContext) => V2PlanCo
 
 const valid = validateV2Plan(source);
 if (valid.length > 0) throw new Error(`valid V2 plan refused:\n${valid.join("\n")}`);
-mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, V2-11, then V2-12 in order", (context) => Object.freeze({
+mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, then V2-12 in order", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace("| V2-06 |", "| V2-16 |"),
 }));
@@ -41,9 +41,13 @@ mutation("V2 roadmap V2-02 validation contract mismatch", (context) => Object.fr
   ...context,
   roadmap: context.roadmap.replace(/^\| V2-02 \|.*$/mu, (line) => line.replace("; negative authorization and cross-user isolation", "")),
 }));
-mutation("V2 roadmap V2-10 artifact contract mismatch", (context) => Object.freeze({
+mutation("V2 roadmap V2-02 validation contract mismatch", (context) => Object.freeze({
   ...context,
-  roadmap: context.roadmap.replace(/^\| V2-10 \|.*$/mu, (line) => line.replace("exact source commit, packed-package digest, measured browser-artifact digest, ", "")),
+  roadmap: context.roadmap.replace(/^\| V2-02 \|.*$/mu, (line) => line.replace("; current-packed rendered-page execution under the real nonce policy", "")),
+}));
+mutation("V2 roadmap V2-10C artifact contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-10C \|.*$/mu, (line) => line.replace("exact source commit, packed-package digest, measured browser-artifact digest, ", "")),
 }));
 mutation("DG-V2-01 is missing Open", (context) => Object.freeze({
   ...context,
@@ -74,4 +78,4 @@ mutation("V2 entry package identity drifted", (context) => Object.freeze({
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("V2 plan mutation tests passed (16 slices, exact feature/contracts, decisions, preservation, identity, release, and traceability)");
+console.log("V2 plan mutation tests passed (17 slices, exact feature/contracts, CSP, preservation, final-byte identity, release, and traceability)");
