@@ -7,4 +7,4 @@ const tracked = new Set(execFileSync("git", ["ls-files", "--cached"], { cwd: roo
 const errors = validateV2Plan(loadV2PlanContext(root, tracked));
 if (errors.length > 0) throw new Error(errors.join("\n"));
 
-console.log("V2 plan passed (17 atomic slices, complete feature traceability, final-byte measurement retained)");
+console.log("V2 plan passed (18 atomic slices, outcomes locked, final-byte and alias ownership retained)");

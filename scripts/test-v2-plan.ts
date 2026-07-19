@@ -13,13 +13,17 @@ function mutation(expected: string, mutate: (context: V2PlanContext) => V2PlanCo
 
 const valid = validateV2Plan(source);
 if (valid.length > 0) throw new Error(`valid V2 plan refused:\n${valid.join("\n")}`);
-mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, then V2-12 in order", (context) => Object.freeze({
+mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, V2-11A, then V2-12 in order", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace("| V2-06 |", "| V2-16 |"),
 }));
 mutation("V2 roadmap V2-04 dependency contract mismatch", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace(/^\| V2-04 \|.*$/mu, (line) => line.replace("| V2-03 |", "| V2-08 |")),
+}));
+mutation("V2 roadmap V2-04 outcome contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-04 \|.*$/mu, (line) => line.replace("Enhance link navigation under the accepted request and URL ownership contract", "TBD")),
 }));
 mutation("V2 roadmap V2-02 decision ownership mismatch", (context) => Object.freeze({
   ...context,
@@ -78,4 +82,4 @@ mutation("V2 entry package identity drifted", (context) => Object.freeze({
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("V2 plan mutation tests passed (17 slices, exact feature/contracts, CSP, preservation, final-byte identity, release, and traceability)");
+console.log("V2 plan mutation tests passed (18 slices, exact outcomes/contracts, CSP, preservation, final-byte identity, alias ownership, release, and traceability)");

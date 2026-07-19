@@ -3,7 +3,30 @@ import { join } from "node:path";
 
 type JsonRecord = Record<string, unknown>;
 
-export const V2_PLAN_ROWS = Object.freeze([
+const V2_PLAN_OUTCOMES = Object.freeze({
+  "V2-00": "Decompose browser enhancement from the verified public native baseline",
+  "V2-01": "Resolve the experimental update protocol and scroll boundary before implementation",
+  "V2-01A": "Decide the optional browser-entrypoint package boundary before implementation",
+  "V2-02": "Establish one optional browser-runtime and server-update package boundary",
+  "V2-03": "Generate server-owned update outcomes through existing route/render authorities",
+  "V2-04": "Enhance link navigation under the accepted request and URL ownership contract",
+  "V2-05": "Qualify history, focus, selection, and explicit scroll-boundary behavior",
+  "V2-06": "Enhance form submission without changing successful controls or action authority",
+  "V2-07": "Complete enhanced action redirects, revalidation, ordering, and recovery",
+  "V2-08": "Implement bounded structural reconciliation for the accepted preservation classes",
+  "V2-09": "Qualify the canonical application in native and enhanced modes",
+  "V2-10": "Freeze the shipped-browser cost measurement contract",
+  "V2-10A": "Harden the shipped browser path after qualification",
+  "V2-10B": "Qualify enhanced accessibility against the current specification",
+  "V2-10C": "Retain the final hardened browser cost result",
+  "V2-11": "Complete V2 documentation, upgrade, rollback, and exit qualification",
+  "V2-11A": "Decide later-alpha distribution-tag ownership before publication",
+  "V2-12": "Mechanically release and verify the qualified V2 alpha",
+} as const);
+
+type V2PlanOutcomeId = keyof typeof V2_PLAN_OUTCOMES;
+
+const V2_PLAN_ROWS_WITHOUT_OUTCOMES = Object.freeze([
   { id: "V2-00", features: ["GOV-01", "ENH-01", "PATCH-01", "TEST-01", "DOC-01"], dependencies: "A0-10, ADR 0014", artifacts: "Detailed V2 plan; current ledger; explicit DG-V2-01 ownership; aligned scope, traceability, risks, and project model", validation: "Documentation/model/ledger gates; `pnpm check:v2-plan`; `pnpm check`; `pnpm ci:local`" },
   { id: "V2-01", features: ["GOV-01", "ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"], dependencies: "DG-V2-01; V2-00; ADR 0014; V1 action round trip", artifacts: "Accepted patch-protocol ADR; versioned accepted/refused fixtures; identity, ordering, redirect, error, recovery, cache, limits, and compatibility decisions; resolved decision gate; explicit no-release-impact declaration", validation: "Decision/specification/model gates; fixture decoder mutations; three-engine scroll-boundary controls; `pnpm ci:local`" },
   { id: "V2-01A", features: ["GOV-01", "BUILD-01", "ENH-01", "SEC-01", "TEST-01"], dependencies: "V2-00; ADR 0024; demonstrated disposable packed consumer", artifacts: "Accepted browser-entrypoint package-boundary ADR; disposable packed consumer evidence; exact public subpath, dependency direction, loading, compatibility, and rollback decisions; explicit no-release-impact declaration", validation: "Decision/specification/model gates; packed consumer and public-export proof; private deep-import refusal; `pnpm ci:local`" },
@@ -20,8 +43,14 @@ export const V2_PLAN_ROWS = Object.freeze([
   { id: "V2-10B", features: ["ACCESS-01", "TEST-01", "DOC-01"], dependencies: "V2-09, V2-10A", artifacts: "Keyboard, focus, reduced-motion, and preservation evidence; retained V2 screen-reader review; manual accessibility boundaries; explicit unsupported claims; explicit no-release-impact declaration for qualification-only work", validation: "Chromium/Firefox/WebKit accessibility checks; screen-reader review record and refusal boundaries; keyboard/focus/preference regression; release-impact check; `pnpm ci:local`" },
   { id: "V2-10C", features: ["PERF-01", "TEST-01", "DOC-01"], dependencies: "V2-10, V2-10A", artifacts: "Immutable result over the post-hardening browser path; exact source commit, packed-package digest, measured browser-artifact digest, environment and schedule identity; complete raw samples; derived conclusion and limitations; explicit no-release-impact declaration for result-only work", validation: "Independent source/package/browser-artifact identity verification; exact command replay over all retained raw samples; derived conclusion/limitation checks; no-retry completeness and mutation checks; release-impact check; `pnpm ci:local`" },
   { id: "V2-11", features: ["BUILD-01", "CLI-01", "DOC-01", "REL-01", "TEST-01"], dependencies: "V2-09, V2-10, V2-10A, V2-10B, V2-10C", artifacts: "Generated guides/API reference; executable success/failure/correction/flow/recovery examples; migration and rollback fixtures; exit manifest; unchanged measured browser-artifact digest; explicit no-release-impact declaration; any package-behavior change returns to V2-10A and V2-10C", validation: "Clean public install/build/test/dev/start/deploy; documentation/source checks; package/reproducibility/rollback; exact measured-browser-artifact identity; release-impact check; `pnpm check`; `pnpm ci:local`" },
-  { id: "V2-12", features: ["BUILD-01", "CLI-01", "DOC-01", "REL-01", "TEST-01"], dependencies: "V2-11", artifacts: "Consumed reviewed Changesets; advanced alpha prerelease version; generated changelog, SBOM, documentation archive, and receipt; unchanged measured browser-artifact digest; immutable source tag and release; trusted publication; exact registry/provenance/package/documentation identity; retained refusal, correction, rollback, and stale-diagnostic recovery", validation: "Clean release-source qualification; deterministic package/documentation rebuild; exact released-browser-artifact match to V2-10C; release-event verification; trusted publication; exact tag/release/registry/provenance replay; public create/test/check/build/dev/start/deploy/rollback; `pnpm check`; `pnpm ci:local`" },
+  { id: "V2-11A", features: ["GOV-01", "REL-01", "SEC-01", "TEST-01"], dependencies: "V2-11; ADR 0038; ADR 0044", artifacts: "Accepted later-alpha alias-policy ADR; exact alpha and latest ownership, advancement, refusal, rollback, and verification decisions; explicit no-release-impact declaration", validation: "Decision/release-policy/model gates; alias advancement and independent-movement mutation fixtures; rollback and refusal checks; `pnpm ci:local`" },
+  { id: "V2-12", features: ["BUILD-01", "CLI-01", "DOC-01", "REL-01", "TEST-01"], dependencies: "V2-11A", artifacts: "Consumed reviewed Changesets; advanced alpha prerelease version; generated changelog, SBOM, documentation archive, and receipt; unchanged measured browser-artifact digest; immutable source tag and release; trusted publication; exact accepted distribution aliases; exact registry/provenance/package/documentation identity; retained refusal, correction, rollback, and stale-diagnostic recovery", validation: "Clean release-source qualification; deterministic package/documentation rebuild; exact released-browser-artifact match to V2-10C; accepted alias-policy validation; release-event verification; trusted publication; exact tag/release/registry/provenance replay; public create/test/check/build/dev/start/deploy/rollback; `pnpm check`; `pnpm ci:local`" },
 ] as const);
+
+export const V2_PLAN_ROWS = Object.freeze(V2_PLAN_ROWS_WITHOUT_OUTCOMES.map((row) => Object.freeze({
+  ...row,
+  outcome: V2_PLAN_OUTCOMES[row.id as V2PlanOutcomeId],
+})));
 
 export type V2PlanContext = Readonly<{
   roadmap: string;
@@ -71,7 +100,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     .map((line) => line.slice(1, -1).split("|").map((cell) => cell.trim()));
   const ids = rows.map((row) => row[0]);
   const expectedIds = V2_PLAN_ROWS.map((row) => row.id);
-  if (JSON.stringify(ids) !== JSON.stringify(expectedIds)) errors.push("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, then V2-12 in order");
+  if (JSON.stringify(ids) !== JSON.stringify(expectedIds)) errors.push("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, V2-11A, then V2-12 in order");
 
   for (const [index, row] of rows.entries()) {
     const id = row[0] ?? expectedIds[index] ?? "V2-unknown";
@@ -81,6 +110,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
       continue;
     }
     if (!expected) continue;
+    if (row[1] !== expected.outcome) errors.push(`V2 roadmap ${id} outcome contract mismatch`);
     if (row[2] !== expected.features.join(", ")) errors.push(`V2 roadmap ${id} feature contract mismatch`);
     if (row[3] !== expected.dependencies) errors.push(`V2 roadmap ${id} dependency contract mismatch`);
     if (row[4] !== expected.artifacts) errors.push(`V2 roadmap ${id} artifact contract mismatch`);
