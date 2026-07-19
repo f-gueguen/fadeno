@@ -22,6 +22,11 @@ const links = (): RenderChild => jsxs("nav", { "aria-label": "Example navigation
   jsx("a", { id: "fragment-link", href: "#details", children: "Details" }),
 ] });
 
+const longContent = (): RenderChild => jsxs("section", { id: "history-content", children: [
+  ...Array.from({ length: 80 }, (_, index) => jsx("p", { children: `History qualification row ${index + 1}.` })),
+  jsx("a", { id: "bottom-next-link", href: "/next", children: "Next from a scrolled document" }),
+] });
+
 function document(title: string, heading: string, content: RenderChild = null): RenderChild {
   return jsxs("html", { lang: "en", children: [
     jsx("head", { children: jsx("title", { children: title }) }),
@@ -58,7 +63,7 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
 
 export const handler: Handler = async (request) => {
   const url = new URL(request.url);
-  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home");
+  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home", longContent());
   if (url.pathname === "/next") return render(request, "next", "Next project", "Next");
   if (url.pathname === "/owner") {
     return render(request, "owner", "Owned project", "Owner", jsx("p", { id: "owner", children: request.headers.get("cookie") ?? "anonymous" }));

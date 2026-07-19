@@ -102,7 +102,17 @@ try {
   assert.equal(entry.includes(packageName), false);
   writeFileSync(join(site, "_fadeno/browser-entry.js"), entry);
 
-  for (const name of ["success.json", "refusal.json", "refusal-human.txt", "flow.json", "recovery.json"]) {
+  for (const name of [
+    "success.json",
+    "refusal.json",
+    "refusal-human.txt",
+    "flow.json",
+    "recovery.json",
+    "history-focus.json",
+    "history-scroll-refusal.json",
+    "history-recovery.json",
+    "history-refusal-human.txt",
+  ]) {
     cpSync(join(scenarioRoot, "expected", name), join(outputRoot, `expected-${name}`));
   }
 } finally {

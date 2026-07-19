@@ -1,0 +1,1 @@
+FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhanced restoration; reload the current URL.

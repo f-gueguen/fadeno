@@ -57,7 +57,13 @@ test.beforeEach(() => { requests.length = 0; });
 
 test("enhances one safe link with document, title, URL, history, and focus", async ({ page }) => {
   await page.goto(origin);
-  expect(await page.evaluate(() => history.state)).toEqual({ "fadeno.private.navigation.v1": true });
+  expect(await page.evaluate(() => history.state)).toEqual({
+    "fadeno.private.navigation.v1": true,
+    version: 1,
+    scrollX: 0,
+    scrollY: 0,
+    elementScroll: false,
+  });
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
   const result = {
@@ -217,6 +223,145 @@ test("supports enhanced back and forward traversal", async ({ page }) => {
   expect(requests.filter(({ path, enhanced }) => enhanced && (path === "/" || path === "/next")).length).toBeGreaterThanOrEqual(3);
 });
 
+test("commits focus and top scroll without animation under reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    Reflect.set(globalThis, "__fadenoTransitions", 0);
+    const transition = Reflect.get(Document.prototype, "startViewTransition");
+    if (typeof transition === "function") {
+      Reflect.set(Document.prototype, "startViewTransition", function(this: Document, ...arguments_: unknown[]) {
+        Reflect.set(globalThis, "__fadenoTransitions", Number(Reflect.get(globalThis, "__fadenoTransitions")) + 1);
+        return Reflect.apply(transition, this, arguments_);
+      });
+    }
+  });
+  await page.goto(origin);
+  expect(await page.evaluate(() => ({ focus: document.activeElement?.tagName, restoration: history.scrollRestoration })))
+    .toEqual({ focus: "BODY", restoration: "manual" });
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  const result = await page.evaluate(() => ({
+    schema: "fadeno.example.history-focus-success",
+    version: 1,
+    path: location.pathname,
+    heading: document.querySelector("h1")?.textContent,
+    focus: document.activeElement?.tagName,
+    scrollX,
+    scrollY,
+    reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+    animations: document.getAnimations().length,
+    transitions: Number(Reflect.get(globalThis, "__fadenoTransitions")),
+  }));
+  expect(result).toEqual(expected("history-focus"));
+});
+
+test("allows a scrolled origin and reloads that unsafe history entry on return", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#bottom-next-link").scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0);
+  await page.locator("#bottom-next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Home");
+  const result = {
+    schema: "fadeno.example.history-scroll-refusal",
+    version: 1,
+    path: new URL(page.url()).pathname,
+    heading: await page.locator("h1").textContent(),
+    nativeRecovery: await page.evaluate(() => typeof history.state === "object"
+      && history.state !== null
+      && Number(Reflect.get(history.state as object, "scrollY")) > 0),
+    staleDocumentRemoved: await page.locator("h1").textContent() !== "Next",
+  };
+  expect(result).toEqual(expected("history-scroll-refusal"));
+});
+
+test("reloads an application-owned history entry instead of showing stale markup", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => history.pushState({ application: true }, "", "/next"));
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Home");
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.goForward();
+  await expect(page.locator("h1")).toHaveText("Next");
+  const result = {
+    schema: "fadeno.example.history-state-recovery",
+    version: 1,
+    path: new URL(page.url()).pathname,
+    heading: await page.locator("h1").textContent(),
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    staleDocumentRemoved: await page.locator("h1").textContent() !== "Home",
+  };
+  expect(result).toEqual(expected("history-recovery"));
+});
+
+test("discards only a collapsed old-document selection", async ({ page }) => {
+  await page.goto(origin);
+  expect(await page.evaluate(() => {
+    const text = document.querySelector("h1")?.firstChild;
+    if (!text) return false;
+    const range = document.createRange();
+    range.setStart(text, 1);
+    range.collapse(true);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    return selection?.isCollapsed;
+  })).toBe(true);
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect(requests.filter(({ path }) => path === "/next").map(({ enhanced }) => enhanced)).toEqual([true]);
+  expect(await page.evaluate(() => document.getSelection()?.toString())).toBe("");
+});
+
+test("keeps a non-collapsed selection and element scroll on the native path", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => {
+    const heading = document.querySelector("h1");
+    if (!heading) return;
+    const range = document.createRange();
+    range.selectNodeContents(heading);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    document.addEventListener("mousedown", (event) => event.preventDefault(), { once: true });
+  });
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect(requests.filter(({ path }) => path === "/next").map(({ enhanced }) => enhanced)).toEqual([false]);
+
+  await page.goto(origin);
+  await page.evaluate(() => {
+    const scroller = document.createElement("div");
+    scroller.style.cssText = "height:20px;overflow:auto";
+    const child = document.createElement("div");
+    child.style.height = "200px";
+    scroller.append(child);
+    document.body.append(scroller);
+    scroller.scrollTop = 20;
+  });
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect(requests.filter(({ path }) => path === "/next").at(-1)?.enhanced).toBe(false);
+});
+
+test("cancels an obsolete history traversal and publishes only the newest entry", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  await page.evaluate(() => {
+    history.back();
+    setTimeout(() => history.forward(), 20);
+  });
+  await expect(page.locator("h1")).toHaveText("Home");
+  await expect.poll(() => requests.filter(({ path, enhanced }) => enhanced && path === "/").length).toBeGreaterThanOrEqual(2);
+  expect(new URL(page.url()).pathname).toBe("/");
+  expect(await page.locator("h1").textContent()).not.toBe("Slow");
+});
+
 test("keeps request ownership, hostile correlations, limits, and logs isolated", async () => {
   const privateRequest = (owner: string, operation: string): Promise<Response> => fetch(`${origin}/owner`, { headers: {
     accept: "application/vnd.fadeno.private-update+json; version=1",
@@ -294,12 +439,13 @@ test("retains normalized flow evidence without exposing a public schema", async 
       "exact native server response was projected once",
       "current generation, epoch, operation, URL, cache, and result were admitted",
       "document, title, URL, history, and focus committed",
+      "destination scroll committed at the native top boundary without transition work",
     ],
     ownership: {
-      browser: ["activation", "operation", "history", "focus"],
+      browser: ["activation", "operation", "history", "focus", "scroll"],
       server: ["authorization", "route", "resources", "rendered outcome"],
     },
-    skipped: ["form interception", "general state reconciliation", "transported script execution"],
+    skipped: ["form interception", "general state reconciliation", "transported script execution", "animation"],
     outcome: "enhanced-document",
   });
 });

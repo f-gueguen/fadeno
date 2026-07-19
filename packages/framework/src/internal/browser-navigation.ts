@@ -9,8 +9,15 @@ const generationMeta = "fadeno-application-generation";
 const epochMeta = "fadeno-document-epoch";
 const identityPattern = /^[A-Za-z0-9][A-Za-z0-9:._/-]*$/u;
 const marker = "fadeno.private.navigation.v1";
+const historyStateVersion = 1;
 
 type Metadata = Readonly<{ generation: string; epoch: string }>;
+type PrivateHistoryState = Readonly<{
+  version: 1;
+  scrollX: number;
+  scrollY: number;
+  elementScroll: boolean;
+}>;
 type ActiveOperation = Readonly<{
   id: string;
   sequence: number;
@@ -109,8 +116,11 @@ function dirtyControl(control: Element): boolean {
   return false;
 }
 
-export function privateLinkPreservationSafe(initiator?: HTMLAnchorElement): boolean {
-  if (scrollX !== 0 || scrollY !== 0) return false;
+export function privateLinkPreservationSafe(
+  initiator?: HTMLAnchorElement,
+  options: Readonly<{ allowDocumentScroll?: boolean }> = {},
+): boolean {
+  if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
   if ([...document.querySelectorAll("input, textarea, select")].some(dirtyControl)) return false;
   if (document.querySelector("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])") !== null) return false;
   try { if (document.querySelector(":popover-open") !== null) return false; } catch { /* unsupported selector has no open popover state */ }
@@ -178,28 +188,52 @@ function focusNewDocument(): void {
   target.focus({ preventScroll: true });
 }
 
+function createHistoryState(x: number, y: number, elementScroll: boolean): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    [marker]: true,
+    version: historyStateVersion,
+    scrollX: x,
+    scrollY: y,
+    elementScroll,
+  });
+}
+
+function privateHistoryState(value: unknown): PrivateHistoryState | undefined {
+  if (typeof value !== "object" || value === null
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([marker, "elementScroll", "scrollX", "scrollY", "version"].sort())
+    || Reflect.get(value, marker) !== true
+    || Reflect.get(value, "version") !== historyStateVersion) return undefined;
+  const x = Reflect.get(value, "scrollX");
+  const y = Reflect.get(value, "scrollY");
+  const elementScroll = Reflect.get(value, "elementScroll");
+  if (typeof x !== "number" || typeof y !== "number"
+    || !Number.isFinite(x) || !Number.isFinite(y)
+    || x < 0 || y < 0 || x > Number.MAX_SAFE_INTEGER || y > Number.MAX_SAFE_INTEGER
+    || typeof elementScroll !== "boolean") return undefined;
+  return Object.freeze({ version: 1, scrollX: x, scrollY: y, elementScroll });
+}
+
 function applyDocument(next: Document, url: string, replace: boolean): void {
   const oldHead = document.head.cloneNode(true) as HTMLHeadElement;
   const oldBody = document.body.cloneNode(true) as HTMLBodyElement;
   const oldAttributes = document.documentElement.cloneNode(false) as HTMLElement;
+  const oldScroll = Object.freeze({ x: scrollX, y: scrollY });
   try {
     replaceAttributes(document.documentElement, next.documentElement);
     document.head.replaceChildren(...[...next.head.childNodes].map((node) => document.importNode(node, true)));
     document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
     focusNewDocument();
-    const state = Object.freeze({ [marker]: true });
+    scrollTo({ left: 0, top: 0, behavior: "instant" });
+    const state = createHistoryState(0, 0, false);
     if (replace) history.replaceState(state, "", url);
     else history.pushState(state, "", url);
   } catch (cause) {
     replaceAttributes(document.documentElement, oldAttributes);
     document.head.replaceChildren(...[...oldHead.childNodes].map((node) => document.importNode(node, true)));
     document.body.replaceChildren(...[...oldBody.childNodes].map((node) => document.importNode(node, true)));
+    scrollTo({ left: oldScroll.x, top: oldScroll.y, behavior: "instant" });
     throw cause;
   }
-}
-
-function markedHistoryState(value: unknown): boolean {
-  return typeof value === "object" && value !== null && Reflect.get(value, marker) === true;
 }
 
 export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefined {
@@ -208,8 +242,27 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   let active: ActiveOperation | undefined;
   let sequence = 0;
   let closed = false;
+  let traversing = false;
   const consumedResultIds: string[] = [];
-  history.replaceState(Object.freeze({ [marker]: true }), "", location.href);
+  const previousScrollRestoration = history.scrollRestoration;
+  history.scrollRestoration = "manual";
+  history.replaceState(createHistoryState(scrollX, scrollY, false), "", location.href);
+
+  const recordCurrentScroll = (event?: Event): void => {
+    if (closed || traversing) return;
+    const state = privateHistoryState(history.state);
+    if (!state) return;
+    const target = event?.target;
+    const elementOwnsScroll = target instanceof Element
+      && target !== document.documentElement
+      && target !== document.body
+      && (target.scrollTop !== 0 || target.scrollLeft !== 0);
+    history.replaceState(
+      createHistoryState(scrollX, scrollY, state.elementScroll || elementOwnsScroll),
+      "",
+      location.href,
+    );
+  };
 
   const fallback = (destination: URL, replace: boolean): void => {
     if (replace) location.replace(destination.href);
@@ -217,7 +270,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   };
 
   const navigate = async (destination: URL, replace: boolean, initiator?: HTMLAnchorElement): Promise<void> => {
-    if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator)) {
+    if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) {
       fallback(destination, replace);
       return;
     }
@@ -264,7 +317,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (active !== operation || operation.cancellation.signal.aborted || admission.decision.status !== "accepted" || !admission.outcome || !admission.resultId) {
         throw new TypeError(admission.decision.code);
       }
-      if (!privateLinkPreservationSafe(initiator)) throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      if (!privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) throw new TypeError("FADENO_UPDATE_PRESERVATION");
       if (admission.outcome.kind === "redirect") {
         const redirect = new URL(admission.outcome.location, location.origin);
         fallback(redirect, replace);
@@ -289,12 +342,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           "exact native server response was projected once",
           "current generation, epoch, operation, URL, cache, and result were admitted",
           "document, title, URL, history, and focus committed",
+          "destination scroll committed at the native top boundary without transition work",
         ]),
         ownership: Object.freeze({
-          browser: Object.freeze(["activation", "operation", "history", "focus"]),
+          browser: Object.freeze(["activation", "operation", "history", "focus", "scroll"]),
           server: Object.freeze(["authorization", "route", "resources", "rendered outcome"]),
         }),
-        skipped: Object.freeze(["form interception", "general state reconciliation", "transported script execution"]),
+        skipped: Object.freeze(["form interception", "general state reconciliation", "transported script execution", "animation"]),
         outcome: "enhanced-document",
       });
     } catch {
@@ -335,15 +389,23 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (!(target instanceof HTMLAnchorElement)) return;
     const destination = privateSafeLinkDestination(target);
-    if (!destination || !currentMetadata || !privateLinkPreservationSafe(target)) return;
+    if (!destination || !currentMetadata || !privateLinkPreservationSafe(target, { allowDocumentScroll: true })) return;
+    recordCurrentScroll();
     event.preventDefault();
     void navigate(destination, false, target);
   };
   const popstate = (): void => {
-    if (!markedHistoryState(history.state)) return;
-    void navigate(new URL(location.href), true);
+    const state = privateHistoryState(history.state);
+    traversing = true;
+    if (!state || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
+      active?.cancellation.abort(new DOMException("History traversal requires native recovery", "AbortError"));
+      location.reload();
+      return;
+    }
+    void navigate(new URL(location.href), true).finally(() => { traversing = false; });
   };
   document.addEventListener("click", click);
+  document.addEventListener("scroll", recordCurrentScroll, true);
   globalThis.addEventListener("popstate", popstate);
   return Object.freeze({
     close() {
@@ -351,7 +413,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       closed = true;
       active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
       document.removeEventListener("click", click);
+      document.removeEventListener("scroll", recordCurrentScroll, true);
       globalThis.removeEventListener("popstate", popstate);
+      history.scrollRestoration = previousScrollRestoration;
     },
   });
 }

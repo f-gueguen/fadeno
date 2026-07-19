@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-scroll-refusal",
+  "version": 1,
+  "path": "/",
+  "heading": "Home",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
