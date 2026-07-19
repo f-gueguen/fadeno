@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   readdirSync,
   realpathSync,
   rmSync,
@@ -14,7 +15,7 @@ import {
 } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -190,18 +191,19 @@ async function resolveTagCommit(tag: string): Promise<string> {
 }
 
 function treeIdentity(root: string): string {
-  const digest = createHash("sha256");
+  const records: string[] = [];
   const visit = (directory: string): void => {
     for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
       const path = join(directory, entry.name);
-      const relative = path.slice(root.length + 1).split("\\").join("/");
+      const owned = relative(root, path).split("\\").join("/");
       if (entry.isDirectory()) visit(path);
-      else if (entry.isFile()) digest.update(relative).update("\0").update(readFileSync(path)).update("\0");
+      else if (entry.isFile()) records.push(`file\0${owned}\0${createHash("sha256").update(readFileSync(path)).digest("hex")}`);
+      else if (entry.isSymbolicLink()) records.push(`link\0${owned}\0${readlinkSync(path)}`);
       else throw new TypeError("FADENO_A0_PUBLIC_ARTIFACT_ENTRY");
     }
   };
   visit(root);
-  return digest.digest("hex");
+  return createHash("sha256").update(records.join("\n")).digest("hex");
 }
 
 async function observe(origin: string): Promise<void> {
