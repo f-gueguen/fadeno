@@ -137,10 +137,18 @@ const retiredGateIds = new Set(
     .matchAll(/\b(DG-[A-Z0-9]+-\d{2}) is removed\b/g)]
     .map((match) => match[1]),
 );
+const adrIndex = read("docs/adr/README.md");
+const effectiveAdrStart = adrIndex.indexOf("## Effective decisions");
+const supersededAdrStart = adrIndex.indexOf("## Superseded decisions");
+const effectiveAdrIndex = effectiveAdrStart === -1 || supersededAdrStart === -1
+  ? ""
+  : adrIndex.slice(effectiveAdrStart, supersededAdrStart);
+const effectiveAdrFiles = [...effectiveAdrIndex.matchAll(/\((\d{4}-[a-z0-9-]+\.md)\)/g)]
+  .map((match) => match[1]);
 const resolvedGateIds = new Set(
-  collectMarkdown(join(root, "docs/adr"))
+  effectiveAdrFiles
     .flatMap((file) => {
-      const content = readFileSync(file, "utf8");
+      const content = read(`docs/adr/${file}`);
       return content.includes("- Status: Accepted")
         ? [...content.matchAll(/\b(DG-[A-Z0-9]+-\d{2}) is resolved\b/g)]
         : [];
