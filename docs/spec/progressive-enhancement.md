@@ -47,6 +47,14 @@ state can be owned safely. The preflight repeats before commit. Every other
 link remains native, including target, download, modifier, fragment, hostile
 URL, and preservation-unsafe cases. Forms remain native.
 
+ADR 0050 permits that link path to leave a document-scrolled origin while
+recording the outgoing private history entry and committing the new document at
+the top. Zero-scroll owned history entries may traverse through enhancement;
+nonzero document scroll, any observed element scroll, malformed state, and
+unowned history reload the selected URL. Destination focus never induces
+scroll, non-collapsed selection remains native, and the runtime allocates no
+animation in either motion-preference mode.
+
 When enhancement code is available, it may intercept a link or form only when
 it can preserve the baseline semantics. It may then:
 

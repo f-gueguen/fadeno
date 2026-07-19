@@ -1,9 +1,10 @@
 # Browser runtime and private update threat model
 
 This model covers the V2-02 loading and decode boundary selected by ADR 0047,
-the V2-03 server projection selected by ADR 0048, and V2-04's conservative link
-interception selected by ADR 0049. It does not claim form interception or
-general state-preserving reconciliation; those remain later slices.
+the V2-03 server projection selected by ADR 0048, V2-04's conservative link
+interception selected by ADR 0049, and V2-05's history/focus/scroll boundary
+selected by ADR 0050. It does not claim form interception or general state-
+preserving reconciliation; those remain later slices.
 
 ## Assets and owners
 
@@ -44,6 +45,10 @@ general state-preserving reconciliation; those remain later slices.
 | User-owned state changes during fetch | The complete conservative preservation predicate runs before interception and again before commit; unsafe GET work returns to native destination | Dirty/top-layer/media/selection/client-identity/scroll race cases |
 | Late or duplicate response overwrites current state | A newer sequence aborts its predecessor; generation, epoch, operation, URL, cancellation, and consumed-result identity are rechecked before one atomic commit | Permuted, cancelled, stale, and duplicate response cases |
 | Transported markup executes code | Complete HTML is parsed inertly; the commit admits one framework document root and does not execute transported scripts | Hostile markup and rollback cases |
+| History state is malformed or application-owned | Only the exact private marker/version and bounded scroll record are interpreted; every other selected entry reloads current URL truth | Three-engine malformed/unowned traversal recovery |
+| Browser restoration races runtime focus or scroll | Runtime temporarily selects manual restoration, focuses with scroll prevention, commits new links at the top, and restores the prior setting on close | Focus/scroll ordering and teardown checks |
+| Numeric scroll is restored into changed layout | Enhanced traversal accepts only owned zero-scroll entries without observed element scroll; every nonzero or unsafe entry reloads | Document/element scroll refusal fixtures |
+| Motion preference changes correctness | V2-05 allocates no animation or transition work in either preference mode | Normal/reduced-motion no-animation checks |
 
 ## Native fallback and rollback
 

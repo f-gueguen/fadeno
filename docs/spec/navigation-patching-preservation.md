@@ -150,6 +150,17 @@ history, focus, and the next document epoch. Superseded, malformed, refused, or
 failed GET work returns to native destination or current-truth navigation.
 Forms and general state-preserving reconciliation remain later V2 work.
 
+ADR 0050 selects V2-05's browser-state qualification boundary. Runtime-owned
+history entries carry a private exact-version marker and recorded document
+scroll state while automatic restoration is disabled for the active runtime.
+New cross-document links may leave a document-scrolled origin and commit the
+destination at the top with focus moved without scrolling. Back/forward remains
+enhanced only for owned zero-scroll entries without observed element-scroll
+ownership; malformed, unowned, nonzero-scroll, or element-scroll entries reload
+their selected current URL. Non-collapsed selection and unresolved focus/state
+still refuse. No transition work is allocated in either normal or reduced-
+motion mode.
+
 ## Narrowed H1 result and V2 conformance
 
 K0-04 established cross-engine structural viability for focus/selection/caret,

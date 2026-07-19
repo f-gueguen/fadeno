@@ -57,6 +57,7 @@ effective decision.
 45. [ADR 0047 — Initial browser runtime and private transport](0047-initial-browser-runtime-and-private-transport.md)
 46. [ADR 0048 — Server-owned update outcome projection](0048-server-owned-update-outcome-projection.md)
 47. [ADR 0049 — Conservative enhanced link navigation](0049-conservative-enhanced-link-navigation.md)
+48. [ADR 0050 — History, focus, and conservative scroll qualification](0050-history-focus-and-scroll-qualification.md)
 
 ## Superseded decisions
 
