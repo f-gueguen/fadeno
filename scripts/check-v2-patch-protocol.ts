@@ -75,7 +75,7 @@ for (const fragment of [
 const decisionGates = read("docs/ledgers/decision-gates.md");
 assert.equal(decisionGates.includes("| DG-V2-01 |"), false, "resolved DG-V2-01 must leave the open gate ledger");
 const ledger = read("ROADMAP_LEDGER.md");
-for (const fragment of ["V2-01 — resolve the experimental update protocol", "DG-V2-01 is resolved by ADR 0045", "Release impact: none"]) {
+for (const fragment of ["V2-01 — Merge commit `d9718c0`", "resolves DG-V2-01", "introduces no browser runtime or public schema"]) {
   assert.equal(ledger.includes(fragment), true, `roadmap ledger is missing ${fragment}`);
 }
 const traceability = read("docs/traceability.md");

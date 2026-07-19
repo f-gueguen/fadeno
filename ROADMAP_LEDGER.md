@@ -10,13 +10,13 @@ V2-01A — decide the optional browser-entrypoint package boundary
 
 ## Exit criteria
 
-- [ ] Accept one browser-entrypoint package-boundary ADR without adding the
+- [x] Accept one browser-entrypoint package-boundary ADR without adding the
   implementation or changing the published package.
-- [ ] Prove the exact public subpath, dependency direction, loading boundary,
+- [x] Prove the exact public subpath, dependency direction, loading boundary,
   compatibility rule, and rollback through a disposable packed consumer.
-- [ ] Prove private browser deep imports remain unavailable and the current
+- [x] Prove private browser deep imports remain unavailable and the current
   package export surface remains unchanged before V2-02.
-- [ ] Align the specification, scope, traceability, risks, and roadmap state.
+- [x] Align the specification, scope, traceability, risks, and roadmap state.
 - [ ] Pass all affected gates, full local CI, and independent review.
 
 ## Active sub-slice
@@ -29,10 +29,12 @@ none — no package behavior changes and no Changeset is required.
 
 ## In progress
 
-- Select the narrowest browser-only subpath and dependency direction consistent
-  with ADR 0024's one-logical-package boundary.
-- Demonstrate the proposed boundary from a clean installed tarball while the
-  real public export remains absent until V2-02 implementation.
+- ADR 0046 accepts one future `./browser` facade inside the existing logical
+  package, a generated application module as its sole loading direction, and
+  the existing request-owned nonce path without fixing runtime symbols early.
+- The disposable packed consumer resolves the proposed facade, proves browser
+  graph isolation and private deep-import refusal, and confirms the real public
+  export remains absent until V2-02 implementation.
 
 ## Blockers
 
