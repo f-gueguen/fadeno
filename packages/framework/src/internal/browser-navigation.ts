@@ -9,8 +9,20 @@ const generationMeta = "fadeno-application-generation";
 const epochMeta = "fadeno-document-epoch";
 const identityPattern = /^[A-Za-z0-9][A-Za-z0-9:._/-]*$/u;
 const marker = "fadeno.private.navigation.v1";
+const unsafeTraversalPersistenceKey = "fadeno.private.navigation.unsafe-traversal.v1";
+const historyStateVersion = 1;
+const pendingTraversalRecoveryDelayMs = 50;
+const maximumRecoveryUrlBytes = 8_192;
 
 type Metadata = Readonly<{ generation: string; epoch: string }>;
+type PrivateHistoryState = Readonly<{
+  version: 1;
+  session: string;
+  entry: string;
+  scrollX: number;
+  scrollY: number;
+  elementScroll: boolean;
+}>;
 type ActiveOperation = Readonly<{
   id: string;
   sequence: number;
@@ -21,8 +33,26 @@ type ActiveOperation = Readonly<{
   cancellation: AbortController;
 }>;
 
+class PrivateDocumentCommitFailure extends Error {
+  readonly destinationSelected: boolean;
+  readonly restoreFocus: () => void;
+
+  constructor(destinationSelected: boolean, restoreFocus: () => void, cause: unknown) {
+    super("FADENO_UPDATE_DOCUMENT_COMMIT", { cause });
+    this.name = "PrivateDocumentCommitFailure";
+    this.destinationSelected = destinationSelected;
+    this.restoreFocus = restoreFocus;
+  }
+}
+
 export interface PrivateBrowserNavigation {
+  state(): "active" | "closing" | "closed";
   close(): void;
+}
+
+export interface PrivateUnsafeHistoryEntryTracker {
+  mark(entry: string): void;
+  requiresReload(entry: string): boolean;
 }
 
 export type PrivateLinkNavigationFlow = Readonly<{
@@ -38,6 +68,8 @@ export type PrivateLinkNavigationFlow = Readonly<{
 }>;
 
 const flows: PrivateLinkNavigationFlow[] = [];
+const startedDocuments = new WeakSet<Document>();
+const applicationRecoveryDocuments = new WeakMap<Document, number>();
 
 function recordFlow(input: Omit<PrivateLinkNavigationFlow, "schema" | "version" | "redaction">): void {
   flows.push(Object.freeze({
@@ -61,6 +93,154 @@ export function readPrivateLinkNavigationFlows(): readonly PrivateLinkNavigation
   })));
 }
 
+export function createPrivateUnsafeHistoryEntryTracker(
+  maximumEntries = 256,
+): PrivateUnsafeHistoryEntryTracker {
+  if (!Number.isSafeInteger(maximumEntries) || maximumEntries < 1) {
+    throw new TypeError("FADENO_HISTORY_UNSAFE_ENTRY_LIMIT");
+  }
+  const entries = new Set<string>();
+  let overflowed = false;
+  return Object.freeze({
+    mark(entry: string): void {
+      if (overflowed) return;
+      entries.add(entry);
+      if (entries.size > maximumEntries) {
+        entries.clear();
+        overflowed = true;
+      }
+    },
+    requiresReload(entry: string): boolean {
+      return overflowed || entries.has(entry);
+    },
+  });
+}
+
+function createPrivateUnsafeTraversalPersistence(): Readonly<{
+  refresh(): boolean;
+  requireRecovery(session: string, entry: string, url: string, reason: "unsafe-scroll" | "application-owned"): void;
+  recoveryReason(session: string, entry: string, url: string): "unsafe-scroll" | "application-owned" | "overflow" | undefined;
+  clearRecovery(session: string, entry: string, url: string): void;
+  consumeApplicationRecovery(session: string | undefined, entry: string | undefined, url: string): boolean;
+}> {
+  type Recovery = Readonly<{
+    session: string;
+    entry: string;
+    url: string;
+    reason: "unsafe-scroll" | "application-owned";
+  }>;
+  type Record = Readonly<{ version: 2; recoveries: readonly Recovery[]; overflowed: boolean }>;
+  const maximumRecoveries = 256;
+  const validIdentity = (value: unknown): value is string => typeof value === "string"
+    && identityPattern.test(value)
+    && new TextEncoder().encode(value).byteLength <= 128;
+  const validRecoveryUrl = (value: unknown): value is string => typeof value === "string"
+    && new TextEncoder().encode(value).byteLength <= maximumRecoveryUrlBytes;
+  const validRecovery = (value: unknown): value is Recovery => typeof value === "object" && value !== null
+    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify(["entry", "reason", "session", "url"])
+    && validIdentity(Reflect.get(value, "session"))
+    && validIdentity(Reflect.get(value, "entry"))
+    && validRecoveryUrl(Reflect.get(value, "url"))
+    && ["unsafe-scroll", "application-owned"].includes(String(Reflect.get(value, "reason")));
+  const decode = (value: string | null): Record | undefined => {
+    if (value === null) return Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: false });
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (typeof parsed !== "object" || parsed === null
+        || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(["overflowed", "recoveries", "version"])
+        || Reflect.get(parsed, "version") !== 2
+        || typeof Reflect.get(parsed, "overflowed") !== "boolean"
+        || !Array.isArray(Reflect.get(parsed, "recoveries"))) return undefined;
+      const recoveries = Reflect.get(parsed, "recoveries") as unknown[];
+      if (recoveries.length > maximumRecoveries || !recoveries.every(validRecovery)
+        || new Set(recoveries.map((recovery) => `${Reflect.get(recovery, "session")}\0${Reflect.get(recovery, "entry")}\0${Reflect.get(recovery, "url")}`)).size !== recoveries.length) return undefined;
+      return Object.freeze({
+        version: 2,
+        recoveries: Object.freeze(recoveries.map((recovery) => Object.freeze({ ...(recovery as Recovery) }))),
+        overflowed: Reflect.get(parsed, "overflowed") as boolean,
+      });
+    } catch { return undefined; }
+  };
+  let record: Record;
+  try {
+    record = decode(sessionStorage.getItem(unsafeTraversalPersistenceKey))
+      ?? Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true });
+    sessionStorage.setItem(unsafeTraversalPersistenceKey, JSON.stringify(record));
+  } catch {
+    record = Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true });
+  }
+  const persist = (): void => {
+    try { sessionStorage.setItem(unsafeTraversalPersistenceKey, JSON.stringify(record)); }
+    catch {
+      record = Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true });
+      try { sessionStorage.setItem(unsafeTraversalPersistenceKey, JSON.stringify(record)); } catch { /* reload will probe again */ }
+    }
+  };
+  const refresh = (): boolean => {
+    try {
+      const current = decode(sessionStorage.getItem(unsafeTraversalPersistenceKey));
+      if (current) {
+        record = current;
+        return true;
+      }
+    } catch { /* fail closed below */ }
+    record = Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true });
+    persist();
+    return false;
+  };
+  return Object.freeze({
+    refresh,
+    requireRecovery(session, entry, url, reason): void {
+      if (!refresh()) return;
+      if (record.overflowed || !validIdentity(session) || !validIdentity(entry)) return;
+      if (!validRecoveryUrl(url)) {
+        record = Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true });
+        persist();
+        return;
+      }
+      const existing = record.recoveries.find((recovery) => recovery.session === session && recovery.entry === entry && recovery.url === url);
+      if (existing?.reason === "application-owned" || existing?.reason === reason) return;
+      const recovery = Object.freeze({ session, entry, url, reason });
+      const retained = record.recoveries.filter((candidate) => candidate !== existing);
+      record = retained.length >= maximumRecoveries
+        ? Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true })
+        : Object.freeze({ version: 2, recoveries: Object.freeze([...retained, recovery]), overflowed: false });
+      persist();
+    },
+    recoveryReason(session, entry, url) {
+      if (!refresh()) return "overflow";
+      if (record.overflowed) return "overflow";
+      return record.recoveries.find((recovery) => recovery.session === session && recovery.entry === entry && recovery.url === url)?.reason;
+    },
+    clearRecovery(session, entry, url): void {
+      if (!refresh()) return;
+      if (record.overflowed) return;
+      const recoveries = record.recoveries.filter((recovery) => recovery.session !== session || recovery.entry !== entry || recovery.url !== url);
+      if (recoveries.length === record.recoveries.length) return;
+      record = Object.freeze({ version: 2, recoveries: Object.freeze(recoveries), overflowed: false });
+      persist();
+    },
+    consumeApplicationRecovery(session, entry, url): boolean {
+      if (!refresh()) return true;
+      if (record.overflowed) return true;
+      const exact = session === undefined || entry === undefined
+        ? undefined
+        : record.recoveries.find((recovery) => recovery.reason === "application-owned"
+          && recovery.session === session
+          && recovery.entry === entry
+          && recovery.url === url);
+      if (!exact) return session === undefined || entry === undefined
+        ? record.recoveries.some((recovery) => recovery.reason === "application-owned" && recovery.url === url)
+        : false;
+      const recoveries = record.recoveries.filter((recovery) => recovery !== exact);
+      if (recoveries.length === record.recoveries.length) return false;
+      record = Object.freeze({ version: 2, recoveries: Object.freeze(recoveries), overflowed: false });
+      persist();
+      return true;
+    },
+  });
+}
+
 function metadata(owner: Document): Metadata | undefined {
   const generation = owner.querySelectorAll(`meta[name="${generationMeta}"]`);
   const epoch = owner.querySelectorAll(`meta[name="${epochMeta}"]`);
@@ -77,8 +257,10 @@ function metadata(owner: Document): Metadata | undefined {
 export function privateSafeLinkDestination(anchor: HTMLAnchorElement): URL | undefined {
   if (!anchor.hasAttribute("href")
     || anchor.hasAttribute("download")
-    || !["", "_self"].includes(anchor.getAttribute("target")?.toLowerCase() ?? "")
-    || anchor.relList.contains("external")) return undefined;
+    || !privateTargetOwnsCurrentBrowsingContext(anchor.getAttribute("target"))
+    || anchor.hasAttribute("referrerpolicy")
+    || anchor.relList.contains("external")
+    || anchor.relList.contains("noreferrer")) return undefined;
   let destination: URL;
   try { destination = new URL(anchor.href, location.href); }
   catch { return undefined; }
@@ -96,6 +278,16 @@ export function privateSafeLinkDestination(anchor: HTMLAnchorElement): URL | und
   return destination;
 }
 
+function privateTargetOwnsCurrentBrowsingContext(target: string | null): boolean {
+  if (target === null || target === "") return true;
+  const keyword = target.toLowerCase();
+  if (keyword === "_self") return true;
+  if (keyword === "_parent") return globalThis.parent === globalThis.window;
+  if (keyword === "_top") return globalThis.top === globalThis.window;
+  if (keyword === "_blank") return false;
+  return target === globalThis.window.name;
+}
+
 function dirtyControl(control: Element): boolean {
   if (control instanceof HTMLInputElement) {
     if (["checkbox", "radio"].includes(control.type)) return control.checked !== control.defaultChecked;
@@ -109,8 +301,11 @@ function dirtyControl(control: Element): boolean {
   return false;
 }
 
-export function privateLinkPreservationSafe(initiator?: HTMLAnchorElement): boolean {
-  if (scrollX !== 0 || scrollY !== 0) return false;
+export function privateLinkPreservationSafe(
+  initiator?: HTMLAnchorElement,
+  options: Readonly<{ allowDocumentScroll?: boolean }> = {},
+): boolean {
+  if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
   if ([...document.querySelectorAll("input, textarea, select")].some(dirtyControl)) return false;
   if (document.querySelector("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])") !== null) return false;
   try { if (document.querySelector(":popover-open") !== null) return false; } catch { /* unsupported selector has no open popover state */ }
@@ -121,7 +316,9 @@ export function privateLinkPreservationSafe(initiator?: HTMLAnchorElement): bool
     && active === (document.querySelector("h1") ?? document.querySelector("main"))
     && active.getAttribute("data-fadeno-navigation-focus") === "";
   if (active && active !== document.body && active !== document.documentElement && active !== initiator && !runtimeFocus) return false;
+  const documentScroller = document.scrollingElement;
   for (const element of document.querySelectorAll("*")) {
+    if (options.allowDocumentScroll && element === documentScroller) continue;
     if (element.scrollTop !== 0 || element.scrollLeft !== 0) return false;
   }
   return true;
@@ -171,57 +368,625 @@ function replaceAttributes(target: Element, source: Element): void {
   for (const name of source.getAttributeNames()) target.setAttribute(name, source.getAttribute(name) ?? "");
 }
 
-function focusNewDocument(): void {
+function focusNewDocument(): HTMLElement {
   const target = document.querySelector<HTMLElement>("h1") ?? document.querySelector<HTMLElement>("main") ?? document.body;
   if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
   target.setAttribute("data-fadeno-navigation-focus", "");
   target.focus({ preventScroll: true });
+  return target;
 }
 
-function applyDocument(next: Document, url: string, replace: boolean): void {
-  const oldHead = document.head.cloneNode(true) as HTMLHeadElement;
-  const oldBody = document.body.cloneNode(true) as HTMLBodyElement;
+function createHistoryState(
+  x: number,
+  y: number,
+  elementScroll: boolean,
+  session: string,
+  entry = `history:${globalThis.crypto.randomUUID()}`,
+): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    [marker]: true,
+    version: historyStateVersion,
+    session,
+    entry,
+    scrollX: x,
+    scrollY: y,
+    elementScroll,
+  });
+}
+
+function privateHistoryState(value: unknown): PrivateHistoryState | undefined {
+  if (typeof value !== "object" || value === null
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([marker, "elementScroll", "entry", "scrollX", "scrollY", "session", "version"].sort())
+    || Reflect.get(value, marker) !== true
+    || Reflect.get(value, "version") !== historyStateVersion) return undefined;
+  const x = Reflect.get(value, "scrollX");
+  const y = Reflect.get(value, "scrollY");
+  const session = Reflect.get(value, "session");
+  const entry = Reflect.get(value, "entry");
+  const elementScroll = Reflect.get(value, "elementScroll");
+  if (typeof session !== "string" || !identityPattern.test(session) || new TextEncoder().encode(session).byteLength > 128
+    || typeof entry !== "string" || !identityPattern.test(entry) || new TextEncoder().encode(entry).byteLength > 128
+    || typeof x !== "number" || typeof y !== "number"
+    || !Number.isFinite(x) || !Number.isFinite(y)
+    || x < 0 || y < 0 || x > Number.MAX_SAFE_INTEGER || y > Number.MAX_SAFE_INTEGER
+    || typeof elementScroll !== "boolean") return undefined;
+  return Object.freeze({ version: 1, session, entry, scrollX: x, scrollY: y, elementScroll });
+}
+
+function samePrivateHistoryState(left: PrivateHistoryState, right: PrivateHistoryState): boolean {
+  return left.version === right.version
+    && left.session === right.session
+    && left.entry === right.entry
+    && left.scrollX === right.scrollX
+    && left.scrollY === right.scrollY
+    && left.elementScroll === right.elementScroll;
+}
+
+function applyDocument(
+  next: Document,
+  url: string,
+  replace: boolean,
+  historySession: string,
+  previousScrollRestoration: ScrollRestoration,
+  validateHistory: (state: PrivateHistoryState, url: string) => boolean,
+  writeHistory: Readonly<{
+    replace(state: Readonly<Record<string, unknown>>, url: string): void;
+    push(state: Readonly<Record<string, unknown>>, url: string): void;
+  }>,
+  oldFocusedNode: HTMLElement | undefined,
+): void {
+  const expectedMetadata = metadata(next);
+  if (!expectedMetadata) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
+  const oldHead = [...document.head.childNodes];
+  const oldBody = [...document.body.childNodes];
   const oldAttributes = document.documentElement.cloneNode(false) as HTMLElement;
+  const oldScroll = Object.freeze({ x: scrollX, y: scrollY });
+  const currentSelection = document.getSelection();
+  const oldSelection = currentSelection?.isCollapsed && currentSelection.rangeCount === 1
+    ? (() => {
+        const range = currentSelection.getRangeAt(0);
+        return Object.freeze({
+          startContainer: range.startContainer,
+          startOffset: range.startOffset,
+          endContainer: range.endContainer,
+          endOffset: range.endOffset,
+        });
+      })()
+    : undefined;
+  const restoreFocus = (): void => {
+    try {
+      if (oldFocusedNode?.isConnected && document.body.contains(oldFocusedNode)) oldFocusedNode.focus({ preventScroll: true });
+    } catch { /* native replacement recovery still owns focus */ }
+  };
+  const restoreSelection = (): void => {
+    if (!oldSelection) return;
+    try {
+      const selection = document.getSelection();
+      if (!selection
+        || !oldSelection.startContainer.isConnected
+        || !oldSelection.endContainer.isConnected) return;
+      const range = document.createRange();
+      range.setStart(oldSelection.startContainer, oldSelection.startOffset);
+      range.setEnd(oldSelection.endContainer, oldSelection.endOffset);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } catch { /* native replacement recovery still owns selection */ }
+  };
+  const selectedEntry = replace ? privateHistoryState(history.state)?.entry : undefined;
+  if (replace && !selectedEntry) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+  const state = createHistoryState(0, 0, false, historySession, selectedEntry);
+  const expectedState = privateHistoryState(state);
+  if (!expectedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+  let destinationSelected = false;
   try {
+    if (!replace) history.scrollRestoration = previousScrollRestoration;
+    if (replace) writeHistory.replace(state, url);
+    else writeHistory.push(state, url);
+    destinationSelected = true;
+    history.scrollRestoration = "manual";
     replaceAttributes(document.documentElement, next.documentElement);
     document.head.replaceChildren(...[...next.head.childNodes].map((node) => document.importNode(node, true)));
     document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
-    focusNewDocument();
-    const state = Object.freeze({ [marker]: true });
-    if (replace) history.replaceState(state, "", url);
-    else history.pushState(state, "", url);
+    const destinationFocus = focusNewDocument();
+    scrollTo({ left: 0, top: 0, behavior: "instant" });
+    const committedState = privateHistoryState(history.state);
+    const committedMetadata = metadata(document);
+    if (!committedState
+      || !samePrivateHistoryState(committedState, expectedState)
+      || !validateHistory(committedState, url)
+      || !committedMetadata
+      || committedMetadata.generation !== expectedMetadata.generation
+      || committedMetadata.epoch !== expectedMetadata.epoch
+      || document.activeElement !== destinationFocus
+      || history.scrollRestoration !== "manual"
+      || scrollX !== 0
+      || scrollY !== 0) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
   } catch (cause) {
-    replaceAttributes(document.documentElement, oldAttributes);
-    document.head.replaceChildren(...[...oldHead.childNodes].map((node) => document.importNode(node, true)));
-    document.body.replaceChildren(...[...oldBody.childNodes].map((node) => document.importNode(node, true)));
-    throw cause;
+    try {
+      try { history.scrollRestoration = "manual"; } catch { /* native fallback will restore ownership */ }
+      replaceAttributes(document.documentElement, oldAttributes);
+      document.head.replaceChildren(...oldHead);
+      document.body.replaceChildren(...oldBody);
+      restoreFocus();
+      restoreSelection();
+      scrollTo({ left: oldScroll.x, top: oldScroll.y, behavior: "instant" });
+    } catch { /* native replacement recovery owns any incomplete local rollback */ }
+    throw new PrivateDocumentCommitFailure(destinationSelected, restoreFocus, cause);
   }
 }
 
-function markedHistoryState(value: unknown): boolean {
-  return typeof value === "object" && value !== null && Reflect.get(value, marker) === true;
-}
-
 export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefined {
+  if (document.readyState === "loading") {
+    let closed = false;
+    let activated = false;
+    let activeNavigation: PrivateBrowserNavigation | undefined;
+    const activate = (): void => {
+      if (closed || activated) return;
+      activated = true;
+      document.removeEventListener("DOMContentLoaded", activate);
+      globalThis.removeEventListener("pageshow", activate);
+      activeNavigation = startPrivateLinkNavigation();
+    };
+    document.addEventListener("DOMContentLoaded", activate, { once: true });
+    globalThis.addEventListener("pageshow", activate, { once: true });
+    return Object.freeze({
+      state: () => activeNavigation?.state() ?? (closed ? "closed" : "active"),
+      close(): void {
+        if (closed) return;
+        closed = true;
+        document.removeEventListener("DOMContentLoaded", activate);
+        globalThis.removeEventListener("pageshow", activate);
+        activeNavigation?.close();
+      },
+    });
+  }
+  const currentUrl = new URL(location.href);
+  const trustworthyLoopback = currentUrl.protocol === "http:"
+    && new Set(["127.0.0.1", "localhost", "[::1]"]).has(currentUrl.hostname);
+  if (!(currentUrl.protocol === "https:" || trustworthyLoopback)
+    || typeof globalThis.crypto?.randomUUID !== "function") return undefined;
   let currentMetadata = metadata(document);
-  if (!currentMetadata || history.state !== null) return undefined;
+  const existingHistoryState = history.state;
+  const existingPrivateState = existingHistoryState === null
+    ? undefined
+    : privateHistoryState(existingHistoryState);
+  if (!currentMetadata || (existingHistoryState !== null && !existingPrivateState)) return undefined;
+  const firstStartupForDocument = !startedDocuments.has(document);
   let active: ActiveOperation | undefined;
   let sequence = 0;
   let closed = false;
+  let closing = false;
+  let committing = false;
+  let traversing = false;
+  let traversalSequence = 0;
+  let pendingElementScroll = false;
+  let historyWriteFailed = false;
   const consumedResultIds: string[] = [];
-  history.replaceState(Object.freeze({ [marker]: true }), "", location.href);
+  const previousScrollRestoration = history.scrollRestoration;
+  const historySession = `session:${globalThis.crypto.randomUUID()}`;
+  const unsafeTraversalPersistence = createPrivateUnsafeTraversalPersistence();
+  const documentLifetime = performance.timeOrigin;
+  if (applicationRecoveryDocuments.get(document) === documentLifetime) return undefined;
+  if (firstStartupForDocument && unsafeTraversalPersistence.consumeApplicationRecovery(
+    existingPrivateState?.session,
+    existingPrivateState?.entry,
+    location.href,
+  )) {
+    applicationRecoveryDocuments.set(document, documentLifetime);
+    return undefined;
+  }
+  const existingRecovery = existingPrivateState
+    ? unsafeTraversalPersistence.recoveryReason(existingPrivateState.session, existingPrivateState.entry, location.href)
+    : undefined;
+  if (existingRecovery === "application-owned" || existingRecovery === "overflow") return undefined;
+  const ownedHistoryEntries = new Map<string, Readonly<{ state: PrivateHistoryState; url: string; raw: unknown }>>();
+  const applicationOwnedHistoryEntries = new Set<string>();
+  let historyOwnershipOverflowed = false;
+  let internalHistoryWrite = false;
+  let historyPushSequence = 0;
+  let knownHistoryLength = history.length;
+  const originalReplaceState = history.replaceState;
+  const originalPushState = history.pushState;
+  const originalPrototypeReplaceState = History.prototype.replaceState;
+  const originalPrototypePushState = History.prototype.pushState;
+  const originalReplaceStateDescriptor = Object.getOwnPropertyDescriptor(history, "replaceState");
+  const originalPushStateDescriptor = Object.getOwnPropertyDescriptor(history, "pushState");
+  const originalPrototypeReplaceStateDescriptor = Object.getOwnPropertyDescriptor(History.prototype, "replaceState");
+  const originalPrototypePushStateDescriptor = Object.getOwnPropertyDescriptor(History.prototype, "pushState");
+  const applicationHistoryKey = (session: string, entry: string, url: string): string => `${session}\0${entry}\0${url}`;
+  const retainApplicationHistoryMutation = (): void => {
+    if (internalHistoryWrite || closed) return;
+    const state = privateHistoryState(history.state);
+    if (!state) return;
+    if (applicationOwnedHistoryEntries.size >= 256) {
+      applicationOwnedHistoryEntries.clear();
+      historyOwnershipOverflowed = true;
+    } else {
+      applicationOwnedHistoryEntries.add(applicationHistoryKey(state.session, state.entry, location.href));
+    }
+    unsafeTraversalPersistence.requireRecovery(state.session, state.entry, location.href, "application-owned");
+  };
+  const runtimeReplaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
+    originalReplaceState.call(history, data, unused, url);
+    knownHistoryLength = history.length;
+    retainApplicationHistoryMutation();
+  };
+  const runtimePushState = (data: unknown, unused: string, url?: string | URL | null): void => {
+    originalPushState.call(history, data, unused, url);
+    knownHistoryLength = history.length;
+    historyPushSequence += 1;
+    retainApplicationHistoryMutation();
+  };
+  const runtimePrototypeReplaceState = function replaceState(
+    this: History,
+    data: unknown,
+    unused: string,
+    url?: string | URL | null,
+  ): void {
+    originalPrototypeReplaceState.call(this, data, unused, url);
+    if (this !== history) return;
+    knownHistoryLength = history.length;
+    retainApplicationHistoryMutation();
+  };
+  const runtimePrototypePushState = function pushState(
+    this: History,
+    data: unknown,
+    unused: string,
+    url?: string | URL | null,
+  ): void {
+    originalPrototypePushState.call(this, data, unused, url);
+    if (this !== history) return;
+    knownHistoryLength = history.length;
+    historyPushSequence += 1;
+    retainApplicationHistoryMutation();
+  };
+  const installHistoryMethod = (
+    owner: object,
+    name: "replaceState" | "pushState",
+    value: History["replaceState"] | History["pushState"],
+    descriptor: PropertyDescriptor | undefined,
+  ): void => {
+    if (descriptor && (!("value" in descriptor) || descriptor.writable !== true)) {
+      throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    }
+    Object.defineProperty(owner, name, descriptor
+      ? { ...descriptor, value }
+      : { configurable: true, enumerable: false, writable: true, value });
+  };
+  const restoreHistoryMethod = (
+    owner: object,
+    name: "replaceState" | "pushState",
+    installed: History["replaceState"] | History["pushState"],
+    descriptor: PropertyDescriptor | undefined,
+  ): void => {
+    if (Reflect.get(owner, name) !== installed) return;
+    if (descriptor) Object.defineProperty(owner, name, descriptor);
+    else if (!Reflect.deleteProperty(owner, name)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+  };
+  let historyMethodsInstalled = false;
+  const releaseHistoryMethods = (): void => {
+    try { restoreHistoryMethod(history, "replaceState", runtimeReplaceState, originalReplaceStateDescriptor); } catch { /* native method remains authoritative */ }
+    try { restoreHistoryMethod(history, "pushState", runtimePushState, originalPushStateDescriptor); } catch { /* native method remains authoritative */ }
+    try { restoreHistoryMethod(History.prototype, "replaceState", runtimePrototypeReplaceState, originalPrototypeReplaceStateDescriptor); } catch { /* native method remains authoritative */ }
+    try { restoreHistoryMethod(History.prototype, "pushState", runtimePrototypePushState, originalPrototypePushStateDescriptor); } catch { /* native method remains authoritative */ }
+    historyMethodsInstalled = false;
+  };
+  const acquireHistoryMethods = (): void => {
+    installHistoryMethod(History.prototype, "replaceState", runtimePrototypeReplaceState, originalPrototypeReplaceStateDescriptor);
+    installHistoryMethod(History.prototype, "pushState", runtimePrototypePushState, originalPrototypePushStateDescriptor);
+    installHistoryMethod(history, "replaceState", runtimeReplaceState, originalReplaceStateDescriptor);
+    installHistoryMethod(history, "pushState", runtimePushState, originalPushStateDescriptor);
+    if (history.replaceState !== runtimeReplaceState || history.pushState !== runtimePushState
+      || History.prototype.replaceState !== runtimePrototypeReplaceState
+      || History.prototype.pushState !== runtimePrototypePushState) {
+      throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    }
+    historyMethodsInstalled = true;
+  };
+  try {
+    acquireHistoryMethods();
+  } catch {
+    releaseHistoryMethods();
+    return undefined;
+  }
+  const writeHistory = Object.freeze({
+    replace(state: Readonly<Record<string, unknown>>, url: string): void {
+      internalHistoryWrite = true;
+      try {
+        history.replaceState(state, "", url);
+        knownHistoryLength = history.length;
+      }
+      finally { internalHistoryWrite = false; }
+    },
+    push(state: Readonly<Record<string, unknown>>, url: string): void {
+      internalHistoryWrite = true;
+      try {
+        history.pushState(state, "", url);
+        knownHistoryLength = history.length;
+      }
+      finally { internalHistoryWrite = false; }
+    },
+  });
+  const rememberHistoryState = (state: PrivateHistoryState, url: string): void => {
+    if (historyOwnershipOverflowed) return;
+    if (!ownedHistoryEntries.has(state.entry) && ownedHistoryEntries.size >= 256) {
+      ownedHistoryEntries.clear();
+      historyOwnershipOverflowed = true;
+      return;
+    }
+    ownedHistoryEntries.set(state.entry, Object.freeze({ state, url, raw: history.state }));
+  };
+  const ownsHistoryState = (state: PrivateHistoryState | undefined, url: string, refreshTraversalIdentity = false): boolean => {
+    if (!state || historyOwnershipOverflowed || history.length !== knownHistoryLength || !historyMethodsInstalled
+      || history.replaceState !== runtimeReplaceState || history.pushState !== runtimePushState
+      || History.prototype.replaceState !== runtimePrototypeReplaceState
+      || History.prototype.pushState !== runtimePrototypePushState) return false;
+    const owned = ownedHistoryEntries.get(state.entry);
+    const fieldsOwned = !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url))
+      && owned?.url === url
+      && samePrivateHistoryState(owned.state, state);
+    if (!fieldsOwned) return false;
+    if (owned.raw === history.state) return true;
+    if (!refreshTraversalIdentity) return false;
+    ownedHistoryEntries.set(state.entry, Object.freeze({ state, url, raw: history.state }));
+    return true;
+  };
+  const restoreScrollRestoration = (): void => {
+    try { history.scrollRestoration = previousScrollRestoration; } catch { /* native owner remains authoritative */ }
+  };
+  try {
+    history.scrollRestoration = "manual";
+    if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    const liveElementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
+      && (element.scrollTop !== 0 || element.scrollLeft !== 0));
+    const elementScroll = !firstStartupForDocument && existingPrivateState?.elementScroll === true
+      ? true
+      : liveElementScroll;
+    const recoveredX = !firstStartupForDocument && existingPrivateState && existingPrivateState.scrollX !== 0
+      ? existingPrivateState.scrollX
+      : scrollX;
+    const recoveredY = !firstStartupForDocument && existingPrivateState && existingPrivateState.scrollY !== 0
+      ? existingPrivateState.scrollY
+      : scrollY;
+    writeHistory.replace(createHistoryState(recoveredX, recoveredY, elementScroll, historySession), location.href);
+    const acquiredState = privateHistoryState(history.state);
+    if (!acquiredState || acquiredState.session !== historySession) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    rememberHistoryState(acquiredState, location.href);
+    if (existingPrivateState && existingRecovery === "unsafe-scroll") {
+      if (!firstStartupForDocument) {
+        unsafeTraversalPersistence.requireRecovery(acquiredState.session, acquiredState.entry, location.href, "unsafe-scroll");
+      }
+      unsafeTraversalPersistence.clearRecovery(existingPrivateState.session, existingPrivateState.entry, location.href);
+    }
+  } catch {
+    try { History.prototype.replaceState.call(history, existingHistoryState, "", currentUrl.href); } catch { /* startup remains refused */ }
+    releaseHistoryMethods();
+    restoreScrollRestoration();
+    return undefined;
+  }
+  startedDocuments.add(document);
+  let displayedHistoryEntry = privateHistoryState(history.state)?.entry;
+  let selectedHistoryEntry = displayedHistoryEntry;
+  let displayedTruthUrl = location.href;
+  let selectedPushRecovery: Readonly<{
+    destination: URL;
+    truthUrl: string;
+    restoreFocus: (() => void) | undefined;
+    stageDestination: boolean;
+  }> | undefined;
+  const unsafeHistoryEntries = createPrivateUnsafeHistoryEntryTracker();
 
-  const fallback = (destination: URL, replace: boolean): void => {
+  const markHistoryUnsafe = (entry: string | undefined): void => {
+    if (!entry) return;
+    unsafeHistoryEntries.mark(entry);
+  };
+  const liveElementScroll = (): boolean => [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
+    && (element.scrollTop !== 0 || element.scrollLeft !== 0));
+
+  const requestsUnloadConfirmation = (event: BeforeUnloadEvent): boolean => {
+    const returnValue = Reflect.get(event, "returnValue") as unknown;
+    return event.defaultPrevented
+      || (typeof returnValue === "string" && returnValue !== "")
+      || returnValue === false;
+  };
+  const observeCancelledDeparture = (guard: () => boolean, repair: () => void): void => {
+    let departureCommitted = false;
+    const pageHidden = (): void => { departureCommitted = true; };
+    const beforeUnload = (event: BeforeUnloadEvent): void => {
+      if (!requestsUnloadConfirmation(event)) return;
+      setTimeout(() => {
+        globalThis.removeEventListener("pagehide", pageHidden);
+        if (!closed && !departureCommitted && guard()) repair();
+      }, 0);
+    };
+    globalThis.addEventListener("pagehide", pageHidden, { once: true });
+    globalThis.addEventListener("beforeunload", beforeUnload, { once: true });
+  };
+  const repairDisplayedTruth = (
+    truthUrl: string,
+    code: string,
+    decision: string,
+  ): void => {
+    const displayedOwnedState = displayedHistoryEntry === undefined
+      ? undefined
+      : ownedHistoryEntries.get(displayedHistoryEntry)?.state;
+    const retainedUnsafeScroll = displayedHistoryEntry !== undefined
+      && (unsafeHistoryEntries.requiresReload(displayedHistoryEntry)
+        || unsafeTraversalPersistence.recoveryReason(historySession, displayedHistoryEntry, displayedTruthUrl) === "unsafe-scroll"
+        || displayedOwnedState?.scrollX !== 0
+        || displayedOwnedState?.scrollY !== 0
+        || displayedOwnedState?.elementScroll === true);
+    const elementScroll = liveElementScroll();
+    try {
+      const repairedState = createHistoryState(scrollX, scrollY, elementScroll, historySession);
+      const repairedPrivateState = privateHistoryState(repairedState);
+      if (!repairedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      writeHistory.replace(repairedState, truthUrl);
+      history.scrollRestoration = "manual";
+      if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      rememberHistoryState(repairedPrivateState, truthUrl);
+      displayedHistoryEntry = repairedPrivateState.entry;
+      selectedHistoryEntry = repairedPrivateState.entry;
+      displayedTruthUrl = truthUrl;
+      if (retainedUnsafeScroll || scrollX !== 0 || scrollY !== 0 || elementScroll) {
+        markHistoryUnsafe(repairedPrivateState.entry);
+        unsafeTraversalPersistence.requireRecovery(historySession, repairedPrivateState.entry, truthUrl, "unsafe-scroll");
+      }
+      recordFlow({
+        status: "refused",
+        code,
+        decisions: Object.freeze([decision, "selected history repaired to displayed document truth"]),
+        ownership: Object.freeze({ browser: Object.freeze(["history", "document", "scroll"]), server: Object.freeze([]) }),
+        skipped: Object.freeze(["selected destination commit"]),
+        outcome: "none",
+      });
+    } catch {
+      historyWriteFailed = true;
+      restoreScrollRestoration();
+    }
+  };
+  let recoveringTraversal: number | undefined;
+  const recoverSelectedTraversal = (traversal: number, delay = 0): void => {
+    active?.cancellation.abort(new DOMException("History traversal requires native recovery", "AbortError"));
+    recoveringTraversal = traversal;
+    const beginRecovery = (): void => {
+      if (closed || traversal !== traversalSequence || recoveringTraversal !== traversal) return;
+      restoreScrollRestoration();
+      const truthUrl = displayedTruthUrl;
+      observeCancelledDeparture(
+        () => traversal === traversalSequence && recoveringTraversal === traversal && displayedTruthUrl === truthUrl,
+        () => {
+          traversalSequence += 1;
+          traversing = false;
+          recoveringTraversal = undefined;
+          repairDisplayedTruth(
+            truthUrl,
+            "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED",
+            "native traversal reload was cancelled",
+          );
+        },
+      );
+      location.replace(location.href);
+    };
+    if (delay === 0) beginRecovery();
+    else setTimeout(beginRecovery, delay);
+  };
+
+  const flushCurrentScroll = (force: boolean): boolean => {
+    if (closed || traversing || historyWriteFailed) return false;
+    const state = privateHistoryState(history.state);
+    if (!state || !ownsHistoryState(state, location.href)) return false;
+    if (state.elementScroll) {
+      pendingElementScroll = false;
+      return false;
+    }
+    const elementScroll = pendingElementScroll;
+    if (state.scrollX !== 0 || state.scrollY !== 0) {
+      if (!elementScroll) return true;
+    }
+    if (!force) {
+      if (scrollX === 0 && scrollY === 0 && !elementScroll) return true;
+    }
+    try {
+      writeHistory.replace(
+        createHistoryState(scrollX, scrollY, elementScroll, historySession, state.entry),
+        location.href,
+      );
+      const writtenState = privateHistoryState(history.state);
+      if (!writtenState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      rememberHistoryState(writtenState, location.href);
+      selectedHistoryEntry = writtenState.entry;
+      pendingElementScroll = false;
+      return true;
+    } catch {
+      historyWriteFailed = true;
+      return false;
+    }
+  };
+
+  const recordCurrentScroll = (event: Event): void => {
+    if (closed) return;
+    const target = event?.target;
+    const elementOwnsScroll = target instanceof Element
+      && target !== document.scrollingElement
+      && (target.scrollTop !== 0 || target.scrollLeft !== 0);
+    if (traversing) {
+      if (scrollX !== 0 || scrollY !== 0 || elementOwnsScroll) {
+        markHistoryUnsafe(displayedHistoryEntry);
+        if (displayedHistoryEntry) unsafeTraversalPersistence.requireRecovery(historySession, displayedHistoryEntry, displayedTruthUrl, "unsafe-scroll");
+        if (active) recoverSelectedTraversal(traversalSequence, pendingTraversalRecoveryDelayMs);
+      }
+      return;
+    }
+    pendingElementScroll ||= elementOwnsScroll;
+    if (scrollX !== 0 || scrollY !== 0 || elementOwnsScroll) markHistoryUnsafe(displayedHistoryEntry);
+    void flushCurrentScroll(false);
+  };
+
+  const fallback = (
+    destination: URL,
+    replace: boolean,
+    repairSelectedCommit = false,
+    restoreFocus?: () => void,
+  ): void => {
+    restoreScrollRestoration();
+    const truthUrl = displayedTruthUrl;
+    const selectedUrl = location.href;
+    observeCancelledDeparture(
+      () => displayedTruthUrl === truthUrl && location.href === selectedUrl,
+      () => {
+        if (repairSelectedCommit) {
+          traversalSequence += 1;
+          traversing = false;
+          recoveringTraversal = undefined;
+        }
+        repairDisplayedTruth(
+          truthUrl,
+          "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+          repairSelectedCommit
+            ? "native post-selection recovery was cancelled"
+            : "native fallback was cancelled",
+        );
+        restoreFocus?.();
+      },
+    );
     if (replace) location.replace(destination.href);
     else location.assign(destination.href);
   };
 
-  const navigate = async (destination: URL, replace: boolean, initiator?: HTMLAnchorElement): Promise<void> => {
-    if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator)) {
+  const recoverSelectedPush = (
+    destination: URL,
+    selectedPushCount: number,
+    restoreFocus?: () => void,
+    stageDestination = true,
+  ): void => {
+    restoreScrollRestoration();
+    selectedPushRecovery = Object.freeze({ destination, truthUrl: displayedTruthUrl, restoreFocus, stageDestination });
+    history.go(-selectedPushCount);
+  };
+
+  const supersedePendingWorkForNativeActivation = (code: string, decision: string): boolean => {
+    if (!traversing && !active) return false;
+    active?.cancellation.abort(new DOMException("Native activation superseded pending work", "AbortError"));
+    if (!traversing) return true;
+    traversalSequence += 1;
+    traversing = false;
+    recoveringTraversal = undefined;
+    repairDisplayedTruth(displayedTruthUrl, code, decision);
+    return true;
+  };
+
+  const navigate = async (
+    destination: URL,
+    replace: boolean,
+    initiator?: HTMLAnchorElement,
+    selectedHistoryState?: PrivateHistoryState,
+  ): Promise<void> => {
+    active?.cancellation.abort(new DOMException("Navigation superseded", "AbortError"));
+    if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) {
       fallback(destination, replace);
       return;
     }
-    active?.cancellation.abort(new DOMException("Navigation superseded", "AbortError"));
     sequence += 1;
     const operation: ActiveOperation = Object.freeze({
       id: `nav:${globalThis.crypto.randomUUID()}`,
@@ -233,6 +998,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       cancellation: new AbortController(),
     });
     active = operation;
+    let destinationSelected = false;
+    let historyPushesBeforeCommit = historyPushSequence;
     try {
       const response = await fetch(destination.href, {
         method: "GET",
@@ -264,7 +1031,16 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (active !== operation || operation.cancellation.signal.aborted || admission.decision.status !== "accepted" || !admission.outcome || !admission.resultId) {
         throw new TypeError(admission.decision.code);
       }
-      if (!privateLinkPreservationSafe(initiator)) throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      if (!privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      if (selectedHistoryState) {
+        const currentHistoryState = privateHistoryState(history.state);
+        if (location.href !== operation.currentTruthUrl
+          || !currentHistoryState
+          || !samePrivateHistoryState(currentHistoryState, selectedHistoryState)
+          || !ownsHistoryState(currentHistoryState, operation.currentTruthUrl)) {
+          throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+        }
+      }
       if (admission.outcome.kind === "redirect") {
         const redirect = new URL(admission.outcome.location, location.origin);
         fallback(redirect, replace);
@@ -276,7 +1052,45 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
-      applyDocument(next, operation.destination.href, replace);
+      if (!initiator && selectedHistoryState) {
+        if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || liveElementScroll()) {
+          markHistoryUnsafe(displayedHistoryEntry);
+          if (displayedHistoryEntry) unsafeTraversalPersistence.requireRecovery(historySession, displayedHistoryEntry, displayedTruthUrl, "unsafe-scroll");
+          throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+        }
+      } else if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      const operationFocusedNode = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+      historyPushesBeforeCommit = historyPushSequence;
+      committing = true;
+      try {
+        applyDocument(
+          next,
+          operation.destination.href,
+          replace,
+          historySession,
+          previousScrollRestoration,
+          (state, url) => !closed
+            && !closing
+            && active === operation
+            && !operation.cancellation.signal.aborted
+            && location.href === url
+            && !historyOwnershipOverflowed
+            && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
+          writeHistory,
+          operationFocusedNode,
+        );
+      } finally {
+        committing = false;
+      }
+      destinationSelected = true;
+      const committedState = privateHistoryState(history.state);
+      if (!committedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      rememberHistoryState(committedState, location.href);
+      displayedHistoryEntry = committedState.entry;
+      selectedHistoryEntry = committedState.entry;
+      displayedTruthUrl = location.href;
       consumedResultIds.push(admission.resultId);
       if (consumedResultIds.length > 256) consumedResultIds.shift();
       currentMetadata = metadata(document);
@@ -289,15 +1103,16 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           "exact native server response was projected once",
           "current generation, epoch, operation, URL, cache, and result were admitted",
           "document, title, URL, history, and focus committed",
+          "destination scroll committed at the native top boundary without transition work",
         ]),
         ownership: Object.freeze({
-          browser: Object.freeze(["activation", "operation", "history", "focus"]),
+          browser: Object.freeze(["activation", "operation", "history", "focus", "scroll"]),
           server: Object.freeze(["authorization", "route", "resources", "rendered outcome"]),
         }),
-        skipped: Object.freeze(["form interception", "general state reconciliation", "transported script execution"]),
+        skipped: Object.freeze(["form interception", "general state reconciliation", "transported script execution", "animation"]),
         outcome: "enhanced-document",
       });
-    } catch {
+    } catch (cause) {
       if (active === operation && !operation.cancellation.signal.aborted) {
         recordFlow({
           status: "refused",
@@ -310,7 +1125,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           skipped: Object.freeze(["document commit"]),
           outcome: "native-navigation",
         });
-        fallback(destination, replace);
+        const documentCommitFailure = cause instanceof PrivateDocumentCommitFailure ? cause : undefined;
+        const selectedCommitFailure = destinationSelected || documentCommitFailure?.destinationSelected === true;
+        const selectedPushCount = historyPushSequence - historyPushesBeforeCommit;
+        if (selectedCommitFailure && selectedPushCount > 0) {
+          recoverSelectedPush(destination, selectedPushCount, documentCommitFailure?.restoreFocus, !replace);
+        } else {
+          fallback(destination, replace || selectedCommitFailure, selectedCommitFailure, documentCommitFailure?.restoreFocus);
+        }
       } else if (operation.cancellation.signal.aborted) {
         recordFlow({
           status: "cancelled",
@@ -334,24 +1156,190 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (!(target instanceof HTMLAnchorElement)) return;
+    const sameContext = !target.hasAttribute("download")
+      && privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"));
+    if (sameContext && traversing && supersedePendingWorkForNativeActivation(
+        "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
+        "native same-context click superseded a traversal",
+      )) return;
     const destination = privateSafeLinkDestination(target);
-    if (!destination || !currentMetadata || !privateLinkPreservationSafe(target)) return;
+    if (!destination || !currentMetadata || !privateLinkPreservationSafe(target, { allowDocumentScroll: true })) {
+      if (sameContext) supersedePendingWorkForNativeActivation(
+        "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
+        "native same-context click superseded pending work",
+      );
+      return;
+    }
+    const stateBeforeFlush = privateHistoryState(history.state);
+    if (!stateBeforeFlush || !ownsHistoryState(stateBeforeFlush, location.href) || stateBeforeFlush.elementScroll
+      || !flushCurrentScroll(true)) {
+      if (sameContext) supersedePendingWorkForNativeActivation(
+        "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
+        "native same-context click superseded pending work",
+      );
+      return;
+    }
+    const state = privateHistoryState(history.state);
+    if (!state || !ownsHistoryState(state, location.href) || state.elementScroll) {
+      if (sameContext) supersedePendingWorkForNativeActivation(
+        "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
+        "native same-context click superseded pending work",
+      );
+      return;
+    }
     event.preventDefault();
-    void navigate(destination, false, target);
+    void navigate(destination, false, target, state);
+  };
+  const submit = (event: SubmitEvent): void => {
+    if (closed || event.defaultPrevented || !event.isTrusted || !(event.target instanceof HTMLFormElement)) return;
+    if (event.target.method.toLowerCase() === "dialog") return;
+    const submitterTarget = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formtarget") : null;
+    if (!privateTargetOwnsCurrentBrowsingContext(submitterTarget ?? event.target.getAttribute("target"))) return;
+    supersedePendingWorkForNativeActivation(
+      "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
+      "native same-context form submission superseded a traversal",
+    );
   };
   const popstate = (): void => {
-    if (!markedHistoryState(history.state)) return;
-    void navigate(new URL(location.href), true);
+    if (selectedPushRecovery) {
+      const recovery = selectedPushRecovery;
+      selectedPushRecovery = undefined;
+      traversalSequence += 1;
+      traversing = false;
+      recoveringTraversal = undefined;
+      const rollbackUrl = location.href;
+      restoreScrollRestoration();
+      setTimeout(() => {
+        if (closed || location.href !== rollbackUrl) return;
+        try {
+          if (recovery.stageDestination) {
+            const stagedState = createHistoryState(scrollX, scrollY, false, historySession);
+            const stagedPrivateState = privateHistoryState(stagedState);
+            if (!stagedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+            writeHistory.push(stagedState, recovery.destination.href);
+            rememberHistoryState(stagedPrivateState, recovery.destination.href);
+          }
+          observeCancelledDeparture(
+            () => location.href === recovery.destination.href,
+            () => {
+              repairDisplayedTruth(
+                recovery.truthUrl,
+                "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+                "native post-selection recovery was cancelled",
+              );
+              recovery.restoreFocus?.();
+            },
+          );
+          location.replace(recovery.destination.href);
+        } catch {
+          fallback(recovery.destination, false);
+        }
+      }, 0);
+      return;
+    }
+    const outgoingElementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
+      && (element.scrollTop !== 0 || element.scrollLeft !== 0));
+    if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || outgoingElementScroll) {
+      markHistoryUnsafe(displayedHistoryEntry);
+      if (displayedHistoryEntry) unsafeTraversalPersistence.requireRecovery(historySession, displayedHistoryEntry, displayedTruthUrl, "unsafe-scroll");
+    }
+    pendingElementScroll = false;
+    traversalSequence += 1;
+    const traversal = traversalSequence;
+    const state = privateHistoryState(history.state);
+    const repeatedSelection = state?.entry === selectedHistoryEntry;
+    selectedHistoryEntry = state?.entry;
+    traversing = true;
+    if (!state || repeatedSelection || !ownsHistoryState(state, location.href, true) || state.session !== historySession
+      || unsafeTraversalPersistence.recoveryReason(state.session, state.entry, location.href) !== undefined || unsafeHistoryEntries.requiresReload(state.entry)
+      || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
+      recoverSelectedTraversal(traversal);
+      return;
+    }
+    void navigate(new URL(location.href), true, undefined, state).finally(() => {
+      if (traversal === traversalSequence && recoveringTraversal !== traversal) traversing = false;
+    });
+  };
+  const finishClose = (): void => {
+    if (closed) return;
+    closed = true;
+    closing = false;
+    document.removeEventListener("click", click);
+    document.removeEventListener("submit", submit);
+    document.removeEventListener("scroll", recordCurrentScroll, true);
+    releaseHistoryMethods();
+    globalThis.removeEventListener("popstate", popstate);
+    globalThis.removeEventListener("pagehide", pagehide);
+    globalThis.removeEventListener("pageshow", pageshow);
+    restoreScrollRestoration();
+  };
+  const pagehide = (event: PageTransitionEvent): void => {
+    if (closing || !event.persisted) finishClose();
+    else {
+      releaseHistoryMethods();
+      restoreScrollRestoration();
+    }
+  };
+  const pageshow = (event: PageTransitionEvent): void => {
+    if (!closed && event.persisted) {
+      try {
+        acquireHistoryMethods();
+        if (!unsafeTraversalPersistence.refresh()) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+        history.scrollRestoration = "manual";
+        if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      }
+      catch {
+        historyWriteFailed = true;
+        finishClose();
+      }
+    }
   };
   document.addEventListener("click", click);
+  document.addEventListener("submit", submit);
+  document.addEventListener("scroll", recordCurrentScroll, true);
   globalThis.addEventListener("popstate", popstate);
+  globalThis.addEventListener("pagehide", pagehide);
+  globalThis.addEventListener("pageshow", pageshow);
   return Object.freeze({
+    state: () => closed ? "closed" : closing ? "closing" : "active",
     close() {
-      if (closed) return;
-      closed = true;
+      if (closed || closing) return;
+      if (!traversing && !committing) {
+        active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
+        finishClose();
+        return;
+      }
+      closing = true;
       active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
       document.removeEventListener("click", click);
-      globalThis.removeEventListener("popstate", popstate);
+      document.removeEventListener("submit", submit);
+      document.removeEventListener("scroll", recordCurrentScroll, true);
+      const truthUrl = displayedTruthUrl;
+      const selectedUrl = location.href;
+      observeCancelledDeparture(
+        () => closing && displayedTruthUrl === truthUrl && location.href === selectedUrl,
+        () => {
+          traversalSequence += 1;
+          traversing = false;
+          recoveringTraversal = undefined;
+          repairDisplayedTruth(
+            truthUrl,
+            "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
+            "native close recovery was cancelled",
+          );
+          finishClose();
+        },
+      );
+      restoreScrollRestoration();
+      try { location.reload(); }
+      catch {
+        repairDisplayedTruth(
+          truthUrl,
+          "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
+          "native close recovery could not start",
+        );
+        finishClose();
+      }
     },
   });
 }

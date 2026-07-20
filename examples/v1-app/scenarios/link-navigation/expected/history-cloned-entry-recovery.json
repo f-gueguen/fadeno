@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-cloned-entry-recovery",
+  "version": 1,
+  "duplicateIdentityRefused": true,
+  "clonedDestinationRefused": true,
+  "staleDocumentRemoved": true
+}

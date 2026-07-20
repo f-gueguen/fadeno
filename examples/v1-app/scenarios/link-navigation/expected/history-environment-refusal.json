@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-environment-refusal",
+  "version": 1,
+  "nativeNavigation": true,
+  "historyUnclaimed": true,
+  "uncaughtErrors": 0
+}

@@ -168,8 +168,17 @@ async function summarize<Value>(
   });
 }
 
-const manifestBytes = readFileSync(join(exampleRoot, ".fadeno/routes/manifest.json"), "utf8");
 const configSource = readFileSync(join(exampleRoot, "fadeno.config.ts"), "utf8");
+const manifestSeedRoot = mkdtempSync(join(tmpdir(), "fadeno-a0-route-manifest-seed-"));
+let manifestBytes: string;
+try {
+  const routeRoot = join(manifestSeedRoot, "src/routes");
+  mkdirSync(routeRoot, { recursive: true });
+  writeFileSync(join(routeRoot, "page.tsx"), "export default function page(): null { return null; }\n");
+  manifestBytes = createRouteArtifactPlan(manifestSeedRoot, { routes: { root: "src/routes" } }).files["manifest.json"];
+} finally {
+  rmSync(manifestSeedRoot, { recursive: true, force: true });
+}
 
 const surfaces: A0DecoderFuzzSurface[] = [];
 

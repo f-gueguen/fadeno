@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-startup-state-rekey",
+  "version": 1,
+  "startupStateRekeyed": true,
+  "restoration": "manual",
+  "enhancementUsesRekeyedOwner": true
+}

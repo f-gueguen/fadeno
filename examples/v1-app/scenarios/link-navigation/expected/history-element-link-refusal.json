@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.history-element-link-refusal",
+  "version": 1,
+  "elementOwnershipRetained": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true,
+  "independentBodyTracked": true,
+  "independentBodyNativeDeparture": true
+}

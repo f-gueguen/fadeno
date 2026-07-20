@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-delayed-recovery-supersession",
+  "version": 1,
+  "nativeClickWon": true,
+  "obsoleteRecoverySuppressed": true
+}

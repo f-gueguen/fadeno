@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-close-pending-navigation",
+  "version": 1,
+  "closedState": "closed",
+  "pendingCommitSuppressed": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkippedAfterClose": true
+}

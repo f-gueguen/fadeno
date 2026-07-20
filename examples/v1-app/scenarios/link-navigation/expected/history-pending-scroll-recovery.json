@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-pending-scroll-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "persistentRecovery": true,
+  "staleDocumentRemoved": true
+}

@@ -7,10 +7,11 @@ const root = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: join(root, "tests"),
+  fullyParallel: true,
   globalTeardown: join(root, "teardown.ts"),
   outputDir: join(root, "../../output/playwright/v2-link-navigation"),
   reporter: "line",
-  workers: 1,
+  workers: 2,
   timeout: 30_000,
   use: { trace: "retain-on-failure" },
   projects: [

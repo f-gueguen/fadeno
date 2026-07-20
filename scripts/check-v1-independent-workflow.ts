@@ -146,7 +146,12 @@ try {
     filter: (source) => !["node_modules", ".fadeno", "dist"].includes(basename(source)),
   });
   const manifestPath = join(project, "package.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { dependencies: Record<string, string> };
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    dependencies: Record<string, string>;
+    scripts: Record<string, string>;
+  };
+  assert.equal(manifest.scripts.dev, "fadeno dev --project-root . --port 4173");
+  const developmentPort = await reservePort();
   manifest.dependencies["@fadeno/framework"] = `file:${tarball}`;
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   requireSuccess("pnpm", ["install", "--offline", "--ignore-scripts"], project);
@@ -198,8 +203,7 @@ try {
   requireSuccess("pnpm", ["build"], project);
   assert.equal(existsSync(join(project, "dist/src/build-scenario.js")), false);
 
-  const developmentPort = 4173;
-  development = start("pnpm", ["dev"], project, {});
+  development = start(join(project, "node_modules/.bin/fadeno"), ["dev", "--project-root", ".", "--port", String(developmentPort)], project, {});
   await development.waitForStdout(`Fadeno development server ready at http://127.0.0.1:${developmentPort}.`);
   assert.match(await waitForHome(`http://127.0.0.1:${developmentPort}`), /First running Fadeno application/u);
   await stop(development);
@@ -224,7 +228,7 @@ try {
     "public entrypoints: root, node, jsx-runtime",
     "project check: success, route-role collision, correction, stale diagnostic removed",
     "production build: success, compiler refusal, last-good preservation, correction, stale artifact removed",
-    "development: documented command ready, HTTP 200, graceful shutdown",
+    "development: supported dynamic-port command ready, HTTP 200, graceful shutdown",
     "production: production-only install, documented command ready, HTTP 200, graceful shutdown",
     "cleanup: no operation lock or request ownership retained",
   ].join("\n") + "\n";

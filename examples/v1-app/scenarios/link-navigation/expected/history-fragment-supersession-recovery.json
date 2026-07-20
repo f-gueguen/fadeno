@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-fragment-supersession-recovery",
+  "version": 1,
+  "pendingTraversalAborted": true,
+  "nativeFragmentWon": true,
+  "displayedTruthRepaired": true,
+  "obsoleteDocumentSuppressed": true
+}

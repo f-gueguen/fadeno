@@ -311,6 +311,16 @@ const links = (): RenderChild => jsxs("nav", { "aria-label": "Example navigation
   jsx("a", { id: "download-link", href: "/download", download: "example.txt", children: "Download" }),
   " ",
   jsx("a", { id: "fragment-link", href: "#details", children: "Details" }),
+  " ",
+  jsxs("form", { id: "native-form", action: "/next", method: "get", children: [
+    jsx("input", { name: "source", type: "hidden", value: "native-form" }),
+    jsx("button", { type: "submit", children: "Submit natively" }),
+  ] }),
+] });
+
+const longContent = (): RenderChild => jsxs("section", { id: "history-content", children: [
+  ...Array.from({ length: 80 }, (_, index) => jsx("p", { children: `History qualification row ${index + 1}.` })),
+  jsx("a", { id: "bottom-next-link", href: "/next", children: "Next from a scrolled document" }),
 ] });
 
 function document(title: string, heading: string, content: RenderChild = null): RenderChild {
@@ -337,6 +347,18 @@ function render(request: Request, routeId: string, title: string, heading: strin
   });
 }
 
+function renderManualStart(request: Request): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId: "manual-start",
+    generation: applicationGeneration,
+    browserModule: "/_fadeno/manual-browser-entry.js",
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => document("Manual start", "Manual start"),
+  });
+}
+
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, milliseconds);
@@ -349,7 +371,8 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
 
 export const handler: Handler = async (request) => {
   const url = new URL(request.url);
-  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home");
+  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home", longContent());
+  if (url.pathname === "/manual-start") return renderManualStart(request);
   if (url.pathname === "/next") return render(request, "next", "Next project", "Next");
   if (url.pathname === "/owner") {
     return render(request, "owner", "Owned project", "Owner", jsx("p", { id: "owner", children: request.headers.get("cookie") ?? "anonymous" }));
@@ -383,7 +406,7 @@ export const handler: Handler = async (request) => {
 ```ts
 import { startBrowserEnhancement } from "@fadeno/framework/browser";
 
-startBrowserEnhancement();
+Reflect.set(globalThis, "__fadenoExampleEnhancement", startBrowserEnhancement());
 ```
 
 For a simple same-origin link, the same native route response is projected
@@ -403,6 +426,8 @@ title, URL, history entry, and focus:
 ```
 
 Fadeno deliberately keeps native behavior when it cannot yet preserve state.
+Links with an explicit `referrerpolicy` or `rel="noreferrer"` also remain native
+so enhancement cannot change their request-privacy semantics.
 There is no source correction to apply: the safe correction is to leave the
 ordinary link intact and let the browser navigate it.
 
@@ -434,13 +459,14 @@ authorization and lists work that this slice intentionally skips:
     "eligible same-origin GET acquired browser operation ownership",
     "exact native server response was projected once",
     "current generation, epoch, operation, URL, cache, and result were admitted",
-    "document, title, URL, history, and focus committed"
+    "document, title, URL, history, and focus committed",
+    "destination scroll committed at the native top boundary without transition work"
   ],
   "ownership": {
-    "browser": ["activation", "operation", "history", "focus"],
+    "browser": ["activation", "operation", "history", "focus", "scroll"],
     "server": ["authorization", "route", "resources", "rendered outcome"]
   },
-  "skipped": ["form interception", "general state reconciliation", "transported script execution"],
+  "skipped": ["form interception", "general state reconciliation", "transported script execution", "animation"],
   "outcome": "enhanced-document"
 }
 ```
@@ -453,6 +479,7 @@ and an outcome that cannot be projected returns to native GET navigation:
   "schema": "fadeno.example.link-navigation-recovery",
   "version": 1,
   "cancelledHeadingAbsent": true,
+  "latestRequestEnhanced": true,
   "latestHeading": "Next",
   "unprojectableOutcome": "native-navigation",
   "staleUpdateApplied": false
@@ -464,3 +491,809 @@ Chromium, Firefox, and WebKit success, refusal, cancellation, hostile-input,
 authorization-isolation, redirect, fallback, history, flow, and recovery
 corpus. Forms and general state-preserving reconciliation remain native and
 deferred to later V2 slices. The transport and flow shapes remain private.
+
+## History, focus, and scroll qualification
+
+V2-05 keeps the same public application and browser entry while making the
+browser-owned state around an enhanced document change explicit. Direct load
+does not move focus. An enhanced destination focuses its primary heading or
+main landmark without scrolling it into view, commits at the top, and allocates
+no animation under either motion preference:
+
+```json
+{
+  "schema": "fadeno.example.history-focus-success",
+  "version": 1,
+  "path": "/next",
+  "heading": "Next",
+  "focus": "H1",
+  "scrollX": 0,
+  "scrollY": 0,
+  "reducedMotion": true,
+  "animations": 0,
+  "transitions": 0
+}
+```
+
+The same no-animation result is asserted with ordinary motion preferences:
+
+```json
+{
+  "schema": "fadeno.example.history-focus-success",
+  "version": 1,
+  "path": "/next",
+  "heading": "Next",
+  "focus": "H1",
+  "scrollX": 0,
+  "scrollY": 0,
+  "reducedMotion": false,
+  "animations": 0,
+  "transitions": 0
+}
+```
+
+Closing the runtime restores the browser's prior scroll-restoration owner and
+the exact original History property descriptors, so a later prototype wrapper
+is visible. Startup failure does the same before falling back to native links.
+A persisted-page failure to reacquire verified manual ownership closes the
+enhancement and keeps later activation native:
+
+```json
+{
+  "schema": "fadeno.example.history-teardown",
+  "version": 1,
+  "activeRestoration": "manual",
+  "closedState": "closed",
+  "restoredRestoration": "auto",
+  "exactDescriptorsRestored": true,
+  "exactPrototypeDescriptorsRestored": true,
+  "laterPrototypeWrapperObserved": true,
+  "bfcacheRecoveryMergePreserved": true,
+  "bfcacheOwnershipFailureNative": true
+}
+```
+
+```json
+{
+  "schema": "fadeno.example.history-startup-recovery",
+  "version": 1,
+  "restoration": "auto",
+  "wrappersRestored": true,
+  "nativeRecovery": true,
+  "partialWriteRolledBack": true,
+  "partialWrapperRestored": true,
+  "partialRestoration": "auto",
+  "partialNativeRecovery": true
+}
+```
+
+If the History methods cannot both be wrapped, partial installation is undone
+and startup stays native without throwing:
+
+```json
+{
+  "schema": "fadeno.example.history-wrapper-installation-refusal",
+  "version": 1,
+  "exactMethodsRestored": true,
+  "restoration": "auto",
+  "uncaughtErrors": 0,
+  "nativeDeparture": true
+}
+```
+
+Manual scroll ownership is accepted only when its browser readback is also
+`manual`. A silent assignment refusal restores the exact original History
+methods and leaves the link native:
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-restoration-readback-refusal",
+  "version": 1,
+  "exactMethodsRestored": true,
+  "restoration": "auto",
+  "uncaughtErrors": 0,
+  "nativeDeparture": true
+}
+```
+
+An exact-shape private-looking state present before startup is not accepted as
+proof. The runtime replaces it with a fresh owner before enhancement begins:
+
+```json
+{
+  "schema": "fadeno.example.history-startup-state-rekey",
+  "version": 1,
+  "startupStateRekeyed": true,
+  "restoration": "manual",
+  "enhancementUsesRekeyedOwner": true
+}
+```
+
+An insecure origin or missing secure identity generator declines history
+ownership without throwing and leaves the ordinary link path native:
+
+```json
+{
+  "schema": "fadeno.example.history-environment-refusal",
+  "version": 1,
+  "nativeNavigation": true,
+  "historyUnclaimed": true,
+  "uncaughtErrors": 0
+}
+```
+
+Unsafe same-context links and failed enhanced requests also restore automatic
+browser ownership before their native departure:
+
+```json
+{
+  "schema": "fadeno.example.history-native-departure",
+  "version": 1,
+  "restorationAtDeparture": "auto",
+  "nativeRecovery": true
+}
+```
+
+A link may leave a document-scrolled origin, but returning to a nonzero-scroll
+or element-scroll entry is not treated as safe numeric restoration. The runtime
+returns that selected URL to browser-native recovery. An exact supported
+Fadeno-owned entry resumes enhancement after the reload. Current URL and
+document truth are guaranteed; a pixel position is not, because the fresh
+layout may differ and Fadeno does not apply an unproven recorded number:
+
+```text
+FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhanced restoration; reload the current URL.
+```
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-refusal",
+  "version": 1,
+  "path": "/",
+  "heading": "Home",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true,
+  "scrolledOriginEnhanced": true,
+  "nativeScrollRestored": false,
+  "recoveredActiveRestoration": "manual",
+  "recoveredClosedRestoration": "auto",
+  "runtimeRestarted": true
+}
+```
+
+Returning to the top does not erase an entry's earlier unsafe-scroll evidence,
+including after a supported runtime restart:
+
+```json
+{
+  "schema": "fadeno.example.history-monotonic-scroll-recovery",
+  "version": 1,
+  "unsafeStatePreserved": true,
+  "enhancedDeparture": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+After a current-truth reload, only the recovered unsafe entry is re-keyed.
+Other supported entries can resume enhanced traversal:
+
+```json
+{
+  "schema": "fadeno.example.history-entry-recovery-resumption",
+  "version": 1,
+  "unsafeEntryReloaded": true,
+  "recoveredEntryRekeyed": true,
+  "supportedTraversalResumed": true,
+  "staleDocumentRemoved": true
+}
+```
+
+The first observed nonzero document or element scroll marks the entry unsafe,
+so continuous scrolling does not keep rewriting history. The final pre-
+interception write is guarded; if the browser refuses it, the ordinary link
+remains native without an uncaught failure:
+
+```json
+{
+  "schema": "fadeno.example.history-write-recovery",
+  "version": 1,
+  "coalescedWrites": 1,
+  "nativeRecovery": true,
+  "restorationAtDeparture": "auto",
+  "uncaughtErrors": 0
+}
+```
+
+If the bounded unsafe-entry tracker fills, it becomes globally conservative
+for that document instead of forgetting an older unsafe entry:
+
+```json
+{
+  "schema": "fadeno.example.history-overflow-recovery",
+  "version": 1,
+  "evictedEntryReloads": true,
+  "unknownEntryReloads": true
+}
+```
+
+Element scroll, a same-task scroll immediately before traversal, and a late
+document scroll while an enhanced request is pending all recover from current
+server truth instead of associating the scroll with another entry. The newly
+loaded layout derives fresh element ownership instead of copying the old bit:
+
+```json
+{
+  "schema": "fadeno.example.history-element-recovery",
+  "version": 1,
+  "path": "/",
+  "nativeRecovery": true,
+  "staleElementOwnershipCleared": true
+}
+```
+
+Element-scroll ownership also keeps a later link native after the live element
+returns to zero; the recorded ownership cannot be erased by visual position.
+Only the actual document scroller is excluded, so an independently scrollable
+`body` is tracked as element ownership:
+
+```json
+{
+  "schema": "fadeno.example.history-element-link-refusal",
+  "version": 1,
+  "elementOwnershipRetained": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true,
+  "independentBodyTracked": true,
+  "independentBodyNativeDeparture": true
+}
+```
+
+Document scroll recorded first does not hide later element-scroll ownership;
+both causes remain attached to the same outgoing entry:
+
+```json
+{
+  "schema": "fadeno.example.history-combined-scroll-refusal",
+  "version": 1,
+  "combinedOwnershipRecorded": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
+}
+```
+
+The same monotonic element ownership is rechecked after an asynchronous
+request, even if the live element has returned to zero:
+
+```json
+{
+  "schema": "fadeno.example.history-pending-element-scroll-refusal",
+  "version": 1,
+  "elementOwnershipRetained": true,
+  "enhancedAttemptObserved": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+```json
+{
+  "schema": "fadeno.example.history-pending-scroll-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "persistentRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+An unsafe mark discovered only during traversal remains fail-closed after the
+native reload. Live document scroll that occurs after response admission but
+before the event is delivered receives the same current-truth recovery:
+
+```json
+{
+  "schema": "fadeno.example.history-traversal-scroll-recovery",
+  "version": 1,
+  "pendingTraversalNativeRecovery": true,
+  "lateLiveScrollRecovered": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+Closing the runtime while a traversal response is pending reloads the selected
+URL instead of leaving it paired with the previously displayed document:
+
+```json
+{
+  "schema": "fadeno.example.history-close-traversal-recovery",
+  "version": 1,
+  "path": "/slow",
+  "restorationAtRecovery": "auto",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+If the user cancels that close-time reload, the selected slot is repaired to
+the displayed document truth before teardown completes. The closed runtime
+then leaves later links fully native:
+
+```json
+{
+  "schema": "fadeno.example.history-close-cancelled-traversal-recovery",
+  "version": 1,
+  "repairedPath": "/",
+  "repairedHeading": "Home",
+  "flowCode": "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
+  "restorationAfterRepair": "auto",
+  "runtimeClosed": true,
+  "restartBlockedUntilCleanup": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
+}
+```
+
+Closing during an ordinary pending link request aborts that request before
+teardown completes. Later activation is native and stale markup cannot commit:
+
+```json
+{
+  "schema": "fadeno.example.history-close-pending-navigation",
+  "version": 1,
+  "closedState": "closed",
+  "pendingCommitSuppressed": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkippedAfterClose": true
+}
+```
+
+```json
+{
+  "schema": "fadeno.example.history-late-scroll-recovery",
+  "version": 1,
+  "lateScrollReachedNonzero": true,
+  "lateScrollRecordedInSourceState": true,
+  "nativeDestinationRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+The selected URL and exact private history state are checked again after an
+asynchronous response. If application code changes that state, the runtime
+does not overwrite it before reloading current server truth:
+
+```json
+{
+  "schema": "fadeno.example.history-selected-state-recovery",
+  "version": 1,
+  "privateStateOverwritePrevented": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+The same exact source-state check applies to ordinary links, so an application
+history write during fetch forces native destination recovery:
+
+```json
+{
+  "schema": "fadeno.example.history-source-state-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "staleCommitSuppressed": true,
+  "nativeReplaceRefused": true,
+  "nativePushKeptLength": true,
+  "nativePushRefused": true
+}
+```
+
+If an initiating listener scrolls immediately before interception, the forced
+flush is followed by a fresh source-state read. The qualified request commits
+once instead of falling back because it carried a stale pre-flush copy:
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-flush-source-refresh",
+  "version": 1,
+  "enhancedRequestCommitted": true,
+  "wastedNativeFallback": false,
+  "destinationAtTop": true
+}
+```
+
+Only entries recorded by the active runtime at their exact URL and state are
+owned. Copying the visible private-looking fields into another history slot
+does not grant ownership:
+
+```json
+{
+  "schema": "fadeno.example.history-cloned-entry-recovery",
+  "version": 1,
+  "duplicateIdentityRefused": true,
+  "clonedDestinationRefused": true,
+  "staleDocumentRemoved": true
+}
+```
+
+An exact same-URL copy is also native immediately and after a reload; copied
+fields cannot bootstrap ownership in a new runtime:
+
+```json
+{
+  "schema": "fadeno.example.history-same-url-copy-refusal",
+  "version": 1,
+  "directCopyRefused": true,
+  "historyUnclaimedAfterReload": true,
+  "historyUnclaimedAfterRestart": true,
+  "reloadedCopyRefused": true
+}
+```
+
+When several application-owned records share one URL, recovery consumes only
+the exact selected session and entry. Other records remain fail-closed until
+their own selected document is recovered:
+
+```json
+{
+  "schema": "fadeno.example.history-exact-application-recovery",
+  "version": 1,
+  "historyUnclaimed": true,
+  "firstRemoved": true,
+  "secondRetained": true,
+  "secondHistoryUnclaimed": true,
+  "secondRemoved": true,
+  "unknownEntryRefused": true,
+  "unknownEntryRetained": true
+}
+```
+
+If reload clears the selected private state, the application-owned record is
+retained and repeated reload remains native. URL equality is not enough to
+consume another entry's recovery:
+
+```json
+{
+  "schema": "fadeno.example.history-cleared-entry-recovery-refusal",
+  "version": 1,
+  "firstReloadRefused": true,
+  "repeatedReloadRefused": true,
+  "recoveryRetained": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
+}
+```
+
+Closing and restarting in the same document also creates a fresh owner. A
+private-looking state copied while enhancement was closed cannot inherit the
+prior runtime session:
+
+```json
+{
+  "schema": "fadeno.example.history-post-close-restart-rekey",
+  "version": 1,
+  "postCloseStateRekeyed": true,
+  "restoration": "manual",
+  "enhancementUsesRekeyedOwner": true
+}
+```
+
+Recovery persistence uses the same bounded URL class for reading and writing,
+so a supported long current URL cannot poison unrelated recovery records:
+
+```json
+{
+  "schema": "fadeno.example.history-long-url-recovery",
+  "version": 1,
+  "restoration": "auto",
+  "persistenceHealthy": true
+}
+```
+
+If destination history selection succeeds but focus or another later document
+commit step fails, native recovery does not append that destination again. A
+newly pushed selection rolls back before native navigation reselects it, while a
+traversal selection is replaced in place. One Back traversal still reaches the
+prior document:
+
+```json
+{
+  "schema": "fadeno.example.history-commit-failure-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+The same atomic document/history rollback also covers application history
+mutation from the destination focus event:
+
+```json
+{
+  "schema": "fadeno.example.history-focus-state-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+If that focus event pushes another entry, every push selected after the trusted
+source is rolled back before one native destination is selected:
+
+```json
+{
+  "schema": "fadeno.example.history-multiple-push-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+The same cleanup applies when focus pushes after a Back or Forward selection.
+Native replacement keeps the selected destination in place, so one Back still
+reaches the prior document:
+
+```json
+{
+  "schema": "fadeno.example.history-traversal-push-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+Closing the runtime from a destination focus callback also fails the final
+lifecycle check. The rolled-back document returns the already selected entry to
+native destination truth rather than publishing from a closed runtime:
+
+```json
+{
+  "schema": "fadeno.example.history-close-during-commit-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+Rollback retains and reinserts the actual precommit body nodes rather than
+cloning their markup. A safe sibling insertion during request work therefore
+cannot shift focus restoration onto the wrong node or discard its listeners
+and application-owned properties. The same rollback restores an exact
+collapsed selection, and a destination focus handler cannot redirect focus
+while still passing commit:
+
+```json
+{
+  "schema": "fadeno.example.history-precommit-focus-recovery",
+  "version": 1,
+  "insertedSiblingRetained": true,
+  "initiatingFocusRestored": true,
+  "originalNodeIdentityRestored": true,
+  "originalNodeStateRetained": true,
+  "originalNodeListenerRetained": true,
+  "collapsedSelectionRestored": true,
+  "selectedTruthRepaired": true
+}
+```
+
+Destination metadata is revalidated inside the same rollback boundary, so an
+application mutation during commit cannot publish a mixed document generation:
+
+```json
+{
+  "schema": "fadeno.example.history-precommit-metadata-recovery",
+  "version": 1,
+  "metadataRestored": true,
+  "selectedTruthRepaired": true
+}
+```
+
+The same replacement classification survives when destination scrolling and
+the attempted local scroll rollback both fail persistently:
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-rollback-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+The final commit checks the actual viewport as well as the intended history
+record. A silent scroll failure therefore returns to native recovery:
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-postcondition-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "falseTopCommitSuppressed": true
+}
+```
+
+A newer traversal that must return to native behavior cancels the older
+pending traversal before starting recovery, so obsolete work cannot reclaim
+the selected URL:
+
+```json
+{
+  "schema": "fadeno.example.history-native-supersession-recovery",
+  "version": 1,
+  "olderTraversalCancelled": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+A newer safe click also cancels a pending traversal before remaining native;
+`_top` and `_parent` are recognized as the current context when they resolve to
+the current top-level window. Obsolete traversal markup cannot overwrite the
+clicked destination:
+
+```json
+{
+  "schema": "fadeno.example.history-click-supersession-recovery",
+  "version": 1,
+  "pendingTraversalAborted": true,
+  "topTargetResolvedCurrent": true,
+  "nativeClickWon": true,
+  "obsoleteDocumentSuppressed": true
+}
+```
+
+That supersession remains active while delayed scroll recovery is queued; the
+obsolete timer cannot replace a newer native click:
+
+```json
+{
+  "schema": "fadeno.example.history-delayed-recovery-supersession",
+  "version": 1,
+  "nativeClickWon": true,
+  "obsoleteRecoverySuppressed": true
+}
+```
+
+Refused same-document links and still-native forms cancel the same obsolete
+traversal and start from repaired displayed-document truth:
+
+```json
+{
+  "schema": "fadeno.example.history-fragment-supersession-recovery",
+  "version": 1,
+  "pendingTraversalAborted": true,
+  "nativeFragmentWon": true,
+  "displayedTruthRepaired": true,
+  "obsoleteDocumentSuppressed": true
+}
+```
+
+```json
+{
+  "schema": "fadeno.example.history-form-supersession-recovery",
+  "version": 1,
+  "pendingTraversalAborted": true,
+  "parentTargetResolvedCurrent": true,
+  "nativeFormWon": true,
+  "obsoleteDocumentSuppressed": true
+}
+```
+
+The same native activation rule cancels an ordinary pending enhanced request,
+so its late response cannot replace the chosen fragment destination:
+
+```json
+{
+  "schema": "fadeno.example.history-ordinary-native-supersession",
+  "version": 1,
+  "pendingNavigationAborted": true,
+  "nativeFragmentWon": true,
+  "obsoleteFallbackSuppressed": true
+}
+```
+
+If the user cancels a reload required by an unsafe Back or Forward traversal,
+the still-active document repairs the selected slot to its trusted displayed
+URL, reacquires history ownership, records the refusal, and can enhance a later
+safe link:
+
+```json
+{
+  "schema": "fadeno.example.history-cancelled-reload-recovery",
+  "version": 1,
+  "repairedPath": "/next",
+  "repairedHeading": "Next",
+  "restorationAfterRepair": "manual",
+  "flowCode": "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED",
+  "enhancementResumed": true
+}
+```
+
+The same repair recognizes a legacy `returnValue`-only confirmation request:
+
+```json
+{
+  "schema": "fadeno.example.history-return-value-reload-recovery",
+  "version": 1,
+  "repairedPath": "/next",
+  "repairedHeading": "Next",
+  "restorationAfterRepair": "manual",
+  "flowCode": "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED"
+}
+```
+
+If a post-selection document commit fails and the user cancels its native
+replacement, the rolled-back document receives the same trusted URL/state
+repair, restores the initiating focus, and later safe enhancement resumes:
+
+```json
+{
+  "schema": "fadeno.example.history-cancelled-fallback-recovery",
+  "version": 1,
+  "repairedPath": "/",
+  "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+  "focusRestored": true,
+  "enhancementResumed": true,
+  "staleDocumentRemoved": true
+}
+```
+
+A canceled fallback that failed before selecting the destination also
+reacquires its prior history owner, repairs the trusted current entry, and can
+enhance the next safe attempt:
+
+```json
+{
+  "schema": "fadeno.example.history-cancelled-preselection-recovery",
+  "version": 1,
+  "repairedPath": "/",
+  "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+  "restorationAfterRepair": "manual",
+  "enhancementResumed": true,
+  "staleDocumentRemoved": true
+}
+```
+
+If that repaired document had already acquired monotonic unsafe-scroll
+evidence, repair carries the evidence to the fresh entry. A later Back
+selection therefore reloads current truth instead of enhancing restoration:
+
+```json
+{
+  "schema": "fadeno.example.history-cancelled-unsafe-repair",
+  "version": 1,
+  "repairedEntryStayedUnsafe": true,
+  "sameDocumentRekeyRetainedUnsafe": true,
+  "backUsedNativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+Malformed, application-owned, and otherwise well-formed state from a different
+runtime chain is never interpreted as Fadeno ownership. The selected URL
+reloads, so stale markup from the previous entry disappears and enhancement
+remains native for that page:
+
+```json
+{
+  "schema": "fadeno.example.history-state-recovery",
+  "version": 1,
+  "path": "/next",
+  "heading": "Next",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true,
+  "foreignSessionRecovery": true,
+  "malformedRecoveries": 5
+}
+```
+
+The same executed flow record above now names scroll ownership and explicitly
+records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
+for all 186 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
+nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
+and a public history or update schema remain outside this slice.

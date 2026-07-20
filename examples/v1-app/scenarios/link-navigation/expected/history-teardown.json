@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.history-teardown",
+  "version": 1,
+  "activeRestoration": "manual",
+  "closedState": "closed",
+  "restoredRestoration": "auto",
+  "exactDescriptorsRestored": true,
+  "exactPrototypeDescriptorsRestored": true,
+  "laterPrototypeWrapperObserved": true,
+  "bfcacheRecoveryMergePreserved": true,
+  "bfcacheOwnershipFailureNative": true
+}

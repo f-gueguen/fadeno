@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-scroll-flush-source-refresh",
+  "version": 1,
+  "enhancedRequestCommitted": true,
+  "wastedNativeFallback": false,
+  "destinationAtTop": true
+}

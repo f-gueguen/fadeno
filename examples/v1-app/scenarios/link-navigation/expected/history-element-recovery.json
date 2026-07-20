@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-element-recovery",
+  "version": 1,
+  "path": "/",
+  "nativeRecovery": true,
+  "staleElementOwnershipCleared": true
+}

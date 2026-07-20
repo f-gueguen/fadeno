@@ -84,6 +84,7 @@ try {
   });
   cpSync(join(scenarioRoot, "application.ts"), join(builtConsumer, "src/application.ts"));
   cpSync(join(scenarioRoot, "browser-entry.ts"), join(builtConsumer, "src/browser-entry.ts"));
+  cpSync(join(scenarioRoot, "manual-browser-entry.ts"), join(builtConsumer, "src/manual-browser-entry.ts"));
   run("pnpm", ["install", "--offline", "--ignore-scripts"], builtConsumer);
   run(process.execPath, [tsc, "-p", "tsconfig.json"], builtConsumer);
 
@@ -101,8 +102,73 @@ try {
     .replace('from "@fadeno/framework/browser"', 'from "./framework/browser.js"');
   assert.equal(entry.includes(packageName), false);
   writeFileSync(join(site, "_fadeno/browser-entry.js"), entry);
+  const manualEntry = readFileSync(join(builtConsumer, "dist/manual-browser-entry.js"), "utf8")
+    .replace('from "@fadeno/framework/browser"', 'from "./framework/browser.js"');
+  assert.equal(manualEntry.includes(packageName), false);
+  writeFileSync(join(site, "_fadeno/manual-browser-entry.js"), manualEntry);
 
-  for (const name of ["success.json", "refusal.json", "refusal-human.txt", "flow.json", "recovery.json"]) {
+  for (const name of [
+    "success.json",
+    "refusal.json",
+    "refusal-human.txt",
+    "flow.json",
+    "recovery.json",
+    "history-focus.json",
+    "history-focus-normal.json",
+    "history-environment-refusal.json",
+    "history-teardown.json",
+    "history-startup-recovery.json",
+    "history-wrapper-installation-refusal.json",
+    "history-scroll-restoration-readback-refusal.json",
+    "history-startup-state-rekey.json",
+    "history-post-close-restart-rekey.json",
+    "history-native-departure.json",
+    "history-scroll-refusal.json",
+    "history-monotonic-scroll-recovery.json",
+    "history-entry-recovery-resumption.json",
+    "history-write-recovery.json",
+    "history-overflow-recovery.json",
+    "history-element-recovery.json",
+    "history-element-link-refusal.json",
+    "history-combined-scroll-refusal.json",
+    "history-pending-element-scroll-refusal.json",
+    "history-pending-scroll-recovery.json",
+    "history-traversal-scroll-recovery.json",
+    "history-close-traversal-recovery.json",
+    "history-close-cancelled-traversal-recovery.json",
+    "history-close-pending-navigation.json",
+    "history-late-scroll-recovery.json",
+    "history-selected-state-recovery.json",
+    "history-source-state-recovery.json",
+    "history-cloned-entry-recovery.json",
+    "history-same-url-copy-refusal.json",
+    "history-exact-application-recovery.json",
+    "history-cleared-entry-recovery-refusal.json",
+    "history-long-url-recovery.json",
+    "history-commit-failure-recovery.json",
+    "history-focus-state-recovery.json",
+    "history-multiple-push-recovery.json",
+    "history-traversal-push-recovery.json",
+    "history-close-during-commit-recovery.json",
+    "history-scroll-flush-source-refresh.json",
+    "history-precommit-focus-recovery.json",
+    "history-precommit-metadata-recovery.json",
+    "history-native-supersession-recovery.json",
+    "history-scroll-rollback-recovery.json",
+    "history-scroll-postcondition-recovery.json",
+    "history-cancelled-reload-recovery.json",
+    "history-cancelled-fallback-recovery.json",
+    "history-cancelled-preselection-recovery.json",
+    "history-cancelled-unsafe-repair.json",
+    "history-return-value-reload-recovery.json",
+    "history-click-supersession-recovery.json",
+    "history-delayed-recovery-supersession.json",
+    "history-fragment-supersession-recovery.json",
+    "history-ordinary-native-supersession.json",
+    "history-form-supersession-recovery.json",
+    "history-recovery.json",
+    "history-refusal-human.txt",
+  ]) {
     cpSync(join(scenarioRoot, "expected", name), join(outputRoot, `expected-${name}`));
   }
 } finally {

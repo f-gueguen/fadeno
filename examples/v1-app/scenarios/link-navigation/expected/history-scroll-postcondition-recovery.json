@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-scroll-postcondition-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "falseTopCommitSuppressed": true
+}

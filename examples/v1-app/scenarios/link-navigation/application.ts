@@ -20,6 +20,16 @@ const links = (): RenderChild => jsxs("nav", { "aria-label": "Example navigation
   jsx("a", { id: "download-link", href: "/download", download: "example.txt", children: "Download" }),
   " ",
   jsx("a", { id: "fragment-link", href: "#details", children: "Details" }),
+  " ",
+  jsxs("form", { id: "native-form", action: "/next", method: "get", children: [
+    jsx("input", { name: "source", type: "hidden", value: "native-form" }),
+    jsx("button", { type: "submit", children: "Submit natively" }),
+  ] }),
+] });
+
+const longContent = (): RenderChild => jsxs("section", { id: "history-content", children: [
+  ...Array.from({ length: 80 }, (_, index) => jsx("p", { children: `History qualification row ${index + 1}.` })),
+  jsx("a", { id: "bottom-next-link", href: "/next", children: "Next from a scrolled document" }),
 ] });
 
 function document(title: string, heading: string, content: RenderChild = null): RenderChild {
@@ -46,6 +56,18 @@ function render(request: Request, routeId: string, title: string, heading: strin
   });
 }
 
+function renderManualStart(request: Request): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId: "manual-start",
+    generation: applicationGeneration,
+    browserModule: "/_fadeno/manual-browser-entry.js",
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => document("Manual start", "Manual start"),
+  });
+}
+
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, milliseconds);
@@ -58,7 +80,8 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
 
 export const handler: Handler = async (request) => {
   const url = new URL(request.url);
-  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home");
+  if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home", longContent());
+  if (url.pathname === "/manual-start") return renderManualStart(request);
   if (url.pathname === "/next") return render(request, "next", "Next project", "Next");
   if (url.pathname === "/owner") {
     return render(request, "owner", "Owned project", "Owner", jsx("p", { id: "owner", children: request.headers.get("cookie") ?? "anonymous" }));

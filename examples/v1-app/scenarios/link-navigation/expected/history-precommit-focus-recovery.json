@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.history-precommit-focus-recovery",
+  "version": 1,
+  "insertedSiblingRetained": true,
+  "initiatingFocusRestored": true,
+  "originalNodeIdentityRestored": true,
+  "originalNodeStateRetained": true,
+  "originalNodeListenerRetained": true,
+  "collapsedSelectionRestored": true,
+  "selectedTruthRepaired": true
+}

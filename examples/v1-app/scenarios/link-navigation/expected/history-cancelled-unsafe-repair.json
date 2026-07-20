@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-cancelled-unsafe-repair",
+  "version": 1,
+  "repairedEntryStayedUnsafe": true,
+  "sameDocumentRekeyRetainedUnsafe": true,
+  "backUsedNativeRecovery": true,
+  "staleDocumentRemoved": true
+}

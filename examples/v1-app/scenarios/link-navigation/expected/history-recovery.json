@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.history-state-recovery",
+  "version": 1,
+  "path": "/next",
+  "heading": "Next",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true,
+  "foreignSessionRecovery": true,
+  "malformedRecoveries": 5
+}

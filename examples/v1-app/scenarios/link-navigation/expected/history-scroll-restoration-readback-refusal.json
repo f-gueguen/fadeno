@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-scroll-restoration-readback-refusal",
+  "version": 1,
+  "exactMethodsRestored": true,
+  "restoration": "auto",
+  "uncaughtErrors": 0,
+  "nativeDeparture": true
+}

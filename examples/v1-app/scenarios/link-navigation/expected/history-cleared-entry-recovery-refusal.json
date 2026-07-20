@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.history-cleared-entry-recovery-refusal",
+  "version": 1,
+  "firstReloadRefused": true,
+  "repeatedReloadRefused": true,
+  "recoveryRetained": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
+}

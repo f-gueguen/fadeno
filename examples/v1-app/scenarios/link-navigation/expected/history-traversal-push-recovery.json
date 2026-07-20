@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-traversal-push-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "oneBackReachedPriorDocument": true
+}

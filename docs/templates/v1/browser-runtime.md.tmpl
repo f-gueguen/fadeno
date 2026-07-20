@@ -103,6 +103,8 @@ title, URL, history entry, and focus:
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/success.json","language":"json"} -->
 
 Fadeno deliberately keeps native behavior when it cannot yet preserve state.
+Links with an explicit `referrerpolicy` or `rel="noreferrer"` also remain native
+so enhancement cannot change their request-privacy semantics.
 There is no source correction to apply: the safe correction is to leave the
 ordinary link intact and let the browser navigate it.
 
@@ -125,3 +127,313 @@ Chromium, Firefox, and WebKit success, refusal, cancellation, hostile-input,
 authorization-isolation, redirect, fallback, history, flow, and recovery
 corpus. Forms and general state-preserving reconciliation remain native and
 deferred to later V2 slices. The transport and flow shapes remain private.
+
+## History, focus, and scroll qualification
+
+V2-05 keeps the same public application and browser entry while making the
+browser-owned state around an enhanced document change explicit. Direct load
+does not move focus. An enhanced destination focuses its primary heading or
+main landmark without scrolling it into view, commits at the top, and allocates
+no animation under either motion preference:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-focus.json","language":"json"} -->
+
+The same no-animation result is asserted with ordinary motion preferences:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-focus-normal.json","language":"json"} -->
+
+Closing the runtime restores the browser's prior scroll-restoration owner and
+the exact original History property descriptors, so a later prototype wrapper
+is visible. Startup failure does the same before falling back to native links.
+A persisted-page failure to reacquire verified manual ownership closes the
+enhancement and keeps later activation native:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-teardown.json","language":"json"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-startup-recovery.json","language":"json"} -->
+
+If the History methods cannot both be wrapped, partial installation is undone
+and startup stays native without throwing:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-wrapper-installation-refusal.json","language":"json"} -->
+
+Manual scroll ownership is accepted only when its browser readback is also
+`manual`. A silent assignment refusal restores the exact original History
+methods and leaves the link native:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-restoration-readback-refusal.json","language":"json"} -->
+
+An exact-shape private-looking state present before startup is not accepted as
+proof. The runtime replaces it with a fresh owner before enhancement begins:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-startup-state-rekey.json","language":"json"} -->
+
+An insecure origin or missing secure identity generator declines history
+ownership without throwing and leaves the ordinary link path native:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-environment-refusal.json","language":"json"} -->
+
+Unsafe same-context links and failed enhanced requests also restore automatic
+browser ownership before their native departure:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-native-departure.json","language":"json"} -->
+
+A link may leave a document-scrolled origin, but returning to a nonzero-scroll
+or element-scroll entry is not treated as safe numeric restoration. The runtime
+returns that selected URL to browser-native recovery. An exact supported
+Fadeno-owned entry resumes enhancement after the reload. Current URL and
+document truth are guaranteed; a pixel position is not, because the fresh
+layout may differ and Fadeno does not apply an unproven recorded number:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-refusal-human.txt","language":"text"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-refusal.json","language":"json"} -->
+
+Returning to the top does not erase an entry's earlier unsafe-scroll evidence,
+including after a supported runtime restart:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-monotonic-scroll-recovery.json","language":"json"} -->
+
+After a current-truth reload, only the recovered unsafe entry is re-keyed.
+Other supported entries can resume enhanced traversal:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-entry-recovery-resumption.json","language":"json"} -->
+
+The first observed nonzero document or element scroll marks the entry unsafe,
+so continuous scrolling does not keep rewriting history. The final pre-
+interception write is guarded; if the browser refuses it, the ordinary link
+remains native without an uncaught failure:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-write-recovery.json","language":"json"} -->
+
+If the bounded unsafe-entry tracker fills, it becomes globally conservative
+for that document instead of forgetting an older unsafe entry:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-overflow-recovery.json","language":"json"} -->
+
+Element scroll, a same-task scroll immediately before traversal, and a late
+document scroll while an enhanced request is pending all recover from current
+server truth instead of associating the scroll with another entry. The newly
+loaded layout derives fresh element ownership instead of copying the old bit:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-recovery.json","language":"json"} -->
+
+Element-scroll ownership also keeps a later link native after the live element
+returns to zero; the recorded ownership cannot be erased by visual position.
+Only the actual document scroller is excluded, so an independently scrollable
+`body` is tracked as element ownership:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-link-refusal.json","language":"json"} -->
+
+Document scroll recorded first does not hide later element-scroll ownership;
+both causes remain attached to the same outgoing entry:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-combined-scroll-refusal.json","language":"json"} -->
+
+The same monotonic element ownership is rechecked after an asynchronous
+request, even if the live element has returned to zero:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-pending-element-scroll-refusal.json","language":"json"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-pending-scroll-recovery.json","language":"json"} -->
+
+An unsafe mark discovered only during traversal remains fail-closed after the
+native reload. Live document scroll that occurs after response admission but
+before the event is delivered receives the same current-truth recovery:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-traversal-scroll-recovery.json","language":"json"} -->
+
+Closing the runtime while a traversal response is pending reloads the selected
+URL instead of leaving it paired with the previously displayed document:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-traversal-recovery.json","language":"json"} -->
+
+If the user cancels that close-time reload, the selected slot is repaired to
+the displayed document truth before teardown completes. The closed runtime
+then leaves later links fully native:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-cancelled-traversal-recovery.json","language":"json"} -->
+
+Closing during an ordinary pending link request aborts that request before
+teardown completes. Later activation is native and stale markup cannot commit:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-pending-navigation.json","language":"json"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-late-scroll-recovery.json","language":"json"} -->
+
+The selected URL and exact private history state are checked again after an
+asynchronous response. If application code changes that state, the runtime
+does not overwrite it before reloading current server truth:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-selected-state-recovery.json","language":"json"} -->
+
+The same exact source-state check applies to ordinary links, so an application
+history write during fetch forces native destination recovery:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-source-state-recovery.json","language":"json"} -->
+
+If an initiating listener scrolls immediately before interception, the forced
+flush is followed by a fresh source-state read. The qualified request commits
+once instead of falling back because it carried a stale pre-flush copy:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-flush-source-refresh.json","language":"json"} -->
+
+Only entries recorded by the active runtime at their exact URL and state are
+owned. Copying the visible private-looking fields into another history slot
+does not grant ownership:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cloned-entry-recovery.json","language":"json"} -->
+
+An exact same-URL copy is also native immediately and after a reload; copied
+fields cannot bootstrap ownership in a new runtime:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-same-url-copy-refusal.json","language":"json"} -->
+
+When several application-owned records share one URL, recovery consumes only
+the exact selected session and entry. Other records remain fail-closed until
+their own selected document is recovered:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-exact-application-recovery.json","language":"json"} -->
+
+If reload clears the selected private state, the application-owned record is
+retained and repeated reload remains native. URL equality is not enough to
+consume another entry's recovery:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cleared-entry-recovery-refusal.json","language":"json"} -->
+
+Closing and restarting in the same document also creates a fresh owner. A
+private-looking state copied while enhancement was closed cannot inherit the
+prior runtime session:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-post-close-restart-rekey.json","language":"json"} -->
+
+Recovery persistence uses the same bounded URL class for reading and writing,
+so a supported long current URL cannot poison unrelated recovery records:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-long-url-recovery.json","language":"json"} -->
+
+If destination history selection succeeds but focus or another later document
+commit step fails, native recovery does not append that destination again. A
+newly pushed selection rolls back before native navigation reselects it, while a
+traversal selection is replaced in place. One Back traversal still reaches the
+prior document:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-commit-failure-recovery.json","language":"json"} -->
+
+The same atomic document/history rollback also covers application history
+mutation from the destination focus event:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-focus-state-recovery.json","language":"json"} -->
+
+If that focus event pushes another entry, every push selected after the trusted
+source is rolled back before one native destination is selected:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-multiple-push-recovery.json","language":"json"} -->
+
+The same cleanup applies when focus pushes after a Back or Forward selection.
+Native replacement keeps the selected destination in place, so one Back still
+reaches the prior document:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-traversal-push-recovery.json","language":"json"} -->
+
+Closing the runtime from a destination focus callback also fails the final
+lifecycle check. The rolled-back document returns the already selected entry to
+native destination truth rather than publishing from a closed runtime:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-during-commit-recovery.json","language":"json"} -->
+
+Rollback retains and reinserts the actual precommit body nodes rather than
+cloning their markup. A safe sibling insertion during request work therefore
+cannot shift focus restoration onto the wrong node or discard its listeners
+and application-owned properties. The same rollback restores an exact
+collapsed selection, and a destination focus handler cannot redirect focus
+while still passing commit:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-precommit-focus-recovery.json","language":"json"} -->
+
+Destination metadata is revalidated inside the same rollback boundary, so an
+application mutation during commit cannot publish a mixed document generation:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-precommit-metadata-recovery.json","language":"json"} -->
+
+The same replacement classification survives when destination scrolling and
+the attempted local scroll rollback both fail persistently:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-rollback-recovery.json","language":"json"} -->
+
+The final commit checks the actual viewport as well as the intended history
+record. A silent scroll failure therefore returns to native recovery:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-postcondition-recovery.json","language":"json"} -->
+
+A newer traversal that must return to native behavior cancels the older
+pending traversal before starting recovery, so obsolete work cannot reclaim
+the selected URL:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-native-supersession-recovery.json","language":"json"} -->
+
+A newer safe click also cancels a pending traversal before remaining native;
+`_top` and `_parent` are recognized as the current context when they resolve to
+the current top-level window. Obsolete traversal markup cannot overwrite the
+clicked destination:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-click-supersession-recovery.json","language":"json"} -->
+
+That supersession remains active while delayed scroll recovery is queued; the
+obsolete timer cannot replace a newer native click:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-delayed-recovery-supersession.json","language":"json"} -->
+
+Refused same-document links and still-native forms cancel the same obsolete
+traversal and start from repaired displayed-document truth:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-fragment-supersession-recovery.json","language":"json"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-form-supersession-recovery.json","language":"json"} -->
+
+The same native activation rule cancels an ordinary pending enhanced request,
+so its late response cannot replace the chosen fragment destination:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-ordinary-native-supersession.json","language":"json"} -->
+
+If the user cancels a reload required by an unsafe Back or Forward traversal,
+the still-active document repairs the selected slot to its trusted displayed
+URL, reacquires history ownership, records the refusal, and can enhance a later
+safe link:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-reload-recovery.json","language":"json"} -->
+
+The same repair recognizes a legacy `returnValue`-only confirmation request:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-return-value-reload-recovery.json","language":"json"} -->
+
+If a post-selection document commit fails and the user cancels its native
+replacement, the rolled-back document receives the same trusted URL/state
+repair, restores the initiating focus, and later safe enhancement resumes:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-fallback-recovery.json","language":"json"} -->
+
+A canceled fallback that failed before selecting the destination also
+reacquires its prior history owner, repairs the trusted current entry, and can
+enhance the next safe attempt:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-preselection-recovery.json","language":"json"} -->
+
+If that repaired document had already acquired monotonic unsafe-scroll
+evidence, repair carries the evidence to the fresh entry. A later Back
+selection therefore reloads current truth instead of enhancing restoration:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-unsafe-repair.json","language":"json"} -->
+
+Malformed, application-owned, and otherwise well-formed state from a different
+runtime chain is never interpreted as Fadeno ownership. The selected URL
+reloads, so stale markup from the previous entry disappears and enhancement
+remains native for that page:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-recovery.json","language":"json"} -->
+
+The same executed flow record above now names scroll ownership and explicitly
+records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
+for all 186 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
+nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
+and a public history or update schema remain outside this slice.

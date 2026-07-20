@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-close-traversal-recovery",
+  "version": 1,
+  "path": "/slow",
+  "restorationAtRecovery": "auto",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
