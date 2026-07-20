@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-source-state-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "staleCommitSuppressed": true
+}

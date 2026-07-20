@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-long-url-recovery",
+  "version": 1,
+  "restoration": "auto",
+  "persistenceHealthy": true
+}

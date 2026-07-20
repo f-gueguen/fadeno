@@ -3,6 +3,7 @@
   "version": 1,
   "repairedPath": "/",
   "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+  "focusRestored": true,
   "enhancementResumed": true,
   "staleDocumentRemoved": true
 }

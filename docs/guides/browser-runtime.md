@@ -539,6 +539,19 @@ startup failure does the same before falling back to native links:
 }
 ```
 
+An exact-shape private-looking state present before startup is not accepted as
+proof. The runtime replaces it with a fresh owner before enhancement begins:
+
+```json
+{
+  "schema": "fadeno.example.history-startup-state-rekey",
+  "version": 1,
+  "startupStateRekeyed": true,
+  "restoration": "manual",
+  "enhancementUsesRekeyedOwner": true
+}
+```
+
 An insecure origin or missing secure identity generator declines history
 ownership without throwing and leaves the ordinary link path native:
 
@@ -757,6 +770,20 @@ then leaves later links fully native:
 }
 ```
 
+Closing during an ordinary pending link request aborts that request before
+teardown completes. Later activation is native and stale markup cannot commit:
+
+```json
+{
+  "schema": "fadeno.example.history-close-pending-navigation",
+  "version": 1,
+  "closedState": "closed",
+  "pendingCommitSuppressed": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkippedAfterClose": true
+}
+```
+
 ```json
 {
   "schema": "fadeno.example.history-late-scroll-recovery",
@@ -777,6 +804,18 @@ does not overwrite it before reloading current server truth:
   "privateStateOverwritePrevented": true,
   "nativeRecovery": true,
   "staleDocumentRemoved": true
+}
+```
+
+The same exact source-state check applies to ordinary links, so an application
+history write during fetch forces native destination recovery:
+
+```json
+{
+  "schema": "fadeno.example.history-source-state-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "staleCommitSuppressed": true
 }
 ```
 
@@ -805,6 +844,32 @@ fields cannot bootstrap ownership in a new runtime:
   "historyUnclaimedAfterReload": true,
   "historyUnclaimedAfterRestart": true,
   "reloadedCopyRefused": true
+}
+```
+
+The copied state stays refused for its first recovered document. A later
+reload may resume only after startup replaces it with a fresh owner:
+
+```json
+{
+  "schema": "fadeno.example.history-repeated-reload-rekey",
+  "version": 1,
+  "firstReloadRefused": true,
+  "stateRekeyed": true,
+  "restoration": "manual",
+  "enhancementUsesRekeyedOwner": true
+}
+```
+
+Recovery persistence uses the same bounded URL class for reading and writing,
+so a supported long current URL cannot poison unrelated recovery records:
+
+```json
+{
+  "schema": "fadeno.example.history-long-url-recovery",
+  "version": 1,
+  "restoration": "auto",
+  "persistenceHealthy": true
 }
 ```
 
@@ -863,6 +928,18 @@ the attempted local scroll rollback both fail persistently:
 }
 ```
 
+The final commit checks the actual viewport as well as the intended history
+record. A silent scroll failure therefore returns to native recovery:
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-postcondition-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "falseTopCommitSuppressed": true
+}
+```
+
 A newer traversal that must return to native behavior cancels the older
 pending traversal before starting recovery, so obsolete work cannot reclaim
 the selected URL:
@@ -887,6 +964,18 @@ obsolete traversal markup cannot overwrite the clicked destination:
   "pendingTraversalAborted": true,
   "nativeClickWon": true,
   "obsoleteDocumentSuppressed": true
+}
+```
+
+That supersession remains active while delayed scroll recovery is queued; the
+obsolete timer cannot replace a newer native click:
+
+```json
+{
+  "schema": "fadeno.example.history-delayed-recovery-supersession",
+  "version": 1,
+  "nativeClickWon": true,
+  "obsoleteRecoverySuppressed": true
 }
 ```
 
@@ -946,7 +1035,7 @@ The same repair recognizes a legacy `returnValue`-only confirmation request:
 
 If a post-selection document commit fails and the user cancels its native
 replacement, the rolled-back document receives the same trusted URL/state
-repair and later safe enhancement resumes:
+repair, restores the initiating focus, and later safe enhancement resumes:
 
 ```json
 {
@@ -954,6 +1043,7 @@ repair and later safe enhancement resumes:
   "version": 1,
   "repairedPath": "/",
   "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+  "focusRestored": true,
   "enhancementResumed": true,
   "staleDocumentRemoved": true
 }
@@ -995,6 +1085,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 147 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
+for all 168 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.
