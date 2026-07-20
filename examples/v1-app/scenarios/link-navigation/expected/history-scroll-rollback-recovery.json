@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-scroll-rollback-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}

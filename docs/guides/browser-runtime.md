@@ -702,6 +702,19 @@ of appending it again. One Back traversal still reaches the prior document:
 }
 ```
 
+The same replacement classification survives when destination scrolling and
+the attempted local scroll rollback both fail persistently:
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-rollback-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
 A newer traversal that must return to native behavior cancels the older
 pending traversal before starting recovery, so obsolete work cannot reclaim
 the selected URL:
@@ -713,6 +726,23 @@ the selected URL:
   "olderTraversalCancelled": true,
   "nativeRecovery": true,
   "staleDocumentRemoved": true
+}
+```
+
+If the user cancels a reload required by an unsafe Back or Forward traversal,
+the still-active document repairs the selected slot to its trusted displayed
+URL, reacquires history ownership, records the refusal, and can enhance a later
+safe link:
+
+```json
+{
+  "schema": "fadeno.example.history-cancelled-reload-recovery",
+  "version": 1,
+  "repairedPath": "/next",
+  "repairedHeading": "Next",
+  "restorationAfterRepair": "manual",
+  "flowCode": "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED",
+  "enhancementResumed": true
 }
 ```
 
@@ -736,6 +766,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 93 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 99 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

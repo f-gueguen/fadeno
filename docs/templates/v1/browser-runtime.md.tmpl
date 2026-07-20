@@ -213,11 +213,23 @@ of appending it again. One Back traversal still reaches the prior document:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-commit-failure-recovery.json","language":"json"} -->
 
+The same replacement classification survives when destination scrolling and
+the attempted local scroll rollback both fail persistently:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-rollback-recovery.json","language":"json"} -->
+
 A newer traversal that must return to native behavior cancels the older
 pending traversal before starting recovery, so obsolete work cannot reclaim
 the selected URL:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-native-supersession-recovery.json","language":"json"} -->
+
+If the user cancels a reload required by an unsafe Back or Forward traversal,
+the still-active document repairs the selected slot to its trusted displayed
+URL, reacquires history ownership, records the refusal, and can enhance a later
+safe link:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-reload-recovery.json","language":"json"} -->
 
 Malformed, application-owned, and otherwise well-formed state from a different
 runtime chain is never interpreted as Fadeno ownership. The selected URL
@@ -228,6 +240,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 93 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 99 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

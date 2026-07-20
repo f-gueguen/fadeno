@@ -777,6 +777,79 @@ test("recovers a selected destination without duplicating it when document commi
   }).toEqual(expected("history-commit-failure-recovery"));
 });
 
+test("preserves replacement recovery when destination scroll and rollback both fail", async ({ page }) => {
+  await page.goto(origin);
+  const historyLengthBefore = await page.evaluate(() => history.length);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.evaluate(() => {
+    Object.defineProperty(globalThis, "scrollTo", {
+      configurable: true,
+      value: (): never => { throw new DOMException("scroll commit refused", "InvalidStateError"); },
+    });
+  });
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await waitForPrivateHistoryOwner(page);
+  const historyEntriesAdded = await page.evaluate((before) => history.length - before, historyLengthBefore);
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-scroll-rollback-recovery",
+    version: 1,
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    historyEntriesAdded,
+    oneBackReachedPriorDocument: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-scroll-rollback-recovery"));
+});
+
+test("repairs displayed document truth when a traversal reload is cancelled", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => scrollTo(0, 100));
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.evaluate(() => {
+    addEventListener("beforeunload", (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    }, { once: true });
+  });
+  await page.locator("h1").click();
+  const dismissed = new Promise<void>((resolve) => {
+    page.once("dialog", (dialog) => { void dialog.dismiss().then(resolve); });
+  });
+  await page.evaluate(() => history.back());
+  await dismissed;
+  await expect(page).toHaveURL(`${origin}/next`);
+  await expect(page.locator("h1")).toHaveText("Next");
+  await waitForPrivateHistoryOwner(page);
+  const readFlowCode = (): Promise<string | undefined> => page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      readPrivateLinkNavigationFlows(): readonly Readonly<{ code: string }>[];
+    }>;
+    return runtime.readPrivateLinkNavigationFlows().at(-1)?.code;
+  });
+  await expect.poll(readFlowCode).toBe("FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED");
+  const repaired = {
+    path: new URL(page.url()).pathname,
+    heading: await page.locator("h1").textContent(),
+    restoration: await page.evaluate(() => history.scrollRestoration),
+    flowCode: await readFlowCode(),
+  };
+  const enhancedHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && enhanced).length;
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-cancelled-reload-recovery",
+    version: 1,
+    repairedPath: repaired.path,
+    repairedHeading: repaired.heading,
+    restorationAfterRepair: repaired.restoration,
+    flowCode: repaired.flowCode,
+    enhancementResumed: requests.filter(({ path, enhanced }) => path === "/" && enhanced).length > enhancedHomeBefore,
+  }).toEqual(expected("history-cancelled-reload-recovery"));
+});
+
 test("cancels an obsolete history traversal and publishes only the newest entry", async ({ page }) => {
   await page.goto(origin);
   await page.locator("#slow-link").click();

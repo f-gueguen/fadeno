@@ -186,7 +186,11 @@ traversal reloads the selected current URL after restoring native scroll
 ownership. A newer traversal cancels its predecessor before taking an early
 native path. If history selection succeeds but a later document commit step
 fails, native recovery replaces the selected destination rather than appending
-a duplicate entry. No transition work is allocated in
+a duplicate entry even if local scroll rollback also fails. If the user cancels
+an unsafe traversal's native reload, the active document replaces the selected
+slot with a fresh private entry at the trusted displayed-document URL,
+reacquires its restoration owner, and records the refusal before resuming.
+No transition work is allocated in
 either normal or reduced-motion mode.
 
 ## Narrowed H1 result and V2 conformance

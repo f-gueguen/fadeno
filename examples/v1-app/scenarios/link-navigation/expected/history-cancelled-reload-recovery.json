@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.history-cancelled-reload-recovery",
+  "version": 1,
+  "repairedPath": "/next",
+  "repairedHeading": "Next",
+  "restorationAfterRepair": "manual",
+  "flowCode": "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED",
+  "enhancementResumed": true
+}

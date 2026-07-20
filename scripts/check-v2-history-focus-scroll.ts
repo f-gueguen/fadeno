@@ -67,6 +67,8 @@ for (const fragment of [
   "keeps unsafe history tracking fail closed after its bound",
   "revalidates selected history ownership before traversal commit",
   "recovers a selected destination without duplicating it when document commit fails",
+  "preserves replacement recovery when destination scroll and rollback both fail",
+  "repairs displayed document truth when a traversal reload is cancelled",
   "cancels an older traversal before a newer native recovery",
 ]) assert.equal(tests.includes(fragment), true, `V2-05 browser corpus is missing ${fragment}`);
 
@@ -89,6 +91,8 @@ for (const name of [
   "history-selected-state-recovery",
   "history-commit-failure-recovery",
   "history-native-supersession-recovery",
+  "history-scroll-rollback-recovery",
+  "history-cancelled-reload-recovery",
   "history-recovery",
 ]) {
   const evidence = read(`examples/v1-app/scenarios/link-navigation/expected/${name}.json`).trim();
@@ -105,4 +109,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 93-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 99-case corpus, executable guidance)");

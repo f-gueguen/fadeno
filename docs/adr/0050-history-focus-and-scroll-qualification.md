@@ -105,7 +105,12 @@ it cannot leave that URL paired with the previously displayed document. If
 destination history selection succeeds but a later document, focus, or scroll
 commit step fails, native recovery replaces that already selected destination
 instead of appending it again; one Back traversal still reaches the prior
-document. Flow evidence
+document. Local rollback failure cannot erase that replacement classification.
+If a user cancels the native reload requested for an unsafe traversal, the
+still-running document repairs the selected history slot to a fresh private
+entry at the displayed document's trusted URL, reacquires manual restoration,
+records the refusal, and resumes enhancement; it never leaves the selected
+destination URL paired with old markup. Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
 
@@ -142,6 +147,7 @@ push, zero-scroll back/forward replacement, rapid traversal cancellation,
 destination focus without focus-induced scroll, collapsed-selection disposal,
 non-collapsed-selection refusal, scrolled-origin departure, nonzero document and
 element-scroll restoration refusal, foreign-chain and unowned-state recovery,
-post-history commit failure without duplicate entries, normal/reduced-
+post-history commit and rollback failure without duplicate entries, cancelled-
+reload repair and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.
