@@ -66,12 +66,27 @@ destination. That operation performs GET through the existing route/resource
 projection and the same document, history, focus, scroll, cancellation, and
 stale-result admission used by enhanced links.
 
+The handoff freezes the submitted form controls and active element after the
+mutation result is admitted. Any later edit, control replacement, or focus
+change refuses private destination publication and returns to native GET. A
+newer eligible GET that supersedes the redirect GET inherits committed-mutation
+recovery ownership until a replacement document or native departure commits.
+That ownership is recovery provenance only; it carries no mutation request or
+authority into the newer GET.
+
 The redirect GET is not mutation recovery and carries no action body, proof,
 or mutation authority. A newer eligible navigation may cancel and supersede
 it. If preservation, history ownership, transport, projection, or document
 commit cannot be proved, the destination remains an ordinary native GET. A
 redirect chain may likewise return to native GET. None of those paths repeats
 the committed mutation.
+
+Because URL fragments are not part of an HTTP request, an action redirect to a
+fragment on the current resource does not issue a private GET whose result
+could be confused with the fragment-bearing destination. It stages the
+fragment URL in the current history entry and performs one real native reload
+instead. A cancelled reload repairs the displayed-truth URL before
+current-truth recovery begins.
 
 ### Ordering and atomic publication
 
@@ -80,6 +95,10 @@ document epoch, normalized URL, sequence, cache policy, and unconsumed result
 ID. Mutation and redirect-GET result IDs are consumed independently. Duplicate,
 stale, delayed, permuted, cancelled, superseded, cross-document, or
 cross-generation results cannot publish.
+
+An admitted redirect-GET result is consumed before its own redirect chain is
+handed to native navigation. Native handoff therefore cannot leave an admitted
+result ID reusable by a later correctly bound operation.
 
 Pending state belongs only to the POST and is cleared before redirect GET
 ownership begins. The current document remains authoritative until one whole
@@ -136,6 +155,8 @@ only enhances boundaries already proven safe or returns them to native GET.
 application scenario to prove enhanced and native authenticated CRUD,
 validation/correction, redirect GET handoff, complete revalidation, delayed and
 permuted result suppression, cancellation/supersession, unsafe-boundary
-refusal, no repeated mutation, redacted causal flow, and current-truth recovery
-in Chromium, Firefox, and WebKit. `pnpm ci:local` retains every prior native,
-browser, security, package, and release gate.
+refusal, post-handoff edit refusal, inherited recovery, same-resource fragment
+reload, redirect-result consumption, no repeated mutation, redacted causal
+flow, and current-truth recovery in Chromium, Firefox, and WebKit. `pnpm
+ci:local` retains every prior native, browser, security, package, and release
+gate.

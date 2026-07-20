@@ -269,10 +269,17 @@ An admitted action redirect first consumes the mutation result, clears its
 pending owner, and releases the mutation operation. A fresh cancellable GET
 operation with a newer sequence then owns the redirect destination through the
 same document, history, focus, scroll, and stale-result checks as an eligible
-link. A newer eligible navigation supersedes that GET. Transport, projection,
-preservation, or document-commit failure returns to native GET, while a
-cancelled native departure reloads committed current truth through GET without
-repeating POST. V2-08 owns broader structural preservation.
+link. Handoff freezes the submitted controls and active element; a later edit,
+replacement, or focus change refuses private publication. A newer eligible
+navigation supersedes that GET while inheriting committed-current-truth
+recovery until a replacement document or native departure commits. A redirect
+GET result is consumed before a further redirect returns to native ownership.
+Transport, projection, preservation, or document-commit failure returns to
+native GET, while a cancelled native departure reloads committed current truth
+through GET without repeating POST. A fragment redirect on the current
+resource bypasses private GET and performs one real native destination reload;
+cancelled reload repairs displayed truth before recovery. V2-08 owns broader
+structural preservation.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

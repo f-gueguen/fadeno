@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.action-ordering-handoff-edit-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "nativeCurrentTruthGets": 1,
+  "signInRuns": 1,
+  "submittedDocumentNotPublishedOverNewerEdit": true,
+  "currentTruthVisible": true
+}

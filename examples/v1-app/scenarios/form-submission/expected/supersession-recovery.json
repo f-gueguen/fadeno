@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-supersession-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "supersedingPrivateGets": 1,
+  "currentTruthGets": 2,
+  "signInRuns": 1,
+  "finalPath": "/projects",
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

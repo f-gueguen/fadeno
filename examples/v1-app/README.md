@@ -116,12 +116,16 @@ application. It proves that complete server revalidation finishes before an
 action redirect hands its destination to a fresh cancellable GET, that the POST
 runs once, and that a delayed redirect cannot overwrite a newer enhanced
 navigation. Closing that GET, cancelling native recovery after a staged URL,
-and losing its response all recover committed current truth without repeating
-POST. Concurrent equal-title creates leave one logical project owner, and the
-single stable update and delete forms do not bind failures through mutable list
-ordinals. The deliberate validation error retains its tested correction;
-JavaScript-disabled CRUD retains the same final server state. Normalized CRUD and ordering results live
-beside the scenario source under `scenarios/form-submission/expected/`.
+losing its response, editing after handoff, and superseding it with another
+failed GET all recover committed current truth without repeating POST. A
+same-resource fragment redirect performs a real native reload, and a redirect
+GET result cannot be reused after its redirect chain begins. Concurrent
+equal-title creates leave one logical project owner, and the single stable
+update and delete forms do not bind failures through mutable list ordinals. The
+deliberate validation error retains its tested correction; JavaScript-disabled
+CRUD retains the same final server state. Normalized CRUD, ordering, refusal,
+and recovery results live beside the scenario source under
+`scenarios/form-submission/expected/`.
 
 The application uses native external CSS only. The root layout links `/styles`,
 and `src/routes/styles/handler.ts` serves `src/styles.ts` through the public

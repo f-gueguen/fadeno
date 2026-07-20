@@ -345,6 +345,59 @@ function dirtyControl(control: Element): boolean {
   return false;
 }
 
+type PrivateFormHandoffControl = HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+function privateFormHandoffControls(form: HTMLFormElement): readonly PrivateFormHandoffControl[] {
+  return [...form.elements].filter((control): control is PrivateFormHandoffControl => control instanceof HTMLButtonElement
+    || control instanceof HTMLInputElement
+    || control instanceof HTMLSelectElement
+    || control instanceof HTMLTextAreaElement);
+}
+
+function privateFormHandoffControlState(control: PrivateFormHandoffControl): string {
+  if (control instanceof HTMLInputElement) {
+    return JSON.stringify({
+      checked: control.checked,
+      disabled: control.disabled,
+      files: [...(control.files ?? [])].map(({ lastModified, name, size, type }) => ({ lastModified, name, size, type })),
+      value: control.value,
+    });
+  }
+  if (control instanceof HTMLSelectElement) {
+    return JSON.stringify({
+      disabled: control.disabled,
+      selected: [...control.options].map((option) => option.selected),
+      value: control.value,
+    });
+  }
+  return JSON.stringify({ disabled: control.disabled, value: control.value });
+}
+
+function privateFormHandoffPreservationCheck(
+  eligibility: PrivateFormEligibility,
+): () => boolean {
+  const activeElement = document.activeElement;
+  const controls = privateFormHandoffControls(eligibility.form).map((control) => Object.freeze({
+    control,
+    state: privateFormHandoffControlState(control),
+  }));
+  return () => {
+    if (!privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })
+      || document.activeElement !== activeElement) return false;
+    const currentControls = privateFormHandoffControls(eligibility.form);
+    return currentControls.length === controls.length && controls.every(({ control, state }, index) => currentControls[index] === control
+      && privateFormHandoffControlState(control) === state);
+  };
+}
+
+function sameResourceFragmentRedirect(destination: URL, currentTruthUrl: string): boolean {
+  const currentTruth = new URL(currentTruthUrl);
+  return destination.hash !== ""
+    && destination.origin === currentTruth.origin
+    && destination.pathname === currentTruth.pathname
+    && destination.search === currentTruth.search;
+}
+
 export function privateLinkPreservationSafe(
   initiator?: HTMLAnchorElement,
   options: Readonly<{ allowDocumentScroll?: boolean }> = {},
@@ -615,6 +668,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   let pendingElementScroll = false;
   let historyWriteFailed = false;
   const consumedResultIds: string[] = [];
+  const consumeResultId = (resultId: string): void => {
+    consumedResultIds.push(resultId);
+    if (consumedResultIds.length > 256) consumedResultIds.shift();
+  };
   const previousScrollRestoration = history.scrollRestoration;
   const historySession = `session:${globalThis.crypto.randomUUID()}`;
   const unsafeTraversalPersistence = createPrivateUnsafeTraversalPersistence();
@@ -1014,6 +1071,44 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     else location.assign(destination.href);
   };
 
+  const fallbackSameResourceFragmentRedirect = (
+    destination: URL,
+    recoverCancelledMutation: () => void,
+  ): void => {
+    restoreScrollRestoration();
+    const truthUrl = displayedTruthUrl;
+    try {
+      const currentState = privateHistoryState(history.state);
+      if (!currentState || !ownsHistoryState(currentState, location.href)) {
+        throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      }
+      const stagedState = createHistoryState(scrollX, scrollY, false, historySession, currentState.entry);
+      writeHistory.replace(stagedState, destination.href);
+      const selectedState = privateHistoryState(history.state);
+      if (!selectedState || location.href !== destination.href) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      rememberHistoryState(selectedState, destination.href);
+      selectedHistoryEntry = selectedState.entry;
+    } catch {
+      fallback(new URL(truthUrl), true, false, undefined, recoverCancelledMutation);
+      return;
+    }
+    setTimeout(() => {
+      if (closed || location.href !== destination.href) return;
+      observeCancelledDeparture(
+        () => displayedTruthUrl === truthUrl && location.href === destination.href,
+        () => {
+          repairDisplayedTruth(
+            truthUrl,
+            "FADENO_FORM_FRAGMENT_RELOAD_CANCELLED",
+            "native same-resource fragment reload was cancelled",
+          );
+          recoverCancelledMutation();
+        },
+      );
+      location.reload();
+    }, 0);
+  };
+
   const recoverSelectedPush = (
     destination: URL,
     selectedPushCount: number,
@@ -1053,9 +1148,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     recoverCancelledMutation?: () => void,
   ): Promise<void> => {
     if (active?.kind === "mutation") return;
+    const inheritedMutationRecovery = active?.recoverCancelledMutation;
+    const effectiveMutationRecovery = recoverCancelledMutation ?? inheritedMutationRecovery;
     active?.cancellation.abort(new DOMException("Navigation superseded", "AbortError"));
     if (closed || !currentMetadata || !preservationSafe()) {
-      fallback(destination, replace, false, undefined, recoverCancelledMutation);
+      fallback(destination, replace, false, undefined, effectiveMutationRecovery);
       return;
     }
     sequence += 1;
@@ -1068,7 +1165,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       generation: currentMetadata.generation,
       documentEpoch: currentMetadata.epoch,
       cancellation: new AbortController(),
-      recoverCancelledMutation,
+      recoverCancelledMutation: effectiveMutationRecovery,
     });
     active = operation;
     let destinationSelected = false;
@@ -1116,11 +1213,12 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
       if (admission.outcome.kind === "redirect") {
         const redirect = new URL(admission.outcome.location, location.origin);
-        fallback(redirect, replace, false, undefined, recoverCancelledMutation);
+        consumeResultId(admission.resultId);
+        fallback(redirect, replace, false, undefined, effectiveMutationRecovery);
         return;
       }
       if (admission.outcome.kind === "recover") {
-        fallback(new URL(operation.currentTruthUrl), true, false, undefined, recoverCancelledMutation);
+        fallback(new URL(operation.currentTruthUrl), true, false, undefined, effectiveMutationRecovery);
         return;
       }
       const next = nextDocument(admission.outcome, operation.generation);
@@ -1164,8 +1262,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       displayedHistoryEntry = committedState.entry;
       selectedHistoryEntry = committedState.entry;
       displayedTruthUrl = location.href;
-      consumedResultIds.push(admission.resultId);
-      if (consumedResultIds.length > 256) consumedResultIds.shift();
+      consumeResultId(admission.resultId);
       currentMetadata = metadata(document);
       if (!currentMetadata) throw new TypeError("FADENO_UPDATE_DOCUMENT_METADATA");
       recordFlow({
@@ -1207,7 +1304,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             selectedPushCount,
             documentCommitFailure?.restoreFocus,
             !replace,
-            recoverCancelledMutation,
+            effectiveMutationRecovery,
           );
         } else {
           fallback(
@@ -1215,7 +1312,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             replace || selectedCommitFailure,
             selectedCommitFailure,
             documentCommitFailure?.restoreFocus,
-            recoverCancelledMutation,
+            effectiveMutationRecovery,
           );
         }
       } else if (operation.cancellation.signal.aborted) {
@@ -1356,8 +1453,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (admission.outcome.kind === "redirect") {
         const redirect = new URL(admission.outcome.location, location.origin);
         if (operation.kind === "mutation") {
-          consumedResultIds.push(admission.resultId);
-          if (consumedResultIds.length > 256) consumedResultIds.shift();
+          consumeResultId(admission.resultId);
+          const recoverCancelledMutation = () => recoverCommittedMutationCurrentTruth(operation.currentTruthUrl, eligibility);
+          const sameResourceFragment = sameResourceFragmentRedirect(redirect, operation.currentTruthUrl);
+          const handoffPreservationSafe = privateFormHandoffPreservationCheck(eligibility);
           clearPending();
           if (activeFormEligibility?.operation === operation) activeFormEligibility = undefined;
           if (active === operation) active = undefined;
@@ -1368,22 +1467,30 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             decisions: Object.freeze([
               "server selected a same-origin redirect after one admitted mutation",
               "the mutation result was consumed before redirect ownership changed",
-              "a fresh cancellable GET operation acquired the redirect destination",
+              sameResourceFragment
+                ? "a same-resource fragment selected one native destination reload"
+                : "a fresh cancellable GET operation acquired the redirect destination",
             ]),
             ownership: Object.freeze({
-              browser: Object.freeze(["submit event", "mutation operation", "pending cleanup", "redirect GET operation"]),
+              browser: Object.freeze(sameResourceFragment
+                ? ["submit event", "mutation operation", "pending cleanup", "native fragment reload"]
+                : ["submit event", "mutation operation", "pending cleanup", "redirect GET operation"]),
               server: Object.freeze(["origin", "proof", "replay", "authorization", "action", "session", "revalidation", "redirect", "destination route"]),
             }),
             skipped: Object.freeze(["mutation retry", "POST redirect resubmission", "transported redirect execution", "general state reconciliation"]),
-            outcome: "enhanced-redirect",
+            outcome: sameResourceFragment ? "native-navigation" : "enhanced-redirect",
           });
+          if (sameResourceFragment) {
+            fallbackSameResourceFragmentRedirect(redirect, recoverCancelledMutation);
+            return;
+          }
           await navigate(
             redirect,
             false,
             undefined,
             sourceState,
-            () => privateFormPreservationSafe(eligibility, { allowDocumentScroll: true }),
-            () => recoverCommittedMutationCurrentTruth(operation.currentTruthUrl, eligibility),
+            handoffPreservationSafe,
+            recoverCancelledMutation,
           );
           return;
         }
@@ -1474,8 +1581,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       displayedHistoryEntry = committedState.entry;
       selectedHistoryEntry = committedState.entry;
       displayedTruthUrl = location.href;
-      consumedResultIds.push(admission.resultId);
-      if (consumedResultIds.length > 256) consumedResultIds.shift();
+      consumeResultId(admission.resultId);
       currentMetadata = metadata(document);
       if (!currentMetadata) throw new TypeError("FADENO_UPDATE_DOCUMENT_METADATA");
       recordFormFlow({

@@ -23,6 +23,14 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/concurrency-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/close-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/staged-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/supersession-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json",
+  "examples/v1-app/scenarios/form-submission/expected/fragment-redirect-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json",
+  "examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption-human.txt",
 ]) assert.equal(tracked.has(path), true, `V2-07 artifact is not tracked: ${path}`);
 
 const adr = read("docs/adr/0052-enhanced-action-outcome-ordering.md").replace(/\s+/gu, " ");
@@ -53,19 +61,22 @@ for (const feature of ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "S
 }
 
 const risks = read("docs/ledgers/risks.md");
-assert.equal(risks.includes("ADR 0052 consumes the mutation result"), true);
-assert.equal(risks.includes("redirect GET reuses mutation identity or publishes after supersession"), true);
+assert.equal(risks.includes("ADR 0052 consumes mutation and redirect-GET results independently"), true);
+assert.equal(risks.includes("redirect GET reuses mutation identity or an admitted result"), true);
 
 const browser = read("packages/framework/src/internal/browser-navigation.ts");
 for (const fragment of [
-  'outcome: "enhanced-redirect"',
-  "consumedResultIds.push(admission.resultId)",
+  '"enhanced-redirect"',
+  "consumeResultId(admission.resultId)",
   "if (active === operation) active = undefined",
   "a fresh cancellable GET operation acquired the redirect destination",
   "await navigate(",
   "recoverCancelledMutation",
   "native post-selection mutation recovery was cancelled",
   "&& !recoverCancelledMutation",
+  "privateFormHandoffPreservationCheck",
+  "inheritedMutationRecovery",
+  "fallbackSameResourceFragmentRedirect",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
@@ -74,7 +85,7 @@ assert.equal(
   "staged mutation recovery must repair displayed truth before requesting current truth",
 );
 
-const navigationSpecification = read("docs/spec/navigation-patching-preservation.md");
+const navigationSpecification = read("docs/spec/navigation-patching-preservation.md").replace(/\s+/gu, " ");
 for (const fragment of [
   "first consumes the mutation result",
   "fresh cancellable GET",
@@ -98,6 +109,10 @@ for (const fragment of [
   "terminal redirect handoff",
   "close is cancelled during the redirect GET",
   "staged redirect URL before cancelled replacement recovery",
+  "form edits made after redirect handoff",
+  "newer GET supersedes the redirect",
+  "same-resource fragment redirects",
+  "redirect GET result before following its redirect chain",
   "authenticated CRUD through native documents without JavaScript",
 ]) assert.equal(tests.includes(fragment), true, `V2-07 browser evidence is missing ${fragment}`);
 
@@ -113,6 +128,10 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/concurrency.json", '"oneLogicalOwnerCreated": true'],
   ["examples/v1-app/scenarios/form-submission/expected/close-recovery.json", '"currentTruthVisible": true'],
   ["examples/v1-app/scenarios/form-submission/expected/staged-recovery.json", '"recoveryRecorded": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json", '"submittedDocumentNotPublishedOverNewerEdit": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json", '"currentTruthVisible": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"privateRedirectGets": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json", '"duplicateResultRefused": true'],
 ] as const) assert.equal(read(path).includes(fragment), true, `${path} is missing ${fragment}`);
 
 const packageDocument = JSON.parse(read("package.json")) as Readonly<{ scripts?: Readonly<Record<string, string>> }>;
@@ -133,6 +152,14 @@ for (const fragment of [
   '"scenarios/form-submission/expected/concurrency-human.txt"',
   '"scenarios/form-submission/expected/close-recovery.json"',
   '"scenarios/form-submission/expected/staged-recovery.json"',
+  '"scenarios/form-submission/expected/handoff-edit-recovery.json"',
+  '"scenarios/form-submission/expected/handoff-edit-recovery-human.txt"',
+  '"scenarios/form-submission/expected/supersession-recovery.json"',
+  '"scenarios/form-submission/expected/supersession-recovery-human.txt"',
+  '"scenarios/form-submission/expected/fragment-redirect.json"',
+  '"scenarios/form-submission/expected/fragment-redirect-human.txt"',
+  '"scenarios/form-submission/expected/redirect-get-consumption.json"',
+  '"scenarios/form-submission/expected/redirect-get-consumption-human.txt"',
 ]) assert.equal(documentationSource.includes(fragment), true, `documentation source is missing ${fragment}`);
 
 console.log("V2-07 action ordering contract passed (redirect GET handoff, authenticated CRUD, stale suppression, and native recovery)");

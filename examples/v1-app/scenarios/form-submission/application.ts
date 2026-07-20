@@ -16,6 +16,8 @@ let projects: string[] = [];
 let searchRequests = 0;
 let signInRuns = 0;
 let redirectAwayRuns = 0;
+let fragmentRedirectRuns = 0;
+let redirectChainRuns = 0;
 let createRuns = 0;
 let updateRuns = 0;
 let deleteRuns = 0;
@@ -75,6 +77,24 @@ export const redirectAway = defineAction({
     session.set("viewer", "owner");
     session.rotate();
     return redirect("/");
+  },
+});
+
+export const redirectFragment = defineAction({
+  fields: { intent: textField({ maximumBytes: 16 }) },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run() {
+    fragmentRedirectRuns += 1;
+    return redirect("/projects#details");
+  },
+});
+
+export const redirectChain = defineAction({
+  fields: { intent: textField({ maximumBytes: 16 }) },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run() {
+    redirectChainRuns += 1;
+    return redirect("/redirect-chain");
   },
 });
 
@@ -160,6 +180,8 @@ export function resetApplicationState(): void {
   searchRequests = 0;
   signInRuns = 0;
   redirectAwayRuns = 0;
+  fragmentRedirectRuns = 0;
+  redirectChainRuns = 0;
   createRuns = 0;
   updateRuns = 0;
   deleteRuns = 0;
@@ -177,6 +199,8 @@ export function readApplicationState(): Readonly<{
   searchRequests: number;
   signInRuns: number;
   redirectAwayRuns: number;
+  fragmentRedirectRuns: number;
+  redirectChainRuns: number;
   createRuns: number;
   updateRuns: number;
   deleteRuns: number;
@@ -188,6 +212,8 @@ export function readApplicationState(): Readonly<{
     searchRequests,
     signInRuns,
     redirectAwayRuns,
+    fragmentRedirectRuns,
+    redirectChainRuns,
     createRuns,
     updateRuns,
     deleteRuns,
@@ -260,6 +286,7 @@ function projectsPage(signedIn: boolean): RenderChild {
   }
   return shell("Project forms", "Project forms", jsxs("section", { children: [
     jsx("p", { id: "viewer", children: "Signed in owner" }),
+    jsx("p", { id: "details", children: "Project action details" }),
     jsxs("form", { id: "create-form", action: createProject, children: [
       jsx("label", { for: "title", children: "Project title" }),
       jsx("input", { id: "title", name: createProject.fields.title, value: "ab" }),
@@ -288,6 +315,14 @@ function projectsPage(signedIn: boolean): RenderChild {
           children: `Delete ${project}`,
         })),
     ] }),
+    jsxs("form", { id: "fragment-redirect-form", action: redirectFragment, children: [
+      jsx("input", { name: redirectFragment.fields.intent, type: "hidden", value: "fragment" }),
+      jsx("button", { type: "submit", children: "Reload project details" }),
+    ] }),
+    jsxs("form", { id: "redirect-chain-form", action: redirectChain, children: [
+      jsx("input", { name: redirectChain.fields.intent, type: "hidden", value: "chain" }),
+      jsx("button", { type: "submit", children: "Follow redirect chain" }),
+    ] }),
   ] }));
 }
 
@@ -303,6 +338,18 @@ function render(request: Request, routeId: string, page: (session: Readonly<{ ge
   });
 }
 
+function renderRedirectChain(request: Request): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId: "redirect-chain",
+    generation: applicationGeneration,
+    browserModule,
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => redirect("/"),
+  });
+}
+
 export const handler: Handler = (request) => {
   const url = new URL(request.url);
   if (url.pathname === "/") return render(request, "home", () => home());
@@ -310,5 +357,6 @@ export const handler: Handler = (request) => {
   if (url.pathname === "/projects") {
     return render(request, "projects", (session) => projectsPage(session.get("viewer") === "owner"));
   }
+  if (url.pathname === "/redirect-chain") return renderRedirectChain(request);
   return new Response("not found", { status: 404 });
 };

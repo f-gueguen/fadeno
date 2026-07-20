@@ -145,7 +145,11 @@
       "scenarios/form-submission/expected/duplicate.json",
       "scenarios/form-submission/expected/duplicate-human.txt",
       "scenarios/form-submission/expected/concurrency.json",
-      "scenarios/form-submission/expected/concurrency-human.txt"
+      "scenarios/form-submission/expected/concurrency-human.txt",
+      "scenarios/form-submission/expected/handoff-edit-recovery-human.txt",
+      "scenarios/form-submission/expected/supersession-recovery-human.txt",
+      "scenarios/form-submission/expected/fragment-redirect-human.txt",
+      "scenarios/form-submission/expected/redirect-get-consumption-human.txt"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -180,7 +184,11 @@
       "scenarios/link-navigation/expected/flow.json",
       "scenarios/form-submission/expected/flow.json",
       "scenarios/form-submission/expected/terminal-flow.json",
-      "scenarios/form-submission/expected/ordering.json"
+      "scenarios/form-submission/expected/ordering.json",
+      "scenarios/form-submission/expected/handoff-edit-recovery.json",
+      "scenarios/form-submission/expected/supersession-recovery.json",
+      "scenarios/form-submission/expected/fragment-redirect.json",
+      "scenarios/form-submission/expected/redirect-get-consumption.json"
     ],
     "recovery": [
       "expected/resource-recovery.txt",
@@ -245,7 +253,11 @@
       "scenarios/form-submission/expected/staged-recovery.json",
       "scenarios/form-submission/expected/history-recovery.json",
       "scenarios/form-submission/expected/teardown.json",
-      "scenarios/form-submission/expected/ordering.json"
+      "scenarios/form-submission/expected/ordering.json",
+      "scenarios/form-submission/expected/handoff-edit-recovery.json",
+      "scenarios/form-submission/expected/supersession-recovery.json",
+      "scenarios/form-submission/expected/fragment-redirect.json",
+      "scenarios/form-submission/expected/redirect-get-consumption.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -305,7 +317,11 @@
       "scenarios/form-submission/expected/recovery.json",
       "scenarios/form-submission/expected/history-recovery.json",
       "scenarios/form-submission/expected/teardown.json",
-      "scenarios/form-submission/expected/ordering.json"
+      "scenarios/form-submission/expected/ordering.json",
+      "scenarios/form-submission/expected/handoff-edit-recovery.json",
+      "scenarios/form-submission/expected/supersession-recovery.json",
+      "scenarios/form-submission/expected/fragment-redirect.json",
+      "scenarios/form-submission/expected/redirect-get-consumption.json"
     ]
   }
 }
