@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-cancelled-fallback-recovery",
+  "version": 1,
+  "repairedPath": "/",
+  "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+  "enhancementResumed": true,
+  "staleDocumentRemoved": true
+}

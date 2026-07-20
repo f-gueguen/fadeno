@@ -153,7 +153,8 @@ Forms and general state-preserving reconciliation remain later V2 work.
 ADR 0050 selects V2-05's browser-state qualification boundary. Runtime-owned
 history entries carry a private exact-version marker, the active bounded chain
 identity, a bounded entry identity, and recorded document scroll state while automatic restoration is
-disabled for the active runtime.
+disabled for the active runtime. Startup requires a trustworthy origin and a
+secure random identity generator before claiming history.
 The first observed nonzero document or element scroll makes the entry
 monotonically unsafe even after the viewport returns to zero or a forced final
 flush runs, avoiding repeated History API writes; an eligible click
@@ -190,12 +191,16 @@ URL and document truth but not a pixel position, and the runtime does not apply
 its recorded refusal number to a fresh layout. Closing during a pending
 traversal reloads the selected current URL after restoring native scroll
 ownership. A newer traversal cancels its predecessor before taking an early
-native path. If history selection succeeds but a later document commit step
+native path. A newer eligible click also aborts pending traversal work before
+remaining native. If history selection succeeds but a later document commit step
 fails, native recovery replaces the selected destination rather than appending
 a duplicate entry even if local scroll rollback also fails. If the user cancels
 an unsafe traversal's native reload, the active document replaces the selected
 slot with a fresh private entry at the trusted displayed-document URL,
 reacquires its restoration owner, and records the refusal before resuming.
+Both `preventDefault()` and legacy non-empty `returnValue` confirmation are
+observed. A canceled replacement after a post-selection commit failure receives
+the same repair.
 No transition work is allocated in
 either normal or reduced-motion mode.
 

@@ -533,6 +533,19 @@ startup failure does the same before falling back to native links:
 }
 ```
 
+An insecure origin or missing secure identity generator declines history
+ownership without throwing and leaves the ordinary link path native:
+
+```json
+{
+  "schema": "fadeno.example.history-environment-refusal",
+  "version": 1,
+  "nativeNavigation": true,
+  "historyUnclaimed": true,
+  "uncaughtErrors": 0
+}
+```
+
 Unsafe same-context links and failed enhanced requests also restore automatic
 browser ownership before their native departure:
 
@@ -757,6 +770,19 @@ the selected URL:
 }
 ```
 
+A newer safe click also cancels a pending traversal before remaining native;
+obsolete traversal markup cannot overwrite the clicked destination:
+
+```json
+{
+  "schema": "fadeno.example.history-click-supersession-recovery",
+  "version": 1,
+  "pendingTraversalAborted": true,
+  "nativeClickWon": true,
+  "obsoleteDocumentSuppressed": true
+}
+```
+
 If the user cancels a reload required by an unsafe Back or Forward traversal,
 the still-active document repairs the selected slot to its trusted displayed
 URL, reacquires history ownership, records the refusal, and can enhance a later
@@ -771,6 +797,34 @@ safe link:
   "restorationAfterRepair": "manual",
   "flowCode": "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED",
   "enhancementResumed": true
+}
+```
+
+The same repair recognizes a legacy `returnValue`-only confirmation request:
+
+```json
+{
+  "schema": "fadeno.example.history-return-value-reload-recovery",
+  "version": 1,
+  "repairedPath": "/next",
+  "repairedHeading": "Next",
+  "restorationAfterRepair": "manual",
+  "flowCode": "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED"
+}
+```
+
+If a post-selection document commit fails and the user cancels its native
+replacement, the rolled-back document receives the same trusted URL/state
+repair and later safe enhancement resumes:
+
+```json
+{
+  "schema": "fadeno.example.history-cancelled-fallback-recovery",
+  "version": 1,
+  "repairedPath": "/",
+  "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+  "enhancementResumed": true,
+  "staleDocumentRemoved": true
 }
 ```
 
@@ -794,6 +848,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 105 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 117 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

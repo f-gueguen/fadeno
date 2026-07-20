@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-click-supersession-recovery",
+  "version": 1,
+  "pendingTraversalAborted": true,
+  "nativeClickWon": true,
+  "obsoleteDocumentSuppressed": true
+}

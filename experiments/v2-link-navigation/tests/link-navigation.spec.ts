@@ -113,6 +113,25 @@ test("enhances one safe link with document, title, URL, history, and focus", asy
   expect(result).toEqual(expected("success"));
 });
 
+test("declines history ownership when secure identity generation is unavailable", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.name));
+  await page.addInitScript(() => {
+    Object.defineProperty(globalThis.crypto, "randomUUID", { configurable: true, value: undefined });
+  });
+  await page.goto(origin);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-environment-refusal",
+    version: 1,
+    nativeNavigation: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    historyUnclaimed: await page.evaluate(() => history.state === null),
+    uncaughtErrors: pageErrors.length,
+  }).toEqual(expected("history-environment-refusal"));
+});
+
 test("keeps unsafe browser-owned state native before request ownership", async ({ page }) => {
   await page.goto(origin);
   await page.evaluate(() => {
@@ -842,6 +861,50 @@ test("recovers a selected destination without duplicating it when document commi
   }).toEqual(expected("history-commit-failure-recovery"));
 });
 
+test("repairs displayed truth when post-selection native recovery is cancelled", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => {
+    const originalFocus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function failFirstFocus(): void {
+      HTMLElement.prototype.focus = originalFocus;
+      throw new DOMException("focus commit refused", "InvalidStateError");
+    };
+    addEventListener("beforeunload", (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    }, { once: true });
+  });
+  const dismissed = new Promise<void>((resolve) => {
+    page.once("dialog", (dialog) => { void dialog.dismiss().then(resolve); });
+  });
+  await page.locator("#next-link").click({ noWaitAfter: true });
+  await dismissed;
+  await expect(page).toHaveURL(origin);
+  await expect(page.locator("h1")).toHaveText("Home");
+  await waitForPrivateHistoryOwner(page);
+  const readFlowCode = (): Promise<string | undefined> => page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      readPrivateLinkNavigationFlows(): readonly Readonly<{ code: string }>[];
+    }>;
+    return runtime.readPrivateLinkNavigationFlows().at(-1)?.code;
+  });
+  await expect.poll(readFlowCode).toBe("FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED");
+  const repairedPath = new URL(page.url()).pathname;
+  const repairedFlowCode = await readFlowCode();
+  const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-cancelled-fallback-recovery",
+    version: 1,
+    repairedPath,
+    flowCode: repairedFlowCode,
+    enhancementResumed: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
+    staleDocumentRemoved: await page.locator("h1").textContent() === "Next",
+  }).toEqual(expected("history-cancelled-fallback-recovery"));
+});
+
 test("preserves replacement recovery when destination scroll and rollback both fail", async ({ page }) => {
   await page.goto(origin);
   const historyLengthBefore = await page.evaluate(() => history.length);
@@ -913,6 +976,76 @@ test("repairs displayed document truth when a traversal reload is cancelled", as
     flowCode: repaired.flowCode,
     enhancementResumed: requests.filter(({ path, enhanced }) => path === "/" && enhanced).length > enhancedHomeBefore,
   }).toEqual(expected("history-cancelled-reload-recovery"));
+});
+
+test("repairs a returnValue-only cancelled traversal reload", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => scrollTo(0, 100));
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.evaluate(() => {
+    addEventListener("beforeunload", (event) => {
+      Reflect.set(event, "returnValue", "stay");
+    }, { once: true });
+  });
+  await page.locator("h1").click();
+  const dismissed = new Promise<void>((resolve) => {
+    page.once("dialog", (dialog) => { void dialog.dismiss().then(resolve); });
+  });
+  await page.evaluate(() => history.back());
+  await dismissed;
+  await expect(page).toHaveURL(`${origin}/next`);
+  await expect(page.locator("h1")).toHaveText("Next");
+  await waitForPrivateHistoryOwner(page);
+  const readFlowCode = (): Promise<string | undefined> => page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      readPrivateLinkNavigationFlows(): readonly Readonly<{ code: string }>[];
+    }>;
+    return runtime.readPrivateLinkNavigationFlows().at(-1)?.code;
+  });
+  await expect.poll(readFlowCode).toBe("FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED");
+  expect({
+    schema: "fadeno.example.history-return-value-reload-recovery",
+    version: 1,
+    repairedPath: new URL(page.url()).pathname,
+    repairedHeading: await page.locator("h1").textContent(),
+    restorationAfterRepair: await page.evaluate(() => history.scrollRestoration),
+    flowCode: await readFlowCode(),
+  }).toEqual(expected("history-return-value-reload-recovery"));
+});
+
+test("cancels a pending traversal before a newer click remains native", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  enhancedSlowDelay = 250;
+  await page.evaluate(() => {
+    const originalAbort = AbortController.prototype.abort;
+    sessionStorage.setItem("fadeno-test-native-click-aborts", "0");
+    AbortController.prototype.abort = function recordAbort(reason?: unknown): void {
+      sessionStorage.setItem(
+        "fadeno-test-native-click-aborts",
+        String(Number(sessionStorage.getItem("fadeno-test-native-click-aborts")) + 1),
+      );
+      originalAbort.call(this, reason);
+    };
+    history.back();
+  });
+  await page.waitForTimeout(20);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.waitForTimeout(300);
+  expect({
+    schema: "fadeno.example.history-click-supersession-recovery",
+    version: 1,
+    pendingTraversalAborted: await page.evaluate(() => Number(sessionStorage.getItem("fadeno-test-native-click-aborts")) > 0),
+    nativeClickWon: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    obsoleteDocumentSuppressed: new URL(page.url()).pathname === "/next" && await page.locator("h1").textContent() === "Next",
+  }).toEqual(expected("history-click-supersession-recovery"));
 });
 
 test("cancels an obsolete history traversal and publishes only the newest entry", async ({ page }) => {

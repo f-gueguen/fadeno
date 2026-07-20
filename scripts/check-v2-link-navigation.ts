@@ -110,6 +110,7 @@ try {
     "recovery.json",
     "history-focus.json",
     "history-focus-normal.json",
+    "history-environment-refusal.json",
     "history-teardown.json",
     "history-startup-recovery.json",
     "history-native-departure.json",
@@ -129,6 +130,9 @@ try {
     "history-native-supersession-recovery.json",
     "history-scroll-rollback-recovery.json",
     "history-cancelled-reload-recovery.json",
+    "history-cancelled-fallback-recovery.json",
+    "history-return-value-reload-recovery.json",
+    "history-click-supersession-recovery.json",
     "history-recovery.json",
     "history-refusal-human.txt",
   ]) {

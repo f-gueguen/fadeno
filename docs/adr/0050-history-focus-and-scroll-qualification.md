@@ -34,7 +34,8 @@ marker, private state version, the active bounded chain identity, a bounded entr
 document-scroll record. It installs manual browser scroll restoration while
 active and restores the previous browser setting on close or page departure. If initial history
 ownership cannot be recorded, startup also restores the prior setting and
-returns to native ownership. Application-owned, foreign-chain, malformed, unsupported, or
+returns to native ownership. A non-trustworthy origin or missing secure random
+identity generator declines ownership before creating an identity. Application-owned, foreign-chain, malformed, unsupported, or
 preservation-unsafe entries are not interpreted; traversal reloads the selected
 current URL so URL and document cannot diverge.
 
@@ -90,7 +91,8 @@ decision and must retain this no-animation reduced-motion baseline.
 Traversal supersession uses ADR 0049's existing operation cancellation and
 newest-only publication. A newly selected traversal cancels its predecessor
 before any early native-recovery decision, so an obsolete response cannot race
-that recovery. Scroll-write suppression remains owned by the newest
+that recovery. A newer eligible same-context click also cancels the pending
+traversal before remaining native during traversal suppression. Scroll-write suppression remains owned by the newest
 traversal until that traversal finishes; an older traversal's cleanup cannot
 release it. Every entry has a bounded private identity; `popstate` inspects the
 still-present outgoing document and conservatively marks its displayed identity
@@ -120,7 +122,11 @@ If a user cancels the native reload requested for an unsafe traversal, the
 still-running document repairs the selected history slot to a fresh private
 entry at the displayed document's trusted URL, reacquires manual restoration,
 records the refusal, and resumes enhancement; it never leaves the selected
-destination URL paired with old markup. Flow evidence
+destination URL paired with old markup. Cancellation detection covers both
+`preventDefault()` and legacy non-empty `returnValue` confirmation requests.
+The same trusted displayed-truth repair applies when a post-selection commit
+failure rolls the document back and the user cancels its native replacement.
+Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
 
@@ -159,6 +165,7 @@ non-collapsed-selection refusal, scrolled-origin departure, nonzero document and
 element-scroll restoration refusal, foreign-chain and unowned-state recovery,
 recorded element-scroll link refusal, cloned-entry recovery,
 post-history commit and rollback failure without duplicate entries, cancelled-
-reload repair and resumed enhancement, normal/reduced-
+reload and post-selection fallback repair, returnValue-only cancellation,
+pending-traversal click supersession, secure-environment refusal and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.

@@ -86,6 +86,7 @@
       "scenarios/link-navigation/expected/refusal-human.txt",
       "scenarios/link-navigation/expected/refusal.json",
       "scenarios/link-navigation/expected/history-refusal-human.txt",
+      "scenarios/link-navigation/expected/history-environment-refusal.json",
       "scenarios/link-navigation/expected/history-scroll-refusal.json",
       "scenarios/link-navigation/expected/history-element-link-refusal.json",
       "scenarios/link-navigation/expected/history-monotonic-scroll-recovery.json",
@@ -93,6 +94,9 @@
       "scenarios/link-navigation/expected/history-commit-failure-recovery.json",
       "scenarios/link-navigation/expected/history-scroll-rollback-recovery.json",
       "scenarios/link-navigation/expected/history-cancelled-reload-recovery.json",
+      "scenarios/link-navigation/expected/history-cancelled-fallback-recovery.json",
+      "scenarios/link-navigation/expected/history-return-value-reload-recovery.json",
+      "scenarios/link-navigation/expected/history-click-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-cloned-entry-recovery.json",
       "scenarios/link-navigation/expected/history-write-recovery.json",
       "scenarios/link-navigation/expected/history-startup-recovery.json",
@@ -157,7 +161,10 @@
       "scenarios/link-navigation/expected/history-commit-failure-recovery.json",
       "scenarios/link-navigation/expected/history-native-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-scroll-rollback-recovery.json",
-      "scenarios/link-navigation/expected/history-cancelled-reload-recovery.json"
+      "scenarios/link-navigation/expected/history-cancelled-reload-recovery.json",
+      "scenarios/link-navigation/expected/history-cancelled-fallback-recovery.json",
+      "scenarios/link-navigation/expected/history-return-value-reload-recovery.json",
+      "scenarios/link-navigation/expected/history-click-supersession-recovery.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -186,7 +193,10 @@
       "scenarios/link-navigation/expected/history-commit-failure-recovery.json",
       "scenarios/link-navigation/expected/history-native-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-scroll-rollback-recovery.json",
-      "scenarios/link-navigation/expected/history-cancelled-reload-recovery.json"
+      "scenarios/link-navigation/expected/history-cancelled-reload-recovery.json",
+      "scenarios/link-navigation/expected/history-cancelled-fallback-recovery.json",
+      "scenarios/link-navigation/expected/history-return-value-reload-recovery.json",
+      "scenarios/link-navigation/expected/history-click-supersession-recovery.json"
     ]
   }
 }
