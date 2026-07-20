@@ -2,6 +2,7 @@
   "schema": "fadeno.example.history-form-supersession-recovery",
   "version": 1,
   "pendingTraversalAborted": true,
+  "parentTargetResolvedCurrent": true,
   "nativeFormWon": true,
   "obsoleteDocumentSuppressed": true
 }

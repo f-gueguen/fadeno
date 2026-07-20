@@ -158,6 +158,7 @@ try {
     "history-cancelled-reload-recovery.json",
     "history-cancelled-fallback-recovery.json",
     "history-cancelled-preselection-recovery.json",
+    "history-cancelled-unsafe-repair.json",
     "history-return-value-reload-recovery.json",
     "history-click-supersession-recovery.json",
     "history-delayed-recovery-supersession.json",

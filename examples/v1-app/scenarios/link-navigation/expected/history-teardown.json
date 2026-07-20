@@ -3,5 +3,8 @@
   "version": 1,
   "activeRestoration": "manual",
   "closedState": "closed",
-  "restoredRestoration": "auto"
+  "restoredRestoration": "auto",
+  "exactDescriptorsRestored": true,
+  "laterPrototypeWrapperObserved": true,
+  "bfcacheOwnershipFailureNative": true
 }

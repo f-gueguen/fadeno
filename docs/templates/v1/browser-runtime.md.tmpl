@@ -103,6 +103,8 @@ title, URL, history entry, and focus:
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/success.json","language":"json"} -->
 
 Fadeno deliberately keeps native behavior when it cannot yet preserve state.
+Links with an explicit `referrerpolicy` or `rel="noreferrer"` also remain native
+so enhancement cannot change their request-privacy semantics.
 There is no source correction to apply: the safe correction is to leave the
 ordinary link intact and let the browser navigate it.
 
@@ -140,8 +142,11 @@ The same no-animation result is asserted with ordinary motion preferences:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-focus-normal.json","language":"json"} -->
 
-Closing the runtime restores the browser's prior scroll-restoration owner, and
-startup failure does the same before falling back to native links:
+Closing the runtime restores the browser's prior scroll-restoration owner and
+the exact original History property descriptors, so a later prototype wrapper
+is visible. Startup failure does the same before falling back to native links.
+A persisted-page failure to reacquire verified manual ownership closes the
+enhancement and keeps later activation native:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-teardown.json","language":"json"} -->
 
@@ -214,7 +219,9 @@ loaded layout derives fresh element ownership instead of copying the old bit:
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-recovery.json","language":"json"} -->
 
 Element-scroll ownership also keeps a later link native after the live element
-returns to zero; the recorded ownership cannot be erased by visual position:
+returns to zero; the recorded ownership cannot be erased by visual position.
+Only the actual document scroller is excluded, so an independently scrollable
+`body` is tracked as element ownership:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-link-refusal.json","language":"json"} -->
 
@@ -231,8 +238,8 @@ request, even if the live element has returned to zero:
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-pending-scroll-recovery.json","language":"json"} -->
 
 An unsafe mark discovered only during traversal remains fail-closed after the
-native reload, and document scroll while traversal work is pending receives the
-same current-truth recovery:
+native reload. Live document scroll that occurs after response admission but
+before the event is delivered receives the same current-truth recovery:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-traversal-scroll-recovery.json","language":"json"} -->
 
@@ -358,7 +365,9 @@ the selected URL:
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-native-supersession-recovery.json","language":"json"} -->
 
 A newer safe click also cancels a pending traversal before remaining native;
-obsolete traversal markup cannot overwrite the clicked destination:
+`_top` and `_parent` are recognized as the current context when they resolve to
+the current top-level window. Obsolete traversal markup cannot overwrite the
+clicked destination:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-click-supersession-recovery.json","language":"json"} -->
 
@@ -401,6 +410,12 @@ reacquires its prior history owner, repairs the trusted current entry, and can
 enhance the next safe attempt:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-preselection-recovery.json","language":"json"} -->
+
+If that repaired document had already acquired monotonic unsafe-scroll
+evidence, repair carries the evidence to the fresh entry. A later Back
+selection therefore reloads current truth instead of enhancing restoration:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-unsafe-repair.json","language":"json"} -->
 
 Malformed, application-owned, and otherwise well-formed state from a different
 runtime chain is never interpreted as Fadeno ownership. The selected URL

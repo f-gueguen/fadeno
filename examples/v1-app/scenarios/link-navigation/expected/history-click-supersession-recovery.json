@@ -2,6 +2,7 @@
   "schema": "fadeno.example.history-click-supersession-recovery",
   "version": 1,
   "pendingTraversalAborted": true,
+  "topTargetResolvedCurrent": true,
   "nativeClickWon": true,
   "obsoleteDocumentSuppressed": true
 }

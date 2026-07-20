@@ -245,6 +245,17 @@ entry and reacquires manual restoration before enhancement resumes.
 No transition work is allocated in
 either normal or reduced-motion mode.
 
+Same-context activation is resolved against the current window, including
+`_parent`, `_top`, and its current name. Explicit anchor referrer-policy and
+`noreferrer` directives remain native. A traversal performs one final live
+document/element-scroll refusal without writing into the selected destination;
+only the actual document scroller is excluded from element ownership. History
+installation restores exact original own-property descriptors, and history
+length is part of current-slot provenance so a native prototype push cannot
+reuse a registered state as framework ownership. Repair carries monotonic
+unsafe-scroll evidence to the fresh repaired entry. Failure to read back manual
+restoration on a persisted page closes enhancement before another traversal.
+
 ## Narrowed H1 result and V2 conformance
 
 K0-04 established cross-engine structural viability for focus/selection/caret,

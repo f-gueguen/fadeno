@@ -240,8 +240,10 @@ function metadata(owner: Document): Metadata | undefined {
 export function privateSafeLinkDestination(anchor: HTMLAnchorElement): URL | undefined {
   if (!anchor.hasAttribute("href")
     || anchor.hasAttribute("download")
-    || !["", "_self"].includes(anchor.getAttribute("target")?.toLowerCase() ?? "")
-    || anchor.relList.contains("external")) return undefined;
+    || !privateTargetOwnsCurrentBrowsingContext(anchor.getAttribute("target"))
+    || anchor.hasAttribute("referrerpolicy")
+    || anchor.relList.contains("external")
+    || anchor.relList.contains("noreferrer")) return undefined;
   let destination: URL;
   try { destination = new URL(anchor.href, location.href); }
   catch { return undefined; }
@@ -257,6 +259,16 @@ export function privateSafeLinkDestination(anchor: HTMLAnchorElement): URL | und
     && destination.search === current.search
     && destination.hash !== current.hash) return undefined;
   return destination;
+}
+
+function privateTargetOwnsCurrentBrowsingContext(target: string | null): boolean {
+  if (target === null || target === "") return true;
+  const keyword = target.toLowerCase();
+  if (keyword === "_self") return true;
+  if (keyword === "_parent") return globalThis.parent === globalThis.window;
+  if (keyword === "_top") return globalThis.top === globalThis.window;
+  if (keyword === "_blank") return false;
+  return target === globalThis.window.name;
 }
 
 function dirtyControl(control: Element): boolean {
@@ -511,8 +523,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   let historyOwnershipOverflowed = false;
   let internalHistoryWrite = false;
   let historyPushSequence = 0;
+  let knownHistoryLength = history.length;
   const originalReplaceState = history.replaceState;
   const originalPushState = history.pushState;
+  const originalReplaceStateDescriptor = Object.getOwnPropertyDescriptor(history, "replaceState");
+  const originalPushStateDescriptor = Object.getOwnPropertyDescriptor(history, "pushState");
   const applicationHistoryKey = (session: string, entry: string, url: string): string => `${session}\0${entry}\0${url}`;
   const retainApplicationHistoryMutation = (): void => {
     if (internalHistoryWrite || closed) return;
@@ -528,33 +543,60 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   };
   const runtimeReplaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
     originalReplaceState.call(history, data, unused, url);
+    knownHistoryLength = history.length;
     retainApplicationHistoryMutation();
   };
   const runtimePushState = (data: unknown, unused: string, url?: string | URL | null): void => {
     originalPushState.call(history, data, unused, url);
+    knownHistoryLength = history.length;
     historyPushSequence += 1;
     retainApplicationHistoryMutation();
   };
+  const installHistoryMethod = (
+    name: "replaceState" | "pushState",
+    value: History["replaceState"] | History["pushState"],
+    descriptor: PropertyDescriptor | undefined,
+  ): void => {
+    if (descriptor && !("value" in descriptor)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    Object.defineProperty(history, name, descriptor
+      ? { ...descriptor, value }
+      : { configurable: true, enumerable: false, writable: true, value });
+  };
+  const restoreHistoryMethod = (
+    name: "replaceState" | "pushState",
+    installed: History["replaceState"] | History["pushState"],
+    descriptor: PropertyDescriptor | undefined,
+  ): void => {
+    if (Reflect.get(history, name) !== installed) return;
+    if (descriptor) Object.defineProperty(history, name, descriptor);
+    else if (!Reflect.deleteProperty(history, name)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+  };
   try {
-    history.replaceState = runtimeReplaceState;
-    history.pushState = runtimePushState;
+    installHistoryMethod("replaceState", runtimeReplaceState, originalReplaceStateDescriptor);
+    installHistoryMethod("pushState", runtimePushState, originalPushStateDescriptor);
     if (history.replaceState !== runtimeReplaceState || history.pushState !== runtimePushState) {
       throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
     }
   } catch {
-    try { if (history.replaceState === runtimeReplaceState) history.replaceState = originalReplaceState; } catch { /* native method remains authoritative */ }
-    try { if (history.pushState === runtimePushState) history.pushState = originalPushState; } catch { /* native method remains authoritative */ }
+    try { restoreHistoryMethod("replaceState", runtimeReplaceState, originalReplaceStateDescriptor); } catch { /* native method remains authoritative */ }
+    try { restoreHistoryMethod("pushState", runtimePushState, originalPushStateDescriptor); } catch { /* native method remains authoritative */ }
     return undefined;
   }
   const writeHistory = Object.freeze({
     replace(state: Readonly<Record<string, unknown>>, url: string): void {
       internalHistoryWrite = true;
-      try { history.replaceState(state, "", url); }
+      try {
+        history.replaceState(state, "", url);
+        knownHistoryLength = history.length;
+      }
       finally { internalHistoryWrite = false; }
     },
     push(state: Readonly<Record<string, unknown>>, url: string): void {
       internalHistoryWrite = true;
-      try { history.pushState(state, "", url); }
+      try {
+        history.pushState(state, "", url);
+        knownHistoryLength = history.length;
+      }
       finally { internalHistoryWrite = false; }
     },
   });
@@ -568,7 +610,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     ownedHistoryEntries.set(state.entry, Object.freeze({ state, url }));
   };
   const ownsHistoryState = (state: PrivateHistoryState | undefined, url: string): boolean => {
-    if (!state || historyOwnershipOverflowed) return false;
+    if (!state || historyOwnershipOverflowed || history.length !== knownHistoryLength) return false;
     const owned = ownedHistoryEntries.get(state.entry);
     return !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url))
       && owned?.url === url
@@ -599,8 +641,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       unsafeTraversalPersistence.clearRecovery(existingPrivateState.session, existingPrivateState.entry, location.href);
     }
   } catch {
-    if (history.replaceState === runtimeReplaceState) history.replaceState = originalReplaceState;
-    if (history.pushState === runtimePushState) history.pushState = originalPushState;
+    try { restoreHistoryMethod("replaceState", runtimeReplaceState, originalReplaceStateDescriptor); } catch { /* native method remains authoritative */ }
+    try { restoreHistoryMethod("pushState", runtimePushState, originalPushStateDescriptor); } catch { /* native method remains authoritative */ }
     restoreScrollRestoration();
     return undefined;
   }
@@ -620,6 +662,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (!entry) return;
     unsafeHistoryEntries.mark(entry);
   };
+  const liveElementScroll = (): boolean => [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
+    && (element.scrollTop !== 0 || element.scrollLeft !== 0));
 
   const requestsUnloadConfirmation = (event: BeforeUnloadEvent): boolean => {
     const returnValue = Reflect.get(event, "returnValue") as unknown;
@@ -645,8 +689,16 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     code: string,
     decision: string,
   ): void => {
-    const elementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
-      && (element.scrollTop !== 0 || element.scrollLeft !== 0));
+    const displayedOwnedState = displayedHistoryEntry === undefined
+      ? undefined
+      : ownedHistoryEntries.get(displayedHistoryEntry)?.state;
+    const retainedUnsafeScroll = displayedHistoryEntry !== undefined
+      && (unsafeHistoryEntries.requiresReload(displayedHistoryEntry)
+        || unsafeTraversalPersistence.recoveryReason(historySession, displayedHistoryEntry, displayedTruthUrl) === "unsafe-scroll"
+        || displayedOwnedState?.scrollX !== 0
+        || displayedOwnedState?.scrollY !== 0
+        || displayedOwnedState?.elementScroll === true);
+    const elementScroll = liveElementScroll();
     try {
       const repairedState = createHistoryState(scrollX, scrollY, elementScroll, historySession);
       const repairedPrivateState = privateHistoryState(repairedState);
@@ -658,7 +710,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       displayedHistoryEntry = repairedPrivateState.entry;
       selectedHistoryEntry = repairedPrivateState.entry;
       displayedTruthUrl = truthUrl;
-      if (scrollX !== 0 || scrollY !== 0 || elementScroll) markHistoryUnsafe(repairedPrivateState.entry);
+      if (retainedUnsafeScroll || scrollX !== 0 || scrollY !== 0 || elementScroll) {
+        markHistoryUnsafe(repairedPrivateState.entry);
+        unsafeTraversalPersistence.requireRecovery(historySession, repairedPrivateState.entry, truthUrl, "unsafe-scroll");
+      }
       recordFlow({
         status: "refused",
         code,
@@ -735,8 +790,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (closed) return;
     const target = event?.target;
     const elementOwnsScroll = target instanceof Element
-      && target !== document.documentElement
-      && target !== document.body
+      && target !== document.scrollingElement
       && (target.scrollTop !== 0 || target.scrollLeft !== 0);
     if (traversing) {
       if (scrollX !== 0 || scrollY !== 0 || elementOwnsScroll) {
@@ -880,7 +934,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
-      if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      if (selectedHistoryState) {
+        if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || liveElementScroll()) {
+          markHistoryUnsafe(displayedHistoryEntry);
+          if (displayedHistoryEntry) unsafeTraversalPersistence.requireRecovery(historySession, displayedHistoryEntry, displayedTruthUrl, "unsafe-scroll");
+          throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+        }
+      } else if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       const operationFocusedNode = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : undefined;
@@ -978,8 +1038,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (!(target instanceof HTMLAnchorElement)) return;
-    const browsingContext = target.getAttribute("target")?.toLowerCase() ?? "";
-    const sameContext = !target.hasAttribute("download") && ["", "_self"].includes(browsingContext);
+    const sameContext = !target.hasAttribute("download")
+      && privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"));
     if (sameContext && traversing && supersedePendingWorkForNativeActivation(
         "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
         "native same-context click superseded a traversal",
@@ -1016,8 +1076,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (closed || event.defaultPrevented || !event.isTrusted || !(event.target instanceof HTMLFormElement)) return;
     if (event.target.method.toLowerCase() === "dialog") return;
     const submitterTarget = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formtarget") : null;
-    const browsingContext = (submitterTarget ?? event.target.getAttribute("target") ?? "").toLowerCase();
-    if (!["", "_self"].includes(browsingContext)) return;
+    if (!privateTargetOwnsCurrentBrowsingContext(submitterTarget ?? event.target.getAttribute("target"))) return;
     supersedePendingWorkForNativeActivation(
       "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
       "native same-context form submission superseded a traversal",
@@ -1090,8 +1149,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     document.removeEventListener("click", click);
     document.removeEventListener("submit", submit);
     document.removeEventListener("scroll", recordCurrentScroll, true);
-    if (history.replaceState === runtimeReplaceState) history.replaceState = originalReplaceState;
-    if (history.pushState === runtimePushState) history.pushState = originalPushState;
+    try { restoreHistoryMethod("replaceState", runtimeReplaceState, originalReplaceStateDescriptor); } catch { /* native method remains authoritative */ }
+    try { restoreHistoryMethod("pushState", runtimePushState, originalPushStateDescriptor); } catch { /* native method remains authoritative */ }
     globalThis.removeEventListener("popstate", popstate);
     globalThis.removeEventListener("pagehide", pagehide);
     globalThis.removeEventListener("pageshow", pageshow);
@@ -1107,7 +1166,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         history.scrollRestoration = "manual";
         if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       }
-      catch { historyWriteFailed = true; }
+      catch {
+        historyWriteFailed = true;
+        finishClose();
+      }
     }
   };
   document.addEventListener("click", click);

@@ -426,6 +426,8 @@ title, URL, history entry, and focus:
 ```
 
 Fadeno deliberately keeps native behavior when it cannot yet preserve state.
+Links with an explicit `referrerpolicy` or `rel="noreferrer"` also remain native
+so enhancement cannot change their request-privacy semantics.
 There is no source correction to apply: the safe correction is to leave the
 ordinary link intact and let the browser navigate it.
 
@@ -530,8 +532,11 @@ The same no-animation result is asserted with ordinary motion preferences:
 }
 ```
 
-Closing the runtime restores the browser's prior scroll-restoration owner, and
-startup failure does the same before falling back to native links:
+Closing the runtime restores the browser's prior scroll-restoration owner and
+the exact original History property descriptors, so a later prototype wrapper
+is visible. Startup failure does the same before falling back to native links.
+A persisted-page failure to reacquire verified manual ownership closes the
+enhancement and keeps later activation native:
 
 ```json
 {
@@ -539,7 +544,10 @@ startup failure does the same before falling back to native links:
   "version": 1,
   "activeRestoration": "manual",
   "closedState": "closed",
-  "restoredRestoration": "auto"
+  "restoredRestoration": "auto",
+  "exactDescriptorsRestored": true,
+  "laterPrototypeWrapperObserved": true,
+  "bfcacheOwnershipFailureNative": true
 }
 ```
 
@@ -719,7 +727,9 @@ loaded layout derives fresh element ownership instead of copying the old bit:
 ```
 
 Element-scroll ownership also keeps a later link native after the live element
-returns to zero; the recorded ownership cannot be erased by visual position:
+returns to zero; the recorded ownership cannot be erased by visual position.
+Only the actual document scroller is excluded, so an independently scrollable
+`body` is tracked as element ownership:
 
 ```json
 {
@@ -727,7 +737,9 @@ returns to zero; the recorded ownership cannot be erased by visual position:
   "version": 1,
   "elementOwnershipRetained": true,
   "nativeDeparture": true,
-  "enhancedRequestSkipped": true
+  "enhancedRequestSkipped": true,
+  "independentBodyTracked": true,
+  "independentBodyNativeDeparture": true
 }
 ```
 
@@ -769,14 +781,15 @@ request, even if the live element has returned to zero:
 ```
 
 An unsafe mark discovered only during traversal remains fail-closed after the
-native reload, and document scroll while traversal work is pending receives the
-same current-truth recovery:
+native reload. Live document scroll that occurs after response admission but
+before the event is delivered receives the same current-truth recovery:
 
 ```json
 {
   "schema": "fadeno.example.history-traversal-scroll-recovery",
   "version": 1,
   "pendingTraversalNativeRecovery": true,
+  "lateLiveScrollRecovered": true,
   "nativeRecovery": true,
   "staleDocumentRemoved": true
 }
@@ -1088,13 +1101,16 @@ the selected URL:
 ```
 
 A newer safe click also cancels a pending traversal before remaining native;
-obsolete traversal markup cannot overwrite the clicked destination:
+`_top` and `_parent` are recognized as the current context when they resolve to
+the current top-level window. Obsolete traversal markup cannot overwrite the
+clicked destination:
 
 ```json
 {
   "schema": "fadeno.example.history-click-supersession-recovery",
   "version": 1,
   "pendingTraversalAborted": true,
+  "topTargetResolvedCurrent": true,
   "nativeClickWon": true,
   "obsoleteDocumentSuppressed": true
 }
@@ -1131,6 +1147,7 @@ traversal and start from repaired displayed-document truth:
   "schema": "fadeno.example.history-form-supersession-recovery",
   "version": 1,
   "pendingTraversalAborted": true,
+  "parentTargetResolvedCurrent": true,
   "nativeFormWon": true,
   "obsoleteDocumentSuppressed": true
 }
@@ -1207,6 +1224,20 @@ enhance the next safe attempt:
   "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
   "restorationAfterRepair": "manual",
   "enhancementResumed": true,
+  "staleDocumentRemoved": true
+}
+```
+
+If that repaired document had already acquired monotonic unsafe-scroll
+evidence, repair carries the evidence to the fresh entry. A later Back
+selection therefore reloads current truth instead of enhancing restoration:
+
+```json
+{
+  "schema": "fadeno.example.history-cancelled-unsafe-repair",
+  "version": 1,
+  "repairedEntryStayedUnsafe": true,
+  "backUsedNativeRecovery": true,
   "staleDocumentRemoved": true
 }
 ```

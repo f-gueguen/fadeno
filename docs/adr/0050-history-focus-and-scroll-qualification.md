@@ -179,6 +179,20 @@ Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
 
+Same-context supersession resolves `_self`, `_parent`, `_top`, and the current
+named browsing context against the actual window rather than a closed string
+list. Links carrying an explicit referrer policy or `noreferrer` remain native
+until their request privacy is qualified. The last traversal precommit check
+reads live document and element scroll without writing the already selected
+destination state, and only the actual `document.scrollingElement` is excluded
+from element ownership; an independently scrollable root element remains an
+element owner. Runtime History wrappers preserve and restore the exact original
+own-property descriptors, while an unobserved native push is rejected through
+history-length provenance rather than treated as runtime-created. Canceled
+departure repair carries prior monotonic unsafe-scroll evidence to its fresh
+entry. A persisted-page failure to reacquire verified manual restoration closes
+enhancement so later traversal stays native.
+
 ## Alternatives considered
 
 - Restore every recorded numeric scroll position after fresh rendering:
@@ -219,7 +233,9 @@ post-history commit, focus-time history mutation, multi-push rollback, and rollb
 reload, close-time reload, post-selection fallback, and preselection fallback repair, returnValue-only cancellation,
 ordinary-link source mutation, ordinary close cancellation, delayed-recovery and pending-traversal eligible-click, refused-fragment, and native-form supersession,
 ordinary-request/native-fragment supersession, guarded History-wrapper installation, post-close same-document re-keying,
-post-flush source refresh, exact precommit focused-node identity recovery, focus-time close recovery, and traversal-push rollback,
+exact descriptor restoration, referrer-policy refusal, current-context target resolution, unobserved native-push refusal,
+post-flush source refresh, live traversal-scroll refusal, independently scrollable-root ownership, unsafe repair carry-forward,
+persisted-page restoration failure, exact precommit focused-node identity recovery, focus-time close recovery, and traversal-push rollback,
 secure-environment refusal and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.

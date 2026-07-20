@@ -3,5 +3,7 @@
   "version": 1,
   "elementOwnershipRetained": true,
   "nativeDeparture": true,
-  "enhancedRequestSkipped": true
+  "enhancedRequestSkipped": true,
+  "independentBodyTracked": true,
+  "independentBodyNativeDeparture": true
 }
