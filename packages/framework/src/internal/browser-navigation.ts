@@ -557,7 +557,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     value: History["replaceState"] | History["pushState"],
     descriptor: PropertyDescriptor | undefined,
   ): void => {
-    if (descriptor && !("value" in descriptor)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    if (descriptor && (!("value" in descriptor) || descriptor.writable !== true)) {
+      throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    }
     Object.defineProperty(history, name, descriptor
       ? { ...descriptor, value }
       : { configurable: true, enumerable: false, writable: true, value });
@@ -934,7 +936,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
-      if (selectedHistoryState) {
+      if (!initiator && selectedHistoryState) {
         if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || liveElementScroll()) {
           markHistoryUnsafe(displayedHistoryEntry);
           if (displayedHistoryEntry) unsafeTraversalPersistence.requireRecovery(historySession, displayedHistoryEntry, displayedTruthUrl, "unsafe-scroll");
