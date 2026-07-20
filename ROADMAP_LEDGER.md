@@ -44,8 +44,11 @@ exactly one pending minor Changeset is required.
 
 ## Blockers
 
-- V2-08 handoff remains blocked until V2-07 proves complete action ordering,
+- V2-07A remains blocked until V2-07 proves complete action ordering,
   revalidation, late-result suppression, and non-repeating recovery.
+- V2-08 handoff remains blocked until V2-07A integrates that accepted action
+  path into the current-packed evaluator workflow and proves its clean-checkout
+  setup without overstating private or pre-reconciliation behavior.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
