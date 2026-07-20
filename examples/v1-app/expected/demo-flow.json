@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "scenario": "evaluator-demo-flow",
+  "decisions": [
+    "match-route",
+    "share-equivalent-resource-reads",
+    "select-environment-safe-controls",
+    "render-complete-document"
+  ],
+  "causes": [
+    "request-url",
+    "request-owned-resource-identity",
+    "exact-origin-security",
+    "server-owned-outcome"
+  ],
+  "ownership": {
+    "liveFacts": "application-response",
+    "buildAndBrowserEvidence": "named-executable-gates"
+  },
+  "skippedWork": [
+    "client-router",
+    "private-telemetry-publication",
+    "http-mutation-controls"
+  ],
+  "observableOutcome": "task-oriented-native-document"
+}

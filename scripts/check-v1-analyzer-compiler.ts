@@ -169,7 +169,7 @@ try {
   const pagePath = join(root, "src/routes/page.tsx");
   const pageBytes = readFileSync(pagePath, "utf8");
   writeFileSync(pagePath, `import { message } from '../support/message.ts';\n${pageBytes.replace(
-    '<h1 id="welcome-heading">First running Fadeno application</h1>',
+    '<h1 id="welcome-heading">Follow the request thread.</h1>',
     '<h1 id="welcome-heading">{message}</h1>',
   )}`);
   const transitiveBaseline = await analyzer.refresh().result;

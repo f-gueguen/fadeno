@@ -6,6 +6,32 @@ candidate is compiled outside `dist`, verified, and then replaces the prior
 accepted build as one generation. The generated bootstrap verifies the build
 manifest and installed runtime before it imports application behavior.
 
+## Run the complete demonstration
+
+From the repository root, after the standard `pnpm install`, run one command:
+
+```sh
+pnpm demo
+```
+
+The command builds the current framework and application, starts the generated
+production server behind a local HTTPS boundary, and prints the URL. The local
+certificate is self-signed and valid only for the displayed loopback address;
+the launcher states that boundary before you continue in the browser. Use the
+visible passcode `example-owner` in the Projects laboratory. Stop the launcher
+with Ctrl-C.
+
+For a certificate-free look at the document, routing, resources, and failure
+labs, run `pnpm demo:read-only`. That loopback HTTP mode deliberately hides
+mutation controls because protected actions require an exact HTTPS origin.
+The application explains the same boundary in its Projects page.
+
+The primary navigation now exposes Overview, Routing, Resources, Projects, and
+Evidence. The request-thread interface shows only facts owned by the current
+application response. Build, analyzer, security, and browser-lifecycle claims
+remain separately labeled reproducible evidence; the UI does not present them
+as live request telemetry.
+
 After installing the packed framework, the demonstrated production workflow is:
 
 ```sh

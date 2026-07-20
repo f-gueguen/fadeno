@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { request as requestHttp } from "node:http";
-import { createServer as createHttpsServer } from "node:https";
 import { createServer as createNetServer } from "node:net";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -195,39 +193,51 @@ async function startServer(
   };
 }
 
-async function startSecureServer(project: string): Promise<{
+async function startDemoLauncher(project: string): Promise<{
   origin: string;
   output(): string;
   stop(): Promise<void>;
 }> {
   const port = await reservePort();
-  const origin = `https://127.0.0.1:${port}`;
-  const backend = await startServer(project, origin);
-  const proxy = createHttpsServer({
-    key: readFileSync(join(root, "scripts/fixtures/v1-example-tls-key.pem")),
-    cert: readFileSync(join(root, "scripts/fixtures/v1-example-tls-cert.pem")),
-  }, (request, response) => {
-    const upstream = requestHttp(new URL(request.url ?? "/", backend.origin), {
-      method: request.method,
-      headers: request.headers,
-    }, (upstreamResponse) => {
-      response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
-      upstreamResponse.pipe(response);
-    });
-    upstream.once("error", (error) => response.destroy(error));
-    request.pipe(upstream);
+  const child = spawn(process.execPath, [
+    "--no-warnings",
+    "--experimental-strip-types",
+    join(root, "scripts/run-v1-demo-https.ts"),
+    "--project-root",
+    project,
+    "--port",
+    String(port),
+    "--no-build",
+  ], {
+    cwd: root,
+    stdio: ["ignore", "pipe", "pipe"],
   });
-  await new Promise<void>((resolve, reject) => {
-    proxy.once("error", reject);
-    proxy.listen(port, "127.0.0.1", resolve);
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => { stdout += chunk; });
+  child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+  const origin = await new Promise<string>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`FADENO_DEMO_LAUNCHER_TIMEOUT\n${stderr}`)), 15_000);
+    child.stdout.on("data", () => {
+      const match = /Fadeno secure demo ready at (https:\/\/127\.0\.0\.1:[0-9]+)\./u.exec(stdout);
+      if (!match?.[1] || !stdout.includes("certificate is self-signed")) return;
+      clearTimeout(timeout);
+      resolve(match[1]);
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timeout);
+      reject(new Error(`FADENO_DEMO_LAUNCHER_EXIT:${code}\n${stderr}`));
+    });
   });
   return Object.freeze({
     origin,
-    output: backend.output,
-    async stop() {
-      await new Promise<void>((resolve, reject) => proxy.close((error) => error ? reject(error) : resolve()));
-      await backend.stop();
-    },
+    output: () => stdout,
+    stop: () => new Promise<void>((resolve, reject) => {
+      child.once("exit", (code) => code === 0 ? resolve() : reject(new Error(`FADENO_DEMO_LAUNCHER_STOP:${code}\n${stderr}`)));
+      child.kill("SIGTERM");
+    }),
   });
 }
 
@@ -247,30 +257,30 @@ async function verifyParsedApplication(origin: string): Promise<void> {
       assert.equal(stylesheet.headers()["cache-control"], "public, max-age=300", `${name}: stylesheet cache control`);
       assert.match(await stylesheet.text(), /@media \(prefers-reduced-motion: reduce\)/u, `${name}: reduced-motion rule`);
       assert.equal(await page.locator('link[rel="stylesheet"][href="/styles"]').count(), 1, `${name}: stylesheet link`);
-      assert.equal(await page.locator("h1").textContent(), "First running Fadeno application", `${name}: heading`);
+      assert.equal(await page.locator("h1").textContent(), "Follow the request thread.", `${name}: heading`);
       assert.equal(await page.getByText("Equivalent resource reads shared one request result.").count(), 1, `${name}: resource result`);
-      assert.equal(await page.locator("nav[aria-label='Primary'] a").count(), 2, `${name}: navigation`);
-      assert.equal(await page.locator("main section").count(), 1, `${name}: semantic main`);
-      assert.equal(await page.locator("footer").textContent(), "Rendered by the V1 framework", `${name}: footer`);
+      assert.equal(await page.locator("nav[aria-label='Primary'] a").count(), 5, `${name}: complete navigation`);
+      assert.equal(await page.locator("main#main-content").count(), 1, `${name}: semantic main`);
+      assert.equal(await page.getByText("Server-owned by default.", { exact: true }).count(), 1, `${name}: footer boundary`);
       assert.equal(await page.locator("script").count(), 0, `${name}: ordinary page script count`);
       const homeLink = page.locator("nav[aria-label='Primary'] a").nth(0);
-      const greetingLink = page.locator("nav[aria-label='Primary'] a").nth(1);
+      const routingLink = page.getByRole("link", { name: "Routing", exact: true });
       assert.deepEqual(await page.evaluate(() => {
         const body = getComputedStyle(document.body);
         const navigation = getComputedStyle(document.querySelector("nav") as HTMLElement);
         const main = getComputedStyle(document.querySelector("main") as HTMLElement);
-        const hero = getComputedStyle(document.querySelector(".hero-card") as HTMLElement);
+        const request = getComputedStyle(document.querySelector(".request-panel") as HTMLElement);
         return {
           bodyBackground: body.backgroundColor,
           navigationDisplay: navigation.display,
           mainWidth: main.width,
-          heroBackground: hero.backgroundColor,
+          requestBackground: request.backgroundColor,
         };
       }), {
-        bodyBackground: "rgb(244, 246, 251)",
+        bodyBackground: "rgb(238, 242, 247)",
         navigationDisplay: "flex",
-        mainWidth: "960px",
-        heroBackground: "rgb(255, 255, 255)",
+        mainWidth: "1216px",
+        requestBackground: "rgb(249, 251, 253)",
       }, `${name}: native CSS computed styles`);
       await homeLink.focus();
       assert.equal(await homeLink.evaluate((element) => element === element.ownerDocument.activeElement), true, `${name}: first navigation target focusable`);
@@ -278,13 +288,25 @@ async function verifyParsedApplication(origin: string): Promise<void> {
         const style = getComputedStyle(element);
         return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth };
       }), { outlineStyle: "solid", outlineWidth: "3px" }, `${name}: visible focus style`);
-      await greetingLink.focus();
+      await routingLink.focus();
       const [keyboardNavigation] = await Promise.all([
         page.waitForNavigation(),
         page.keyboard.press("Enter"),
       ]);
       assert.equal(keyboardNavigation?.status(), 200, `${name}: keyboard link activation status`);
-      assert.equal(await page.locator("h1").textContent(), "Hello Fadeno", `${name}: keyboard link activation target`);
+      assert.equal(await page.locator("h1").textContent(), "URLs select typed server outcomes.", `${name}: keyboard link activation target`);
+      await page.getByRole("link", { name: "Dynamic parameter" }).focus();
+      const [parameterNavigation] = await Promise.all([page.waitForNavigation(), page.keyboard.press("Enter")]);
+      assert.equal(parameterNavigation?.status(), 200, `${name}: parameter route status`);
+      assert.equal(await page.locator("h1").textContent(), "Hello Reader", `${name}: parameter route target`);
+
+      const mobile = await browser.newContext({ javaScriptEnabled: false, colorScheme: "light", viewport: { width: 390, height: 844 } });
+      const mobilePage = await mobile.newPage();
+      await mobilePage.goto(origin);
+      assert.equal(await mobilePage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, `${name}: mobile has no page overflow`);
+      assert.equal(await mobilePage.locator(".feature-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length), 1, `${name}: mobile feature flow`);
+      assert.equal(await mobilePage.locator(".request-panel").isVisible(), true, `${name}: mobile request thread visible`);
+      await mobile.close();
       await context.close();
     } finally {
       await browser.close();
@@ -409,8 +431,10 @@ async function verifyFailureObservation(): Promise<void> {
 }
 
 async function verifyAuthenticatedCrud(project: string): Promise<void> {
-  const server = await startSecureServer(project);
+  const server = await startDemoLauncher(project);
   try {
+    assert.match(server.output(), /Fadeno secure demo ready at https:\/\/127\.0\.0\.1:[0-9]+\./u);
+    assert.match(server.output(), /certificate is self-signed/u);
     for (const [browserName, browserType] of Object.entries(browserTypes)) {
       const browser = await browserType.launch({ headless: true });
       try {
@@ -419,7 +443,8 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         const initial = await page.goto(`${server.origin}/projects`);
         assert.equal(initial?.status(), 200, `${browserName}: initial projects status`);
         assert.equal(await page.locator("script").count(), 0, `${browserName}: CRUD script count`);
-        assert.equal(await page.getByText("Sign in before changing projects.").count(), 1, `${browserName}: signed-out view`);
+        assert.equal(await page.getByRole("heading", { name: "Sign in as the example owner" }).count(), 1, `${browserName}: signed-out view`);
+        assert.equal(await page.getByText("example-owner", { exact: true }).count(), 1, `${browserName}: visible demo passcode`);
         const anonymousCookie = (await context.cookies(server.origin)).find(({ name }) => name === "__Host-fadeno-session");
         assert.ok(anonymousCookie, `${browserName}: anonymous protected session`);
         assert.equal(anonymousCookie.httpOnly, true, `${browserName}: session is HttpOnly`);
@@ -471,6 +496,18 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         const titleName = await createForm.getByLabel("Title", { exact: true }).getAttribute("name");
         const attachmentName = await createForm.getByLabel("Text attachment").getAttribute("name");
         assert.ok(action && proof && titleName && attachmentName);
+        const hostileOrigin = await context.request.post(new URL(action, server.origin).href, {
+          headers: { origin: "https://outside.invalid" },
+          multipart: {
+            __fadeno_proof: proof,
+            [titleName]: "Cross-origin project",
+            [attachmentName]: { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("not accepted") },
+          },
+        });
+        assert.equal(hostileOrigin.status(), 400, `${browserName}: hostile origin refusal`);
+        assert.match(await hostileOrigin.text(), /FADENO_ACTION_ORIGIN/u);
+        const afterHostileOrigin = await context.request.get(`${server.origin}/projects`);
+        assert.doesNotMatch(await afterHostileOrigin.text(), /Cross-origin project/u, `${browserName}: hostile origin has no mutation`);
         await createForm.getByLabel("Title", { exact: true }).fill("Browser project");
         await createForm.getByLabel("Text attachment").setInputFiles({
           name: "notes.txt",
@@ -1090,13 +1127,73 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     assert.equal(home.status, 200);
     assert.match(homeBody, /^<!doctype html><html lang="en">/u);
     assert.match(homeBody, /<nav aria-label="Primary" class="primary-nav">/u);
-    assert.match(homeBody, /First running Fadeno application/u);
+    assert.match(homeBody, /Follow the request thread\./u);
+    assert.match(homeBody, /href="\/routing"/u);
+    assert.match(homeBody, /href="\/resources"/u);
+    assert.match(homeBody, /href="\/projects"/u);
+    assert.match(homeBody, /href="\/evidence"/u);
     assert.match(homeBody, /href="\/hello\/Reader"/u);
     for (const line of readFileSync(join(exampleRoot, "expected/resource-success.txt"), "utf8").trim().split("\n")) {
       assert.match(homeBody, new RegExp(line.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
     }
     assert.match(home.headers.get("content-security-policy") ?? "", /script-src 'none'/u);
     assert.match(home.headers.get("content-security-policy") ?? "", /style-src 'self'/u);
+    assert.equal(
+      readFileSync(join(exampleRoot, "expected/demo-experience.json"), "utf8"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        scenario: "evaluator-demo",
+        navigation: ["overview", "routing", "resources", "projects", "evidence"],
+        visibleRequestFacts: ["route", "resource-calls", "loader-executions", "viewer", "rendering", "observable-outcome"],
+        environments: { https: "complete-native-action-workflow", http: "read-only-with-mutation-controls-hidden" },
+        privateQualificationPresentedAsLive: false,
+      }, null, 2)}\n`,
+    );
+    assert.equal(
+      readFileSync(join(exampleRoot, "expected/demo-flow.json"), "utf8"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        scenario: "evaluator-demo-flow",
+        decisions: ["match-route", "share-equivalent-resource-reads", "select-environment-safe-controls", "render-complete-document"],
+        causes: ["request-url", "request-owned-resource-identity", "exact-origin-security", "server-owned-outcome"],
+        ownership: { liveFacts: "application-response", buildAndBrowserEvidence: "named-executable-gates" },
+        skippedWork: ["client-router", "private-telemetry-publication", "http-mutation-controls"],
+        observableOutcome: "task-oriented-native-document",
+      }, null, 2)}\n`,
+    );
+
+    const routingLab = await fetch(`${server.origin}/routing`);
+    const routingBody = await routingLab.text();
+    assert.equal(routingLab.status, 200);
+    assert.match(routingBody, /Routing laboratory/u);
+    for (const href of ["/hello/Reader", "/admin/dashboard", "/admin/missing", "/moved", "/raw", "/failure"]) {
+      assert.match(routingBody, new RegExp(`href="${href.replaceAll("/", "\\/")}"`, "u"));
+    }
+
+    const firstResourceLab = await fetch(`${server.origin}/resources`);
+    const firstResourceBody = await firstResourceLab.text();
+    assert.equal(firstResourceLab.status, 200);
+    assert.match(firstResourceBody, /Two reads\. One request-owned result\./u);
+    assert.match(firstResourceBody, /same frozen result/u);
+    const firstResourceExecution = /resource-[0-9]+/u.exec(firstResourceBody)?.[0];
+    assert.ok(firstResourceExecution);
+    const secondResourceBody = await (await fetch(`${server.origin}/resources`)).text();
+    const secondResourceExecution = /resource-[0-9]+/u.exec(secondResourceBody)?.[0];
+    assert.ok(secondResourceExecution);
+    assert.notEqual(secondResourceExecution, firstResourceExecution);
+
+    const readOnlyProjects = await fetch(`${server.origin}/projects`);
+    const readOnlyProjectsBody = await readOnlyProjects.text();
+    assert.equal(readOnlyProjects.status, 200);
+    assert.match(readOnlyProjectsBody, /Mutation controls stay off on HTTP\./u);
+    assert.doesNotMatch(readOnlyProjectsBody, /<form/u);
+
+    const evidencePage = await fetch(`${server.origin}/evidence`);
+    const evidenceBody = await evidencePage.text();
+    assert.equal(evidencePage.status, 200);
+    assert.match(evidenceBody, /Reproduce the claims outside the UI\./u);
+    assert.match(evidenceBody, /pnpm check:v2-history-focus-scroll/u);
+    assert.match(evidenceBody, /does not expose those private records/u);
 
     const tenantAlpha = await fetch(server.origin, { headers: { authorization: "Bearer example-tenant-alpha" } });
     const tenantAlphaBody = await tenantAlpha.text();
@@ -1170,6 +1267,18 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     assert.equal(recoverySuccessBody.includes(`>${expectedRecovery[3]}<`), true);
     assert.doesNotMatch(recoverySuccessBody, /PROJECT_TEMPORARILY_UNAVAILABLE/u);
     assert.equal(
+      readFileSync(join(exampleRoot, "expected/demo-recovery.json"), "utf8"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        scenario: "evaluator-demo-recovery",
+        typedFailureStatus: recoveryFailure.status,
+        nextRequestStatus: recoverySuccess.status,
+        staleFailureRemoved: !recoverySuccessBody.includes("PROJECT_TEMPORARILY_UNAVAILABLE"),
+        freshResourceExecution: true,
+        primaryNavigationRemainsBuildable: true,
+      }, null, 2)}\n`,
+    );
+    assert.equal(
       readFileSync(join(exampleRoot, "scenarios/resource-lifecycle/expected/recovery.json"), "utf8"),
       `${JSON.stringify({
         schemaVersion: 1,
@@ -1215,6 +1324,17 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     await server.stop();
   }
   await verifyAuthenticatedCrud(project);
+  const rootPackage = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  assert.equal(rootPackage.scripts["demo"], "node --no-warnings --experimental-strip-types scripts/run-v1-demo-https.ts");
+  assert.equal(rootPackage.scripts["demo:read-only"], "pnpm --filter @fadeno/framework build && pnpm --filter fadeno-v1-app-example dev");
+  assert.equal(readFileSync(join(exampleRoot, "expected/demo-setup.txt"), "utf8"), [
+    "command: pnpm demo",
+    "result: current application built; local HTTPS launcher ready",
+    "mutation path: Projects; passcode example-owner",
+    "read-only path: pnpm demo:read-only; protected mutation controls hidden",
+    "stop: Ctrl-C closes proxy and generated production server",
+    "",
+  ].join("\n"));
   assert.equal(
     readFileSync(join(exampleRoot, "expected/accessibility-baseline.json"), "utf8"),
     `${JSON.stringify({

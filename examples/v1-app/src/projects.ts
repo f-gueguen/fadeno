@@ -26,6 +26,12 @@ export const projectCollection = defineResource({
   },
 });
 
+export const demoEnvironment = defineResource({
+  read({ request }) {
+    return Object.freeze({ secure: request.headers.get("x-fadeno-demo-https") === "1" });
+  },
+});
+
 function authenticated(viewer: unknown): boolean {
   return viewer === "owner";
 }

@@ -14,7 +14,7 @@ Success reports the accepted workspace epoch, route count, and planned artifact
 count without writing `.fadeno` or `dist`.
 
 ```text
-Fadeno framework route analysis completed: 11 routes, 7 artifacts planned, no files written.
+Fadeno framework route analysis completed: 14 routes, 7 artifacts planned, no files written.
 ```
 
 ## Deliberate route-role collision

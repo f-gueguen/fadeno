@@ -349,14 +349,14 @@ try {
   active = await startSecureDeployment(release1);
   const firstHealth = await secureHealth(active.origin);
   assert.equal(firstHealth.status, 200);
-  assert.match(firstHealth.body, /First running Fadeno application/u);
+  assert.match(firstHealth.body, /Follow the request thread\./u);
   const correctedOrigin = active.origin.replace(/:\d+$/u, ":<PORT>");
   assert.deepEqual({
     artifact: basename(release1),
     origin: correctedOrigin,
     sessionKeys: "<INJECTED_KEYRING>",
     accepted: true,
-    health: { path: "/", status: firstHealth.status, document: "First running Fadeno application" },
+    health: { path: "/", status: firstHealth.status, document: "Follow the request thread." },
   }, expectedJson("correction-after.json"));
   const firstGracefulStop = await stopSecure(active);
   active = null;

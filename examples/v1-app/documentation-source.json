@@ -22,7 +22,8 @@
     "check:v2-browser-runtime",
     "check:v2-server-update",
     "check:v2-link-navigation",
-    "check:v2-history-focus-scroll"
+    "check:v2-history-focus-scroll",
+    "check:v2-demo-experience"
   ],
   "evidence": {
     "success": [
@@ -33,6 +34,8 @@
       "expected/check-success.txt",
       "expected/css-baseline.json",
       "expected/development-success.txt",
+      "expected/demo-experience.json",
+      "expected/demo-setup.txt",
       "expected/independent-workflow.txt",
       "expected/resource-success.txt",
       "scenarios/project-creation/expected/app/.gitignore",
@@ -147,6 +150,7 @@
     "flow": [
       "expected/check-collision-explain.txt",
       "expected/check-success-explain.txt",
+      "expected/demo-flow.json",
       "scenarios/action-lifecycle/expected/flow.json",
       "scenarios/build-compiler-error/expected/flow.json",
       "scenarios/css-boundary/expected/flow.json",
@@ -162,6 +166,7 @@
     ],
     "recovery": [
       "expected/resource-recovery.txt",
+      "expected/demo-recovery.json",
       "expected/independent-workflow.txt",
       "scenarios/action-lifecycle/expected/recovery.json",
       "scenarios/build-compiler-error/expected/recovery.json",

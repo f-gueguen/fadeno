@@ -103,19 +103,23 @@
         },
         {
           "path": "src/routes/admin/dashboard/page.tsx",
-          "length": 128
+          "length": 530
         },
         {
           "path": "src/routes/admin/layout.tsx",
-          "length": 249
+          "length": 331
         },
         {
           "path": "src/routes/admin/not-found.tsx",
-          "length": 165
+          "length": 549
         },
         {
           "path": "src/routes/error.tsx",
-          "length": 508
+          "length": 1231
+        },
+        {
+          "path": "src/routes/evidence/page.tsx",
+          "length": 1963
         },
         {
           "path": "src/routes/failure/page.tsx",
@@ -123,11 +127,11 @@
         },
         {
           "path": "src/routes/hello/[name]/page.tsx",
-          "length": 424
+          "length": 805
         },
         {
           "path": "src/routes/layout.tsx",
-          "length": 641
+          "length": 1405
         },
         {
           "path": "src/routes/moved/page.tsx",
@@ -135,15 +139,15 @@
         },
         {
           "path": "src/routes/not-found.tsx",
-          "length": 272
+          "length": 463
         },
         {
           "path": "src/routes/page.tsx",
-          "length": 1039
+          "length": 3748
         },
         {
           "path": "src/routes/projects/page.tsx",
-          "length": 2779
+          "length": 5949
         },
         {
           "path": "src/routes/raw/handler.ts",
@@ -155,7 +159,15 @@
         },
         {
           "path": "src/routes/resource-recovery/page.tsx",
-          "length": 468
+          "length": 895
+        },
+        {
+          "path": "src/routes/resources/page.tsx",
+          "length": 2828
+        },
+        {
+          "path": "src/routes/routing/page.tsx",
+          "length": 1878
         },
         {
           "path": "src/routes/shop/catalog/page.tsx",
@@ -163,7 +175,7 @@
         },
         {
           "path": "src/routes/shop/not-found.tsx",
-          "length": 176
+          "length": 379
         },
         {
           "path": "src/routes/styles/handler.ts",
@@ -184,3 +196,4 @@
   "routeArtifactsRestored": true,
   "diskTextUnchanged": true
 }
+
