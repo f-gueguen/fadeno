@@ -31,6 +31,16 @@ type ActiveOperation = Readonly<{
   cancellation: AbortController;
 }>;
 
+class PrivateDocumentCommitFailure extends Error {
+  readonly destinationSelected: boolean;
+
+  constructor(destinationSelected: boolean, cause: unknown) {
+    super("FADENO_UPDATE_DOCUMENT_COMMIT", { cause });
+    this.name = "PrivateDocumentCommitFailure";
+    this.destinationSelected = destinationSelected;
+  }
+}
+
 export interface PrivateBrowserNavigation {
   close(): void;
 }
@@ -338,10 +348,12 @@ function applyDocument(
   const selectedEntry = replace ? privateHistoryState(history.state)?.entry : undefined;
   if (replace && !selectedEntry) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
   const state = createHistoryState(0, 0, false, historySession, selectedEntry);
+  let destinationSelected = false;
   try {
     if (!replace) history.scrollRestoration = previousScrollRestoration;
     if (replace) history.replaceState(state, "", url);
     else history.pushState(state, "", url);
+    destinationSelected = true;
     history.scrollRestoration = "manual";
     replaceAttributes(document.documentElement, next.documentElement);
     document.head.replaceChildren(...[...next.head.childNodes].map((node) => document.importNode(node, true)));
@@ -354,7 +366,7 @@ function applyDocument(
     document.head.replaceChildren(...[...oldHead.childNodes].map((node) => document.importNode(node, true)));
     document.body.replaceChildren(...[...oldBody.childNodes].map((node) => document.importNode(node, true)));
     scrollTo({ left: oldScroll.x, top: oldScroll.y, behavior: "instant" });
-    throw cause;
+    throw new PrivateDocumentCommitFailure(destinationSelected, cause);
   }
 }
 
@@ -469,11 +481,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     initiator?: HTMLAnchorElement,
     selectedHistoryState?: PrivateHistoryState,
   ): Promise<void> => {
+    active?.cancellation.abort(new DOMException("Navigation superseded", "AbortError"));
     if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) {
       fallback(destination, replace);
       return;
     }
-    active?.cancellation.abort(new DOMException("Navigation superseded", "AbortError"));
     sequence += 1;
     const operation: ActiveOperation = Object.freeze({
       id: `nav:${globalThis.crypto.randomUUID()}`,
@@ -560,7 +572,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         skipped: Object.freeze(["form interception", "general state reconciliation", "transported script execution", "animation"]),
         outcome: "enhanced-document",
       });
-    } catch {
+    } catch (cause) {
       if (active === operation && !operation.cancellation.signal.aborted) {
         recordFlow({
           status: "refused",
@@ -573,7 +585,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           skipped: Object.freeze(["document commit"]),
           outcome: "native-navigation",
         });
-        fallback(destination, replace);
+        fallback(destination, replace || (cause instanceof PrivateDocumentCommitFailure && cause.destinationSelected));
       } else if (operation.cancellation.signal.aborted) {
         recordFlow({
           status: "cancelled",
@@ -615,7 +627,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const traversal = traversalSequence;
     const state = privateHistoryState(history.state);
     traversing = true;
-    if (!state || unsafeTraversalPersistence.requiresRecovery() || unsafeHistoryEntries.requiresReload(state.entry)
+    if (!state || state.session !== historySession
+      || unsafeTraversalPersistence.requiresRecovery() || unsafeHistoryEntries.requiresReload(state.entry)
       || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
       active?.cancellation.abort(new DOMException("History traversal requires native recovery", "AbortError"));
       restoreScrollRestoration();

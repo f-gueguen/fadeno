@@ -490,7 +490,7 @@ test("keeps unsafe history tracking fail closed after its bound", async ({ page 
   expect(result).toEqual(expected("history-overflow-recovery"));
 });
 
-test("reloads application-owned and malformed history instead of showing stale markup", async ({ page }) => {
+test("reloads application-owned, foreign-session, and malformed history instead of showing stale markup", async ({ page }) => {
   await page.goto(origin);
   await page.evaluate(() => history.pushState({ application: true }, "", "/next"));
   await page.goBack();
@@ -505,6 +505,7 @@ test("reloads application-owned and malformed history instead of showing stale m
     heading: await page.locator("h1").textContent(),
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
     staleDocumentRemoved: await page.locator("h1").textContent() !== "Home",
+    foreignSessionRecovery: false,
     malformedRecoveries: 0,
   };
   const base = {
@@ -533,6 +534,14 @@ test("reloads application-owned and malformed history instead of showing stale m
     await expect(page.locator("h1")).toHaveText("Next");
     if (requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeBefore) result.malformedRecoveries += 1;
   }
+  await page.goto(origin);
+  await page.evaluate((state) => history.pushState(state, "", "/next"), base);
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Home");
+  const nativeForeignBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.goForward();
+  await expect(page.locator("h1")).toHaveText("Next");
+  result.foreignSessionRecovery = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeForeignBefore;
   expect(result).toEqual(expected("history-recovery"));
 });
 
@@ -742,6 +751,32 @@ test("revalidates selected history ownership before traversal commit", async ({ 
   }).toEqual(expected("history-selected-state-recovery"));
 });
 
+test("recovers a selected destination without duplicating it when document commit fails", async ({ page }) => {
+  await page.goto(origin);
+  const historyLengthBefore = await page.evaluate(() => history.length);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.evaluate(() => {
+    const originalFocus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function failFirstFocus(): void {
+      HTMLElement.prototype.focus = originalFocus;
+      throw new DOMException("focus commit refused", "InvalidStateError");
+    };
+  });
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await waitForPrivateHistoryOwner(page);
+  const historyEntriesAdded = await page.evaluate((before) => history.length - before, historyLengthBefore);
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-commit-failure-recovery",
+    version: 1,
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    historyEntriesAdded,
+    oneBackReachedPriorDocument: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-commit-failure-recovery"));
+});
+
 test("cancels an obsolete history traversal and publishes only the newest entry", async ({ page }) => {
   await page.goto(origin);
   await page.locator("#slow-link").click();
@@ -772,6 +807,45 @@ test("cancels an obsolete history traversal and publishes only the newest entry"
   expect(new URL(page.url()).pathname).toBe("/");
   expect(await page.locator("h1").textContent()).not.toBe("Slow");
   expect(await page.evaluate(() => Number(sessionStorage.getItem("fadeno-test-stale-history-writes")))).toBe(0);
+});
+
+test("cancels an older traversal before a newer native recovery", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  enhancedSlowDelay = 250;
+  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  await page.evaluate(() => {
+    const originalAbort = AbortController.prototype.abort;
+    sessionStorage.setItem("fadeno-test-native-supersession-aborts", "0");
+    AbortController.prototype.abort = function recordAbort(reason?: unknown): void {
+      sessionStorage.setItem(
+        "fadeno-test-native-supersession-aborts",
+        String(Number(sessionStorage.getItem("fadeno-test-native-supersession-aborts")) + 1),
+      );
+      originalAbort.call(this, reason);
+    };
+    history.back();
+    setTimeout(() => {
+      const input = document.createElement("input");
+      input.defaultValue = "before";
+      input.value = "after";
+      document.body.append(input);
+      history.forward();
+    }, 20);
+  });
+  await expect(page.locator("h1")).toHaveText("Home");
+  await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length)
+    .toBeGreaterThan(nativeHomeBefore);
+  expect({
+    schema: "fadeno.example.history-native-supersession-recovery",
+    version: 1,
+    olderTraversalCancelled: await page.evaluate(() => Number(sessionStorage.getItem("fadeno-test-native-supersession-aborts")) > 0),
+    nativeRecovery: true,
+    staleDocumentRemoved: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-native-supersession-recovery"));
 });
 
 test("keeps request ownership, hostile correlations, limits, and logs isolated", async () => {

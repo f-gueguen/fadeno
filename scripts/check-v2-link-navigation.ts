@@ -123,6 +123,8 @@ try {
     "history-close-traversal-recovery.json",
     "history-late-scroll-recovery.json",
     "history-selected-state-recovery.json",
+    "history-commit-failure-recovery.json",
+    "history-native-supersession-recovery.json",
     "history-recovery.json",
     "history-refusal-human.txt",
   ]) {

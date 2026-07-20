@@ -89,6 +89,7 @@
       "scenarios/link-navigation/expected/history-scroll-refusal.json",
       "scenarios/link-navigation/expected/history-monotonic-scroll-recovery.json",
       "scenarios/link-navigation/expected/history-close-traversal-recovery.json",
+      "scenarios/link-navigation/expected/history-commit-failure-recovery.json",
       "scenarios/link-navigation/expected/history-write-recovery.json",
       "scenarios/link-navigation/expected/history-startup-recovery.json",
       "scenarios/link-navigation/expected/history-native-departure.json"
@@ -146,7 +147,9 @@
       "scenarios/link-navigation/expected/history-overflow-recovery.json",
       "scenarios/link-navigation/expected/history-selected-state-recovery.json",
       "scenarios/link-navigation/expected/history-monotonic-scroll-recovery.json",
-      "scenarios/link-navigation/expected/history-close-traversal-recovery.json"
+      "scenarios/link-navigation/expected/history-close-traversal-recovery.json",
+      "scenarios/link-navigation/expected/history-commit-failure-recovery.json",
+      "scenarios/link-navigation/expected/history-native-supersession-recovery.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -169,7 +172,9 @@
       "scenarios/link-navigation/expected/history-traversal-scroll-recovery.json",
       "scenarios/link-navigation/expected/history-selected-state-recovery.json",
       "scenarios/link-navigation/expected/history-monotonic-scroll-recovery.json",
-      "scenarios/link-navigation/expected/history-close-traversal-recovery.json"
+      "scenarios/link-navigation/expected/history-close-traversal-recovery.json",
+      "scenarios/link-navigation/expected/history-commit-failure-recovery.json",
+      "scenarios/link-navigation/expected/history-native-supersession-recovery.json"
     ]
   }
 }

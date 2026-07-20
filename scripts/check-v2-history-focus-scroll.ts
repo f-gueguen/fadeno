@@ -55,7 +55,7 @@ for (const fragment of [
   "keeps an entry unsafe after returning to the top and restarting",
   "runtimeRestarted",
   "coalesces history writes and keeps mutation-limit failure native",
-  "reloads application-owned and malformed history instead of showing stale markup",
+  "reloads application-owned, foreign-session, and malformed history instead of showing stale markup",
   "discards only a collapsed old-document selection",
   "keeps a non-collapsed selection on the native path",
   "reloads an owned element-scrolled entry during traversal",
@@ -66,6 +66,8 @@ for (const fragment of [
   "cancels an obsolete history traversal and publishes only the newest entry",
   "keeps unsafe history tracking fail closed after its bound",
   "revalidates selected history ownership before traversal commit",
+  "recovers a selected destination without duplicating it when document commit fails",
+  "cancels an older traversal before a newer native recovery",
 ]) assert.equal(tests.includes(fragment), true, `V2-05 browser corpus is missing ${fragment}`);
 
 const guide = read("docs/guides/browser-runtime.md");
@@ -85,6 +87,8 @@ for (const name of [
   "history-close-traversal-recovery",
   "history-late-scroll-recovery",
   "history-selected-state-recovery",
+  "history-commit-failure-recovery",
+  "history-native-supersession-recovery",
   "history-recovery",
 ]) {
   const evidence = read(`examples/v1-app/scenarios/link-navigation/expected/${name}.json`).trim();
@@ -101,4 +105,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 87-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 93-case corpus, executable guidance)");

@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-native-supersession-recovery",
+  "version": 1,
+  "olderTraversalCancelled": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}

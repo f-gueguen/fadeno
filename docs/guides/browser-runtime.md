@@ -688,9 +688,38 @@ does not overwrite it before reloading current server truth:
 }
 ```
 
-Malformed and application-owned history state is never interpreted as Fadeno
-ownership. The selected URL reloads, so stale markup from the previous entry
-disappears and enhancement remains native for that page:
+If destination history selection succeeds but focus or another later document
+commit step fails, native recovery replaces that selected destination instead
+of appending it again. One Back traversal still reaches the prior document:
+
+```json
+{
+  "schema": "fadeno.example.history-commit-failure-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+A newer traversal that must return to native behavior cancels the older
+pending traversal before starting recovery, so obsolete work cannot reclaim
+the selected URL:
+
+```json
+{
+  "schema": "fadeno.example.history-native-supersession-recovery",
+  "version": 1,
+  "olderTraversalCancelled": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+Malformed, application-owned, and otherwise well-formed state from a different
+runtime chain is never interpreted as Fadeno ownership. The selected URL
+reloads, so stale markup from the previous entry disappears and enhancement
+remains native for that page:
 
 ```json
 {
@@ -700,12 +729,13 @@ disappears and enhancement remains native for that page:
   "heading": "Next",
   "nativeRecovery": true,
   "staleDocumentRemoved": true,
+  "foreignSessionRecovery": true,
   "malformedRecoveries": 5
 }
 ```
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 87 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 93 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

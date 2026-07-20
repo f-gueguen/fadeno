@@ -207,14 +207,27 @@ does not overwrite it before reloading current server truth:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-selected-state-recovery.json","language":"json"} -->
 
-Malformed and application-owned history state is never interpreted as Fadeno
-ownership. The selected URL reloads, so stale markup from the previous entry
-disappears and enhancement remains native for that page:
+If destination history selection succeeds but focus or another later document
+commit step fails, native recovery replaces that selected destination instead
+of appending it again. One Back traversal still reaches the prior document:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-commit-failure-recovery.json","language":"json"} -->
+
+A newer traversal that must return to native behavior cancels the older
+pending traversal before starting recovery, so obsolete work cannot reclaim
+the selected URL:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-native-supersession-recovery.json","language":"json"} -->
+
+Malformed, application-owned, and otherwise well-formed state from a different
+runtime chain is never interpreted as Fadeno ownership. The selected URL
+reloads, so stale markup from the previous entry disappears and enhancement
+remains native for that page:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-recovery.json","language":"json"} -->
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 87 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 93 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

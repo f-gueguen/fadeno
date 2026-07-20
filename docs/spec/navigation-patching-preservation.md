@@ -151,8 +151,8 @@ failed GET work returns to native destination or current-truth navigation.
 Forms and general state-preserving reconciliation remain later V2 work.
 
 ADR 0050 selects V2-05's browser-state qualification boundary. Runtime-owned
-history entries carry a private exact-version marker, bounded chain and entry
-identities, and recorded document scroll state while automatic restoration is
+history entries carry a private exact-version marker, the active bounded chain
+identity, a bounded entry identity, and recorded document scroll state while automatic restoration is
 disabled for the active runtime.
 The first observed nonzero document or element scroll makes the entry
 monotonically unsafe even after the viewport returns to zero or a forced final
@@ -166,7 +166,7 @@ New cross-document links may leave a document-scrolled origin without treating
 the document scroller as element state, then commit the destination at the top
 with focus moved without scrolling. Back/forward remains enhanced only for owned
 zero-scroll entries without observed element-scroll ownership; malformed,
-unowned, nonzero-scroll, or element-scroll entries reload their selected current
+foreign-chain, unowned, nonzero-scroll, or element-scroll entries reload their selected current
 URL. An exact supported owned entry can resume enhancement after that current-
 truth reload; application-owned or malformed state cannot. Traversal scroll
 suppression remains tied to the newest traversal generation. The runtime keeps
@@ -183,7 +183,10 @@ and unresolved focus/state still refuse. Native recovery guarantees current
 URL and document truth but not a pixel position, and the runtime does not apply
 its recorded refusal number to a fresh layout. Closing during a pending
 traversal reloads the selected current URL after restoring native scroll
-ownership. No transition work is allocated in
+ownership. A newer traversal cancels its predecessor before taking an early
+native path. If history selection succeeds but a later document commit step
+fails, native recovery replaces the selected destination rather than appending
+a duplicate entry. No transition work is allocated in
 either normal or reduced-motion mode.
 
 ## Narrowed H1 result and V2 conformance

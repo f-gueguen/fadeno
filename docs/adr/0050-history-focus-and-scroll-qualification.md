@@ -30,11 +30,11 @@ reconciliation acquire authority.
 ## Decision
 
 The browser runtime owns only history entries that carry its exact private
-marker, private state version, bounded chain and entry identities, and nonnegative finite
+marker, private state version, the active bounded chain identity, a bounded entry identity, and nonnegative finite
 document-scroll record. It installs manual browser scroll restoration while
 active and restores the previous browser setting on close or page departure. If initial history
 ownership cannot be recorded, startup also restores the prior setting and
-returns to native ownership. Application-owned, malformed, unsupported, or
+returns to native ownership. Application-owned, foreign-chain, malformed, unsupported, or
 preservation-unsafe entries are not interpreted; traversal reloads the selected
 current URL so URL and document cannot diverge.
 
@@ -81,7 +81,9 @@ allocate no transition work. A later optional transition requires a separate
 decision and must retain this no-animation reduced-motion baseline.
 
 Traversal supersession uses ADR 0049's existing operation cancellation and
-newest-only publication. Scroll-write suppression remains owned by the newest
+newest-only publication. A newly selected traversal cancels its predecessor
+before any early native-recovery decision, so an obsolete response cannot race
+that recovery. Scroll-write suppression remains owned by the newest
 traversal until that traversal finishes; an older traversal's cleanup cannot
 release it. Every entry has a bounded private identity; `popstate` inspects the
 still-present outgoing document and conservatively marks its displayed identity
@@ -99,7 +101,11 @@ application state replacement during a request, and multi-entry traversal. A
 late response cannot commit document, history, focus, selection, or scroll after
 a newer click or traversal. Closing the runtime while a traversal is pending
 restores native scroll ownership and reloads the already selected current URL;
-it cannot leave that URL paired with the previously displayed document. Flow evidence
+it cannot leave that URL paired with the previously displayed document. If
+destination history selection succeeds but a later document, focus, or scroll
+commit step fails, native recovery replaces that already selected destination
+instead of appending it again; one Back traversal still reaches the prior
+document. Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
 
@@ -135,6 +141,7 @@ canonical application in Chromium, Firefox, and WebKit. It proves direct load,
 push, zero-scroll back/forward replacement, rapid traversal cancellation,
 destination focus without focus-induced scroll, collapsed-selection disposal,
 non-collapsed-selection refusal, scrolled-origin departure, nonzero document and
-element-scroll restoration refusal, unowned-state recovery, normal/reduced-
+element-scroll restoration refusal, foreign-chain and unowned-state recovery,
+post-history commit failure without duplicate entries, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.

@@ -255,6 +255,8 @@ try {
     scripts: Record<string, string>;
   };
   assert.equal(manifest.scripts.dev, "fadeno dev --project-root . --port 4173");
+  const developmentPort = await reservePort();
+  manifest.scripts.dev = `fadeno dev --project-root . --port ${developmentPort}`;
   manifest.dependencies["@fadeno/framework"] = `file:${tarball}`;
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   requireSuccess("pnpm", ["install", "--offline", "--ignore-scripts"], project);
@@ -263,11 +265,7 @@ try {
   const build = requireSuccess("pnpm", ["build"], project);
   assert.match(build.stdout, /10 files written to dist/u);
 
-  const developmentPort = await reservePort();
-  development = start(process.execPath, [
-    join(project, "node_modules/@fadeno/framework/dist/cli.js"),
-    "dev", "--project-root", ".", "--port", String(developmentPort),
-  ], project, {});
+  development = start("pnpm", ["dev"], project, {});
   await development.waitForStdout(`Fadeno development server ready at http://127.0.0.1:${developmentPort}.`);
   const developmentObservation = await observeApplication(`http://127.0.0.1:${developmentPort}`);
   await stop(development);
