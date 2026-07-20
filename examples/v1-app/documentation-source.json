@@ -347,6 +347,7 @@
       "scenarios/form-submission/expected/pending-handoff.json",
       "scenarios/form-submission/expected/supersession-recovery.json",
       "scenarios/form-submission/expected/native-supersession-recovery.json",
+      "scenarios/form-submission/expected/native-no-departure-recovery.json",
       "scenarios/form-submission/expected/native-form-fragment-recovery.json",
       "scenarios/form-submission/expected/file-handoff-recovery.json",
       "scenarios/form-submission/expected/fragment-redirect.json",

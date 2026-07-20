@@ -122,6 +122,13 @@ for (const fragment of [
   "unsafe-entry native recovery",
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
 
+const formSpecification = read("docs/spec/forms-actions-sessions.md").replace(/\s+/gu, " ");
+for (const fragment of [
+  "state-changing expected response commits",
+  "unchanged expected validation response does not run revalidation",
+  "cannot publish stale assumptions about changed resources",
+]) assert.equal(formSpecification.includes(fragment), true, `form specification is missing ${fragment}`);
+
 const threatModel = read("docs/security/browser-update-threat-model.md").replace(/\s+/gu, " ");
 for (const fragment of [
   "V2-07's mutation-to-redirect-GET ownership selected by ADR 0052",
@@ -237,5 +244,15 @@ for (const fragment of [
   '"scenarios/form-submission/expected/traversal-recovery.json"',
   '"scenarios/form-submission/expected/traversal-recovery-human.txt"',
 ]) assert.equal(documentationSource.includes(fragment), true, `documentation source is missing ${fragment}`);
+const documentationSourceDocument = JSON.parse(documentationSource) as Readonly<{
+  evidence?: Readonly<{ staleRemoval?: readonly string[] }>;
+}>;
+assert.equal(
+  documentationSourceDocument.evidence?.staleRemoval?.includes(
+    "scenarios/form-submission/expected/native-no-departure-recovery.json",
+  ),
+  true,
+  "native no-departure recovery must participate in stale artifact cleanup",
+);
 
 console.log("V2-07 action ordering contract passed (redirect GET handoff, authenticated CRUD, stale suppression, and native recovery)");

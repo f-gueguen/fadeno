@@ -148,10 +148,13 @@ pre-submit URL with GET and never repeats the mutation. Submitted values,
 filenames, files, proofs, cookies, sessions, and URLs remain absent from private
 flow evidence.
 
-ADR 0052 completes the V2-07 action outcome order. An admitted action document
-or expected validation response still commits at the GET-callable current-truth
-URL after the existing server action and revalidation path runs once. An
-admitted action redirect consumes that mutation result, clears mutation pending
+ADR 0052 completes the V2-07 action outcome order. An admitted successful
+action document or state-changing expected response commits at the GET-callable
+current-truth URL after the existing server action and revalidation path runs
+once. An unchanged expected validation response does not run revalidation and
+commits only its exact unchanged-current-truth validation outcome; it cannot
+publish stale assumptions about changed resources. An admitted action redirect
+consumes that mutation result, clears mutation pending
 state, and hands the same-origin destination to a fresh cancellable navigation
 operation. The destination is read through GET with a distinct operation ID and
 sequence; it never carries the action body or repeats the POST. Newer navigation
