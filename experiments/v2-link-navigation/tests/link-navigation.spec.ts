@@ -795,6 +795,8 @@ test("reloads an owned element-scrolled entry during traversal", async ({ page }
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goForward();
   await expect(page.locator("h1")).toHaveText("Home", { timeout: 15_000 });
+  await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length).toBeGreaterThan(nativeHomeBefore);
+  await waitForPrivateHistoryOwner(page);
   expect({
     schema: "fadeno.example.history-element-recovery",
     version: 1,
@@ -1108,6 +1110,8 @@ test("flushes late outgoing document scroll before commit", async ({ page }) => 
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
+  await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length).toBeGreaterThan(nativeHomeBefore);
+  await waitForPrivateHistoryOwner(page);
   expect({
     schema: "fadeno.example.history-late-scroll-recovery",
     version: 1,
