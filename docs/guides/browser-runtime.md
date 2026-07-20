@@ -572,6 +572,20 @@ FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhan
 }
 ```
 
+Returning to the top does not erase an entry's earlier unsafe-scroll evidence,
+including after a supported runtime restart:
+
+```json
+{
+  "schema": "fadeno.example.history-monotonic-scroll-recovery",
+  "version": 1,
+  "unsafeStatePreserved": true,
+  "enhancedDeparture": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
 The first observed nonzero document or element scroll marks the entry unsafe,
 so continuous scrolling does not keep rewriting history. The final pre-
 interception write is guarded; if the browser refuses it, the ordinary link
@@ -637,6 +651,20 @@ same current-truth recovery:
 }
 ```
 
+Closing the runtime while a traversal response is pending reloads the selected
+URL instead of leaving it paired with the previously displayed document:
+
+```json
+{
+  "schema": "fadeno.example.history-close-traversal-recovery",
+  "version": 1,
+  "path": "/slow",
+  "restorationAtRecovery": "auto",
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
 ```json
 {
   "schema": "fadeno.example.history-late-scroll-recovery",
@@ -678,6 +706,6 @@ disappears and enhancement remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 81 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 87 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

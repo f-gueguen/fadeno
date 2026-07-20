@@ -163,6 +163,11 @@ layout may differ and Fadeno does not apply an unproven recorded number:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-refusal.json","language":"json"} -->
 
+Returning to the top does not erase an entry's earlier unsafe-scroll evidence,
+including after a supported runtime restart:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-monotonic-scroll-recovery.json","language":"json"} -->
+
 The first observed nonzero document or element scroll marks the entry unsafe,
 so continuous scrolling does not keep rewriting history. The final pre-
 interception write is guarded; if the browser refuses it, the ordinary link
@@ -189,6 +194,11 @@ same current-truth recovery:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-traversal-scroll-recovery.json","language":"json"} -->
 
+Closing the runtime while a traversal response is pending reloads the selected
+URL instead of leaving it paired with the previously displayed document:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-traversal-recovery.json","language":"json"} -->
+
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-late-scroll-recovery.json","language":"json"} -->
 
 The selected URL and exact private history state are checked again after an
@@ -205,6 +215,6 @@ disappears and enhancement remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 81 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 87 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

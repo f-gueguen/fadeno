@@ -40,7 +40,8 @@ current URL so URL and document cannot diverge.
 
 Each owned entry starts with the current document scroll position. The first
 observed nonzero document or element scroll makes that entry monotonically
-unsafe for enhanced restoration, so later scroll events do not keep rewriting
+unsafe for enhanced restoration. Returning to zero and a forced final flush
+cannot erase that evidence, so later scroll events do not keep rewriting
 history. An eligible click performs guarded flushes before interception and
 immediately before document commit. If either history write is refused or
 rate-limited, further writes stop and the link remains native. A new
@@ -96,7 +97,9 @@ state are revalidated after asynchronous work and immediately before commit.
 These rules cover scroll changes whose event has not yet been delivered,
 application state replacement during a request, and multi-entry traversal. A
 late response cannot commit document, history, focus, selection, or scroll after
-a newer click or traversal. Flow evidence
+a newer click or traversal. Closing the runtime while a traversal is pending
+restores native scroll ownership and reloads the already selected current URL;
+it cannot leave that URL paired with the previously displayed document. Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
 

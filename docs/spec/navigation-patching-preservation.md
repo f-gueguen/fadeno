@@ -155,7 +155,8 @@ history entries carry a private exact-version marker, bounded chain and entry
 identities, and recorded document scroll state while automatic restoration is
 disabled for the active runtime.
 The first observed nonzero document or element scroll makes the entry
-monotonically unsafe, avoiding repeated History API writes; an eligible click
+monotonically unsafe even after the viewport returns to zero or a forced final
+flush runs, avoiding repeated History API writes; an eligible click
 performs guarded flushes before interception and immediately before commit, and
 stays native if the browser refuses either. A bounded private entry identity
 allows traversal to mark the outgoing document unsafe even when its scroll event
@@ -180,7 +181,9 @@ restore the pre-enhancement scroll-restoration mode. A destination history entry
 is created before its viewport resets to the top. Non-collapsed selection
 and unresolved focus/state still refuse. Native recovery guarantees current
 URL and document truth but not a pixel position, and the runtime does not apply
-its recorded refusal number to a fresh layout. No transition work is allocated in
+its recorded refusal number to a fresh layout. Closing during a pending
+traversal reloads the selected current URL after restoring native scroll
+ownership. No transition work is allocated in
 either normal or reduced-motion mode.
 
 ## Narrowed H1 result and V2 conformance

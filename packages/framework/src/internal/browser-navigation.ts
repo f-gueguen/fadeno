@@ -417,11 +417,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const state = privateHistoryState(history.state);
     if (!state) return false;
     const elementScroll = state.elementScroll || pendingElementScroll;
+    if (state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
+      pendingElementScroll = false;
+      return true;
+    }
     if (!force) {
-      if (state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
-        pendingElementScroll = false;
-        return true;
-      }
       if (scrollX === 0 && scrollY === 0 && !elementScroll) return true;
     }
     try {
@@ -641,6 +641,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   return Object.freeze({
     close() {
       if (closed) return;
+      const recoverSelectedTraversal = traversing;
       closed = true;
       active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
       document.removeEventListener("click", click);
@@ -649,6 +650,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       globalThis.removeEventListener("pagehide", pagehide);
       globalThis.removeEventListener("pageshow", pageshow);
       restoreScrollRestoration();
+      if (recoverSelectedTraversal) location.reload();
     },
   });
 }

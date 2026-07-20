@@ -52,6 +52,7 @@ for (const fragment of [
   "restores automatic scroll ownership when initial history acquisition fails",
   "restores automatic scroll ownership before native same-context departure",
   "allows a scrolled origin and reloads that unsafe history entry on return",
+  "keeps an entry unsafe after returning to the top and restarting",
   "runtimeRestarted",
   "coalesces history writes and keeps mutation-limit failure native",
   "reloads application-owned and malformed history instead of showing stale markup",
@@ -60,6 +61,7 @@ for (const fragment of [
   "reloads an owned element-scrolled entry during traversal",
   "marks an outgoing scroll before a same-task traversal",
   "records document scroll while traversal work is pending",
+  "recovers the selected entry when closing a pending traversal",
   "flushes late outgoing document scroll before commit",
   "cancels an obsolete history traversal and publishes only the newest entry",
   "keeps unsafe history tracking fail closed after its bound",
@@ -74,11 +76,13 @@ for (const name of [
   "history-startup-recovery",
   "history-native-departure",
   "history-scroll-refusal",
+  "history-monotonic-scroll-recovery",
   "history-write-recovery",
   "history-overflow-recovery",
   "history-element-recovery",
   "history-pending-scroll-recovery",
   "history-traversal-scroll-recovery",
+  "history-close-traversal-recovery",
   "history-late-scroll-recovery",
   "history-selected-state-recovery",
   "history-recovery",
@@ -97,4 +101,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 81-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 87-case corpus, executable guidance)");

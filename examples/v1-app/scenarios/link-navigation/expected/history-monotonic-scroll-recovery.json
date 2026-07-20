@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-monotonic-scroll-recovery",
+  "version": 1,
+  "unsafeStatePreserved": true,
+  "enhancedDeparture": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}

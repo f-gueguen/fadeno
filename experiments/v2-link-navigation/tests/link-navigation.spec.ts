@@ -386,6 +386,38 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
   expect(result).toEqual(expected("history-scroll-refusal"));
 });
 
+test("keeps an entry unsafe after returning to the top and restarting", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#bottom-next-link").scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => Number(history.state?.scrollY))).toBeGreaterThan(0);
+  await page.evaluate(() => scrollTo(0, 0));
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  const unsafeStatePreserved = await page.evaluate(async () => {
+    const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+    enhancement.close();
+    const modulePath: string = "/_fadeno/framework/browser.js";
+    const runtime = await import(modulePath) as Readonly<{
+      startBrowserEnhancement(): { close(): void; state(): string };
+    }>;
+    Reflect.set(globalThis, "__fadenoExampleEnhancement", runtime.startBrowserEnhancement());
+    return Number(history.state?.scrollY) > 0;
+  });
+  const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-monotonic-scroll-recovery",
+    version: 1,
+    unsafeStatePreserved,
+    enhancedDeparture: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
+    staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-monotonic-scroll-recovery"));
+});
+
 test("coalesces history writes and keeps mutation-limit failure native", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.name));
@@ -607,6 +639,35 @@ test("records document scroll while traversal work is pending", async ({ page })
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
     staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-traversal-scroll-recovery"));
+});
+
+test("recovers the selected entry when closing a pending traversal", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  enhancedSlowDelay = 250;
+  const nativeSlowBefore = requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length;
+  await page.evaluate(() => {
+    addEventListener("pagehide", () => {
+      sessionStorage.setItem("fadeno-test-close-traversal-restoration", history.scrollRestoration);
+    }, { once: true });
+    history.back();
+    setTimeout(() => {
+      const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+      enhancement.close();
+    }, 20);
+  });
+  await expect(page.locator("h1")).toHaveText("Slow", { timeout: 15_000 });
+  expect({
+    schema: "fadeno.example.history-close-traversal-recovery",
+    version: 1,
+    path: new URL(page.url()).pathname,
+    restorationAtRecovery: await page.evaluate(() => sessionStorage.getItem("fadeno-test-close-traversal-restoration")),
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length > nativeSlowBefore,
+    staleDocumentRemoved: await page.locator("h1").textContent() === "Slow",
+  }).toEqual(expected("history-close-traversal-recovery"));
 });
 
 test("flushes late outgoing document scroll before commit", async ({ page }) => {
