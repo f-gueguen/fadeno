@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.action-ordering-fragment-redirect-chain",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectChainGets": 1,
+  "nativeDestinationGets": 1,
+  "fragmentChainRuns": 1,
+  "finalHash": "#details",
+  "freshCurrentTruthVisible": true
+}

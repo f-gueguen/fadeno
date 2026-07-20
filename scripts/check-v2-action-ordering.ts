@@ -25,6 +25,10 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/staged-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/handoff-caret-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/handoff-caret-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/pending-handoff.json",
+  "examples/v1-app/scenarios/form-submission/expected/pending-handoff-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/supersession-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json",
@@ -35,8 +39,12 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json",
   "examples/v1-app/scenarios/form-submission/expected/fragment-redirect-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/fragment-redirect-chain.json",
+  "examples/v1-app/scenarios/form-submission/expected/fragment-redirect-chain-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json",
   "examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/traversal-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/traversal-recovery-human.txt",
 ]) assert.equal(tracked.has(path), true, `V2-07 artifact is not tracked: ${path}`);
 
 const adr = read("docs/adr/0052-enhanced-action-outcome-ordering.md").replace(/\s+/gu, " ");
@@ -87,6 +95,9 @@ for (const fragment of [
   "samePrivateFormHandoffFiles",
   "observeCancelledDeparture",
   "privateReloadFragmentDestination",
+  "privateFormHandoffSelectionState",
+  "let ownsPending = true",
+  "selectedHistoryState !== undefined",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
@@ -103,7 +114,20 @@ for (const fragment of [
   "cancelled native departure reloads committed current truth",
   "activation stays in the document",
   "history staging fails",
+  "caret/selection range and direction",
+  "newer submission's busy state",
+  "unsafe-entry native recovery",
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
+
+const threatModel = read("docs/security/browser-update-threat-model.md").replace(/\s+/gu, " ");
+for (const fragment of [
+  "V2-07's mutation-to-redirect-GET ownership selected by ADR 0052",
+  "Mutation-to-redirect-GET handoff loses identity, preservation, or recovery ownership",
+  "post-handoff edit/file/caret refusal",
+  "selected/unsafe traversal cancellation",
+  "V2-08 and V2-09 must qualify structural reconciliation",
+]) assert.equal(threatModel.includes(fragment), true, `browser update threat model is missing ${fragment}`);
+assert.equal(threatModel.includes("V2-07 through V2-09 must qualify complete action ordering"), false);
 
 const application = read("examples/v1-app/scenarios/form-submission/application.ts");
 for (const fragment of ["createProject", "updateProject", "deleteProject", "projectPageRenders", 'id: "update-form"', 'id: "delete-form"']) {
@@ -127,7 +151,11 @@ for (const fragment of [
   "native activation has no document departure",
   "same-metadata file replacement",
   "same-resource fragment redirects",
+  "fragments returned by the redirect GET",
   "redirect GET result before following its redirect chain",
+  "submitted-control caret change made after redirect handoff",
+  "newer submission pending owner after redirect handoff",
+  "selected traversal URLs and retains recovery through unsafe traversal",
   "authenticated CRUD through native documents without JavaScript",
 ]) assert.equal(tests.includes(fragment), true, `V2-07 browser evidence is missing ${fragment}`);
 
@@ -144,12 +172,16 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/close-recovery.json", '"currentTruthVisible": true'],
   ["examples/v1-app/scenarios/form-submission/expected/staged-recovery.json", '"recoveryRecorded": true'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json", '"submittedDocumentNotPublishedOverNewerEdit": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/handoff-caret-recovery.json", '"newerCaretNotOverwritten": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/pending-handoff.json", '"newerPendingRetained": true'],
   ["examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json", '"currentTruthVisible": true'],
   ["examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json", '"nativeSupersedingGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"redirectAndRecoveryGets": 2'],
   ["examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json", '"newerFileSelectionNotPrivatelyOverwritten": true'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"privateRedirectGets": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect-chain.json", '"nativeDestinationGets": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json", '"duplicateResultRefused": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/traversal-recovery.json", '"currentTruthReloaded": true'],
 ] as const) assert.equal(read(path).includes(fragment), true, `${path} is missing ${fragment}`);
 assert.equal(
   read("examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json").includes('"historyFailureHandoff"'),
@@ -177,6 +209,10 @@ for (const fragment of [
   '"scenarios/form-submission/expected/staged-recovery.json"',
   '"scenarios/form-submission/expected/handoff-edit-recovery.json"',
   '"scenarios/form-submission/expected/handoff-edit-recovery-human.txt"',
+  '"scenarios/form-submission/expected/handoff-caret-recovery.json"',
+  '"scenarios/form-submission/expected/handoff-caret-recovery-human.txt"',
+  '"scenarios/form-submission/expected/pending-handoff.json"',
+  '"scenarios/form-submission/expected/pending-handoff-human.txt"',
   '"scenarios/form-submission/expected/supersession-recovery.json"',
   '"scenarios/form-submission/expected/supersession-recovery-human.txt"',
   '"scenarios/form-submission/expected/native-supersession-recovery.json"',
@@ -187,8 +223,12 @@ for (const fragment of [
   '"scenarios/form-submission/expected/file-handoff-recovery-human.txt"',
   '"scenarios/form-submission/expected/fragment-redirect.json"',
   '"scenarios/form-submission/expected/fragment-redirect-human.txt"',
+  '"scenarios/form-submission/expected/fragment-redirect-chain.json"',
+  '"scenarios/form-submission/expected/fragment-redirect-chain-human.txt"',
   '"scenarios/form-submission/expected/redirect-get-consumption.json"',
   '"scenarios/form-submission/expected/redirect-get-consumption-human.txt"',
+  '"scenarios/form-submission/expected/traversal-recovery.json"',
+  '"scenarios/form-submission/expected/traversal-recovery-human.txt"',
 ]) assert.equal(documentationSource.includes(fragment), true, `documentation source is missing ${fragment}`);
 
 console.log("V2-07 action ordering contract passed (redirect GET handoff, authenticated CRUD, stale suppression, and native recovery)");

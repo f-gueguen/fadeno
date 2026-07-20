@@ -67,21 +67,26 @@ projection and the same document, history, focus, scroll, cancellation, and
 stale-result admission used by enhanced links.
 
 The handoff freezes the submitted form controls, selected `File` object
-identities, and active element after the mutation result is admitted. Any later
-edit, file/control replacement, or focus change refuses private destination
-publication and returns to native GET. A newer eligible GET that supersedes the
-redirect GET inherits committed-mutation recovery ownership until a
-replacement document or native departure commits. An ineligible same-context
-activation that returns to native behavior observes cancellation with the same
-recovery owner. That ownership is recovery provenance only; it carries no
-mutation request or authority into the newer GET.
+identities, active element, and a focused text control's caret/selection range
+and direction after the mutation result is admitted. Any later edit,
+file/control replacement, focus change, or caret/selection change refuses
+private destination publication and returns to native GET. A newer eligible
+GET that supersedes the redirect GET inherits committed-mutation recovery
+ownership until a replacement document or native departure commits. An
+ineligible same-context activation or history traversal that returns to native
+behavior observes cancellation with the same recovery owner, including when a
+cancelled traversal first has to repair its selected URL to the displayed
+document. That ownership is recovery provenance only; it carries no mutation
+request or authority into the newer GET.
 
 The redirect GET is not mutation recovery and carries no action body, proof,
 or mutation authority. A newer eligible navigation may cancel and supersede
 it. If preservation, history ownership, transport, projection, or document
 commit cannot be proved, the destination remains an ordinary native GET. A
-redirect chain may likewise return to native GET. None of those paths repeats
-the committed mutation.
+redirect chain may likewise return to native GET. If that chain selects a
+fragment on the still-displayed current resource, it uses the same fresh native
+document reload as a direct fragment outcome rather than retaining stale
+markup. None of those paths repeats the committed mutation.
 
 Because URL fragments are not part of an HTTP request, an action redirect to a
 fragment on the current resource does not issue a private GET whose result
@@ -104,8 +109,10 @@ An admitted redirect-GET result is consumed before its own redirect chain is
 handed to native navigation. Native handoff therefore cannot leave an admitted
 result ID reusable by a later correctly bound operation.
 
-Pending state belongs only to the POST and is cleared before redirect GET
-ownership begins. The current document remains authoritative until one whole
+Pending state belongs only to the POST and is cleared once before redirect GET
+ownership begins. That old cleanup is idempotent, so it cannot clear the busy
+state of a newer submission started while the redirect GET is pending. The
+current document remains authoritative until one whole
 destination document commits. URL, title, history, focus, scroll metadata, and
 the rendered document publish together or roll back to native/current-truth
 recovery. No partial resource or action state is applied in the browser.
@@ -159,10 +166,12 @@ only enhances boundaries already proven safe or returns them to native GET.
 application scenario to prove enhanced and native authenticated CRUD,
 validation/correction, redirect GET handoff, complete revalidation, delayed and
 permuted result suppression, cancellation/supersession, unsafe-boundary
-refusal, post-handoff edit and file-identity refusal, enhanced and native
+refusal, post-handoff edit, caret/selection, and file-identity refusal, pending
+owner isolation, enhanced and native
 supersession recovery, recovery when native activation remains in the current
 document, teardown-safe same-resource fragment reload with history-stage
-failure preservation,
+failure preservation, redirect-chain fragment reload, selected and unsafe
+traversal cancellation recovery,
 redirect-result consumption, no repeated mutation, redacted causal flow, and
 current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`
 retains every prior native, browser, security, package, and release gate.

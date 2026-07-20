@@ -42,10 +42,12 @@ exactly one pending minor Changeset is required.
   current-truth recovery ordering.
 - Implement and qualify authenticated CRUD enhancement only where the current
   conservative preservation predicate can prove pre-interception safety.
-- Close exact-commit review findings for handoff edits, superseding recovery,
-  native fallback, file identity, same-resource fragment teardown, and
-  redirect-GET result consumption, including prevented native activation and
-  history-stage failure, with permanent three-browser evidence before merge.
+- Close exact-commit review findings for handoff edits and caret selection,
+  pending-owner isolation, superseding recovery, native fallback, file
+  identity, direct and redirect-chain same-resource fragment teardown,
+  redirect-GET result consumption, and selected/unsafe traversal recovery,
+  including prevented native activation and history-stage failure, with
+  permanent three-browser evidence before merge.
 
 ## Blockers
 

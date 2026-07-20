@@ -1,0 +1,1 @@
+Action ordering recovery: selected and unsafe traversal cancellation repaired committed truth through GET; neither path repeated the mutation.

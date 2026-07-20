@@ -269,17 +269,23 @@ An admitted action redirect first consumes the mutation result, clears its
 pending owner, and releases the mutation operation. A fresh cancellable GET
 operation with a newer sequence then owns the redirect destination through the
 same document, history, focus, scroll, and stale-result checks as an eligible
-link. Handoff freezes the submitted controls, selected `File` identities, and
-active element; a later edit, file/control replacement, or focus change refuses
-private publication. A newer eligible navigation supersedes that GET while
+link. Handoff freezes the submitted controls, selected `File` identities,
+active element, and a focused text control's caret/selection range and
+direction; a later edit, file/control replacement, focus change, or selection
+change refuses private publication. Pending cleanup is one-shot and cannot
+clear a newer submission's busy state. A newer eligible navigation supersedes that GET while
 inheriting committed-current-truth recovery until a replacement document or
 native departure commits. An ineligible same-context activation keeps the same
 recovery owner until its native departure commits or is cancelled. If that
 activation stays in the document because a later listener prevents it, the
 same recovery owner fetches committed current truth. A selected same-document
 fragment instead reloads the fragment-bearing destination as a fresh document.
-A redirect
-GET result is consumed before a further redirect returns to native ownership.
+A redirect GET result is consumed before a further redirect returns to native
+ownership. When that further redirect selects a fragment on the still-displayed
+current resource, it also reloads one fresh native document. A history
+traversal retains committed-mutation recovery through selected-URL repair and
+unsafe-entry native recovery; cancellation repairs the displayed URL before
+current-truth GET begins.
 Transport, projection, preservation, or document-commit failure returns to
 native GET, while a cancelled native departure reloads committed current truth
 through GET without repeating POST. A fragment redirect on the current

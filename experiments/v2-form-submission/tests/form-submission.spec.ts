@@ -19,6 +19,7 @@ type ApplicationState = Readonly<{
   signInRuns: number;
   redirectAwayRuns: number;
   fragmentRedirectRuns: number;
+  fragmentChainRuns: number;
   redirectChainRuns: number;
   uploadRedirectRuns: number;
   createRuns: number;
@@ -68,6 +69,9 @@ let backendPort = 0;
 let dropNextMutationResponse = false;
 let dropNextPrivateGetResponse = false;
 let holdNextPrivateGetResponse = false;
+let holdNextPrivateGetPath: string | undefined;
+let holdNextMutationResponse = false;
+let releaseHeldResponse: (() => void) | undefined;
 let delayedPrivateGetPath: string | undefined;
 let delayedPrivateGetMilliseconds = 0;
 let capturedRedirectGetResultId: string | undefined;
@@ -118,8 +122,15 @@ test.beforeAll(async () => {
     const holdPrivateGet = holdNextPrivateGetResponse
       && incoming.method === "GET"
       && incoming.headers.accept === mediaType
-      && transportRecord.path === "/projects";
-    if (holdPrivateGet) holdNextPrivateGetResponse = false;
+      && transportRecord.path === (holdNextPrivateGetPath ?? "/projects");
+    if (holdPrivateGet) {
+      holdNextPrivateGetResponse = false;
+      holdNextPrivateGetPath = undefined;
+    }
+    const holdMutation = holdNextMutationResponse
+      && incoming.method === "POST"
+      && incoming.headers.accept === mediaType;
+    if (holdMutation) holdNextMutationResponse = false;
     const delay = incoming.method === "GET"
       && incoming.headers.accept === mediaType
       && transportRecord.path === delayedPrivateGetPath;
@@ -154,8 +165,17 @@ test.beforeAll(async () => {
         });
         return;
       }
-      if (holdPrivateGet) {
-        upstreamResponse.resume();
+      if (holdPrivateGet || holdMutation) {
+        const chunks: Buffer[] = [];
+        upstreamResponse.on("data", (chunk: Buffer) => chunks.push(chunk));
+        upstreamResponse.once("end", () => {
+          releaseHeldResponse = () => {
+            releaseHeldResponse = undefined;
+            if (outgoing.destroyed) return;
+            outgoing.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
+            outgoing.end(Buffer.concat(chunks));
+          };
+        });
         return;
       }
       if (delay) {
@@ -266,6 +286,9 @@ test.beforeEach(() => {
   dropNextMutationResponse = false;
   dropNextPrivateGetResponse = false;
   holdNextPrivateGetResponse = false;
+  holdNextPrivateGetPath = undefined;
+  holdNextMutationResponse = false;
+  releaseHeldResponse = undefined;
   delayedPrivateGetPath = undefined;
   delayedPrivateGetMilliseconds = 0;
   capturedRedirectGetResultId = undefined;
@@ -686,6 +709,71 @@ test("recovers committed truth when native activation has no document departure"
     .toContain("native activation stayed in the document");
 });
 
+test("refuses a submitted-control caret change made after redirect handoff", async ({ page }) => {
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  holdNextPrivateGetResponse = true;
+  const mutationsBefore = privateMutations().length;
+  const privateGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length;
+  const nativeGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  await page.locator("#passcode").press("Enter");
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length).toBe(privateGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator("#passcode").evaluate((input: HTMLInputElement) => input.setSelectionRange(0, 1, "forward"));
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-handoff-caret-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept === mediaType).length - privateGetsBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - nativeGetsBefore,
+    signInRuns: state.signInRuns,
+    newerCaretNotOverwritten: await page.locator("#passcode").count() === 0,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  }).toEqual(expected("handoff-caret-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-handoff-caret-recovery-human.txt"), "utf8"))
+    .toContain("newer caret selection refused private publication");
+});
+
+test("does not clear a newer submission pending owner after redirect handoff", async ({ page }) => {
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  holdNextPrivateGetResponse = true;
+  const mutationsBefore = privateMutations().length;
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length).toBe(1);
+  holdNextMutationResponse = true;
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => privateMutations().length - mutationsBefore).toBe(2);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.waitForTimeout(50);
+  const newerPendingRetained = await page.locator("#sign-in-form").getAttribute("aria-busy") === "true";
+  releaseHeldResponse?.();
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-pending-handoff",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    signInRuns: state.signInRuns,
+    newerPendingRetained,
+    replayRefusedBeforeAction: state.signInRuns === 1,
+    finalPath: new URL(page.url()).pathname,
+  }).toEqual(expected("pending-handoff"));
+  expect(readFileSync(join(outputRoot, "expected-pending-handoff-human.txt"), "utf8"))
+    .toContain("newer submission kept pending ownership");
+});
+
 test("refuses a same-metadata file replacement made after redirect handoff", async ({ page }) => {
   await signIn(page);
   const installFile = async (contents: string): Promise<void> => page.locator("#handoff-upload").evaluate((input, value) => {
@@ -790,6 +878,35 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
   }).toEqual(expected("fragment-redirect"));
   expect(readFileSync(join(outputRoot, "expected-fragment-redirect-human.txt"), "utf8"))
     .toContain("fragment selected only with a fresh native document");
+});
+
+test("reloads same-resource fragments returned by the redirect GET", async ({ page }) => {
+  await signIn(page);
+  const mutationsBefore = privateMutations().length;
+  const chainGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-fragment-chain" && accept === mediaType).length;
+  const nativeGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  await page.locator("#redirect-fragment-chain-form button").click({ noWaitAfter: true });
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
+  await expect.poll(() => new URL(page.url()).hash).toBe("#details");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-fragment-redirect-chain",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    redirectChainGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/redirect-fragment-chain" && accept === mediaType).length - chainGetsBefore,
+    nativeDestinationGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - nativeGetsBefore,
+    fragmentChainRuns: state.fragmentChainRuns,
+    finalHash: new URL(page.url()).hash,
+    freshCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  }).toEqual(expected("fragment-redirect-chain"));
+  expect(readFileSync(join(outputRoot, "expected-fragment-redirect-chain-human.txt"), "utf8"))
+    .toContain("redirect GET fragment selected a fresh native document");
 });
 
 test("consumes a redirect GET result before following its redirect chain", async ({ page }) => {
@@ -1115,6 +1232,96 @@ test("repairs a staged redirect URL before cancelled replacement recovery", asyn
     recoveryRecorded: flows.some((flow) => flow["code"] === "FADENO_FORM_MUTATION_CURRENT_TRUTH"
       && flow["outcome"] === "current-truth-reload"),
   }).toEqual(expected("staged-recovery"));
+});
+
+test("repairs selected traversal URLs and retains recovery through unsafe traversal", async ({ page }) => {
+  const projectGets = (): number => transportRequests.filter(({ method, path }) => method === "GET" && path === "/projects").length;
+  const documentEpoch = (): Promise<string | null> => page.locator('meta[name="fadeno-document-epoch"]').getAttribute("content");
+  const establishForwardEntry = async (unsafe: boolean): Promise<void> => {
+    await page.getByRole("link", { name: "Search" }).click();
+    await expect(page.locator("h1")).toHaveText("GET form navigation");
+    if (unsafe) {
+      await page.evaluate(() => {
+        const spacer = document.createElement("div");
+        spacer.style.height = "3000px";
+        document.body.append(spacer);
+        scrollTo(0, 200);
+      });
+      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
+    }
+    await page.goBack();
+    await expect(page.locator("h1")).toHaveText("Project forms");
+  };
+
+  await signIn(page);
+  await establishForwardEntry(false);
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  const mutationsBefore = privateMutations().length;
+  const safeGetsBefore = projectGets();
+  const safeEpochBefore = await documentEpoch();
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.some(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType)).toBe(true);
+  await page.evaluate(() => {
+    const body = document.body;
+    const originalReplaceChildren = body.replaceChildren;
+    body.replaceChildren = (..._nodes: (Node | string)[]): void => {
+      body.replaceChildren = originalReplaceChildren;
+      throw new Error("intentional traversal commit failure");
+    };
+    globalThis.addEventListener("beforeunload", (event) => {
+      event.preventDefault();
+      event.returnValue = "keep committed current truth";
+    }, { once: true });
+  });
+  const selectedCommitDialog = page.waitForEvent("dialog");
+  await page.evaluate(() => history.forward());
+  await (await selectedCommitDialog).dismiss();
+  await expect.poll(() => documentEpoch()).not.toBe(safeEpochBefore);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const selectedCommitFailure = {
+    currentTruthReloaded: projectGets() > safeGetsBefore,
+    finalPath: new URL(page.url()).pathname,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
+
+  await page.context().clearCookies();
+  await signIn(page);
+  await establishForwardEntry(true);
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  const unsafeGetsBefore = projectGets();
+  const unsafeEpochBefore = await documentEpoch();
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(2);
+  await page.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "keep committed current truth";
+  }, { once: true }));
+  const unsafeTraversalDialog = page.waitForEvent("dialog");
+  await page.evaluate(() => history.forward());
+  await (await unsafeTraversalDialog).dismiss();
+  await expect.poll(() => documentEpoch()).not.toBe(unsafeEpochBefore);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-traversal-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    signInRuns: state.signInRuns,
+    redirectChainRuns: state.redirectChainRuns,
+    selectedCommitFailure,
+    unsafeTraversal: {
+      currentTruthReloaded: projectGets() > unsafeGetsBefore,
+      finalPath: new URL(page.url()).pathname,
+      currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    },
+    mutationRetried: privateMutations().length - mutationsBefore > 3,
+  }).toEqual(expected("traversal-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-traversal-recovery-human.txt"), "utf8"))
+    .toContain("selected and unsafe traversal cancellation repaired committed truth");
 });
 
 test("refuses invalid origin, forbidden authorization, and unsupported enhancement boundaries", async ({ page }) => {

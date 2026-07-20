@@ -3,9 +3,10 @@
 This model covers the V2-02 loading and decode boundary selected by ADR 0047,
 the V2-03 server projection selected by ADR 0048, V2-04's conservative link
 interception selected by ADR 0049, V2-05's history/focus/scroll boundary
-selected by ADR 0050, and V2-06's conservative form submission selected by ADR
-0051. It does not claim general state-preserving reconciliation; that remains a
-later slice.
+selected by ADR 0050, V2-06's conservative form submission selected by ADR
+0051, and V2-07's mutation-to-redirect-GET ownership selected by ADR 0052. It
+does not claim general state-preserving reconciliation; that remains a later
+slice.
 
 ## Assets and owners
 
@@ -59,8 +60,9 @@ later slice.
 | A GET form acquires mutation authority or changes successful controls | GET operation kind is derived from the request method; one platform `FormData(form, submitter)` owns controls, URL-encoded names/values/filenames normalize line breaks to CRLF, files contribute filenames to GET encoding, the action query is replaced, and no action proof or callback is reachable | Native/enhanced GET URL, history, successful-control including textarea line endings, and action-counter equivalence |
 | A hostile or unsupported form is intercepted | Trusted submit, connected owner, effective method/action/target/encoding, current context, same origin, generated HTTPS action path, submitter, `noreferrer`, history, and preservation checks all complete before `preventDefault()` | Target, method, text encoding, hostile URL, foreign submitter, request-privacy directive, dirty peer, top-layer, media, selection, client identity, and element-scroll refusal |
 | Browser form admission bypasses action security | POST transport independently requires exact origin, then passes the exact request once through the existing method/media/origin/route/generation/session/proof/replay/decoder/authorization/action owner | Missing/hostile origin, invalid proof, replay, negative authorization, cross-user, upload-limit, and callback-counter cases |
-| Pending form ownership leaks or changes submitted meaning | Only the exact form receives `aria-busy`; controls and focus are classified by actual form ownership rather than DOM containment, controls are not disabled or rewritten, and prior state is restored on success, expected failure, redirect, refusal, cancellation, recovery, close, and commit rollback | Pending visibility, external-owner dirty-control refusal, non-control focus refusal, successful-control equality, duplicate suppression, and terminal cleanup cases |
+| Pending form ownership leaks or changes submitted meaning | Only the exact form receives `aria-busy`; controls and focus are classified by actual form ownership rather than DOM containment, controls are not disabled or rewritten, cleanup is one-shot so an older redirect handoff cannot clear a newer submission's pending owner, and prior state is restored on success, expected failure, redirect, refusal, cancellation, recovery, close, and commit rollback | Pending visibility, external-owner dirty-control refusal, non-control focus refusal, successful-control equality, duplicate suppression, redirect-handoff pending-owner isolation, and terminal cleanup cases |
 | An uncertain mutation is repeated or destroys unrelated history | Mutation is committed for recovery when fetch begins; every later transport, decode, projection, cancellation, close, or commit failure performs a trusted GET current-truth reload and never invokes POST again; pending Back recovery returns to the original mutation slot before reading truth, POST documents retain a GET-callable URL, and cancelled committed departures repair stale markup through GET | Before/during/after-request interruption, duplicate, close, malformed response, projection refusal, rollback, cancelled-redirect recovery, selected-Back-entry preservation, refresh, and POST-count assertions |
+| Mutation-to-redirect-GET handoff loses identity, preservation, or recovery ownership | Mutation and redirect-GET result IDs are independently consumed; the redirect GET has a fresh operation identity and no mutation authority; handoff snapshots controls, exact `File` objects, focus, and focused-control caret/selection; superseding links, forms, native activations, and traversals retain only committed-current-truth recovery; selected or unsafe traversal cancellation repairs URL truth before recovery; direct and chained same-resource fragments force a fresh native document; every path skips POST replay | Duplicate and redirect-chain result refusal, post-handoff edit/file/caret refusal, newer pending-owner isolation, enhanced/native/non-departing supersession, selected/unsafe traversal cancellation, direct/chained fragment reload, and three-engine POST-count evidence |
 | Submitted form data leaks into private evidence | Form flow records use stable codes, ownership, decisions, skipped work, and outcomes only; values, filenames, files, proofs, cookies, sessions, markup, URL queries, and arbitrary failures are structurally absent | Secret-canary successful-control, upload, rejection, and flow serialization assertions |
 | Browsing-context or request-privacy semantics change after interception | `_self`, `_parent`, `_top`, and the current named context are resolved against the actual window; links with explicit referrer policy and links or forms with `noreferrer` stay native | Three-engine current-context traversal supersession and referrer-directive refusal |
 | Application code bypasses instance History wrappers | Exact own descriptors are restored on refusal and close; history length is current-slot provenance, so a prototype push with copied state cannot enter the runtime-owned registry | Three-engine descriptor restoration, later prototype wrapping, and prototype-push native recovery |
@@ -79,7 +81,7 @@ no browser artifact is requested, and native links and forms still navigate.
 
 ## Residual risks
 
-- V2-07 through V2-09 must qualify complete action ordering, reconciliation,
-  and preservation.
+- V2-08 and V2-09 must qualify structural reconciliation and its remaining
+  preservation boundaries.
 - The private schema may change before those consumers exist; it is not a
   compatibility promise.

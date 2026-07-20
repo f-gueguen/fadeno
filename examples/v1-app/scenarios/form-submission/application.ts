@@ -18,6 +18,7 @@ let searchRequests = 0;
 let signInRuns = 0;
 let redirectAwayRuns = 0;
 let fragmentRedirectRuns = 0;
+let fragmentChainRuns = 0;
 let redirectChainRuns = 0;
 let uploadRedirectRuns = 0;
 let createRuns = 0;
@@ -97,6 +98,15 @@ export const redirectChain = defineAction({
   run() {
     redirectChainRuns += 1;
     return redirect("/redirect-chain");
+  },
+});
+
+export const redirectFragmentChain = defineAction({
+  fields: { intent: textField({ maximumBytes: 16 }) },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run() {
+    fragmentChainRuns += 1;
+    return redirect("/redirect-fragment-chain");
   },
 });
 
@@ -192,6 +202,7 @@ export function resetApplicationState(): void {
   signInRuns = 0;
   redirectAwayRuns = 0;
   fragmentRedirectRuns = 0;
+  fragmentChainRuns = 0;
   redirectChainRuns = 0;
   uploadRedirectRuns = 0;
   createRuns = 0;
@@ -212,6 +223,7 @@ export function readApplicationState(): Readonly<{
   signInRuns: number;
   redirectAwayRuns: number;
   fragmentRedirectRuns: number;
+  fragmentChainRuns: number;
   redirectChainRuns: number;
   uploadRedirectRuns: number;
   createRuns: number;
@@ -226,6 +238,7 @@ export function readApplicationState(): Readonly<{
     signInRuns,
     redirectAwayRuns,
     fragmentRedirectRuns,
+    fragmentChainRuns,
     redirectChainRuns,
     uploadRedirectRuns,
     createRuns,
@@ -337,6 +350,10 @@ function projectsPage(signedIn: boolean): RenderChild {
       jsx("input", { name: redirectChain.fields.intent, type: "hidden", value: "chain" }),
       jsx("button", { type: "submit", children: "Follow redirect chain" }),
     ] }),
+    jsxs("form", { id: "redirect-fragment-chain-form", action: redirectFragmentChain, children: [
+      jsx("input", { name: redirectFragmentChain.fields.intent, type: "hidden", value: "fragment-chain" }),
+      jsx("button", { type: "submit", children: "Follow fragment redirect chain" }),
+    ] }),
     jsxs("form", { id: "upload-redirect-form", action: uploadRedirect, children: [
       jsx("label", { for: "handoff-upload", children: "Handoff upload" }),
       jsx("input", { id: "handoff-upload", name: uploadRedirect.fields.attachment, type: "file", accept: "text/plain", required: true }),
@@ -369,6 +386,18 @@ function renderRedirectChain(request: Request): Promise<Response> {
   });
 }
 
+function renderFragmentRedirectChain(request: Request): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId: "redirect-fragment-chain",
+    generation: applicationGeneration,
+    browserModule,
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => redirect("/projects#details"),
+  });
+}
+
 export const handler: Handler = (request) => {
   const url = new URL(request.url);
   if (url.pathname === "/") return render(request, "home", () => home());
@@ -377,5 +406,6 @@ export const handler: Handler = (request) => {
     return render(request, "projects", (session) => projectsPage(session.get("viewer") === "owner"));
   }
   if (url.pathname === "/redirect-chain") return renderRedirectChain(request);
+  if (url.pathname === "/redirect-fragment-chain") return renderFragmentRedirectChain(request);
   return new Response("not found", { status: 404 });
 };

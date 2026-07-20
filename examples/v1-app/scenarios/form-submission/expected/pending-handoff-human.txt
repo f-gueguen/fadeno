@@ -1,0 +1,1 @@
+Action ordering recovery: the newer submission kept pending ownership until its replay refusal completed; the older redirect handoff could not clear it.
