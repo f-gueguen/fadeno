@@ -131,7 +131,10 @@ bounded 50-millisecond supersession window. A newer traversal replaces that
 queued recovery; otherwise it cannot wait for the obsolete response.
 The source URL, complete exact private state, and active ownership are captured
 for both links and traversals and revalidated after asynchronous work and
-immediately before commit.
+immediately before commit. A forced pre-interception scroll flush is followed by
+a fresh source-state read, so the request owns the state that was actually
+written rather than a stale pre-flush copy. Rollback focus is captured from the
+same immediately precommit document shape that is cloned for rollback.
 These rules cover scroll changes whose event has not yet been delivered,
 application state replacement during a request, and multi-entry traversal. A
 late response cannot commit document, history, focus, selection, or scroll after
@@ -144,11 +147,12 @@ leaves activation fully native. If
 an ordinary link request is pending, close aborts it before completing teardown.
 If
 destination history selection succeeds but a later document, focus, scroll, or
-final history-provenance check fails, native recovery does not append a duplicate
+final history-provenance or runtime-lifecycle check fails, native recovery does not append a duplicate
 destination. A newly pushed selection is rolled back before native navigation
 reselects it, including every additional entry synchronously pushed by
-application code during the failed commit, while an already selected traversal
-is replaced in place; one Back
+application code during the failed commit. Pushes made after an already selected
+traversal are also rolled back before that selected entry is replaced in place;
+one Back
 traversal still reaches the prior document. Document and history postconditions
 share one rollback boundary, and local rollback failure cannot erase the
 selected-destination classification.
@@ -208,6 +212,7 @@ post-history commit, focus-time history mutation, multi-push rollback, and rollb
 reload, close-time reload, post-selection fallback, and preselection fallback repair, returnValue-only cancellation,
 ordinary-link source mutation, ordinary close cancellation, delayed-recovery and pending-traversal eligible-click, refused-fragment, and native-form supersession,
 ordinary-request/native-fragment supersession, guarded History-wrapper installation, post-close same-document re-keying,
+post-flush source refresh, precommit focus capture, focus-time close recovery, and traversal-push rollback,
 secure-environment refusal and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.

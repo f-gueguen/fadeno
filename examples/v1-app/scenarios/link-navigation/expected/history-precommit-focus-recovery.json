@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-precommit-focus-recovery",
+  "version": 1,
+  "insertedSiblingRetained": true,
+  "initiatingFocusRestored": true,
+  "selectedTruthRepaired": true
+}

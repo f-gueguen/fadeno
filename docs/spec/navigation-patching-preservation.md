@@ -203,7 +203,9 @@ recovery after a 50-millisecond supersession window. Delayed recovery retains
 traversal ownership until it runs or a newer activation supersedes it. A newer
 traversal replaces the queued recovery. Both link and traversal work capture
 their source URL, exact private state, and active ownership; all three are
-revalidated immediately before commit. Native recovery and page departure
+revalidated immediately before commit. A forced scroll flush is followed by a
+fresh source-state read, and rollback focus is derived from the same precommit
+document shape that the rollback snapshot captures. Native recovery and page departure
 restore the pre-enhancement scroll-restoration mode. A destination history entry
 is created before its viewport resets to the top. Non-collapsed selection
 and unresolved focus/state still refuse. Native recovery guarantees current
@@ -219,12 +221,13 @@ A refused same-context link or still-native same-context form aborts any pending
 enhanced request; when that request is a traversal, selected truth is repaired
 before native activation continues. Form submission is observed for
 supersession only, not intercepted.
-If history selection succeeds but a later document, focus, scroll, or final
-history-provenance check fails, document and history postconditions roll back
+If history selection succeeds but a later document, focus, scroll, final
+history-provenance, or runtime-lifecycle check fails, document and history postconditions roll back
 together. Document rollback restores the exact previously focused node in the
-restored body when it still exists. A newly pushed selection is rolled back before native navigation
+restored precommit body when it still exists. A newly pushed selection is rolled back before native navigation
 reselects it, including additional synchronous application pushes during the
-failed commit, while traversal replacement remains in place, so no duplicate
+failed commit. Additional pushes made after traversal selection are removed
+before native replacement of that selected entry, so no duplicate
 entry is appended even if local scroll rollback also fails. If the user cancels
 an unsafe traversal's native reload, the active document replaces the selected
 slot with a fresh private entry at the trusted displayed-document URL,

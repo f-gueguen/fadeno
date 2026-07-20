@@ -1319,6 +1319,119 @@ test("rolls back every selected push before native recovery", async ({ page }) =
   }).toEqual(expected("history-multiple-push-recovery"));
 });
 
+test("rolls back pushes made during traversal replacement before native recovery", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  await page.evaluate(() => {
+    const pushDuringDestinationFocus = (event: FocusEvent): void => {
+      if (!(event.target instanceof Element) || !event.target.hasAttribute("data-fadeno-navigation-focus")) return;
+      document.removeEventListener("focusin", pushDuringDestinationFocus);
+      history.pushState({ ...history.state }, "", "/focus-extra");
+    };
+    document.addEventListener("focusin", pushDuringDestinationFocus);
+  });
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.goBack({ waitUntil: "load" });
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.goBack({ waitUntil: "load" });
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-traversal-push-recovery",
+    version: 1,
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    oneBackReachedPriorDocument: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-traversal-push-recovery"));
+});
+
+test("returns a focus-time runtime close to native destination recovery", async ({ page }) => {
+  await page.goto(origin);
+  const historyLengthBefore = await page.evaluate(() => history.length);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.evaluate(() => {
+    const closeDuringDestinationFocus = (event: FocusEvent): void => {
+      if (!(event.target instanceof Element) || !event.target.hasAttribute("data-fadeno-navigation-focus")) return;
+      document.removeEventListener("focusin", closeDuringDestinationFocus);
+      const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+      enhancement.close();
+    };
+    document.addEventListener("focusin", closeDuringDestinationFocus);
+  });
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  const historyEntriesAdded = await page.evaluate((before) => history.length - before, historyLengthBefore);
+  await page.goBack({ waitUntil: "load" });
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-close-during-commit-recovery",
+    version: 1,
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    historyEntriesAdded,
+    oneBackReachedPriorDocument: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-close-during-commit-recovery"));
+});
+
+test("uses the source state written by a forced pre-interception scroll flush", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => {
+    document.querySelector("#next-link")?.addEventListener("click", () => scrollTo({ top: 100, behavior: "instant" }), { once: true });
+  });
+  const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-scroll-flush-source-refresh",
+    version: 1,
+    enhancedRequestCommitted: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
+    wastedNativeFallback: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    destinationAtTop: await page.evaluate(() => scrollX === 0 && scrollY === 0),
+  }).toEqual(expected("history-scroll-flush-source-refresh"));
+});
+
+test("captures rollback focus from the precommit document snapshot", async ({ page }) => {
+  await page.goto(origin);
+  enhancedSlowDelay = 100;
+  await page.locator("#slow-link").focus();
+  await page.evaluate(() => {
+    const originalFocus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function failDestinationFocus(options?: FocusOptions): void {
+      if (this.hasAttribute("data-fadeno-navigation-focus")) {
+        HTMLElement.prototype.focus = originalFocus;
+        throw new DOMException("focus commit refused", "InvalidStateError");
+      }
+      originalFocus.call(this, options);
+    };
+    addEventListener("beforeunload", (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    }, { once: true });
+  });
+  const dismissed = new Promise<void>((resolve) => {
+    page.once("dialog", (dialog) => { void dialog.dismiss().then(resolve); });
+  });
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(20);
+  await page.evaluate(() => {
+    const inserted = document.createElement("button");
+    inserted.id = "inserted-before-focus";
+    inserted.textContent = "Inserted during request";
+    document.querySelector("#slow-link")?.before(inserted);
+  });
+  await dismissed;
+  await expect(page).toHaveURL(origin);
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-precommit-focus-recovery",
+    version: 1,
+    insertedSiblingRetained: await page.locator("#inserted-before-focus").count() === 1,
+    initiatingFocusRestored: await page.evaluate(() => document.activeElement?.id === "slow-link"),
+    selectedTruthRepaired: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-precommit-focus-recovery"));
+});
+
 test("repairs displayed truth when post-selection native recovery is cancelled", async ({ page }) => {
   await page.goto(origin);
   await page.locator("#next-link").focus();

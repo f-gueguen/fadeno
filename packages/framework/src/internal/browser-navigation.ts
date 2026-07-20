@@ -496,6 +496,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   let sequence = 0;
   let closed = false;
   let closing = false;
+  let committing = false;
   let traversing = false;
   let traversalSequence = 0;
   let pendingElementScroll = false;
@@ -618,6 +619,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     destination: URL;
     truthUrl: string;
     restoreFocus: (() => void) | undefined;
+    stageDestination: boolean;
   }> | undefined;
   const unsafeHistoryEntries = createPrivateUnsafeHistoryEntryTracker();
 
@@ -786,9 +788,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     else location.assign(destination.href);
   };
 
-  const recoverSelectedPush = (destination: URL, selectedPushCount: number, restoreFocus?: () => void): void => {
+  const recoverSelectedPush = (
+    destination: URL,
+    selectedPushCount: number,
+    restoreFocus?: () => void,
+    stageDestination = true,
+  ): void => {
     restoreScrollRestoration();
-    selectedPushRecovery = Object.freeze({ destination, truthUrl: displayedTruthUrl, restoreFocus });
+    selectedPushRecovery = Object.freeze({ destination, truthUrl: displayedTruthUrl, restoreFocus, stageDestination });
     history.go(-selectedPushCount);
   };
 
@@ -809,9 +816,6 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     initiator?: HTMLAnchorElement,
     selectedHistoryState?: PrivateHistoryState,
   ): Promise<void> => {
-    const operationFocusPath = document.activeElement instanceof HTMLElement
-      ? descendantPath(document.body, document.activeElement)
-      : undefined;
     active?.cancellation.abort(new DOMException("Navigation superseded", "AbortError"));
     if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) {
       fallback(destination, replace);
@@ -883,19 +887,31 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
       if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      const operationFocusPath = document.activeElement instanceof HTMLElement
+        ? descendantPath(document.body, document.activeElement)
+        : undefined;
       historyPushesBeforeCommit = historyPushSequence;
-      applyDocument(
-        next,
-        operation.destination.href,
-        replace,
-        historySession,
-        previousScrollRestoration,
-        (state, url) => location.href === url
-          && !historyOwnershipOverflowed
-          && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
-        writeHistory,
-        operationFocusPath,
-      );
+      committing = true;
+      try {
+        applyDocument(
+          next,
+          operation.destination.href,
+          replace,
+          historySession,
+          previousScrollRestoration,
+          (state, url) => !closed
+            && !closing
+            && active === operation
+            && !operation.cancellation.signal.aborted
+            && location.href === url
+            && !historyOwnershipOverflowed
+            && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
+          writeHistory,
+          operationFocusPath,
+        );
+      } finally {
+        committing = false;
+      }
       destinationSelected = true;
       const committedState = privateHistoryState(history.state);
       if (!committedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
@@ -940,8 +956,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         const documentCommitFailure = cause instanceof PrivateDocumentCommitFailure ? cause : undefined;
         const selectedCommitFailure = destinationSelected || documentCommitFailure?.destinationSelected === true;
         const selectedPushCount = historyPushSequence - historyPushesBeforeCommit;
-        if (selectedCommitFailure && !replace && selectedPushCount > 0) {
-          recoverSelectedPush(destination, selectedPushCount, documentCommitFailure?.restoreFocus);
+        if (selectedCommitFailure && selectedPushCount > 0) {
+          recoverSelectedPush(destination, selectedPushCount, documentCommitFailure?.restoreFocus, !replace);
         } else {
           fallback(destination, replace || selectedCommitFailure, selectedCommitFailure, documentCommitFailure?.restoreFocus);
         }
@@ -976,9 +992,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       )) return;
     const destination = privateSafeLinkDestination(target);
     if (!destination || !currentMetadata || !privateLinkPreservationSafe(target, { allowDocumentScroll: true })) return;
+    const stateBeforeFlush = privateHistoryState(history.state);
+    if (!stateBeforeFlush || !ownsHistoryState(stateBeforeFlush, location.href) || stateBeforeFlush.elementScroll) return;
+    if (!flushCurrentScroll(true)) return;
     const state = privateHistoryState(history.state);
     if (!state || !ownsHistoryState(state, location.href) || state.elementScroll) return;
-    if (!flushCurrentScroll(true)) return;
     event.preventDefault();
     void navigate(destination, false, target, state);
   };
@@ -1005,11 +1023,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       setTimeout(() => {
         if (closed || location.href !== rollbackUrl) return;
         try {
-          const stagedState = createHistoryState(scrollX, scrollY, false, historySession);
-          const stagedPrivateState = privateHistoryState(stagedState);
-          if (!stagedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
-          writeHistory.push(stagedState, recovery.destination.href);
-          rememberHistoryState(stagedPrivateState, recovery.destination.href);
+          if (recovery.stageDestination) {
+            const stagedState = createHistoryState(scrollX, scrollY, false, historySession);
+            const stagedPrivateState = privateHistoryState(stagedState);
+            if (!stagedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+            writeHistory.push(stagedState, recovery.destination.href);
+            rememberHistoryState(stagedPrivateState, recovery.destination.href);
+          }
           observeCancelledDeparture(
             () => location.href === recovery.destination.href,
             () => {
@@ -1084,7 +1104,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   return Object.freeze({
     close() {
       if (closed || closing) return;
-      if (!traversing) {
+      if (!traversing && !committing) {
         active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
         finishClose();
         return;

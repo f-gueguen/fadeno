@@ -259,6 +259,12 @@ history write during fetch forces native destination recovery:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-source-state-recovery.json","language":"json"} -->
 
+If an initiating listener scrolls immediately before interception, the forced
+flush is followed by a fresh source-state read. The qualified request commits
+once instead of falling back because it carried a stale pre-flush copy:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-flush-source-refresh.json","language":"json"} -->
+
 Only entries recorded by the active runtime at their exact URL and state are
 owned. Copying the visible private-looking fields into another history slot
 does not grant ownership:
@@ -303,6 +309,24 @@ If that focus event pushes another entry, every push selected after the trusted
 source is rolled back before one native destination is selected:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-multiple-push-recovery.json","language":"json"} -->
+
+The same cleanup applies when focus pushes after a Back or Forward selection.
+Native replacement keeps the selected destination in place, so one Back still
+reaches the prior document:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-traversal-push-recovery.json","language":"json"} -->
+
+Closing the runtime from a destination focus callback also fails the final
+lifecycle check. The rolled-back document returns the already selected entry to
+native destination truth rather than publishing from a closed runtime:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-during-commit-recovery.json","language":"json"} -->
+
+Rollback focus is derived from the same precommit body shape that is retained
+for recovery. A safe sibling insertion during request work therefore cannot
+shift focus restoration onto the wrong node:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-precommit-focus-recovery.json","language":"json"} -->
 
 The same replacement classification survives when destination scrolling and
 the attempted local scroll rollback both fail persistently:
@@ -374,6 +398,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 177 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
+for all 189 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

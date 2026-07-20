@@ -98,6 +98,10 @@ for (const fragment of [
   "recovers a selected destination without duplicating it when document commit fails",
   "preserves replacement recovery after focus mutates selected state",
   "rolls back every selected push before native recovery",
+  "rolls back pushes made during traversal replacement before native recovery",
+  "returns a focus-time runtime close to native destination recovery",
+  "uses the source state written by a forced pre-interception scroll flush",
+  "captures rollback focus from the precommit document snapshot",
   "repairs displayed truth when post-selection native recovery is cancelled",
   "reacquires history ownership when preselection fallback is cancelled",
   "preserves replacement recovery when destination scroll and rollback both fail",
@@ -146,6 +150,10 @@ for (const name of [
   "history-commit-failure-recovery",
   "history-focus-state-recovery",
   "history-multiple-push-recovery",
+  "history-traversal-push-recovery",
+  "history-close-during-commit-recovery",
+  "history-scroll-flush-source-refresh",
+  "history-precommit-focus-recovery",
   "history-native-supersession-recovery",
   "history-scroll-rollback-recovery",
   "history-scroll-postcondition-recovery",
@@ -174,4 +182,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 177-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 189-case corpus, executable guidance)");

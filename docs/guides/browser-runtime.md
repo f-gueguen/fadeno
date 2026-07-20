@@ -834,6 +834,20 @@ history write during fetch forces native destination recovery:
 }
 ```
 
+If an initiating listener scrolls immediately before interception, the forced
+flush is followed by a fresh source-state read. The qualified request commits
+once instead of falling back because it carried a stale pre-flush copy:
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-flush-source-refresh",
+  "version": 1,
+  "enhancedRequestCommitted": true,
+  "wastedNativeFallback": false,
+  "destinationAtTop": true
+}
+```
+
 Only entries recorded by the active runtime at their exact URL and state are
 owned. Copying the visible private-looking fields into another history slot
 does not grant ownership:
@@ -941,6 +955,47 @@ source is rolled back before one native destination is selected:
   "nativeRecovery": true,
   "historyEntriesAdded": 1,
   "oneBackReachedPriorDocument": true
+}
+```
+
+The same cleanup applies when focus pushes after a Back or Forward selection.
+Native replacement keeps the selected destination in place, so one Back still
+reaches the prior document:
+
+```json
+{
+  "schema": "fadeno.example.history-traversal-push-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+Closing the runtime from a destination focus callback also fails the final
+lifecycle check. The rolled-back document returns the already selected entry to
+native destination truth rather than publishing from a closed runtime:
+
+```json
+{
+  "schema": "fadeno.example.history-close-during-commit-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+Rollback focus is derived from the same precommit body shape that is retained
+for recovery. A safe sibling insertion during request work therefore cannot
+shift focus restoration onto the wrong node:
+
+```json
+{
+  "schema": "fadeno.example.history-precommit-focus-recovery",
+  "version": 1,
+  "insertedSiblingRetained": true,
+  "initiatingFocusRestored": true,
+  "selectedTruthRepaired": true
 }
 ```
 
@@ -1127,6 +1182,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 177 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
+for all 189 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.
