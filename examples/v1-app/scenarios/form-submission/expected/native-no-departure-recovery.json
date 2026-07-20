@@ -1,0 +1,18 @@
+{
+  "schema": "fadeno.example.action-ordering-native-no-departure-recovery",
+  "version": 1,
+  "mutationRequests": 2,
+  "signInRuns": 2,
+  "sameDocumentFragment": {
+    "privateRedirectGets": 1,
+    "nativeCurrentTruthGets": 1,
+    "finalHash": "#native-recovery",
+    "freshCurrentTruthVisible": true
+  },
+  "preventedActivation": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "freshCurrentTruthVisible": true
+  },
+  "mutationRetried": false
+}

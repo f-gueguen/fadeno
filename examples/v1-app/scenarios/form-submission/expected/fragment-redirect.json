@@ -7,5 +7,12 @@
   "fragmentRedirectRuns": 1,
   "finalHash": "#details",
   "teardownFollowedHandoff": true,
-  "freshCurrentTruthVisible": true
+  "freshCurrentTruthVisible": true,
+  "historyFailureHandoff": {
+    "calls": [
+      "replace:/projects#details",
+      "reload:/projects#details"
+    ],
+    "finalUrl": "/projects#details"
+  }
 }

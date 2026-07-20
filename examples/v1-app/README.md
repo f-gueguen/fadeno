@@ -120,7 +120,9 @@ losing its response, editing after handoff, and superseding it with another
 failed enhanced or native GET all recover committed current truth without
 repeating POST. Replacing a selected upload with a same-metadata `File` after
 handoff also refuses private publication. A same-resource fragment redirect
-starts a real native reload before teardown can strand its staged URL, and a
+starts a real native reload before teardown can strand its staged URL, retains
+the intended fragment if history staging fails, and recovers current truth when
+a superseding native activation remains in the document. A
 redirect GET result cannot be reused after its redirect chain begins. Concurrent
 equal-title creates leave one logical project owner, and the single stable
 update and delete forms do not bind failures through mutable list ordinals. The

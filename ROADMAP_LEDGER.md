@@ -21,9 +21,10 @@ V2-07 — complete enhanced action redirects, revalidation, ordering, and recove
   results through protocol-selected ordering and recovery.
 - [ ] Refuse before action interception when an unsafe preservation boundary
   would require V2-08 reconciliation.
-- [ ] Extend the canonical evaluator application and its isolated scenario with
-  current-packed authenticated CRUD success, failure, correction, flow,
-  recovery, ordering, and native-baseline evidence.
+- [ ] Extend the isolated current-packed scenario with authenticated CRUD
+  success, failure, correction, flow, recovery, ordering, and native-baseline
+  evidence; retain canonical evaluator integration as the blocking V2-07A
+  owner before V2-08.
 - [ ] Add exactly one pending minor Changeset, pass every affected gate and full
   local CI on the final commit, and complete remote review triage.
 
@@ -43,8 +44,8 @@ exactly one pending minor Changeset is required.
   conservative preservation predicate can prove pre-interception safety.
 - Close exact-commit review findings for handoff edits, superseding recovery,
   native fallback, file identity, same-resource fragment teardown, and
-  redirect-GET result consumption with permanent three-browser evidence before
-  merge.
+  redirect-GET result consumption, including prevented native activation and
+  history-stage failure, with permanent three-browser evidence before merge.
 
 ## Blockers
 

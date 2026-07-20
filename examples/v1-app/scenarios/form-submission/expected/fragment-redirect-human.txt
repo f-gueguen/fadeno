@@ -1,1 +1,1 @@
-Action ordering recovery: fragment selected only with a fresh native document; stale pre-mutation markup was never retained.
+Action ordering recovery: fragment selected only with a fresh native document; stale pre-mutation markup was never retained, and history-stage failure preserved the fragment destination.

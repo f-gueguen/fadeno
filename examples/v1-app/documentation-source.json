@@ -149,6 +149,7 @@
       "scenarios/form-submission/expected/handoff-edit-recovery-human.txt",
       "scenarios/form-submission/expected/supersession-recovery-human.txt",
       "scenarios/form-submission/expected/native-supersession-recovery-human.txt",
+      "scenarios/form-submission/expected/native-no-departure-recovery-human.txt",
       "scenarios/form-submission/expected/file-handoff-recovery-human.txt",
       "scenarios/form-submission/expected/fragment-redirect-human.txt",
       "scenarios/form-submission/expected/redirect-get-consumption-human.txt"
@@ -190,6 +191,7 @@
       "scenarios/form-submission/expected/handoff-edit-recovery.json",
       "scenarios/form-submission/expected/supersession-recovery.json",
       "scenarios/form-submission/expected/native-supersession-recovery.json",
+      "scenarios/form-submission/expected/native-no-departure-recovery.json",
       "scenarios/form-submission/expected/file-handoff-recovery.json",
       "scenarios/form-submission/expected/fragment-redirect.json",
       "scenarios/form-submission/expected/redirect-get-consumption.json"
@@ -261,6 +263,7 @@
       "scenarios/form-submission/expected/handoff-edit-recovery.json",
       "scenarios/form-submission/expected/supersession-recovery.json",
       "scenarios/form-submission/expected/native-supersession-recovery.json",
+      "scenarios/form-submission/expected/native-no-departure-recovery.json",
       "scenarios/form-submission/expected/file-handoff-recovery.json",
       "scenarios/form-submission/expected/fragment-redirect.json",
       "scenarios/form-submission/expected/redirect-get-consumption.json"

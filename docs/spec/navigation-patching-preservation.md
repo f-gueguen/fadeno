@@ -274,14 +274,19 @@ active element; a later edit, file/control replacement, or focus change refuses
 private publication. A newer eligible navigation supersedes that GET while
 inheriting committed-current-truth recovery until a replacement document or
 native departure commits. An ineligible same-context activation keeps the same
-recovery owner until its native departure commits or is cancelled. A redirect
+recovery owner until its native departure commits or is cancelled. If that
+activation stays in the document because a later listener prevents it, the
+same recovery owner fetches committed current truth. A selected same-document
+fragment instead reloads the fragment-bearing destination as a fresh document.
+A redirect
 GET result is consumed before a further redirect returns to native ownership.
 Transport, projection, preservation, or document-commit failure returns to
 native GET, while a cancelled native departure reloads committed current truth
 through GET without repeating POST. A fragment redirect on the current
 resource bypasses private GET and performs one real native destination reload;
-that reload starts synchronously after URL staging, and a cancelled reload
-repairs displayed truth before recovery. V2-08 owns broader structural
+that reload starts synchronously after URL staging. If history staging fails,
+the native handoff first selects the intended fragment destination; a cancelled
+reload repairs displayed truth before recovery. V2-08 owns broader structural
 preservation.
 
 Same-context activation is resolved against the current window, including

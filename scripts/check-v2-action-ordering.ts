@@ -29,6 +29,8 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/supersession-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json",
@@ -67,6 +69,7 @@ for (const feature of ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "S
 const risks = read("docs/ledgers/risks.md");
 assert.equal(risks.includes("ADR 0052 consumes mutation and redirect-GET results independently"), true);
 assert.equal(risks.includes("redirect GET reuses mutation identity or an admitted result"), true);
+assert.equal(risks.includes("fails to recover when native activation is prevented"), true);
 
 const browser = read("packages/framework/src/internal/browser-navigation.ts");
 for (const fragment of [
@@ -83,6 +86,7 @@ for (const fragment of [
   "fallbackSameResourceFragmentRedirect",
   "samePrivateFormHandoffFiles",
   "observeCancelledDeparture",
+  "privateReloadFragmentDestination",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
@@ -97,6 +101,8 @@ for (const fragment of [
   "fresh cancellable GET",
   "newer eligible navigation supersedes that GET",
   "cancelled native departure reloads committed current truth",
+  "activation stays in the document",
+  "history staging fails",
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
 
 const application = read("examples/v1-app/scenarios/form-submission/application.ts");
@@ -118,6 +124,7 @@ for (const fragment of [
   "form edits made after redirect handoff",
   "newer GET supersedes the redirect",
   "native activation supersedes the redirect",
+  "native activation has no document departure",
   "same-metadata file replacement",
   "same-resource fragment redirects",
   "redirect GET result before following its redirect chain",
@@ -139,10 +146,16 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json", '"submittedDocumentNotPublishedOverNewerEdit": true'],
   ["examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json", '"currentTruthVisible": true'],
   ["examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json", '"nativeSupersedingGets": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"redirectAndRecoveryGets": 2'],
   ["examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json", '"newerFileSelectionNotPrivatelyOverwritten": true'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"privateRedirectGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json", '"duplicateResultRefused": true'],
 ] as const) assert.equal(read(path).includes(fragment), true, `${path} is missing ${fragment}`);
+assert.equal(
+  read("examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json").includes('"historyFailureHandoff"'),
+  true,
+  "fragment redirect evidence must retain the selected destination when history staging fails",
+);
 
 const packageDocument = JSON.parse(read("package.json")) as Readonly<{ scripts?: Readonly<Record<string, string>> }>;
 assert.equal(packageDocument.scripts?.["check:v2-action-ordering"]?.includes("pnpm check:v2-form-submission"), true);
@@ -168,6 +181,8 @@ for (const fragment of [
   '"scenarios/form-submission/expected/supersession-recovery-human.txt"',
   '"scenarios/form-submission/expected/native-supersession-recovery.json"',
   '"scenarios/form-submission/expected/native-supersession-recovery-human.txt"',
+  '"scenarios/form-submission/expected/native-no-departure-recovery.json"',
+  '"scenarios/form-submission/expected/native-no-departure-recovery-human.txt"',
   '"scenarios/form-submission/expected/file-handoff-recovery.json"',
   '"scenarios/form-submission/expected/file-handoff-recovery-human.txt"',
   '"scenarios/form-submission/expected/fragment-redirect.json"',

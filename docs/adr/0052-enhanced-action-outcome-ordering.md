@@ -160,7 +160,9 @@ application scenario to prove enhanced and native authenticated CRUD,
 validation/correction, redirect GET handoff, complete revalidation, delayed and
 permuted result suppression, cancellation/supersession, unsafe-boundary
 refusal, post-handoff edit and file-identity refusal, enhanced and native
-supersession recovery, teardown-safe same-resource fragment reload,
+supersession recovery, recovery when native activation remains in the current
+document, teardown-safe same-resource fragment reload with history-stage
+failure preservation,
 redirect-result consumption, no repeated mutation, redacted causal flow, and
 current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`
 retains every prior native, browser, security, package, and release gate.

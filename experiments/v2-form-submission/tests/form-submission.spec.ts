@@ -67,6 +67,7 @@ let proxy: HttpsServer | undefined;
 let backendPort = 0;
 let dropNextMutationResponse = false;
 let dropNextPrivateGetResponse = false;
+let holdNextPrivateGetResponse = false;
 let delayedPrivateGetPath: string | undefined;
 let delayedPrivateGetMilliseconds = 0;
 let capturedRedirectGetResultId: string | undefined;
@@ -114,6 +115,11 @@ test.beforeAll(async () => {
       && incoming.headers.accept === mediaType;
     if (dropPrivateGet) dropNextPrivateGetResponse = false;
     const drop = dropMutation || dropPrivateGet;
+    const holdPrivateGet = holdNextPrivateGetResponse
+      && incoming.method === "GET"
+      && incoming.headers.accept === mediaType
+      && transportRecord.path === "/projects";
+    if (holdPrivateGet) holdNextPrivateGetResponse = false;
     const delay = incoming.method === "GET"
       && incoming.headers.accept === mediaType
       && transportRecord.path === delayedPrivateGetPath;
@@ -146,6 +152,10 @@ test.beforeAll(async () => {
             outgoing.destroy(new Error("intentional response loss"));
           });
         });
+        return;
+      }
+      if (holdPrivateGet) {
+        upstreamResponse.resume();
         return;
       }
       if (delay) {
@@ -255,6 +265,7 @@ test.beforeEach(() => {
   transportRequests.length = 0;
   dropNextMutationResponse = false;
   dropNextPrivateGetResponse = false;
+  holdNextPrivateGetResponse = false;
   delayedPrivateGetPath = undefined;
   delayedPrivateGetMilliseconds = 0;
   capturedRedirectGetResultId = undefined;
@@ -617,6 +628,64 @@ test("retains committed-mutation recovery when native activation supersedes the 
     .toContain("native supersession retained mutation recovery ownership");
 });
 
+test("recovers committed truth when native activation has no document departure", async ({ page }) => {
+  const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
+  const mutationsBefore = privateMutations().length;
+
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  holdNextPrivateGetResponse = true;
+  const firstPrivateBefore = projectGets(true);
+  const firstNativeBefore = projectGets(false);
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => projectGets(true)).toBe(firstPrivateBefore + 1);
+  await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("href", "/projects#native-recovery"));
+  await page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
+  await expect.poll(() => projectGets(false)).toBe(firstNativeBefore + 1);
+  await expect.poll(() => new URL(page.url()).hash).toBe("#native-recovery");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const sameDocumentFragment = {
+    privateRedirectGets: projectGets(true) - firstPrivateBefore,
+    nativeCurrentTruthGets: projectGets(false) - firstNativeBefore,
+    finalHash: new URL(page.url()).hash,
+    freshCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
+
+  await page.context().clearCookies();
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  holdNextPrivateGetResponse = true;
+  const secondPrivateBefore = projectGets(true);
+  const secondNativeBefore = projectGets(false);
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => projectGets(true)).toBe(secondPrivateBefore + 1);
+  await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("rel", "noreferrer"));
+  await page.evaluate(() => document.addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest("a")?.textContent === "Search") event.preventDefault();
+  }, { once: true }));
+  await page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
+  await expect.poll(() => projectGets(true) + projectGets(false))
+    .toBe(secondPrivateBefore + secondNativeBefore + 2);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-native-no-departure-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    signInRuns: state.signInRuns,
+    sameDocumentFragment,
+    preventedActivation: {
+      redirectAndRecoveryGets: projectGets(true) + projectGets(false) - secondPrivateBefore - secondNativeBefore,
+      finalPath: new URL(page.url()).pathname,
+      freshCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    },
+    mutationRetried: privateMutations().length - mutationsBefore > 2,
+  }).toEqual(expected("native-no-departure-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-native-no-departure-recovery-human.txt"), "utf8"))
+    .toContain("native activation stayed in the document");
+});
+
 test("refuses a same-metadata file replacement made after redirect handoff", async ({ page }) => {
   await signIn(page);
   const installFile = async (contents: string): Promise<void> => page.locator("#handoff-upload").evaluate((input, value) => {
@@ -679,6 +748,31 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
     && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const historyFailureHandoff = await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      privateReloadFragmentDestination(
+        owner: { href: string; replace(destination: string): void; reload(): void },
+        destination: URL,
+      ): void;
+    }>;
+    const calls: string[] = [];
+    const owner = {
+      href: `${location.origin}/projects`,
+      replace(destination: string): void {
+        this.href = destination;
+        const selected = new URL(destination);
+        calls.push(`replace:${selected.pathname}${selected.hash}`);
+      },
+      reload(): void {
+        const selected = new URL(this.href);
+        calls.push(`reload:${selected.pathname}${selected.hash}`);
+      },
+    };
+    runtime.privateReloadFragmentDestination(owner, new URL("/projects#details", location.origin));
+    const selected = new URL(owner.href);
+    return { calls, finalUrl: `${selected.pathname}${selected.hash}` };
+  });
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-fragment-redirect",
@@ -692,6 +786,7 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
     finalHash: new URL(page.url()).hash,
     teardownFollowedHandoff: await page.evaluate(() => sessionStorage.getItem("fadeno-fragment-close-after-handoff") === "1"),
     freshCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    historyFailureHandoff,
   }).toEqual(expected("fragment-redirect"));
   expect(readFileSync(join(outputRoot, "expected-fragment-redirect-human.txt"), "utf8"))
     .toContain("fragment selected only with a fresh native document");
