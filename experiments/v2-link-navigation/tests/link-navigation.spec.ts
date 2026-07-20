@@ -437,7 +437,14 @@ test("coalesces history writes and keeps mutation-limit failure native", async (
     return writes;
   });
   await page.evaluate(() => {
+    history.replaceState({
+      ...history.state,
+      scrollX: 0,
+      scrollY: 0,
+      elementScroll: false,
+    }, "", location.href);
     history.replaceState = (): never => { throw new DOMException("history mutation limited", "SecurityError"); };
+    scrollTo(0, 200);
     addEventListener("pagehide", () => {
       sessionStorage.setItem("fadeno-test-write-failure-restoration", history.scrollRestoration);
     }, { once: true });
