@@ -253,6 +253,10 @@ test("renders validation, correction, revalidation, and redacted ownership evide
     mutationRetrySkipped: Array.isArray(flow?.["skipped"]) && flow["skipped"].includes("mutation retry"),
     secretAbsent: !JSON.stringify(flow).includes("secret-form-canary"),
   }).toEqual(expected("flow"));
+  expect(new URL(page.url()).pathname).toBe("/projects");
+  await page.reload();
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await expect(page.locator("#projects li")).toHaveText("Thread Lab");
 });
 
 test("keeps one pending mutation, suppresses a duplicate, and clears pending state", async ({ page }) => {
@@ -290,6 +294,106 @@ test("reloads current truth after uncertain delivery without repeating the mutat
     mutationRetried: privateMutations().length - mutationsBefore > 1,
     outcome: recoveredThroughGet ? "current-truth-reload" : "none",
   }).toEqual(expected("recovery"));
+});
+
+test("returns to the mutation page without overwriting the selected Back entry", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("link", { name: "Search" }).click();
+  await expect(page.locator("h1")).toHaveText("GET form navigation");
+  await page.getByRole("link", { name: "Projects" }).click();
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+
+  application.setMutationDelay(300);
+  await page.locator("#title").fill("Interrupted traversal");
+  const mutationsBefore = privateMutations().length;
+  const currentTruthBefore = transportRequests.filter(({ method, path }) => method === "GET"
+    && path === "/projects").length;
+  await page.locator("#create-form button").click();
+  await expect.poll(() => privateMutations().length).toBe(mutationsBefore + 1);
+  await expect(page.locator("#create-form")).toHaveAttribute("aria-busy", "true");
+  await page.evaluate(() => history.back());
+  await expect.poll(() => transportRequests.filter(({ method, path }) => method === "GET"
+    && path === "/projects").length).toBe(currentTruthBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await page.evaluate(() => history.back());
+  await expect(page.locator("h1")).toHaveText("GET form navigation");
+
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.form-submission-history-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    actionRuns: state.createRuns,
+    projectAbsent: !state.projects.includes("Interrupted traversal"),
+    currentTruthRequests: transportRequests.filter(({ method, path }) => method === "GET"
+      && path === "/projects").length - currentTruthBefore,
+    selectedEntryPreserved: new URL(page.url()).pathname === "/",
+  }).toEqual(expected("history-recovery"));
+});
+
+test("records terminal form outcomes and repairs cancelled committed departures", async ({ page }) => {
+  const installOneDepartureRefusal = async (): Promise<void> => page.evaluate(() => {
+    globalThis.addEventListener("beforeunload", (event) => {
+      event.preventDefault();
+      event.returnValue = "keep the current document";
+    }, { once: true });
+  });
+  const readFlows = async (): Promise<readonly Record<string, unknown>[]> => page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{ readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[] }>;
+    return runtime.readPrivateFormSubmissionFlows();
+  });
+
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  await installOneDepartureRefusal();
+  const redirectTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length;
+  const redirectDialog = page.waitForEvent("dialog");
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await (await redirectDialog).dismiss();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length).toBe(redirectTruthBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const signedInTruthVisible = await page.locator("#viewer").textContent() === "Signed in owner";
+  const redirectFlows = await readFlows();
+
+  await page.context().clearCookies();
+  await page.goto(`${origin}/projects`);
+  await installOneDepartureRefusal();
+  const recoveryTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length;
+  const recoveryDialog = page.waitForEvent("dialog");
+  await page.locator("#forbidden-form button").click({ noWaitAfter: true });
+  await (await recoveryDialog).dismiss();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length).toBe(recoveryTruthBefore + 1);
+  await expect(page.locator("h1")).toHaveText("Protected forms");
+  const recoveryFlows = await readFlows();
+  const state = application.readApplicationState();
+
+  expect({
+    schema: "fadeno.example.form-submission-terminal-flow",
+    version: 1,
+    redirectRecorded: redirectFlows.some((flow) => flow["operation"] === "mutation"
+      && flow["status"] === "applied"
+      && flow["outcome"] === "native-navigation"),
+    redirectCancellationRecovered: redirectFlows.some((flow) => flow["code"] === "FADENO_FORM_MUTATION_CURRENT_TRUTH"
+      && flow["outcome"] === "current-truth-reload"),
+    signedInTruthVisible,
+    terminalRecoveryRecorded: recoveryFlows.some((flow) => flow["code"] !== "FADENO_FORM_MUTATION_CURRENT_TRUTH"
+      && flow["status"] === "refused"
+      && flow["outcome"] === "current-truth-reload"),
+    recoveryCancellationRecovered: recoveryFlows.some((flow) => flow["code"] === "FADENO_FORM_MUTATION_CURRENT_TRUTH"
+      && flow["outcome"] === "current-truth-reload"),
+    mutationRequests: privateMutations().length,
+    signInRuns: state.signInRuns,
+    forbiddenRuns: state.forbiddenRuns,
+  }).toEqual(expected("terminal-flow"));
 });
 
 test("refuses invalid origin, forbidden authorization, and unsupported enhancement boundaries", async ({ page }) => {
@@ -331,10 +435,14 @@ test("refuses invalid origin, forbidden authorization, and unsupported enhanceme
   transportRequests.length = 0;
   await page.goto(origin);
   await page.evaluate(() => {
+    const owner = document.createElement("form");
+    owner.id = "other-form";
+    document.body.append(owner);
     const input = document.createElement("input");
+    input.setAttribute("form", owner.id);
     input.defaultValue = "before";
     input.value = "after";
-    document.body.append(input);
+    document.querySelector("#search-form")?.append(input);
   });
   await page.locator("#search-form button").click();
   await expect(page.locator("h1")).toHaveText("Search result");
@@ -458,7 +566,7 @@ test.describe("native fallback", () => {
     await page.goto(origin);
     await page.locator("#search-form button").click();
     await expect(page.locator("h1")).toHaveText("Search result");
-    expect(new URL(page.url()).search).toBe("?q=thread&flag=on&tag=alpha&tag=beta&choice=exact&submitter=search");
+    expect(new URL(page.url()).search).toBe("?q=thread&flag=on&tag=alpha&tag=beta&choice=exact&notes=first%0D%0Asecond&submitter=search");
     expect(requests.some(({ method, path, privateUpdate }) => method === "GET" && path === "/search" && !privateUpdate)).toBe(true);
 
     await page.goto(`${origin}/projects`);

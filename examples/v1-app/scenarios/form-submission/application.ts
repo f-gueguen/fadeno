@@ -131,6 +131,7 @@ function home(): RenderChild {
       jsx("input", { name: "tag", type: "hidden", value: "alpha" }),
       jsx("input", { name: "tag", type: "hidden", value: "beta" }),
       jsx("select", { name: "choice", children: jsx("option", { value: "exact", selected: true, children: "Exact" }) }),
+      jsx("textarea", { name: "notes", children: "first\nsecond" }),
       jsx("input", { name: "ignored", value: "disabled", disabled: true }),
       jsx("button", { name: "submitter", value: "search", type: "submit", children: "Search" }),
     ],

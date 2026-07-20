@@ -28,6 +28,11 @@ function writeJson(path: string, value: unknown): void {
 const adr = readFileSync(join(root, "docs/adr/0051-conservative-enhanced-form-submission.md"), "utf8").replace(/\s+/gu, " ");
 for (const fragment of [
   "successful controls",
+  "CRLF",
+  "actual `form` owner",
+  "selected Back entry",
+  "GET-callable pre-submit current-truth URL",
+  "terminal form flow",
   "before preventing an ordinary native submission",
   "without altering successful controls",
   "never repeats the mutation",
@@ -100,7 +105,7 @@ try {
   assert.equal(entry.includes(packageName), false);
   writeFileSync(join(site, "_fadeno/browser-entry.js"), entry);
 
-  for (const name of ["success.json", "failure.json", "failure-human.txt", "correction.json", "flow.json", "recovery.json", "security.json", "teardown.json"]) {
+  for (const name of ["success.json", "failure.json", "failure-human.txt", "correction.json", "flow.json", "recovery.json", "history-recovery.json", "terminal-flow.json", "security.json", "teardown.json"]) {
     cpSync(join(scenarioRoot, "expected", name), join(outputRoot, `expected-${name}`));
   }
 } finally {

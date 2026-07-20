@@ -107,7 +107,15 @@ export function privateFormEligibility(
 
 function encodeControls(data: FormData): URLSearchParams {
   const encoded = new URLSearchParams();
-  for (const [name, value] of data) encoded.append(name, typeof value === "string" ? value : value.name);
+  const normalizeLineBreaks = (value: string): string => value
+    .replace(/\r\n|\r|\n/gu, "\n")
+    .replace(/\n/gu, "\r\n");
+  for (const [name, value] of data) {
+    encoded.append(
+      normalizeLineBreaks(name),
+      normalizeLineBreaks(typeof value === "string" ? value : value.name),
+    );
+  }
   return encoded;
 }
 
@@ -139,6 +147,14 @@ function dirtyControl(control: Element): boolean {
   return false;
 }
 
+function controlOwner(control: Element): HTMLFormElement | null | undefined {
+  if (control instanceof HTMLInputElement
+    || control instanceof HTMLTextAreaElement
+    || control instanceof HTMLSelectElement
+    || control instanceof HTMLButtonElement) return control.form;
+  return undefined;
+}
+
 export function privateFormPreservationSafe(
   eligibility: PrivateFormEligibility,
   options: Readonly<{ allowDocumentScroll?: boolean }> = {},
@@ -146,7 +162,7 @@ export function privateFormPreservationSafe(
   if (!eligibility.form.isConnected || eligibility.form.ownerDocument !== document) return false;
   if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
   if ([...document.querySelectorAll("input, textarea, select")]
-    .some((control) => !eligibility.form.contains(control) && dirtyControl(control))) return false;
+    .some((control) => controlOwner(control) !== eligibility.form && dirtyControl(control))) return false;
   if (document.querySelector("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])") !== null) return false;
   try { if (document.querySelector(":popover-open") !== null) return false; } catch { /* unsupported selector has no open popover state */ }
   const selection = document.getSelection();
@@ -158,7 +174,9 @@ export function privateFormPreservationSafe(
   if (active
     && active !== document.body
     && active !== document.documentElement
-    && !eligibility.form.contains(active)
+    && (controlOwner(active) === undefined
+      ? !eligibility.form.contains(active)
+      : controlOwner(active) !== eligibility.form)
     && active !== eligibility.submitter
     && !runtimeFocus) return false;
   const documentScroller = document.scrollingElement;

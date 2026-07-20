@@ -596,7 +596,16 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   if (!currentMetadata || (existingHistoryState !== null && !existingPrivateState)) return undefined;
   const firstStartupForDocument = !startedDocuments.has(document);
   let active: ActiveOperation | undefined;
+  let activeFormEligibility: Readonly<{
+    operation: ActiveOperation;
+    eligibility: PrivateFormEligibility;
+  }> | undefined;
   let sequence = 0;
+  let mutationTraversalRecovery: Readonly<{
+    operation: ActiveOperation;
+    currentTruthUrl: string;
+    eligibility: PrivateFormEligibility;
+  }> | undefined;
   let closed = false;
   let closing = false;
   let committing = false;
@@ -971,6 +980,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     replace: boolean,
     repairSelectedCommit = false,
     restoreFocus?: () => void,
+    recoverCancelledMutation?: () => void,
   ): void => {
     restoreScrollRestoration();
     const truthUrl = displayedTruthUrl;
@@ -978,6 +988,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     observeCancelledDeparture(
       () => displayedTruthUrl === truthUrl && location.href === selectedUrl,
       () => {
+        if (recoverCancelledMutation) {
+          recoverCancelledMutation();
+          restoreFocus?.();
+          return;
+        }
         if (repairSelectedCommit) {
           traversalSequence += 1;
           traversing = false;
@@ -1025,10 +1040,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     replace: boolean,
     initiator?: HTMLAnchorElement,
     selectedHistoryState?: PrivateHistoryState,
+    preservationSafe: () => boolean = () => privateLinkPreservationSafe(initiator, { allowDocumentScroll: true }),
   ): Promise<void> => {
     if (active?.kind === "mutation") return;
     active?.cancellation.abort(new DOMException("Navigation superseded", "AbortError"));
-    if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) {
+    if (closed || !currentMetadata || !preservationSafe()) {
       fallback(destination, replace);
       return;
     }
@@ -1077,7 +1093,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (active !== operation || operation.cancellation.signal.aborted || admission.decision.status !== "accepted" || !admission.outcome || !admission.resultId) {
         throw new TypeError(admission.decision.code);
       }
-      if (!privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      if (!preservationSafe()) throw new TypeError("FADENO_UPDATE_PRESERVATION");
       if (selectedHistoryState) {
         const currentHistoryState = privateHistoryState(history.state);
         if (location.href !== operation.currentTruthUrl
@@ -1197,6 +1213,43 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     }
   };
 
+  const recoverCommittedMutationCurrentTruth = (
+    currentTruthUrl: string,
+    eligibility: PrivateFormEligibility,
+  ): void => {
+    const selectedState = privateHistoryState(history.state);
+    recordFormFlow({
+      status: "refused",
+      code: "FADENO_FORM_MUTATION_CURRENT_TRUTH",
+      operation: "mutation",
+      decisions: Object.freeze([
+        "committed mutation departure was interrupted",
+        "current server truth was requested through GET",
+        "mutation was not resubmitted",
+      ]),
+      ownership: Object.freeze({
+        browser: Object.freeze(["interrupted departure", "current-truth operation", "pending cleanup"]),
+        server: Object.freeze(["current truth"]),
+      }),
+      skipped: Object.freeze(["mutation retry", "stale document retention"]),
+      outcome: "current-truth-reload",
+    });
+    if (!selectedState || !ownsHistoryState(selectedState, location.href)) {
+      fallback(new URL(currentTruthUrl), true);
+      return;
+    }
+    setTimeout(() => {
+      if (closed || location.href !== currentTruthUrl) return;
+      void navigate(
+        new URL(currentTruthUrl),
+        true,
+        undefined,
+        selectedState,
+        () => privateFormPreservationSafe(eligibility, { allowDocumentScroll: true }),
+      );
+    }, 0);
+  };
+
   const submitFormOperation = async (
     eligibility: PrivateFormEligibility,
     request: ReturnType<typeof privateFormRequest>,
@@ -1222,6 +1275,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       else eligibility.form.setAttribute("aria-busy", priorBusy);
     };
     active = operation;
+    activeFormEligibility = Object.freeze({ operation, eligibility });
     let requestCommitted = false;
     let destinationSelected = false;
     let historyPushesBeforeCommit = historyPushSequence;
@@ -1276,13 +1330,61 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       }
       if (admission.outcome.kind === "redirect") {
+        recordFormFlow({
+          status: "applied",
+          code: admission.decision.code,
+          operation: operation.kind,
+          decisions: Object.freeze([
+            "server selected a same-origin redirect after one admitted form operation",
+            "native destination navigation retained browser ownership",
+          ]),
+          ownership: Object.freeze({
+            browser: Object.freeze(["submit event", "operation", "pending cleanup", "native destination"]),
+            server: Object.freeze(operation.kind === "mutation"
+              ? ["origin", "proof", "replay", "authorization", "action", "session", "redirect"]
+              : ["route", "redirect"]),
+          }),
+          skipped: Object.freeze(["mutation retry", "transported redirect execution", "document commit"]),
+          outcome: "native-navigation",
+        });
         clearPending();
-        fallback(new URL(admission.outcome.location, location.origin), false);
+        fallback(
+          new URL(admission.outcome.location, location.origin),
+          false,
+          false,
+          undefined,
+          operation.kind === "mutation"
+            ? () => recoverCommittedMutationCurrentTruth(operation.currentTruthUrl, eligibility)
+            : undefined,
+        );
         return;
       }
       if (admission.outcome.kind === "recover") {
+        recordFormFlow({
+          status: "refused",
+          code: admission.decision.code,
+          operation: operation.kind,
+          decisions: Object.freeze([
+            "server selected independently trusted current truth",
+            "submitted operation was not repeated",
+          ]),
+          ownership: Object.freeze({
+            browser: Object.freeze(["submit event", "operation", "pending cleanup", "current-truth navigation"]),
+            server: Object.freeze(["recovery decision", "current truth"]),
+          }),
+          skipped: Object.freeze(["mutation retry", "submitted-result document commit"]),
+          outcome: "current-truth-reload",
+        });
         clearPending();
-        fallback(new URL(operation.currentTruthUrl), true);
+        fallback(
+          new URL(operation.currentTruthUrl),
+          true,
+          false,
+          undefined,
+          operation.kind === "mutation"
+            ? () => recoverCommittedMutationCurrentTruth(operation.currentTruthUrl, eligibility)
+            : undefined,
+        );
         return;
       }
       const next = nextDocument(admission.outcome, operation.generation);
@@ -1296,7 +1398,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       try {
         applyDocument(
           next,
-          operation.destination.href,
+          operation.kind === "mutation" ? operation.currentTruthUrl : operation.destination.href,
           false,
           historySession,
           previousScrollRestoration,
@@ -1367,7 +1469,15 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       clearPending();
       if (active === operation && !closing) {
         if (operation.kind === "mutation" && requestCommitted) {
-          fallback(new URL(operation.currentTruthUrl), true, selectedCommitFailure);
+          if (mutationTraversalRecovery?.operation !== operation) {
+            fallback(
+              new URL(operation.currentTruthUrl),
+              true,
+              selectedCommitFailure,
+              undefined,
+              () => recoverCommittedMutationCurrentTruth(operation.currentTruthUrl, eligibility),
+            );
+          }
         } else if (!cancelled) {
           const selectedPushCount = historyPushSequence - historyPushesBeforeCommit;
           if (selectedCommitFailure && selectedPushCount > 0) recoverSelectedPush(operation.destination, selectedPushCount);
@@ -1376,6 +1486,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
     } finally {
       clearPending();
+      if (activeFormEligibility?.operation === operation) activeFormEligibility = undefined;
       if (active === operation) active = undefined;
     }
   };
@@ -1476,11 +1587,33 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     void submitFormOperation(eligibility, request, sourceState);
   };
   const popstate = (): void => {
+    if (mutationTraversalRecovery) {
+      const recovery = mutationTraversalRecovery;
+      mutationTraversalRecovery = undefined;
+      recoverCommittedMutationCurrentTruth(recovery.currentTruthUrl, recovery.eligibility);
+      return;
+    }
     if (active?.kind === "mutation") {
-      const currentTruthUrl = active.currentTruthUrl;
+      const mutationOperation = active;
+      const submitted = activeFormEligibility?.operation === mutationOperation
+        ? activeFormEligibility.eligibility
+        : undefined;
+      if (!submitted) {
+        active.cancellation.abort(new DOMException("History traversal interrupted pending mutation", "AbortError"));
+        restoreScrollRestoration();
+        history.forward();
+        return;
+      }
+      mutationTraversalRecovery = Object.freeze({
+        operation: mutationOperation,
+        currentTruthUrl: mutationOperation.currentTruthUrl,
+        eligibility: submitted,
+      });
       active.cancellation.abort(new DOMException("History traversal interrupted pending mutation", "AbortError"));
       restoreScrollRestoration();
-      location.replace(currentTruthUrl);
+      setTimeout(() => {
+        if (mutationTraversalRecovery?.operation === mutationOperation) history.forward();
+      }, 0);
       return;
     }
     if (selectedPushRecovery) {

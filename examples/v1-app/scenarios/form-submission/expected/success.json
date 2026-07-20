@@ -2,7 +2,7 @@
   "schema": "fadeno.example.form-submission-success",
   "version": 1,
   "path": "/search",
-  "query": "?q=thread&flag=on&tag=alpha&tag=beta&choice=exact&submitter=search",
+  "query": "?q=thread&flag=on&tag=alpha&tag=beta&choice=exact&notes=first%0D%0Asecond&submitter=search",
   "heading": "Search result",
   "method": "GET navigation only",
   "privateRequests": 1,

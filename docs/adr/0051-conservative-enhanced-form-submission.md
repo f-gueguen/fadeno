@@ -57,6 +57,8 @@ For GET, each string value is encoded through `URLSearchParams`; a file
 contributes its filename as native GET form encoding does. The form data
 replaces the action URL query and the resulting request remains a navigation
 with no action, proof-consumption, authorization, replay, or mutation owner.
+URL-encoded names, string values, and filenames normalize line breaks to CRLF
+before encoding, matching native form serialization.
 
 For POST, enhancement admits only an exact HTTPS action URL under the generated
 `/.fadeno/actions/v1/` owner and only URL-encoded or multipart form encoding.
@@ -70,8 +72,9 @@ native.
 
 Before interception, the runtime applies ADR 0050's current history and scroll
 ownership checks and a form-specific preservation predicate. Dirty and focused
-controls inside the submitted form are the submitted state and may be owned by
-that operation. Dirty controls outside it, open disclosure or top-layer state,
+controls whose actual `form` owner is the submitted form are the submitted
+state and may be owned by that operation. DOM containment does not grant that
+ownership. Dirty controls owned by another or no form, open disclosure or top-layer state,
 active media, non-collapsed document selection, mounted client identity,
 content editing, unresolved focus, and element scroll remain native. The same
 predicate runs again before document commit.
@@ -91,6 +94,12 @@ abort, malformed response, transport failure, projection refusal, or commit
 failure after that point clears pending state and reloads the independently
 trusted pre-submit current-truth URL with GET. It never invokes, reconstructs,
 or resubmits the form POST; recovery never repeats the mutation.
+If Back selects a same-document entry while the mutation is pending, recovery
+first returns to the original mutation entry and then reads current truth; it
+does not replace or erase the selected Back entry. If a committed mutation's
+native redirect or recovery departure is cancelled, a bounded enhanced GET
+repairs the stale document when form-preservation ownership still holds and
+otherwise retains native GET recovery.
 
 ### Server and response ownership
 
@@ -108,7 +117,8 @@ its accepted order. Browser admission does not imply action authorization.
 
 An admitted GET document follows the existing navigation commit. An admitted
 POST document or expected validation response commits the returned complete
-document and native-equivalent URL/history outcome. An admitted action redirect
+document at the GET-callable pre-submit current-truth URL rather than the
+generated POST-only action endpoint. An admitted action redirect
 performs its same-origin GET destination navigation and never repeats POST.
 V2-07 may later enhance that redirect and complete broader action ordering; it
 cannot weaken this non-repetition rule. A recovery outcome reloads the trusted
@@ -119,6 +129,9 @@ causes, skipped work, redaction, and observable outcome. They contain no
 control values, filenames, file bytes, action proof, cookies, session identity,
 markup, URL query, authorization owner, or arbitrary failure prose. The public
 browser facade and private protocol shape do not change.
+Applied redirects, server-selected recovery, cancelled committed departures,
+and ordinary document outcomes each record a terminal form flow before their
+ownership leaves the current document.
 
 ## Alternatives considered
 
