@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.form-submission-history-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "actionRuns": 1,
+  "projectAbsent": true,
+  "currentTruthRequests": 1,
+  "selectedEntryPreserved": true
+}

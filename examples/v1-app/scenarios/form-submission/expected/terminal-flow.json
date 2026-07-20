@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.form-submission-terminal-flow",
+  "version": 1,
+  "redirectRecorded": true,
+  "redirectCancellationRecovered": true,
+  "signedInTruthVisible": true,
+  "terminalRecoveryRecorded": true,
+  "recoveryCancellationRecovered": true,
+  "mutationRequests": 2,
+  "signInRuns": 1,
+  "forbiddenRuns": 0
+}

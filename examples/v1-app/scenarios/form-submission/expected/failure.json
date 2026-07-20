@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.form-submission-failure",
+  "version": 1,
+  "code": "PROJECT_TITLE_SHORT",
+  "formError": "The project was not created.",
+  "fieldError": "Use at least three characters.",
+  "preservedTitle": "ab",
+  "actionRuns": 1,
+  "projectCount": 0
+}

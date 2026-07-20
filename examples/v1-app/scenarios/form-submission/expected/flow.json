@@ -1,0 +1,29 @@
+{
+  "schema": "fadeno.private.form-submission-flow",
+  "version": 1,
+  "status": "applied",
+  "code": "FADENO_UPDATE_DOCUMENT",
+  "operation": "mutation",
+  "redaction": "applied",
+  "outcome": "enhanced-document",
+  "browserOwns": [
+    "submit event",
+    "successful controls",
+    "operation",
+    "pending state",
+    "history",
+    "focus"
+  ],
+  "serverOwns": [
+    "origin",
+    "proof",
+    "replay",
+    "authorization",
+    "action",
+    "session",
+    "revalidation",
+    "rendered outcome"
+  ],
+  "mutationRetrySkipped": true,
+  "secretAbsent": true
+}

@@ -65,6 +65,8 @@ export type V2PlanContext = Readonly<{
   traceability: string;
   risks: string;
   ledger: string;
+  formAdr: string;
+  formChangeset: string;
   packageDocument: unknown;
   tracked: ReadonlySet<string>;
 }>;
@@ -84,6 +86,8 @@ export function loadV2PlanContext(root: string, tracked: ReadonlySet<string>): V
     traceability: read("docs/traceability.md"),
     risks: read("docs/ledgers/risks.md"),
     ledger: read("ROADMAP_LEDGER.md"),
+    formAdr: read("docs/adr/0051-conservative-enhanced-form-submission.md"),
+    formChangeset: read(".changeset/conservative-form-submission.md"),
     packageDocument: JSON.parse(read("packages/framework/package.json")) as unknown,
     tracked,
   });
@@ -96,6 +100,8 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     "scripts/check-v2-plan.ts",
     "scripts/lib/v2-plan.ts",
     "scripts/test-v2-plan.ts",
+    "docs/adr/0051-conservative-enhanced-form-submission.md",
+    ".changeset/conservative-form-submission.md",
   ]) if (!context.tracked.has(path)) errors.push(`V2 plan artifact is not tracked: ${path}`);
 
   const rows = context.roadmap
@@ -148,7 +154,8 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   for (const fragment of ["completed its qualified private V1 and public A0", "current V2 plan", "[current V2 plan](docs/roadmap/v2.md)"]) {
     if (!context.readme.includes(fragment)) errors.push(`README handoff is missing ${fragment}`);
   }
-  if (!context.ledger.includes("V2-05A — make the canonical application an evaluator-ready feature demonstration")
+  if (!context.ledger.includes("V2-06 — enhance form submission without changing successful controls or action authority")
+    || !context.ledger.includes("V2-05A — Merge commit `b951e4d`")
     || !context.ledger.includes("V2-05 — Merge commit `9babb9c`")
     || !context.ledger.includes("V2-00 — decompose browser enhancement")
     || !context.ledger.includes("A0-10 — Merge commit `60d55c7`")
@@ -157,9 +164,35 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     || !context.ledger.includes("V2-04 — Merge commit `9d526b8`")
     || !context.ledger.includes("V2-01A — Merge commit `46c7ab0`")
     || !context.ledger.includes("V2-01 — Merge commit `d9718c0`")
-    || !context.ledger.includes("V2-06 handoff remains blocked")
+    || !context.ledger.includes("V2-07 handoff remains blocked")
     || !context.ledger.includes("resolves DG-V2-01")) {
     errors.push("V2 roadmap ledger state drifted");
+  }
+
+  const formAdr = context.formAdr.replace(/\s+/gu, " ");
+  for (const fragment of [
+    "Status: Accepted",
+    "one platform `FormData(form, submitter)`",
+    "GET forms",
+    "generated `/.fadeno/actions/v1/` owner",
+    "`aria-busy=\"true\"`",
+    "never repeats the mutation",
+    "public browser facade and private protocol shape do not change",
+    "`pnpm check:v2-form-submission`",
+  ]) if (!formAdr.includes(fragment)) errors.push(`ADR 0051 is missing ${fragment}`);
+  const expectedFormChangeset = '---\n"@fadeno/framework": minor\n---\n\nEnhance eligible GET forms and protected POST actions while retaining exact\nnative successful controls, server action authority, and non-repeating recovery.\n';
+  if (context.formChangeset !== expectedFormChangeset) errors.push("V2-06 Changeset contract drifted");
+  for (const feature of ["DATA-02", "STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01"]) {
+    const scope = context.scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    const trace = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    if (!scope.includes("ADR 0051")) errors.push(`V2-06 ${feature} scope contract drifted`);
+    if (!trace.includes("ADR 0051") || !trace.includes("check:v2-form-submission")) {
+      errors.push(`V2-06 ${feature} traceability contract drifted`);
+    }
+  }
+  const formRisk = context.risks.split("\n").find((line) => line.startsWith("| Enhanced forms change controls")) ?? "";
+  if (!formRisk.includes("FormData(form, submitter)") || !formRisk.includes("without resubmission")) {
+    errors.push("V2-06 form risk contract drifted");
   }
 
   for (const feature of ["ENH-01", "PATCH-01"]) {

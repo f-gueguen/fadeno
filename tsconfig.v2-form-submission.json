@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "@playwright/test"]
+  },
+  "include": [
+    "scripts/check-v2-form-submission.ts",
+    "experiments/v2-form-submission/**/*.ts"
+  ]
+}

@@ -1193,6 +1193,7 @@ async function verifyApplication(temporaryRoot: string): Promise<void> {
     assert.equal(evidencePage.status, 200);
     assert.match(evidenceBody, /Reproduce the claims outside the UI\./u);
     assert.match(evidenceBody, /pnpm check:v2-history-focus-scroll/u);
+    assert.match(evidenceBody, /pnpm check:v2-form-submission/u);
     assert.match(evidenceBody, /does not expose those private records/u);
 
     const tenantAlpha = await fetch(server.origin, { headers: { authorization: "Bearer example-tenant-alpha" } });

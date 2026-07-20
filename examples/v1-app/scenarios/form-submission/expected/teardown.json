@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.form-submission-teardown",
+  "version": 1,
+  "mutationRequests": 1,
+  "actionRuns": 1,
+  "projectAbsent": true,
+  "reloadedCurrentTruth": true,
+  "replacementRuntimeActive": true
+}

@@ -1179,7 +1179,7 @@ traversal and start from repaired displayed-document truth:
   "version": 1,
   "pendingTraversalAborted": true,
   "parentTargetResolvedCurrent": true,
-  "nativeFormWon": true,
+  "enhancedFormWon": true,
   "obsoleteDocumentSuppressed": true
 }
 ```

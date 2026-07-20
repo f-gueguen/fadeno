@@ -251,6 +251,24 @@ entry and reacquires manual restoration before enhancement resumes.
 No transition work is allocated in
 either normal or reduced-motion mode.
 
+ADR 0051 adds V2-06's conservative form boundary. GET forms use the platform
+successful-control set to construct a navigation URL and have no mutation
+authority. Protected POST enhancement admits only exact same-origin HTTPS
+generated action endpoints with URL-encoded or multipart bodies. The exact
+incoming request still passes once through ADR 0035's native action, proof,
+replay, authorization, session, redirect, and revalidation owner before its
+single response is projected.
+
+Dirty and focused controls inside the submitted form may belong to that
+submission; dirty controls outside it and every still-unqualified preservation
+boundary remain native. The exact submitted form receives bounded busy state,
+restored on every terminal path. Once a POST request begins, any cancellation,
+transport ambiguity, projection refusal, close, or commit failure reloads the
+trusted pre-submit current truth with GET and never resubmits the mutation.
+Action redirects also continue through GET. V2-07 owns later complete action
+ordering and in-place redirect qualification; V2-08 owns broader structural
+preservation.
+
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and
 `noreferrer` directives remain native. A traversal performs one final live
@@ -280,3 +298,6 @@ claims supported by the K0 candidate.
   automated accessibility checks.
 - Network interruption before, during, and after a mutation demonstrates a
   non-duplicating recovery path.
+- GET form cases prove exact URL/history and absence of mutation authority;
+  POST cases prove exact successful controls, origin/authorization/replay
+  ownership, pending cleanup, and current-truth recovery without resubmission.

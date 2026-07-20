@@ -55,6 +55,14 @@ unowned history reload the selected URL. Destination focus never induces
 scroll, non-collapsed selection remains native, and the runtime allocates no
 animation in either motion-preference mode.
 
+ADR 0051 permits an eligible GET form to use the same navigation owner and an
+eligible protected POST form to deliver the exact platform successful-control
+set through the existing native action owner. Unsupported targets, encodings,
+actions, preservation state, and concurrent mutation ownership remain native
+or send no second request. A submitted form receives bounded busy state. Once
+POST delivery begins, every ambiguous failure recovers current server truth by
+GET and never repeats the mutation.
+
 When enhancement code is available, it may intercept a link or form only when
 it can preserve the baseline semantics. It may then:
 

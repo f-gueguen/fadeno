@@ -9,6 +9,7 @@ export const privateUpdateMediaType = "application/vnd.fadeno.private-update+jso
 const identityPattern = /^[A-Za-z0-9][A-Za-z0-9:._/-]*$/u;
 const maximumIdentityBytes = 128;
 const maximumUrlBytes = 8_192;
+const generatedActionPrefix = "/.fadeno/actions/v1/";
 const encoder = new TextEncoder();
 
 type Invoke = (request: Request) => Promise<Response>;
@@ -24,6 +25,12 @@ function exactSingleHeader(request: Request, name: string): string | null {
   return value !== null && !value.includes(",") ? value : null;
 }
 
+function decodeCurrentTruthHeader(value: string | null): string | undefined {
+  if (!bounded(value, maximumUrlBytes * 3)) return undefined;
+  try { return decodeURIComponent(value); }
+  catch { return undefined; }
+}
+
 function safeSameOriginUrl(value: string, origin: string): string | undefined {
   if (!bounded(value, maximumUrlBytes)) return undefined;
   try {
@@ -36,16 +43,33 @@ function safeSameOriginUrl(value: string, origin: string): string | undefined {
   }
 }
 
-function refusal(code: string, status = 400): Response {
+function nativeSetCookies(response: Response): readonly string[] {
+  const getSetCookie = Reflect.get(response.headers, "getSetCookie");
+  if (typeof getSetCookie === "function") {
+    const values = Reflect.apply(getSetCookie, response.headers, []) as unknown;
+    if (Array.isArray(values) && values.every((value) => typeof value === "string")) {
+      return Object.freeze([...values]);
+    }
+  }
+  return Object.freeze([]);
+}
+
+function transportHeaders(contentType: string, code?: string, setCookies: readonly string[] = []): Headers {
+  const headers = new Headers({
+    "cache-control": "private, no-store",
+    "content-type": contentType,
+    vary: "accept",
+    "x-content-type-options": "nosniff",
+  });
+  if (code !== undefined) headers.set("x-fadeno-update-code", code);
+  for (const cookie of setCookies) headers.append("set-cookie", cookie);
+  return headers;
+}
+
+function refusal(code: string, status = 400, setCookies: readonly string[] = []): Response {
   return new Response(null, {
     status,
-    headers: {
-      "cache-control": "private, no-store",
-      "content-type": "text/plain; charset=utf-8",
-      vary: "accept",
-      "x-content-type-options": "nosniff",
-      "x-fadeno-update-code": code,
-    },
+    headers: transportHeaders("text/plain; charset=utf-8", code, setCookies),
   });
 }
 
@@ -58,7 +82,8 @@ export async function servePrivateServerUpdate(
   }>,
 ): Promise<Response | undefined> {
   if (request.headers.get("accept") !== privateUpdateMediaType) return undefined;
-  if (request.method !== "GET") return refusal("FADENO_UPDATE_REQUEST_METHOD", 405);
+  if (request.method !== "GET" && request.method !== "POST") return refusal("FADENO_UPDATE_REQUEST_METHOD", 405);
+  const operationKind = request.method === "POST" ? "mutation" : "navigation";
   const applicationGeneration = input.applicationGeneration ?? null;
   if (!bounded(applicationGeneration, maximumIdentityBytes, identityPattern)) {
     return refusal("FADENO_UPDATE_REQUEST_GENERATION", 409);
@@ -68,7 +93,10 @@ export async function servePrivateServerUpdate(
   const sequenceSource = exactSingleHeader(request, "x-fadeno-operation-sequence");
   const currentSource = exactSingleHeader(request, "x-fadeno-current-url");
   const destination = safeSameOriginUrl(request.url, input.origin);
-  const currentTruthUrl = currentSource ? safeSameOriginUrl(currentSource, input.origin) : undefined;
+  const decodedCurrentSource = decodeCurrentTruthHeader(currentSource);
+  const currentTruthUrl = decodedCurrentSource === undefined
+    ? undefined
+    : safeSameOriginUrl(decodedCurrentSource, input.origin);
   const sequence = sequenceSource === null || !/^[1-9][0-9]{0,15}$/u.test(sequenceSource)
     ? undefined
     : Number(sequenceSource);
@@ -80,12 +108,20 @@ export async function servePrivateServerUpdate(
     || currentTruthUrl === undefined) {
     return refusal("FADENO_UPDATE_REQUEST_SCHEMA");
   }
+  if (operationKind === "mutation") {
+    const actionUrl = new URL(destination);
+    if (actionUrl.protocol !== "https:"
+      || !actionUrl.pathname.startsWith(generatedActionPrefix)
+      || exactSingleHeader(request, "origin") !== input.origin) {
+      return refusal("FADENO_UPDATE_REQUEST_ORIGIN", 403);
+    }
+  }
   const operation = createPrivateServerUpdateOperation({
     origin: input.origin,
     currentTruthUrl,
     applicationGeneration,
     documentEpoch,
-    operation: Object.freeze({ id: operationId, sequence, kind: "navigation", url: destination }),
+    operation: Object.freeze({ id: operationId, sequence, kind: operationKind, url: destination }),
     resultId: globalThis.crypto.randomUUID(),
     scrollBoundary: Object.freeze({
       documentPrecedingLayout: "unaffected",
@@ -96,16 +132,13 @@ export async function servePrivateServerUpdate(
   const release = bindPrivateServerUpdateOperation(request, operation);
   try {
     const nativeResponse = await input.invoke(request);
+    const setCookies = nativeSetCookies(nativeResponse);
     const projected = await projectPrivateServerUpdate(nativeResponse, operation, { signal: request.signal });
-    if (projected.status !== "projected") return refusal(projected.code, 409);
+    if (projected.status !== "projected") return refusal(projected.code, 409, setCookies);
+    const headers = transportHeaders(privateUpdateMediaType, undefined, setCookies);
     return new Response(Uint8Array.from(projected.bytes).buffer, {
       status: 200,
-      headers: {
-        "cache-control": "private, no-store",
-        "content-type": privateUpdateMediaType,
-        vary: "accept",
-        "x-content-type-options": "nosniff",
-      },
+      headers,
     });
   } finally {
     release();
