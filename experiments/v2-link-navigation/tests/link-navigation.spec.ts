@@ -1172,13 +1172,27 @@ test("flushes late outgoing document scroll before commit", async ({ page }) => 
     globalThis.fetch = async (...arguments_: Parameters<typeof fetch>): Promise<Response> => {
       const response = await original(...arguments_);
       const request = new Request(arguments_[0], arguments_[1]);
-      if (new URL(request.url).pathname === "/next") scrollTo(0, 100);
+      if (new URL(request.url).pathname === "/next") {
+        const scroller = document.scrollingElement;
+        if (scroller !== null) scroller.scrollTop = 100;
+        scrollTo(0, 100);
+        sessionStorage.setItem("fadeno-test-late-scroll-reached", scrollY > 0 ? "1" : "0");
+      }
       return response;
     };
   });
   await page.goto(origin);
+  await page.evaluate(() => {
+    const spacer = document.createElement("div");
+    spacer.style.blockSize = "4000px";
+    spacer.setAttribute("aria-hidden", "true");
+    document.body.append(spacer);
+  });
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
+  const lateScrollReachedNonzero = await page.evaluate(
+    () => sessionStorage.getItem("fadeno-test-late-scroll-reached") === "1",
+  );
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
@@ -1187,6 +1201,7 @@ test("flushes late outgoing document scroll before commit", async ({ page }) => 
   expect({
     schema: "fadeno.example.history-late-scroll-recovery",
     version: 1,
+    lateScrollReachedNonzero,
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
     staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-late-scroll-recovery"));
