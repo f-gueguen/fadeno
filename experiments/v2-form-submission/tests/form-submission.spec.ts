@@ -335,7 +335,7 @@ test("returns to the mutation page without overwriting the selected Back entry",
   }).toEqual(expected("history-recovery"));
 });
 
-test("records terminal form outcomes and repairs cancelled committed departures", async ({ page }) => {
+test("records terminal redirect handoff and repairs cancelled recovery departures", async ({ page }) => {
   const installOneDepartureRefusal = async (): Promise<void> => page.evaluate(() => {
     globalThis.addEventListener("beforeunload", (event) => {
       event.preventDefault();
@@ -350,17 +350,20 @@ test("records terminal form outcomes and repairs cancelled committed departures"
 
   await page.goto(`${origin}/projects`);
   await page.locator("#passcode").fill("example-owner");
-  await installOneDepartureRefusal();
   const redirectTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects"
     && accept === mediaType).length;
-  const redirectDialog = page.waitForEvent("dialog");
-  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
-  await (await redirectDialog).dismiss();
+  const documentLoadsBefore = await page.evaluate(() => performance.getEntriesByType("navigation").length);
+  await page.locator("#sign-in-form button").click();
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects"
     && accept === mediaType).length).toBe(redirectTruthBefore + 1);
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const redirectDestinationRequests = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length - redirectTruthBefore;
+  const redirectAvoidedDocumentReload = await page.evaluate(() => performance.getEntriesByType("navigation").length)
+    === documentLoadsBefore;
   const signedInTruthVisible = await page.locator("#viewer").textContent() === "Signed in owner";
   const redirectFlows = await readFlows();
 
@@ -385,9 +388,9 @@ test("records terminal form outcomes and repairs cancelled committed departures"
     version: 1,
     redirectRecorded: redirectFlows.some((flow) => flow["operation"] === "mutation"
       && flow["status"] === "applied"
-      && flow["outcome"] === "native-navigation"),
-    redirectCancellationRecovered: redirectFlows.some((flow) => flow["code"] === "FADENO_FORM_MUTATION_CURRENT_TRUTH"
-      && flow["outcome"] === "current-truth-reload"),
+      && flow["outcome"] === "enhanced-redirect"),
+    redirectDestinationRequests,
+    redirectAvoidedDocumentReload,
     signedInTruthVisible,
     terminalRecoveryRecorded: recoveryFlows.some((flow) => flow["code"] !== "FADENO_FORM_MUTATION_CURRENT_TRUTH"
       && flow["status"] === "refused"

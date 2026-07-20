@@ -84,7 +84,7 @@ export type PrivateFormSubmissionFlow = Readonly<{
   decisions: readonly string[];
   ownership: Readonly<{ browser: readonly string[]; server: readonly string[] }>;
   skipped: readonly string[];
-  outcome: "enhanced-document" | "native-navigation" | "current-truth-reload" | "none";
+  outcome: "enhanced-document" | "enhanced-redirect" | "native-navigation" | "current-truth-reload" | "none";
 }>;
 
 const flows: PrivateLinkNavigationFlow[] = [];
@@ -1330,6 +1330,38 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       }
       if (admission.outcome.kind === "redirect") {
+        const redirect = new URL(admission.outcome.location, location.origin);
+        if (operation.kind === "mutation") {
+          consumedResultIds.push(admission.resultId);
+          if (consumedResultIds.length > 256) consumedResultIds.shift();
+          clearPending();
+          if (activeFormEligibility?.operation === operation) activeFormEligibility = undefined;
+          if (active === operation) active = undefined;
+          recordFormFlow({
+            status: "applied",
+            code: admission.decision.code,
+            operation: operation.kind,
+            decisions: Object.freeze([
+              "server selected a same-origin redirect after one admitted mutation",
+              "the mutation result was consumed before redirect ownership changed",
+              "a fresh cancellable GET operation acquired the redirect destination",
+            ]),
+            ownership: Object.freeze({
+              browser: Object.freeze(["submit event", "mutation operation", "pending cleanup", "redirect GET operation"]),
+              server: Object.freeze(["origin", "proof", "replay", "authorization", "action", "session", "revalidation", "redirect", "destination route"]),
+            }),
+            skipped: Object.freeze(["mutation retry", "POST redirect resubmission", "transported redirect execution", "general state reconciliation"]),
+            outcome: "enhanced-redirect",
+          });
+          await navigate(
+            redirect,
+            false,
+            undefined,
+            sourceState,
+            () => privateFormPreservationSafe(eligibility, { allowDocumentScroll: true }),
+          );
+          return;
+        }
         recordFormFlow({
           status: "applied",
           code: admission.decision.code,
@@ -1340,22 +1372,17 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           ]),
           ownership: Object.freeze({
             browser: Object.freeze(["submit event", "operation", "pending cleanup", "native destination"]),
-            server: Object.freeze(operation.kind === "mutation"
-              ? ["origin", "proof", "replay", "authorization", "action", "session", "redirect"]
-              : ["route", "redirect"]),
+            server: Object.freeze(["route", "redirect"]),
           }),
-          skipped: Object.freeze(["mutation retry", "transported redirect execution", "document commit"]),
+          skipped: Object.freeze(["mutation authority", "transported redirect execution", "document commit"]),
           outcome: "native-navigation",
         });
         clearPending();
         fallback(
-          new URL(admission.outcome.location, location.origin),
+          redirect,
           false,
           false,
           undefined,
-          operation.kind === "mutation"
-            ? () => recoverCommittedMutationCurrentTruth(operation.currentTruthUrl, eligibility)
-            : undefined,
         );
         return;
       }
