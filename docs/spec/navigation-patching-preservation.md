@@ -265,9 +265,14 @@ boundary remain native. The exact submitted form receives bounded busy state,
 restored on every terminal path. Once a POST request begins, any cancellation,
 transport ambiguity, projection refusal, close, or commit failure reloads the
 trusted pre-submit current truth with GET and never resubmits the mutation.
-Action redirects also continue through GET. V2-07 owns later complete action
-ordering and in-place redirect qualification; V2-08 owns broader structural
-preservation.
+An admitted action redirect first consumes the mutation result, clears its
+pending owner, and releases the mutation operation. A fresh cancellable GET
+operation with a newer sequence then owns the redirect destination through the
+same document, history, focus, scroll, and stale-result checks as an eligible
+link. A newer eligible navigation supersedes that GET. Transport, projection,
+preservation, or document-commit failure returns to native GET, while a
+cancelled native departure reloads committed current truth through GET without
+repeating POST. V2-08 owns broader structural preservation.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

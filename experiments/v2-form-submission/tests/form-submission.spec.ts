@@ -62,6 +62,7 @@ let backendClose: (() => Promise<void>) | undefined;
 let proxy: HttpsServer | undefined;
 let backendPort = 0;
 let dropNextMutationResponse = false;
+let dropNextPrivateGetResponse = false;
 let delayedPrivateGetPath: string | undefined;
 let delayedPrivateGetMilliseconds = 0;
 const requests: RequestRecord[] = [];
@@ -98,10 +99,15 @@ test.beforeAll(async () => {
         : undefined,
     };
     transportRequests.push(transportRecord);
-    const drop = dropNextMutationResponse
+    const dropMutation = dropNextMutationResponse
       && incoming.method === "POST"
       && incoming.headers.accept === mediaType;
-    if (drop) dropNextMutationResponse = false;
+    if (dropMutation) dropNextMutationResponse = false;
+    const dropPrivateGet = dropNextPrivateGetResponse
+      && incoming.method === "GET"
+      && incoming.headers.accept === mediaType;
+    if (dropPrivateGet) dropNextPrivateGetResponse = false;
+    const drop = dropMutation || dropPrivateGet;
     const delay = incoming.method === "GET"
       && incoming.headers.accept === mediaType
       && transportRecord.path === delayedPrivateGetPath;
@@ -203,6 +209,7 @@ test.beforeEach(() => {
   requests.length = 0;
   transportRequests.length = 0;
   dropNextMutationResponse = false;
+  dropNextPrivateGetResponse = false;
   delayedPrivateGetPath = undefined;
   delayedPrivateGetMilliseconds = 0;
 });
@@ -361,7 +368,7 @@ test("refuses duplicate project identities before delete ownership becomes ambig
   expect(readFileSync(join(outputRoot, "expected-duplicate-human.txt"), "utf8")).toContain("kept project identity unambiguous");
 });
 
-test("suppresses a delayed redirect result after newer navigation wins", async ({ page }) => {
+test("suppresses a delayed redirect result after newer enhanced navigation wins", async ({ page }) => {
   await page.goto(`${origin}/projects`);
   await page.locator("#passcode").fill("example-owner");
   delayedPrivateGetPath = "/projects";
@@ -378,6 +385,7 @@ test("suppresses a delayed redirect result after newer navigation wins", async (
     return runtime.readPrivateFormSubmissionFlows();
   });
 
+  await page.locator("#sign-in-form").evaluate((form: HTMLFormElement) => form.reset());
   await page.getByRole("link", { name: "Search" }).click();
   await expect(page.locator("h1")).toHaveText("GET form navigation");
   await page.waitForTimeout(500);
@@ -515,6 +523,29 @@ test("records terminal redirect handoff and repairs cancelled recovery departure
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  const failedRedirectFlowCount = (await readFlows()).length;
+  await page.locator("#passcode").fill("example-owner");
+  dropNextPrivateGetResponse = true;
+  await installOneDepartureRefusal();
+  const failedRedirectTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length;
+  const failedRedirectDialog = page.waitForEvent("dialog");
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await (await failedRedirectDialog).dismiss();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length).toBe(failedRedirectTruthBefore + 2);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const failedRedirectFlows = (await readFlows()).slice(failedRedirectFlowCount);
+  const failedRedirectRecoveryRequests = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length - failedRedirectTruthBefore;
+  const failedRedirectRecoveryVisible = await page.locator("#viewer").textContent() === "Signed in owner";
+
+  await page.context().clearCookies();
+  await page.goto(`${origin}/projects`);
+  const recoveryFlowCount = (await readFlows()).length;
   await installOneDepartureRefusal();
   const recoveryTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects"
@@ -526,7 +557,7 @@ test("records terminal redirect handoff and repairs cancelled recovery departure
     && path === "/projects"
     && accept === mediaType).length).toBe(recoveryTruthBefore + 1);
   await expect(page.locator("h1")).toHaveText("Protected forms");
-  const recoveryFlows = await readFlows();
+  const recoveryFlows = (await readFlows()).slice(recoveryFlowCount);
   const state = application.readApplicationState();
 
   expect({
@@ -538,6 +569,10 @@ test("records terminal redirect handoff and repairs cancelled recovery departure
     redirectDestinationRequests,
     redirectAvoidedDocumentReload,
     signedInTruthVisible,
+    failedRedirectRecoveryRequests,
+    failedRedirectRecoveryVisible,
+    failedRedirectRecoveryRecorded: failedRedirectFlows.some((flow) => flow["code"] === "FADENO_FORM_MUTATION_CURRENT_TRUTH"
+      && flow["outcome"] === "current-truth-reload"),
     terminalRecoveryRecorded: recoveryFlows.some((flow) => flow["code"] !== "FADENO_FORM_MUTATION_CURRENT_TRUTH"
       && flow["status"] === "refused"
       && flow["outcome"] === "current-truth-reload"),
