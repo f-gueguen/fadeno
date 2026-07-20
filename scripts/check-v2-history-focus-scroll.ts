@@ -190,4 +190,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 186-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 189-case corpus, executable guidance)");
