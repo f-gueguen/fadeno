@@ -6,6 +6,7 @@
   "nativeRecovery": true,
   "staleDocumentRemoved": true,
   "scrolledOriginEnhanced": true,
+  "nativeScrollRestored": false,
   "recoveredActiveRestoration": "manual",
   "recoveredClosedRestoration": "auto",
   "runtimeRestarted": true

@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-native-departure",
+  "version": 1,
+  "restorationAtDeparture": "auto",
+  "nativeRecovery": true
+}

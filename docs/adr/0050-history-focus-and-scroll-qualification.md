@@ -30,9 +30,9 @@ reconciliation acquire authority.
 ## Decision
 
 The browser runtime owns only history entries that carry its exact private
-marker, private state version, bounded entry identity, and nonnegative finite
+marker, private state version, bounded chain and entry identities, and nonnegative finite
 document-scroll record. It installs manual browser scroll restoration while
-active and restores the previous browser setting on close. If initial history
+active and restores the previous browser setting on close or page departure. If initial history
 ownership cannot be recorded, startup also restores the prior setting and
 returns to native ownership. Application-owned, malformed, unsupported, or
 preservation-unsafe entries are not interpreted; traversal reloads the selected
@@ -46,8 +46,9 @@ immediately before document commit. If either history write is refused or
 rate-limited, further writes stop and the link remains native. A new
 eligible link may depart from a scrolled document after all other V2-04
 preservation checks pass: the document scroller is not misclassified as element
-scroll, the outgoing entry is recorded, the new entry is committed at document
-scroll `(0, 0)`, and the destination heading or main landmark receives focus
+scroll, the outgoing entry is recorded, the destination history entry is
+created before its viewport resets to document scroll `(0, 0)`, and the
+destination heading or main landmark receives focus
 with scroll prevention. This matches ordinary cross-document navigation without
 attempting to preserve outgoing scroll in the new document.
 
@@ -86,7 +87,11 @@ still-present outgoing document and conservatively marks its displayed identity
 unsafe. The displayed identity changes only after a successful document commit,
 not when an intermediate traversal merely selects another entry. If the bounded
 unsafe-identity tracker fills, every later traversal reloads rather than
-forgetting an older unsafe entry. The selected URL and complete exact private
+forgetting an older unsafe entry. A bounded chain-scoped refusal record retains
+unsafe ownership discovered only after traversal selection across runtime
+restart; malformed or unavailable persistence is itself fail-closed. Scroll
+that occurs while traversal work is pending marks the still-displayed entry and
+requires the same native recovery. The selected URL and complete exact private
 state are revalidated after asynchronous work and immediately before commit.
 These rules cover scroll changes whose event has not yet been delivered,
 application state replacement during a request, and multi-entry traversal. A
@@ -109,7 +114,9 @@ history payloads, markup, or user data.
 ## Consequences
 
 - Links can safely leave a document after document scrolling, while returning
-  to an unqualified scrolled entry uses a current-URL reload.
+  to an unqualified scrolled entry uses a current-URL reload. That recovery
+  guarantees current URL and document truth, not a pixel position; the runtime
+  never applies its recorded refusal number to a potentially changed layout.
 - Zero-scroll owned entries receive deterministic enhanced traversal, focus,
   title, URL, and newest-only behavior.
 - Element-scroll and unknown-layout cases remain native/refused rather than

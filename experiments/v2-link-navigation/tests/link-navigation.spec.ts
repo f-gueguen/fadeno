@@ -2,13 +2,19 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const root = process.cwd();
 const outputRoot = join(root, "output/v2-link-navigation");
 const consumer = join(outputRoot, "consumer");
 const site = join(outputRoot, "site");
 const expected = (name: string): unknown => JSON.parse(readFileSync(join(outputRoot, `expected-${name}.json`), "utf8")) as unknown;
+
+async function settleBrowserTraversal(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+}
 
 type Application = Readonly<{
   applicationGeneration: string;
@@ -22,6 +28,7 @@ let origin = "";
 let closeServer: (() => Promise<void>) | undefined;
 const requests: { path: string; enhanced: boolean; cookie: string | null }[] = [];
 let enhancedHomeDelay = 0;
+let enhancedSlowDelay = 0;
 
 test.beforeAll(async () => {
   const application = await import(pathToFileURL(join(consumer, "dist/application.js")).href) as Application;
@@ -46,6 +53,11 @@ test.beforeAll(async () => {
       && request.headers.get("accept") === "application/vnd.fadeno.private-update+json; version=1") {
       await new Promise((resolve) => setTimeout(resolve, enhancedHomeDelay));
     }
+    if (enhancedSlowDelay > 0
+      && url.pathname === "/slow"
+      && request.headers.get("accept") === "application/vnd.fadeno.private-update+json; version=1") {
+      await new Promise((resolve) => setTimeout(resolve, enhancedSlowDelay));
+    }
     return application.handler(request);
   };
   const server = await node.listenNodeHttp({
@@ -62,13 +74,19 @@ test.afterAll(async () => closeServer?.());
 test.beforeEach(() => {
   requests.length = 0;
   enhancedHomeDelay = 0;
+  enhancedSlowDelay = 0;
 });
 
 test("enhances one safe link with document, title, URL, history, and focus", async ({ page }) => {
   await page.goto(origin);
-  expect(await page.evaluate(() => ({ ...history.state, entry: typeof history.state?.entry === "string" && history.state.entry.startsWith("history:") }))).toEqual({
+  expect(await page.evaluate(() => ({
+    ...history.state,
+    session: typeof history.state?.session === "string" && history.state.session.startsWith("session:"),
+    entry: typeof history.state?.entry === "string" && history.state.entry.startsWith("history:"),
+  }))).toEqual({
     "fadeno.private.navigation.v1": true,
     version: 1,
+    session: true,
     entry: true,
     scrollX: 0,
     scrollY: 0,
@@ -108,6 +126,27 @@ test("keeps unsafe browser-owned state native before request ownership", async (
     outcome: "native-navigation",
   });
   expect(readFileSync(join(outputRoot, "expected-refusal-human.txt"), "utf8").trim()).toContain("kept the link native");
+});
+
+test("restores automatic scroll ownership before native same-context departure", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => {
+    addEventListener("pagehide", () => {
+      sessionStorage.setItem("fadeno-test-native-departure-restoration", history.scrollRestoration);
+    }, { once: true });
+    const input = document.createElement("input");
+    input.defaultValue = "before";
+    input.value = "after";
+    document.body.append(input);
+  });
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-native-departure",
+    version: 1,
+    restorationAtDeparture: await page.evaluate(() => sessionStorage.getItem("fadeno-test-native-departure-restoration")),
+    nativeRecovery: requests.filter(({ path }) => path === "/next").at(-1)?.enhanced === false,
+  }).toEqual(expected("history-native-departure"));
 });
 
 test("cancels obsolete work and applies only the latest result", async ({ page }) => {
@@ -313,6 +352,7 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
   await expect(page.locator("h1")).toHaveText("Home");
   const recoveredPath = new URL(page.url()).pathname;
   const recoveredHeading = await page.locator("h1").textContent();
+  const nativeScrollRestored = await page.evaluate(() => scrollY > 0);
   const nativeRecovery = await page.evaluate(() => typeof history.state === "object"
     && history.state !== null
     && Number(Reflect.get(history.state as object, "scrollY")) > 0);
@@ -339,6 +379,7 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
     nativeRecovery,
     staleDocumentRemoved: recoveredHeading !== "Next",
     scrolledOriginEnhanced,
+    nativeScrollRestored,
     ...restorationLifecycle,
     runtimeRestarted: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
   };
@@ -365,6 +406,9 @@ test("coalesces history writes and keeps mutation-limit failure native", async (
   });
   await page.evaluate(() => {
     history.replaceState = (): never => { throw new DOMException("history mutation limited", "SecurityError"); };
+    addEventListener("pagehide", () => {
+      sessionStorage.setItem("fadeno-test-write-failure-restoration", history.scrollRestoration);
+    }, { once: true });
   });
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
@@ -373,6 +417,7 @@ test("coalesces history writes and keeps mutation-limit failure native", async (
     version: 1,
     coalescedWrites,
     nativeRecovery: requests.filter(({ path }) => path === "/next").at(-1)?.enhanced === false,
+    restorationAtDeparture: await page.evaluate(() => sessionStorage.getItem("fadeno-test-write-failure-restoration")),
     uncaughtErrors: pageErrors.length,
   };
   expect(result).toEqual(expected("history-write-recovery"));
@@ -420,6 +465,7 @@ test("reloads application-owned and malformed history instead of showing stale m
   const base = {
     "fadeno.private.navigation.v1": true,
     version: 1,
+    session: "session:malformed-fixture",
     entry: "history:malformed-fixture",
     scrollX: 0,
     scrollY: 0,
@@ -499,6 +545,7 @@ test("reloads an owned element-scrolled entry during traversal", async ({ page }
   await expect.poll(() => page.evaluate(() => Boolean(history.state?.elementScroll))).toBe(true);
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Next");
+  await settleBrowserTraversal(page);
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goForward();
   await expect(page.locator("h1")).toHaveText("Home", { timeout: 15_000 });
@@ -522,15 +569,44 @@ test("marks an outgoing scroll before a same-task traversal", async ({ page }) =
     history.back();
   });
   await expect(page.locator("h1")).toHaveText("Next");
+  await settleBrowserTraversal(page);
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goForward();
-  await expect(page.locator("h1")).toHaveText("Home");
+  await expect(page.locator("h1")).toHaveText("Home", { timeout: 15_000 });
+  const staleDocumentRemoved = await page.locator("h1").textContent() === "Home";
+  const nativeNextBeforePersistentRecovery = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Next", { timeout: 15_000 });
   expect({
     schema: "fadeno.example.history-pending-scroll-recovery",
     version: 1,
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
-    staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
+    persistentRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBeforePersistentRecovery,
+    staleDocumentRemoved,
   }).toEqual(expected("history-pending-scroll-recovery"));
+});
+
+test("records document scroll while traversal work is pending", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  enhancedSlowDelay = 250;
+  await page.evaluate(() => {
+    history.back();
+    setTimeout(() => scrollTo(0, 100), 20);
+  });
+  await expect(page.locator("h1")).toHaveText("Slow");
+  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  await page.goForward();
+  await expect(page.locator("h1")).toHaveText("Home", { timeout: 15_000 });
+  expect({
+    schema: "fadeno.example.history-traversal-scroll-recovery",
+    version: 1,
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
+    staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-traversal-scroll-recovery"));
 });
 
 test("flushes late outgoing document scroll before commit", async ({ page }) => {

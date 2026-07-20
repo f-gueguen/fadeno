@@ -3,5 +3,6 @@
   "version": 1,
   "coalescedWrites": 1,
   "nativeRecovery": true,
+  "restorationAtDeparture": "auto",
   "uncaughtErrors": 0
 }

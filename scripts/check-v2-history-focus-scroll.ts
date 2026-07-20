@@ -10,7 +10,7 @@ const normalized = (path: string): string => read(path).replace(/\s+/gu, " ");
 const adr = normalized("docs/adr/0050-history-focus-and-scroll-qualification.md");
 for (const fragment of [
   "manual browser scroll restoration",
-  "new entry is committed at document scroll `(0, 0)`",
+  "destination history entry is created before its viewport resets to document scroll `(0, 0)`",
   "zero document scroll and no observed element-scroll ownership",
   "non-collapsed selection",
   "allocate no transition work",
@@ -33,11 +33,12 @@ for (const fragment of [
   "unsafeHistoryEntries",
   "createPrivateUnsafeHistoryEntryTracker",
   "displayedHistoryEntry",
+  "unsafeTraversalPersistence",
   "element === documentScroller",
   "historyWriteFailed = true",
   "initiator && !flushCurrentScroll(true)",
   "traversal === traversalSequence",
-  "createHistoryState(scrollX, scrollY, false)",
+  "createHistoryState(scrollX, scrollY, false, historySession)",
   "privateHistoryState(history.state)",
   "target.focus({ preventScroll: true })",
   'behavior: "instant"',
@@ -49,6 +50,7 @@ for (const fragment of [
   "commits focus and top scroll without animation under ${motion} motion",
   "restores automatic scroll ownership when the runtime closes",
   "restores automatic scroll ownership when initial history acquisition fails",
+  "restores automatic scroll ownership before native same-context departure",
   "allows a scrolled origin and reloads that unsafe history entry on return",
   "runtimeRestarted",
   "coalesces history writes and keeps mutation-limit failure native",
@@ -57,6 +59,7 @@ for (const fragment of [
   "keeps a non-collapsed selection on the native path",
   "reloads an owned element-scrolled entry during traversal",
   "marks an outgoing scroll before a same-task traversal",
+  "records document scroll while traversal work is pending",
   "flushes late outgoing document scroll before commit",
   "cancels an obsolete history traversal and publishes only the newest entry",
   "keeps unsafe history tracking fail closed after its bound",
@@ -69,11 +72,13 @@ for (const name of [
   "history-focus-normal",
   "history-teardown",
   "history-startup-recovery",
+  "history-native-departure",
   "history-scroll-refusal",
   "history-write-recovery",
   "history-overflow-recovery",
   "history-element-recovery",
   "history-pending-scroll-recovery",
+  "history-traversal-scroll-recovery",
   "history-late-scroll-recovery",
   "history-selected-state-recovery",
   "history-recovery",
@@ -92,4 +97,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 75-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 81-case corpus, executable guidance)");

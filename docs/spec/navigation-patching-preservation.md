@@ -151,8 +151,9 @@ failed GET work returns to native destination or current-truth navigation.
 Forms and general state-preserving reconciliation remain later V2 work.
 
 ADR 0050 selects V2-05's browser-state qualification boundary. Runtime-owned
-history entries carry a private exact-version marker and recorded document
-scroll state while automatic restoration is disabled for the active runtime.
+history entries carry a private exact-version marker, bounded chain and entry
+identities, and recorded document scroll state while automatic restoration is
+disabled for the active runtime.
 The first observed nonzero document or element scroll makes the entry
 monotonically unsafe, avoiding repeated History API writes; an eligible click
 performs guarded flushes before interception and immediately before commit, and
@@ -170,10 +171,16 @@ truth reload; application-owned or malformed state cannot. Traversal scroll
 suppression remains tied to the newest traversal generation. The runtime keeps
 the identity of the document actually displayed separate from a merely selected
 entry, changes it only after commit, and becomes fail-closed for traversal if
-its bounded unsafe-identity tracker fills. The selected URL and exact private
-state are revalidated immediately before commit. Native recovery restores the
-pre-enhancement scroll-restoration mode before reload. Non-collapsed selection
-and unresolved focus/state still refuse. No transition work is allocated in
+its bounded unsafe-identity tracker fills. A bounded chain-scoped refusal record
+survives native reload when an unsafe outgoing entry could not be rewritten;
+malformed or unavailable persistence refuses traversal. Scroll during pending
+traversal receives the same refusal. The selected URL and exact private state
+are revalidated immediately before commit. Native recovery and page departure
+restore the pre-enhancement scroll-restoration mode. A destination history entry
+is created before its viewport resets to the top. Non-collapsed selection
+and unresolved focus/state still refuse. Native recovery guarantees current
+URL and document truth but not a pixel position, and the runtime does not apply
+its recorded refusal number to a fresh layout. No transition work is allocated in
 either normal or reduced-motion mode.
 
 ## Narrowed H1 result and V2 conformance

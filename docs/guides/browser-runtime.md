@@ -533,10 +533,24 @@ startup failure does the same before falling back to native links:
 }
 ```
 
+Unsafe same-context links and failed enhanced requests also restore automatic
+browser ownership before their native departure:
+
+```json
+{
+  "schema": "fadeno.example.history-native-departure",
+  "version": 1,
+  "restorationAtDeparture": "auto",
+  "nativeRecovery": true
+}
+```
+
 A link may leave a document-scrolled origin, but returning to a nonzero-scroll
 or element-scroll entry is not treated as safe numeric restoration. The runtime
 returns that selected URL to browser-native recovery. An exact supported
-Fadeno-owned entry resumes enhancement after the reload:
+Fadeno-owned entry resumes enhancement after the reload. Current URL and
+document truth are guaranteed; a pixel position is not, because the fresh
+layout may differ and Fadeno does not apply an unproven recorded number:
 
 ```text
 FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhanced restoration; reload the current URL.
@@ -551,6 +565,7 @@ FADENO_HISTORY_NATIVE_RECOVERY: the selected history entry is not safe for enhan
   "nativeRecovery": true,
   "staleDocumentRemoved": true,
   "scrolledOriginEnhanced": true,
+  "nativeScrollRestored": false,
   "recoveredActiveRestoration": "manual",
   "recoveredClosedRestoration": "auto",
   "runtimeRestarted": true
@@ -568,6 +583,7 @@ remains native without an uncaught failure:
   "version": 1,
   "coalescedWrites": 1,
   "nativeRecovery": true,
+  "restorationAtDeparture": "auto",
   "uncaughtErrors": 0
 }
 ```
@@ -601,6 +617,20 @@ server truth instead of associating the scroll with another entry:
 ```json
 {
   "schema": "fadeno.example.history-pending-scroll-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "persistentRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+An unsafe mark discovered only during traversal remains fail-closed after the
+native reload, and document scroll while traversal work is pending receives the
+same current-truth recovery:
+
+```json
+{
+  "schema": "fadeno.example.history-traversal-scroll-recovery",
   "version": 1,
   "nativeRecovery": true,
   "staleDocumentRemoved": true
@@ -648,6 +678,6 @@ disappears and enhancement remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 75 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 81 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.
