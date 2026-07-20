@@ -279,7 +279,8 @@ native departure commits. An ineligible same-context activation keeps the same
 recovery owner until its native departure commits or is cancelled. If that
 activation stays in the document because a later listener prevents it, the
 same recovery owner fetches committed current truth. A selected same-document
-fragment instead reloads the fragment-bearing destination as a fresh document.
+fragment, whether selected by a link or native GET form, instead reloads the
+fragment-bearing destination as a fresh document.
 A redirect GET result is consumed before a further redirect returns to native
 ownership. When that further redirect selects a fragment on the still-displayed
 current resource, it also reloads one fresh native document. A history

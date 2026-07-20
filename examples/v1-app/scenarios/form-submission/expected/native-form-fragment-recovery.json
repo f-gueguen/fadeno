@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-native-form-fragment-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectGets": 1,
+  "nativeCurrentTruthGets": 1,
+  "redirectChainRuns": 1,
+  "finalHash": "#details",
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

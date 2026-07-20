@@ -1,0 +1,1 @@
+Action ordering recovery: a superseding same-document native GET form selected a fresh current-truth document with its fragment and did not repeat POST.

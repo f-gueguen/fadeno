@@ -354,6 +354,9 @@ function projectsPage(signedIn: boolean): RenderChild {
       jsx("input", { name: redirectFragmentChain.fields.intent, type: "hidden", value: "fragment-chain" }),
       jsx("button", { type: "submit", children: "Follow fragment redirect chain" }),
     ] }),
+    jsx("form", { id: "native-fragment-form", action: "/projects#details", method: "get", children:
+      jsx("button", { type: "submit", children: "Use native fragment form" }),
+    }),
     jsxs("form", { id: "upload-redirect-form", action: uploadRedirect, children: [
       jsx("label", { for: "handoff-upload", children: "Handoff upload" }),
       jsx("input", { id: "handoff-upload", name: uploadRedirect.fields.attachment, type: "file", accept: "text/plain", required: true }),

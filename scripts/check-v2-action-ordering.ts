@@ -35,6 +35,8 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json",
@@ -67,7 +69,7 @@ assert.equal(
 
 const scope = read("docs/product/scope.md");
 const traceability = read("docs/traceability.md");
-for (const feature of ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01"]) {
+for (const feature of ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"]) {
   const scopeRow = scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
   const traceabilityRow = traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
   assert.equal(scopeRow.includes("ADR 0052"), true, `${feature} scope is missing ADR 0052`);
@@ -95,6 +97,7 @@ for (const fragment of [
   "samePrivateFormHandoffFiles",
   "observeCancelledDeparture",
   "privateReloadFragmentDestination",
+  "privateNativeGetFormSameDocumentDestination",
   "privateFormHandoffSelectionState",
   "let ownsPending = true",
   "selectedHistoryState !== undefined",
@@ -149,6 +152,7 @@ for (const fragment of [
   "newer GET supersedes the redirect",
   "native activation supersedes the redirect",
   "native activation has no document departure",
+  "same-document native GET form that supersedes the redirect",
   "same-metadata file replacement",
   "same-resource fragment redirects",
   "fragments returned by the redirect GET",
@@ -177,6 +181,7 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json", '"currentTruthVisible": true'],
   ["examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json", '"nativeSupersedingGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"redirectAndRecoveryGets": 2'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"nativeCurrentTruthGets": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json", '"newerFileSelectionNotPrivatelyOverwritten": true'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"privateRedirectGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect-chain.json", '"nativeDestinationGets": 1'],
@@ -219,6 +224,8 @@ for (const fragment of [
   '"scenarios/form-submission/expected/native-supersession-recovery-human.txt"',
   '"scenarios/form-submission/expected/native-no-departure-recovery.json"',
   '"scenarios/form-submission/expected/native-no-departure-recovery-human.txt"',
+  '"scenarios/form-submission/expected/native-form-fragment-recovery.json"',
+  '"scenarios/form-submission/expected/native-form-fragment-recovery-human.txt"',
   '"scenarios/form-submission/expected/file-handoff-recovery.json"',
   '"scenarios/form-submission/expected/file-handoff-recovery-human.txt"',
   '"scenarios/form-submission/expected/fragment-redirect.json"',

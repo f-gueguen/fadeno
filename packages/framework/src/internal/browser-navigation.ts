@@ -5,6 +5,7 @@ import {
 } from "./browser-update.ts";
 import {
   privateFormEligibility,
+  privateNativeGetFormSameDocumentDestination,
   privateFormPreservationSafe,
   privateFormRequest,
   type PrivateFormEligibility,
@@ -1235,12 +1236,12 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           observation.event.preventDefault();
           fallbackSameResourceFragmentRedirect(sameDocumentDestination, recoverCancelledMutation);
         };
-        const finalizeClick = (event: Event): void => {
+        const finalizeActivation = (event: Event): void => {
           if (event === observation.event) finalize();
         };
-        globalThis.addEventListener("click", finalizeClick, { once: true });
+        globalThis.addEventListener(observation.event.type, finalizeActivation, { once: true });
         setTimeout(() => {
-          globalThis.removeEventListener("click", finalizeClick);
+          globalThis.removeEventListener(observation.event.type, finalizeActivation);
           if (closed) return;
           finalize();
         }, 0);
@@ -1860,6 +1861,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const submitterTarget = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formtarget") : null;
     const sameContext = privateTargetOwnsCurrentBrowsingContext(submitterTarget ?? form.getAttribute("target"));
     if (!sameContext) return;
+    const sameDocumentDestination = privateNativeGetFormSameDocumentDestination(form, event.submitter);
+    const nativeObservation = Object.freeze({
+      event,
+      ...(sameDocumentDestination ? { sameDocumentDestination } : {}),
+    });
     if (active?.kind === "mutation") {
       event.preventDefault();
       recordFormFlow({
@@ -1885,7 +1891,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       supersedePendingWorkForNativeActivation(
         "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
         "same-context form submission superseded pending navigation",
-        Object.freeze({ event }),
+        nativeObservation,
       );
     };
     if (!eligibility || !currentMetadata || !privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })) {

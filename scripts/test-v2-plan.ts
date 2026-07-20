@@ -187,6 +187,14 @@ mutation("V2-07 ENH-01 traceability contract drifted", (context) => Object.freez
   ...context,
   traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-action-ordering", "removed action gate")),
 }));
+mutation("V2-07 SEC-01 traceability contract drifted", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace(/^\| SEC-01 \|.*$/mu, (line) => line.replace("check:v2-action-ordering", "removed action gate")),
+}));
+mutation("V2-07 TEST-01 scope contract drifted", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace(/^\| TEST-01 \|.*$/mu, (line) => line.replace(/; \[ADR 0052\][^|]+/u, "")),
+}));
 mutation("V2-07 action-ordering risk contract drifted", (context) => Object.freeze({
   ...context,
   risks: context.risks.replace(/^\| Enhanced forms change controls.*\n/mu, ""),

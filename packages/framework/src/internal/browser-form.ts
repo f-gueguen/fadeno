@@ -120,6 +120,50 @@ function encodeControls(data: FormData): URLSearchParams {
   return encoded;
 }
 
+export function privateNativeGetFormSameDocumentDestination(
+  form: HTMLFormElement,
+  candidate: SubmitEvent["submitter"],
+): URL | undefined {
+  if (!form.isConnected || form.ownerDocument !== document) return undefined;
+  const submitter = validSubmitter(form, candidate);
+  if (submitter === false) return undefined;
+  const method = effectiveAttribute(
+    submitter,
+    "formmethod",
+    () => submitter?.formMethod ?? "",
+    () => form.method,
+  ).toLowerCase();
+  if (method !== "get") return undefined;
+  const target = effectiveAttribute(
+    submitter,
+    "formtarget",
+    () => submitter?.formTarget ?? "",
+    () => form.target,
+  );
+  if (!targetOwnsCurrentContext(target)) return undefined;
+  let destination: URL;
+  try {
+    destination = new URL(effectiveAttribute(
+      submitter,
+      "formaction",
+      () => submitter?.formAction ?? "",
+      () => form.action,
+    ), location.href);
+    const data = submitter ? new FormData(form, submitter) : new FormData(form);
+    destination.search = encodeControls(data).toString();
+  } catch { return undefined; }
+  const current = new URL(location.href);
+  return destination.origin === current.origin
+    && destination.username === ""
+    && destination.password === ""
+    && destination.pathname === current.pathname
+    && destination.search === current.search
+    && destination.hash !== ""
+    && destination.hash !== current.hash
+    ? destination
+    : undefined;
+}
+
 export function privateFormRequest(eligibility: PrivateFormEligibility): PrivateFormRequest {
   const data = eligibility.submitter
     ? new FormData(eligibility.form, eligibility.submitter)

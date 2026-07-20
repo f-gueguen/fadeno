@@ -76,7 +76,8 @@ ownership until a replacement document or native departure commits. An
 ineligible same-context activation or history traversal that returns to native
 behavior observes cancellation with the same recovery owner, including when a
 cancelled traversal first has to repair its selected URL to the displayed
-document. That ownership is recovery provenance only; it carries no mutation
+document. A same-document native GET form supersession uses the same fresh
+fragment-bearing native reload as a link. That ownership is recovery provenance only; it carries no mutation
 request or authority into the newer GET.
 
 The redirect GET is not mutation recovery and carries no action body, proof,
@@ -171,7 +172,7 @@ owner isolation, enhanced and native
 supersession recovery, recovery when native activation remains in the current
 document, teardown-safe same-resource fragment reload with history-stage
 failure preservation, redirect-chain fragment reload, selected and unsafe
-traversal cancellation recovery,
+traversal cancellation recovery, same-document native GET form supersession,
 redirect-result consumption, no repeated mutation, redacted causal flow, and
 current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`
 retains every prior native, browser, security, package, and release gate.
