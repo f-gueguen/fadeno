@@ -959,6 +959,43 @@ input:focus-visible {
   }
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mist: #0f1521;
+    --paper: #171f2d;
+    --white: #202b3d;
+    --ink: #f4f7fb;
+    --muted: #b5c0d2;
+    --line: #3b485d;
+    --cobalt: #6f8cff;
+    --cobalt-dark: #a9b9ff;
+    --mint: #4dd0a1;
+    --mint-soft: #123d32;
+    --amber: #ffc46b;
+    --amber-soft: #3a2b15;
+    --danger: #ff8e96;
+    --danger-soft: #48262b;
+  }
+
+  .site-header {
+    background: rgb(23 31 45 / 94%);
+  }
+
+  .status-success,
+  #authenticated-viewer {
+    color: #bdf5df;
+  }
+
+  .button-warning,
+  .failure-lab p:last-child {
+    color: #ffe0ac;
+  }
+
+  [role="alert"] {
+    color: #ffc4c8;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
