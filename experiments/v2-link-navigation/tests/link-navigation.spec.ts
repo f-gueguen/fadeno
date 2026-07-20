@@ -1173,10 +1173,14 @@ test("flushes late outgoing document scroll before commit", async ({ page }) => 
       const response = await original(...arguments_);
       const request = new Request(arguments_[0], arguments_[1]);
       if (new URL(request.url).pathname === "/next") {
-        const scroller = document.scrollingElement;
-        if (scroller !== null) scroller.scrollTop = 100;
-        scrollTo(0, 100);
-        sessionStorage.setItem("fadeno-test-late-scroll-reached", scrollY > 0 ? "1" : "0");
+        sessionStorage.setItem("fadeno-test-late-response-ready", "1");
+        await new Promise<void>((resolve) => {
+          const release = (): void => {
+            if (sessionStorage.getItem("fadeno-test-release-late-response") === "1") resolve();
+            else setTimeout(release, 0);
+          };
+          release();
+        });
       }
       return response;
     };
@@ -1188,21 +1192,30 @@ test("flushes late outgoing document scroll before commit", async ({ page }) => 
     spacer.setAttribute("aria-hidden", "true");
     document.body.append(spacer);
   });
-  await page.locator("#next-link").click();
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click({ noWaitAfter: true });
+  await expect.poll(
+    () => page.evaluate(() => sessionStorage.getItem("fadeno-test-late-response-ready")),
+  ).toBe("1");
+  await page.evaluate(() => scrollTo(0, 100));
+  await expect.poll(() => page.evaluate(() => ({
+    position: scrollY,
+    recorded: typeof history.state === "object" && history.state !== null ? history.state.scrollY : 0,
+  }))).toEqual({ position: 100, recorded: 100 });
+  const lateScrollReachedNonzero = true;
+  const lateScrollRecordedInSourceState = true;
+  await page.evaluate(() => sessionStorage.setItem("fadeno-test-release-late-response", "1"));
   await expect(page.locator("h1")).toHaveText("Next");
-  const lateScrollReachedNonzero = await page.evaluate(
-    () => sessionStorage.getItem("fadeno-test-late-scroll-reached") === "1",
-  );
-  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  const nativeDestinationRecovery = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore;
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
-  await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length).toBeGreaterThan(nativeHomeBefore);
   await waitForPrivateHistoryOwner(page);
   expect({
     schema: "fadeno.example.history-late-scroll-recovery",
     version: 1,
     lateScrollReachedNonzero,
-    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
+    lateScrollRecordedInSourceState,
+    nativeDestinationRecovery,
     staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-late-scroll-recovery"));
 });

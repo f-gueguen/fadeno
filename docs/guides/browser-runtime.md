@@ -846,7 +846,8 @@ teardown completes. Later activation is native and stale markup cannot commit:
   "schema": "fadeno.example.history-late-scroll-recovery",
   "version": 1,
   "lateScrollReachedNonzero": true,
-  "nativeRecovery": true,
+  "lateScrollRecordedInSourceState": true,
+  "nativeDestinationRecovery": true,
   "staleDocumentRemoved": true
 }
 ```

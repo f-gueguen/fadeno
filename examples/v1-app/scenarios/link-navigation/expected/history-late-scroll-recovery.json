@@ -2,6 +2,7 @@
   "schema": "fadeno.example.history-late-scroll-recovery",
   "version": 1,
   "lateScrollReachedNonzero": true,
-  "nativeRecovery": true,
+  "lateScrollRecordedInSourceState": true,
+  "nativeDestinationRecovery": true,
   "staleDocumentRemoved": true
 }
