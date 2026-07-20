@@ -174,9 +174,10 @@ requires a bounded active-runtime registry containing the exact created state
 and URL; copied fields, repeated unobserved selection, changed state, and
 registry overflow refuse. Runtime-guarded History API writes are distinguished
 from application calls; an application-created exact or same-URL copy remains
-application-owned across reload. Recorded element-scroll ownership keeps later
-link activation native after the live element returns to zero and is rechecked
-after asynchronous request work. Traversal scroll
+application-owned across reload and explicit restart in the same document.
+Recorded element-scroll ownership keeps later link activation native after the
+live element returns to zero and is rechecked after asynchronous request work
+or after document scroll was already recorded. Traversal scroll
 suppression remains tied to the newest traversal generation. The runtime keeps
 the identity of the document actually displayed separate from a merely selected
 entry, changes it only after commit, and becomes fail-closed for traversal if
@@ -195,21 +196,25 @@ and unresolved focus/state still refuse. Native recovery guarantees current
 URL and document truth but not a pixel position, and the runtime does not apply
 its recorded refusal number to a fresh layout. Closing during a pending
 traversal reloads the selected current URL after restoring native scroll
-ownership. A newer traversal cancels its predecessor before taking an early
+ownership. Cancellation repairs the selected slot to displayed truth before
+teardown completes and the closed runtime leaves subsequent activation native.
+A newer traversal cancels its predecessor before taking an early
 native path. A refused same-context link or still-native same-context form also
 aborts pending traversal work and repairs selected truth before native activation
 continues; form submission is observed for supersession only, not intercepted.
 If history selection succeeds but a later document, focus, scroll, or final
 history-provenance check fails, document and history postconditions roll back
 together. A newly pushed selection is rolled back before native navigation
-reselects it, while traversal replacement remains in place, so no duplicate
+reselects it, including additional synchronous application pushes during the
+failed commit, while traversal replacement remains in place, so no duplicate
 entry is appended even if local scroll rollback also fails. If the user cancels
 an unsafe traversal's native reload, the active document replaces the selected
 slot with a fresh private entry at the trusted displayed-document URL,
 reacquires its restoration owner, and records the refusal before resuming.
 Both `preventDefault()` and legacy non-empty `returnValue` confirmation are
 observed. A canceled replacement after a post-selection commit failure receives
-the same repair.
+the same repair. A canceled preselection fallback also repairs the current
+entry and reacquires manual restoration before enhancement resumes.
 No transition work is allocated in
 either normal or reduced-motion mode.
 

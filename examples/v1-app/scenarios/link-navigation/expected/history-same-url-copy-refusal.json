@@ -3,5 +3,6 @@
   "version": 1,
   "directCopyRefused": true,
   "historyUnclaimedAfterReload": true,
+  "historyUnclaimedAfterRestart": true,
   "reloadedCopyRefused": true
 }

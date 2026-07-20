@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-combined-scroll-refusal",
+  "version": 1,
+  "combinedOwnershipRecorded": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
+}

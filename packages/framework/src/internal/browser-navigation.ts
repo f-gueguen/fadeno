@@ -65,6 +65,7 @@ export type PrivateLinkNavigationFlow = Readonly<{
 
 const flows: PrivateLinkNavigationFlow[] = [];
 const startedDocuments = new WeakSet<Document>();
+const applicationRecoveryDocuments = new WeakSet<Document>();
 
 function recordFlow(input: Omit<PrivateLinkNavigationFlow, "schema" | "version" | "redaction">): void {
   flows.push(Object.freeze({
@@ -452,6 +453,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   let active: ActiveOperation | undefined;
   let sequence = 0;
   let closed = false;
+  let closing = false;
   let traversing = false;
   let traversalSequence = 0;
   let pendingElementScroll = false;
@@ -460,7 +462,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const previousScrollRestoration = history.scrollRestoration;
   const historySession = existingPrivateState?.session ?? `session:${globalThis.crypto.randomUUID()}`;
   const unsafeTraversalPersistence = createPrivateUnsafeTraversalPersistence();
-  if (firstStartupForDocument && unsafeTraversalPersistence.consumeApplicationRecovery(location.href)) return undefined;
+  if (applicationRecoveryDocuments.has(document)) return undefined;
+  if (firstStartupForDocument && unsafeTraversalPersistence.consumeApplicationRecovery(location.href)) {
+    applicationRecoveryDocuments.add(document);
+    return undefined;
+  }
   const existingRecovery = existingPrivateState
     ? unsafeTraversalPersistence.recoveryReason(existingPrivateState.session, existingPrivateState.entry, location.href)
     : undefined;
@@ -469,8 +475,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const applicationOwnedHistoryEntries = new Set<string>();
   let historyOwnershipOverflowed = false;
   let internalHistoryWrite = false;
-  const originalReplaceState = history.replaceState.bind(history);
-  const originalPushState = history.pushState.bind(history);
+  let historyPushSequence = 0;
+  const originalReplaceState = history.replaceState;
+  const originalPushState = history.pushState;
   const applicationHistoryKey = (session: string, entry: string, url: string): string => `${session}\0${entry}\0${url}`;
   const retainApplicationHistoryMutation = (): void => {
     if (internalHistoryWrite || closed) return;
@@ -485,11 +492,12 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     unsafeTraversalPersistence.requireRecovery(state.session, state.entry, location.href, "application-owned");
   };
   const runtimeReplaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
-    originalReplaceState(data, unused, url);
+    originalReplaceState.call(history, data, unused, url);
     retainApplicationHistoryMutation();
   };
   const runtimePushState = (data: unknown, unused: string, url?: string | URL | null): void => {
-    originalPushState(data, unused, url);
+    originalPushState.call(history, data, unused, url);
+    historyPushSequence += 1;
     retainApplicationHistoryMutation();
   };
   history.replaceState = runtimeReplaceState;
@@ -542,6 +550,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       unsafeTraversalPersistence.clearRecovery(existingPrivateState.session, existingPrivateState.entry, location.href);
     }
   } catch {
+    if (history.replaceState === runtimeReplaceState) history.replaceState = originalReplaceState;
+    if (history.pushState === runtimePushState) history.pushState = originalPushState;
     restoreScrollRestoration();
     return undefined;
   }
@@ -638,10 +648,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (closed || traversing || historyWriteFailed) return false;
     const state = privateHistoryState(history.state);
     if (!state || !ownsHistoryState(state, location.href)) return false;
-    const elementScroll = state.elementScroll || pendingElementScroll;
-    if (state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
+    if (state.elementScroll) {
       pendingElementScroll = false;
-      return !state.elementScroll;
+      return false;
+    }
+    const elementScroll = pendingElementScroll;
+    if (state.scrollX !== 0 || state.scrollY !== 0) {
+      if (!elementScroll) return true;
     }
     if (!force) {
       if (scrollX === 0 && scrollY === 0 && !elementScroll) return true;
@@ -685,31 +698,33 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
 
   const fallback = (destination: URL, replace: boolean, repairSelectedCommit = false): void => {
     restoreScrollRestoration();
-    if (repairSelectedCommit) {
-      const truthUrl = displayedTruthUrl;
-      const selectedUrl = location.href;
-      observeCancelledDeparture(
-        () => displayedTruthUrl === truthUrl && location.href === selectedUrl,
-        () => {
+    const truthUrl = displayedTruthUrl;
+    const selectedUrl = location.href;
+    observeCancelledDeparture(
+      () => displayedTruthUrl === truthUrl && location.href === selectedUrl,
+      () => {
+        if (repairSelectedCommit) {
           traversalSequence += 1;
           traversing = false;
           recoveringTraversal = undefined;
-          repairDisplayedTruth(
-            truthUrl,
-            "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
-            "native post-selection recovery was cancelled",
-          );
-        },
-      );
-    }
+        }
+        repairDisplayedTruth(
+          truthUrl,
+          "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+          repairSelectedCommit
+            ? "native post-selection recovery was cancelled"
+            : "native fallback was cancelled",
+        );
+      },
+    );
     if (replace) location.replace(destination.href);
     else location.assign(destination.href);
   };
 
-  const recoverSelectedPush = (destination: URL): void => {
+  const recoverSelectedPush = (destination: URL, selectedPushCount: number): void => {
     restoreScrollRestoration();
     selectedPushRecovery = Object.freeze({ destination, truthUrl: displayedTruthUrl });
-    history.back();
+    history.go(-selectedPushCount);
   };
 
   const supersedeTraversalForNativeActivation = (code: string, decision: string): boolean => {
@@ -745,6 +760,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     });
     active = operation;
     let destinationSelected = false;
+    let historyPushesBeforeCommit = historyPushSequence;
     try {
       const response = await fetch(destination.href, {
         method: "GET",
@@ -797,6 +813,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
       if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      historyPushesBeforeCommit = historyPushSequence;
       applyDocument(
         next,
         operation.destination.href,
@@ -851,7 +868,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         });
         const selectedCommitFailure = destinationSelected
           || (cause instanceof PrivateDocumentCommitFailure && cause.destinationSelected);
-        if (selectedCommitFailure && !replace) recoverSelectedPush(destination);
+        const selectedPushCount = historyPushSequence - historyPushesBeforeCommit;
+        if (selectedCommitFailure && !replace && selectedPushCount > 0) recoverSelectedPush(destination, selectedPushCount);
         else fallback(destination, replace || selectedCommitFailure, selectedCommitFailure);
       } else if (operation.cancellation.signal.aborted) {
         recordFlow({
@@ -909,16 +927,28 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       traversing = false;
       recoveringTraversal = undefined;
       const rollbackUrl = location.href;
-      observeCancelledDeparture(
-        () => location.href === rollbackUrl,
-        () => repairDisplayedTruth(
-          recovery.truthUrl,
-          "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
-          "native post-selection recovery was cancelled",
-        ),
-      );
       restoreScrollRestoration();
-      location.assign(recovery.destination.href);
+      setTimeout(() => {
+        if (closed || location.href !== rollbackUrl) return;
+        try {
+          const stagedState = createHistoryState(scrollX, scrollY, false, historySession);
+          const stagedPrivateState = privateHistoryState(stagedState);
+          if (!stagedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+          writeHistory.push(stagedState, recovery.destination.href);
+          rememberHistoryState(stagedPrivateState, recovery.destination.href);
+          observeCancelledDeparture(
+            () => location.href === recovery.destination.href,
+            () => repairDisplayedTruth(
+              recovery.truthUrl,
+              "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+              "native post-selection recovery was cancelled",
+            ),
+          );
+          location.replace(recovery.destination.href);
+        } catch {
+          fallback(recovery.destination, false);
+        }
+      }, 0);
       return;
     }
     const outgoingElementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
@@ -944,7 +974,24 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (traversal === traversalSequence) traversing = false;
     });
   };
-  const pagehide = (): void => restoreScrollRestoration();
+  const finishClose = (): void => {
+    if (closed) return;
+    closed = true;
+    closing = false;
+    document.removeEventListener("click", click);
+    document.removeEventListener("submit", submit);
+    document.removeEventListener("scroll", recordCurrentScroll, true);
+    if (history.replaceState === runtimeReplaceState) history.replaceState = originalReplaceState;
+    if (history.pushState === runtimePushState) history.pushState = originalPushState;
+    globalThis.removeEventListener("popstate", popstate);
+    globalThis.removeEventListener("pagehide", pagehide);
+    globalThis.removeEventListener("pageshow", pageshow);
+    restoreScrollRestoration();
+  };
+  const pagehide = (): void => {
+    if (closing) finishClose();
+    else restoreScrollRestoration();
+  };
   const pageshow = (event: PageTransitionEvent): void => {
     if (!closed && event.persisted) {
       try { history.scrollRestoration = "manual"; }
@@ -959,20 +1006,42 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   globalThis.addEventListener("pageshow", pageshow);
   return Object.freeze({
     close() {
-      if (closed) return;
-      const recoverSelectedTraversal = traversing;
-      closed = true;
+      if (closed || closing) return;
+      if (!traversing) {
+        finishClose();
+        return;
+      }
+      closing = true;
       active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
       document.removeEventListener("click", click);
       document.removeEventListener("submit", submit);
       document.removeEventListener("scroll", recordCurrentScroll, true);
-      if (history.replaceState === runtimeReplaceState) history.replaceState = originalReplaceState;
-      if (history.pushState === runtimePushState) history.pushState = originalPushState;
-      globalThis.removeEventListener("popstate", popstate);
-      globalThis.removeEventListener("pagehide", pagehide);
-      globalThis.removeEventListener("pageshow", pageshow);
+      const truthUrl = displayedTruthUrl;
+      const selectedUrl = location.href;
+      observeCancelledDeparture(
+        () => closing && displayedTruthUrl === truthUrl && location.href === selectedUrl,
+        () => {
+          traversalSequence += 1;
+          traversing = false;
+          recoveringTraversal = undefined;
+          repairDisplayedTruth(
+            truthUrl,
+            "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
+            "native close recovery was cancelled",
+          );
+          finishClose();
+        },
+      );
       restoreScrollRestoration();
-      if (recoverSelectedTraversal) location.reload();
+      try { location.reload(); }
+      catch {
+        repairDisplayedTruth(
+          truthUrl,
+          "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
+          "native close recovery could not start",
+        );
+        finishClose();
+      }
     },
   });
 }

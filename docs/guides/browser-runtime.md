@@ -534,6 +534,7 @@ startup failure does the same before falling back to native links:
   "schema": "fadeno.example.history-startup-recovery",
   "version": 1,
   "restoration": "auto",
+  "wrappersRestored": true,
   "nativeRecovery": true
 }
 ```
@@ -673,6 +674,19 @@ returns to zero; the recorded ownership cannot be erased by visual position:
 }
 ```
 
+Document scroll recorded first does not hide later element-scroll ownership;
+both causes remain attached to the same outgoing entry:
+
+```json
+{
+  "schema": "fadeno.example.history-combined-scroll-refusal",
+  "version": 1,
+  "combinedOwnershipRecorded": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
+}
+```
+
 The same monotonic element ownership is rechecked after an asynchronous
 request, even if the live element has returned to zero:
 
@@ -725,6 +739,24 @@ URL instead of leaving it paired with the previously displayed document:
 }
 ```
 
+If the user cancels that close-time reload, the selected slot is repaired to
+the displayed document truth before teardown completes. The closed runtime
+then leaves later links fully native:
+
+```json
+{
+  "schema": "fadeno.example.history-close-cancelled-traversal-recovery",
+  "version": 1,
+  "repairedPath": "/",
+  "repairedHeading": "Home",
+  "flowCode": "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
+  "restorationAfterRepair": "auto",
+  "runtimeClosed": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
+}
+```
+
 ```json
 {
   "schema": "fadeno.example.history-late-scroll-recovery",
@@ -771,6 +803,7 @@ fields cannot bootstrap ownership in a new runtime:
   "version": 1,
   "directCopyRefused": true,
   "historyUnclaimedAfterReload": true,
+  "historyUnclaimedAfterRestart": true,
   "reloadedCopyRefused": true
 }
 ```
@@ -797,6 +830,19 @@ mutation from the destination focus event:
 ```json
 {
   "schema": "fadeno.example.history-focus-state-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+If that focus event pushes another entry, every push selected after the trusted
+source is rolled back before one native destination is selected:
+
+```json
+{
+  "schema": "fadeno.example.history-multiple-push-recovery",
   "version": 1,
   "nativeRecovery": true,
   "historyEntriesAdded": 1,
@@ -913,6 +959,22 @@ repair and later safe enhancement resumes:
 }
 ```
 
+A canceled fallback that failed before selecting the destination also
+reacquires its prior history owner, repairs the trusted current entry, and can
+enhance the next safe attempt:
+
+```json
+{
+  "schema": "fadeno.example.history-cancelled-preselection-recovery",
+  "version": 1,
+  "repairedPath": "/",
+  "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+  "restorationAfterRepair": "manual",
+  "enhancementResumed": true,
+  "staleDocumentRemoved": true
+}
+```
+
 Malformed, application-owned, and otherwise well-formed state from a different
 runtime chain is never interpreted as Fadeno ownership. The selected URL
 reloads, so stale markup from the previous entry disappears and enhancement
@@ -933,6 +995,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 135 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
+for all 147 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

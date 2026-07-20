@@ -201,6 +201,11 @@ returns to zero; the recorded ownership cannot be erased by visual position:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-link-refusal.json","language":"json"} -->
 
+Document scroll recorded first does not hide later element-scroll ownership;
+both causes remain attached to the same outgoing entry:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-combined-scroll-refusal.json","language":"json"} -->
+
 The same monotonic element ownership is rechecked after an asynchronous
 request, even if the live element has returned to zero:
 
@@ -218,6 +223,12 @@ Closing the runtime while a traversal response is pending reloads the selected
 URL instead of leaving it paired with the previously displayed document:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-traversal-recovery.json","language":"json"} -->
+
+If the user cancels that close-time reload, the selected slot is repaired to
+the displayed document truth before teardown completes. The closed runtime
+then leaves later links fully native:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-cancelled-traversal-recovery.json","language":"json"} -->
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-late-scroll-recovery.json","language":"json"} -->
 
@@ -250,6 +261,11 @@ The same atomic document/history rollback also covers application history
 mutation from the destination focus event:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-focus-state-recovery.json","language":"json"} -->
+
+If that focus event pushes another entry, every push selected after the trusted
+source is rolled back before one native destination is selected:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-multiple-push-recovery.json","language":"json"} -->
 
 The same replacement classification survives when destination scrolling and
 the attempted local scroll rollback both fail persistently:
@@ -291,6 +307,12 @@ repair and later safe enhancement resumes:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-fallback-recovery.json","language":"json"} -->
 
+A canceled fallback that failed before selecting the destination also
+reacquires its prior history owner, repairs the trusted current entry, and can
+enhance the next safe attempt:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cancelled-preselection-recovery.json","language":"json"} -->
+
 Malformed, application-owned, and otherwise well-formed state from a different
 runtime chain is never interpreted as Fadeno ownership. The selected URL
 reloads, so stale markup from the previous entry disappears and enhancement
@@ -300,6 +322,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 135 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
+for all 147 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

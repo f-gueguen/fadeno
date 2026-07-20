@@ -61,9 +61,11 @@ runtime traversal, or a changed registered state reloads current server truth.
 Registry overflow is fail-closed. Application calls to `pushState` and
 `replaceState` are distinguished from guarded runtime writes and make the exact
 resulting entry and URL application-owned, including a byte-for-byte or same-URL
-copy. That refusal survives reload without granting a copied marker ownership.
-Recorded element-scroll ownership also keeps a new link native after the live
-element returns to zero, including when first observed while a request is pending.
+copy. That refusal survives reload and every explicit restart in the same
+document without granting a copied marker ownership. Recorded element-scroll
+ownership also keeps a new link native after the live element returns to zero,
+including when first observed while a request is pending or after document
+scroll was already recorded.
 
 Back or forward traversal is enhanced only when the selected owned entry has
 zero document scroll and no observed element-scroll ownership. Nonzero document
@@ -121,11 +123,16 @@ application state replacement during a request, and multi-entry traversal. A
 late response cannot commit document, history, focus, selection, or scroll after
 a newer click or traversal. Closing the runtime while a traversal is pending
 restores native scroll ownership and reloads the already selected current URL;
-it cannot leave that URL paired with the previously displayed document. If
+it cannot leave that URL paired with the previously displayed document. If the
+user cancels that reload, the selected slot is repaired to the displayed
+document's trusted URL before teardown finishes, after which the closed runtime
+leaves activation fully native. If
 destination history selection succeeds but a later document, focus, scroll, or
 final history-provenance check fails, native recovery does not append a duplicate
 destination. A newly pushed selection is rolled back before native navigation
-reselects it, while an already selected traversal is replaced in place; one Back
+reselects it, including every additional entry synchronously pushed by
+application code during the failed commit, while an already selected traversal
+is replaced in place; one Back
 traversal still reaches the prior document. Document and history postconditions
 share one rollback boundary, and local rollback failure cannot erase the
 selected-destination classification.
@@ -137,6 +144,9 @@ destination URL paired with old markup. Cancellation detection covers both
 `preventDefault()` and legacy non-empty `returnValue` confirmation requests.
 The same trusted displayed-truth repair applies when a post-selection commit
 failure rolls the document back and the user cancels its native replacement.
+It also applies when a preselection native fallback is cancelled, so the active
+runtime reacquires manual restoration instead of continuing under mixed
+ownership.
 Flow evidence
 records stable ownership and refusal causes without URLs, selected text,
 history payloads, markup, or user data.
@@ -174,10 +184,10 @@ push, zero-scroll back/forward replacement, rapid traversal cancellation,
 destination focus without focus-induced scroll, collapsed-selection disposal,
 non-collapsed-selection refusal, scrolled-origin departure, nonzero document and
 element-scroll restoration refusal, foreign-chain and unowned-state recovery,
-recorded and pending element-scroll link refusal, cloned-entry and same-URL
+recorded, combined document/element, and pending element-scroll link refusal, cloned-entry and same-URL
 application-copy recovery before and after reload, per-entry recovery resumption,
-post-history commit, focus-time history mutation, and rollback failure without duplicate entries, cancelled-
-reload and post-selection fallback repair, returnValue-only cancellation,
+post-history commit, focus-time history mutation, multi-push rollback, and rollback failure without duplicate entries, cancelled-
+reload, close-time reload, post-selection fallback, and preselection fallback repair, returnValue-only cancellation,
 pending-traversal eligible-click, refused-fragment, and native-form supersession,
 secure-environment refusal and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result

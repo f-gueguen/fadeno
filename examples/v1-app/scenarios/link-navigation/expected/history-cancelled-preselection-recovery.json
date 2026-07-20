@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.history-cancelled-preselection-recovery",
+  "version": 1,
+  "repairedPath": "/",
+  "flowCode": "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+  "restorationAfterRepair": "manual",
+  "enhancementResumed": true,
+  "staleDocumentRemoved": true
+}
