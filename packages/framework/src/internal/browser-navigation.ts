@@ -1071,7 +1071,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         signal: operation.cancellation.signal,
         headers: {
           accept: mediaType,
-          "x-fadeno-current-url": operation.currentTruthUrl,
+          "x-fadeno-current-url": encodeURIComponent(operation.currentTruthUrl),
           "x-fadeno-document-epoch": operation.documentEpoch,
           "x-fadeno-operation-id": operation.id,
           "x-fadeno-operation-sequence": String(operation.sequence),
@@ -1289,7 +1289,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         signal: operation.cancellation.signal,
         headers: {
           accept: mediaType,
-          "x-fadeno-current-url": operation.currentTruthUrl,
+          "x-fadeno-current-url": encodeURIComponent(operation.currentTruthUrl),
           "x-fadeno-document-epoch": operation.documentEpoch,
           "x-fadeno-operation-id": operation.id,
           "x-fadeno-operation-sequence": String(operation.sequence),

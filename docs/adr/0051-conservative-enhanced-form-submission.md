@@ -44,6 +44,8 @@ action is an uncredentialed same-origin URL without a fragment. A dialog form,
 image submitter, unsupported method or encoding, other browsing context,
 hostile URL, invalid submitter, or already-owned mutation remains native or is
 refused without starting another request.
+An explicit `noreferrer` form remains native so enhancement cannot add request
+referrer data that the platform submission would omit.
 
 The runtime derives effective action, method, target, and encoding from the
 actual form and submitter properties. It constructs exactly one platform
@@ -109,6 +111,9 @@ and exact `Origin` equality are accepted. The transport binds the operation to
 the exact incoming `Request`, invokes the existing handler/action wrapper once,
 and projects that one native response once. Correlation headers carry no
 authorization, action identity, proof, session, or submitted value.
+The current-truth URL is percent-encoded as one bounded header value before
+transport and decoded before same-origin URL validation. This preserves legal
+URL commas without confusing them with a combined header value.
 
 The existing action runtime still verifies method, media type, origin, route,
 generation, session, proof, replay, successful controls, limits,

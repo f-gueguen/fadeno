@@ -25,6 +25,12 @@ function exactSingleHeader(request: Request, name: string): string | null {
   return value !== null && !value.includes(",") ? value : null;
 }
 
+function decodeCurrentTruthHeader(value: string | null): string | undefined {
+  if (!bounded(value, maximumUrlBytes * 3)) return undefined;
+  try { return decodeURIComponent(value); }
+  catch { return undefined; }
+}
+
 function safeSameOriginUrl(value: string, origin: string): string | undefined {
   if (!bounded(value, maximumUrlBytes)) return undefined;
   try {
@@ -87,7 +93,10 @@ export async function servePrivateServerUpdate(
   const sequenceSource = exactSingleHeader(request, "x-fadeno-operation-sequence");
   const currentSource = exactSingleHeader(request, "x-fadeno-current-url");
   const destination = safeSameOriginUrl(request.url, input.origin);
-  const currentTruthUrl = currentSource ? safeSameOriginUrl(currentSource, input.origin) : undefined;
+  const decodedCurrentSource = decodeCurrentTruthHeader(currentSource);
+  const currentTruthUrl = decodedCurrentSource === undefined
+    ? undefined
+    : safeSameOriginUrl(decodedCurrentSource, input.origin);
   const sequence = sequenceSource === null || !/^[1-9][0-9]{0,15}$/u.test(sequenceSource)
     ? undefined
     : Number(sequenceSource);

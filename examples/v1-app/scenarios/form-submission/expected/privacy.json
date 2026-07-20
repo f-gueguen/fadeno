@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.form-submission-privacy",
+  "version": 1,
+  "noreferrerPrivateRequests": 0,
+  "noreferrerStayedNative": true,
+  "unownedFocusSubmitTrusted": true,
+  "unownedFocusPrivateRequests": 0,
+  "commaCurrentTruthEncoded": true,
+  "commaActionRuns": 1
+}

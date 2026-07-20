@@ -48,6 +48,7 @@ type TransportRecord = {
   path: string;
   accept: string | undefined;
   origin: string | undefined;
+  currentTruth: string | undefined;
   status?: number;
   code?: string;
 };
@@ -87,6 +88,9 @@ test.beforeAll(async () => {
       path: new URL(incoming.url ?? "/", "https://example.invalid").pathname,
       accept: incoming.headers.accept,
       origin: incoming.headers.origin,
+      currentTruth: typeof incoming.headers["x-fadeno-current-url"] === "string"
+        ? incoming.headers["x-fadeno-current-url"]
+        : undefined,
     };
     transportRequests.push(transportRecord);
     const drop = dropNextMutationResponse
@@ -462,6 +466,66 @@ test("refuses invalid origin, forbidden authorization, and unsupported enhanceme
     oversizedActionRuns: 0,
     secretAbsent: true,
   }).toEqual(expected("security"));
+});
+
+test("preserves form privacy, focus ownership, and legal current-truth URLs", async ({ page }) => {
+  await page.goto(origin);
+  await expect.poll(async () => page.evaluate(() => Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  requests.length = 0;
+  transportRequests.length = 0;
+  await page.locator("#search-form").evaluate((element) => element.setAttribute("rel", "noreferrer"));
+  await page.locator("#search-form button").click();
+  await expect(page.locator("h1")).toHaveText("Search result");
+  const privateAfterNoreferrer = transportRequests.filter(({ accept }) => accept === mediaType).length;
+  const noreferrerStayedNative = requests.some(({ method, path, privateUpdate }) => method === "GET"
+    && path === "/search"
+    && !privateUpdate);
+
+  await page.goto(origin);
+  await expect.poll(async () => page.evaluate(() => Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  requests.length = 0;
+  transportRequests.length = 0;
+  await page.evaluate(() => {
+    const form = document.querySelector<HTMLFormElement>("#search-form");
+    const submitter = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (!form || !submitter) throw new Error("FADENO_V2_FORM_FOCUS_FIXTURE");
+    const anchor = document.createElement("a");
+    anchor.id = "unowned-focus";
+    anchor.href = "#submit";
+    anchor.textContent = "Submit while this link owns focus";
+    anchor.addEventListener("click", (event) => {
+      event.preventDefault();
+      anchor.focus();
+      form.requestSubmit(submitter);
+    });
+    form.addEventListener("submit", (event) => {
+      sessionStorage.setItem("fadeno-example-submit-trusted", String(event.isTrusted));
+    }, { capture: true });
+    form.prepend(anchor);
+  });
+  const focusLoad = page.waitForEvent("load");
+  await page.locator("#unowned-focus").click({ noWaitAfter: true });
+  await focusLoad;
+  await expect(page.locator("h1")).toHaveText("Search result");
+  const unownedFocusSubmitTrusted = await page.evaluate(() => sessionStorage.getItem("fadeno-example-submit-trusted") === "true");
+  const privateAfterUnownedFocus = transportRequests.filter(({ accept }) => accept === mediaType).length;
+
+  transportRequests.length = 0;
+  await page.goto(`${origin}/projects?filter=a,b`);
+  await page.locator("#passcode").fill("example-owner");
+  await page.locator("#sign-in-form button").click();
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const mutation = privateMutations().at(-1);
+  expect({
+    schema: "fadeno.example.form-submission-privacy",
+    version: 1,
+    noreferrerPrivateRequests: privateAfterNoreferrer,
+    noreferrerStayedNative,
+    unownedFocusSubmitTrusted,
+    unownedFocusPrivateRequests: privateAfterUnownedFocus,
+    commaCurrentTruthEncoded: mutation?.currentTruth?.includes("%2C") === true,
+    commaActionRuns: application.readApplicationState().signInRuns,
+  }).toEqual(expected("privacy"));
 });
 
 test("rejects cross-user proof reuse and oversized fields before action execution", async ({ page, browser }) => {

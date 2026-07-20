@@ -136,7 +136,8 @@
       "scenarios/link-navigation/expected/history-native-departure.json",
       "scenarios/form-submission/expected/failure-human.txt",
       "scenarios/form-submission/expected/failure.json",
-      "scenarios/form-submission/expected/security.json"
+      "scenarios/form-submission/expected/security.json",
+      "scenarios/form-submission/expected/privacy.json"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",

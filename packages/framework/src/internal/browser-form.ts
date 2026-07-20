@@ -63,6 +63,7 @@ export function privateFormEligibility(
   candidate: SubmitEvent["submitter"],
 ): PrivateFormEligibility | undefined {
   if (!form.isConnected || form.ownerDocument !== document) return undefined;
+  if (form.relList.contains("noreferrer")) return undefined;
   const submitter = validSubmitter(form, candidate);
   if (submitter === false) return undefined;
   const method = effectiveAttribute(
@@ -168,15 +169,14 @@ export function privateFormPreservationSafe(
   const selection = document.getSelection();
   if (selection && !selection.isCollapsed) return false;
   const active = document.activeElement;
+  const activeOwner = active ? controlOwner(active) : undefined;
   const runtimeFocus = active instanceof HTMLElement
     && active === (document.querySelector("h1") ?? document.querySelector("main"))
     && active.getAttribute("data-fadeno-navigation-focus") === "";
   if (active
     && active !== document.body
     && active !== document.documentElement
-    && (controlOwner(active) === undefined
-      ? !eligibility.form.contains(active)
-      : controlOwner(active) !== eligibility.form)
+    && activeOwner !== eligibility.form
     && active !== eligibility.submitter
     && !runtimeFocus) return false;
   const documentScroller = document.scrollingElement;
