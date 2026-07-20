@@ -13,13 +13,17 @@ function mutation(expected: string, mutate: (context: V2PlanContext) => V2PlanCo
 
 const valid = validateV2Plan(source);
 if (valid.length > 0) throw new Error(`valid V2 plan refused:\n${valid.join("\n")}`);
-mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, V2-11A, V2-11B, then V2-12 in order", (context) => Object.freeze({
+mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-05, V2-05A, V2-06 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, V2-11A, V2-11B, then V2-12 in order", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace("| V2-06 |", "| V2-16 |"),
 }));
 mutation("V2 roadmap V2-04 dependency contract mismatch", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace(/^\| V2-04 \|.*$/mu, (line) => line.replace("| V2-03 |", "| V2-08 |")),
+}));
+mutation("V2 roadmap V2-05A artifact contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-05A \|.*$/mu, (line) => line.replace("application-owned public facts", "private telemetry")),
 }));
 mutation("V2 roadmap V2-04 outcome contract mismatch", (context) => Object.freeze({
   ...context,
@@ -114,11 +118,11 @@ mutation("README handoff is missing current V2 plan", (context) => Object.freeze
 }));
 mutation("V2 roadmap ledger state drifted", (context) => Object.freeze({
   ...context,
-  ledger: context.ledger.replace("V2-04 — Merge commit `9d526b8`", "V2-04 — merge identity removed"),
+  ledger: context.ledger.replace("V2-05 — Merge commit `9babb9c`", "V2-05 — merge identity removed"),
 }));
 mutation("V2 entry package identity drifted", (context) => Object.freeze({
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },
 }));
 
-console.log("V2 plan mutation tests passed (19 slices, exact outcomes/contracts, native fallback and security, post-hardening replay, accessibility feedback, form security, relative baseline, historical/current release identity, and traceability)");
+console.log("V2 plan mutation tests passed (20 slices, evaluator-ready demo, exact outcomes/contracts, native fallback and security, post-hardening replay, accessibility feedback, form security, relative baseline, historical/current release identity, and traceability)");

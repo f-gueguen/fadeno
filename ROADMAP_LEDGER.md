@@ -6,45 +6,43 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-05 — qualify history, focus, selection, and explicit scroll-boundary behavior
+V2-05A — make the canonical application an evaluator-ready feature demonstration
 
 ## Exit criteria
 
-- [ ] Accept one exact history traversal, focus, selection, reduced-motion,
-  document-scroll, and element-scroll decision before broadening ownership.
-- [ ] Prove push, replace, back, forward, interrupted traversal, and direct-load
-  equivalence in Chromium, Firefox, and WebKit.
-- [ ] Keep focus and selection native or refuse before interception wherever
-  accessible ownership cannot be preserved exactly.
-- [ ] Manage only explicitly accepted scroll boundaries and retain native
-  navigation for affected or unknown preceding layout.
-- [ ] Extend the packed canonical application with executable success,
-  deliberate refusal, normalized machine output, causal flow, rollback, and
-  stale-result recovery for every newly observable behavior.
-- [ ] Add exactly one pending Changeset with semantic version intent and pass
-  all affected gates, full local CI, and remote review-thread triage.
+- [ ] Make every accepted V1 route, resource, action/session, failure, recovery,
+  build, and browser-enhancement outcome discoverable from one task-oriented
+  canonical application.
+- [ ] Use one distinctive request-thread visual language while deriving every
+  displayed fact from application-owned public behavior or named executable
+  qualification evidence.
+- [ ] Provide an honest loopback HTTP read-only state and an exact HTTPS path
+  for the mutation workflow without weakening the action security boundary.
+- [ ] Prove one-command setup, public packed-package consumption, deliberate
+  failure and recovery, desktop/mobile layout, keyboard focus, reduced motion,
+  and no-JavaScript operation in Chromium, Firefox, and WebKit.
+- [ ] Generate documentation from tested sources, add no framework package
+  behavior or Changeset, pass full local CI, and complete remote review triage.
 
 ## Active sub-slice
 
-V2-05 qualifies the browser-owned navigation state around the V2-04 link path.
-It may broaden only history, focus, selection, motion, or scroll behavior that
-the three-engine corpus proves equivalent; every unknown boundary stays native.
-It does not enhance forms, add general structural reconciliation, expose the
-private update schema, add an analyzer/editor product, or claim complete V2
-usability. Release impact: additive prerelease behavior, requiring exactly one
-pending minor Changeset.
+V2-05A changes only the canonical application, its executable evidence, and
+generated guidance. It turns already accepted behavior into visible
+cause-and-outcome demonstrations without inventing runtime facts, exposing a
+private schema, enhancing forms, adding an editor product, or changing the
+publishable package. Release impact: none; no Changeset is permitted.
 
 ## In progress
 
-- Freeze the exact history, focus, selection, motion, and scroll matrix before
-  changing the V2-04 conservative predicate.
-- Qualify the smallest safe ownership increase through the current packed
-  application in all three engines.
+- Establish the evaluator-facing request-thread information architecture and
+  complete task navigation.
+- Extend the packed application gate with visible success, failure, recovery,
+  responsive, accessibility, and exact setup evidence.
 
 ## Blockers
 
-- V2-07 handoff remains blocked until V2-05's browser-state qualification and
-  rollback evidence is accepted.
+- V2-06 handoff remains blocked until V2-05A establishes the demonstration
+  surface that later user-observable slices must extend.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -54,6 +52,13 @@ pending minor Changeset.
   compatibility decision.
 
 ## Completed slices
+
+- V2-05 — Merge commit `9babb9c` qualifies exact private history ownership,
+  focus, selection, reduced motion, conservative document and element scroll,
+  atomic rollback, cancellation, supersession, persisted-page lifecycle, and
+  native current-truth recovery through 189 current-packed assertions across
+  Chromium, Firefox, and WebKit without exposing a public schema or enhancing
+  forms.
 
 - V2-04 — Merge commit `9d526b8` adds conservative same-origin link
   interception, cancellable private requests, current-generation admission,
