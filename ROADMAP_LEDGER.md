@@ -6,43 +6,47 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-05A — make the canonical application an evaluator-ready feature demonstration
+V2-06 — enhance form submission without changing successful controls or action authority
 
 ## Exit criteria
 
-- [ ] Make every accepted V1 route, resource, action/session, failure, recovery,
-  build, and browser-enhancement outcome discoverable from one task-oriented
-  canonical application.
-- [ ] Use one distinctive request-thread visual language while deriving every
-  displayed fact from application-owned public behavior or named executable
-  qualification evidence.
-- [ ] Provide an honest loopback HTTP read-only state and an exact HTTPS path
-  for the mutation workflow without weakening the action security boundary.
-- [ ] Prove one-command setup, public packed-package consumption, deliberate
-  failure and recovery, desktop/mobile layout, keyboard focus, reduced motion,
-  and no-JavaScript operation in Chromium, Firefox, and WebKit.
-- [ ] Generate documentation from tested sources, add no framework package
-  behavior or Changeset, pass full local CI, and complete remote review triage.
+- [ ] Accept one durable form-enhancement decision that keeps native forms as
+  the baseline and preserves the existing route, action, authorization,
+  origin, proof, replay, session, redirect, and revalidation authorities.
+- [ ] Enhance eligible GET forms as navigation without mutation authority and
+  submit the exact native successful controls, URL, and history outcome.
+- [ ] Enhance eligible protected POST actions with bounded pending ownership,
+  expected validation, cancellation, duplicate refusal, and current-truth
+  recovery that never repeats an uncertain mutation.
+- [ ] Refuse before interception when target, encoding, origin, successful
+  controls, preservation, or request ownership is unsafe; prove negative
+  authorization, cross-user isolation, resource limits, redaction, rollback,
+  teardown, and stale-result removal.
+- [ ] Extend the canonical evaluator application and its isolated scenario with
+  current-packed Chromium, Firefox, WebKit, and no-JavaScript success, failure,
+  correction, flow, and recovery evidence.
+- [ ] Add exactly one pending minor Changeset, pass every affected gate and full
+  local CI on the final commit, and complete remote review triage.
 
 ## Active sub-slice
 
-V2-05A changes only the canonical application, its executable evidence, and
-generated guidance. It turns already accepted behavior into visible
-cause-and-outcome demonstrations without inventing runtime facts, exposing a
-private schema, enhancing forms, adding an editor product, or changing the
-publishable package. Release impact: none; no Changeset is permitted.
+V2-06 adds one conservative form path to the existing explicit browser runtime
+and private server-owned update transport. It does not add a second action API,
+public protocol, public analyzer schema, editor product, optimistic mutation,
+or general reconciliation claim. Release impact: additive prerelease behavior;
+exactly one pending minor Changeset is required.
 
 ## In progress
 
-- Establish the evaluator-facing request-thread information architecture and
-  complete task navigation.
-- Extend the packed application gate with visible success, failure, recovery,
-  responsive, accessibility, and exact setup evidence.
+- Record the exact form eligibility, successful-control, pending, cancellation,
+  uncertain-mutation recovery, and teardown decisions.
+- Implement and qualify GET navigation and protected POST action delivery
+  through the same native server authorities.
 
 ## Blockers
 
-- V2-06 handoff remains blocked until V2-05A establishes the demonstration
-  surface that later user-observable slices must extend.
+- V2-07 handoff remains blocked until V2-06 proves form request ownership,
+  payload equivalence, and non-repeating uncertain-mutation recovery.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -52,6 +56,14 @@ publishable package. Release impact: none; no Changeset is permitted.
   compatibility decision.
 
 ## Completed slices
+
+- V2-05A — Merge commit `b951e4d` turns the current packed canonical
+  application into a task-oriented evaluator demonstration with complete
+  navigation, an application-owned request thread, styled route/resource/
+  action/failure/evidence laboratories, honest HTTP read-only and one-command
+  HTTPS mutation paths, responsive and no-JavaScript three-engine evidence,
+  exact-origin/session/replay security assertions, and tested guidance without
+  changing package behavior or exposing private telemetry.
 
 - V2-05 — Merge commit `9babb9c` qualifies exact private history ownership,
   focus, selection, reduced motion, conservative document and element scroll,

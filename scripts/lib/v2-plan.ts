@@ -148,7 +148,8 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   for (const fragment of ["completed its qualified private V1 and public A0", "current V2 plan", "[current V2 plan](docs/roadmap/v2.md)"]) {
     if (!context.readme.includes(fragment)) errors.push(`README handoff is missing ${fragment}`);
   }
-  if (!context.ledger.includes("V2-05A — make the canonical application an evaluator-ready feature demonstration")
+  if (!context.ledger.includes("V2-06 — enhance form submission without changing successful controls or action authority")
+    || !context.ledger.includes("V2-05A — Merge commit `b951e4d`")
     || !context.ledger.includes("V2-05 — Merge commit `9babb9c`")
     || !context.ledger.includes("V2-00 — decompose browser enhancement")
     || !context.ledger.includes("A0-10 — Merge commit `60d55c7`")
@@ -157,7 +158,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     || !context.ledger.includes("V2-04 — Merge commit `9d526b8`")
     || !context.ledger.includes("V2-01A — Merge commit `46c7ab0`")
     || !context.ledger.includes("V2-01 — Merge commit `d9718c0`")
-    || !context.ledger.includes("V2-06 handoff remains blocked")
+    || !context.ledger.includes("V2-07 handoff remains blocked")
     || !context.ledger.includes("resolves DG-V2-01")) {
     errors.push("V2 roadmap ledger state drifted");
   }
