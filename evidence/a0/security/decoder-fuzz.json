@@ -94,7 +94,7 @@
       "accepted": 1,
       "refused": 259,
       "unexpected": 0,
-      "largestInputBytes": 4762,
+      "largestInputBytes": 4096,
       "classificationSha256": "a4715b7ba919b74b613cb2910f7de825918f45ee77e7536ae719c5c502bdbf9e"
     },
     {

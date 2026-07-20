@@ -173,6 +173,11 @@ including after a supported runtime restart:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-monotonic-scroll-recovery.json","language":"json"} -->
 
+After a current-truth reload, only the recovered unsafe entry is re-keyed.
+Other supported entries can resume enhanced traversal:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-entry-recovery-resumption.json","language":"json"} -->
+
 The first observed nonzero document or element scroll marks the entry unsafe,
 so continuous scrolling does not keep rewriting history. The final pre-
 interception write is guarded; if the browser refuses it, the ordinary link
@@ -195,6 +200,11 @@ Element-scroll ownership also keeps a later link native after the live element
 returns to zero; the recorded ownership cannot be erased by visual position:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-link-refusal.json","language":"json"} -->
+
+The same monotonic element ownership is rechecked after an asynchronous
+request, even if the live element has returned to zero:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-pending-element-scroll-refusal.json","language":"json"} -->
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-pending-scroll-recovery.json","language":"json"} -->
 
@@ -223,11 +233,23 @@ does not grant ownership:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cloned-entry-recovery.json","language":"json"} -->
 
+An exact same-URL copy is also native immediately and after a reload; copied
+fields cannot bootstrap ownership in a new runtime:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-same-url-copy-refusal.json","language":"json"} -->
+
 If destination history selection succeeds but focus or another later document
-commit step fails, native recovery replaces that selected destination instead
-of appending it again. One Back traversal still reaches the prior document:
+commit step fails, native recovery does not append that destination again. A
+newly pushed selection rolls back before native navigation reselects it, while a
+traversal selection is replaced in place. One Back traversal still reaches the
+prior document:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-commit-failure-recovery.json","language":"json"} -->
+
+The same atomic document/history rollback also covers application history
+mutation from the destination focus event:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-focus-state-recovery.json","language":"json"} -->
 
 The same replacement classification survives when destination scrolling and
 the attempted local scroll rollback both fail persistently:
@@ -244,6 +266,13 @@ A newer safe click also cancels a pending traversal before remaining native;
 obsolete traversal markup cannot overwrite the clicked destination:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-click-supersession-recovery.json","language":"json"} -->
+
+Refused same-document links and still-native forms cancel the same obsolete
+traversal and start from repaired displayed-document truth:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-fragment-supersession-recovery.json","language":"json"} -->
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-form-supersession-recovery.json","language":"json"} -->
 
 If the user cancels a reload required by an unsafe Back or Forward traversal,
 the still-active document repairs the selected slot to its trusted displayed
@@ -271,6 +300,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 117 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 135 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

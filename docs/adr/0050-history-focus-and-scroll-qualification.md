@@ -58,8 +58,12 @@ The active runtime keeps a bounded registry of the exact entry state and URL it
 created. A marker and chain identity alone do not grant ownership: an entry
 copied by application code, a repeated selected identity without an observed
 runtime traversal, or a changed registered state reloads current server truth.
-Registry overflow is fail-closed. Recorded element-scroll ownership also keeps
-a new link native after the live element returns to zero.
+Registry overflow is fail-closed. Application calls to `pushState` and
+`replaceState` are distinguished from guarded runtime writes and make the exact
+resulting entry and URL application-owned, including a byte-for-byte or same-URL
+copy. That refusal survives reload without granting a copied marker ownership.
+Recorded element-scroll ownership also keeps a new link native after the live
+element returns to zero, including when first observed while a request is pending.
 
 Back or forward traversal is enhanced only when the selected owned entry has
 zero document scroll and no observed element-scroll ownership. Nonzero document
@@ -91,17 +95,21 @@ decision and must retain this no-animation reduced-motion baseline.
 Traversal supersession uses ADR 0049's existing operation cancellation and
 newest-only publication. A newly selected traversal cancels its predecessor
 before any early native-recovery decision, so an obsolete response cannot race
-that recovery. A newer eligible same-context click also cancels the pending
-traversal before remaining native during traversal suppression. Scroll-write suppression remains owned by the newest
-traversal until that traversal finishes; an older traversal's cleanup cannot
-release it. Every entry has a bounded private identity; `popstate` inspects the
+that recovery. A refused same-context link, including a fragment, and a still-
+native same-context form submission also cancel the pending traversal and repair
+its selected slot before native activation continues. Listening for the form
+submission does not intercept or enhance it. Scroll-write suppression remains
+owned by the newest traversal until that traversal finishes; an older
+traversal's cleanup cannot release it. Every entry has a bounded private identity; `popstate` inspects the
 still-present outgoing document and conservatively marks its displayed identity
 unsafe. The displayed identity changes only after a successful document commit,
 not when an intermediate traversal merely selects another entry. If the bounded
 unsafe-identity tracker fills, every later traversal reloads rather than
-forgetting an older unsafe entry. A bounded chain-scoped refusal record retains
-unsafe ownership discovered only after traversal selection across runtime
-restart; malformed or unavailable persistence is itself fail-closed. Scroll
+forgetting an older unsafe entry. A bounded per-session, entry, and URL refusal
+record retains unsafe or application-owned evidence across runtime restart;
+malformed, unavailable, or overflowing persistence is itself fail-closed. A
+current-truth reload re-keys and clears only the exact recovered unsafe entry,
+so a different supported entry can resume enhancement. Scroll
 that occurs while traversal work is pending marks the still-displayed entry,
 cancels the pending response, and queues the same native recovery after a
 bounded 50-millisecond supersession window. A newer traversal replaces that
@@ -114,10 +122,13 @@ late response cannot commit document, history, focus, selection, or scroll after
 a newer click or traversal. Closing the runtime while a traversal is pending
 restores native scroll ownership and reloads the already selected current URL;
 it cannot leave that URL paired with the previously displayed document. If
-destination history selection succeeds but a later document, focus, or scroll
-commit step fails, native recovery replaces that already selected destination
-instead of appending it again; one Back traversal still reaches the prior
-document. Local rollback failure cannot erase that replacement classification.
+destination history selection succeeds but a later document, focus, scroll, or
+final history-provenance check fails, native recovery does not append a duplicate
+destination. A newly pushed selection is rolled back before native navigation
+reselects it, while an already selected traversal is replaced in place; one Back
+traversal still reaches the prior document. Document and history postconditions
+share one rollback boundary, and local rollback failure cannot erase the
+selected-destination classification.
 If a user cancels the native reload requested for an unsafe traversal, the
 still-running document repairs the selected history slot to a fresh private
 entry at the displayed document's trusted URL, reacquires manual restoration,
@@ -163,9 +174,11 @@ push, zero-scroll back/forward replacement, rapid traversal cancellation,
 destination focus without focus-induced scroll, collapsed-selection disposal,
 non-collapsed-selection refusal, scrolled-origin departure, nonzero document and
 element-scroll restoration refusal, foreign-chain and unowned-state recovery,
-recorded element-scroll link refusal, cloned-entry recovery,
-post-history commit and rollback failure without duplicate entries, cancelled-
+recorded and pending element-scroll link refusal, cloned-entry and same-URL
+application-copy recovery before and after reload, per-entry recovery resumption,
+post-history commit, focus-time history mutation, and rollback failure without duplicate entries, cancelled-
 reload and post-selection fallback repair, returnValue-only cancellation,
-pending-traversal click supersession, secure-environment refusal and resumed enhancement, normal/reduced-
+pending-traversal eligible-click, refused-fragment, and native-form supersession,
+secure-environment refusal and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.

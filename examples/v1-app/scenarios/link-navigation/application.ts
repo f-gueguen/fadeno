@@ -20,6 +20,11 @@ const links = (): RenderChild => jsxs("nav", { "aria-label": "Example navigation
   jsx("a", { id: "download-link", href: "/download", download: "example.txt", children: "Download" }),
   " ",
   jsx("a", { id: "fragment-link", href: "#details", children: "Details" }),
+  " ",
+  jsxs("form", { id: "native-form", action: "/next", method: "get", children: [
+    jsx("input", { name: "source", type: "hidden", value: "native-form" }),
+    jsx("button", { type: "submit", children: "Submit natively" }),
+  ] }),
 ] });
 
 const longContent = (): RenderChild => jsxs("section", { id: "history-content", children: [

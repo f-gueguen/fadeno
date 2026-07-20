@@ -12,7 +12,7 @@ export const A0_DECODER_FUZZ_SURFACES = Object.freeze([
   Object.freeze({ id: "check-command-arguments", cases: 68, maximumInputBytes: 4_096 }),
   Object.freeze({ id: "create-command-arguments", cases: 68, maximumInputBytes: 4_096 }),
   Object.freeze({ id: "deploy-command-arguments", cases: 68, maximumInputBytes: 4_096 }),
-  Object.freeze({ id: "route-artifact-manifest", cases: 260, maximumInputBytes: 8 * 1_024 }),
+  Object.freeze({ id: "route-artifact-manifest", cases: 260, maximumInputBytes: 4_096 }),
   Object.freeze({ id: "session-cookie", cases: 260, maximumInputBytes: 16 * 1_024 + 1 }),
   Object.freeze({ id: "action-endpoint", cases: 260, maximumInputBytes: 4_096 }),
   Object.freeze({ id: "action-proof", cases: 260, maximumInputBytes: 4_096 }),

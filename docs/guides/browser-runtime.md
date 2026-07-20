@@ -311,6 +311,11 @@ const links = (): RenderChild => jsxs("nav", { "aria-label": "Example navigation
   jsx("a", { id: "download-link", href: "/download", download: "example.txt", children: "Download" }),
   " ",
   jsx("a", { id: "fragment-link", href: "#details", children: "Details" }),
+  " ",
+  jsxs("form", { id: "native-form", action: "/next", method: "get", children: [
+    jsx("input", { name: "source", type: "hidden", value: "native-form" }),
+    jsx("button", { type: "submit", children: "Submit natively" }),
+  ] }),
 ] });
 
 const longContent = (): RenderChild => jsxs("section", { id: "history-content", children: [
@@ -599,6 +604,20 @@ including after a supported runtime restart:
 }
 ```
 
+After a current-truth reload, only the recovered unsafe entry is re-keyed.
+Other supported entries can resume enhanced traversal:
+
+```json
+{
+  "schema": "fadeno.example.history-entry-recovery-resumption",
+  "version": 1,
+  "unsafeEntryReloaded": true,
+  "recoveredEntryRekeyed": true,
+  "supportedTraversalResumed": true,
+  "staleDocumentRemoved": true
+}
+```
+
 The first observed nonzero document or element scroll marks the entry unsafe,
 so continuous scrolling does not keep rewriting history. The final pre-
 interception write is guarded; if the browser refuses it, the ordinary link
@@ -651,6 +670,20 @@ returns to zero; the recorded ownership cannot be erased by visual position:
   "elementOwnershipRetained": true,
   "nativeDeparture": true,
   "enhancedRequestSkipped": true
+}
+```
+
+The same monotonic element ownership is rechecked after an asynchronous
+request, even if the live element has returned to zero:
+
+```json
+{
+  "schema": "fadeno.example.history-pending-element-scroll-refusal",
+  "version": 1,
+  "elementOwnershipRetained": true,
+  "enhancedAttemptObserved": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
 }
 ```
 
@@ -729,13 +762,41 @@ does not grant ownership:
 }
 ```
 
+An exact same-URL copy is also native immediately and after a reload; copied
+fields cannot bootstrap ownership in a new runtime:
+
+```json
+{
+  "schema": "fadeno.example.history-same-url-copy-refusal",
+  "version": 1,
+  "directCopyRefused": true,
+  "historyUnclaimedAfterReload": true,
+  "reloadedCopyRefused": true
+}
+```
+
 If destination history selection succeeds but focus or another later document
-commit step fails, native recovery replaces that selected destination instead
-of appending it again. One Back traversal still reaches the prior document:
+commit step fails, native recovery does not append that destination again. A
+newly pushed selection rolls back before native navigation reselects it, while a
+traversal selection is replaced in place. One Back traversal still reaches the
+prior document:
 
 ```json
 {
   "schema": "fadeno.example.history-commit-failure-recovery",
+  "version": 1,
+  "nativeRecovery": true,
+  "historyEntriesAdded": 1,
+  "oneBackReachedPriorDocument": true
+}
+```
+
+The same atomic document/history rollback also covers application history
+mutation from the destination focus event:
+
+```json
+{
+  "schema": "fadeno.example.history-focus-state-recovery",
   "version": 1,
   "nativeRecovery": true,
   "historyEntriesAdded": 1,
@@ -779,6 +840,30 @@ obsolete traversal markup cannot overwrite the clicked destination:
   "version": 1,
   "pendingTraversalAborted": true,
   "nativeClickWon": true,
+  "obsoleteDocumentSuppressed": true
+}
+```
+
+Refused same-document links and still-native forms cancel the same obsolete
+traversal and start from repaired displayed-document truth:
+
+```json
+{
+  "schema": "fadeno.example.history-fragment-supersession-recovery",
+  "version": 1,
+  "pendingTraversalAborted": true,
+  "nativeFragmentWon": true,
+  "displayedTruthRepaired": true,
+  "obsoleteDocumentSuppressed": true
+}
+```
+
+```json
+{
+  "schema": "fadeno.example.history-form-supersession-recovery",
+  "version": 1,
+  "pendingTraversalAborted": true,
+  "nativeFormWon": true,
   "obsoleteDocumentSuppressed": true
 }
 ```
@@ -848,6 +933,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 117 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 135 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

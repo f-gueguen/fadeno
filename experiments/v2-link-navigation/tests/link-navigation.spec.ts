@@ -17,9 +17,13 @@ async function settleBrowserTraversal(page: Page): Promise<void> {
 }
 
 async function waitForPrivateHistoryOwner(page: Page): Promise<void> {
-  await expect.poll(() => page.evaluate(() => document.readyState === "complete"
-    && history.scrollRestoration === "manual"
-    && Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  await expect.poll(async () => {
+    try {
+      return await page.evaluate(() => document.readyState === "complete"
+        && history.scrollRestoration === "manual"
+        && Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")));
+    } catch { return false; }
+  }).toBe(true);
 }
 
 type Application = Readonly<{
@@ -373,14 +377,13 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
   await expect(page.locator("h1")).toHaveText("Next");
   const scrolledOriginEnhanced = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBeforeScroll;
   expect(await page.evaluate(() => scrollY)).toBe(0);
+  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
   const recoveredPath = new URL(page.url()).pathname;
   const recoveredHeading = await page.locator("h1").textContent();
   const nativeScrollRestored = await page.evaluate(() => scrollY > 0);
-  const nativeRecovery = await page.evaluate(() => typeof history.state === "object"
-    && history.state !== null
-    && Number(Reflect.get(history.state as object, "scrollY")) > 0);
+  const nativeRecovery = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore;
   const restorationLifecycle = await page.evaluate(async () => {
     const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void; state(): string };
     const recoveredActiveRestoration = history.scrollRestoration;
@@ -441,6 +444,40 @@ test("keeps an entry unsafe after returning to the top and restarting", async ({
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
     staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-monotonic-scroll-recovery"));
+});
+
+test("clears only the recovered unsafe entry after a current-truth reload", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  const unsafeEntry = await page.evaluate(() => String(history.state?.entry));
+  await page.evaluate(() => {
+    document.documentElement.scrollTop = 100;
+    history.back();
+  });
+  await expect(page.locator("h1")).toHaveText("Next");
+  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  await page.goForward();
+  await expect(page.locator("h1")).toHaveText("Home");
+  await waitForPrivateHistoryOwner(page);
+  const recoveredEntry = await page.evaluate(() => String(history.state?.entry));
+  const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  const enhancedHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && enhanced).length;
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-entry-recovery-resumption",
+    version: 1,
+    unsafeEntryReloaded: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
+    recoveredEntryRekeyed: recoveredEntry !== unsafeEntry,
+    supportedTraversalResumed: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore
+      && requests.filter(({ path, enhanced }) => path === "/" && enhanced).length > enhancedHomeBefore,
+    staleDocumentRemoved: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-entry-recovery-resumption"));
 });
 
 test("coalesces history writes and keeps mutation-limit failure native", async ({ page }) => {
@@ -666,6 +703,38 @@ test("keeps a link native after recorded element scroll returns to zero", async 
   }).toEqual(expected("history-element-link-refusal"));
 });
 
+test("refuses element-scroll ownership acquired while a request is pending", async ({ page }) => {
+  await page.goto(origin);
+  enhancedSlowDelay = 250;
+  const nativeSlowBefore = requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length;
+  await page.locator("#slow-link").click({ noWaitAfter: true });
+  await page.waitForTimeout(20);
+  await page.evaluate(() => {
+    const scroller = document.createElement("div");
+    scroller.id = "pending-element-scroller";
+    scroller.style.cssText = "height:20px;overflow:auto";
+    const child = document.createElement("div");
+    child.style.height = "200px";
+    scroller.append(child);
+    document.body.append(scroller);
+    scroller.scrollTop = 20;
+  });
+  await expect.poll(() => page.evaluate(() => Boolean(history.state?.elementScroll))).toBe(true);
+  await page.evaluate(() => {
+    const scroller = document.querySelector<HTMLElement>("#pending-element-scroller");
+    if (scroller) scroller.scrollTop = 0;
+  });
+  await expect(page.locator("h1")).toHaveText("Slow");
+  expect({
+    schema: "fadeno.example.history-pending-element-scroll-refusal",
+    version: 1,
+    elementOwnershipRetained: true,
+    enhancedAttemptObserved: requests.some(({ path, enhanced }) => path === "/slow" && enhanced),
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length > nativeSlowBefore,
+    staleDocumentRemoved: new URL(page.url()).pathname === "/slow" && await page.locator("h1").textContent() === "Slow",
+  }).toEqual(expected("history-pending-element-scroll-refusal"));
+});
+
 test("marks an outgoing scroll before a same-task traversal", async ({ page }) => {
   await page.goto(origin);
   await page.locator("#next-link").click();
@@ -822,8 +891,8 @@ test("reloads cloned private-looking entries instead of granting ownership", asy
   await page.evaluate(() => history.pushState({ ...history.state }, "", "/next"));
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
-  await waitForPrivateHistoryOwner(page);
   const duplicateIdentityRefused = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore;
+  await waitForPrivateHistoryOwner(page);
   await page.goForward();
   await expect(page.locator("h1")).toHaveText("Next");
   expect({
@@ -833,6 +902,32 @@ test("reloads cloned private-looking entries instead of granting ownership", asy
     clonedDestinationRefused: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
     staleDocumentRemoved: new URL(page.url()).pathname === "/next" && await page.locator("h1").textContent() === "Next",
   }).toEqual(expected("history-cloned-entry-recovery"));
+});
+
+test("keeps same-URL copied history native before and after reload", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => history.pushState({ ...history.state }, "", location.href));
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  const directCopyRefused = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore;
+
+  await page.evaluate(() => sessionStorage.removeItem("fadeno.private.navigation.unsafe-traversal.v1"));
+  await page.goto(origin);
+  await page.evaluate(() => history.pushState({ ...history.state }, "", location.href));
+  expect(await page.evaluate(() => sessionStorage.getItem("fadeno.private.navigation.unsafe-traversal.v1")?.includes("application-owned"))).toBe(true);
+  await page.reload();
+  const historyUnclaimedAfterReload = await page.evaluate(() => history.scrollRestoration !== "manual");
+  const nativeAfterReloadBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-same-url-copy-refusal",
+    version: 1,
+    directCopyRefused,
+    historyUnclaimedAfterReload,
+    reloadedCopyRefused: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeAfterReloadBefore,
+  }).toEqual(expected("history-same-url-copy-refusal"));
 });
 
 test("recovers a selected destination without duplicating it when document commit fails", async ({ page }) => {
@@ -859,6 +954,32 @@ test("recovers a selected destination without duplicating it when document commi
     historyEntriesAdded,
     oneBackReachedPriorDocument: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-commit-failure-recovery"));
+});
+
+test("preserves replacement recovery after focus mutates selected state", async ({ page }) => {
+  await page.goto(origin);
+  const historyLengthBefore = await page.evaluate(() => history.length);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.evaluate(() => {
+    document.addEventListener("focusin", () => {
+      history.replaceState({ application: true }, "", location.href);
+    }, { once: true });
+  });
+  const recoveredLoad = page.waitForEvent("load");
+  await page.locator("#next-link").click();
+  await recoveredLoad;
+  await expect(page.locator("h1")).toHaveText("Next");
+  const historyEntriesAdded = await page.evaluate((before) => history.length - before, historyLengthBefore);
+  expect(historyEntriesAdded).toBe(1);
+  await page.goBack({ waitUntil: "load" });
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-focus-state-recovery",
+    version: 1,
+    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    historyEntriesAdded,
+    oneBackReachedPriorDocument: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-focus-state-recovery"));
 });
 
 test("repairs displayed truth when post-selection native recovery is cancelled", async ({ page }) => {
@@ -1046,6 +1167,65 @@ test("cancels a pending traversal before a newer click remains native", async ({
     nativeClickWon: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
     obsoleteDocumentSuppressed: new URL(page.url()).pathname === "/next" && await page.locator("h1").textContent() === "Next",
   }).toEqual(expected("history-click-supersession-recovery"));
+});
+
+test("cancels a pending traversal before a refused fragment remains native", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  enhancedSlowDelay = 250;
+  await page.evaluate(() => {
+    const originalAbort = AbortController.prototype.abort;
+    sessionStorage.setItem("fadeno-test-native-fragment-aborts", "0");
+    AbortController.prototype.abort = function recordAbort(reason?: unknown): void {
+      sessionStorage.setItem("fadeno-test-native-fragment-aborts", "1");
+      originalAbort.call(this, reason);
+    };
+    history.back();
+  });
+  await page.waitForTimeout(20);
+  await page.locator("#fragment-link").click();
+  await page.waitForTimeout(300);
+  expect({
+    schema: "fadeno.example.history-fragment-supersession-recovery",
+    version: 1,
+    pendingTraversalAborted: await page.evaluate(() => sessionStorage.getItem("fadeno-test-native-fragment-aborts") === "1"),
+    nativeFragmentWon: new URL(page.url()).pathname === "/" && new URL(page.url()).hash === "#details",
+    displayedTruthRepaired: await page.locator("h1").textContent() === "Home",
+    obsoleteDocumentSuppressed: await page.getByRole("heading", { name: "Slow" }).count() === 0,
+  }).toEqual(expected("history-fragment-supersession-recovery"));
+});
+
+test("cancels a pending traversal before a native form submission", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#slow-link").click();
+  await expect(page.locator("h1")).toHaveText("Slow");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  enhancedSlowDelay = 250;
+  await page.evaluate(() => {
+    const originalAbort = AbortController.prototype.abort;
+    sessionStorage.setItem("fadeno-test-native-form-aborts", "0");
+    AbortController.prototype.abort = function recordAbort(reason?: unknown): void {
+      sessionStorage.setItem("fadeno-test-native-form-aborts", "1");
+      originalAbort.call(this, reason);
+    };
+    history.back();
+  });
+  await page.waitForTimeout(20);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#native-form button").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.waitForTimeout(300);
+  expect({
+    schema: "fadeno.example.history-form-supersession-recovery",
+    version: 1,
+    pendingTraversalAborted: await page.evaluate(() => sessionStorage.getItem("fadeno-test-native-form-aborts") === "1"),
+    nativeFormWon: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    obsoleteDocumentSuppressed: new URL(page.url()).pathname === "/next" && await page.locator("h1").textContent() === "Next",
+  }).toEqual(expected("history-form-supersession-recovery"));
 });
 
 test("cancels an obsolete history traversal and publishes only the newest entry", async ({ page }) => {

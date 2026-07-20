@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-same-url-copy-refusal",
+  "version": 1,
+  "directCopyRefused": true,
+  "historyUnclaimedAfterReload": true,
+  "reloadedCopyRefused": true
+}

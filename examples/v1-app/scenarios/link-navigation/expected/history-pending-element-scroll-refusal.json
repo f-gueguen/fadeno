@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-pending-element-scroll-refusal",
+  "version": 1,
+  "elementOwnershipRetained": true,
+  "enhancedAttemptObserved": true,
+  "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}

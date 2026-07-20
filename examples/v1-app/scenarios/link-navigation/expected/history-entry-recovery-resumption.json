@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.history-entry-recovery-resumption",
+  "version": 1,
+  "unsafeEntryReloaded": true,
+  "recoveredEntryRekeyed": true,
+  "supportedTraversalResumed": true,
+  "staleDocumentRemoved": true
+}

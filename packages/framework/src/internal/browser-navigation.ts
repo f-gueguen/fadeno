@@ -64,6 +64,7 @@ export type PrivateLinkNavigationFlow = Readonly<{
 }>;
 
 const flows: PrivateLinkNavigationFlow[] = [];
+const startedDocuments = new WeakSet<Document>();
 
 function recordFlow(input: Omit<PrivateLinkNavigationFlow, "schema" | "version" | "redaction">): void {
   flows.push(Object.freeze({
@@ -110,30 +111,45 @@ export function createPrivateUnsafeHistoryEntryTracker(
   });
 }
 
-function createPrivateUnsafeTraversalPersistence(session: string): Readonly<{
-  requireRecovery(): void;
-  requiresRecovery(): boolean;
+function createPrivateUnsafeTraversalPersistence(): Readonly<{
+  requireRecovery(session: string, entry: string, url: string, reason: "unsafe-scroll" | "application-owned"): void;
+  recoveryReason(session: string, entry: string, url: string): "unsafe-scroll" | "application-owned" | "overflow" | undefined;
+  clearRecovery(session: string, entry: string, url: string): void;
+  consumeApplicationRecovery(url: string): boolean;
 }> {
-  type Record = Readonly<{ version: 1; sessions: readonly string[]; overflowed: boolean }>;
-  const maximumSessions = 256;
-  const validSession = (value: unknown): value is string => typeof value === "string"
+  type Recovery = Readonly<{
+    session: string;
+    entry: string;
+    url: string;
+    reason: "unsafe-scroll" | "application-owned";
+  }>;
+  type Record = Readonly<{ version: 2; recoveries: readonly Recovery[]; overflowed: boolean }>;
+  const maximumRecoveries = 256;
+  const validIdentity = (value: unknown): value is string => typeof value === "string"
     && identityPattern.test(value)
     && new TextEncoder().encode(value).byteLength <= 128;
+  const validRecovery = (value: unknown): value is Recovery => typeof value === "object" && value !== null
+    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify(["entry", "reason", "session", "url"])
+    && validIdentity(Reflect.get(value, "session"))
+    && validIdentity(Reflect.get(value, "entry"))
+    && typeof Reflect.get(value, "url") === "string"
+    && new TextEncoder().encode(Reflect.get(value, "url") as string).byteLength <= 2_048
+    && ["unsafe-scroll", "application-owned"].includes(String(Reflect.get(value, "reason")));
   const decode = (value: string | null): Record | undefined => {
-    if (value === null) return Object.freeze({ version: 1, sessions: Object.freeze([]), overflowed: false });
+    if (value === null) return Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: false });
     try {
       const parsed = JSON.parse(value) as unknown;
       if (typeof parsed !== "object" || parsed === null
-        || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(["overflowed", "sessions", "version"])
-        || Reflect.get(parsed, "version") !== 1
+        || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(["overflowed", "recoveries", "version"])
+        || Reflect.get(parsed, "version") !== 2
         || typeof Reflect.get(parsed, "overflowed") !== "boolean"
-        || !Array.isArray(Reflect.get(parsed, "sessions"))) return undefined;
-      const sessions = Reflect.get(parsed, "sessions") as unknown[];
-      if (sessions.length > maximumSessions || !sessions.every(validSession)
-        || new Set(sessions).size !== sessions.length) return undefined;
+        || !Array.isArray(Reflect.get(parsed, "recoveries"))) return undefined;
+      const recoveries = Reflect.get(parsed, "recoveries") as unknown[];
+      if (recoveries.length > maximumRecoveries || !recoveries.every(validRecovery)
+        || new Set(recoveries.map((recovery) => `${Reflect.get(recovery, "session")}\0${Reflect.get(recovery, "entry")}\0${Reflect.get(recovery, "url")}`)).size !== recoveries.length) return undefined;
       return Object.freeze({
-        version: 1,
-        sessions: Object.freeze([...sessions] as string[]),
+        version: 2,
+        recoveries: Object.freeze(recoveries.map((recovery) => Object.freeze({ ...(recovery as Recovery) }))),
         overflowed: Reflect.get(parsed, "overflowed") as boolean,
       });
     } catch { return undefined; }
@@ -141,28 +157,48 @@ function createPrivateUnsafeTraversalPersistence(session: string): Readonly<{
   let record: Record;
   try {
     record = decode(sessionStorage.getItem(unsafeTraversalPersistenceKey))
-      ?? Object.freeze({ version: 1, sessions: Object.freeze([]), overflowed: true });
+      ?? Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true });
     sessionStorage.setItem(unsafeTraversalPersistenceKey, JSON.stringify(record));
   } catch {
-    record = Object.freeze({ version: 1, sessions: Object.freeze([]), overflowed: true });
+    record = Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true });
   }
   const persist = (): void => {
     try { sessionStorage.setItem(unsafeTraversalPersistenceKey, JSON.stringify(record)); }
     catch {
-      record = Object.freeze({ version: 1, sessions: Object.freeze([]), overflowed: true });
+      record = Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true });
       try { sessionStorage.setItem(unsafeTraversalPersistenceKey, JSON.stringify(record)); } catch { /* reload will probe again */ }
     }
   };
   return Object.freeze({
-    requireRecovery(): void {
-      if (record.overflowed || record.sessions.includes(session)) return;
-      record = record.sessions.length >= maximumSessions
-        ? Object.freeze({ version: 1, sessions: Object.freeze([]), overflowed: true })
-        : Object.freeze({ version: 1, sessions: Object.freeze([...record.sessions, session]), overflowed: false });
+    requireRecovery(session, entry, url, reason): void {
+      if (record.overflowed || !validIdentity(session) || !validIdentity(entry)) return;
+      const existing = record.recoveries.find((recovery) => recovery.session === session && recovery.entry === entry && recovery.url === url);
+      if (existing?.reason === "application-owned" || existing?.reason === reason) return;
+      const recovery = Object.freeze({ session, entry, url, reason });
+      const retained = record.recoveries.filter((candidate) => candidate !== existing);
+      record = retained.length >= maximumRecoveries
+        ? Object.freeze({ version: 2, recoveries: Object.freeze([]), overflowed: true })
+        : Object.freeze({ version: 2, recoveries: Object.freeze([...retained, recovery]), overflowed: false });
       persist();
     },
-    requiresRecovery(): boolean {
-      return record.overflowed || record.sessions.includes(session);
+    recoveryReason(session, entry, url) {
+      if (record.overflowed) return "overflow";
+      return record.recoveries.find((recovery) => recovery.session === session && recovery.entry === entry && recovery.url === url)?.reason;
+    },
+    clearRecovery(session, entry, url): void {
+      if (record.overflowed) return;
+      const recoveries = record.recoveries.filter((recovery) => recovery.session !== session || recovery.entry !== entry || recovery.url !== url);
+      if (recoveries.length === record.recoveries.length) return;
+      record = Object.freeze({ version: 2, recoveries: Object.freeze(recoveries), overflowed: false });
+      persist();
+    },
+    consumeApplicationRecovery(url): boolean {
+      if (record.overflowed) return true;
+      const recoveries = record.recoveries.filter((recovery) => recovery.reason !== "application-owned" || recovery.url !== url);
+      if (recoveries.length === record.recoveries.length) return false;
+      record = Object.freeze({ version: 2, recoveries: Object.freeze(recoveries), overflowed: false });
+      persist();
+      return true;
     },
   });
 }
@@ -341,6 +377,11 @@ function applyDocument(
   replace: boolean,
   historySession: string,
   previousScrollRestoration: ScrollRestoration,
+  validateHistory: (state: PrivateHistoryState, url: string) => boolean,
+  writeHistory: Readonly<{
+    replace(state: Readonly<Record<string, unknown>>, url: string): void;
+    push(state: Readonly<Record<string, unknown>>, url: string): void;
+  }>,
 ): void {
   const oldHead = document.head.cloneNode(true) as HTMLHeadElement;
   const oldBody = document.body.cloneNode(true) as HTMLBodyElement;
@@ -349,11 +390,13 @@ function applyDocument(
   const selectedEntry = replace ? privateHistoryState(history.state)?.entry : undefined;
   if (replace && !selectedEntry) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
   const state = createHistoryState(0, 0, false, historySession, selectedEntry);
+  const expectedState = privateHistoryState(state);
+  if (!expectedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
   let destinationSelected = false;
   try {
     if (!replace) history.scrollRestoration = previousScrollRestoration;
-    if (replace) history.replaceState(state, "", url);
-    else history.pushState(state, "", url);
+    if (replace) writeHistory.replace(state, url);
+    else writeHistory.push(state, url);
     destinationSelected = true;
     history.scrollRestoration = "manual";
     replaceAttributes(document.documentElement, next.documentElement);
@@ -361,6 +404,10 @@ function applyDocument(
     document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
     focusNewDocument();
     scrollTo({ left: 0, top: 0, behavior: "instant" });
+    const committedState = privateHistoryState(history.state);
+    if (!committedState
+      || !samePrivateHistoryState(committedState, expectedState)
+      || !validateHistory(committedState, url)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
   } catch (cause) {
     try {
       try { history.scrollRestoration = "manual"; } catch { /* native fallback will restore ownership */ }
@@ -401,6 +448,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     ? undefined
     : privateHistoryState(existingHistoryState);
   if (!currentMetadata || (existingHistoryState !== null && !existingPrivateState)) return undefined;
+  const firstStartupForDocument = !startedDocuments.has(document);
   let active: ActiveOperation | undefined;
   let sequence = 0;
   let closed = false;
@@ -411,9 +459,53 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const consumedResultIds: string[] = [];
   const previousScrollRestoration = history.scrollRestoration;
   const historySession = existingPrivateState?.session ?? `session:${globalThis.crypto.randomUUID()}`;
-  const unsafeTraversalPersistence = createPrivateUnsafeTraversalPersistence(historySession);
+  const unsafeTraversalPersistence = createPrivateUnsafeTraversalPersistence();
+  if (firstStartupForDocument && unsafeTraversalPersistence.consumeApplicationRecovery(location.href)) return undefined;
+  const existingRecovery = existingPrivateState
+    ? unsafeTraversalPersistence.recoveryReason(existingPrivateState.session, existingPrivateState.entry, location.href)
+    : undefined;
+  if (existingRecovery === "application-owned" || existingRecovery === "overflow") return undefined;
   const ownedHistoryEntries = new Map<string, Readonly<{ state: PrivateHistoryState; url: string }>>();
+  const applicationOwnedHistoryEntries = new Set<string>();
   let historyOwnershipOverflowed = false;
+  let internalHistoryWrite = false;
+  const originalReplaceState = history.replaceState.bind(history);
+  const originalPushState = history.pushState.bind(history);
+  const applicationHistoryKey = (session: string, entry: string, url: string): string => `${session}\0${entry}\0${url}`;
+  const retainApplicationHistoryMutation = (): void => {
+    if (internalHistoryWrite || closed) return;
+    const state = privateHistoryState(history.state);
+    if (!state) return;
+    if (applicationOwnedHistoryEntries.size >= 256) {
+      applicationOwnedHistoryEntries.clear();
+      historyOwnershipOverflowed = true;
+    } else {
+      applicationOwnedHistoryEntries.add(applicationHistoryKey(state.session, state.entry, location.href));
+    }
+    unsafeTraversalPersistence.requireRecovery(state.session, state.entry, location.href, "application-owned");
+  };
+  const runtimeReplaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
+    originalReplaceState(data, unused, url);
+    retainApplicationHistoryMutation();
+  };
+  const runtimePushState = (data: unknown, unused: string, url?: string | URL | null): void => {
+    originalPushState(data, unused, url);
+    retainApplicationHistoryMutation();
+  };
+  history.replaceState = runtimeReplaceState;
+  history.pushState = runtimePushState;
+  const writeHistory = Object.freeze({
+    replace(state: Readonly<Record<string, unknown>>, url: string): void {
+      internalHistoryWrite = true;
+      try { history.replaceState(state, "", url); }
+      finally { internalHistoryWrite = false; }
+    },
+    push(state: Readonly<Record<string, unknown>>, url: string): void {
+      internalHistoryWrite = true;
+      try { history.pushState(state, "", url); }
+      finally { internalHistoryWrite = false; }
+    },
+  });
   const rememberHistoryState = (state: PrivateHistoryState, url: string): void => {
     if (historyOwnershipOverflowed) return;
     if (!ownedHistoryEntries.has(state.entry) && ownedHistoryEntries.size >= 256) {
@@ -423,29 +515,41 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     }
     ownedHistoryEntries.set(state.entry, Object.freeze({ state, url }));
   };
-  const ownsHistoryState = (state: PrivateHistoryState | undefined, url: string): state is PrivateHistoryState => {
+  const ownsHistoryState = (state: PrivateHistoryState | undefined, url: string): boolean => {
     if (!state || historyOwnershipOverflowed) return false;
     const owned = ownedHistoryEntries.get(state.entry);
-    return owned?.url === url && samePrivateHistoryState(owned.state, state);
+    return !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url))
+      && owned?.url === url
+      && samePrivateHistoryState(owned.state, state);
   };
   const restoreScrollRestoration = (): void => {
     try { history.scrollRestoration = previousScrollRestoration; } catch { /* native owner remains authoritative */ }
   };
   try {
     history.scrollRestoration = "manual";
-    if (existingHistoryState === null) {
-      history.replaceState(createHistoryState(scrollX, scrollY, false, historySession), "", location.href);
+    if (existingHistoryState === null || (existingRecovery === "unsafe-scroll" && firstStartupForDocument)) {
+      const elementScroll = existingPrivateState?.elementScroll === true
+        || [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
+          && (element.scrollTop !== 0 || element.scrollLeft !== 0));
+      const recoveredX = existingRecovery === "unsafe-scroll" ? existingPrivateState?.scrollX ?? scrollX : scrollX;
+      const recoveredY = existingRecovery === "unsafe-scroll" ? existingPrivateState?.scrollY ?? scrollY : scrollY;
+      writeHistory.replace(createHistoryState(recoveredX, recoveredY, elementScroll, historySession), location.href);
     }
     const acquiredState = privateHistoryState(history.state);
     if (!acquiredState || acquiredState.session !== historySession) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
     rememberHistoryState(acquiredState, location.href);
+    if (existingPrivateState && existingRecovery === "unsafe-scroll" && firstStartupForDocument) {
+      unsafeTraversalPersistence.clearRecovery(existingPrivateState.session, existingPrivateState.entry, location.href);
+    }
   } catch {
     restoreScrollRestoration();
     return undefined;
   }
+  startedDocuments.add(document);
   let displayedHistoryEntry = privateHistoryState(history.state)?.entry;
   let selectedHistoryEntry = displayedHistoryEntry;
   let displayedTruthUrl = location.href;
+  let selectedPushRecovery: Readonly<{ destination: URL; truthUrl: string }> | undefined;
   const unsafeHistoryEntries = createPrivateUnsafeHistoryEntryTracker();
 
   const markHistoryUnsafe = (entry: string | undefined): void => {
@@ -483,7 +587,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       const repairedState = createHistoryState(scrollX, scrollY, elementScroll, historySession);
       const repairedPrivateState = privateHistoryState(repairedState);
       if (!repairedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
-      history.replaceState(repairedState, "", truthUrl);
+      writeHistory.replace(repairedState, truthUrl);
       history.scrollRestoration = "manual";
       rememberHistoryState(repairedPrivateState, truthUrl);
       displayedHistoryEntry = repairedPrivateState.entry;
@@ -524,7 +628,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           );
         },
       );
-      location.reload();
+      location.replace(location.href);
     };
     if (delay === 0) beginRecovery();
     else setTimeout(beginRecovery, delay);
@@ -533,19 +637,18 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const flushCurrentScroll = (force: boolean): boolean => {
     if (closed || traversing || historyWriteFailed) return false;
     const state = privateHistoryState(history.state);
-    if (!ownsHistoryState(state, location.href)) return false;
+    if (!state || !ownsHistoryState(state, location.href)) return false;
     const elementScroll = state.elementScroll || pendingElementScroll;
     if (state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
       pendingElementScroll = false;
-      return true;
+      return !state.elementScroll;
     }
     if (!force) {
       if (scrollX === 0 && scrollY === 0 && !elementScroll) return true;
     }
     try {
-      history.replaceState(
+      writeHistory.replace(
         createHistoryState(scrollX, scrollY, elementScroll, historySession, state.entry),
-        "",
         location.href,
       );
       const writtenState = privateHistoryState(history.state);
@@ -570,7 +673,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (traversing) {
       if (scrollX !== 0 || scrollY !== 0 || elementOwnsScroll) {
         markHistoryUnsafe(displayedHistoryEntry);
-        unsafeTraversalPersistence.requireRecovery();
+        if (displayedHistoryEntry) unsafeTraversalPersistence.requireRecovery(historySession, displayedHistoryEntry, displayedTruthUrl, "unsafe-scroll");
         if (active) recoverSelectedTraversal(traversalSequence, pendingTraversalRecoveryDelayMs);
       }
       return;
@@ -603,6 +706,22 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     else location.assign(destination.href);
   };
 
+  const recoverSelectedPush = (destination: URL): void => {
+    restoreScrollRestoration();
+    selectedPushRecovery = Object.freeze({ destination, truthUrl: displayedTruthUrl });
+    history.back();
+  };
+
+  const supersedeTraversalForNativeActivation = (code: string, decision: string): boolean => {
+    if (!traversing) return false;
+    active?.cancellation.abort(new DOMException("Native activation superseded traversal", "AbortError"));
+    traversalSequence += 1;
+    traversing = false;
+    recoveringTraversal = undefined;
+    repairDisplayedTruth(displayedTruthUrl, code, decision);
+    return true;
+  };
+
   const navigate = async (
     destination: URL,
     replace: boolean,
@@ -625,6 +744,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       cancellation: new AbortController(),
     });
     active = operation;
+    let destinationSelected = false;
     try {
       const response = await fetch(destination.href, {
         method: "GET",
@@ -677,7 +797,18 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
       if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
-      applyDocument(next, operation.destination.href, replace, historySession, previousScrollRestoration);
+      applyDocument(
+        next,
+        operation.destination.href,
+        replace,
+        historySession,
+        previousScrollRestoration,
+        (state, url) => location.href === url
+          && !historyOwnershipOverflowed
+          && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
+        writeHistory,
+      );
+      destinationSelected = true;
       const committedState = privateHistoryState(history.state);
       if (!committedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       rememberHistoryState(committedState, location.href);
@@ -718,8 +849,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           skipped: Object.freeze(["document commit"]),
           outcome: "native-navigation",
         });
-        const selectedCommitFailure = cause instanceof PrivateDocumentCommitFailure && cause.destinationSelected;
-        fallback(destination, replace || selectedCommitFailure, selectedCommitFailure);
+        const selectedCommitFailure = destinationSelected
+          || (cause instanceof PrivateDocumentCommitFailure && cause.destinationSelected);
+        if (selectedCommitFailure && !replace) recoverSelectedPush(destination);
+        else fallback(destination, replace || selectedCommitFailure, selectedCommitFailure);
       } else if (operation.cancellation.signal.aborted) {
         recordFlow({
           status: "cancelled",
@@ -743,38 +876,56 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (!(target instanceof HTMLAnchorElement)) return;
+    const browsingContext = target.getAttribute("target")?.toLowerCase() ?? "";
+    if (!target.hasAttribute("download") && ["", "_self"].includes(browsingContext)
+      && supersedeTraversalForNativeActivation(
+        "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
+        "native same-context click superseded a traversal",
+      )) return;
     const destination = privateSafeLinkDestination(target);
     if (!destination || !currentMetadata || !privateLinkPreservationSafe(target, { allowDocumentScroll: true })) return;
     const state = privateHistoryState(history.state);
-    if (!ownsHistoryState(state, location.href) || state.elementScroll) return;
-    if (traversing) {
-      active?.cancellation.abort(new DOMException("Native click superseded traversal", "AbortError"));
-      traversalSequence += 1;
-      const clickSequence = traversalSequence;
-      recoveringTraversal = undefined;
-      const truthUrl = displayedTruthUrl;
-      observeCancelledDeparture(
-        () => traversalSequence === clickSequence && displayedTruthUrl === truthUrl,
-        () => {
-          traversing = false;
-          repairDisplayedTruth(
-            truthUrl,
-            "FADENO_UPDATE_NATIVE_CLICK_CANCELLED",
-            "native click superseding a traversal was cancelled",
-          );
-        },
-      );
-    }
+    if (!state || !ownsHistoryState(state, location.href) || state.elementScroll) return;
     if (!flushCurrentScroll(true)) return;
     event.preventDefault();
     void navigate(destination, false, target);
   };
+  const submit = (event: SubmitEvent): void => {
+    if (closed || event.defaultPrevented || !event.isTrusted || !(event.target instanceof HTMLFormElement)) return;
+    if (event.target.method.toLowerCase() === "dialog") return;
+    const submitterTarget = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formtarget") : null;
+    const browsingContext = (submitterTarget ?? event.target.getAttribute("target") ?? "").toLowerCase();
+    if (!["", "_self"].includes(browsingContext)) return;
+    supersedeTraversalForNativeActivation(
+      "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
+      "native same-context form submission superseded a traversal",
+    );
+  };
   const popstate = (): void => {
+    if (selectedPushRecovery) {
+      const recovery = selectedPushRecovery;
+      selectedPushRecovery = undefined;
+      traversalSequence += 1;
+      traversing = false;
+      recoveringTraversal = undefined;
+      const rollbackUrl = location.href;
+      observeCancelledDeparture(
+        () => location.href === rollbackUrl,
+        () => repairDisplayedTruth(
+          recovery.truthUrl,
+          "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+          "native post-selection recovery was cancelled",
+        ),
+      );
+      restoreScrollRestoration();
+      location.assign(recovery.destination.href);
+      return;
+    }
     const outgoingElementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
       && (element.scrollTop !== 0 || element.scrollLeft !== 0));
     if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || outgoingElementScroll) {
       markHistoryUnsafe(displayedHistoryEntry);
-      unsafeTraversalPersistence.requireRecovery();
+      if (displayedHistoryEntry) unsafeTraversalPersistence.requireRecovery(historySession, displayedHistoryEntry, displayedTruthUrl, "unsafe-scroll");
     }
     pendingElementScroll = false;
     traversalSequence += 1;
@@ -784,7 +935,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     selectedHistoryEntry = state?.entry;
     traversing = true;
     if (!state || repeatedSelection || !ownsHistoryState(state, location.href) || state.session !== historySession
-      || unsafeTraversalPersistence.requiresRecovery() || unsafeHistoryEntries.requiresReload(state.entry)
+      || unsafeTraversalPersistence.recoveryReason(state.session, state.entry, location.href) !== undefined || unsafeHistoryEntries.requiresReload(state.entry)
       || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
       recoverSelectedTraversal(traversal);
       return;
@@ -801,6 +952,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     }
   };
   document.addEventListener("click", click);
+  document.addEventListener("submit", submit);
   document.addEventListener("scroll", recordCurrentScroll, true);
   globalThis.addEventListener("popstate", popstate);
   globalThis.addEventListener("pagehide", pagehide);
@@ -812,7 +964,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       closed = true;
       active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
       document.removeEventListener("click", click);
+      document.removeEventListener("submit", submit);
       document.removeEventListener("scroll", recordCurrentScroll, true);
+      if (history.replaceState === runtimeReplaceState) history.replaceState = originalReplaceState;
+      if (history.pushState === runtimePushState) history.pushState = originalPushState;
       globalThis.removeEventListener("popstate", popstate);
       globalThis.removeEventListener("pagehide", pagehide);
       globalThis.removeEventListener("pageshow", pageshow);
