@@ -2222,7 +2222,7 @@ test("cancels an ordinary pending navigation before a native fragment activation
   }).toEqual(expected("history-ordinary-native-supersession"));
 });
 
-test("cancels a pending traversal before a native form submission", async ({ page }) => {
+test("cancels a pending traversal before a newer enhanced GET form", async ({ page }) => {
   await page.goto(origin);
   await page.locator("#slow-link").click();
   await expect(page.locator("h1")).toHaveText("Slow");
@@ -2239,7 +2239,7 @@ test("cancels a pending traversal before a native form submission", async ({ pag
     history.back();
   });
   await page.waitForTimeout(20);
-  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
   await page.locator("#native-form button").click();
   await expect(page.locator("h1")).toHaveText("Next");
   await page.waitForTimeout(300);
@@ -2248,7 +2248,7 @@ test("cancels a pending traversal before a native form submission", async ({ pag
     version: 1,
     pendingTraversalAborted: await page.evaluate(() => sessionStorage.getItem("fadeno-test-native-form-aborts") === "1"),
     parentTargetResolvedCurrent: await page.evaluate(() => globalThis.parent === globalThis.window),
-    nativeFormWon: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    enhancedFormWon: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
     obsoleteDocumentSuppressed: new URL(page.url()).pathname === "/next" && await page.locator("h1").textContent() === "Next",
   }).toEqual(expected("history-form-supersession-recovery"));
 });

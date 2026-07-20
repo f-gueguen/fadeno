@@ -9,6 +9,7 @@ export const privateUpdateMediaType = "application/vnd.fadeno.private-update+jso
 const identityPattern = /^[A-Za-z0-9][A-Za-z0-9:._/-]*$/u;
 const maximumIdentityBytes = 128;
 const maximumUrlBytes = 8_192;
+const generatedActionPrefix = "/.fadeno/actions/v1/";
 const encoder = new TextEncoder();
 
 type Invoke = (request: Request) => Promise<Response>;
@@ -58,7 +59,8 @@ export async function servePrivateServerUpdate(
   }>,
 ): Promise<Response | undefined> {
   if (request.headers.get("accept") !== privateUpdateMediaType) return undefined;
-  if (request.method !== "GET") return refusal("FADENO_UPDATE_REQUEST_METHOD", 405);
+  if (request.method !== "GET" && request.method !== "POST") return refusal("FADENO_UPDATE_REQUEST_METHOD", 405);
+  const operationKind = request.method === "POST" ? "mutation" : "navigation";
   const applicationGeneration = input.applicationGeneration ?? null;
   if (!bounded(applicationGeneration, maximumIdentityBytes, identityPattern)) {
     return refusal("FADENO_UPDATE_REQUEST_GENERATION", 409);
@@ -80,12 +82,20 @@ export async function servePrivateServerUpdate(
     || currentTruthUrl === undefined) {
     return refusal("FADENO_UPDATE_REQUEST_SCHEMA");
   }
+  if (operationKind === "mutation") {
+    const actionUrl = new URL(destination);
+    if (actionUrl.protocol !== "https:"
+      || !actionUrl.pathname.startsWith(generatedActionPrefix)
+      || exactSingleHeader(request, "origin") !== input.origin) {
+      return refusal("FADENO_UPDATE_REQUEST_ORIGIN", 403);
+    }
+  }
   const operation = createPrivateServerUpdateOperation({
     origin: input.origin,
     currentTruthUrl,
     applicationGeneration,
     documentEpoch,
-    operation: Object.freeze({ id: operationId, sequence, kind: "navigation", url: destination }),
+    operation: Object.freeze({ id: operationId, sequence, kind: operationKind, url: destination }),
     resultId: globalThis.crypto.randomUUID(),
     scrollBoundary: Object.freeze({
       documentPrecedingLayout: "unaffected",

@@ -3,6 +3,12 @@ import {
   V2_PATCH_PROTOCOL_LIMITS,
   type PrivateDecodedUpdateOutcome,
 } from "./browser-update.ts";
+import {
+  privateFormEligibility,
+  privateFormPreservationSafe,
+  privateFormRequest,
+  type PrivateFormEligibility,
+} from "./browser-form.ts";
 
 const mediaType = "application/vnd.fadeno.private-update+json; version=1";
 const generationMeta = "fadeno-application-generation";
@@ -24,6 +30,7 @@ type PrivateHistoryState = Readonly<{
   elementScroll: boolean;
 }>;
 type ActiveOperation = Readonly<{
+  kind: "navigation" | "mutation";
   id: string;
   sequence: number;
   destination: URL;
@@ -67,7 +74,21 @@ export type PrivateLinkNavigationFlow = Readonly<{
   outcome: "enhanced-document" | "native-navigation" | "none";
 }>;
 
+export type PrivateFormSubmissionFlow = Readonly<{
+  schema: "fadeno.private.form-submission-flow";
+  version: 1;
+  status: "applied" | "cancelled" | "refused";
+  code: string;
+  operation: "navigation" | "mutation";
+  redaction: "applied";
+  decisions: readonly string[];
+  ownership: Readonly<{ browser: readonly string[]; server: readonly string[] }>;
+  skipped: readonly string[];
+  outcome: "enhanced-document" | "native-navigation" | "current-truth-reload" | "none";
+}>;
+
 const flows: PrivateLinkNavigationFlow[] = [];
+const formFlows: PrivateFormSubmissionFlow[] = [];
 const startedDocuments = new WeakSet<Document>();
 const applicationRecoveryDocuments = new WeakMap<Document, number>();
 
@@ -83,6 +104,28 @@ function recordFlow(input: Omit<PrivateLinkNavigationFlow, "schema" | "version" 
 
 export function readPrivateLinkNavigationFlows(): readonly PrivateLinkNavigationFlow[] {
   return Object.freeze(flows.map((flow) => Object.freeze({
+    ...flow,
+    decisions: Object.freeze([...flow.decisions]),
+    ownership: Object.freeze({
+      browser: Object.freeze([...flow.ownership.browser]),
+      server: Object.freeze([...flow.ownership.server]),
+    }),
+    skipped: Object.freeze([...flow.skipped]),
+  })));
+}
+
+function recordFormFlow(input: Omit<PrivateFormSubmissionFlow, "schema" | "version" | "redaction">): void {
+  formFlows.push(Object.freeze({
+    schema: "fadeno.private.form-submission-flow",
+    version: 1,
+    redaction: "applied",
+    ...input,
+  }));
+  if (formFlows.length > 64) formFlows.shift();
+}
+
+export function readPrivateFormSubmissionFlows(): readonly PrivateFormSubmissionFlow[] {
+  return Object.freeze(formFlows.map((flow) => Object.freeze({
     ...flow,
     decisions: Object.freeze([...flow.decisions]),
     ownership: Object.freeze({
@@ -966,6 +1009,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   };
 
   const supersedePendingWorkForNativeActivation = (code: string, decision: string): boolean => {
+    if (active?.kind === "mutation") return false;
     if (!traversing && !active) return false;
     active?.cancellation.abort(new DOMException("Native activation superseded pending work", "AbortError"));
     if (!traversing) return true;
@@ -982,6 +1026,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     initiator?: HTMLAnchorElement,
     selectedHistoryState?: PrivateHistoryState,
   ): Promise<void> => {
+    if (active?.kind === "mutation") return;
     active?.cancellation.abort(new DOMException("Navigation superseded", "AbortError"));
     if (closed || !currentMetadata || !privateLinkPreservationSafe(initiator, { allowDocumentScroll: true })) {
       fallback(destination, replace);
@@ -989,6 +1034,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     }
     sequence += 1;
     const operation: ActiveOperation = Object.freeze({
+      kind: "navigation",
       id: `nav:${globalThis.crypto.randomUUID()}`,
       sequence,
       destination,
@@ -1151,6 +1197,189 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     }
   };
 
+  const submitFormOperation = async (
+    eligibility: PrivateFormEligibility,
+    request: ReturnType<typeof privateFormRequest>,
+    sourceState: PrivateHistoryState,
+  ): Promise<void> => {
+    if (active?.kind === "mutation") return;
+    active?.cancellation.abort(new DOMException("Form submission superseded navigation", "AbortError"));
+    sequence += 1;
+    const operation: ActiveOperation = Object.freeze({
+      kind: eligibility.kind,
+      id: `${eligibility.kind === "mutation" ? "action" : "form"}:${globalThis.crypto.randomUUID()}`,
+      sequence,
+      destination: request.destination,
+      currentTruthUrl: location.href,
+      generation: currentMetadata?.generation ?? "",
+      documentEpoch: currentMetadata?.epoch ?? "",
+      cancellation: new AbortController(),
+    });
+    const priorBusy = eligibility.form.getAttribute("aria-busy");
+    eligibility.form.setAttribute("aria-busy", "true");
+    const clearPending = (): void => {
+      if (priorBusy === null) eligibility.form.removeAttribute("aria-busy");
+      else eligibility.form.setAttribute("aria-busy", priorBusy);
+    };
+    active = operation;
+    let requestCommitted = false;
+    let destinationSelected = false;
+    let historyPushesBeforeCommit = historyPushSequence;
+    try {
+      const fetchPromise = fetch(operation.destination.href, {
+        method: operation.kind === "mutation" ? "POST" : "GET",
+        ...(request.body === undefined ? {} : { body: request.body }),
+        credentials: "same-origin",
+        cache: "no-store",
+        redirect: "manual",
+        signal: operation.cancellation.signal,
+        headers: {
+          accept: mediaType,
+          "x-fadeno-current-url": operation.currentTruthUrl,
+          "x-fadeno-document-epoch": operation.documentEpoch,
+          "x-fadeno-operation-id": operation.id,
+          "x-fadeno-operation-sequence": String(operation.sequence),
+        },
+      });
+      requestCommitted = operation.kind === "mutation";
+      const response = await fetchPromise;
+      if (!response.ok || response.headers.get("content-type") !== mediaType) throw new TypeError("FADENO_UPDATE_TRANSPORT");
+      const bytes = await boundedBytes(response, operation.cancellation.signal);
+      if (!bytes) throw new TypeError("FADENO_UPDATE_LIMIT");
+      const admission = admitPrivateUpdateBytes(bytes, {
+        origin: location.origin,
+        currentTruthUrl: operation.currentTruthUrl,
+        transport: Object.freeze({ requestCache: "no-store", responseCacheControl: response.headers.get("cache-control") }),
+        generation: operation.generation,
+        documentEpoch: operation.documentEpoch,
+        currentOperation: Object.freeze({
+          id: operation.id,
+          sequence: operation.sequence,
+          kind: operation.kind,
+          url: operation.destination.href,
+        }),
+        consumedResultIds: Object.freeze([...consumedResultIds]),
+        requestCommitted,
+      }, { signal: operation.cancellation.signal });
+      if (active !== operation || operation.cancellation.signal.aborted
+        || admission.decision.status !== "accepted" || !admission.outcome || !admission.resultId) {
+        throw new TypeError(admission.decision.code);
+      }
+      if (!privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })) {
+        throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      }
+      const currentHistoryState = privateHistoryState(history.state);
+      if (location.href !== operation.currentTruthUrl
+        || !currentHistoryState
+        || !samePrivateHistoryState(currentHistoryState, sourceState)
+        || !ownsHistoryState(currentHistoryState, operation.currentTruthUrl)) {
+        throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      }
+      if (admission.outcome.kind === "redirect") {
+        clearPending();
+        fallback(new URL(admission.outcome.location, location.origin), false);
+        return;
+      }
+      if (admission.outcome.kind === "recover") {
+        clearPending();
+        fallback(new URL(operation.currentTruthUrl), true);
+        return;
+      }
+      const next = nextDocument(admission.outcome, operation.generation);
+      if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
+      if (!flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      const operationFocusedNode = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+      historyPushesBeforeCommit = historyPushSequence;
+      committing = true;
+      try {
+        applyDocument(
+          next,
+          operation.destination.href,
+          false,
+          historySession,
+          previousScrollRestoration,
+          (state, url) => !closed
+            && !closing
+            && active === operation
+            && !operation.cancellation.signal.aborted
+            && location.href === url
+            && !historyOwnershipOverflowed
+            && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
+          writeHistory,
+          operationFocusedNode,
+        );
+      } finally {
+        committing = false;
+      }
+      destinationSelected = true;
+      const committedState = privateHistoryState(history.state);
+      if (!committedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      rememberHistoryState(committedState, location.href);
+      displayedHistoryEntry = committedState.entry;
+      selectedHistoryEntry = committedState.entry;
+      displayedTruthUrl = location.href;
+      consumedResultIds.push(admission.resultId);
+      if (consumedResultIds.length > 256) consumedResultIds.shift();
+      currentMetadata = metadata(document);
+      if (!currentMetadata) throw new TypeError("FADENO_UPDATE_DOCUMENT_METADATA");
+      recordFormFlow({
+        status: "applied",
+        code: admission.decision.code,
+        operation: operation.kind,
+        decisions: Object.freeze([
+          operation.kind === "mutation"
+            ? "eligible protected POST acquired one mutation delivery operation"
+            : "eligible GET form acquired navigation operation ownership",
+          "platform successful controls were submitted once",
+          "exact native server response was projected once",
+          "current generation, epoch, operation, URL, cache, and result were admitted",
+          "document, URL, history, focus, and pending state committed",
+        ]),
+        ownership: Object.freeze({
+          browser: Object.freeze(["submit event", "successful controls", "operation", "pending state", "history", "focus"]),
+          server: Object.freeze(operation.kind === "mutation"
+            ? ["origin", "proof", "replay", "authorization", "action", "session", "revalidation", "rendered outcome"]
+            : ["route", "resources", "rendered outcome"]),
+        }),
+        skipped: Object.freeze(["optimistic mutation", "mutation retry", "general state reconciliation", "transported script execution"]),
+        outcome: "enhanced-document",
+      });
+    } catch (cause) {
+      const cancelled = operation.cancellation.signal.aborted;
+      const selectedCommitFailure = destinationSelected
+        || (cause instanceof PrivateDocumentCommitFailure && cause.destinationSelected);
+      recordFormFlow({
+        status: cancelled ? "cancelled" : "refused",
+        code: cancelled ? "FADENO_UPDATE_CANCELLED" : "FADENO_UPDATE_NATIVE_RECOVERY",
+        operation: operation.kind,
+        decisions: Object.freeze(operation.kind === "mutation"
+          ? ["mutation delivery became uncertain", "trusted current truth selected", "mutation was not resubmitted"]
+          : ["enhanced GET form could not commit", "native destination retained"]),
+        ownership: Object.freeze({
+          browser: Object.freeze(["submit event", "operation", "pending cleanup"]),
+          server: Object.freeze(operation.kind === "mutation" ? ["mutation uncertainty", "current truth"] : ["rendered outcome"]),
+        }),
+        skipped: Object.freeze(["mutation retry", "stale document commit"]),
+        outcome: operation.kind === "mutation" ? "current-truth-reload" : cancelled ? "none" : "native-navigation",
+      });
+      clearPending();
+      if (active === operation && !closing) {
+        if (operation.kind === "mutation" && requestCommitted) {
+          fallback(new URL(operation.currentTruthUrl), true, selectedCommitFailure);
+        } else if (!cancelled) {
+          const selectedPushCount = historyPushSequence - historyPushesBeforeCommit;
+          if (selectedCommitFailure && selectedPushCount > 0) recoverSelectedPush(operation.destination, selectedPushCount);
+          else fallback(operation.destination, selectedCommitFailure, selectedCommitFailure);
+        }
+      }
+    } finally {
+      clearPending();
+      if (active === operation) active = undefined;
+    }
+  };
+
   const click = (event: MouseEvent): void => {
     if (closed || event.defaultPrevented || !event.isTrusted || event.button !== 0
       || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -1158,6 +1387,22 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (!(target instanceof HTMLAnchorElement)) return;
     const sameContext = !target.hasAttribute("download")
       && privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"));
+    if (sameContext && active?.kind === "mutation") {
+      event.preventDefault();
+      recordFormFlow({
+        status: "refused",
+        code: "FADENO_FORM_MUTATION_PENDING",
+        operation: "mutation",
+        decisions: Object.freeze(["pending mutation retained document ownership", "new activation sent no request"]),
+        ownership: Object.freeze({
+          browser: Object.freeze(["pending mutation", "activation refusal"]),
+          server: Object.freeze(["existing mutation only"]),
+        }),
+        skipped: Object.freeze(["new navigation request", "mutation retry"]),
+        outcome: "none",
+      });
+      return;
+    }
     if (sameContext && traversing && supersedePendingWorkForNativeActivation(
         "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
         "native same-context click superseded a traversal",
@@ -1193,14 +1438,51 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const submit = (event: SubmitEvent): void => {
     if (closed || event.defaultPrevented || !event.isTrusted || !(event.target instanceof HTMLFormElement)) return;
     if (event.target.method.toLowerCase() === "dialog") return;
+    const form = event.target;
     const submitterTarget = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formtarget") : null;
-    if (!privateTargetOwnsCurrentBrowsingContext(submitterTarget ?? event.target.getAttribute("target"))) return;
+    const sameContext = privateTargetOwnsCurrentBrowsingContext(submitterTarget ?? form.getAttribute("target"));
+    if (!sameContext) return;
+    if (active?.kind === "mutation") {
+      event.preventDefault();
+      recordFormFlow({
+        status: "refused",
+        code: "FADENO_FORM_MUTATION_PENDING",
+        operation: "mutation",
+        decisions: Object.freeze(["pending mutation retained form ownership", "duplicate submission sent no request"]),
+        ownership: Object.freeze({
+          browser: Object.freeze(["pending form", "duplicate refusal"]),
+          server: Object.freeze(["existing mutation only"]),
+        }),
+        skipped: Object.freeze(["duplicate request", "mutation retry"]),
+        outcome: "none",
+      });
+      return;
+    }
     supersedePendingWorkForNativeActivation(
       "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
-      "native same-context form submission superseded a traversal",
+      "same-context form submission superseded pending navigation",
     );
+    const eligibility = privateFormEligibility(form, event.submitter);
+    if (!eligibility || !currentMetadata || !privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })) return;
+    const stateBeforeFlush = privateHistoryState(history.state);
+    if (!stateBeforeFlush || !ownsHistoryState(stateBeforeFlush, location.href) || stateBeforeFlush.elementScroll
+      || !flushCurrentScroll(true)) return;
+    const sourceState = privateHistoryState(history.state);
+    if (!sourceState || !ownsHistoryState(sourceState, location.href) || sourceState.elementScroll) return;
+    let request: ReturnType<typeof privateFormRequest>;
+    try { request = privateFormRequest(eligibility); }
+    catch { return; }
+    event.preventDefault();
+    void submitFormOperation(eligibility, request, sourceState);
   };
   const popstate = (): void => {
+    if (active?.kind === "mutation") {
+      const currentTruthUrl = active.currentTruthUrl;
+      active.cancellation.abort(new DOMException("History traversal interrupted pending mutation", "AbortError"));
+      restoreScrollRestoration();
+      location.replace(currentTruthUrl);
+      return;
+    }
     if (selectedPushRecovery) {
       const recovery = selectedPushRecovery;
       selectedPushRecovery = undefined;
@@ -1304,7 +1586,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     state: () => closed ? "closed" : closing ? "closing" : "active",
     close() {
       if (closed || closing) return;
-      if (!traversing && !committing) {
+      if (!traversing && !committing && active?.kind !== "mutation") {
         active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
         finishClose();
         return;
