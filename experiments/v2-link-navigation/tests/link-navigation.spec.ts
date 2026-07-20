@@ -2261,6 +2261,12 @@ test("cancels an obsolete history traversal and publishes only the newest entry"
   await expect(page.locator("h1")).toHaveText("Home");
   enhancedHomeDelay = 250;
   const nativeHomeBeforeRapidTraversal = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  const nativeRecovery = page.waitForResponse((response) => {
+    const request = response.request();
+    return new URL(response.url()).pathname === "/"
+      && request.method() === "GET"
+      && request.headers()["x-fadeno-current-url"] === undefined;
+  });
   await page.evaluate(() => {
     const original = history.replaceState.bind(history);
     sessionStorage.setItem("fadeno-test-stale-history-writes", "0");
@@ -2277,6 +2283,8 @@ test("cancels an obsolete history traversal and publishes only the newest entry"
     setTimeout(() => scrollTo(0, 100), 10);
     setTimeout(() => history.forward(), 20);
   });
+  await (await nativeRecovery).finished();
+  await page.waitForLoadState("domcontentloaded");
   await expect(page.locator("h1")).toHaveText("Home");
   await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length)
     .toBeGreaterThan(nativeHomeBeforeRapidTraversal);
