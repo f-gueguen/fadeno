@@ -68,13 +68,16 @@ same-document restart conservatively retains already-recorded nonzero document
 or element-scroll evidence, while a newly loaded document derives its initial
 scroll evidence from that document's live layout.
 Registry overflow is fail-closed. Application calls to `pushState` and
-`replaceState` are distinguished from guarded runtime writes and make the exact
+`replaceState`, including direct calls through `History.prototype`, are
+distinguished from guarded runtime writes and make the exact
 resulting entry and URL application-owned, including a byte-for-byte or same-URL
 copy. That refusal survives reload and every explicit restart in the same
 document without granting a copied marker ownership. Recovery consumes only
 the exact selected session, entry, and URL record; another application-owned
-record at the same URL remains refused. A later document may
-resume only after re-keying the selected entry. Persistence reads and writes
+record at the same URL remains refused. If reload clears or replaces the
+selected private state, the record is retained and enhancement stays native
+rather than consuming recovery by URL alone. A later document may resume only
+after exact recovery and re-keying. Persistence reads and writes
 share the bounded 8,192-byte current-URL class. Recorded element-scroll
 ownership also keeps a new link native after the live element returns to zero,
 including when first observed while a request is pending or after document
@@ -100,7 +103,8 @@ collapsed document selection may be discarded by an accepted cross-document
 navigation, as native navigation discards the old document. Direct load does
 not move focus. An accepted enhanced transition focuses exactly one new primary
 heading or main landmark; it adds a private temporary focus marker and does not
-scroll that target into view.
+scroll that target into view. The commit succeeds only if that exact target is
+still the active element after focus handlers finish.
 
 V2-05 introduces no animation, view-transition, or delayed commit. Therefore
 normal and reduced-motion preferences execute the same correctness path and
@@ -135,8 +139,9 @@ The source URL, complete exact private state, and active ownership are captured
 for both links and traversals and revalidated after asynchronous work and
 immediately before commit. A forced pre-interception scroll flush is followed by
 a fresh source-state read, so the request owns the state that was actually
-written rather than a stale pre-flush copy. Rollback focus is captured from the
-same immediately precommit document shape that is cloned for rollback.
+written rather than a stale pre-flush copy. Rollback focus and a collapsed
+selection's exact endpoints are captured from the same immediately precommit
+document shape retained for rollback.
 These rules cover scroll changes whose event has not yet been delivered,
 application state replacement during a request, and multi-entry traversal. A
 late response cannot commit document, history, focus, selection, or scroll after
@@ -149,8 +154,11 @@ user cancels that reload, the selected slot is repaired to the displayed
 document's trusted URL before teardown finishes, after which the closed runtime
 leaves activation fully native. If
 an ordinary link request is pending, close aborts it before completing teardown.
+While traversal or commit teardown is pending, public restart returns the same
+closing owner; a second runtime cannot acquire History or scroll ownership.
 If
-destination history selection succeeds but a later document, focus, scroll, or
+destination history selection succeeds but a later document, focus, metadata,
+scroll, or
 final history-provenance or runtime-lifecycle check fails, native recovery does not append a duplicate
 destination. A newly pushed selection is rolled back before native navigation
 reselects it, including every additional entry synchronously pushed by
@@ -169,7 +177,8 @@ destination URL paired with old markup. Cancellation detection covers both
 The same trusted displayed-truth repair applies when a post-selection commit
 failure rolls the document back and the user cancels its native replacement.
 That document rollback reinserts the actual precommit document nodes and
-restores the exact previously focused node within the restored body before
+restores the exact previously focused node and collapsed selection endpoints
+within the restored body before
 cancellation can retain it, preserving node identity, listeners, and
 application-owned properties rather than only cloned markup.
 It also applies when a preselection native fallback is cancelled, so the active
@@ -187,8 +196,9 @@ reads live document and element scroll without writing the already selected
 destination state, and only the actual `document.scrollingElement` is excluded
 from element ownership; an independently scrollable root element remains an
 element owner. Runtime History wrappers preserve and restore the exact original
-own-property descriptors, while an unobserved native push is rejected through
-history-length provenance rather than treated as runtime-created. Canceled
+instance and prototype property descriptors, while wrapper and runtime-write
+sequence provenance rejects an unobserved native push even when it replaces a
+forward stack without increasing `history.length`. Canceled
 departure repair carries prior monotonic unsafe-scroll evidence to its fresh
 entry. A persisted-page failure to reacquire verified manual restoration closes
 enhancement so later traversal stays native.
@@ -227,7 +237,7 @@ destination focus without focus-induced scroll, collapsed-selection disposal,
 non-collapsed-selection refusal, scrolled-origin departure, nonzero document and
 element-scroll restoration refusal, actual top-scroll postconditions, foreign-chain and unowned-state recovery,
 recorded, combined document/element, and pending element-scroll link refusal, cloned-entry and same-URL
-application-copy recovery before and after repeated reload and re-keying, exact same-URL recovery-record consumption,
+application-copy recovery before reload, cleared-entry repeated-reload refusal, exact same-URL recovery-record consumption,
 manual-restoration readback refusal, long-URL persistence, per-entry recovery resumption,
 post-history commit, focus-time history mutation, multi-push rollback, and rollback failure without duplicate entries, cancelled-
 reload, close-time reload, post-selection fallback, and preselection fallback repair, returnValue-only cancellation,
@@ -235,7 +245,9 @@ ordinary-link source mutation, ordinary close cancellation, delayed-recovery and
 ordinary-request/native-fragment supersession, guarded History-wrapper installation, post-close same-document re-keying,
 exact descriptor restoration, referrer-policy refusal, current-context target resolution, unobserved native-push refusal,
 post-flush source refresh, live traversal-scroll refusal, independently scrollable-root ownership, unsafe repair carry-forward,
-persisted-page restoration failure, exact precommit focused-node identity recovery, focus-time close recovery, and traversal-push rollback,
+persisted-page restoration failure, exact precommit focused-node and collapsed-selection recovery,
+in-boundary metadata replacement and exact destination-focus validation, blocked restart during close,
+focus-time close recovery, and traversal-push rollback,
 secure-environment refusal and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.

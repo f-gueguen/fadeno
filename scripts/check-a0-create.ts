@@ -112,21 +112,6 @@ async function reservePort(requested = 0): Promise<number> {
   return address.port;
 }
 
-function developmentTestEnvironment(directory: string, port: number): NodeJS.ProcessEnv {
-  const preload = join(directory, "fadeno-development-test-port.cjs");
-  writeFileSync(preload, [
-    'const expected = ["dev", "--project-root", ".", "--port", "4173"];',
-    "const offset = process.argv.findIndex((value, index) =>",
-    "  expected.every((expectedValue, expectedIndex) => process.argv[index + expectedIndex] === expectedValue));",
-    "if (offset >= 0) process.argv[offset + 4] = process.env.FADENO_TEST_DEVELOPMENT_PORT;",
-    "",
-  ].join("\n"));
-  return {
-    FADENO_TEST_DEVELOPMENT_PORT: String(port),
-    NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require=${preload}`].filter(Boolean).join(" "),
-  };
-}
-
 function tree(rootDirectory: string): Readonly<Record<string, string>> {
   const files: Record<string, string> = Object.create(null) as Record<string, string>;
   const visit = (directory: string): void => {
@@ -279,7 +264,7 @@ try {
   const build = requireSuccess("pnpm", ["build"], project);
   assert.match(build.stdout, /10 files written to dist/u);
 
-  development = start("pnpm", ["dev"], project, developmentTestEnvironment(temporaryRoot, developmentPort));
+  development = start(join(project, "node_modules/.bin/fadeno"), ["dev", "--project-root", ".", "--port", String(developmentPort)], project, {});
   await development.waitForStdout(`Fadeno development server ready at http://127.0.0.1:${developmentPort}.`);
   const developmentObservation = await observeApplication(`http://127.0.0.1:${developmentPort}`);
   await stop(development);

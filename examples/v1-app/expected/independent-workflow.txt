@@ -2,6 +2,6 @@ packed install: current tarball, frozen lockfile, stale local canary absent
 public entrypoints: root, node, jsx-runtime
 project check: success, route-role collision, correction, stale diagnostic removed
 production build: success, compiler refusal, last-good preservation, correction, stale artifact removed
-development: documented command ready, HTTP 200, graceful shutdown
+development: supported dynamic-port command ready, HTTP 200, graceful shutdown
 production: production-only install, documented command ready, HTTP 200, graceful shutdown
 cleanup: no operation lock or request ownership retained

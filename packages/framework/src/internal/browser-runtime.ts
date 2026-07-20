@@ -12,18 +12,14 @@ export function startPrivateBrowserRuntime(): BrowserRuntimeHandle {
     throw new TypeError("FADENO_BROWSER_ENVIRONMENT");
   }
   if (current?.state() === "active") return current;
-  let state: BrowserRuntimeState = "active";
   const navigation = startPrivateLinkNavigation();
   const handle = Object.freeze({
-    state: () => state,
+    state: (): BrowserRuntimeState => navigation && navigation.state() !== "closed" ? "active" : "closed",
     close() {
-      if (state === "closed") return;
-      state = "closed";
       navigation?.close();
-      if (current === handle) current = undefined;
     },
   });
-  current = handle;
+  current = handle.state() === "active" ? handle : undefined;
   return handle;
 }
 import { startPrivateLinkNavigation } from "./browser-navigation.ts";

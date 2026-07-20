@@ -1,8 +1,0 @@
-{
-  "schema": "fadeno.example.history-repeated-reload-rekey",
-  "version": 1,
-  "firstReloadRefused": true,
-  "stateRekeyed": true,
-  "restoration": "manual",
-  "enhancementUsesRekeyedOwner": true
-}

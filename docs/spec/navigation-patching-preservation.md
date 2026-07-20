@@ -184,10 +184,14 @@ truth reload; application-owned or malformed state cannot. Ownership also
 requires a bounded active-runtime registry containing the exact created state
 and URL; copied fields, repeated unobserved selection, changed state, and
 registry overflow refuse. Runtime-guarded History API writes are distinguished
-from application calls; an application-created exact or same-URL copy remains
+from application calls through either the instance or `History.prototype`; an
+application-created exact or same-URL copy remains
 application-owned across reload and explicit restart in the same document. A
 recovery removes only the exact selected session, entry, and URL record, so a
-second application-owned record at the same URL remains refused. A later loaded document may resume only after fresh re-keying. Persistence reads
+second application-owned record at the same URL remains refused. Missing or
+replaced selected private state retains the record and refuses enhancement; URL
+equality alone never consumes it. A later loaded document may resume only after
+exact recovery and fresh re-keying. Persistence reads
 and writes use the same bounded 8,192-byte current-URL class; over-bound input
 fails closed.
 Recorded element-scroll ownership keeps later link activation native after the
@@ -207,8 +211,8 @@ traversal ownership until it runs or a newer activation supersedes it. A newer
 traversal replaces the queued recovery. Both link and traversal work capture
 their source URL, exact private state, and active ownership; all three are
 revalidated immediately before commit. A forced scroll flush is followed by a
-fresh source-state read, and rollback focus is derived from the same precommit
-document shape that the rollback snapshot captures. Native recovery and page departure
+fresh source-state read, and rollback focus plus collapsed-selection endpoints
+are derived from the same precommit document shape that rollback retains. Native recovery and page departure
 restore the pre-enhancement scroll-restoration mode. A destination history entry
 is created before its viewport resets to the top. Non-collapsed selection
 and unresolved focus/state still refuse. Native recovery guarantees current
@@ -218,7 +222,9 @@ traversal reloads the selected current URL after restoring native scroll
 ownership. Cancellation repairs the selected slot to displayed truth before
 teardown completes and the closed runtime leaves subsequent activation native.
 Closing during an ordinary pending link aborts that request before teardown
-completes.
+completes. A close that is still repairing traversal or commit ownership remains
+the active public owner until cleanup finishes, so immediate restart cannot
+install a second runtime.
 A newer traversal cancels its predecessor before taking an early native path.
 A refused same-context link or still-native same-context form aborts any pending
 enhanced request; when that request is a traversal, selected truth is repaired
@@ -226,10 +232,10 @@ before native activation continues. Form submission is observed for
 supersession only, not intercepted. A newer eligible link supersedes an
 ordinary pending link and stays enhanced; only a refused activation remains
 native.
-If history selection succeeds but a later document, focus, scroll, final
+If history selection succeeds but a later document, focus, metadata, scroll, final
 history-provenance, or runtime-lifecycle check fails, document and history postconditions roll back
 together. Document rollback reinserts the actual precommit nodes and restores
-the exact previously focused node when it still exists, preserving its identity,
+the exact previously focused node and collapsed selection when they still exist, preserving their identity,
 listeners, and application-owned properties. A newly pushed selection is rolled back before native navigation
 reselects it, including additional synchronous application pushes during the
 failed commit. Additional pushes made after traversal selection are removed
@@ -250,8 +256,9 @@ Same-context activation is resolved against the current window, including
 `noreferrer` directives remain native. A traversal performs one final live
 document/element-scroll refusal without writing into the selected destination;
 only the actual document scroller is excluded from element ownership. History
-installation restores exact original own-property descriptors, and history
-length is part of current-slot provenance so a native prototype push cannot
+installation restores exact original instance and prototype property
+descriptors, and wrapper/write-sequence provenance detects a native prototype
+push even when it cannot be inferred from history length, so it cannot
 reuse a registered state as framework ownership. Repair carries monotonic
 unsafe-scroll evidence to the fresh repaired entry. Failure to read back manual
 restoration on a persisted page closes enhancement before another traversal.

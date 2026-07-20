@@ -295,10 +295,11 @@ their own selected document is recovered:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-exact-application-recovery.json","language":"json"} -->
 
-The copied state stays refused for its first recovered document. A later
-reload may resume only after startup replaces it with a fresh owner:
+If reload clears the selected private state, the application-owned record is
+retained and repeated reload remains native. URL equality is not enough to
+consume another entry's recovery:
 
-<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-repeated-reload-rekey.json","language":"json"} -->
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cleared-entry-recovery-refusal.json","language":"json"} -->
 
 Closing and restarting in the same document also creates a fresh owner. A
 private-looking state copied while enhancement was closed cannot inherit the
@@ -344,9 +345,16 @@ native destination truth rather than publishing from a closed runtime:
 Rollback retains and reinserts the actual precommit body nodes rather than
 cloning their markup. A safe sibling insertion during request work therefore
 cannot shift focus restoration onto the wrong node or discard its listeners
-and application-owned properties:
+and application-owned properties. The same rollback restores an exact
+collapsed selection, and a destination focus handler cannot redirect focus
+while still passing commit:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-precommit-focus-recovery.json","language":"json"} -->
+
+Destination metadata is revalidated inside the same rollback boundary, so an
+application mutation during commit cannot publish a mixed document generation:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-precommit-metadata-recovery.json","language":"json"} -->
 
 The same replacement classification survives when destination scrolling and
 the attempted local scroll rollback both fail persistently:

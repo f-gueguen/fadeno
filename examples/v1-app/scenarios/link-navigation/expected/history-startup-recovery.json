@@ -3,5 +3,9 @@
   "version": 1,
   "restoration": "auto",
   "wrappersRestored": true,
-  "nativeRecovery": true
+  "nativeRecovery": true,
+  "partialWriteRolledBack": true,
+  "partialWrapperRestored": true,
+  "partialRestoration": "auto",
+  "partialNativeRecovery": true
 }

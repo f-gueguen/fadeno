@@ -1,0 +1,6 @@
+{
+  "schema": "fadeno.example.history-precommit-metadata-recovery",
+  "version": 1,
+  "metadataRestored": true,
+  "selectedTruthRepaired": true
+}

@@ -5,6 +5,8 @@
   "closedState": "closed",
   "restoredRestoration": "auto",
   "exactDescriptorsRestored": true,
+  "exactPrototypeDescriptorsRestored": true,
   "laterPrototypeWrapperObserved": true,
+  "bfcacheRecoveryMergePreserved": true,
   "bfcacheOwnershipFailureNative": true
 }

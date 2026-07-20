@@ -546,7 +546,9 @@ enhancement and keeps later activation native:
   "closedState": "closed",
   "restoredRestoration": "auto",
   "exactDescriptorsRestored": true,
+  "exactPrototypeDescriptorsRestored": true,
   "laterPrototypeWrapperObserved": true,
+  "bfcacheRecoveryMergePreserved": true,
   "bfcacheOwnershipFailureNative": true
 }
 ```
@@ -557,7 +559,11 @@ enhancement and keeps later activation native:
   "version": 1,
   "restoration": "auto",
   "wrappersRestored": true,
-  "nativeRecovery": true
+  "nativeRecovery": true,
+  "partialWriteRolledBack": true,
+  "partialWrapperRestored": true,
+  "partialRestoration": "auto",
+  "partialNativeRecovery": true
 }
 ```
 
@@ -822,6 +828,7 @@ then leaves later links fully native:
   "flowCode": "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
   "restorationAfterRepair": "auto",
   "runtimeClosed": true,
+  "restartBlockedUntilCleanup": true,
   "nativeDeparture": true,
   "enhancedRequestSkipped": true
 }
@@ -874,7 +881,10 @@ history write during fetch forces native destination recovery:
   "schema": "fadeno.example.history-source-state-recovery",
   "version": 1,
   "nativeRecovery": true,
-  "staleCommitSuppressed": true
+  "staleCommitSuppressed": true,
+  "nativeReplaceRefused": true,
+  "nativePushKeptLength": true,
+  "nativePushRefused": true
 }
 ```
 
@@ -932,21 +942,25 @@ their own selected document is recovered:
   "firstRemoved": true,
   "secondRetained": true,
   "secondHistoryUnclaimed": true,
-  "secondRemoved": true
+  "secondRemoved": true,
+  "unknownEntryRefused": true,
+  "unknownEntryRetained": true
 }
 ```
 
-The copied state stays refused for its first recovered document. A later
-reload may resume only after startup replaces it with a fresh owner:
+If reload clears the selected private state, the application-owned record is
+retained and repeated reload remains native. URL equality is not enough to
+consume another entry's recovery:
 
 ```json
 {
-  "schema": "fadeno.example.history-repeated-reload-rekey",
+  "schema": "fadeno.example.history-cleared-entry-recovery-refusal",
   "version": 1,
   "firstReloadRefused": true,
-  "stateRekeyed": true,
-  "restoration": "manual",
-  "enhancementUsesRekeyedOwner": true
+  "repeatedReloadRefused": true,
+  "recoveryRetained": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
 }
 ```
 
@@ -1048,7 +1062,9 @@ native destination truth rather than publishing from a closed runtime:
 Rollback retains and reinserts the actual precommit body nodes rather than
 cloning their markup. A safe sibling insertion during request work therefore
 cannot shift focus restoration onto the wrong node or discard its listeners
-and application-owned properties:
+and application-owned properties. The same rollback restores an exact
+collapsed selection, and a destination focus handler cannot redirect focus
+while still passing commit:
 
 ```json
 {
@@ -1059,6 +1075,19 @@ and application-owned properties:
   "originalNodeIdentityRestored": true,
   "originalNodeStateRetained": true,
   "originalNodeListenerRetained": true,
+  "collapsedSelectionRestored": true,
+  "selectedTruthRepaired": true
+}
+```
+
+Destination metadata is revalidated inside the same rollback boundary, so an
+application mutation during commit cannot publish a mixed document generation:
+
+```json
+{
+  "schema": "fadeno.example.history-precommit-metadata-recovery",
+  "version": 1,
+  "metadataRestored": true,
   "selectedTruthRepaired": true
 }
 ```
@@ -1239,6 +1268,7 @@ selection therefore reloads current truth instead of enhancing restoration:
   "schema": "fadeno.example.history-cancelled-unsafe-repair",
   "version": 1,
   "repairedEntryStayedUnsafe": true,
+  "sameDocumentRekeyRetainedUnsafe": true,
   "backUsedNativeRecovery": true,
   "staleDocumentRemoved": true
 }

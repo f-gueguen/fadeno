@@ -343,6 +343,8 @@ test("restores automatic scroll ownership when the runtime closes", async ({ pag
     Reflect.set(globalThis, "__fadenoOriginalHistoryDescriptors", {
       replaceState: Object.getOwnPropertyDescriptor(history, "replaceState"),
       pushState: Object.getOwnPropertyDescriptor(history, "pushState"),
+      prototypeReplaceState: Object.getOwnPropertyDescriptor(History.prototype, "replaceState"),
+      prototypePushState: Object.getOwnPropertyDescriptor(History.prototype, "pushState"),
     });
   });
   await page.goto(origin);
@@ -353,9 +355,11 @@ test("restores automatic scroll ownership when the runtime closes", async ({ pag
     const originals = Reflect.get(globalThis, "__fadenoOriginalHistoryDescriptors") as {
       replaceState: PropertyDescriptor | undefined;
       pushState: PropertyDescriptor | undefined;
+      prototypeReplaceState: PropertyDescriptor | undefined;
+      prototypePushState: PropertyDescriptor | undefined;
     };
-    const sameDescriptor = (name: "replaceState" | "pushState", expected: PropertyDescriptor | undefined): boolean => {
-      const actual = Object.getOwnPropertyDescriptor(history, name);
+    const sameDescriptor = (owner: object, name: "replaceState" | "pushState", expected: PropertyDescriptor | undefined): boolean => {
+      const actual = Object.getOwnPropertyDescriptor(owner, name);
       if (!actual || !expected) return actual === expected;
       return actual.configurable === expected.configurable
         && actual.enumerable === expected.enumerable
@@ -376,12 +380,34 @@ test("restores automatic scroll ownership when the runtime closes", async ({ pag
       activeRestoration,
       closedState: enhancement.state(),
       restoredRestoration: history.scrollRestoration,
-      exactDescriptorsRestored: sameDescriptor("replaceState", originals.replaceState)
-        && sameDescriptor("pushState", originals.pushState),
+      exactDescriptorsRestored: sameDescriptor(history, "replaceState", originals.replaceState)
+        && sameDescriptor(history, "pushState", originals.pushState),
+      exactPrototypeDescriptorsRestored: sameDescriptor(History.prototype, "replaceState", originals.prototypeReplaceState)
+        && sameDescriptor(History.prototype, "pushState", originals.prototypePushState),
       laterPrototypeWrapperObserved: prototypeWrapperObserved,
     };
   });
   await page.goto(origin);
+  const bfcacheRecoveryMergePreserved = await page.evaluate(() => {
+    dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    sessionStorage.setItem("fadeno.private.navigation.unsafe-traversal.v1", JSON.stringify({
+      version: 2,
+      recoveries: [{
+        session: "session:bfcache-peer",
+        entry: "history:bfcache-peer",
+        url: `${location.origin}/peer`,
+        reason: "unsafe-scroll",
+      }],
+      overflowed: false,
+    }));
+    dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+    history.replaceState({ ...history.state }, "", location.href);
+    const record = JSON.parse(sessionStorage.getItem("fadeno.private.navigation.unsafe-traversal.v1") ?? "null") as {
+      recoveries?: Array<{ session?: unknown; entry?: unknown }>;
+    } | null;
+    return record?.recoveries?.some(({ session, entry }) => session === "session:bfcache-peer"
+      && entry === "history:bfcache-peer") === true;
+  });
   await page.evaluate(() => {
     Object.defineProperty(history, "scrollRestoration", { configurable: true, get: () => "auto", set: () => undefined });
     dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
@@ -391,13 +417,22 @@ test("restores automatic scroll ownership when the runtime closes", async ({ pag
   await expect(page.locator("h1")).toHaveText("Next");
   expect({
     ...result,
+    bfcacheRecoveryMergePreserved,
     bfcacheOwnershipFailureNative: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
   }).toEqual(expected("history-teardown"));
 });
 
 test("restores automatic scroll ownership when initial history acquisition fails", async ({ page }) => {
   await page.addInitScript(() => {
-    const refusedReplaceState = (): never => { throw new DOMException("history mutation limited", "SecurityError"); };
+    const originalReplaceState = history.replaceState;
+    const refusedReplaceState = sessionStorage.getItem("fadeno-test-partial-startup-write") === "1"
+      ? function partialReplaceState(...arguments_: Parameters<History["replaceState"]>): never {
+          originalReplaceState.apply(history, arguments_);
+          throw new DOMException("history mutation failed after write", "SecurityError");
+        }
+      : function refusedReplaceState(): never {
+          throw new DOMException("history mutation limited", "SecurityError");
+        };
     Reflect.set(globalThis, "__fadenoStartupReplaceState", refusedReplaceState);
     Reflect.set(globalThis, "__fadenoStartupPushState", history.pushState);
     history.replaceState = refusedReplaceState;
@@ -410,11 +445,25 @@ test("restores automatic scroll ownership when initial history acquisition fails
   }));
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
+  const nativeRecovery = requests.filter(({ path }) => path === "/next").at(-1)?.enhanced === false;
+
+  await page.evaluate(() => sessionStorage.setItem("fadeno-test-partial-startup-write", "1"));
+  await page.goto(origin);
+  const partialWrite = await page.evaluate(() => ({
+    partialWriteRolledBack: history.state === null,
+    partialWrapperRestored: history.replaceState === Reflect.get(globalThis, "__fadenoStartupReplaceState"),
+    partialRestoration: history.scrollRestoration,
+  }));
+  const nativePartialBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
   expect({
     schema: "fadeno.example.history-startup-recovery",
     version: 1,
     ...startup,
-    nativeRecovery: requests.filter(({ path }) => path === "/next").at(-1)?.enhanced === false,
+    nativeRecovery,
+    ...partialWrite,
+    partialNativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativePartialBefore,
   }).toEqual(expected("history-startup-recovery"));
 });
 
@@ -656,20 +705,28 @@ test("clears only the recovered unsafe entry after a zero-scroll current-truth r
 test("coalesces history writes and keeps mutation-limit failure native", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.name));
+  await page.addInitScript(() => {
+    const original = History.prototype.replaceState;
+    let writes = 0;
+    History.prototype.replaceState = function countReplaceState(...arguments_: Parameters<History["replaceState"]>): void {
+      writes += 1;
+      original.apply(this, arguments_);
+    };
+    Reflect.set(globalThis, "__fadenoResetReplaceWrites", () => { writes = 0; });
+    Reflect.set(globalThis, "__fadenoReadReplaceWrites", () => writes);
+  });
   await page.goto(origin);
   const coalescedWrites = await page.evaluate(async () => {
-    const original = history.replaceState.bind(history);
-    let writes = 0;
-    history.replaceState = (data: unknown, unused: string, url?: string | URL | null): void => {
-      writes += 1;
-      original(data, unused, url);
-    };
+    const reset = Reflect.get(globalThis, "__fadenoResetReplaceWrites") as (() => void) | undefined;
+    const read = Reflect.get(globalThis, "__fadenoReadReplaceWrites") as (() => number) | undefined;
+    if (!reset || !read) throw new Error("missing history write observer");
+    reset();
     scrollTo(0, 100);
     for (let frame = 0; frame < 5; frame += 1) {
       for (let index = 0; index < 20; index += 1) document.dispatchEvent(new Event("scroll"));
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     }
-    return writes;
+    return read();
   });
   await page.evaluate(() => {
     history.replaceState({
@@ -1084,22 +1141,29 @@ test("recovers the selected entry when closing a pending traversal", async ({ pa
   }).toEqual(expected("history-close-traversal-recovery"));
 });
 
-test("repairs displayed truth when close recovery is cancelled", async ({ page }) => {
+test("repairs displayed truth and blocks restart when close recovery is cancelled", async ({ page }) => {
   await page.goto(origin);
   await page.locator("#slow-link").click();
   await expect(page.locator("h1")).toHaveText("Slow");
   await page.locator("#home-link").click();
   await expect(page.locator("h1")).toHaveText("Home");
   enhancedSlowDelay = 250;
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/browser.js";
+    const runtime = await import(modulePath) as Readonly<{
+      startBrowserEnhancement(): { close(): void; state(): string };
+    }>;
     addEventListener("beforeunload", (event) => {
       event.preventDefault();
       event.returnValue = "";
     }, { once: true });
     history.back();
     setTimeout(() => {
-      const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+      const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void; state(): string };
       enhancement.close();
+      const immediate = runtime.startBrowserEnhancement();
+      sessionStorage.setItem("fadeno-test-close-restart-same-handle", String(immediate === enhancement));
+      sessionStorage.setItem("fadeno-test-close-restart-state", immediate.state());
     }, 20);
   });
   const dismissed = new Promise<void>((resolve) => {
@@ -1134,6 +1198,8 @@ test("repairs displayed truth when close recovery is cancelled", async ({ page }
     flowCode: closeState.flowCode,
     restorationAfterRepair: closeState.restoration,
     runtimeClosed: closeState.state === "closed",
+    restartBlockedUntilCleanup: await page.evaluate(() => sessionStorage.getItem("fadeno-test-close-restart-same-handle") === "true"
+      && sessionStorage.getItem("fadeno-test-close-restart-state") === "active"),
     nativeDeparture: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
     enhancedRequestSkipped: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length === enhancedNextBefore,
   }).toEqual(expected("history-close-cancelled-traversal-recovery"));
@@ -1262,12 +1328,39 @@ test("revalidates ordinary link source history before commit", async ({ page }) 
   await page.waitForTimeout(20);
   await page.evaluate(() => History.prototype.pushState.call(history, { ...history.state }, "", "/?application=1"));
   await expect(page.locator("h1")).toHaveText("Slow");
+  const nativeRecovery = requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length > nativeSlowBefore;
+  const staleCommitSuppressed = new URL(page.url()).pathname === "/slow"
+    && await page.locator("h1").textContent() === "Slow";
+
+  await page.goto(origin);
+  await page.evaluate(() => History.prototype.replaceState.call(history, { ...history.state }, "", location.href));
+  const nativeReplaceBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  const nativeReplaceRefused = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeReplaceBefore;
+
+  await page.goto(origin);
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await waitForPrivateHistoryOwner(page);
+  const historyLengthBeforeNativePush = await page.evaluate(() => history.length);
+  await page.evaluate(() => History.prototype.pushState.call(history, { ...history.state }, "", location.href));
+  const nativePushKeptLength = await page.evaluate((before) => history.length === before, historyLengthBeforeNativePush);
+  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
   expect({
     schema: "fadeno.example.history-source-state-recovery",
     version: 1,
-    nativeRecovery: requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length > nativeSlowBefore,
-    staleCommitSuppressed: new URL(page.url()).pathname === "/slow"
-      && await page.locator("h1").textContent() === "Slow",
+    nativeRecovery,
+    staleCommitSuppressed,
+    nativeReplaceRefused,
+    nativePushKeptLength,
+    nativePushRefused: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
   }).toEqual(expected("history-source-state-recovery"));
 });
 
@@ -1389,38 +1482,77 @@ test("keeps same-URL copied history native before and after reload", async ({ pa
       secondRemoved: !record?.recoveries?.some(({ session, entry }) => session === "session:exact-second" && entry === "history:exact-second"),
     };
   });
+  await page.goto(`${origin}/manual-start`);
+  const unknownEntry = await page.evaluate(() => {
+    history.replaceState(null, "", location.href);
+    sessionStorage.setItem("fadeno.private.navigation.unsafe-traversal.v1", JSON.stringify({
+      version: 2,
+      recoveries: [{
+        session: "session:unknown-selected-entry",
+        entry: "history:unknown-selected-entry",
+        url: location.href,
+        reason: "application-owned",
+      }],
+      overflowed: false,
+    }));
+    const start = Reflect.get(globalThis, "__fadenoManualStartBrowserEnhancement") as
+      (() => { close(): void; state(): string }) | undefined;
+    if (!start) throw new Error("missing manual browser start fixture");
+    Reflect.set(globalThis, "__fadenoExampleEnhancement", start());
+    const record = JSON.parse(sessionStorage.getItem("fadeno.private.navigation.unsafe-traversal.v1") ?? "null") as {
+      recoveries?: Array<{ session?: unknown; entry?: unknown }>;
+    } | null;
+    return {
+      unknownEntryRefused: history.scrollRestoration !== "manual",
+      unknownEntryRetained: record?.recoveries?.some(({ session, entry }) => session === "session:unknown-selected-entry"
+        && entry === "history:unknown-selected-entry") === true,
+    };
+  });
   expect({
     schema: "fadeno.example.history-exact-application-recovery",
     version: 1,
     ...firstConsumption,
     secondHistoryUnclaimed: secondConsumption.historyUnclaimed,
     secondRemoved: secondConsumption.secondRemoved,
+    ...unknownEntry,
   }).toEqual(expected("history-exact-application-recovery"));
 });
 
-test("rekeys copied state before accepting a later repeated reload", async ({ page }) => {
+test("retains copied-state recovery when reload clears the selected entry", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("fadeno-test-clear-selected-entry") !== "1") return;
+    sessionStorage.removeItem("fadeno-test-clear-selected-entry");
+    History.prototype.replaceState.call(history, null, "", location.href);
+  });
   await page.goto(origin);
-  const copiedSession = await page.evaluate(() => {
+  const copied = await page.evaluate(() => {
     history.pushState({ ...history.state }, "", location.href);
-    return String(history.state?.session);
+    sessionStorage.setItem("fadeno-test-clear-selected-entry", "1");
+    return { session: String(history.state?.session), entry: String(history.state?.entry) };
   });
   await page.reload();
   const firstReloadRefused = await page.evaluate(() => history.scrollRestoration !== "manual");
   await page.reload();
-  const secondReload = await page.evaluate((priorSession) => ({
-    stateRekeyed: history.state?.session !== priorSession,
-    restoration: history.scrollRestoration,
-  }), copiedSession);
+  const repeatedReloadRefused = await page.evaluate(() => history.scrollRestoration !== "manual");
+  const recoveryRetained = await page.evaluate(({ session, entry }) => {
+    const record = JSON.parse(sessionStorage.getItem("fadeno.private.navigation.unsafe-traversal.v1") ?? "null") as {
+      recoveries?: Array<{ session?: unknown; entry?: unknown }>;
+    } | null;
+    return record?.recoveries?.some((recovery) => recovery.session === session && recovery.entry === entry) === true;
+  }, copied);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
   const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
   expect({
-    schema: "fadeno.example.history-repeated-reload-rekey",
+    schema: "fadeno.example.history-cleared-entry-recovery-refusal",
     version: 1,
     firstReloadRefused,
-    ...secondReload,
-    enhancementUsesRekeyedOwner: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
-  }).toEqual(expected("history-repeated-reload-rekey"));
+    repeatedReloadRefused,
+    recoveryRetained,
+    nativeDeparture: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    enhancedRequestSkipped: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length === enhancedNextBefore,
+  }).toEqual(expected("history-cleared-entry-recovery-refusal"));
 });
 
 test("keeps bounded long-URL recovery persistence decodable", async ({ page }) => {
@@ -1595,7 +1727,7 @@ test("returns a focus-time runtime close to native destination recovery", async 
   }).toEqual(expected("history-close-during-commit-recovery"));
 });
 
-test("captures rollback focus from the precommit document snapshot", async ({ page }) => {
+test("captures rollback focus and selection from the precommit document snapshot", async ({ page }) => {
   await page.goto(origin);
   enhancedSlowDelay = 100;
   await page.locator("#slow-link").focus();
@@ -1607,14 +1739,20 @@ test("captures rollback focus from the precommit document snapshot", async ({ pa
     originalNode.addEventListener("fadeno-identity-test", () => {
       Reflect.set(globalThis, "__fadenoOriginalFocusedNodeListener", true);
     });
-    const originalFocus = HTMLElement.prototype.focus;
-    HTMLElement.prototype.focus = function failDestinationFocus(options?: FocusOptions): void {
-      if (this.hasAttribute("data-fadeno-navigation-focus")) {
-        HTMLElement.prototype.focus = originalFocus;
-        throw new DOMException("focus commit refused", "InvalidStateError");
-      }
-      originalFocus.call(this, options);
+    const text = originalNode.firstChild;
+    if (!text) throw new Error("missing selection fixture");
+    const range = document.createRange();
+    range.setStart(text, 2);
+    range.collapse(true);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const redirectDestinationFocus = (event: FocusEvent): void => {
+      if (!(event.target instanceof Element) || !event.target.hasAttribute("data-fadeno-navigation-focus")) return;
+      document.removeEventListener("focusin", redirectDestinationFocus);
+      document.querySelector<HTMLElement>("#slow-link")?.focus({ preventScroll: true });
     };
+    document.addEventListener("focusin", redirectDestinationFocus);
     addEventListener("beforeunload", (event) => {
       event.preventDefault();
       event.returnValue = "";
@@ -1637,10 +1775,18 @@ test("captures rollback focus from the precommit document snapshot", async ({ pa
   const originalNode = await page.evaluate(() => {
     const retained = Reflect.get(globalThis, "__fadenoOriginalFocusedNode") as HTMLElement | undefined;
     retained?.dispatchEvent(new Event("fadeno-identity-test"));
+    const selection = document.getSelection();
+    const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : undefined;
     return {
       originalNodeIdentityRestored: retained === document.querySelector("#slow-link"),
       originalNodeStateRetained: Reflect.get(retained ?? {}, "__fadenoApplicationState") === "retained",
       originalNodeListenerRetained: Reflect.get(globalThis, "__fadenoOriginalFocusedNodeListener") === true,
+      collapsedSelectionRestored: selection?.isCollapsed === true
+        && range !== undefined
+        && range.startContainer === retained?.firstChild
+        && range.startOffset === 2
+        && range.endContainer === retained?.firstChild
+        && range.endOffset === 2,
     };
   });
   expect({
@@ -1651,6 +1797,36 @@ test("captures rollback focus from the precommit document snapshot", async ({ pa
     ...originalNode,
     selectedTruthRepaired: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-precommit-focus-recovery"));
+});
+
+test("rolls back a destination whose metadata changes during commit", async ({ page }) => {
+  await page.goto(origin);
+  const originalEpoch = await page.locator('meta[name="fadeno-document-epoch"]').getAttribute("content");
+  await page.evaluate(() => {
+    const mutateDestinationMetadata = (event: FocusEvent): void => {
+      if (!(event.target instanceof Element) || !event.target.hasAttribute("data-fadeno-navigation-focus")) return;
+      document.removeEventListener("focusin", mutateDestinationMetadata);
+      document.querySelector('meta[name="fadeno-document-epoch"]')?.setAttribute("content", "application-mutated-epoch");
+    };
+    document.addEventListener("focusin", mutateDestinationMetadata);
+    addEventListener("beforeunload", (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    }, { once: true });
+  });
+  const dismissed = new Promise<void>((resolve) => {
+    page.once("dialog", (dialog) => { void dialog.dismiss().then(resolve); });
+  });
+  await page.locator("#next-link").click();
+  await dismissed;
+  await expect(page).toHaveURL(origin);
+  await expect(page.locator("h1")).toHaveText("Home");
+  expect({
+    schema: "fadeno.example.history-precommit-metadata-recovery",
+    version: 1,
+    metadataRestored: await page.locator('meta[name="fadeno-document-epoch"]').getAttribute("content") === originalEpoch,
+    selectedTruthRepaired: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-precommit-metadata-recovery"));
 });
 
 test("repairs displayed truth when post-selection native recovery is cancelled", async ({ page }) => {
@@ -1784,6 +1960,21 @@ test("reacquires history ownership when preselection fallback is cancelled", asy
   await unsafeDismissed;
   await expect(page).toHaveURL(origin);
   await waitForPrivateHistoryOwner(page);
+  const sameDocumentRekeyRetainedUnsafe = await page.evaluate(async () => {
+    const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+    enhancement.close();
+    const modulePath: string = "/_fadeno/framework/browser.js";
+    const runtime = await import(modulePath) as Readonly<{
+      startBrowserEnhancement(): { close(): void; state(): string };
+    }>;
+    Reflect.set(globalThis, "__fadenoExampleEnhancement", runtime.startBrowserEnhancement());
+    const record = JSON.parse(sessionStorage.getItem("fadeno.private.navigation.unsafe-traversal.v1") ?? "null") as {
+      recoveries?: Array<{ session?: unknown; entry?: unknown; reason?: unknown }>;
+    } | null;
+    return record?.recoveries?.some(({ session, entry, reason }) => session === history.state?.session
+      && entry === history.state?.entry
+      && reason === "unsafe-scroll") === true;
+  });
   enhancedSlowDelay = 0;
   await page.locator("#slow-link").click();
   await expect(page.locator("h1")).toHaveText("Slow");
@@ -1795,6 +1986,7 @@ test("reacquires history ownership when preselection fallback is cancelled", asy
     schema: "fadeno.example.history-cancelled-unsafe-repair",
     version: 1,
     repairedEntryStayedUnsafe: true,
+    sameDocumentRekeyRetainedUnsafe,
     backUsedNativeRecovery: true,
     staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-cancelled-unsafe-repair"));

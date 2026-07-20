@@ -5,5 +5,7 @@
   "firstRemoved": true,
   "secondRetained": true,
   "secondHistoryUnclaimed": true,
-  "secondRemoved": true
+  "secondRemoved": true,
+  "unknownEntryRefused": true,
+  "unknownEntryRetained": true
 }

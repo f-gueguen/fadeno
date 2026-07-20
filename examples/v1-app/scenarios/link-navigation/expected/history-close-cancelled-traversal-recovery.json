@@ -6,6 +6,7 @@
   "flowCode": "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
   "restorationAfterRepair": "auto",
   "runtimeClosed": true,
+  "restartBlockedUntilCleanup": true,
   "nativeDeparture": true,
   "enhancedRequestSkipped": true
 }
