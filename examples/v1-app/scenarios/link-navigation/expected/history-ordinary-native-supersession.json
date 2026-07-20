@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-ordinary-native-supersession",
+  "version": 1,
+  "pendingNavigationAborted": true,
+  "nativeFragmentWon": true,
+  "obsoleteFallbackSuppressed": true
+}

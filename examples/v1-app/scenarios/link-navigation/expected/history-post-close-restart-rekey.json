@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.history-post-close-restart-rekey",
+  "version": 1,
+  "postCloseStateRekeyed": true,
+  "restoration": "manual",
+  "enhancementUsesRekeyedOwner": true
+}

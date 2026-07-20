@@ -87,7 +87,9 @@
       "scenarios/link-navigation/expected/refusal.json",
       "scenarios/link-navigation/expected/history-refusal-human.txt",
       "scenarios/link-navigation/expected/history-environment-refusal.json",
+      "scenarios/link-navigation/expected/history-wrapper-installation-refusal.json",
       "scenarios/link-navigation/expected/history-startup-state-rekey.json",
+      "scenarios/link-navigation/expected/history-post-close-restart-rekey.json",
       "scenarios/link-navigation/expected/history-scroll-refusal.json",
       "scenarios/link-navigation/expected/history-element-link-refusal.json",
       "scenarios/link-navigation/expected/history-combined-scroll-refusal.json",
@@ -110,6 +112,7 @@
       "scenarios/link-navigation/expected/history-click-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-delayed-recovery-supersession.json",
       "scenarios/link-navigation/expected/history-fragment-supersession-recovery.json",
+      "scenarios/link-navigation/expected/history-ordinary-native-supersession.json",
       "scenarios/link-navigation/expected/history-form-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-cloned-entry-recovery.json",
       "scenarios/link-navigation/expected/history-same-url-copy-refusal.json",
@@ -175,6 +178,7 @@
       "scenarios/link-navigation/expected/history-overflow-recovery.json",
       "scenarios/link-navigation/expected/history-selected-state-recovery.json",
       "scenarios/link-navigation/expected/history-source-state-recovery.json",
+      "scenarios/link-navigation/expected/history-post-close-restart-rekey.json",
       "scenarios/link-navigation/expected/history-cloned-entry-recovery.json",
       "scenarios/link-navigation/expected/history-same-url-copy-refusal.json",
       "scenarios/link-navigation/expected/history-repeated-reload-rekey.json",
@@ -197,6 +201,7 @@
       "scenarios/link-navigation/expected/history-click-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-delayed-recovery-supersession.json",
       "scenarios/link-navigation/expected/history-fragment-supersession-recovery.json",
+      "scenarios/link-navigation/expected/history-ordinary-native-supersession.json",
       "scenarios/link-navigation/expected/history-form-supersession-recovery.json"
     ],
     "staleRemoval": [
@@ -223,6 +228,7 @@
       "scenarios/link-navigation/expected/history-traversal-scroll-recovery.json",
       "scenarios/link-navigation/expected/history-selected-state-recovery.json",
       "scenarios/link-navigation/expected/history-source-state-recovery.json",
+      "scenarios/link-navigation/expected/history-post-close-restart-rekey.json",
       "scenarios/link-navigation/expected/history-cloned-entry-recovery.json",
       "scenarios/link-navigation/expected/history-same-url-copy-refusal.json",
       "scenarios/link-navigation/expected/history-repeated-reload-rekey.json",
@@ -245,6 +251,7 @@
       "scenarios/link-navigation/expected/history-click-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-delayed-recovery-supersession.json",
       "scenarios/link-navigation/expected/history-fragment-supersession-recovery.json",
+      "scenarios/link-navigation/expected/history-ordinary-native-supersession.json",
       "scenarios/link-navigation/expected/history-form-supersession-recovery.json"
     ]
   }

@@ -39,7 +39,7 @@ for (const fragment of [
   "pendingTraversalRecoveryDelayMs",
   "requestsUnloadConfirmation",
   "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
-  "Native activation superseded traversal",
+  "Native activation superseded pending work",
   "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
   '"application-owned"',
   "consumeApplicationRecovery",
@@ -64,7 +64,9 @@ for (const fragment of [
   "declines history ownership when secure identity generation is unavailable",
   "restores automatic scroll ownership when the runtime closes",
   "restores automatic scroll ownership when initial history acquisition fails",
+  "refuses startup cleanly when History wrappers cannot be installed",
   "rekeys exact-shape startup state before claiming ownership",
+  "rekeys private-looking state installed after close before restart",
   "restores automatic scroll ownership before native same-context departure",
   "allows a scrolled origin and reloads that unsafe history entry on return",
   "keeps an entry unsafe after returning to the top and restarting",
@@ -104,6 +106,7 @@ for (const fragment of [
   "repairs a returnValue-only cancelled traversal reload",
   "cancels a pending traversal before a newer click remains native",
   "cancels a pending traversal before a refused fragment remains native",
+  "cancels an ordinary pending navigation before a native fragment activation",
   "cancels a pending traversal before a native form submission",
   "cancels an older traversal before a newer native recovery",
 ]) assert.equal(tests.includes(fragment), true, `V2-05 browser corpus is missing ${fragment}`);
@@ -115,7 +118,9 @@ for (const name of [
   "history-environment-refusal",
   "history-teardown",
   "history-startup-recovery",
+  "history-wrapper-installation-refusal",
   "history-startup-state-rekey",
+  "history-post-close-restart-rekey",
   "history-native-departure",
   "history-scroll-refusal",
   "history-monotonic-scroll-recovery",
@@ -151,6 +156,7 @@ for (const name of [
   "history-click-supersession-recovery",
   "history-delayed-recovery-supersession",
   "history-fragment-supersession-recovery",
+  "history-ordinary-native-supersession",
   "history-form-supersession-recovery",
   "history-recovery",
 ]) {
@@ -168,4 +174,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 168-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 177-case corpus, executable guidance)");

@@ -539,6 +539,20 @@ startup failure does the same before falling back to native links:
 }
 ```
 
+If the History methods cannot both be wrapped, partial installation is undone
+and startup stays native without throwing:
+
+```json
+{
+  "schema": "fadeno.example.history-wrapper-installation-refusal",
+  "version": 1,
+  "exactMethodsRestored": true,
+  "restoration": "auto",
+  "uncaughtErrors": 0,
+  "nativeDeparture": true
+}
+```
+
 An exact-shape private-looking state present before startup is not accepted as
 proof. The runtime replaces it with a fresh owner before enhancement begins:
 
@@ -862,6 +876,20 @@ reload may resume only after startup replaces it with a fresh owner:
 }
 ```
 
+Closing and restarting in the same document also creates a fresh owner. A
+private-looking state copied while enhancement was closed cannot inherit the
+prior runtime session:
+
+```json
+{
+  "schema": "fadeno.example.history-post-close-restart-rekey",
+  "version": 1,
+  "postCloseStateRekeyed": true,
+  "restoration": "manual",
+  "enhancementUsesRekeyedOwner": true
+}
+```
+
 Recovery persistence uses the same bounded URL class for reading and writing,
 so a supported long current URL cannot poison unrelated recovery records:
 
@@ -1004,6 +1032,19 @@ traversal and start from repaired displayed-document truth:
 }
 ```
 
+The same native activation rule cancels an ordinary pending enhanced request,
+so its late response cannot replace the chosen fragment destination:
+
+```json
+{
+  "schema": "fadeno.example.history-ordinary-native-supersession",
+  "version": 1,
+  "pendingNavigationAborted": true,
+  "nativeFragmentWon": true,
+  "obsoleteFallbackSuppressed": true
+}
+```
+
 If the user cancels a reload required by an unsafe Back or Forward traversal,
 the still-active document repairs the selected slot to its trusted displayed
 URL, reacquires history ownership, records the refusal, and can enhance a later
@@ -1086,6 +1127,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 168 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
+for all 177 current-packed cases in Chromium, Firefox, and WebKit. Enhanced forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

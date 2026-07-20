@@ -34,7 +34,9 @@ marker, private state version, the active bounded chain identity, a bounded entr
 document-scroll record. It installs manual browser scroll restoration while
 active and restores the previous browser setting on close or page departure. If initial history
 ownership cannot be recorded, startup also restores the prior setting and
-returns the exact original History API functions and native ownership. A non-trustworthy origin or missing secure random
+returns the exact original History API functions and native ownership. History
+wrapper installation is itself guarded: partial installation restores every
+method it replaced and declines enhancement without throwing. A non-trustworthy origin or missing secure random
 identity generator declines ownership before creating an identity. Application-owned, foreign-chain, malformed, unsupported, or
 preservation-unsafe entries are not interpreted; traversal reloads the selected
 current URL so URL and document cannot diverge.
@@ -59,9 +61,12 @@ The active runtime keeps a bounded registry of the exact entry state and URL it
 created. A marker and chain identity alone do not grant ownership: an entry
 copied by application code, a repeated selected identity without an observed
 runtime traversal, or a changed registered state reloads current server truth.
-An exact-shape state found in a newly loaded document is re-keyed to a fresh
-runtime session before it can enter that registry; serialized fields are not
-positive ownership proof.
+Every actual runtime start, including a restart after close in the same
+document, re-keys the selected entry to a fresh runtime session before it can
+enter that registry; serialized fields are not positive ownership proof. A
+same-document restart conservatively retains already-recorded nonzero document
+or element-scroll evidence, while a newly loaded document derives its initial
+scroll evidence from that document's live layout.
 Registry overflow is fail-closed. Application calls to `pushState` and
 `replaceState` are distinguished from guarded runtime writes and make the exact
 resulting entry and URL application-owned, including a byte-for-byte or same-URL
@@ -104,8 +109,9 @@ Traversal supersession uses ADR 0049's existing operation cancellation and
 newest-only publication. A newly selected traversal cancels its predecessor
 before any early native-recovery decision, so an obsolete response cannot race
 that recovery. A refused same-context link, including a fragment, and a still-
-native same-context form submission also cancel the pending traversal and repair
-its selected slot before native activation continues. Listening for the form
+native same-context form submission cancel any pending enhanced request. When
+that request is a traversal, they also repair its selected slot before native
+activation continues. Listening for the form
 submission does not intercept or enhance it. Scroll-write suppression remains
 owned by the newest traversal until that traversal finishes; an older
 traversal's cleanup cannot release it, including while delayed native recovery
@@ -201,6 +207,7 @@ application-copy recovery before and after repeated reload and re-keying, long-U
 post-history commit, focus-time history mutation, multi-push rollback, and rollback failure without duplicate entries, cancelled-
 reload, close-time reload, post-selection fallback, and preselection fallback repair, returnValue-only cancellation,
 ordinary-link source mutation, ordinary close cancellation, delayed-recovery and pending-traversal eligible-click, refused-fragment, and native-form supersession,
+ordinary-request/native-fragment supersession, guarded History-wrapper installation, post-close same-document re-keying,
 secure-environment refusal and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.

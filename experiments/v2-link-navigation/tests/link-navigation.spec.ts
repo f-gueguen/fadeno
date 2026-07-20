@@ -375,6 +375,40 @@ test("restores automatic scroll ownership when initial history acquisition fails
   }).toEqual(expected("history-startup-recovery"));
 });
 
+test("refuses startup cleanly when History wrappers cannot be installed", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.name));
+  await page.addInitScript(() => {
+    const originalReplace = history.replaceState;
+    const originalPush = history.pushState;
+    Reflect.set(globalThis, "__fadenoOriginalHistoryMethods", { originalReplace, originalPush });
+    Object.defineProperty(history, "replaceState", { configurable: true, writable: true, value: originalReplace });
+    Object.defineProperty(history, "pushState", { configurable: true, writable: false, value: originalPush });
+  });
+  await page.goto(origin);
+  const startup = await page.evaluate(() => {
+    const originals = Reflect.get(globalThis, "__fadenoOriginalHistoryMethods") as {
+      originalReplace: History["replaceState"];
+      originalPush: History["pushState"];
+    };
+    history.replaceState(history.state, "", location.href);
+    return {
+      exactMethodsRestored: history.replaceState === originals.originalReplace && history.pushState === originals.originalPush,
+      restoration: history.scrollRestoration,
+    };
+  });
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-wrapper-installation-refusal",
+    version: 1,
+    ...startup,
+    uncaughtErrors: pageErrors.length,
+    nativeDeparture: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+  }).toEqual(expected("history-wrapper-installation-refusal"));
+});
+
 test("rekeys exact-shape startup state before claiming ownership", async ({ page }) => {
   await page.addInitScript(() => {
     history.replaceState({
@@ -402,6 +436,34 @@ test("rekeys exact-shape startup state before claiming ownership", async ({ page
     ...startup,
     enhancementUsesRekeyedOwner: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
   }).toEqual(expected("history-startup-state-rekey"));
+});
+
+test("rekeys private-looking state installed after close before restart", async ({ page }) => {
+  await page.goto(origin);
+  const restart = await page.evaluate(async () => {
+    const enhancement = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+    enhancement.close();
+    history.pushState({ ...history.state }, "", location.href);
+    const copied = { session: history.state?.session, entry: history.state?.entry };
+    const modulePath: string = "/_fadeno/framework/browser.js";
+    const runtime = await import(modulePath) as Readonly<{
+      startBrowserEnhancement(): { close(): void; state(): string };
+    }>;
+    Reflect.set(globalThis, "__fadenoExampleEnhancement", runtime.startBrowserEnhancement());
+    return {
+      postCloseStateRekeyed: history.state?.session !== copied.session && history.state?.entry !== copied.entry,
+      restoration: history.scrollRestoration,
+    };
+  });
+  const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-post-close-restart-rekey",
+    version: 1,
+    ...restart,
+    enhancementUsesRekeyedOwner: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
+  }).toEqual(expected("history-post-close-restart-rekey"));
 });
 
 test("allows a scrolled origin and reloads that unsafe history entry on return", async ({ page }) => {
@@ -1556,6 +1618,32 @@ test("cancels a pending traversal before a refused fragment remains native", asy
     displayedTruthRepaired: await page.locator("h1").textContent() === "Home",
     obsoleteDocumentSuppressed: await page.getByRole("heading", { name: "Slow" }).count() === 0,
   }).toEqual(expected("history-fragment-supersession-recovery"));
+});
+
+test("cancels an ordinary pending navigation before a native fragment activation", async ({ page }) => {
+  await page.goto(origin);
+  enhancedSlowDelay = 250;
+  await page.evaluate(() => {
+    const originalAbort = AbortController.prototype.abort;
+    sessionStorage.setItem("fadeno-test-native-fragment-aborts-ordinary", "0");
+    AbortController.prototype.abort = function recordAbort(reason?: unknown): void {
+      sessionStorage.setItem("fadeno-test-native-fragment-aborts-ordinary", "1");
+      originalAbort.call(this, reason);
+    };
+  });
+  const nativeSlowBefore = requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length;
+  await page.locator("#slow-link").click({ noWaitAfter: true });
+  await page.waitForTimeout(20);
+  await page.locator("#fragment-link").click();
+  await page.waitForTimeout(300);
+  expect({
+    schema: "fadeno.example.history-ordinary-native-supersession",
+    version: 1,
+    pendingNavigationAborted: await page.evaluate(() => sessionStorage.getItem("fadeno-test-native-fragment-aborts-ordinary") === "1"),
+    nativeFragmentWon: new URL(page.url()).pathname === "/" && new URL(page.url()).hash === "#details",
+    obsoleteFallbackSuppressed: requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length === nativeSlowBefore
+      && await page.locator("h1").textContent() === "Home",
+  }).toEqual(expected("history-ordinary-native-supersession"));
 });
 
 test("cancels a pending traversal before a native form submission", async ({ page }) => {

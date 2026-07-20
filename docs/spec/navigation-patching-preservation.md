@@ -155,17 +155,22 @@ history entries carry a private exact-version marker, the active bounded chain
 identity, a bounded entry identity, and recorded document scroll state while automatic restoration is
 disabled for the active runtime. Startup requires a trustworthy origin and a
 secure random identity generator before claiming history.
-On the first startup in a newly loaded document, any private-looking state is
-re-keyed with a fresh runtime session and entry before it can enter the active
-registry. Serialized marker fields alone are never positive ownership proof.
+Every actual runtime start, including a restart after close in the same
+document, re-keys the selected entry with a fresh runtime session and entry
+before it can enter the active registry. Same-document restarts retain prior
+nonzero document and element-scroll evidence; newly loaded documents derive
+that evidence from their live layout. Serialized marker fields alone are never
+positive ownership proof.
 The first observed nonzero document or element scroll makes the entry
 monotonically unsafe even after the viewport returns to zero or a forced final
 flush runs, avoiding repeated History API writes; an eligible click
 performs guarded flushes before interception and immediately before commit, and
 stays native if the browser refuses either. A bounded private entry identity
 allows traversal to mark the outgoing document unsafe even when its scroll event
-has not yet been delivered. Initial history-acquisition failure restores the
-exact original History API functions and native scroll restoration.
+has not yet been delivered. History-wrapper installation and initial history
+acquisition are guarded. Failure restores every exact original History API
+function that was replaced, restores native scroll restoration, and declines
+enhancement without throwing.
 New cross-document links may leave a document-scrolled origin without treating
 the document scroller as element state, then commit the destination at the top
 with focus moved without scrolling. The final postcondition checks the actual
@@ -209,10 +214,11 @@ ownership. Cancellation repairs the selected slot to displayed truth before
 teardown completes and the closed runtime leaves subsequent activation native.
 Closing during an ordinary pending link aborts that request before teardown
 completes.
-A newer traversal cancels its predecessor before taking an early
-native path. A refused same-context link or still-native same-context form also
-aborts pending traversal work and repairs selected truth before native activation
-continues; form submission is observed for supersession only, not intercepted.
+A newer traversal cancels its predecessor before taking an early native path.
+A refused same-context link or still-native same-context form aborts any pending
+enhanced request; when that request is a traversal, selected truth is repaired
+before native activation continues. Form submission is observed for
+supersession only, not intercepted.
 If history selection succeeds but a later document, focus, scroll, or final
 history-provenance check fails, document and history postconditions roll back
 together. Document rollback restores the exact previously focused node in the
