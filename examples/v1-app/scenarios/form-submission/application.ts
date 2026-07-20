@@ -49,7 +49,10 @@ export const signIn = defineAction({
 });
 
 export const createProject = defineAction({
-  fields: { title: textField({ maximumBytes: 128 }) },
+  fields: {
+    title: textField({ maximumBytes: 128 }),
+    intent: textField({ maximumBytes: 16 }),
+  },
   authorize({ session }) { return session.get("viewer") === "owner"; },
   async run({ input, signal }) {
     createRuns += 1;
@@ -161,7 +164,7 @@ function projectsPage(signedIn: boolean): RenderChild {
     jsxs("form", { id: "create-form", action: createProject, children: [
       jsx("label", { for: "title", children: "Project title" }),
       jsx("input", { id: "title", name: createProject.fields.title, value: "ab" }),
-      jsx("button", { name: "intent", value: "create", type: "submit", children: "Create project" }),
+      jsx("button", { name: createProject.fields.intent, value: "create", type: "submit", children: "Create project" }),
     ] }),
     jsx("ul", { id: "projects", children: projects.map((project) => jsx("li", { children: project })) }),
   ] }));

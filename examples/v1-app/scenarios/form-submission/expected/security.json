@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.form-submission-security",
+  "version": 1,
+  "originRefusalCode": "FADENO_UPDATE_REQUEST_ORIGIN",
+  "originRefusalStatus": 403,
+  "forbiddenActionRuns": 0,
+  "unsupportedFormPrivateRequests": 0
+}

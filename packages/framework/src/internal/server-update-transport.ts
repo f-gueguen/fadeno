@@ -37,16 +37,33 @@ function safeSameOriginUrl(value: string, origin: string): string | undefined {
   }
 }
 
-function refusal(code: string, status = 400): Response {
+function nativeSetCookies(response: Response): readonly string[] {
+  const getSetCookie = Reflect.get(response.headers, "getSetCookie");
+  if (typeof getSetCookie === "function") {
+    const values = Reflect.apply(getSetCookie, response.headers, []) as unknown;
+    if (Array.isArray(values) && values.every((value) => typeof value === "string")) {
+      return Object.freeze([...values]);
+    }
+  }
+  return Object.freeze([]);
+}
+
+function transportHeaders(contentType: string, code?: string, setCookies: readonly string[] = []): Headers {
+  const headers = new Headers({
+    "cache-control": "private, no-store",
+    "content-type": contentType,
+    vary: "accept",
+    "x-content-type-options": "nosniff",
+  });
+  if (code !== undefined) headers.set("x-fadeno-update-code", code);
+  for (const cookie of setCookies) headers.append("set-cookie", cookie);
+  return headers;
+}
+
+function refusal(code: string, status = 400, setCookies: readonly string[] = []): Response {
   return new Response(null, {
     status,
-    headers: {
-      "cache-control": "private, no-store",
-      "content-type": "text/plain; charset=utf-8",
-      vary: "accept",
-      "x-content-type-options": "nosniff",
-      "x-fadeno-update-code": code,
-    },
+    headers: transportHeaders("text/plain; charset=utf-8", code, setCookies),
   });
 }
 
@@ -106,16 +123,13 @@ export async function servePrivateServerUpdate(
   const release = bindPrivateServerUpdateOperation(request, operation);
   try {
     const nativeResponse = await input.invoke(request);
+    const setCookies = nativeSetCookies(nativeResponse);
     const projected = await projectPrivateServerUpdate(nativeResponse, operation, { signal: request.signal });
-    if (projected.status !== "projected") return refusal(projected.code, 409);
+    if (projected.status !== "projected") return refusal(projected.code, 409, setCookies);
+    const headers = transportHeaders(privateUpdateMediaType, undefined, setCookies);
     return new Response(Uint8Array.from(projected.bytes).buffer, {
       status: 200,
-      headers: {
-        "cache-control": "private, no-store",
-        "content-type": privateUpdateMediaType,
-        vary: "accept",
-        "x-content-type-options": "nosniff",
-      },
+      headers,
     });
   } finally {
     release();

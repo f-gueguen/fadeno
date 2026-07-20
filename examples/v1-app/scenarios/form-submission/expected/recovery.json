@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.form-submission-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "actionRuns": 1,
+  "projectVisibleAfterReload": true,
+  "pendingCleared": true,
+  "mutationRetried": false,
+  "outcome": "current-truth-reload"
+}
