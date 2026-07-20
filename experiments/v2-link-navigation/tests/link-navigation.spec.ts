@@ -16,6 +16,12 @@ async function settleBrowserTraversal(page: Page): Promise<void> {
   }));
 }
 
+async function waitForPrivateHistoryOwner(page: Page): Promise<void> {
+  await expect.poll(() => page.evaluate(() => document.readyState === "complete"
+    && history.scrollRestoration === "manual"
+    && Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+}
+
 type Application = Readonly<{
   applicationGeneration: string;
   handler(request: Request): Response | Promise<Response>;
@@ -608,10 +614,11 @@ test("marks an outgoing scroll before a same-task traversal", async ({ page }) =
     history.back();
   });
   await expect(page.locator("h1")).toHaveText("Next");
-  await settleBrowserTraversal(page);
+  await waitForPrivateHistoryOwner(page);
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goForward();
   await expect(page.locator("h1")).toHaveText("Home", { timeout: 15_000 });
+  await waitForPrivateHistoryOwner(page);
   const staleDocumentRemoved = await page.locator("h1").textContent() === "Home";
   const nativeNextBeforePersistentRecovery = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
   await page.goBack();
