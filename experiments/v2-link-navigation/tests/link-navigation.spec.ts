@@ -1359,7 +1359,9 @@ test("returns a focus-time runtime close to native destination recovery", async 
     };
     document.addEventListener("focusin", closeDuringDestinationFocus);
   });
+  const recoveredLoad = page.waitForEvent("load");
   await page.locator("#next-link").click();
+  await recoveredLoad;
   await expect(page.locator("h1")).toHaveText("Next");
   const historyEntriesAdded = await page.evaluate((before) => history.length - before, historyLengthBefore);
   await page.goBack({ waitUntil: "load" });
