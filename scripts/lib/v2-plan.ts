@@ -150,7 +150,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     "future `./browser` facade",
     "Native links and forms remain the correctness baseline",
     "Islands remain V3",
-    "Every user-observable slice extends the canonical application",
+    "Every user-observable capability extends the canonical application",
     "V2-05A establishes the evaluator-facing demonstration surface",
     "Evaluator handoff checkpoint — V2-07A",
     "success, deliberate failure or refusal",

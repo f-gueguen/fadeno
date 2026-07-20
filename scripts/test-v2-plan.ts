@@ -108,6 +108,13 @@ mutation("V2 roadmap is missing Islands remain V3", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace("Islands remain V3", "Islands move into V2"),
 }));
+mutation("V2 roadmap is missing Every user-observable capability extends the canonical application", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(
+    "Every user-observable capability extends the canonical application",
+    "Protocol fixtures replace canonical integration",
+  ),
+}));
 mutation("ENH-01 traceability is missing the V2-01 decision boundary", (context) => Object.freeze({
   ...context,
   traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-patch-protocol", "removed gate")),
