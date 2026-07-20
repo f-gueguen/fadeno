@@ -103,6 +103,10 @@ async function responseText(origin: string, expected: string): Promise<string> {
   throw new Error(`FADENO_V1_DEVELOPMENT_RESPONSE:${expected}\n${last}`);
 }
 
+function normalizeRequestEvidence(document: string): string {
+  return document.replace(/resource-\d+/gu, "resource-<REQUEST>");
+}
+
 async function expectUnavailable(origin: string): Promise<void> {
   for (let attempt = 0; attempt < 500; attempt += 1) {
     try {
@@ -163,7 +167,7 @@ try {
   development = startDevelopment(project, port);
   let stdoutOffset = await development.waitForStdout(`Fadeno development server ready at ${origin}.\n`);
   assert.equal(development.stderr(), "");
-  await responseText(origin, "First running Fadeno application");
+  await responseText(origin, "Follow the request thread.");
 
   const runtimeOutputRoot = join(project, "src/routes/runtime-output");
   mkdirSync(runtimeOutputRoot);
@@ -180,14 +184,14 @@ try {
     assert.equal(await responseText(`${origin}/runtime-output`, "runtime-output"), "runtime-output");
   }
   assert.equal(development.child.exitCode, null);
-  await responseText(origin, "First running Fadeno application");
+  await responseText(origin, "Follow the request thread.");
   rmSync(runtimeOutputRoot, { recursive: true });
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
 
   const pagePath = join(project, "src/routes/page.tsx");
   const originalPage = readFileSync(pagePath, "utf8");
   writeFileSync(pagePath, originalPage.replace(
-    "This document is routed, escaped, and streamed without client JavaScript.",
+    "Follow the request thread.",
     "Direct development generation",
   ));
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
@@ -200,14 +204,14 @@ try {
       'import type { Page } from "@fadeno/framework";\n',
       'import type { Page } from "@fadeno/framework";\nimport { developmentMessage } from "../development-message.js";\n',
     )
-    .replace("<p>This document is routed, escaped, and streamed without client JavaScript.</p>", "<p>{developmentMessage}</p>"));
+    .replace('<h1 id="welcome-heading">Follow the request thread.</h1>', '<h1 id="welcome-heading">{developmentMessage}</h1>'));
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
   await responseText(origin, "Transitive generation one");
   writeFileSync(helperPath, "export const developmentMessage = 'Transitive generation two';\n");
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
   await responseText(origin, "Transitive generation two");
 
-  const lastGood = await responseText(origin, "Transitive generation two");
+  const lastGood = normalizeRequestEvidence(await responseText(origin, "Transitive generation two"));
   const stablePage = readFileSync(pagePath, "utf8");
   const startupFailureOffset = development.stderr().length;
   writeFileSync(pagePath, `throw new Error("candidate startup refusal");\n${stablePage}`);
@@ -219,10 +223,10 @@ try {
     "Fadeno development diagnostics published; last accepted generation remains active.\n",
     stdoutOffset,
   );
-  assert.equal(await responseText(origin, "Transitive generation two"), lastGood);
+  assert.equal(normalizeRequestEvidence(await responseText(origin, "Transitive generation two")), lastGood);
   writeFileSync(pagePath, stablePage);
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
-  assert.equal(await responseText(origin, "Transitive generation two"), lastGood);
+  assert.equal(normalizeRequestEvidence(await responseText(origin, "Transitive generation two")), lastGood);
 
   const compilerScenario = join(exampleRoot, "scenarios/build-compiler-error");
   const invalidSource = join(project, "src/build-scenario.ts");
@@ -234,7 +238,7 @@ try {
     "Fadeno development diagnostics published; last accepted generation remains active.\n",
     stdoutOffset,
   );
-  assert.equal(await responseText(origin, "Transitive generation two"), lastGood);
+  assert.equal(normalizeRequestEvidence(await responseText(origin, "Transitive generation two")), lastGood);
   cpSync(join(compilerScenario, "after/src/build-scenario.ts"), invalidSource);
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
   assert.equal(existsSync(join(project, "dist/src/build-scenario.js")), true);

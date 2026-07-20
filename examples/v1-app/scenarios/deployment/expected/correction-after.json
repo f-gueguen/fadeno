@@ -6,6 +6,6 @@
   "health": {
     "path": "/",
     "status": 200,
-    "document": "First running Fadeno application"
+    "document": "Follow the request thread."
   }
 }

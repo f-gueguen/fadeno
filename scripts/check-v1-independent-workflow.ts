@@ -108,7 +108,7 @@ async function waitForHome(origin: string): Promise<string> {
     try {
       const response = await fetch(origin, { signal: AbortSignal.timeout(1_000) });
       last = await response.text();
-      if (response.status === 200 && last.includes("First running Fadeno application")) return last;
+      if (response.status === 200 && last.includes("Follow the request thread.")) return last;
     } catch { /* listener startup and shutdown are bounded below */ }
     await new Promise<void>((accept) => setTimeout(accept, 10));
   }
@@ -205,7 +205,7 @@ try {
 
   development = start(join(project, "node_modules/.bin/fadeno"), ["dev", "--project-root", ".", "--port", String(developmentPort)], project, {});
   await development.waitForStdout(`Fadeno development server ready at http://127.0.0.1:${developmentPort}.`);
-  assert.match(await waitForHome(`http://127.0.0.1:${developmentPort}`), /First running Fadeno application/u);
+  assert.match(await waitForHome(`http://127.0.0.1:${developmentPort}`), /Follow the request thread\./u);
   await stop(development);
   development = null;
 
@@ -218,7 +218,7 @@ try {
     FADENO_SESSION_KEYS: `active:${Buffer.alloc(32, 7).toString("base64url")}`,
   });
   await production.waitForStdout(`Fadeno production server ready at http://127.0.0.1:${productionPort}.`);
-  assert.match(await waitForHome(`http://127.0.0.1:${productionPort}`), /First running Fadeno application/u);
+  assert.match(await waitForHome(`http://127.0.0.1:${productionPort}`), /Follow the request thread\./u);
   await stop(production);
   production = null;
 
