@@ -146,7 +146,11 @@ try {
     filter: (source) => !["node_modules", ".fadeno", "dist"].includes(basename(source)),
   });
   const manifestPath = join(project, "package.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { dependencies: Record<string, string> };
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+    dependencies: Record<string, string>;
+    scripts: Record<string, string>;
+  };
+  assert.equal(manifest.scripts.dev, "fadeno dev --project-root . --port 4173");
   manifest.dependencies["@fadeno/framework"] = `file:${tarball}`;
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   requireSuccess("pnpm", ["install", "--offline", "--ignore-scripts"], project);
@@ -198,8 +202,11 @@ try {
   requireSuccess("pnpm", ["build"], project);
   assert.equal(existsSync(join(project, "dist/src/build-scenario.js")), false);
 
-  const developmentPort = 4173;
-  development = start("pnpm", ["dev"], project, {});
+  const developmentPort = await reservePort();
+  development = start(process.execPath, [
+    join(installedPackage, "dist/cli.js"),
+    "dev", "--project-root", ".", "--port", String(developmentPort),
+  ], project, {});
   await development.waitForStdout(`Fadeno development server ready at http://127.0.0.1:${developmentPort}.`);
   assert.match(await waitForHome(`http://127.0.0.1:${developmentPort}`), /First running Fadeno application/u);
   await stop(development);
