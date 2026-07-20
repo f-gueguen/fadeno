@@ -1757,6 +1757,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       });
       return;
     }
+    if (traversing) supersedePendingWorkForNativeActivation(
+      "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
+      "same-context form submission superseded pending traversal",
+    );
     const eligibility = privateFormEligibility(form, event.submitter);
     const retainNativeSubmission = (): void => {
       supersedePendingWorkForNativeActivation(
