@@ -143,7 +143,9 @@
       "scenarios/form-submission/expected/privacy.json",
       "scenarios/form-submission/expected/ordering-human.txt",
       "scenarios/form-submission/expected/duplicate.json",
-      "scenarios/form-submission/expected/duplicate-human.txt"
+      "scenarios/form-submission/expected/duplicate-human.txt",
+      "scenarios/form-submission/expected/concurrency.json",
+      "scenarios/form-submission/expected/concurrency-human.txt"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -239,6 +241,8 @@
       "scenarios/link-navigation/expected/history-ordinary-native-supersession.json",
       "scenarios/link-navigation/expected/history-form-supersession-recovery.json",
       "scenarios/form-submission/expected/recovery.json",
+      "scenarios/form-submission/expected/close-recovery.json",
+      "scenarios/form-submission/expected/staged-recovery.json",
       "scenarios/form-submission/expected/history-recovery.json",
       "scenarios/form-submission/expected/teardown.json",
       "scenarios/form-submission/expected/ordering.json"

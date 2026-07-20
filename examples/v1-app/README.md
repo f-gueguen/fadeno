@@ -114,10 +114,13 @@ The current-packed three-browser scenario signs in and then creates, reads,
 updates, and deletes project data through the same public forms as the native
 application. It proves that complete server revalidation finishes before an
 action redirect hands its destination to a fresh cancellable GET, that the POST
-runs once, and that a delayed redirect cannot overwrite a newer navigation.
-The deliberate validation error retains its tested correction; uncertain
-delivery recovers current truth without resubmission; JavaScript-disabled CRUD
-retains the same final server state. Normalized CRUD and ordering results live
+runs once, and that a delayed redirect cannot overwrite a newer enhanced
+navigation. Closing that GET, cancelling native recovery after a staged URL,
+and losing its response all recover committed current truth without repeating
+POST. Concurrent equal-title creates leave one logical project owner, and the
+single stable update and delete forms do not bind failures through mutable list
+ordinals. The deliberate validation error retains its tested correction;
+JavaScript-disabled CRUD retains the same final server state. Normalized CRUD and ordering results live
 beside the scenario source under `scenarios/form-submission/expected/`.
 
 The application uses native external CSS only. The root layout links `/styles`,

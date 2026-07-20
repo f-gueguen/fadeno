@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-staged-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectGets": 1,
+  "recoveryGets": 1,
+  "redirectAwayRuns": 1,
+  "finalPath": "/projects",
+  "currentTruthVisible": true,
+  "recoveryRecorded": true
+}

@@ -19,6 +19,10 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/terminal-flow.json",
   "examples/v1-app/scenarios/form-submission/expected/duplicate.json",
   "examples/v1-app/scenarios/form-submission/expected/duplicate-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/concurrency.json",
+  "examples/v1-app/scenarios/form-submission/expected/concurrency-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/close-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/staged-recovery.json",
 ]) assert.equal(tracked.has(path), true, `V2-07 artifact is not tracked: ${path}`);
 
 const adr = read("docs/adr/0052-enhanced-action-outcome-ordering.md").replace(/\s+/gu, " ");
@@ -60,7 +64,15 @@ for (const fragment of [
   "a fresh cancellable GET operation acquired the redirect destination",
   "await navigate(",
   "recoverCancelledMutation",
+  "native post-selection mutation recovery was cancelled",
+  "&& !recoverCancelledMutation",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
+assert.equal(
+  browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
+    && browser.indexOf('repairDisplayedTruth(\n                  recovery.truthUrl') < browser.indexOf("recovery.recoverCancelledMutation();"),
+  true,
+  "staged mutation recovery must repair displayed truth before requesting current truth",
+);
 
 const navigationSpecification = read("docs/spec/navigation-patching-preservation.md");
 for (const fragment of [
@@ -71,16 +83,21 @@ for (const fragment of [
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
 
 const application = read("examples/v1-app/scenarios/form-submission/application.ts");
-for (const fragment of ["createProject", "updateProject", "deleteProject", "projectPageRenders"]) {
+for (const fragment of ["createProject", "updateProject", "deleteProject", "projectPageRenders", 'id: "update-form"', 'id: "delete-form"']) {
   assert.equal(application.includes(fragment), true, `authenticated CRUD example is missing ${fragment}`);
 }
+assert.equal(application.includes("update-form-${"), false, "update action identity must not depend on a mutable list ordinal");
+assert.equal(application.match(/duplicateProjectTitle\(\)/gu)?.length, 3, "create must recheck title identity at the mutation point");
 
 const tests = read("experiments/v2-form-submission/tests/form-submission.spec.ts");
 for (const fragment of [
   "authenticated create, read, update, and delete",
   "duplicate project identities before delete ownership becomes ambiguous",
+  "serializes concurrent duplicate project creation at the mutation point",
   "delayed redirect result after newer enhanced navigation wins",
   "terminal redirect handoff",
+  "close is cancelled during the redirect GET",
+  "staged redirect URL before cancelled replacement recovery",
   "authenticated CRUD through native documents without JavaScript",
 ]) assert.equal(tests.includes(fragment), true, `V2-07 browser evidence is missing ${fragment}`);
 
@@ -92,6 +109,11 @@ const terminalFlow = read("examples/v1-app/scenarios/form-submission/expected/te
 for (const fragment of ['"failedRedirectRecoveryRequests": 2', '"failedRedirectRecoveryRecorded": true']) {
   assert.equal(terminalFlow.includes(fragment), true, `redirect recovery evidence is missing ${fragment}`);
 }
+for (const [path, fragment] of [
+  ["examples/v1-app/scenarios/form-submission/expected/concurrency.json", '"oneLogicalOwnerCreated": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/close-recovery.json", '"currentTruthVisible": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/staged-recovery.json", '"recoveryRecorded": true'],
+] as const) assert.equal(read(path).includes(fragment), true, `${path} is missing ${fragment}`);
 
 const packageDocument = JSON.parse(read("package.json")) as Readonly<{ scripts?: Readonly<Record<string, string>> }>;
 assert.equal(packageDocument.scripts?.["check:v2-action-ordering"]?.includes("pnpm check:v2-form-submission"), true);
@@ -107,6 +129,10 @@ for (const fragment of [
   '"scenarios/form-submission/expected/ordering-human.txt"',
   '"scenarios/form-submission/expected/duplicate.json"',
   '"scenarios/form-submission/expected/duplicate-human.txt"',
+  '"scenarios/form-submission/expected/concurrency.json"',
+  '"scenarios/form-submission/expected/concurrency-human.txt"',
+  '"scenarios/form-submission/expected/close-recovery.json"',
+  '"scenarios/form-submission/expected/staged-recovery.json"',
 ]) assert.equal(documentationSource.includes(fragment), true, `documentation source is missing ${fragment}`);
 
 console.log("V2-07 action ordering contract passed (redirect GET handoff, authenticated CRUD, stale suppression, and native recovery)");

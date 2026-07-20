@@ -15,6 +15,7 @@ export const browserModule = "/_fadeno/browser-entry.js";
 let projects: string[] = [];
 let searchRequests = 0;
 let signInRuns = 0;
+let redirectAwayRuns = 0;
 let createRuns = 0;
 let updateRuns = 0;
 let deleteRuns = 0;
@@ -30,6 +31,14 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
       clearTimeout(timer);
       reject(signal.reason);
     }, { once: true });
+  });
+}
+
+function duplicateProjectTitle(): never {
+  throw actionError({
+    code: "PROJECT_TITLE_DUPLICATE",
+    fieldErrors: { title: "Use a title that is not already in the project list." },
+    formErrors: ["The project was not created because that title already exists."],
   });
 }
 
@@ -51,6 +60,24 @@ export const signIn = defineAction({
   },
 });
 
+export const redirectAway = defineAction({
+  fields: { passcode: textField({ maximumBytes: 64 }) },
+  authorize() { return true; },
+  run({ input, session }) {
+    redirectAwayRuns += 1;
+    if (input.passcode !== "example-owner") {
+      throw actionError({
+        code: "REDIRECT_AWAY_REFUSED",
+        fieldErrors: { passcode: "Use the example owner passcode." },
+        formErrors: ["Redirect-away sign-in was refused."],
+      });
+    }
+    session.set("viewer", "owner");
+    session.rotate();
+    return redirect("/");
+  },
+});
+
 export const createProject = defineAction({
   fields: {
     title: textField({ maximumBytes: 128 }),
@@ -67,14 +94,9 @@ export const createProject = defineAction({
         formErrors: ["The project was not created."],
       });
     }
-    if (projects.includes(title)) {
-      throw actionError({
-        code: "PROJECT_TITLE_DUPLICATE",
-        fieldErrors: { title: "Use a title that is not already in the project list." },
-        formErrors: ["The project was not created because that title already exists."],
-      });
-    }
+    if (projects.includes(title)) duplicateProjectTitle();
     await wait(mutationDelayMilliseconds, signal);
+    if (projects.includes(title)) duplicateProjectTitle();
     projects = [...projects, title];
   },
 });
@@ -137,6 +159,7 @@ export function resetApplicationState(): void {
   projects = [];
   searchRequests = 0;
   signInRuns = 0;
+  redirectAwayRuns = 0;
   createRuns = 0;
   updateRuns = 0;
   deleteRuns = 0;
@@ -153,6 +176,7 @@ export function readApplicationState(): Readonly<{
   projects: readonly string[];
   searchRequests: number;
   signInRuns: number;
+  redirectAwayRuns: number;
   createRuns: number;
   updateRuns: number;
   deleteRuns: number;
@@ -163,6 +187,7 @@ export function readApplicationState(): Readonly<{
     projects: Object.freeze([...projects]),
     searchRequests,
     signInRuns,
+    redirectAwayRuns,
     createRuns,
     updateRuns,
     deleteRuns,
@@ -226,6 +251,11 @@ function projectsPage(signedIn: boolean): RenderChild {
         jsx("input", { name: forbiddenAction.fields.note, value: "secret-form-canary" }),
         jsx("button", { type: "submit", children: "Attempt forbidden action" }),
       ] }),
+      jsxs("form", { id: "redirect-away-form", action: redirectAway, children: [
+        jsx("label", { for: "redirect-away-passcode", children: "Redirect-away passcode" }),
+        jsx("input", { id: "redirect-away-passcode", name: redirectAway.fields.passcode, type: "password", required: true }),
+        jsx("button", { type: "submit", children: "Sign in and redirect away" }),
+      ] }),
     ] }));
   }
   return shell("Project forms", "Project forms", jsxs("section", { children: [
@@ -235,19 +265,29 @@ function projectsPage(signedIn: boolean): RenderChild {
       jsx("input", { id: "title", name: createProject.fields.title, value: "ab" }),
       jsx("button", { name: createProject.fields.intent, value: "create", type: "submit", children: "Create project" }),
     ] }),
-    jsx("ul", { id: "projects", children: projects.map((project, index) => jsxs("li", { children: [
+    jsx("ul", { id: "projects", children: projects.map((project) => jsx("li", { children:
       jsx("span", { class: "project-title", children: project }),
-      jsxs("form", { id: `update-form-${index}`, action: updateProject, children: [
-        jsx("input", { name: updateProject.fields.project, type: "hidden", value: project }),
-        jsx("label", { for: `update-title-${index}`, children: "Updated title" }),
-        jsx("input", { id: `update-title-${index}`, name: updateProject.fields.title, value: project }),
-        jsx("button", { name: updateProject.fields.intent, value: "update", type: "submit", children: "Update project" }),
-      ] }),
-      jsxs("form", { id: `delete-form-${index}`, action: deleteProject, children: [
-        jsx("input", { name: deleteProject.fields.project, type: "hidden", value: project }),
-        jsx("button", { name: deleteProject.fields.intent, value: "delete", type: "submit", children: "Delete project" }),
-      ] }),
-    ] })) }),
+    })) }),
+    jsxs("form", { id: "update-form", action: updateProject, children: [
+        jsx("label", { for: "update-title", children: "Updated title" }),
+        jsx("input", { id: "update-title", name: updateProject.fields.title, value: projects[0] ?? "" }),
+        jsx("input", { name: updateProject.fields.intent, type: "hidden", value: "update" }),
+        projects.map((project) => jsx("button", {
+          name: updateProject.fields.project,
+          value: project,
+          type: "submit",
+          children: `Update ${project}`,
+        })),
+    ] }),
+    jsxs("form", { id: "delete-form", action: deleteProject, children: [
+        jsx("input", { name: deleteProject.fields.intent, type: "hidden", value: "delete" }),
+        projects.map((project) => jsx("button", {
+          name: deleteProject.fields.project,
+          value: project,
+          type: "submit",
+          children: `Delete ${project}`,
+        })),
+    ] }),
   ] }));
 }
 

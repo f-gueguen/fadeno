@@ -38,6 +38,7 @@ type ActiveOperation = Readonly<{
   generation: string;
   documentEpoch: string;
   cancellation: AbortController;
+  recoverCancelledMutation: (() => void) | undefined;
 }>;
 
 class PrivateDocumentCommitFailure extends Error {
@@ -1067,6 +1068,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       generation: currentMetadata.generation,
       documentEpoch: currentMetadata.epoch,
       cancellation: new AbortController(),
+      recoverCancelledMutation,
     });
     active = operation;
     let destinationSelected = false;
@@ -1288,6 +1290,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       generation: currentMetadata?.generation ?? "",
       documentEpoch: currentMetadata?.epoch ?? "",
       cancellation: new AbortController(),
+      recoverCancelledMutation: undefined,
     });
     const priorBusy = eligibility.form.getAttribute("aria-busy");
     eligibility.form.setAttribute("aria-busy", "true");
@@ -1687,6 +1690,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             () => location.href === recovery.destination.href,
             () => {
               if (recovery.recoverCancelledMutation) {
+                repairDisplayedTruth(
+                  recovery.truthUrl,
+                  "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+                  "native post-selection mutation recovery was cancelled",
+                );
                 recovery.recoverCancelledMutation();
                 recovery.restoreFocus?.();
                 return;
@@ -1779,7 +1787,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     state: () => closed ? "closed" : closing ? "closing" : "active",
     close() {
       if (closed || closing) return;
-      if (!traversing && !committing && active?.kind !== "mutation") {
+      const recoverCancelledMutation = active?.recoverCancelledMutation;
+      if (!traversing && !committing && active?.kind !== "mutation" && !recoverCancelledMutation) {
         active?.cancellation.abort(new DOMException("Browser runtime closed", "AbortError"));
         finishClose();
         return;
@@ -1789,11 +1798,30 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       document.removeEventListener("click", click);
       document.removeEventListener("submit", submit);
       document.removeEventListener("scroll", recordCurrentScroll, true);
+      const recoverAfterCancelledClose = (): void => {
+        if (!recoverCancelledMutation) return;
+        try {
+          document.addEventListener("click", click);
+          document.addEventListener("submit", submit);
+          document.addEventListener("scroll", recordCurrentScroll, true);
+          history.scrollRestoration = "manual";
+          if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+          closing = false;
+          recoverCancelledMutation();
+        } catch {
+          finishClose();
+          recoverCancelledMutation();
+        }
+      };
       const truthUrl = displayedTruthUrl;
       const selectedUrl = location.href;
       observeCancelledDeparture(
         () => closing && displayedTruthUrl === truthUrl && location.href === selectedUrl,
         () => {
+          if (recoverCancelledMutation) {
+            recoverAfterCancelledClose();
+            return;
+          }
           traversalSequence += 1;
           traversing = false;
           recoveringTraversal = undefined;
@@ -1808,6 +1836,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       restoreScrollRestoration();
       try { location.reload(); }
       catch {
+        if (recoverCancelledMutation) {
+          recoverAfterCancelledClose();
+          return;
+        }
         repairDisplayedTruth(
           truthUrl,
           "FADENO_UPDATE_NATIVE_CLOSE_CANCELLED",
