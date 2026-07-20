@@ -87,6 +87,23 @@ Run the verified application, failure, flow, and recovery evidence with:
 pnpm check:v1-running-example
 ```
 
+Run the optional enhanced-form qualification with:
+
+```sh
+pnpm check:v2-form-submission
+```
+
+That gate packs the current framework, installs it into a clean consumer, and
+runs the same public GET and protected POST forms over HTTPS in Chromium,
+Firefox, and WebKit. It proves exact successful controls, session-cookie
+rotation, expected validation, correction, pending cleanup, duplicate
+suppression, origin and authorization refusal, redacted ownership evidence,
+and current-truth recovery after a response is lost without sending the
+mutation again. The forms also complete with JavaScript disabled. The primary
+application remains native in this slice; its Evidence page names this
+reproducible qualification instead of presenting private flow data as live UI.
+V2-07 owns the complete enhanced authenticated workflow.
+
 The application uses native external CSS only. The root layout links `/styles`,
 and `src/routes/styles/handler.ts` serves `src/styles.ts` through the public
 typed handler boundary. `pnpm check:a0-css` verifies that contract and its

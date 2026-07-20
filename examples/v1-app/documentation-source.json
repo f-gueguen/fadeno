@@ -23,7 +23,8 @@
     "check:v2-server-update",
     "check:v2-link-navigation",
     "check:v2-history-focus-scroll",
-    "check:v2-demo-experience"
+    "check:v2-demo-experience",
+    "check:v2-form-submission"
   ],
   "evidence": {
     "success": [
@@ -61,7 +62,8 @@
       "scenarios/link-navigation/expected/history-focus.json",
       "scenarios/link-navigation/expected/history-focus-normal.json",
       "scenarios/link-navigation/expected/history-teardown.json",
-      "scenarios/link-navigation/expected/history-scroll-flush-source-refresh.json"
+      "scenarios/link-navigation/expected/history-scroll-flush-source-refresh.json",
+      "scenarios/form-submission/expected/success.json"
     ],
     "failure": [
       "expected/action-failure.txt",
@@ -131,7 +133,10 @@
       "scenarios/link-navigation/expected/history-long-url-recovery.json",
       "scenarios/link-navigation/expected/history-write-recovery.json",
       "scenarios/link-navigation/expected/history-startup-recovery.json",
-      "scenarios/link-navigation/expected/history-native-departure.json"
+      "scenarios/link-navigation/expected/history-native-departure.json",
+      "scenarios/form-submission/expected/failure-human.txt",
+      "scenarios/form-submission/expected/failure.json",
+      "scenarios/form-submission/expected/security.json"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -145,7 +150,8 @@
       "scenarios/resource-lifecycle/expected/correction-after.json",
       "scenarios/resource-lifecycle/expected/correction-before.json",
       "scenarios/deployment/expected/correction-after.json",
-      "scenarios/deployment/expected/correction-before.json"
+      "scenarios/deployment/expected/correction-before.json",
+      "scenarios/form-submission/expected/correction.json"
     ],
     "flow": [
       "expected/check-collision-explain.txt",
@@ -162,7 +168,8 @@
       "scenarios/deployment/expected/flow.json",
       "scenarios/browser-runtime/expected/flow.json",
       "scenarios/server-update/expected/flow.json",
-      "scenarios/link-navigation/expected/flow.json"
+      "scenarios/link-navigation/expected/flow.json",
+      "scenarios/form-submission/expected/flow.json"
     ],
     "recovery": [
       "expected/resource-recovery.txt",
@@ -221,7 +228,9 @@
       "scenarios/link-navigation/expected/history-delayed-recovery-supersession.json",
       "scenarios/link-navigation/expected/history-fragment-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-ordinary-native-supersession.json",
-      "scenarios/link-navigation/expected/history-form-supersession-recovery.json"
+      "scenarios/link-navigation/expected/history-form-supersession-recovery.json",
+      "scenarios/form-submission/expected/recovery.json",
+      "scenarios/form-submission/expected/teardown.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -277,7 +286,9 @@
       "scenarios/link-navigation/expected/history-delayed-recovery-supersession.json",
       "scenarios/link-navigation/expected/history-fragment-supersession-recovery.json",
       "scenarios/link-navigation/expected/history-ordinary-native-supersession.json",
-      "scenarios/link-navigation/expected/history-form-supersession-recovery.json"
+      "scenarios/link-navigation/expected/history-form-supersession-recovery.json",
+      "scenarios/form-submission/expected/recovery.json",
+      "scenarios/form-submission/expected/teardown.json"
     ]
   }
 }

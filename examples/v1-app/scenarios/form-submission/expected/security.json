@@ -4,5 +4,9 @@
   "originRefusalCode": "FADENO_UPDATE_REQUEST_ORIGIN",
   "originRefusalStatus": 403,
   "forbiddenActionRuns": 0,
-  "unsupportedFormPrivateRequests": 0
+  "unsupportedFormPrivateRequests": 0,
+  "preservationPrivateRequests": 0,
+  "crossUserActionRuns": 0,
+  "oversizedActionRuns": 0,
+  "secretAbsent": true
 }

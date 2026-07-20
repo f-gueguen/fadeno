@@ -309,8 +309,10 @@ test("refuses invalid origin, forbidden authorization, and unsupported enhanceme
   });
   const originRefusalCode = response.headers()["x-fadeno-update-code"];
 
+  const forbiddenReload = page.waitForEvent("load");
   await page.locator("#forbidden-form button").click();
   await expect.poll(() => privateMutations().length).toBeGreaterThanOrEqual(2);
+  await forbiddenReload;
   await expect(page.locator("h1")).toHaveText("Protected forms");
   const forbiddenActionRuns = application.readApplicationState().forbiddenRuns;
 
@@ -323,14 +325,130 @@ test("refuses invalid origin, forbidden authorization, and unsupported enhanceme
   });
   await page.locator("#search-form button").click();
   await page.waitForLoadState();
+  const unsupportedFormPrivateRequests = requests.filter(({ privateUpdate }) => privateUpdate).length;
+
+  requests.length = 0;
+  transportRequests.length = 0;
+  await page.goto(origin);
+  await page.evaluate(() => {
+    const input = document.createElement("input");
+    input.defaultValue = "before";
+    input.value = "after";
+    document.body.append(input);
+  });
+  await page.locator("#search-form button").click();
+  await expect(page.locator("h1")).toHaveText("Search result");
+  const preservationPrivateRequests = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/search"
+    && accept === mediaType).length;
+
   expect({
     schema: "fadeno.example.form-submission-security",
     version: 1,
     originRefusalCode,
     originRefusalStatus: response.status(),
     forbiddenActionRuns,
-    unsupportedFormPrivateRequests: requests.filter(({ privateUpdate }) => privateUpdate).length,
+    unsupportedFormPrivateRequests,
+    preservationPrivateRequests,
+    crossUserActionRuns: 0,
+    oversizedActionRuns: 0,
+    secretAbsent: true,
   }).toEqual(expected("security"));
+});
+
+test("rejects cross-user proof reuse and oversized fields before action execution", async ({ page, browser }) => {
+  await signIn(page);
+  const form = await page.locator("#create-form").evaluate((element) => {
+    const owner = element as HTMLFormElement;
+    const proof = owner.querySelector<HTMLInputElement>('input[name="__fadeno_proof"]');
+    const title = owner.querySelector<HTMLInputElement>("#title");
+    const submitter = owner.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const epoch = document.querySelector<HTMLMetaElement>('meta[name="fadeno-document-epoch"]');
+    return {
+      action: owner.action,
+      proof: proof?.value,
+      titleName: title?.name,
+      intentName: submitter?.name,
+      epoch: epoch?.content,
+    };
+  });
+  if (!form.proof || !form.titleName || !form.intentName || !form.epoch) {
+    throw new Error("FADENO_V2_FORM_PROTECTED_FIXTURE");
+  }
+  const headers = (operation: string): Record<string, string> => ({
+    accept: mediaType,
+    origin,
+    "x-fadeno-current-url": `${origin}/projects`,
+    "x-fadeno-document-epoch": form.epoch ?? "",
+    "x-fadeno-operation-id": operation,
+    "x-fadeno-operation-sequence": "1",
+  });
+  const body = (title: string): Record<string, string> => ({
+    __fadeno_proof: form.proof ?? "",
+    [form.titleName ?? ""]: title,
+    [form.intentName ?? ""]: "create",
+  });
+
+  const foreign = await browser.newContext({ ignoreHTTPSErrors: true });
+  const foreignResponse = await foreign.request.post(form.action, {
+    form: body("Foreign project"),
+    headers: headers("action:foreign-session"),
+  });
+  const foreignText = await foreignResponse.text();
+  await foreign.close();
+  expect(foreignResponse.ok()).toBe(false);
+  const crossUserActionRuns = application.readApplicationState().createRuns;
+
+  const oversizedResponse = await page.request.post(form.action, {
+    form: body("x".repeat(129)),
+    headers: headers("action:oversized-field"),
+  });
+  const oversizedText = await oversizedResponse.text();
+  expect(oversizedResponse.ok()).toBe(false);
+  const oversizedActionRuns = application.readApplicationState().createRuns;
+  expect({
+    schema: "fadeno.example.form-submission-security",
+    version: 1,
+    originRefusalCode: "FADENO_UPDATE_REQUEST_ORIGIN",
+    originRefusalStatus: 403,
+    forbiddenActionRuns: 0,
+    unsupportedFormPrivateRequests: 0,
+    preservationPrivateRequests: 0,
+    crossUserActionRuns,
+    oversizedActionRuns,
+    secretAbsent: !`${foreignText}${oversizedText}`.includes(form.proof),
+  }).toEqual(expected("security"));
+});
+
+test("tears down a pending mutation through one current-truth recovery", async ({ page }) => {
+  await signIn(page);
+  application.setMutationDelay(300);
+  await page.locator("#title").fill("Cancelled project");
+  const mutationsBefore = privateMutations().length;
+  const requestsBefore = transportRequests.length;
+  await page.locator("#create-form button").click();
+  await expect(page.locator("#create-form")).toHaveAttribute("aria-busy", "true");
+  const reloaded = page.waitForEvent("load");
+  await page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+    runtime.close();
+  });
+  await reloaded;
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(async () => page.evaluate(() => Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  const after = application.readApplicationState();
+  const laterRequests = transportRequests.slice(requestsBefore);
+  expect({
+    schema: "fadeno.example.form-submission-teardown",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    actionRuns: after.createRuns,
+    projectAbsent: !after.projects.includes("Cancelled project"),
+    reloadedCurrentTruth: laterRequests.some(({ method, path, accept }) => method === "GET"
+      && path === "/projects"
+      && accept !== mediaType),
+    replacementRuntimeActive: await page.evaluate(() => Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement"))),
+  }).toEqual(expected("teardown"));
 });
 
 test.describe("native fallback", () => {
