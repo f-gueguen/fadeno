@@ -1,0 +1,1 @@
+Action ordering recovery: native supersession retained mutation recovery ownership; cancelled departure returned to committed current truth without repeating POST.

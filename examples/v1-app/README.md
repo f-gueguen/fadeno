@@ -117,9 +117,11 @@ action redirect hands its destination to a fresh cancellable GET, that the POST
 runs once, and that a delayed redirect cannot overwrite a newer enhanced
 navigation. Closing that GET, cancelling native recovery after a staged URL,
 losing its response, editing after handoff, and superseding it with another
-failed GET all recover committed current truth without repeating POST. A
-same-resource fragment redirect performs a real native reload, and a redirect
-GET result cannot be reused after its redirect chain begins. Concurrent
+failed enhanced or native GET all recover committed current truth without
+repeating POST. Replacing a selected upload with a same-metadata `File` after
+handoff also refuses private publication. A same-resource fragment redirect
+starts a real native reload before teardown can strand its staged URL, and a
+redirect GET result cannot be reused after its redirect chain begins. Concurrent
 equal-title creates leave one logical project owner, and the single stable
 update and delete forms do not bind failures through mutable list ordinals. The
 deliberate validation error retains its tested correction; JavaScript-disabled

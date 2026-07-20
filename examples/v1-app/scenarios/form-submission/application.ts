@@ -1,6 +1,7 @@
 import {
   actionError,
   defineAction,
+  fileField,
   redirect,
   renderRoute,
   textField,
@@ -18,6 +19,7 @@ let signInRuns = 0;
 let redirectAwayRuns = 0;
 let fragmentRedirectRuns = 0;
 let redirectChainRuns = 0;
+let uploadRedirectRuns = 0;
 let createRuns = 0;
 let updateRuns = 0;
 let deleteRuns = 0;
@@ -95,6 +97,15 @@ export const redirectChain = defineAction({
   run() {
     redirectChainRuns += 1;
     return redirect("/redirect-chain");
+  },
+});
+
+export const uploadRedirect = defineAction({
+  fields: { attachment: fileField({ required: true, maximumBytes: 1_024, acceptedTypes: ["text/plain"] }) },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run() {
+    uploadRedirectRuns += 1;
+    return redirect("/projects");
   },
 });
 
@@ -182,6 +193,7 @@ export function resetApplicationState(): void {
   redirectAwayRuns = 0;
   fragmentRedirectRuns = 0;
   redirectChainRuns = 0;
+  uploadRedirectRuns = 0;
   createRuns = 0;
   updateRuns = 0;
   deleteRuns = 0;
@@ -201,6 +213,7 @@ export function readApplicationState(): Readonly<{
   redirectAwayRuns: number;
   fragmentRedirectRuns: number;
   redirectChainRuns: number;
+  uploadRedirectRuns: number;
   createRuns: number;
   updateRuns: number;
   deleteRuns: number;
@@ -214,6 +227,7 @@ export function readApplicationState(): Readonly<{
     redirectAwayRuns,
     fragmentRedirectRuns,
     redirectChainRuns,
+    uploadRedirectRuns,
     createRuns,
     updateRuns,
     deleteRuns,
@@ -322,6 +336,11 @@ function projectsPage(signedIn: boolean): RenderChild {
     jsxs("form", { id: "redirect-chain-form", action: redirectChain, children: [
       jsx("input", { name: redirectChain.fields.intent, type: "hidden", value: "chain" }),
       jsx("button", { type: "submit", children: "Follow redirect chain" }),
+    ] }),
+    jsxs("form", { id: "upload-redirect-form", action: uploadRedirect, children: [
+      jsx("label", { for: "handoff-upload", children: "Handoff upload" }),
+      jsx("input", { id: "handoff-upload", name: uploadRedirect.fields.attachment, type: "file", accept: "text/plain", required: true }),
+      jsx("button", { type: "submit", children: "Upload and redirect" }),
     ] }),
   ] }));
 }

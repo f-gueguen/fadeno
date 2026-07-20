@@ -373,20 +373,30 @@ function privateFormHandoffControlState(control: PrivateFormHandoffControl): str
   return JSON.stringify({ disabled: control.disabled, value: control.value });
 }
 
+function samePrivateFormHandoffFiles(
+  control: PrivateFormHandoffControl,
+  expected: readonly File[],
+): boolean {
+  const current = control instanceof HTMLInputElement ? [...(control.files ?? [])] : [];
+  return current.length === expected.length && current.every((file, index) => file === expected[index]);
+}
+
 function privateFormHandoffPreservationCheck(
   eligibility: PrivateFormEligibility,
 ): () => boolean {
   const activeElement = document.activeElement;
   const controls = privateFormHandoffControls(eligibility.form).map((control) => Object.freeze({
     control,
+    files: Object.freeze(control instanceof HTMLInputElement ? [...(control.files ?? [])] : []),
     state: privateFormHandoffControlState(control),
   }));
   return () => {
     if (!privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })
       || document.activeElement !== activeElement) return false;
     const currentControls = privateFormHandoffControls(eligibility.form);
-    return currentControls.length === controls.length && controls.every(({ control, state }, index) => currentControls[index] === control
-      && privateFormHandoffControlState(control) === state);
+    return currentControls.length === controls.length && controls.every(({ control, files, state }, index) => currentControls[index] === control
+      && privateFormHandoffControlState(control) === state
+      && samePrivateFormHandoffFiles(control, files));
   };
 }
 
@@ -1092,21 +1102,23 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       fallback(new URL(truthUrl), true, false, undefined, recoverCancelledMutation);
       return;
     }
-    setTimeout(() => {
-      if (closed || location.href !== destination.href) return;
-      observeCancelledDeparture(
-        () => displayedTruthUrl === truthUrl && location.href === destination.href,
-        () => {
-          repairDisplayedTruth(
-            truthUrl,
-            "FADENO_FORM_FRAGMENT_RELOAD_CANCELLED",
-            "native same-resource fragment reload was cancelled",
-          );
-          recoverCancelledMutation();
-        },
+    const recoverFragmentReload = (): void => {
+      repairDisplayedTruth(
+        truthUrl,
+        "FADENO_FORM_FRAGMENT_RELOAD_CANCELLED",
+        "native same-resource fragment reload was cancelled",
       );
+      recoverCancelledMutation();
+    };
+    observeCancelledDeparture(
+      () => displayedTruthUrl === truthUrl && location.href === destination.href,
+      recoverFragmentReload,
+    );
+    try {
       location.reload();
-    }, 0);
+    } catch {
+      recoverFragmentReload();
+    }
   };
 
   const recoverSelectedPush = (
@@ -1130,12 +1142,22 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const supersedePendingWorkForNativeActivation = (code: string, decision: string): boolean => {
     if (active?.kind === "mutation") return false;
     if (!traversing && !active) return false;
+    const recoverCancelledMutation = active?.recoverCancelledMutation;
     active?.cancellation.abort(new DOMException("Native activation superseded pending work", "AbortError"));
-    if (!traversing) return true;
-    traversalSequence += 1;
-    traversing = false;
-    recoveringTraversal = undefined;
-    repairDisplayedTruth(displayedTruthUrl, code, decision);
+    if (traversing) {
+      traversalSequence += 1;
+      traversing = false;
+      recoveringTraversal = undefined;
+      repairDisplayedTruth(displayedTruthUrl, code, decision);
+    }
+    if (recoverCancelledMutation) {
+      const truthUrl = displayedTruthUrl;
+      const selectedUrl = location.href;
+      observeCancelledDeparture(
+        () => displayedTruthUrl === truthUrl && location.href === selectedUrl,
+        recoverCancelledMutation,
+      );
+    }
     return true;
   };
 
@@ -1376,6 +1398,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     sourceState: PrivateHistoryState,
   ): Promise<void> => {
     if (active?.kind === "mutation") return;
+    const inheritedMutationRecovery = active?.recoverCancelledMutation;
     active?.cancellation.abort(new DOMException("Form submission superseded navigation", "AbortError"));
     sequence += 1;
     const operation: ActiveOperation = Object.freeze({
@@ -1387,7 +1410,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       generation: currentMetadata?.generation ?? "",
       documentEpoch: currentMetadata?.epoch ?? "",
       cancellation: new AbortController(),
-      recoverCancelledMutation: undefined,
+      recoverCancelledMutation: eligibility.kind === "navigation" ? inheritedMutationRecovery : undefined,
     });
     const priorBusy = eligibility.form.getAttribute("aria-busy");
     eligibility.form.setAttribute("aria-busy", "true");
@@ -1515,6 +1538,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           false,
           false,
           undefined,
+          operation.recoverCancelledMutation,
         );
         return;
       }
@@ -1542,7 +1566,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           undefined,
           operation.kind === "mutation"
             ? () => recoverCommittedMutationCurrentTruth(operation.currentTruthUrl, eligibility)
-            : undefined,
+            : operation.recoverCancelledMutation,
         );
         return;
       }
@@ -1639,7 +1663,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         } else if (!cancelled) {
           const selectedPushCount = historyPushSequence - historyPushesBeforeCommit;
           if (selectedCommitFailure && selectedPushCount > 0) recoverSelectedPush(operation.destination, selectedPushCount);
-          else fallback(operation.destination, selectedCommitFailure, selectedCommitFailure);
+          else fallback(
+            operation.destination,
+            selectedCommitFailure,
+            selectedCommitFailure,
+            undefined,
+            operation.recoverCancelledMutation,
+          );
         }
       }
     } finally {
@@ -1727,20 +1757,34 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       });
       return;
     }
-    supersedePendingWorkForNativeActivation(
-      "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
-      "same-context form submission superseded pending navigation",
-    );
     const eligibility = privateFormEligibility(form, event.submitter);
-    if (!eligibility || !currentMetadata || !privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })) return;
+    const retainNativeSubmission = (): void => {
+      supersedePendingWorkForNativeActivation(
+        "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
+        "same-context form submission superseded pending navigation",
+      );
+    };
+    if (!eligibility || !currentMetadata || !privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })) {
+      retainNativeSubmission();
+      return;
+    }
     const stateBeforeFlush = privateHistoryState(history.state);
     if (!stateBeforeFlush || !ownsHistoryState(stateBeforeFlush, location.href) || stateBeforeFlush.elementScroll
-      || !flushCurrentScroll(true)) return;
+      || !flushCurrentScroll(true)) {
+      retainNativeSubmission();
+      return;
+    }
     const sourceState = privateHistoryState(history.state);
-    if (!sourceState || !ownsHistoryState(sourceState, location.href) || sourceState.elementScroll) return;
+    if (!sourceState || !ownsHistoryState(sourceState, location.href) || sourceState.elementScroll) {
+      retainNativeSubmission();
+      return;
+    }
     let request: ReturnType<typeof privateFormRequest>;
     try { request = privateFormRequest(eligibility); }
-    catch { return; }
+    catch {
+      retainNativeSubmission();
+      return;
+    }
     event.preventDefault();
     void submitFormOperation(eligibility, request, sourceState);
   };

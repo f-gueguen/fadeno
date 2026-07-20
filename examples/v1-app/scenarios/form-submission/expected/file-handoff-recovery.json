@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.action-ordering-file-handoff-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "nativeCurrentTruthGets": 1,
+  "uploadRedirectRuns": 1,
+  "newerFileSelectionNotPrivatelyOverwritten": true,
+  "currentTruthVisible": true
+}

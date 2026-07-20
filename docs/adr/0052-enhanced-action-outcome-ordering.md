@@ -66,13 +66,15 @@ destination. That operation performs GET through the existing route/resource
 projection and the same document, history, focus, scroll, cancellation, and
 stale-result admission used by enhanced links.
 
-The handoff freezes the submitted form controls and active element after the
-mutation result is admitted. Any later edit, control replacement, or focus
-change refuses private destination publication and returns to native GET. A
-newer eligible GET that supersedes the redirect GET inherits committed-mutation
-recovery ownership until a replacement document or native departure commits.
-That ownership is recovery provenance only; it carries no mutation request or
-authority into the newer GET.
+The handoff freezes the submitted form controls, selected `File` object
+identities, and active element after the mutation result is admitted. Any later
+edit, file/control replacement, or focus change refuses private destination
+publication and returns to native GET. A newer eligible GET that supersedes the
+redirect GET inherits committed-mutation recovery ownership until a
+replacement document or native departure commits. An ineligible same-context
+activation that returns to native behavior observes cancellation with the same
+recovery owner. That ownership is recovery provenance only; it carries no
+mutation request or authority into the newer GET.
 
 The redirect GET is not mutation recovery and carries no action body, proof,
 or mutation authority. A newer eligible navigation may cancel and supersede
@@ -86,7 +88,9 @@ fragment on the current resource does not issue a private GET whose result
 could be confused with the fragment-bearing destination. It stages the
 fragment URL in the current history entry and performs one real native reload
 instead. A cancelled reload repairs the displayed-truth URL before
-current-truth recovery begins.
+current-truth recovery begins. Reload starts synchronously after staging, so
+pending-state observers or teardown cannot close enhancement in an intervening
+stale-markup window.
 
 ### Ordering and atomic publication
 
@@ -155,8 +159,8 @@ only enhances boundaries already proven safe or returns them to native GET.
 application scenario to prove enhanced and native authenticated CRUD,
 validation/correction, redirect GET handoff, complete revalidation, delayed and
 permuted result suppression, cancellation/supersession, unsafe-boundary
-refusal, post-handoff edit refusal, inherited recovery, same-resource fragment
-reload, redirect-result consumption, no repeated mutation, redacted causal
-flow, and current-truth recovery in Chromium, Firefox, and WebKit. `pnpm
-ci:local` retains every prior native, browser, security, package, and release
-gate.
+refusal, post-handoff edit and file-identity refusal, enhanced and native
+supersession recovery, teardown-safe same-resource fragment reload,
+redirect-result consumption, no repeated mutation, redacted causal flow, and
+current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`
+retains every prior native, browser, security, package, and release gate.

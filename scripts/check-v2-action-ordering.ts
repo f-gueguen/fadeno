@@ -27,6 +27,10 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/supersession-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json",
   "examples/v1-app/scenarios/form-submission/expected/fragment-redirect-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json",
@@ -77,6 +81,8 @@ for (const fragment of [
   "privateFormHandoffPreservationCheck",
   "inheritedMutationRecovery",
   "fallbackSameResourceFragmentRedirect",
+  "samePrivateFormHandoffFiles",
+  "observeCancelledDeparture",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
@@ -111,6 +117,8 @@ for (const fragment of [
   "staged redirect URL before cancelled replacement recovery",
   "form edits made after redirect handoff",
   "newer GET supersedes the redirect",
+  "native activation supersedes the redirect",
+  "same-metadata file replacement",
   "same-resource fragment redirects",
   "redirect GET result before following its redirect chain",
   "authenticated CRUD through native documents without JavaScript",
@@ -130,6 +138,8 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/staged-recovery.json", '"recoveryRecorded": true'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json", '"submittedDocumentNotPublishedOverNewerEdit": true'],
   ["examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json", '"currentTruthVisible": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json", '"nativeSupersedingGets": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json", '"newerFileSelectionNotPrivatelyOverwritten": true'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"privateRedirectGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json", '"duplicateResultRefused": true'],
 ] as const) assert.equal(read(path).includes(fragment), true, `${path} is missing ${fragment}`);
@@ -156,6 +166,10 @@ for (const fragment of [
   '"scenarios/form-submission/expected/handoff-edit-recovery-human.txt"',
   '"scenarios/form-submission/expected/supersession-recovery.json"',
   '"scenarios/form-submission/expected/supersession-recovery-human.txt"',
+  '"scenarios/form-submission/expected/native-supersession-recovery.json"',
+  '"scenarios/form-submission/expected/native-supersession-recovery-human.txt"',
+  '"scenarios/form-submission/expected/file-handoff-recovery.json"',
+  '"scenarios/form-submission/expected/file-handoff-recovery-human.txt"',
   '"scenarios/form-submission/expected/fragment-redirect.json"',
   '"scenarios/form-submission/expected/fragment-redirect-human.txt"',
   '"scenarios/form-submission/expected/redirect-get-consumption.json"',

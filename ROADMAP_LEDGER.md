@@ -42,8 +42,9 @@ exactly one pending minor Changeset is required.
 - Implement and qualify authenticated CRUD enhancement only where the current
   conservative preservation predicate can prove pre-interception safety.
 - Close exact-commit review findings for handoff edits, superseding recovery,
-  same-resource fragment redirects, and redirect-GET result consumption with
-  permanent three-browser evidence before merge.
+  native fallback, file identity, same-resource fragment teardown, and
+  redirect-GET result consumption with permanent three-browser evidence before
+  merge.
 
 ## Blockers
 

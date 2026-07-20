@@ -20,6 +20,7 @@ type ApplicationState = Readonly<{
   redirectAwayRuns: number;
   fragmentRedirectRuns: number;
   redirectChainRuns: number;
+  uploadRedirectRuns: number;
   createRuns: number;
   updateRuns: number;
   deleteRuns: number;
@@ -570,6 +571,92 @@ test("inherits committed-mutation recovery when a newer GET supersedes the redir
     .toContain("superseding GET retained mutation recovery ownership");
 });
 
+test("retains committed-mutation recovery when native activation supersedes the redirect", async ({ page }) => {
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 400;
+  const mutationsBefore = privateMutations().length;
+  const privateTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length;
+  const nativeTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length).toBe(privateTruthBefore + 1);
+  await page.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "keep committed current truth";
+  }, { once: true }));
+  await page.locator("#redirect-away-passcode").fill("changed-after-handoff");
+  await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("rel", "noreferrer"));
+  const cancelledDeparture = page.waitForEvent("dialog");
+  const activation = page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
+  await (await cancelledDeparture).dismiss();
+  await activation;
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length).toBe(nativeTruthBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-native-supersession-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept === mediaType).length - privateTruthBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - nativeTruthBefore,
+    nativeSupersedingGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/" && accept !== mediaType).length,
+    signInRuns: state.signInRuns,
+    finalPath: new URL(page.url()).pathname,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("native-supersession-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-native-supersession-recovery-human.txt"), "utf8"))
+    .toContain("native supersession retained mutation recovery ownership");
+});
+
+test("refuses a same-metadata file replacement made after redirect handoff", async ({ page }) => {
+  await signIn(page);
+  const installFile = async (contents: string): Promise<void> => page.locator("#handoff-upload").evaluate((input, value) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([value], "handoff.txt", { type: "text/plain", lastModified: 1_234 }));
+    (input as HTMLInputElement).files = transfer.files;
+  }, contents);
+  await installFile("first");
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 400;
+  const mutationsBefore = privateMutations().length;
+  const privateGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length;
+  const nativeGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  await page.locator("#upload-redirect-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length).toBe(privateGetsBefore + 1);
+  await installFile("other");
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-file-handoff-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept === mediaType).length - privateGetsBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - nativeGetsBefore,
+    uploadRedirectRuns: state.uploadRedirectRuns,
+    newerFileSelectionNotPrivatelyOverwritten: await page.locator("#handoff-upload").evaluate((input) =>
+      (input as HTMLInputElement).files?.length === 0),
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  }).toEqual(expected("file-handoff-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-file-handoff-recovery-human.txt"), "utf8"))
+    .toContain("same-metadata replacement refused private publication");
+});
+
 test("reloads same-resource fragment redirects instead of retaining stale markup", async ({ page }) => {
   await signIn(page);
   const mutationsBefore = privateMutations().length;
@@ -577,6 +664,16 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
     && path === "/projects" && accept === mediaType).length;
   const nativeGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length;
+  await page.locator("#fragment-redirect-form").evaluate((form) => {
+    const observer = new MutationObserver(() => {
+      if (form.hasAttribute("aria-busy")) return;
+      observer.disconnect();
+      sessionStorage.setItem("fadeno-fragment-close-after-handoff", "1");
+      const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+      runtime.close();
+    });
+    observer.observe(form, { attributes: true, attributeFilter: ["aria-busy"] });
+  });
   await page.locator("#fragment-redirect-form button").click({ noWaitAfter: true });
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
@@ -593,6 +690,7 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
       && path === "/projects" && accept !== mediaType).length - nativeGetsBefore,
     fragmentRedirectRuns: state.fragmentRedirectRuns,
     finalHash: new URL(page.url()).hash,
+    teardownFollowedHandoff: await page.evaluate(() => sessionStorage.getItem("fadeno-fragment-close-after-handoff") === "1"),
     freshCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   }).toEqual(expected("fragment-redirect"));
   expect(readFileSync(join(outputRoot, "expected-fragment-redirect-human.txt"), "utf8"))
