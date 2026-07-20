@@ -1344,6 +1344,24 @@ test("rolls back pushes made during traversal replacement before native recovery
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
     oneBackReachedPriorDocument: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-traversal-push-recovery"));
+
+  await test.step("uses the source state written by a forced pre-interception scroll flush", async () => {
+    await waitForPrivateHistoryOwner(page);
+    await page.evaluate(() => {
+      document.querySelector("#next-link")?.addEventListener("click", () => scrollTo({ top: 100, behavior: "instant" }), { once: true });
+    });
+    const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
+    const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+    await page.locator("#next-link").click();
+    await expect(page.locator("h1")).toHaveText("Next");
+    expect({
+      schema: "fadeno.example.history-scroll-flush-source-refresh",
+      version: 1,
+      enhancedRequestCommitted: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
+      wastedNativeFallback: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+      destinationAtTop: await page.evaluate(() => scrollX === 0 && scrollY === 0),
+    }).toEqual(expected("history-scroll-flush-source-refresh"));
+  });
 });
 
 test("returns a focus-time runtime close to native destination recovery", async ({ page }) => {
@@ -1373,24 +1391,6 @@ test("returns a focus-time runtime close to native destination recovery", async 
     historyEntriesAdded,
     oneBackReachedPriorDocument: new URL(page.url()).pathname === "/" && await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-close-during-commit-recovery"));
-});
-
-test("uses the source state written by a forced pre-interception scroll flush", async ({ page }) => {
-  await page.goto(origin);
-  await page.evaluate(() => {
-    document.querySelector("#next-link")?.addEventListener("click", () => scrollTo({ top: 100, behavior: "instant" }), { once: true });
-  });
-  const enhancedNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length;
-  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
-  await page.locator("#next-link").click();
-  await expect(page.locator("h1")).toHaveText("Next");
-  expect({
-    schema: "fadeno.example.history-scroll-flush-source-refresh",
-    version: 1,
-    enhancedRequestCommitted: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
-    wastedNativeFallback: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
-    destinationAtTop: await page.evaluate(() => scrollX === 0 && scrollY === 0),
-  }).toEqual(expected("history-scroll-flush-source-refresh"));
 });
 
 test("captures rollback focus from the precommit document snapshot", async ({ page }) => {
@@ -1917,7 +1917,9 @@ test("admits a typed redirect and reaches its same-origin destination", async ({
 });
 
 test("retains normalized flow evidence without exposing a public schema", async ({ page }) => {
-  await page.goto(origin);
+  await page.goto(origin, { waitUntil: "commit" });
+  await expect(page.locator("h1")).toHaveText("Home");
+  await waitForPrivateHistoryOwner(page);
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
   const actual = await page.evaluate(async () => {
