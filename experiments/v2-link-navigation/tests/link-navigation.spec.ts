@@ -2373,13 +2373,14 @@ test("admits a typed redirect and reaches its same-origin destination", async ({
   await page.goto(origin);
   await page.locator("#redirect-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
+  await page.waitForLoadState("load");
   expect(new URL(page.url()).pathname).toBe("/next");
   expect(requests.filter(({ path }) => path === "/redirect").map(({ enhanced }) => enhanced)).toEqual([true]);
   expect(requests.filter(({ path }) => path === "/next").map(({ enhanced }) => enhanced)).toEqual([false]);
 });
 
 test("retains normalized flow evidence without exposing a public schema", async ({ page }) => {
-  await page.goto(origin, { waitUntil: "commit" });
+  await page.goto(origin);
   await expect(page.locator("h1")).toHaveText("Home");
   await waitForPrivateHistoryOwner(page);
   await page.locator("#next-link").click();
