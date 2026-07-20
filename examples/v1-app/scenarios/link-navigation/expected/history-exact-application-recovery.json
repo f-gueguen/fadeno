@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.history-exact-application-recovery",
+  "version": 1,
+  "historyUnclaimed": true,
+  "firstRemoved": true,
+  "secondRetained": true,
+  "secondHistoryUnclaimed": true,
+  "secondRemoved": true
+}

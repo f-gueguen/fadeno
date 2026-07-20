@@ -84,6 +84,7 @@ try {
   });
   cpSync(join(scenarioRoot, "application.ts"), join(builtConsumer, "src/application.ts"));
   cpSync(join(scenarioRoot, "browser-entry.ts"), join(builtConsumer, "src/browser-entry.ts"));
+  cpSync(join(scenarioRoot, "manual-browser-entry.ts"), join(builtConsumer, "src/manual-browser-entry.ts"));
   run("pnpm", ["install", "--offline", "--ignore-scripts"], builtConsumer);
   run(process.execPath, [tsc, "-p", "tsconfig.json"], builtConsumer);
 
@@ -101,6 +102,10 @@ try {
     .replace('from "@fadeno/framework/browser"', 'from "./framework/browser.js"');
   assert.equal(entry.includes(packageName), false);
   writeFileSync(join(site, "_fadeno/browser-entry.js"), entry);
+  const manualEntry = readFileSync(join(builtConsumer, "dist/manual-browser-entry.js"), "utf8")
+    .replace('from "@fadeno/framework/browser"', 'from "./framework/browser.js"');
+  assert.equal(manualEntry.includes(packageName), false);
+  writeFileSync(join(site, "_fadeno/manual-browser-entry.js"), manualEntry);
 
   for (const name of [
     "success.json",
@@ -114,6 +119,7 @@ try {
     "history-teardown.json",
     "history-startup-recovery.json",
     "history-wrapper-installation-refusal.json",
+    "history-scroll-restoration-readback-refusal.json",
     "history-startup-state-rekey.json",
     "history-post-close-restart-rekey.json",
     "history-native-departure.json",
@@ -136,6 +142,7 @@ try {
     "history-source-state-recovery.json",
     "history-cloned-entry-recovery.json",
     "history-same-url-copy-refusal.json",
+    "history-exact-application-recovery.json",
     "history-repeated-reload-rekey.json",
     "history-long-url-recovery.json",
     "history-commit-failure-recovery.json",

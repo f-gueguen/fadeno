@@ -2,6 +2,7 @@
   "schema": "fadeno.example.link-navigation-recovery",
   "version": 1,
   "cancelledHeadingAbsent": true,
+  "latestRequestEnhanced": true,
   "latestHeading": "Next",
   "unprojectableOutcome": "native-navigation",
   "staleUpdateApplied": false

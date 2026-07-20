@@ -347,6 +347,18 @@ function render(request: Request, routeId: string, title: string, heading: strin
   });
 }
 
+function renderManualStart(request: Request): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId: "manual-start",
+    generation: applicationGeneration,
+    browserModule: "/_fadeno/manual-browser-entry.js",
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => document("Manual start", "Manual start"),
+  });
+}
+
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, milliseconds);
@@ -360,6 +372,7 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
 export const handler: Handler = async (request) => {
   const url = new URL(request.url);
   if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home", longContent());
+  if (url.pathname === "/manual-start") return renderManualStart(request);
   if (url.pathname === "/next") return render(request, "next", "Next project", "Next");
   if (url.pathname === "/owner") {
     return render(request, "owner", "Owned project", "Owner", jsx("p", { id: "owner", children: request.headers.get("cookie") ?? "anonymous" }));
@@ -464,6 +477,7 @@ and an outcome that cannot be projected returns to native GET navigation:
   "schema": "fadeno.example.link-navigation-recovery",
   "version": 1,
   "cancelledHeadingAbsent": true,
+  "latestRequestEnhanced": true,
   "latestHeading": "Next",
   "unprojectableOutcome": "native-navigation",
   "staleUpdateApplied": false
@@ -545,6 +559,21 @@ and startup stays native without throwing:
 ```json
 {
   "schema": "fadeno.example.history-wrapper-installation-refusal",
+  "version": 1,
+  "exactMethodsRestored": true,
+  "restoration": "auto",
+  "uncaughtErrors": 0,
+  "nativeDeparture": true
+}
+```
+
+Manual scroll ownership is accepted only when its browser readback is also
+`manual`. A silent assignment refusal restores the exact original History
+methods and leaves the link native:
+
+```json
+{
+  "schema": "fadeno.example.history-scroll-restoration-readback-refusal",
   "version": 1,
   "exactMethodsRestored": true,
   "restoration": "auto",
@@ -876,6 +905,22 @@ fields cannot bootstrap ownership in a new runtime:
 }
 ```
 
+When several application-owned records share one URL, recovery consumes only
+the exact selected session and entry. Other records remain fail-closed until
+their own selected document is recovered:
+
+```json
+{
+  "schema": "fadeno.example.history-exact-application-recovery",
+  "version": 1,
+  "historyUnclaimed": true,
+  "firstRemoved": true,
+  "secondRetained": true,
+  "secondHistoryUnclaimed": true,
+  "secondRemoved": true
+}
+```
+
 The copied state stays refused for its first recovered document. A later
 reload may resume only after startup replaces it with a fresh owner:
 
@@ -985,9 +1030,10 @@ native destination truth rather than publishing from a closed runtime:
 }
 ```
 
-Rollback focus is derived from the same precommit body shape that is retained
-for recovery. A safe sibling insertion during request work therefore cannot
-shift focus restoration onto the wrong node:
+Rollback retains and reinserts the actual precommit body nodes rather than
+cloning their markup. A safe sibling insertion during request work therefore
+cannot shift focus restoration onto the wrong node or discard its listeners
+and application-owned properties:
 
 ```json
 {
@@ -995,6 +1041,9 @@ shift focus restoration onto the wrong node:
   "version": 1,
   "insertedSiblingRetained": true,
   "initiatingFocusRestored": true,
+  "originalNodeIdentityRestored": true,
+  "originalNodeStateRetained": true,
+  "originalNodeListenerRetained": true,
   "selectedTruthRepaired": true
 }
 ```

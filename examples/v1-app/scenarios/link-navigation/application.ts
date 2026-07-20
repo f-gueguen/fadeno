@@ -56,6 +56,18 @@ function render(request: Request, routeId: string, title: string, heading: strin
   });
 }
 
+function renderManualStart(request: Request): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId: "manual-start",
+    generation: applicationGeneration,
+    browserModule: "/_fadeno/manual-browser-entry.js",
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => document("Manual start", "Manual start"),
+  });
+}
+
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(resolve, milliseconds);
@@ -69,6 +81,7 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
 export const handler: Handler = async (request) => {
   const url = new URL(request.url);
   if (url.pathname === "/") return render(request, "home", "Fadeno navigation", "Home", longContent());
+  if (url.pathname === "/manual-start") return renderManualStart(request);
   if (url.pathname === "/next") return render(request, "next", "Next project", "Next");
   if (url.pathname === "/owner") {
     return render(request, "owner", "Owned project", "Owner", jsx("p", { id: "owner", children: request.headers.get("cookie") ?? "anonymous" }));

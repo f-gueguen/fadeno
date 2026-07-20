@@ -119,7 +119,7 @@ function createPrivateUnsafeTraversalPersistence(): Readonly<{
   requireRecovery(session: string, entry: string, url: string, reason: "unsafe-scroll" | "application-owned"): void;
   recoveryReason(session: string, entry: string, url: string): "unsafe-scroll" | "application-owned" | "overflow" | undefined;
   clearRecovery(session: string, entry: string, url: string): void;
-  consumeApplicationRecovery(url: string): boolean;
+  consumeApplicationRecovery(session: string | undefined, entry: string | undefined, url: string): boolean;
 }> {
   type Recovery = Readonly<{
     session: string;
@@ -202,9 +202,20 @@ function createPrivateUnsafeTraversalPersistence(): Readonly<{
       record = Object.freeze({ version: 2, recoveries: Object.freeze(recoveries), overflowed: false });
       persist();
     },
-    consumeApplicationRecovery(url): boolean {
+    consumeApplicationRecovery(session, entry, url): boolean {
       if (record.overflowed) return true;
-      const recoveries = record.recoveries.filter((recovery) => recovery.reason !== "application-owned" || recovery.url !== url);
+      const exact = session === undefined || entry === undefined
+        ? record.recoveries.filter((recovery) => recovery.reason === "application-owned" && recovery.url === url).length === 1
+          ? record.recoveries.find((recovery) => recovery.reason === "application-owned" && recovery.url === url)
+          : undefined
+        : record.recoveries.find((recovery) => recovery.reason === "application-owned"
+          && recovery.session === session
+          && recovery.entry === entry
+          && recovery.url === url);
+      if (!exact) return session === undefined || entry === undefined
+        ? record.recoveries.some((recovery) => recovery.reason === "application-owned" && recovery.url === url)
+        : false;
+      const recoveries = record.recoveries.filter((recovery) => recovery !== exact);
       if (recoveries.length === record.recoveries.length) return false;
       record = Object.freeze({ version: 2, recoveries: Object.freeze(recoveries), overflowed: false });
       persist();
@@ -335,30 +346,6 @@ function focusNewDocument(): void {
   target.focus({ preventScroll: true });
 }
 
-function descendantPath(root: Node, descendant: Node): readonly number[] | undefined {
-  const reversed: number[] = [];
-  let current: Node | null = descendant;
-  while (current !== root) {
-    const parent: Node | null = current.parentNode;
-    if (!parent) return undefined;
-    const index = [...parent.childNodes].indexOf(current as ChildNode);
-    if (index < 0) return undefined;
-    reversed.push(index);
-    current = parent;
-  }
-  return Object.freeze(reversed.reverse());
-}
-
-function descendantAtPath(root: Node, path: readonly number[]): HTMLElement | undefined {
-  let current: Node = root;
-  for (const index of path) {
-    const child = current.childNodes.item(index);
-    if (!child) return undefined;
-    current = child;
-  }
-  return current instanceof HTMLElement ? current : undefined;
-}
-
 function createHistoryState(
   x: number,
   y: number,
@@ -416,15 +403,15 @@ function applyDocument(
     replace(state: Readonly<Record<string, unknown>>, url: string): void;
     push(state: Readonly<Record<string, unknown>>, url: string): void;
   }>,
-  oldFocusPath: readonly number[] | undefined,
+  oldFocusedNode: HTMLElement | undefined,
 ): void {
-  const oldHead = document.head.cloneNode(true) as HTMLHeadElement;
-  const oldBody = document.body.cloneNode(true) as HTMLBodyElement;
+  const oldHead = [...document.head.childNodes];
+  const oldBody = [...document.body.childNodes];
   const oldAttributes = document.documentElement.cloneNode(false) as HTMLElement;
   const oldScroll = Object.freeze({ x: scrollX, y: scrollY });
   const restoreFocus = (): void => {
     try {
-      if (oldFocusPath) descendantAtPath(document.body, oldFocusPath)?.focus({ preventScroll: true });
+      if (oldFocusedNode?.isConnected && document.body.contains(oldFocusedNode)) oldFocusedNode.focus({ preventScroll: true });
     } catch { /* native replacement recovery still owns focus */ }
   };
   const selectedEntry = replace ? privateHistoryState(history.state)?.entry : undefined;
@@ -448,14 +435,15 @@ function applyDocument(
     if (!committedState
       || !samePrivateHistoryState(committedState, expectedState)
       || !validateHistory(committedState, url)
+      || history.scrollRestoration !== "manual"
       || scrollX !== 0
       || scrollY !== 0) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
   } catch (cause) {
     try {
       try { history.scrollRestoration = "manual"; } catch { /* native fallback will restore ownership */ }
       replaceAttributes(document.documentElement, oldAttributes);
-      document.head.replaceChildren(...[...oldHead.childNodes].map((node) => document.importNode(node, true)));
-      document.body.replaceChildren(...[...oldBody.childNodes].map((node) => document.importNode(node, true)));
+      document.head.replaceChildren(...oldHead);
+      document.body.replaceChildren(...oldBody);
       restoreFocus();
       scrollTo({ left: oldScroll.x, top: oldScroll.y, behavior: "instant" });
     } catch { /* native replacement recovery owns any incomplete local rollback */ }
@@ -506,7 +494,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const historySession = `session:${globalThis.crypto.randomUUID()}`;
   const unsafeTraversalPersistence = createPrivateUnsafeTraversalPersistence();
   if (applicationRecoveryDocuments.has(document)) return undefined;
-  if (firstStartupForDocument && unsafeTraversalPersistence.consumeApplicationRecovery(location.href)) {
+  if (firstStartupForDocument && unsafeTraversalPersistence.consumeApplicationRecovery(
+    existingPrivateState?.session,
+    existingPrivateState?.entry,
+    location.href,
+  )) {
     applicationRecoveryDocuments.add(document);
     return undefined;
   }
@@ -587,6 +579,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   };
   try {
     history.scrollRestoration = "manual";
+    if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
     const liveElementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
       && (element.scrollTop !== 0 || element.scrollLeft !== 0));
     const elementScroll = !firstStartupForDocument && existingPrivateState?.elementScroll === true
@@ -660,6 +653,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (!repairedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       writeHistory.replace(repairedState, truthUrl);
       history.scrollRestoration = "manual";
+      if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       rememberHistoryState(repairedPrivateState, truthUrl);
       displayedHistoryEntry = repairedPrivateState.entry;
       selectedHistoryEntry = repairedPrivateState.entry;
@@ -799,7 +793,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     history.go(-selectedPushCount);
   };
 
-  const supersedeTraversalForNativeActivation = (code: string, decision: string): boolean => {
+  const supersedePendingWorkForNativeActivation = (code: string, decision: string): boolean => {
     if (!traversing && !active) return false;
     active?.cancellation.abort(new DOMException("Native activation superseded pending work", "AbortError"));
     if (!traversing) return true;
@@ -887,8 +881,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
       if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
-      const operationFocusPath = document.activeElement instanceof HTMLElement
-        ? descendantPath(document.body, document.activeElement)
+      const operationFocusedNode = document.activeElement instanceof HTMLElement
+        ? document.activeElement
         : undefined;
       historyPushesBeforeCommit = historyPushSequence;
       committing = true;
@@ -907,7 +901,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             && !historyOwnershipOverflowed
             && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
           writeHistory,
-          operationFocusPath,
+          operationFocusedNode,
         );
       } finally {
         committing = false;
@@ -985,18 +979,36 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (!(target instanceof HTMLAnchorElement)) return;
     const browsingContext = target.getAttribute("target")?.toLowerCase() ?? "";
-    if (!target.hasAttribute("download") && ["", "_self"].includes(browsingContext)
-      && supersedeTraversalForNativeActivation(
+    const sameContext = !target.hasAttribute("download") && ["", "_self"].includes(browsingContext);
+    if (sameContext && traversing && supersedePendingWorkForNativeActivation(
         "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
         "native same-context click superseded a traversal",
       )) return;
     const destination = privateSafeLinkDestination(target);
-    if (!destination || !currentMetadata || !privateLinkPreservationSafe(target, { allowDocumentScroll: true })) return;
+    if (!destination || !currentMetadata || !privateLinkPreservationSafe(target, { allowDocumentScroll: true })) {
+      if (sameContext) supersedePendingWorkForNativeActivation(
+        "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
+        "native same-context click superseded pending work",
+      );
+      return;
+    }
     const stateBeforeFlush = privateHistoryState(history.state);
-    if (!stateBeforeFlush || !ownsHistoryState(stateBeforeFlush, location.href) || stateBeforeFlush.elementScroll) return;
-    if (!flushCurrentScroll(true)) return;
+    if (!stateBeforeFlush || !ownsHistoryState(stateBeforeFlush, location.href) || stateBeforeFlush.elementScroll
+      || !flushCurrentScroll(true)) {
+      if (sameContext) supersedePendingWorkForNativeActivation(
+        "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
+        "native same-context click superseded pending work",
+      );
+      return;
+    }
     const state = privateHistoryState(history.state);
-    if (!state || !ownsHistoryState(state, location.href) || state.elementScroll) return;
+    if (!state || !ownsHistoryState(state, location.href) || state.elementScroll) {
+      if (sameContext) supersedePendingWorkForNativeActivation(
+        "FADENO_UPDATE_NATIVE_CLICK_SUPERSESSION",
+        "native same-context click superseded pending work",
+      );
+      return;
+    }
     event.preventDefault();
     void navigate(destination, false, target, state);
   };
@@ -1006,7 +1018,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const submitterTarget = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formtarget") : null;
     const browsingContext = (submitterTarget ?? event.target.getAttribute("target") ?? "").toLowerCase();
     if (!["", "_self"].includes(browsingContext)) return;
-    supersedeTraversalForNativeActivation(
+    supersedePendingWorkForNativeActivation(
       "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
       "native same-context form submission superseded a traversal",
     );
@@ -1091,7 +1103,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   };
   const pageshow = (event: PageTransitionEvent): void => {
     if (!closed && event.persisted) {
-      try { history.scrollRestoration = "manual"; }
+      try {
+        history.scrollRestoration = "manual";
+        if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      }
       catch { historyWriteFailed = true; }
     }
   };

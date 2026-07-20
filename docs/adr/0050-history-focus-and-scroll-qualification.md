@@ -32,7 +32,7 @@ reconciliation acquire authority.
 The browser runtime owns only history entries that carry its exact private
 marker, private state version, the active bounded chain identity, a bounded entry identity, and nonnegative finite
 document-scroll record. It installs manual browser scroll restoration while
-active and restores the previous browser setting on close or page departure. If initial history
+active, verifies the browser reads that owner back as `manual`, and restores the previous browser setting on close or page departure. If initial history
 ownership cannot be recorded, startup also restores the prior setting and
 returns the exact original History API functions and native ownership. History
 wrapper installation is itself guarded: partial installation restores every
@@ -71,7 +71,9 @@ Registry overflow is fail-closed. Application calls to `pushState` and
 `replaceState` are distinguished from guarded runtime writes and make the exact
 resulting entry and URL application-owned, including a byte-for-byte or same-URL
 copy. That refusal survives reload and every explicit restart in the same
-document without granting a copied marker ownership. A later document may
+document without granting a copied marker ownership. Recovery consumes only
+the exact selected session, entry, and URL record; another application-owned
+record at the same URL remains refused. A later document may
 resume only after re-keying the selected entry. Persistence reads and writes
 share the bounded 8,192-byte current-URL class. Recorded element-scroll
 ownership also keeps a new link native after the live element returns to zero,
@@ -138,7 +140,9 @@ same immediately precommit document shape that is cloned for rollback.
 These rules cover scroll changes whose event has not yet been delivered,
 application state replacement during a request, and multi-entry traversal. A
 late response cannot commit document, history, focus, selection, or scroll after
-a newer click or traversal. Closing the runtime while a traversal is pending
+a newer click or traversal. A newer eligible link supersedes an ordinary
+pending link and remains enhanced; an activation that fails eligibility remains
+native after aborting the older work. Closing the runtime while a traversal is pending
 restores native scroll ownership and reloads the already selected current URL;
 it cannot leave that URL paired with the previously displayed document. If the
 user cancels that reload, the selected slot is repaired to the displayed
@@ -164,8 +168,10 @@ destination URL paired with old markup. Cancellation detection covers both
 `preventDefault()` and legacy non-empty `returnValue` confirmation requests.
 The same trusted displayed-truth repair applies when a post-selection commit
 failure rolls the document back and the user cancels its native replacement.
-That document rollback also restores the exact previously focused node within
-the restored body before cancellation can retain it.
+That document rollback reinserts the actual precommit document nodes and
+restores the exact previously focused node within the restored body before
+cancellation can retain it, preserving node identity, listeners, and
+application-owned properties rather than only cloned markup.
 It also applies when a preselection native fallback is cancelled, so the active
 runtime reacquires manual restoration instead of continuing under mixed
 ownership.
@@ -207,12 +213,13 @@ destination focus without focus-induced scroll, collapsed-selection disposal,
 non-collapsed-selection refusal, scrolled-origin departure, nonzero document and
 element-scroll restoration refusal, actual top-scroll postconditions, foreign-chain and unowned-state recovery,
 recorded, combined document/element, and pending element-scroll link refusal, cloned-entry and same-URL
-application-copy recovery before and after repeated reload and re-keying, long-URL persistence, per-entry recovery resumption,
+application-copy recovery before and after repeated reload and re-keying, exact same-URL recovery-record consumption,
+manual-restoration readback refusal, long-URL persistence, per-entry recovery resumption,
 post-history commit, focus-time history mutation, multi-push rollback, and rollback failure without duplicate entries, cancelled-
 reload, close-time reload, post-selection fallback, and preselection fallback repair, returnValue-only cancellation,
 ordinary-link source mutation, ordinary close cancellation, delayed-recovery and pending-traversal eligible-click, refused-fragment, and native-form supersession,
 ordinary-request/native-fragment supersession, guarded History-wrapper installation, post-close same-document re-keying,
-post-flush source refresh, precommit focus capture, focus-time close recovery, and traversal-push rollback,
+post-flush source refresh, exact precommit focused-node identity recovery, focus-time close recovery, and traversal-push rollback,
 secure-environment refusal and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result
 removal. `pnpm ci:local` retains every prior native and release gate.

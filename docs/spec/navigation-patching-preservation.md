@@ -170,7 +170,9 @@ allows traversal to mark the outgoing document unsafe even when its scroll event
 has not yet been delivered. History-wrapper installation and initial history
 acquisition are guarded. Failure restores every exact original History API
 function that was replaced, restores native scroll restoration, and declines
-enhancement without throwing.
+enhancement without throwing. Every acquisition of manual scroll ownership is
+accepted only when the browser reads `manual` back; a silent assignment refusal
+returns to native ownership.
 New cross-document links may leave a document-scrolled origin without treating
 the document scroller as element state, then commit the destination at the top
 with focus moved without scrolling. The final postcondition checks the actual
@@ -184,7 +186,8 @@ and URL; copied fields, repeated unobserved selection, changed state, and
 registry overflow refuse. Runtime-guarded History API writes are distinguished
 from application calls; an application-created exact or same-URL copy remains
 application-owned across reload and explicit restart in the same document. A
-later loaded document may resume only after fresh re-keying. Persistence reads
+recovery removes only the exact selected session, entry, and URL record, so a
+second application-owned record at the same URL remains refused. A later loaded document may resume only after fresh re-keying. Persistence reads
 and writes use the same bounded 8,192-byte current-URL class; over-bound input
 fails closed.
 Recorded element-scroll ownership keeps later link activation native after the
@@ -220,11 +223,14 @@ A newer traversal cancels its predecessor before taking an early native path.
 A refused same-context link or still-native same-context form aborts any pending
 enhanced request; when that request is a traversal, selected truth is repaired
 before native activation continues. Form submission is observed for
-supersession only, not intercepted.
+supersession only, not intercepted. A newer eligible link supersedes an
+ordinary pending link and stays enhanced; only a refused activation remains
+native.
 If history selection succeeds but a later document, focus, scroll, final
 history-provenance, or runtime-lifecycle check fails, document and history postconditions roll back
-together. Document rollback restores the exact previously focused node in the
-restored precommit body when it still exists. A newly pushed selection is rolled back before native navigation
+together. Document rollback reinserts the actual precommit nodes and restores
+the exact previously focused node when it still exists, preserving its identity,
+listeners, and application-owned properties. A newly pushed selection is rolled back before native navigation
 reselects it, including additional synchronous application pushes during the
 failed commit. Additional pushes made after traversal selection are removed
 before native replacement of that selected entry, so no duplicate

@@ -152,6 +152,12 @@ and startup stays native without throwing:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-wrapper-installation-refusal.json","language":"json"} -->
 
+Manual scroll ownership is accepted only when its browser readback is also
+`manual`. A silent assignment refusal restores the exact original History
+methods and leaves the link native:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-scroll-restoration-readback-refusal.json","language":"json"} -->
+
 An exact-shape private-looking state present before startup is not accepted as
 proof. The runtime replaces it with a fresh owner before enhancement begins:
 
@@ -276,6 +282,12 @@ fields cannot bootstrap ownership in a new runtime:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-same-url-copy-refusal.json","language":"json"} -->
 
+When several application-owned records share one URL, recovery consumes only
+the exact selected session and entry. Other records remain fail-closed until
+their own selected document is recovered:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-exact-application-recovery.json","language":"json"} -->
+
 The copied state stays refused for its first recovered document. A later
 reload may resume only after startup replaces it with a fresh owner:
 
@@ -322,9 +334,10 @@ native destination truth rather than publishing from a closed runtime:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-close-during-commit-recovery.json","language":"json"} -->
 
-Rollback focus is derived from the same precommit body shape that is retained
-for recovery. A safe sibling insertion during request work therefore cannot
-shift focus restoration onto the wrong node:
+Rollback retains and reinserts the actual precommit body nodes rather than
+cloning their markup. A safe sibling insertion during request work therefore
+cannot shift focus restoration onto the wrong node or discard its listeners
+and application-owned properties:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-precommit-focus-recovery.json","language":"json"} -->
 
