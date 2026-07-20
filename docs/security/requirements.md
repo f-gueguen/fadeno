@@ -65,6 +65,15 @@ work publishes no private envelope. Projection records retain stable codes and
 causes but exclude markup, proofs, credentials, sessions, submitted values, and
 the opaque authorization owner.
 
+ADR 0051 extends the private request transport to eligible forms without
+moving action authority into the browser. GET form operations cannot become
+mutations. POST operations require the exact HTTPS generated action owner and
+exact origin at both transport admission and the existing action boundary;
+the action proof, replay consume, authorization, upload limits/cleanup,
+session, redirect, and revalidation owners are unchanged. Successful-control
+values never enter browser flow records. Once POST delivery begins, every
+ambiguous outcome recovers by GET current truth and never resubmits mutation.
+
 ADR 0041 carries those controls into the first deployment boundary. The
 immutable release contains no environment file or secret value, accepts only
 process-injected `FADENO_ORIGIN` and `FADENO_SESSION_KEYS`, keeps the application

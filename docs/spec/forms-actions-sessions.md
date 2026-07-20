@@ -123,6 +123,31 @@ before completion, the runtime reports a deterministic redacted failure,
 revalidates with a fresh anonymous session, and publishes only that new
 session; renewal never throws past the response boundary.
 
+## V2 form enhancement
+
+ADR 0051 adds optional delivery for eligible forms without adding another form
+or action model. A trusted submit event remains native unless the effective
+action, method, target, encoding, submitter, current document, and preservation
+boundary are all accepted before interception. The platform
+`FormData(form, submitter)` algorithm is the sole browser successful-control
+owner.
+
+GET forms encode those controls into the destination URL and remain navigation
+operations. They never acquire action, proof, replay, authorization, session
+mutation, or revalidation authority. POST enhancement is limited to the exact
+HTTPS generated action owner and to URL-encoded or multipart encoding. The
+existing action runtime still performs every native origin, route, generation,
+session, proof, replay, field/file, authorization, mutation, redirect, and
+revalidation check.
+
+The submitted form alone receives bounded `aria-busy` ownership. Its prior
+state is restored on every terminal path. A second submission while a mutation
+is pending sends no request. Once POST delivery begins, failure, cancellation,
+teardown, malformed output, or commit refusal reloads the independently trusted
+pre-submit URL with GET and never repeats the mutation. Submitted values,
+filenames, files, proofs, cookies, sessions, and URLs remain absent from private
+flow evidence.
+
 ## V1 conformance
 
 - The authenticated CRUD workflow submits, validates, fails, redirects, and
@@ -137,6 +162,11 @@ session; renewal never throws past the response boundary.
   outcomes once enhancement exists; V1-13 qualifies the native outcome first,
   and ADR 0048 projects that same action response without invoking the action,
   authorization, revalidation, resource, page, or renderer a second time.
+- V2-06 qualifies exact GET URL/no-mutation equivalence and protected POST
+  successful controls, expected validation, pending cleanup, origin,
+  authorization, cross-user, replay, cancellation, duplicate, network,
+  teardown, redirect, and current-truth recovery across three browsers and the
+  JavaScript-disabled baseline.
 - Logs and diagnostics prove that secret and sensitive values are redacted.
 - The V1-12 normalized success, refusal, correction, flow, and recovery files
   are private evidence, not a supported wire schema or public runtime output.

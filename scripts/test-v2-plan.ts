@@ -144,6 +144,26 @@ mutation("V2 roadmap ledger state drifted", (context) => Object.freeze({
   ...context,
   ledger: context.ledger.replace("V2-05A — Merge commit `b951e4d`", "V2-05A — merge identity removed"),
 }));
+mutation("ADR 0051 is missing never repeats the mutation", (context) => Object.freeze({
+  ...context,
+  formAdr: context.formAdr.replace("never repeats the mutation", "may retry the mutation"),
+}));
+mutation("V2-06 Changeset contract drifted", (context) => Object.freeze({
+  ...context,
+  formChangeset: context.formChangeset.replace('"@fadeno/framework": minor', '"@fadeno/framework": patch'),
+}));
+mutation("V2-06 DATA-02 scope contract drifted", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace(/^\| DATA-02 \|.*$/mu, (line) => line.replace(/; \[ADR 0051\][^;|]+/u, "")),
+}));
+mutation("V2-06 ENH-01 traceability contract drifted", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-form-submission", "removed form gate")),
+}));
+mutation("V2-06 form risk contract drifted", (context) => Object.freeze({
+  ...context,
+  risks: context.risks.replace(/^\| Enhanced forms change controls.*\n/mu, ""),
+}));
 mutation("V2 entry package identity drifted", (context) => Object.freeze({
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },

@@ -108,3 +108,9 @@ malformed raw, percent-decoded, or multipart text bytes as
 `FADENO_ACTION_BODY`, never a generic internal failure.
 Before stable release, independent security review must remediate all known
 critical and high-severity findings.
+
+ADR 0051 does not replace any control in this model. Its browser transport may
+deliver only an exact generated HTTPS action POST, and that exact `Request`
+still traverses every boundary above once. Browser admission is correlation,
+not authorization. After delivery becomes uncertain, recovery is a GET for
+current truth and never another POST.
