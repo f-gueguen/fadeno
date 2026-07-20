@@ -158,6 +158,7 @@ catch (cause) {
   cpSync(join(installed, "dist/browser.js"), join(siteRoot, "_fadeno/framework/browser.js"));
   cpSync(join(installed, "dist/internal/browser-runtime.js"), join(siteRoot, "_fadeno/framework/internal/browser-runtime.js"));
   cpSync(join(installed, "dist/internal/browser-navigation.js"), join(siteRoot, "_fadeno/framework/internal/browser-navigation.js"));
+  cpSync(join(installed, "dist/internal/browser-form.js"), join(siteRoot, "_fadeno/framework/internal/browser-form.js"));
   cpSync(join(installed, "dist/internal/browser-update.js"), join(siteRoot, "_fadeno/framework/internal/browser-update.js"));
   const authoredEntry = readFileSync(join(scenarioRoot, "browser-entry.ts"), "utf8");
   const packageImport = 'from "@fadeno/framework/browser"';
