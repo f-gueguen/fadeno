@@ -2231,9 +2231,9 @@ test("cancels a pending traversal before a newer enhanced GET form", async ({ pa
   enhancedSlowDelay = 250;
   await page.evaluate(() => {
     const originalAbort = AbortController.prototype.abort;
-    sessionStorage.setItem("fadeno-test-native-form-aborts", "0");
+    sessionStorage.setItem("fadeno-test-enhanced-form-aborts", "0");
     AbortController.prototype.abort = function recordAbort(reason?: unknown): void {
-      sessionStorage.setItem("fadeno-test-native-form-aborts", "1");
+      sessionStorage.setItem("fadeno-test-enhanced-form-aborts", "1");
       originalAbort.call(this, reason);
     };
     history.back();
@@ -2246,7 +2246,7 @@ test("cancels a pending traversal before a newer enhanced GET form", async ({ pa
   expect({
     schema: "fadeno.example.history-form-supersession-recovery",
     version: 1,
-    pendingTraversalAborted: await page.evaluate(() => sessionStorage.getItem("fadeno-test-native-form-aborts") === "1"),
+    pendingTraversalAborted: await page.evaluate(() => sessionStorage.getItem("fadeno-test-enhanced-form-aborts") === "1"),
     parentTargetResolvedCurrent: await page.evaluate(() => globalThis.parent === globalThis.window),
     enhancedFormWon: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length > enhancedNextBefore,
     obsoleteDocumentSuppressed: new URL(page.url()).pathname === "/next" && await page.locator("h1").textContent() === "Next",

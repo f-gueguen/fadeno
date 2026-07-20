@@ -115,7 +115,7 @@ for (const fragment of [
   "cancels a pending traversal before a newer click remains native",
   "cancels a pending traversal before a refused fragment remains native",
   "cancels an ordinary pending navigation before a native fragment activation",
-  "cancels a pending traversal before a native form submission",
+  "cancels a pending traversal before a newer enhanced GET form",
   "cancels an older traversal before a newer native recovery",
 ]) assert.equal(tests.includes(fragment), true, `V2-05 browser corpus is missing ${fragment}`);
 
