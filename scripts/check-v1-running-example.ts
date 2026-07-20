@@ -496,6 +496,18 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         const titleName = await createForm.getByLabel("Title", { exact: true }).getAttribute("name");
         const attachmentName = await createForm.getByLabel("Text attachment").getAttribute("name");
         assert.ok(action && proof && titleName && attachmentName);
+        const hostileOrigin = await context.request.post(new URL(action, server.origin).href, {
+          headers: { origin: "https://outside.invalid" },
+          multipart: {
+            __fadeno_proof: proof,
+            [titleName]: "Cross-origin project",
+            [attachmentName]: { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("not accepted") },
+          },
+        });
+        assert.equal(hostileOrigin.status(), 400, `${browserName}: hostile origin refusal`);
+        assert.match(await hostileOrigin.text(), /FADENO_ACTION_ORIGIN/u);
+        const afterHostileOrigin = await context.request.get(`${server.origin}/projects`);
+        assert.doesNotMatch(await afterHostileOrigin.text(), /Cross-origin project/u, `${browserName}: hostile origin has no mutation`);
         await createForm.getByLabel("Title", { exact: true }).fill("Browser project");
         await createForm.getByLabel("Text attachment").setInputFiles({
           name: "notes.txt",

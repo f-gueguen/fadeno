@@ -36,7 +36,7 @@ const V2_PLAN_ROWS_WITHOUT_OUTCOMES = Object.freeze([
   { id: "V2-03", features: ["WEB-01", "WEB-02", "DATA-01", "DATA-02", "ENH-01", "PATCH-01", "SEC-01"], dependencies: "V2-02", artifacts: "Navigation/action outcome projection; provenance; redirects and expected failures; no selector-command or second render policy; projection threat-model update; negative authorization and cross-user outcome/provenance isolation; safe redacted logging; rollback; one pending Changeset with semantic version intent", validation: "Native/update outcome equivalence; route/resource/action causal fixtures; integrated negative authorization and cross-user isolation; serialization round trips; redacted logging; rollback and stale-output recovery; Changeset checks; `pnpm ci:local`" },
   { id: "V2-04", features: ["ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01", "DOC-01"], dependencies: "V2-03", artifacts: "Link interception boundary; cancellable requests; protocol-selected ordering and duplicate handling; URL/title/history/focus application; explicit eligibility matrix retaining native activation for external, target, download, modifier-click, and same-document-fragment links; link-interception threat-model update covering hostile URL/scheme/origin, authorization context, cross-user isolation, request limits, redacted logging, and rollback; pre-reconciliation refusal for dirty controls, disclosure/top-layer state, media, selection/caret, mounted client-owned identity, and any boundary whose scroll or state cannot yet be preserved; one pending Changeset with semantic version intent", validation: "Packed link success/refusal/cancellation/permuted-order/recovery; pre-interception hostile URL/scheme/origin, target, download, modifier, and fragment refusal before `preventDefault()`; native destination and browsing-context fallback; integrated authorization, cross-user isolation, resource-limit, redacted-logging, and rollback checks; pre-interception preservation refusal; back/forward smoke; public example; Changeset checks; `pnpm ci:local`" },
   { id: "V2-05", features: ["ENH-01", "PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-04; ADR 0014", artifacts: "History traversal matrix; focus/selection rules; reduced-motion handling; document/element scroll management or refusal fixtures; one pending Changeset with semantic version intent", validation: "Chromium/Firefox/WebKit navigation corpus; keyboard/focus review; accepted scroll signature; native equivalence; Changeset checks; `pnpm ci:local`" },
-  { id: "V2-05A", features: ["BUILD-01", "DOC-01", "TEST-01", "ACCESS-01"], dependencies: "V2-05", artifacts: "Task-oriented complete navigation; request-thread cause-and-outcome overview using application-owned public facts; styled routing, resource, action/session, failure, recovery, and qualification-evidence laboratories; honest HTTP read-only and HTTPS action guidance; one-command local setup; permanent desktop/mobile and no-JavaScript evidence; explicit no-release-impact declaration", validation: "Current-packed public consumer; Chromium/Firefox/WebKit success, deliberate failure, recovery, keyboard, focus, reduced-motion, responsive, and HTTPS CRUD assertions; setup-command replay; screenshot review; documentation-source checks; `pnpm check:v2-demo-experience`; `pnpm ci:local`" },
+  { id: "V2-05A", features: ["BUILD-01", "DOC-01", "TEST-01", "ACCESS-01", "SEC-01"], dependencies: "V2-05", artifacts: "Task-oriented complete navigation; request-thread cause-and-outcome overview using application-owned public facts; styled routing, resource, action/session, failure, recovery, and qualification-evidence laboratories; honest HTTP read-only and HTTPS action guidance; one-command local setup; permanent desktop/mobile and no-JavaScript evidence; exact-origin, secure-cookie, session-rotation, and replay-refusal evidence; explicit no-release-impact declaration", validation: "Current-packed public consumer; Chromium/Firefox/WebKit success, deliberate failure, recovery, keyboard, focus, reduced-motion, responsive, HTTPS CRUD, hostile-origin refusal, secure-cookie, session-rotation, and replay-refusal assertions; injected session-key setup-command replay; screenshot review; documentation-source checks; `pnpm check:v2-demo-experience`; `pnpm ci:local`" },
   { id: "V2-06", features: ["DATA-02", "ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"], dependencies: "V2-03, V2-04, V2-05A", artifacts: "Form interception boundary; exact successful controls; GET forms retained as navigation without mutation authority; pending ownership; expected validation; uncertain-mutation refusal; pre-submit preservation eligibility and refusal before mutation authority; form-interception threat-model update; origin/CSRF, negative authorization, cross-user isolation, resource limits, safe logging, rollback, and teardown evidence; one pending Changeset with semantic version intent", validation: "Native/enhanced GET-form encoding, URL, history, and no-mutation-authority equivalence; native/enhanced mutation payload and outcome equivalence; integrated origin/CSRF, negative authorization, cross-user isolation, resource-limit, redacted-logging, and rollback checks; preservation refusal before interception; duplicate/replay/cancel/network failure; safe fallback and recovery; Changeset checks; `pnpm ci:local`" },
   { id: "V2-07", features: ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01"], dependencies: "V2-05, V2-06", artifacts: "Redirect and error outcomes; current-server-truth recovery; resource refresh; protocol-selected late-response handling; complete CRUD enhancement only for pre-reconciliation-safe boundaries; unsafe-boundary refusal before action interception; one pending Changeset with semantic version intent", validation: "Packed authenticated CRUD success/failure/correction/flow/recovery; permuted delayed duplicate responses; unsafe-boundary pre-interception refusal; no repeated mutation; Changeset checks; `pnpm ci:local`" },
   { id: "V2-08", features: ["PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-05, V2-07; K0-04", artifacts: "Stable identity; declared replacement; dirty-control, disclosure/top-layer, media, focus, selection, caret, and future island preservation; scroll boundary enforcement; one pending Changeset with semantic version intent", validation: "Complete K0 corpus for navigation and action updates in three engines; ownership/refusal/recovery fixtures; Changeset checks; `pnpm ci:local`" },
@@ -181,6 +181,37 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   }
   const risk = context.risks.split("\n").find((line) => line.startsWith("| Browser updates destroy user state")) ?? "";
   if (!risk.includes("ADR 0045") || !risk.includes("affected/unknown refusal")) errors.push("V2 browser-state risk is missing the accepted decision boundary");
+
+  const scopeContracts = Object.freeze({
+    "BUILD-01": "V2-05A adds exact one-command evaluator setup without changing framework behavior",
+    "TEST-01": "V2-05A adds current-packed evaluator setup",
+    "DOC-01": "V2-05A makes those accepted outcomes discoverable",
+    "ACCESS-01": "V2-05A retains the native baseline",
+    "SEC-01": "V2-05A demonstrates this retained boundary",
+  });
+  for (const [feature, fragment] of Object.entries(scopeContracts)) {
+    const row = context.scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    if (!row.includes(fragment)) errors.push(`V2-05A ${feature} scope contract drifted`);
+  }
+  const traceContracts = Object.freeze({
+    "BUILD-01": "V2-05A adds exact one-command evaluator setup without changing package behavior",
+    "TEST-01": "V2-05A adds current-packed setup",
+    "DOC-01": "V2-05A makes accepted outcomes discoverable",
+    "ACCESS-01": "V2-05A retains that native baseline",
+    "SEC-01": "V2-05A replays the retained native action boundary",
+  });
+  for (const [feature, fragment] of Object.entries(traceContracts)) {
+    const row = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    if (!row.includes(fragment)) errors.push(`V2-05A ${feature} traceability contract drifted`);
+  }
+  const demoRisk = context.risks.split("\n").find((line) => line.startsWith("| The canonical demonstration overstates private or unobserved behavior")) ?? "";
+  if (!demoRisk.includes("application-owned public facts") || !demoRisk.includes("not presented as live request telemetry")) {
+    errors.push("V2-05A anti-fabrication risk contract drifted");
+  }
+  const releaseTrace = context.traceability.split("\n").find((line) => line.startsWith("| REL-01 |")) ?? "";
+  if (!releaseTrace.includes("V2-05A is explicitly exempt") || !releaseTrace.includes("changes no publishable package behavior")) {
+    errors.push("V2-05A Changeset exemption contract drifted");
+  }
 
   const packageDocument = context.packageDocument;
   if (!isRecord(packageDocument)

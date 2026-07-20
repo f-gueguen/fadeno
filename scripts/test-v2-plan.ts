@@ -25,6 +25,14 @@ mutation("V2 roadmap V2-05A artifact contract mismatch", (context) => Object.fre
   ...context,
   roadmap: context.roadmap.replace(/^\| V2-05A \|.*$/mu, (line) => line.replace("application-owned public facts", "private telemetry")),
 }));
+mutation("V2 roadmap V2-05A feature contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-05A \|.*$/mu, (line) => line.replace(", SEC-01", "")),
+}));
+mutation("V2 roadmap V2-05A validation contract mismatch", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(/^\| V2-05A \|.*$/mu, (line) => line.replace("hostile-origin refusal, ", "")),
+}));
 mutation("V2 roadmap V2-04 outcome contract mismatch", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace(/^\| V2-04 \|.*$/mu, (line) => line.replace("Enhance link navigation under the accepted request and URL ownership contract", "TBD")),
@@ -111,6 +119,22 @@ mutation("ACCESS-01 scope is missing V2 ownership", (context) => Object.freeze({
 mutation("TEST-01 traceability is missing V2 ownership", (context) => Object.freeze({
   ...context,
   traceability: context.traceability.replace(/^\| TEST-01 \|.*$/mu, (line) => line.replaceAll("V2", "removed")),
+}));
+mutation("V2-05A SEC-01 scope contract drifted", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace(/^\| SEC-01 \|.*$/mu, (line) => line.replace(/; V2-05A demonstrates this retained boundary[^;]+/u, "")),
+}));
+mutation("V2-05A DOC-01 traceability contract drifted", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace(/^\| DOC-01 \|.*$/mu, (line) => line.replace(/; V2-05A makes accepted outcomes discoverable[^;]+/u, "")),
+}));
+mutation("V2-05A anti-fabrication risk contract drifted", (context) => Object.freeze({
+  ...context,
+  risks: context.risks.replace(/^\| The canonical demonstration overstates private or unobserved behavior.*\n/mu, ""),
+}));
+mutation("V2-05A Changeset exemption contract drifted", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace("; V2-05A is explicitly exempt because it changes no publishable package behavior", ""),
 }));
 mutation("README handoff is missing current V2 plan", (context) => Object.freeze({
   ...context,
