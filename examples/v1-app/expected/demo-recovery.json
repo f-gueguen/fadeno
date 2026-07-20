@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "scenario": "evaluator-demo-recovery",
+  "typedFailureStatus": 503,
+  "nextRequestStatus": 200,
+  "staleFailureRemoved": true,
+  "freshResourceExecution": true,
+  "primaryNavigationRemainsBuildable": true
+}

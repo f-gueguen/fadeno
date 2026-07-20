@@ -1,0 +1,5 @@
+command: pnpm demo
+result: current application built; local HTTPS launcher ready
+mutation path: Projects; passcode example-owner
+read-only path: pnpm demo:read-only; protected mutation controls hidden
+stop: Ctrl-C closes proxy and generated production server

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "scenario": "evaluator-demo",
+  "navigation": [
+    "overview",
+    "routing",
+    "resources",
+    "projects",
+    "evidence"
+  ],
+  "visibleRequestFacts": [
+    "route",
+    "resource-calls",
+    "loader-executions",
+    "viewer",
+    "rendering",
+    "observable-outcome"
+  ],
+  "environments": {
+    "https": "complete-native-action-workflow",
+    "http": "read-only-with-mutation-controls-hidden"
+  },
+  "privateQualificationPresentedAsLive": false
+}

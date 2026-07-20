@@ -9,15 +9,23 @@ export type ProjectInput = Readonly<{
   region: string;
 }>;
 
+let projectSummaryExecution = 0;
+
 export const projectSummary = defineResource({
   read({ input, request }: ResourceReadContext<ProjectInput>) {
+    projectSummaryExecution += 1;
     const authorization = request.headers.get("authorization");
     const viewer = authorization === "Bearer example-tenant-alpha"
       ? "tenant-alpha"
       : authorization === "Bearer example-tenant-beta"
         ? "tenant-beta"
         : "public";
-    return Object.freeze({ projectId: input.projectId, region: input.region, viewer });
+    return Object.freeze({
+      executionId: `resource-${projectSummaryExecution}`,
+      projectId: input.projectId,
+      region: input.region,
+      viewer,
+    });
   },
 });
 
