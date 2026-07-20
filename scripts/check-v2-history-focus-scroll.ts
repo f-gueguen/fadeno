@@ -85,7 +85,7 @@ for (const fragment of [
   "records document scroll while traversal work is pending",
   "keeps delayed traversal recovery supersedable by a native click",
   "recovers the selected entry when closing a pending traversal",
-  "repairs displayed truth when close recovery is cancelled",
+  "repairs displayed truth and blocks restart when close recovery is cancelled",
   "aborts an ordinary pending navigation before close completes",
   "flushes late outgoing document scroll before commit",
   "cancels an obsolete history traversal and publishes only the newest entry",
