@@ -13,13 +13,26 @@ export function startPrivateBrowserRuntime(): BrowserRuntimeHandle {
   }
   if (current?.state() === "active") return current;
   const navigation = startPrivateLinkNavigation();
+  let passiveState: BrowserRuntimeState = "active";
+  const pagehide = (event: PageTransitionEvent): void => {
+    if (navigation || event.persisted) return;
+    passiveState = "closed";
+    globalThis.removeEventListener("pagehide", pagehide);
+  };
+  if (!navigation) globalThis.addEventListener("pagehide", pagehide);
   const handle = Object.freeze({
-    state: (): BrowserRuntimeState => navigation && navigation.state() !== "closed" ? "active" : "closed",
+    state: (): BrowserRuntimeState => navigation
+      ? navigation.state() !== "closed" ? "active" : "closed"
+      : passiveState,
     close() {
-      navigation?.close();
+      if (navigation) navigation.close();
+      else {
+        passiveState = "closed";
+        globalThis.removeEventListener("pagehide", pagehide);
+      }
     },
   });
-  current = handle.state() === "active" ? handle : undefined;
+  current = handle;
   return handle;
 }
 import { startPrivateLinkNavigation } from "./browser-navigation.ts";
