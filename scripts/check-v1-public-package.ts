@@ -148,6 +148,8 @@ try {
     "package/dist/internal/build-dev-decision.js",
     "package/dist/internal/build-dev-generation-child.d.ts",
     "package/dist/internal/build-dev-generation-child.js",
+    "package/dist/internal/browser-form.d.ts",
+    "package/dist/internal/browser-form.js",
     "package/dist/internal/browser-navigation.d.ts",
     "package/dist/internal/browser-navigation.js",
     "package/dist/internal/browser-runtime.d.ts",
