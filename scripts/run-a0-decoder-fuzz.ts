@@ -168,8 +168,11 @@ async function summarize<Value>(
   });
 }
 
-const manifestBytes = readFileSync(join(exampleRoot, ".fadeno/routes/manifest.json"), "utf8");
 const configSource = readFileSync(join(exampleRoot, "fadeno.config.ts"), "utf8");
+const manifestBytes = createRouteArtifactPlan(
+  exampleRoot,
+  loadConfigFromSource(exampleRoot, configSource).config,
+).files["manifest.json"];
 
 const surfaces: A0DecoderFuzzSurface[] = [];
 
