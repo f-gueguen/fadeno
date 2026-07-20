@@ -580,12 +580,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   try {
     history.scrollRestoration = "manual";
     if (existingHistoryState === null || firstStartupForDocument) {
-      const elementScroll = existingPrivateState?.elementScroll === true
-        || [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
-          && (element.scrollTop !== 0 || element.scrollLeft !== 0));
-      const recoveredX = existingRecovery === "unsafe-scroll" ? existingPrivateState?.scrollX ?? scrollX : scrollX;
-      const recoveredY = existingRecovery === "unsafe-scroll" ? existingPrivateState?.scrollY ?? scrollY : scrollY;
-      writeHistory.replace(createHistoryState(recoveredX, recoveredY, elementScroll, historySession), location.href);
+      const elementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
+        && (element.scrollTop !== 0 || element.scrollLeft !== 0));
+      writeHistory.replace(createHistoryState(scrollX, scrollY, elementScroll, historySession), location.href);
     }
     const acquiredState = privateHistoryState(history.state);
     if (!acquiredState || acquiredState.session !== historySession) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");

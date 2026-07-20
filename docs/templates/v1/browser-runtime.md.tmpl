@@ -197,7 +197,8 @@ for that document instead of forgetting an older unsafe entry:
 
 Element scroll, a same-task scroll immediately before traversal, and a late
 document scroll while an enhanced request is pending all recover from current
-server truth instead of associating the scroll with another entry:
+server truth instead of associating the scroll with another entry. The newly
+loaded layout derives fresh element ownership instead of copying the old bit:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-recovery.json","language":"json"} -->
 

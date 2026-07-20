@@ -482,7 +482,8 @@ test("keeps an entry unsafe after returning to the top and restarting", async ({
   }).toEqual(expected("history-monotonic-scroll-recovery"));
 });
 
-test("clears only the recovered unsafe entry after a current-truth reload", async ({ page }) => {
+test("clears only the recovered unsafe entry after a zero-scroll current-truth reload", async ({ page }) => {
+  await page.addInitScript(() => { history.scrollRestoration = "manual"; });
   await page.goto(origin);
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
@@ -705,7 +706,7 @@ test("reloads an owned element-scrolled entry during traversal", async ({ page }
     version: 1,
     path: new URL(page.url()).pathname,
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
-    elementScrollRecorded: await page.evaluate(() => Boolean(history.state?.elementScroll)),
+    staleElementOwnershipCleared: await page.evaluate(() => history.state?.elementScroll === false),
   }).toEqual(expected("history-element-recovery"));
 });
 

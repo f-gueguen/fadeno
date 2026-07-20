@@ -68,7 +68,7 @@ for (const fragment of [
   "restores automatic scroll ownership before native same-context departure",
   "allows a scrolled origin and reloads that unsafe history entry on return",
   "keeps an entry unsafe after returning to the top and restarting",
-  "clears only the recovered unsafe entry after a current-truth reload",
+  "clears only the recovered unsafe entry after a zero-scroll current-truth reload",
   "runtimeRestarted",
   "coalesces history writes and keeps mutation-limit failure native",
   "reloads application-owned, foreign-session, and malformed history instead of showing stale markup",

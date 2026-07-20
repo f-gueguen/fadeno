@@ -662,7 +662,8 @@ for that document instead of forgetting an older unsafe entry:
 
 Element scroll, a same-task scroll immediately before traversal, and a late
 document scroll while an enhanced request is pending all recover from current
-server truth instead of associating the scroll with another entry:
+server truth instead of associating the scroll with another entry. The newly
+loaded layout derives fresh element ownership instead of copying the old bit:
 
 ```json
 {
@@ -670,7 +671,7 @@ server truth instead of associating the scroll with another entry:
   "version": 1,
   "path": "/",
   "nativeRecovery": true,
-  "elementScrollRecorded": true
+  "staleElementOwnershipCleared": true
 }
 ```
 
