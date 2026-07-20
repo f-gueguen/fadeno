@@ -1234,7 +1234,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       skipped: Object.freeze(["mutation retry", "stale document retention"]),
       outcome: "current-truth-reload",
     });
-    if (!selectedState || !ownsHistoryState(selectedState, location.href)) {
+    if (!selectedState || !ownsHistoryState(selectedState, location.href, true)) {
       fallback(new URL(currentTruthUrl), true);
       return;
     }
