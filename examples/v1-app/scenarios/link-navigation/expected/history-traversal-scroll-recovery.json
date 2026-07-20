@@ -1,6 +1,7 @@
 {
   "schema": "fadeno.example.history-traversal-scroll-recovery",
   "version": 1,
+  "pendingTraversalNativeRecovery": true,
   "nativeRecovery": true,
   "staleDocumentRemoved": true
 }

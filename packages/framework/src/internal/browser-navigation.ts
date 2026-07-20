@@ -11,6 +11,7 @@ const identityPattern = /^[A-Za-z0-9][A-Za-z0-9:._/-]*$/u;
 const marker = "fadeno.private.navigation.v1";
 const unsafeTraversalPersistenceKey = "fadeno.private.navigation.unsafe-traversal.v1";
 const historyStateVersion = 1;
+const pendingTraversalRecoveryDelayMs = 50;
 
 type Metadata = Readonly<{ generation: string; epoch: string }>;
 type PrivateHistoryState = Readonly<{
@@ -406,6 +407,22 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const previousScrollRestoration = history.scrollRestoration;
   const historySession = existingPrivateState?.session ?? `session:${globalThis.crypto.randomUUID()}`;
   const unsafeTraversalPersistence = createPrivateUnsafeTraversalPersistence(historySession);
+  const ownedHistoryEntries = new Map<string, Readonly<{ state: PrivateHistoryState; url: string }>>();
+  let historyOwnershipOverflowed = false;
+  const rememberHistoryState = (state: PrivateHistoryState, url: string): void => {
+    if (historyOwnershipOverflowed) return;
+    if (!ownedHistoryEntries.has(state.entry) && ownedHistoryEntries.size >= 256) {
+      ownedHistoryEntries.clear();
+      historyOwnershipOverflowed = true;
+      return;
+    }
+    ownedHistoryEntries.set(state.entry, Object.freeze({ state, url }));
+  };
+  const ownsHistoryState = (state: PrivateHistoryState | undefined, url: string): state is PrivateHistoryState => {
+    if (!state || historyOwnershipOverflowed) return false;
+    const owned = ownedHistoryEntries.get(state.entry);
+    return owned?.url === url && samePrivateHistoryState(owned.state, state);
+  };
   const restoreScrollRestoration = (): void => {
     try { history.scrollRestoration = previousScrollRestoration; } catch { /* native owner remains authoritative */ }
   };
@@ -414,11 +431,15 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (existingHistoryState === null) {
       history.replaceState(createHistoryState(scrollX, scrollY, false, historySession), "", location.href);
     }
+    const acquiredState = privateHistoryState(history.state);
+    if (!acquiredState || acquiredState.session !== historySession) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    rememberHistoryState(acquiredState, location.href);
   } catch {
     restoreScrollRestoration();
     return undefined;
   }
   let displayedHistoryEntry = privateHistoryState(history.state)?.entry;
+  let selectedHistoryEntry = displayedHistoryEntry;
   let displayedTruthUrl = location.href;
   const unsafeHistoryEntries = createPrivateUnsafeHistoryEntryTracker();
 
@@ -427,10 +448,61 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     unsafeHistoryEntries.mark(entry);
   };
 
+  let recoveringTraversal: number | undefined;
+  const recoverSelectedTraversal = (traversal: number, delay = 0): void => {
+    active?.cancellation.abort(new DOMException("History traversal requires native recovery", "AbortError"));
+    recoveringTraversal = traversal;
+    const beginRecovery = (): void => {
+      if (closed || traversal !== traversalSequence || recoveringTraversal !== traversal) return;
+      restoreScrollRestoration();
+      let departureCommitted = false;
+      const pageHidden = (): void => { departureCommitted = true; };
+      const repairCancelledReload = (event: BeforeUnloadEvent): void => {
+        if (!event.defaultPrevented) return;
+        setTimeout(() => {
+          globalThis.removeEventListener("pagehide", pageHidden);
+          if (closed || departureCommitted || traversal !== traversalSequence || recoveringTraversal !== traversal) return;
+          traversalSequence += 1;
+          traversing = false;
+          recoveringTraversal = undefined;
+          const elementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
+            && (element.scrollTop !== 0 || element.scrollLeft !== 0));
+          try {
+            const repairedState = createHistoryState(scrollX, scrollY, elementScroll, historySession);
+            const repairedPrivateState = privateHistoryState(repairedState);
+            if (!repairedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+            history.replaceState(repairedState, "", displayedTruthUrl);
+            history.scrollRestoration = "manual";
+            rememberHistoryState(repairedPrivateState, displayedTruthUrl);
+            displayedHistoryEntry = repairedPrivateState.entry;
+            selectedHistoryEntry = repairedPrivateState.entry;
+            if (scrollX !== 0 || scrollY !== 0 || elementScroll) markHistoryUnsafe(repairedPrivateState.entry);
+            recordFlow({
+              status: "refused",
+              code: "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED",
+              decisions: Object.freeze(["native traversal reload was cancelled", "selected history repaired to displayed document truth"]),
+              ownership: Object.freeze({ browser: Object.freeze(["history", "document", "scroll"]), server: Object.freeze([]) }),
+              skipped: Object.freeze(["selected destination commit"]),
+              outcome: "none",
+            });
+          } catch {
+            historyWriteFailed = true;
+            restoreScrollRestoration();
+          }
+        }, 0);
+      };
+      globalThis.addEventListener("pagehide", pageHidden, { once: true });
+      globalThis.addEventListener("beforeunload", repairCancelledReload, { once: true });
+      location.reload();
+    };
+    if (delay === 0) beginRecovery();
+    else setTimeout(beginRecovery, delay);
+  };
+
   const flushCurrentScroll = (force: boolean): boolean => {
     if (closed || traversing || historyWriteFailed) return false;
     const state = privateHistoryState(history.state);
-    if (!state) return false;
+    if (!ownsHistoryState(state, location.href)) return false;
     const elementScroll = state.elementScroll || pendingElementScroll;
     if (state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
       pendingElementScroll = false;
@@ -445,6 +517,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         "",
         location.href,
       );
+      const writtenState = privateHistoryState(history.state);
+      if (!writtenState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      rememberHistoryState(writtenState, location.href);
+      selectedHistoryEntry = writtenState.entry;
       pendingElementScroll = false;
       return true;
     } catch {
@@ -464,6 +540,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (scrollX !== 0 || scrollY !== 0 || elementOwnsScroll) {
         markHistoryUnsafe(displayedHistoryEntry);
         unsafeTraversalPersistence.requireRecovery();
+        if (active) recoverSelectedTraversal(traversalSequence, pendingTraversalRecoveryDelayMs);
       }
       return;
     }
@@ -553,7 +630,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
       if (initiator && !flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       applyDocument(next, operation.destination.href, replace, historySession, previousScrollRestoration);
-      displayedHistoryEntry = privateHistoryState(history.state)?.entry;
+      const committedState = privateHistoryState(history.state);
+      if (!committedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+      rememberHistoryState(committedState, location.href);
+      displayedHistoryEntry = committedState.entry;
+      selectedHistoryEntry = committedState.entry;
       displayedTruthUrl = location.href;
       consumedResultIds.push(admission.resultId);
       if (consumedResultIds.length > 256) consumedResultIds.shift();
@@ -615,6 +696,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (!(target instanceof HTMLAnchorElement)) return;
     const destination = privateSafeLinkDestination(target);
     if (!destination || !currentMetadata || !privateLinkPreservationSafe(target, { allowDocumentScroll: true })) return;
+    const state = privateHistoryState(history.state);
+    if (!ownsHistoryState(state, location.href) || state.elementScroll) return;
     if (!flushCurrentScroll(true)) return;
     event.preventDefault();
     void navigate(destination, false, target);
@@ -630,48 +713,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     traversalSequence += 1;
     const traversal = traversalSequence;
     const state = privateHistoryState(history.state);
+    const repeatedSelection = state?.entry === selectedHistoryEntry;
+    selectedHistoryEntry = state?.entry;
     traversing = true;
-    if (!state || state.session !== historySession
+    if (!state || repeatedSelection || !ownsHistoryState(state, location.href) || state.session !== historySession
       || unsafeTraversalPersistence.requiresRecovery() || unsafeHistoryEntries.requiresReload(state.entry)
       || state.scrollX !== 0 || state.scrollY !== 0 || state.elementScroll) {
-      active?.cancellation.abort(new DOMException("History traversal requires native recovery", "AbortError"));
-      restoreScrollRestoration();
-      let departureCommitted = false;
-      const pageHidden = (): void => { departureCommitted = true; };
-      const repairCancelledReload = (event: BeforeUnloadEvent): void => {
-        if (!event.defaultPrevented) return;
-        setTimeout(() => {
-          globalThis.removeEventListener("pagehide", pageHidden);
-          if (closed || departureCommitted || traversal !== traversalSequence) return;
-          traversalSequence += 1;
-          traversing = false;
-          const elementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
-            && (element.scrollTop !== 0 || element.scrollLeft !== 0));
-          try {
-            const repairedState = createHistoryState(scrollX, scrollY, elementScroll, historySession);
-            const repairedEntry = privateHistoryState(repairedState)?.entry;
-            if (!repairedEntry) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
-            history.replaceState(repairedState, "", displayedTruthUrl);
-            history.scrollRestoration = "manual";
-            displayedHistoryEntry = repairedEntry;
-            if (scrollX !== 0 || scrollY !== 0 || elementScroll) markHistoryUnsafe(repairedEntry);
-            recordFlow({
-              status: "refused",
-              code: "FADENO_UPDATE_NATIVE_RECOVERY_CANCELLED",
-              decisions: Object.freeze(["native traversal reload was cancelled", "selected history repaired to displayed document truth"]),
-              ownership: Object.freeze({ browser: Object.freeze(["history", "document", "scroll"]), server: Object.freeze([]) }),
-              skipped: Object.freeze(["selected destination commit"]),
-              outcome: "none",
-            });
-          } catch {
-            historyWriteFailed = true;
-            restoreScrollRestoration();
-          }
-        }, 0);
-      };
-      globalThis.addEventListener("pagehide", pageHidden, { once: true });
-      globalThis.addEventListener("beforeunload", repairCancelledReload, { once: true });
-      location.reload();
+      recoverSelectedTraversal(traversal);
       return;
     }
     void navigate(new URL(location.href), true, undefined, state).finally(() => {

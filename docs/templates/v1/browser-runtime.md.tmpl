@@ -186,6 +186,11 @@ server truth instead of associating the scroll with another entry:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-recovery.json","language":"json"} -->
 
+Element-scroll ownership also keeps a later link native after the live element
+returns to zero; the recorded ownership cannot be erased by visual position:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-element-link-refusal.json","language":"json"} -->
+
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-pending-scroll-recovery.json","language":"json"} -->
 
 An unsafe mark discovered only during traversal remains fail-closed after the
@@ -206,6 +211,12 @@ asynchronous response. If application code changes that state, the runtime
 does not overwrite it before reloading current server truth:
 
 <!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-selected-state-recovery.json","language":"json"} -->
+
+Only entries recorded by the active runtime at their exact URL and state are
+owned. Copying the visible private-looking fields into another history slot
+does not grant ownership:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/link-navigation/expected/history-cloned-entry-recovery.json","language":"json"} -->
 
 If destination history selection succeeds but focus or another later document
 commit step fails, native recovery replaces that selected destination instead
@@ -240,6 +251,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 99 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 105 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

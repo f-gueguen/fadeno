@@ -168,14 +168,20 @@ with focus moved without scrolling. Back/forward remains enhanced only for owned
 zero-scroll entries without observed element-scroll ownership; malformed,
 foreign-chain, unowned, nonzero-scroll, or element-scroll entries reload their selected current
 URL. An exact supported owned entry can resume enhancement after that current-
-truth reload; application-owned or malformed state cannot. Traversal scroll
+truth reload; application-owned or malformed state cannot. Ownership also
+requires a bounded active-runtime registry containing the exact created state
+and URL; copied fields, repeated unobserved selection, changed state, and
+registry overflow refuse. Recorded element-scroll ownership keeps later link
+activation native after the live element returns to zero. Traversal scroll
 suppression remains tied to the newest traversal generation. The runtime keeps
 the identity of the document actually displayed separate from a merely selected
 entry, changes it only after commit, and becomes fail-closed for traversal if
 its bounded unsafe-identity tracker fills. A bounded chain-scoped refusal record
 survives native reload when an unsafe outgoing entry could not be rewritten;
 malformed or unavailable persistence refuses traversal. Scroll during pending
-traversal receives the same refusal. The selected URL and exact private state
+traversal cancels the pending response and queues the same current-truth native
+recovery after a 50-millisecond supersession window. A newer traversal replaces
+the queued recovery. The selected URL and exact private state
 are revalidated immediately before commit. Native recovery and page departure
 restore the pre-enhancement scroll-restoration mode. A destination history entry
 is created before its viewport resets to the top. Non-collapsed selection

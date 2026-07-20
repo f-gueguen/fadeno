@@ -53,6 +53,13 @@ destination heading or main landmark receives focus
 with scroll prevention. This matches ordinary cross-document navigation without
 attempting to preserve outgoing scroll in the new document.
 
+The active runtime keeps a bounded registry of the exact entry state and URL it
+created. A marker and chain identity alone do not grant ownership: an entry
+copied by application code, a repeated selected identity without an observed
+runtime traversal, or a changed registered state reloads current server truth.
+Registry overflow is fail-closed. Recorded element-scroll ownership also keeps
+a new link native after the live element returns to zero.
+
 Back or forward traversal is enhanced only when the selected owned entry has
 zero document scroll and no observed element-scroll ownership. Nonzero document
 scroll, any element-scroll ownership, malformed state, or an unowned entry
@@ -93,8 +100,11 @@ unsafe-identity tracker fills, every later traversal reloads rather than
 forgetting an older unsafe entry. A bounded chain-scoped refusal record retains
 unsafe ownership discovered only after traversal selection across runtime
 restart; malformed or unavailable persistence is itself fail-closed. Scroll
-that occurs while traversal work is pending marks the still-displayed entry and
-requires the same native recovery. The selected URL and complete exact private
+that occurs while traversal work is pending marks the still-displayed entry,
+cancels the pending response, and queues the same native recovery after a
+bounded 50-millisecond supersession window. A newer traversal replaces that
+queued recovery; otherwise it cannot wait for the obsolete response.
+The selected URL and complete exact private
 state are revalidated after asynchronous work and immediately before commit.
 These rules cover scroll changes whose event has not yet been delivered,
 application state replacement during a request, and multi-entry traversal. A
@@ -147,6 +157,7 @@ push, zero-scroll back/forward replacement, rapid traversal cancellation,
 destination focus without focus-induced scroll, collapsed-selection disposal,
 non-collapsed-selection refusal, scrolled-origin departure, nonzero document and
 element-scroll restoration refusal, foreign-chain and unowned-state recovery,
+recorded element-scroll link refusal, cloned-entry recovery,
 post-history commit and rollback failure without duplicate entries, cancelled-
 reload repair and resumed enhancement, normal/reduced-
 motion no-animation behavior, normalized flow output, rollback, and stale-result

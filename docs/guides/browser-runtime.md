@@ -628,6 +628,19 @@ server truth instead of associating the scroll with another entry:
 }
 ```
 
+Element-scroll ownership also keeps a later link native after the live element
+returns to zero; the recorded ownership cannot be erased by visual position:
+
+```json
+{
+  "schema": "fadeno.example.history-element-link-refusal",
+  "version": 1,
+  "elementOwnershipRetained": true,
+  "nativeDeparture": true,
+  "enhancedRequestSkipped": true
+}
+```
+
 ```json
 {
   "schema": "fadeno.example.history-pending-scroll-recovery",
@@ -646,6 +659,7 @@ same current-truth recovery:
 {
   "schema": "fadeno.example.history-traversal-scroll-recovery",
   "version": 1,
+  "pendingTraversalNativeRecovery": true,
   "nativeRecovery": true,
   "staleDocumentRemoved": true
 }
@@ -684,6 +698,20 @@ does not overwrite it before reloading current server truth:
   "version": 1,
   "privateStateOverwritePrevented": true,
   "nativeRecovery": true,
+  "staleDocumentRemoved": true
+}
+```
+
+Only entries recorded by the active runtime at their exact URL and state are
+owned. Copying the visible private-looking fields into another history slot
+does not grant ownership:
+
+```json
+{
+  "schema": "fadeno.example.history-cloned-entry-recovery",
+  "version": 1,
+  "duplicateIdentityRefused": true,
+  "clonedDestinationRefused": true,
   "staleDocumentRemoved": true
 }
 ```
@@ -766,6 +794,6 @@ remains native for that page:
 
 The same executed flow record above now names scroll ownership and explicitly
 records that animation was skipped. Run `pnpm check:v2-history-focus-scroll`
-for all 99 current-packed cases in Chromium, Firefox, and WebKit. Forms,
+for all 105 current-packed cases in Chromium, Firefox, and WebKit. Forms,
 nonzero-scroll enhanced restoration, element-state reconciliation, transitions,
 and a public history or update schema remain outside this slice.

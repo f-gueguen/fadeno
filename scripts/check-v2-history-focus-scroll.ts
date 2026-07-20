@@ -34,6 +34,9 @@ for (const fragment of [
   "createPrivateUnsafeHistoryEntryTracker",
   "displayedHistoryEntry",
   "unsafeTraversalPersistence",
+  "ownedHistoryEntries",
+  "repeatedSelection",
+  "pendingTraversalRecoveryDelayMs",
   "element === documentScroller",
   "historyWriteFailed = true",
   "initiator && !flushCurrentScroll(true)",
@@ -59,6 +62,7 @@ for (const fragment of [
   "discards only a collapsed old-document selection",
   "keeps a non-collapsed selection on the native path",
   "reloads an owned element-scrolled entry during traversal",
+  "keeps a link native after recorded element scroll returns to zero",
   "marks an outgoing scroll before a same-task traversal",
   "records document scroll while traversal work is pending",
   "recovers the selected entry when closing a pending traversal",
@@ -66,6 +70,7 @@ for (const fragment of [
   "cancels an obsolete history traversal and publishes only the newest entry",
   "keeps unsafe history tracking fail closed after its bound",
   "revalidates selected history ownership before traversal commit",
+  "reloads cloned private-looking entries instead of granting ownership",
   "recovers a selected destination without duplicating it when document commit fails",
   "preserves replacement recovery when destination scroll and rollback both fail",
   "repairs displayed document truth when a traversal reload is cancelled",
@@ -84,11 +89,13 @@ for (const name of [
   "history-write-recovery",
   "history-overflow-recovery",
   "history-element-recovery",
+  "history-element-link-refusal",
   "history-pending-scroll-recovery",
   "history-traversal-scroll-recovery",
   "history-close-traversal-recovery",
   "history-late-scroll-recovery",
   "history-selected-state-recovery",
+  "history-cloned-entry-recovery",
   "history-commit-failure-recovery",
   "history-native-supersession-recovery",
   "history-scroll-rollback-recovery",
@@ -109,4 +116,4 @@ for (const feature of ["STATE-01", "SEC-01", "TEST-01", "ENH-01", "PATCH-01", "D
   assert.equal(traceabilityRow.includes("ADR 0050") && traceabilityRow.includes("check:v2-history-focus-scroll"), true, `${feature} traceability is missing V2-05 evidence`);
 }
 
-console.log("V2 history/focus/scroll qualification passed (private state, current-packed 99-case corpus, executable guidance)");
+console.log("V2 history/focus/scroll qualification passed (private state, current-packed 105-case corpus, executable guidance)");

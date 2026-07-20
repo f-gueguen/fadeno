@@ -491,10 +491,17 @@ test("keeps unsafe history tracking fail closed after its bound", async ({ page 
 });
 
 test("reloads application-owned, foreign-session, and malformed history instead of showing stale markup", async ({ page }) => {
+  const recoverOwnedHome = async (): Promise<void> => {
+    const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+    await page.goBack();
+    await expect(page.locator("h1")).toHaveText("Home");
+    await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length)
+      .toBeGreaterThan(nativeHomeBefore);
+    await waitForPrivateHistoryOwner(page);
+  };
   await page.goto(origin);
   await page.evaluate(() => history.pushState({ application: true }, "", "/next"));
-  await page.goBack();
-  await expect(page.locator("h1")).toHaveText("Home");
+  await recoverOwnedHome();
   const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
   await page.goForward();
   await expect(page.locator("h1")).toHaveText("Next");
@@ -527,8 +534,7 @@ test("reloads application-owned, foreign-session, and malformed history instead 
   for (const state of malformed) {
     await page.goto(origin);
     await page.evaluate((value) => history.pushState(value, "", "/next"), state);
-    await page.goBack();
-    await expect(page.locator("h1")).toHaveText("Home");
+    await recoverOwnedHome();
     const nativeBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
     await page.goForward();
     await expect(page.locator("h1")).toHaveText("Next");
@@ -536,8 +542,7 @@ test("reloads application-owned, foreign-session, and malformed history instead 
   }
   await page.goto(origin);
   await page.evaluate((state) => history.pushState(state, "", "/next"), base);
-  await page.goBack();
-  await expect(page.locator("h1")).toHaveText("Home");
+  await recoverOwnedHome();
   const nativeForeignBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
   await page.goForward();
   await expect(page.locator("h1")).toHaveText("Next");
@@ -612,6 +617,36 @@ test("reloads an owned element-scrolled entry during traversal", async ({ page }
   }).toEqual(expected("history-element-recovery"));
 });
 
+test("keeps a link native after recorded element scroll returns to zero", async ({ page }) => {
+  await page.goto(origin);
+  await page.evaluate(() => {
+    const scroller = document.createElement("div");
+    scroller.id = "recorded-element-scroller";
+    scroller.style.cssText = "height:20px;overflow:auto";
+    const child = document.createElement("div");
+    child.style.height = "200px";
+    scroller.append(child);
+    document.body.append(scroller);
+    scroller.scrollTop = 20;
+  });
+  await expect.poll(() => page.evaluate(() => Boolean(history.state?.elementScroll))).toBe(true);
+  await page.evaluate(() => {
+    const scroller = document.querySelector<HTMLElement>("#recorded-element-scroller");
+    if (scroller) scroller.scrollTop = 0;
+  });
+  await expect.poll(() => page.evaluate(() => document.querySelector<HTMLElement>("#recorded-element-scroller")?.scrollTop)).toBe(0);
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-element-link-refusal",
+    version: 1,
+    elementOwnershipRetained: true,
+    nativeDeparture: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    enhancedRequestSkipped: requests.filter(({ path, enhanced }) => path === "/next" && enhanced).length === 0,
+  }).toEqual(expected("history-element-link-refusal"));
+});
+
 test("marks an outgoing scroll before a same-task traversal", async ({ page }) => {
   await page.goto(origin);
   await page.locator("#next-link").click();
@@ -648,17 +683,23 @@ test("records document scroll while traversal work is pending", async ({ page })
   await page.locator("#home-link").click();
   await expect(page.locator("h1")).toHaveText("Home");
   enhancedSlowDelay = 250;
+  const nativeSlowBefore = requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length;
   await page.evaluate(() => {
     history.back();
     setTimeout(() => scrollTo(0, 100), 20);
   });
   await expect(page.locator("h1")).toHaveText("Slow");
+  await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length)
+    .toBeGreaterThan(nativeSlowBefore);
+  await waitForPrivateHistoryOwner(page);
+  const pendingTraversalNativeRecovery = requests.filter(({ path, enhanced }) => path === "/slow" && !enhanced).length > nativeSlowBefore;
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goForward();
   await expect(page.locator("h1")).toHaveText("Home", { timeout: 15_000 });
   expect({
     schema: "fadeno.example.history-traversal-scroll-recovery",
     version: 1,
+    pendingTraversalNativeRecovery,
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
     staleDocumentRemoved: await page.locator("h1").textContent() === "Home",
   }).toEqual(expected("history-traversal-scroll-recovery"));
@@ -749,6 +790,30 @@ test("revalidates selected history ownership before traversal commit", async ({ 
     nativeRecovery: requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore,
     staleDocumentRemoved: await page.locator("h1").textContent() !== "Slow",
   }).toEqual(expected("history-selected-state-recovery"));
+});
+
+test("reloads cloned private-looking entries instead of granting ownership", async ({ page }) => {
+  await page.goto(origin);
+  await page.locator("#next-link").click();
+  await expect(page.locator("h1")).toHaveText("Next");
+  await page.locator("#home-link").click();
+  await expect(page.locator("h1")).toHaveText("Home");
+  const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
+  const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
+  await page.evaluate(() => history.pushState({ ...history.state }, "", "/next"));
+  await page.goBack();
+  await expect(page.locator("h1")).toHaveText("Home");
+  await waitForPrivateHistoryOwner(page);
+  const duplicateIdentityRefused = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length > nativeHomeBefore;
+  await page.goForward();
+  await expect(page.locator("h1")).toHaveText("Next");
+  expect({
+    schema: "fadeno.example.history-cloned-entry-recovery",
+    version: 1,
+    duplicateIdentityRefused,
+    clonedDestinationRefused: requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length > nativeNextBefore,
+    staleDocumentRemoved: new URL(page.url()).pathname === "/next" && await page.locator("h1").textContent() === "Next",
+  }).toEqual(expected("history-cloned-entry-recovery"));
 });
 
 test("recovers a selected destination without duplicating it when document commit fails", async ({ page }) => {
