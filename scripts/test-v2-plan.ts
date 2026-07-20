@@ -164,6 +164,26 @@ mutation("V2-06 form risk contract drifted", (context) => Object.freeze({
   ...context,
   risks: context.risks.replace(/^\| Enhanced forms change controls.*\n/mu, ""),
 }));
+mutation("ADR 0052 is missing never submits POST again", (context) => Object.freeze({
+  ...context,
+  actionAdr: context.actionAdr.replace("never submits POST again", "may submit POST again"),
+}));
+mutation("V2-07 Changeset contract drifted", (context) => Object.freeze({
+  ...context,
+  actionChangeset: context.actionChangeset.replace('"@fadeno/framework": minor', '"@fadeno/framework": patch'),
+}));
+mutation("V2-07 DATA-03 scope contract drifted", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace(/^\| DATA-03 \|.*$/mu, (line) => line.replace(/; \[ADR 0052\][^|]+/u, "")),
+}));
+mutation("V2-07 ENH-01 traceability contract drifted", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-action-ordering", "removed action gate")),
+}));
+mutation("V2-07 action-ordering risk contract drifted", (context) => Object.freeze({
+  ...context,
+  risks: context.risks.replace(/^\| Enhanced forms change controls.*\n/mu, ""),
+}));
 mutation("V2 entry package identity drifted", (context) => Object.freeze({
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },

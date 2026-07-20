@@ -16,7 +16,10 @@ let projects: string[] = [];
 let searchRequests = 0;
 let signInRuns = 0;
 let createRuns = 0;
+let updateRuns = 0;
+let deleteRuns = 0;
 let forbiddenRuns = 0;
+let projectPageRenders = 0;
 let mutationDelayMilliseconds = 0;
 
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
@@ -64,8 +67,63 @@ export const createProject = defineAction({
         formErrors: ["The project was not created."],
       });
     }
+    if (projects.includes(title)) {
+      throw actionError({
+        code: "PROJECT_TITLE_DUPLICATE",
+        fieldErrors: { title: "Use a title that is not already in the project list." },
+        formErrors: ["The project was not created because that title already exists."],
+      });
+    }
     await wait(mutationDelayMilliseconds, signal);
     projects = [...projects, title];
+  },
+});
+
+export const updateProject = defineAction({
+  fields: {
+    project: textField({ maximumBytes: 128 }),
+    title: textField({ maximumBytes: 128 }),
+    intent: textField({ maximumBytes: 16 }),
+  },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run({ input }) {
+    updateRuns += 1;
+    const index = projects.indexOf(input.project);
+    const title = input.title.trim();
+    if (index === -1) {
+      throw actionError({ code: "PROJECT_NOT_FOUND", formErrors: ["The project no longer exists."] });
+    }
+    if (title.length < 3) {
+      throw actionError({
+        code: "PROJECT_TITLE_SHORT",
+        fieldErrors: { title: "Use at least three characters." },
+        formErrors: ["The project was not updated."],
+      });
+    }
+    if (projects.some((project, projectIndex) => projectIndex !== index && project === title)) {
+      throw actionError({
+        code: "PROJECT_TITLE_DUPLICATE",
+        fieldErrors: { title: "Use a title that is not already in the project list." },
+        formErrors: ["The project was not updated because that title already exists."],
+      });
+    }
+    projects = projects.map((project, projectIndex) => projectIndex === index ? title : project);
+    return redirect("/projects");
+  },
+});
+
+export const deleteProject = defineAction({
+  fields: {
+    project: textField({ maximumBytes: 128 }),
+    intent: textField({ maximumBytes: 16 }),
+  },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run({ input }) {
+    deleteRuns += 1;
+    if (!projects.includes(input.project)) {
+      throw actionError({ code: "PROJECT_NOT_FOUND", formErrors: ["The project no longer exists."] });
+    }
+    projects = projects.filter((project) => project !== input.project);
   },
 });
 
@@ -80,7 +138,10 @@ export function resetApplicationState(): void {
   searchRequests = 0;
   signInRuns = 0;
   createRuns = 0;
+  updateRuns = 0;
+  deleteRuns = 0;
   forbiddenRuns = 0;
+  projectPageRenders = 0;
   mutationDelayMilliseconds = 0;
 }
 
@@ -93,14 +154,20 @@ export function readApplicationState(): Readonly<{
   searchRequests: number;
   signInRuns: number;
   createRuns: number;
+  updateRuns: number;
+  deleteRuns: number;
   forbiddenRuns: number;
+  projectPageRenders: number;
 }> {
   return Object.freeze({
     projects: Object.freeze([...projects]),
     searchRequests,
     signInRuns,
     createRuns,
+    updateRuns,
+    deleteRuns,
     forbiddenRuns,
+    projectPageRenders,
   });
 }
 
@@ -147,6 +214,7 @@ function search(url: URL): RenderChild {
 }
 
 function projectsPage(signedIn: boolean): RenderChild {
+  projectPageRenders += 1;
   if (!signedIn) {
     return shell("Protected forms", "Protected forms", jsxs("section", { children: [
       jsxs("form", { id: "sign-in-form", action: signIn, children: [
@@ -167,7 +235,19 @@ function projectsPage(signedIn: boolean): RenderChild {
       jsx("input", { id: "title", name: createProject.fields.title, value: "ab" }),
       jsx("button", { name: createProject.fields.intent, value: "create", type: "submit", children: "Create project" }),
     ] }),
-    jsx("ul", { id: "projects", children: projects.map((project) => jsx("li", { children: project })) }),
+    jsx("ul", { id: "projects", children: projects.map((project, index) => jsxs("li", { children: [
+      jsx("span", { class: "project-title", children: project }),
+      jsxs("form", { id: `update-form-${index}`, action: updateProject, children: [
+        jsx("input", { name: updateProject.fields.project, type: "hidden", value: project }),
+        jsx("label", { for: `update-title-${index}`, children: "Updated title" }),
+        jsx("input", { id: `update-title-${index}`, name: updateProject.fields.title, value: project }),
+        jsx("button", { name: updateProject.fields.intent, value: "update", type: "submit", children: "Update project" }),
+      ] }),
+      jsxs("form", { id: `delete-form-${index}`, action: deleteProject, children: [
+        jsx("input", { name: deleteProject.fields.project, type: "hidden", value: project }),
+        jsx("button", { name: deleteProject.fields.intent, value: "delete", type: "submit", children: "Delete project" }),
+      ] }),
+    ] })) }),
   ] }));
 }
 

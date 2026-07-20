@@ -69,6 +69,8 @@ export type V2PlanContext = Readonly<{
   ledger: string;
   formAdr: string;
   formChangeset: string;
+  actionAdr: string;
+  actionChangeset: string;
   packageDocument: unknown;
   tracked: ReadonlySet<string>;
 }>;
@@ -90,6 +92,8 @@ export function loadV2PlanContext(root: string, tracked: ReadonlySet<string>): V
     ledger: read("ROADMAP_LEDGER.md"),
     formAdr: read("docs/adr/0051-conservative-enhanced-form-submission.md"),
     formChangeset: read(".changeset/conservative-form-submission.md"),
+    actionAdr: read("docs/adr/0052-enhanced-action-outcome-ordering.md"),
+    actionChangeset: read(".changeset/enhanced-action-ordering.md"),
     packageDocument: JSON.parse(read("packages/framework/package.json")) as unknown,
     tracked,
   });
@@ -104,6 +108,9 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     "scripts/test-v2-plan.ts",
     "docs/adr/0051-conservative-enhanced-form-submission.md",
     ".changeset/conservative-form-submission.md",
+    "docs/adr/0052-enhanced-action-outcome-ordering.md",
+    ".changeset/enhanced-action-ordering.md",
+    "scripts/check-v2-action-ordering.ts",
   ]) if (!context.tracked.has(path)) errors.push(`V2 plan artifact is not tracked: ${path}`);
 
   const rows = context.roadmap
@@ -197,6 +204,30 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   const formRisk = context.risks.split("\n").find((line) => line.startsWith("| Enhanced forms change controls")) ?? "";
   if (!formRisk.includes("FormData(form, submitter)") || !formRisk.includes("without resubmission")) {
     errors.push("V2-06 form risk contract drifted");
+  }
+
+  const actionAdr = context.actionAdr.replace(/\s+/gu, " ");
+  for (const fragment of [
+    "Status: Accepted",
+    "consumes the mutation result ID",
+    "fresh opaque ID and monotonically newer sequence",
+    "never submits POST again",
+    "Duplicate, stale, delayed, permuted, cancelled, superseded",
+    "V2-08",
+    "`pnpm check:v2-action-ordering`",
+  ]) if (!actionAdr.includes(fragment)) errors.push(`ADR 0052 is missing ${fragment}`);
+  const expectedActionChangeset = '---\n"@fadeno/framework": minor\n---\n\nComplete enhanced action redirects through a fresh cancellable GET while\npreserving server revalidation, stale-result suppression, and non-repeating\nmutation recovery.\n';
+  if (context.actionChangeset !== expectedActionChangeset) errors.push("V2-07 Changeset contract drifted");
+  for (const feature of ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01"]) {
+    const scope = context.scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    const trace = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    if (!scope.includes("ADR 0052")) errors.push(`V2-07 ${feature} scope contract drifted`);
+    if (!trace.includes("ADR 0052") || !trace.includes("check:v2-action-ordering")) {
+      errors.push(`V2-07 ${feature} traceability contract drifted`);
+    }
+  }
+  if (!formRisk.includes("ADR 0052") || !formRisk.includes("publishes after supersession")) {
+    errors.push("V2-07 action-ordering risk contract drifted");
   }
 
   for (const feature of ["ENH-01", "PATCH-01"]) {

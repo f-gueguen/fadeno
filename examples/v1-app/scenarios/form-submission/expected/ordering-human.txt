@@ -1,0 +1,2 @@
+The protected action ran once. Its delayed redirect GET was superseded, the
+newer navigation remained visible, and the mutation was never submitted again.

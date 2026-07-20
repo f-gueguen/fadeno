@@ -104,6 +104,22 @@ application remains native in this slice; its Evidence page names this
 reproducible qualification instead of presenting private flow data as live UI.
 V2-07 owns the complete enhanced authenticated workflow.
 
+Run that complete V2-07 action-ordering workflow with:
+
+```sh
+pnpm check:v2-action-ordering
+```
+
+The current-packed three-browser scenario signs in and then creates, reads,
+updates, and deletes project data through the same public forms as the native
+application. It proves that complete server revalidation finishes before an
+action redirect hands its destination to a fresh cancellable GET, that the POST
+runs once, and that a delayed redirect cannot overwrite a newer navigation.
+The deliberate validation error retains its tested correction; uncertain
+delivery recovers current truth without resubmission; JavaScript-disabled CRUD
+retains the same final server state. Normalized CRUD and ordering results live
+beside the scenario source under `scenarios/form-submission/expected/`.
+
 The application uses native external CSS only. The root layout links `/styles`,
 and `src/routes/styles/handler.ts` serves `src/styles.ts` through the public
 typed handler boundary. `pnpm check:a0-css` verifies that contract and its

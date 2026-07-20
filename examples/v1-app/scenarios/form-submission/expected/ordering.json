@@ -1,0 +1,15 @@
+{
+  "schema": "fadeno.example.action-ordering-supersession",
+  "version": 1,
+  "mutationRequests": 1,
+  "delayedRedirectGets": 1,
+  "supersedingGets": 0,
+  "supersedingNativeGets": 1,
+  "actionRuns": 1,
+  "finalPath": "/",
+  "finalHeading": "GET form navigation",
+  "staleRedirectAbsent": true,
+  "documentLoads": 1,
+  "redirectHandoffRecorded": true,
+  "mutationRetrySkipped": true
+}

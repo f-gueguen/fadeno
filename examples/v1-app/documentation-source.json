@@ -24,7 +24,8 @@
     "check:v2-link-navigation",
     "check:v2-history-focus-scroll",
     "check:v2-demo-experience",
-    "check:v2-form-submission"
+    "check:v2-form-submission",
+    "check:v2-action-ordering"
   ],
   "evidence": {
     "success": [
@@ -63,7 +64,9 @@
       "scenarios/link-navigation/expected/history-focus-normal.json",
       "scenarios/link-navigation/expected/history-teardown.json",
       "scenarios/link-navigation/expected/history-scroll-flush-source-refresh.json",
-      "scenarios/form-submission/expected/success.json"
+      "scenarios/form-submission/expected/success.json",
+      "scenarios/form-submission/expected/crud.json",
+      "scenarios/form-submission/expected/native-crud.json"
     ],
     "failure": [
       "expected/action-failure.txt",
@@ -137,7 +140,10 @@
       "scenarios/form-submission/expected/failure-human.txt",
       "scenarios/form-submission/expected/failure.json",
       "scenarios/form-submission/expected/security.json",
-      "scenarios/form-submission/expected/privacy.json"
+      "scenarios/form-submission/expected/privacy.json",
+      "scenarios/form-submission/expected/ordering-human.txt",
+      "scenarios/form-submission/expected/duplicate.json",
+      "scenarios/form-submission/expected/duplicate-human.txt"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -171,7 +177,8 @@
       "scenarios/server-update/expected/flow.json",
       "scenarios/link-navigation/expected/flow.json",
       "scenarios/form-submission/expected/flow.json",
-      "scenarios/form-submission/expected/terminal-flow.json"
+      "scenarios/form-submission/expected/terminal-flow.json",
+      "scenarios/form-submission/expected/ordering.json"
     ],
     "recovery": [
       "expected/resource-recovery.txt",
@@ -233,7 +240,8 @@
       "scenarios/link-navigation/expected/history-form-supersession-recovery.json",
       "scenarios/form-submission/expected/recovery.json",
       "scenarios/form-submission/expected/history-recovery.json",
-      "scenarios/form-submission/expected/teardown.json"
+      "scenarios/form-submission/expected/teardown.json",
+      "scenarios/form-submission/expected/ordering.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
@@ -292,7 +300,8 @@
       "scenarios/link-navigation/expected/history-form-supersession-recovery.json",
       "scenarios/form-submission/expected/recovery.json",
       "scenarios/form-submission/expected/history-recovery.json",
-      "scenarios/form-submission/expected/teardown.json"
+      "scenarios/form-submission/expected/teardown.json",
+      "scenarios/form-submission/expected/ordering.json"
     ]
   }
 }

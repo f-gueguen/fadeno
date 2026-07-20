@@ -18,7 +18,10 @@ type ApplicationState = Readonly<{
   searchRequests: number;
   signInRuns: number;
   createRuns: number;
+  updateRuns: number;
+  deleteRuns: number;
   forbiddenRuns: number;
+  projectPageRenders: number;
 }>;
 type Application = Readonly<{
   applicationGeneration: string;
@@ -59,6 +62,8 @@ let backendClose: (() => Promise<void>) | undefined;
 let proxy: HttpsServer | undefined;
 let backendPort = 0;
 let dropNextMutationResponse = false;
+let delayedPrivateGetPath: string | undefined;
+let delayedPrivateGetMilliseconds = 0;
 const requests: RequestRecord[] = [];
 const transportRequests: TransportRecord[] = [];
 const previousSessionKeys = process.env["FADENO_SESSION_KEYS"];
@@ -97,6 +102,11 @@ test.beforeAll(async () => {
       && incoming.method === "POST"
       && incoming.headers.accept === mediaType;
     if (drop) dropNextMutationResponse = false;
+    const delay = incoming.method === "GET"
+      && incoming.headers.accept === mediaType
+      && transportRecord.path === delayedPrivateGetPath;
+    const delayMilliseconds = delayedPrivateGetMilliseconds;
+    if (delay) delayedPrivateGetPath = undefined;
     const upstream = requestHttp({
       hostname: "127.0.0.1",
       port: backendPort,
@@ -118,8 +128,26 @@ test.beforeAll(async () => {
         });
         return;
       }
+      if (delay) {
+        const chunks: Buffer[] = [];
+        upstreamResponse.on("data", (chunk: Buffer) => chunks.push(chunk));
+        upstreamResponse.once("end", () => {
+          setTimeout(() => {
+            if (outgoing.destroyed) return;
+            outgoing.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
+            outgoing.end(Buffer.concat(chunks));
+          }, delayMilliseconds);
+        });
+        return;
+      }
       outgoing.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
       upstreamResponse.pipe(outgoing);
+    });
+    outgoing.once("close", () => {
+      if (!upstream.destroyed) upstream.destroy();
+    });
+    incoming.once("aborted", () => {
+      if (!upstream.destroyed) upstream.destroy();
     });
     upstream.once("error", (error) => outgoing.destroy(error));
     incoming.pipe(upstream);
@@ -175,6 +203,8 @@ test.beforeEach(() => {
   requests.length = 0;
   transportRequests.length = 0;
   dropNextMutationResponse = false;
+  delayedPrivateGetPath = undefined;
+  delayedPrivateGetMilliseconds = 0;
 });
 
 async function signIn(page: import("@playwright/test").Page): Promise<void> {
@@ -226,7 +256,7 @@ test("renders validation, correction, revalidation, and redacted ownership evide
 
   await page.locator("#title").fill("Thread Lab");
   await page.locator("#create-form button").click();
-  await expect(page.locator("#projects li")).toHaveText("Thread Lab");
+  await expect(page.locator(".project-title")).toHaveText("Thread Lab");
   const corrected = application.readApplicationState();
   expect({
     schema: "fadeno.example.form-submission-correction",
@@ -234,7 +264,7 @@ test("renders validation, correction, revalidation, and redacted ownership evide
     before: "ab",
     after: "Thread Lab",
     fieldErrorCleared: await page.locator('[id^="fadeno-error-"]').count() === 0,
-    projectVisible: await page.locator("#projects li").filter({ hasText: "Thread Lab" }).count() === 1,
+    projectVisible: await page.locator(".project-title").filter({ hasText: "Thread Lab" }).count() === 1,
     actionRuns: corrected.createRuns,
     projectCount: corrected.projects.length,
   }).toEqual(expected("correction"));
@@ -260,7 +290,123 @@ test("renders validation, correction, revalidation, and redacted ownership evide
   expect(new URL(page.url()).pathname).toBe("/projects");
   await page.reload();
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  await expect(page.locator("#projects li")).toHaveText("Thread Lab");
+  await expect(page.locator(".project-title")).toHaveText("Thread Lab");
+});
+
+test("completes authenticated create, read, update, and delete with exact revalidation", async ({ page }) => {
+  await signIn(page);
+  await page.locator("#title").fill("Thread Lab");
+  await page.locator("#create-form button").click();
+  await expect(page.locator(".project-title")).toHaveText("Thread Lab");
+
+  await page.locator("#update-title-0").fill("Ordered Thread");
+  await page.locator("#update-form-0 button").click();
+  await expect(page.locator(".project-title")).toHaveText("Ordered Thread");
+  await expect(page.getByText("Thread Lab", { exact: true })).toHaveCount(0);
+
+  await page.locator("#delete-form-0 button").click();
+  await expect(page.locator(".project-title")).toHaveCount(0);
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-crud",
+    version: 1,
+    mutationRequests: privateMutations().length,
+    redirectGetRequests: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects"
+      && accept === mediaType).length,
+    documentLoads: await page.evaluate(() => performance.getEntriesByType("navigation").length),
+    projects: state.projects,
+    signInRuns: state.signInRuns,
+    createRuns: state.createRuns,
+    updateRuns: state.updateRuns,
+    deleteRuns: state.deleteRuns,
+    projectPageRenders: state.projectPageRenders,
+    staleTitlesAbsent: await page.getByText(/Thread/u).count() === 0,
+  }).toEqual(expected("crud"));
+});
+
+test("refuses duplicate project identities before delete ownership becomes ambiguous", async ({ page }) => {
+  await signIn(page);
+  await page.locator("#title").fill("Thread Lab");
+  await page.locator("#create-form button").click();
+  await expect(page.locator(".project-title")).toHaveText("Thread Lab");
+
+  await page.locator("#title").fill("Thread Lab");
+  await page.locator("#create-form button").click();
+  await expect(page.getByRole("alert")).toContainText("that title already exists");
+  await expect(page.locator(".project-title")).toHaveText("Thread Lab");
+
+  await page.locator("#title").fill("Other Thread");
+  await page.locator("#create-form button").click();
+  await expect(page.locator(".project-title")).toHaveText(["Thread Lab", "Other Thread"]);
+  await page.locator("#update-title-0").fill("Other Thread");
+  await page.locator("#update-form-0 button").click();
+  await expect(page.getByRole("alert")).toContainText("that title already exists");
+  await expect(page.locator(".project-title")).toHaveText(["Thread Lab", "Other Thread"]);
+
+  await page.locator("#delete-form-0 button").click();
+  await expect(page.locator(".project-title")).toHaveText(["Other Thread"]);
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-duplicate-refusal",
+    version: 1,
+    projects: state.projects,
+    mutationRequests: privateMutations().length,
+    createRuns: state.createRuns,
+    updateRuns: state.updateRuns,
+    deleteRuns: state.deleteRuns,
+    projectPageRenders: state.projectPageRenders,
+    oneLogicalOwnerDeleted: state.projects.length === 1 && state.projects[0] === "Other Thread",
+  }).toEqual(expected("duplicate"));
+  expect(readFileSync(join(outputRoot, "expected-duplicate-human.txt"), "utf8")).toContain("kept project identity unambiguous");
+});
+
+test("suppresses a delayed redirect result after newer navigation wins", async ({ page }) => {
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 400;
+  const mutationsBefore = privateMutations().length;
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects"
+    && accept === mediaType).length).toBe(1);
+
+  const redirectFlows = await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{ readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[] }>;
+    return runtime.readPrivateFormSubmissionFlows();
+  });
+
+  await page.getByRole("link", { name: "Search" }).click();
+  await expect(page.locator("h1")).toHaveText("GET form navigation");
+  await page.waitForTimeout(500);
+  await expect(page.locator("h1")).toHaveText("GET form navigation");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-supersession",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    delayedRedirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects"
+      && accept === mediaType).length,
+    supersedingGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/"
+      && accept === mediaType).length,
+    supersedingNativeGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/"
+      && accept !== mediaType).length,
+    actionRuns: state.signInRuns,
+    finalPath: new URL(page.url()).pathname,
+    finalHeading: await page.locator("h1").textContent(),
+    staleRedirectAbsent: await page.locator("#viewer").count() === 0,
+    documentLoads: await page.evaluate(() => performance.getEntriesByType("navigation").length),
+    redirectHandoffRecorded: redirectFlows.some((flow) => flow["operation"] === "mutation"
+      && flow["outcome"] === "enhanced-redirect"),
+    mutationRetrySkipped: redirectFlows.some((flow) => Array.isArray(flow["skipped"])
+      && flow["skipped"].includes("mutation retry")),
+  }).toEqual(expected("ordering"));
+  expect(readFileSync(join(outputRoot, "expected-ordering-human.txt"), "utf8")).toContain("newer navigation remained visible");
 });
 
 test("keeps one pending mutation, suppresses a duplicate, and clears pending state", async ({ page }) => {
@@ -271,7 +417,7 @@ test("keeps one pending mutation, suppresses a duplicate, and clears pending sta
   await page.locator("#create-form button").click();
   await expect(page.locator("#create-form")).toHaveAttribute("aria-busy", "true");
   await page.locator("#create-form button").click();
-  await expect(page.locator("#projects li")).toHaveText("Pending project");
+  await expect(page.locator(".project-title")).toHaveText("Pending project");
   await expect(page.locator("#create-form")).not.toHaveAttribute("aria-busy", "true");
   expect(privateMutations().length - mutationsBeforePending).toBe(1);
   expect(application.readApplicationState().createRuns).toBe(1);
@@ -283,7 +429,7 @@ test("reloads current truth after uncertain delivery without repeating the mutat
   const mutationsBefore = privateMutations().length;
   dropNextMutationResponse = true;
   await page.locator("#create-form button").click();
-  await expect(page.locator("#projects li")).toHaveText("Recovered once");
+  await expect(page.locator(".project-title")).toHaveText("Recovered once");
   const state = application.readApplicationState();
   const recoveredThroughGet = transportRequests.some(({ method, path, accept }) => method === "GET"
     && path === "/projects"
@@ -293,7 +439,7 @@ test("reloads current truth after uncertain delivery without repeating the mutat
     version: 1,
     mutationRequests: privateMutations().length - mutationsBefore,
     actionRuns: state.createRuns,
-    projectVisibleAfterReload: await page.locator("#projects li").filter({ hasText: "Recovered once" }).count() === 1,
+    projectVisibleAfterReload: await page.locator(".project-title").filter({ hasText: "Recovered once" }).count() === 1,
     pendingCleared: await page.locator("#create-form").getAttribute("aria-busy") !== "true",
     mutationRetried: privateMutations().length - mutationsBefore > 1,
     outcome: recoveredThroughGet ? "current-truth-reload" : "none",
@@ -641,5 +787,31 @@ test.describe("native fallback", () => {
     await page.locator("#sign-in-form button").click();
     await expect(page.locator("#viewer")).toHaveText("Signed in owner");
     expect(application.readApplicationState().signInRuns).toBe(1);
+  });
+
+  test("completes authenticated CRUD through native documents without JavaScript", async ({ page }) => {
+    await page.goto(`${origin}/projects`);
+    await page.locator("#passcode").fill("example-owner");
+    await page.locator("#sign-in-form button").click();
+    await page.locator("#title").fill("Native Thread");
+    await page.locator("#create-form button").click();
+    await expect(page.locator(".project-title")).toHaveText("Native Thread");
+    await page.locator("#update-title-0").fill("Native Ordered Thread");
+    await page.locator("#update-form-0 button").click();
+    await expect(page.locator(".project-title")).toHaveText("Native Ordered Thread");
+    await page.locator("#delete-form-0 button").click();
+    await expect(page.locator(".project-title")).toHaveCount(0);
+    const state = application.readApplicationState();
+    expect({
+      schema: "fadeno.example.action-ordering-native-crud",
+      version: 1,
+      privateRequests: transportRequests.filter(({ accept }) => accept === mediaType).length,
+      projects: state.projects,
+      signInRuns: state.signInRuns,
+      createRuns: state.createRuns,
+      updateRuns: state.updateRuns,
+      deleteRuns: state.deleteRuns,
+      staleOutputAbsent: await page.getByText(/Native/u).count() === 0,
+    }).toEqual(expected("native-crud"));
   });
 });
