@@ -6,47 +6,46 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-06 — enhance form submission without changing successful controls or action authority
+V2-07 — complete enhanced action redirects, revalidation, ordering, and recovery
 
 ## Exit criteria
 
-- [ ] Accept one durable form-enhancement decision that keeps native forms as
-  the baseline and preserves the existing route, action, authorization,
-  origin, proof, replay, session, redirect, and revalidation authorities.
-- [ ] Enhance eligible GET forms as navigation without mutation authority and
-  submit the exact native successful controls, URL, and history outcome.
-- [ ] Enhance eligible protected POST actions with bounded pending ownership,
-  expected validation, cancellation, duplicate refusal, and current-truth
-  recovery that never repeats an uncertain mutation.
-- [ ] Refuse before interception when target, encoding, origin, successful
-  controls, preservation, or request ownership is unsafe; prove negative
-  authorization, cross-user isolation, resource limits, redaction, rollback,
-  teardown, and stale-result removal.
+- [ ] Accept one durable action-ordering decision that retains the native route,
+  resource, action, authorization, proof, replay, session, redirect, and
+  revalidation owners.
+- [ ] Complete enhanced redirect, expected-error, validation, and
+  current-server-truth outcomes without repeating a committed mutation.
+- [ ] Prove complete revalidation and authenticated CRUD ordering for every
+  boundary that is safe before V2-08 structural reconciliation.
+- [ ] Suppress stale, duplicate, delayed, permuted, cancelled, and superseded
+  results through protocol-selected ordering and recovery.
+- [ ] Refuse before action interception when an unsafe preservation boundary
+  would require V2-08 reconciliation.
 - [ ] Extend the canonical evaluator application and its isolated scenario with
-  current-packed Chromium, Firefox, WebKit, and no-JavaScript success, failure,
-  correction, flow, and recovery evidence.
+  current-packed authenticated CRUD success, failure, correction, flow,
+  recovery, ordering, and native-baseline evidence.
 - [ ] Add exactly one pending minor Changeset, pass every affected gate and full
   local CI on the final commit, and complete remote review triage.
 
 ## Active sub-slice
 
-V2-06 adds one conservative form path to the existing explicit browser runtime
-and private server-owned update transport. It does not add a second action API,
-public protocol, public analyzer schema, editor product, optimistic mutation,
-or general reconciliation claim. Release impact: additive prerelease behavior;
+V2-07 completes action outcome ordering through the existing explicit browser
+runtime and private server-owned update transport. It does not add a second
+action API, public protocol, public analyzer schema, optimistic mutation, or
+general reconciliation claim. Release impact: additive prerelease behavior;
 exactly one pending minor Changeset is required.
 
 ## In progress
 
-- Record the exact form eligibility, successful-control, pending, cancellation,
-  uncertain-mutation recovery, and teardown decisions.
-- Implement and qualify GET navigation and protected POST action delivery
-  through the same native server authorities.
+- Record exact redirect, expected-error, revalidation, late-result, and
+  current-truth recovery ordering.
+- Implement and qualify authenticated CRUD enhancement only where the current
+  conservative preservation predicate can prove pre-interception safety.
 
 ## Blockers
 
-- V2-07 handoff remains blocked until V2-06 proves form request ownership,
-  payload equivalence, and non-repeating uncertain-mutation recovery.
+- V2-08 handoff remains blocked until V2-07 proves complete action ordering,
+  revalidation, late-result suppression, and non-repeating recovery.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -56,6 +55,14 @@ exactly one pending minor Changeset is required.
   compatibility decision.
 
 ## Completed slices
+
+- V2-06 — Merge commit `dac001d` accepts ADR 0051 and adds conservative GET
+  and protected POST form enhancement, exact successful-control delivery,
+  bounded pending ownership, native action/session authority, non-repeating
+  current-truth recovery, privacy and focus refusal, and 33 current-packed
+  assertions across Chromium, Firefox, and WebKit with permanent success,
+  failure, correction, flow, security, ordering, teardown, and recovery
+  evidence.
 
 - V2-05A — Merge commit `b951e4d` turns the current packed canonical
   application into a task-oriented evaluator demonstration with complete
