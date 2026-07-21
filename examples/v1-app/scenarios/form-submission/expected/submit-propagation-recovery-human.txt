@@ -1,0 +1,1 @@
+Action ordering recovery: submit propagation stopped before window finalization, a later listener prevented departure, committed current truth recovered once, no native form data was serialized, and POST was not repeated.

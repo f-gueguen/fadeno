@@ -128,7 +128,12 @@ a superseding native activation remains in the document. Selected and unsafe
 history traversals repair the displayed URL before recovering committed truth.
 A same-document native GET form that supersedes pending redirect work also
 loads a fresh fragment-bearing current-truth document instead of retaining
-stale markup. A redirect GET result cannot be reused after its redirect chain
+stale markup. If its submit event stops before the window finalizer and a later
+listener prevents departure, current truth still recovers without serializing
+the form. If its pushed-fragment reload is cancelled, rollback happens before
+recovery so Back reaches the preceding page without a duplicate stop. Handoff
+also detects disabled-state changes inherited from `fieldset` and `optgroup`.
+A redirect GET result cannot be reused after its redirect chain
 begins. Concurrent
 equal-title creates leave one logical project owner, and the single stable
 update and delete forms do not bind failures through mutable list ordinals. The

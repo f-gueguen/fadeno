@@ -37,6 +37,10 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/cancelled-fragment-push-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/cancelled-fragment-push-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json",
@@ -58,6 +62,8 @@ for (const fragment of [
   "never submits POST again",
   "preinstalled window finalizer",
   "before the browser can serialize them again",
+  "effective disabled state",
+  "preceding page rather than a duplicate same-URL entry",
   "Duplicate, stale, delayed, permuted, cancelled, superseded",
   "public protocol",
   "V2-08",
@@ -83,6 +89,8 @@ assert.equal(risks.includes("ADR 0052 consumes mutation and redirect-GET results
 assert.equal(risks.includes("redirect GET reuses mutation identity or an admitted result"), true);
 assert.equal(risks.includes("fails to recover when native activation is prevented"), true);
 assert.equal(risks.includes("unsafe destination constructs form data"), true);
+assert.equal(risks.includes("effective disabled inheritance"), true);
+assert.equal(risks.includes("rolls a cancelled pushed fragment back before current-truth recovery"), true);
 
 const browser = read("packages/framework/src/internal/browser-navigation.ts");
 for (const fragment of [
@@ -106,6 +114,9 @@ for (const fragment of [
   "privateFormHandoffSelectionState",
   "let ownsPending = true",
   "selectedHistoryState !== undefined",
+  "effectivelyDisabled",
+  "recoverAfterRollback",
+  "cancelled pushed-fragment reload rolled back before current-truth recovery",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
@@ -131,6 +142,9 @@ for (const fragment of [
   "post-dispatch path never calls `preventDefault()`",
   "before any `FormData` construction",
   "exact option identity",
+  "option disabled state inherited from an `optgroup`",
+  "next Back reaches the preceding page",
+  "submit propagation stops before the window finalizer",
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
 
 const formSpecification = read("docs/spec/forms-actions-sessions.md").replace(/\s+/gu, " ");
@@ -141,6 +155,8 @@ for (const fragment of [
   "platform successful controls once",
   "push-style history",
   "finalized after document submit listeners",
+  "rollback completes before recovery",
+  "without constructing `FormData`",
 ]) assert.equal(formSpecification.includes(fragment), true, `form specification is missing ${fragment}`);
 
 const threatModel = read("docs/security/browser-update-threat-model.md").replace(/\s+/gu, " ");
@@ -152,7 +168,8 @@ for (const fragment of [
   "GET-form push rollback",
   "cancelled-close recovery",
   "zero-forced-request policy-protected fragment evidence",
-  "propagation-stopped recovery",
+  "propagation-stopped submit recovery",
+  "preceding-page Back evidence",
   "unsafe-destination preflight",
   "V2-08 and V2-09 must qualify structural reconciliation",
 ]) assert.equal(threatModel.includes(fragment), true, `browser update threat model is missing ${fragment}`);
@@ -185,6 +202,8 @@ for (const fragment of [
   "propagation-stopped",
   "late submit listeners",
   "unsafe destinations",
+  "submit propagation stops before window finalization",
+  "cancelled pushed fragment reload before recovering current truth",
   "same-metadata file replacement",
   "same-resource fragment redirects",
   "fragments returned by the redirect GET",
@@ -215,6 +234,8 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json", '"nativeSupersedingGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"forcedNativeGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"unsafeDestinationFormDataEvents": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"formDataEvents": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/cancelled-fragment-push-recovery.json", '"backReachedPrecedingPage": true'],
   ["examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json", '"newerFileSelectionNotPrivatelyOverwritten": true'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"cancelledCloseRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect-chain.json", '"nativeDestinationGets": 1'],
@@ -259,6 +280,10 @@ for (const fragment of [
   '"scenarios/form-submission/expected/native-no-departure-recovery-human.txt"',
   '"scenarios/form-submission/expected/native-form-fragment-recovery.json"',
   '"scenarios/form-submission/expected/native-form-fragment-recovery-human.txt"',
+  '"scenarios/form-submission/expected/submit-propagation-recovery.json"',
+  '"scenarios/form-submission/expected/submit-propagation-recovery-human.txt"',
+  '"scenarios/form-submission/expected/cancelled-fragment-push-recovery.json"',
+  '"scenarios/form-submission/expected/cancelled-fragment-push-recovery-human.txt"',
   '"scenarios/form-submission/expected/file-handoff-recovery.json"',
   '"scenarios/form-submission/expected/file-handoff-recovery-human.txt"',
   '"scenarios/form-submission/expected/fragment-redirect.json"',
@@ -279,6 +304,13 @@ assert.equal(
   ),
   true,
   "native no-departure recovery must participate in stale artifact cleanup",
+);
+assert.equal(
+  documentationSourceDocument.evidence?.staleRemoval?.includes(
+    "scenarios/form-submission/expected/cancelled-fragment-push-recovery.json",
+  ),
+  true,
+  "cancelled pushed-fragment recovery must participate in stale artifact cleanup",
 );
 
 console.log("V2-07 action ordering contract passed (redirect GET handoff, authenticated CRUD, stale suppression, and native recovery)");

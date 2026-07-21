@@ -50,8 +50,10 @@ exactly one pending minor Changeset is required.
   fragment history and same-hash behavior, request-privacy refusal, single
   successful-control construction, inherited GET-form push rollback,
   synchronous cancelled-reload teardown recovery, structural control/option
-  handoff refusal, late submit-listener destination capture, pre-serialization
-  unsafe-destination refusal, propagation-stopped recovery, and obsolete
+  and inherited-disabled handoff refusal, late submit-listener destination
+  capture, pre-serialization unsafe-destination refusal, propagation-stopped
+  submit recovery, cancelled pushed-fragment rollback before current-truth
+  recovery, and obsolete
   policy-owned operation cancellation in permanent three-browser evidence
   before merge.
 

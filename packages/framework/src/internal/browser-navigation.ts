@@ -378,6 +378,7 @@ function privateFormHandoffControlState(control: PrivateFormHandoffControl): str
       attributes,
       checked: control.checked,
       disabled: control.disabled,
+      effectivelyDisabled: control.matches(":disabled"),
       files: [...(control.files ?? [])].map(({ lastModified, name, size, type }) => ({ lastModified, name, size, type })),
       value: control.value,
     });
@@ -386,10 +387,12 @@ function privateFormHandoffControlState(control: PrivateFormHandoffControl): str
     return JSON.stringify({
       attributes,
       disabled: control.disabled,
+      effectivelyDisabled: control.matches(":disabled"),
       options: [...control.options].map((option) => ({
         attributes: [...option.attributes]
           .map(({ name, value }) => [name, value] as const)
           .sort(([left], [right]) => left.localeCompare(right)),
+        effectivelyDisabled: option.matches(":disabled"),
         selected: option.selected,
         text: option.text,
         value: option.value,
@@ -397,7 +400,13 @@ function privateFormHandoffControlState(control: PrivateFormHandoffControl): str
       value: control.value,
     });
   }
-  return JSON.stringify({ attributes, disabled: control.disabled, text: control.textContent, value: control.value });
+  return JSON.stringify({
+    attributes,
+    disabled: control.disabled,
+    effectivelyDisabled: control.matches(":disabled"),
+    text: control.textContent,
+    value: control.value,
+  });
 }
 
 function samePrivateFormHandoffFiles(
@@ -938,6 +947,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     truthUrl: string;
     restoreFocus: (() => void) | undefined;
     stageDestination: boolean;
+    recoverAfterRollback: boolean;
     recoverCancelledMutation: (() => void) | undefined;
   }> | undefined;
   const unsafeHistoryEntries = createPrivateUnsafeHistoryEntryTracker();
@@ -1184,6 +1194,17 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           finishClose();
         }
       }
+      if (stageDestination === "push") {
+        recoverSelectedPush(
+          new URL(truthUrl),
+          1,
+          undefined,
+          false,
+          recoverCancelledMutation,
+          true,
+        );
+        return;
+      }
       repairDisplayedTruth(
         truthUrl,
         "FADENO_FORM_FRAGMENT_RELOAD_CANCELLED",
@@ -1253,6 +1274,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     restoreFocus?: () => void,
     stageDestination = true,
     recoverCancelledMutation?: () => void,
+    recoverAfterRollback = false,
   ): void => {
     restoreScrollRestoration();
     selectedPushRecovery = Object.freeze({
@@ -1260,6 +1282,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       truthUrl: displayedTruthUrl,
       restoreFocus,
       stageDestination,
+      recoverAfterRollback,
       recoverCancelledMutation,
     });
     history.go(-selectedPushCount);
@@ -2109,6 +2132,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         supersedePendingWorkForNativeActivation(
           "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
           "browser-owned same-context form submission superseded pending navigation",
+          Object.freeze({
+            event,
+            ...(form.relList.contains("noreferrer") ? { policyProtected: true } : {}),
+          }),
         );
       }, 0);
       return;
@@ -2155,6 +2182,16 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       restoreScrollRestoration();
       setTimeout(() => {
         if (closed || location.href !== rollbackUrl) return;
+        if (recovery.recoverAfterRollback) {
+          repairDisplayedTruth(
+            recovery.truthUrl,
+            "FADENO_FORM_FRAGMENT_RELOAD_CANCELLED",
+            "cancelled pushed-fragment reload rolled back before current-truth recovery",
+          );
+          recovery.recoverCancelledMutation?.();
+          recovery.restoreFocus?.();
+          return;
+        }
         try {
           if (recovery.stageDestination) {
             const stagedState = createHistoryState(scrollX, scrollY, false, historySession);

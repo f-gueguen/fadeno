@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-submit-propagation-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectAndRecoveryGets": 2,
+  "formDataEvents": 0,
+  "redirectChainRuns": 1,
+  "finalHash": "",
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

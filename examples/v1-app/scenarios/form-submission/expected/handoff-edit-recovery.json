@@ -8,5 +8,6 @@
   "submittedDocumentNotPublishedOverNewerEdit": true,
   "controlAttributesRecovered": true,
   "optionIdentityRecovered": true,
+  "inheritedDisabledRecovered": true,
   "currentTruthVisible": true
 }

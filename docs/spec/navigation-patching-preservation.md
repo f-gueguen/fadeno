@@ -301,9 +301,10 @@ current resource, it also reloads one fresh native document. A history
 traversal retains committed-mutation recovery through selected-URL repair and
 unsafe-entry native recovery; cancellation repairs the displayed URL before
 current-truth GET begins.
-Handoff comparison includes control attributes, form association,
-select-option structure, and exact option identity as well as values, files,
-focus, and selection.
+Handoff comparison includes control attributes, effective disabled state from
+the control and its owning `fieldset`, form association, select-option
+structure, exact option identity, and option disabled state inherited from an
+`optgroup`, as well as values, files, focus, and selection.
 Transport, projection, preservation, or document-commit failure returns to
 native GET, while a cancelled native departure reloads committed current truth
 through GET without repeating POST. A fragment redirect on the current
@@ -315,7 +316,11 @@ preservation. If synchronous teardown occurs inside the fragment reload's
 cancelled `beforeunload`, recovery ownership remains live and the runtime
 resumes current-truth recovery. A GET form that inherits committed-mutation
 recovery also carries it through selected-push rollback and a cancelled native
-replacement.
+replacement. Cancellation of a pushed-fragment replacement traverses back
+before current-truth recovery; the next Back reaches the preceding page rather
+than a duplicate same-URL entry. If submit propagation stops before the window
+finalizer and a later document listener prevents departure, post-dispatch
+observation recovers current truth without serializing successful controls.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

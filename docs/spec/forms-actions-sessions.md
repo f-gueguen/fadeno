@@ -170,7 +170,12 @@ serialize them again. A fragment destination receives native push-style
 history, including a same-hash activation; explicit request-privacy directives
 remain native and are never replaced by a forced reload. Selected-push rollback
 and synchronous teardown during a cancelled fragment reload retain the
-committed mutation's current-truth recovery owner.
+committed mutation's current-truth recovery owner. The rollback completes
+before recovery so Back reaches the preceding page. If submit propagation stops
+before the window finalizer and a later listener prevents departure, the
+post-dispatch observer recovers current truth without constructing `FormData`.
+Handoff equality includes effective disabled state inherited through
+`fieldset` and `optgroup` ownership.
 
 ## V1 conformance
 

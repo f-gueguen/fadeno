@@ -66,13 +66,15 @@ destination. That operation performs GET through the existing route/resource
 projection and the same document, history, focus, scroll, cancellation, and
 stale-result admission used by enhanced links.
 
-The handoff freezes the submitted form controls, their sorted attributes,
-select-option structure and exact option identities, selected `File` object
-identities, active element, and a focused text control's caret/selection range
-and direction after the mutation result is admitted. Any later value or
-structural edit, file/control/option replacement, form-association change,
-focus change, or caret/selection change refuses private destination publication
-and returns to native GET. A newer eligible
+The handoff freezes the submitted form controls, their sorted attributes and
+effective disabled state (including disabled `fieldset` inheritance),
+select-option structure, exact option identities, and effective disabled state
+(including disabled `optgroup` inheritance), selected `File` object identities,
+active element, and a focused text control's caret/selection range and direction
+after the mutation result is admitted. Any later value or structural edit,
+inherited disabled-state change, file/control/option replacement,
+form-association change, focus change, or caret/selection change refuses private
+destination publication and returns to native GET. A newer eligible
 GET that supersedes the redirect GET inherits committed-mutation recovery
 ownership until a replacement document or native departure commits. An
 ineligible same-context activation or history traversal that returns to native
@@ -91,7 +93,10 @@ default before the browser can serialize them again; a later submit-listener
 edit is therefore included without a second `formdata` event. If propagation
 does not reach the finalizer, no timer attempts late cancellation or creates a
 second history entry: browser-selected fragment state is reloaded without
-restaging, or prevented activation recovers committed current truth. An
+restaging, or prevented activation recovers committed current truth. This
+includes a submit stopped at `document` before the window finalizer: the
+post-dispatch observer recognizes the later cancellation and recovers without
+serializing the form. An
 explicit anchor referrer policy or link/form `noreferrer` directive aborts the
 obsolete private operation, stays entirely browser-owned, and is never
 converted into a forced reload. That ownership is recovery provenance only; it
@@ -115,7 +120,10 @@ current-truth recovery begins. Reload starts synchronously after staging, so
 pending-state observers or teardown cannot close enhancement in an intervening
 stale-markup window. Recovery ownership remains live until departure commits;
 if teardown runs synchronously inside `beforeunload` and the user cancels, the
-same runtime resumes and fetches current truth.
+same runtime resumes and fetches current truth. If a GET form staged a pushed
+fragment entry, cancellation first traverses back to the source entry, then
+recovers current truth, so Back still reaches the preceding page rather than a
+duplicate same-URL entry.
 
 ### Ordering and atomic publication
 
