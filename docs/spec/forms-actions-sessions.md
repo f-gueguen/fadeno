@@ -161,6 +161,12 @@ sequence; it never carries the action body or repeats the POST. Newer navigation
 may supersede that GET, while unsafe preservation, stale identity, cancellation,
 or commit failure returns to native destination GET or current-truth recovery.
 All document, URL, history, focus, and diagnostic replacement remains atomic.
+At this recovery handoff, a native GET form constructs the platform successful
+controls once. A fragment destination receives native push-style history,
+including a same-hash activation; explicit request-privacy directives remain
+native and are never replaced by a forced reload. Selected-push rollback and
+synchronous teardown during a cancelled fragment reload retain the committed
+mutation's current-truth recovery owner.
 
 ## V1 conformance
 

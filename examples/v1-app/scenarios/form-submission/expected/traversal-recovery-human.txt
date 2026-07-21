@@ -1,1 +1,1 @@
-Action ordering recovery: selected and unsafe traversal cancellation repaired committed truth through GET; neither path repeated the mutation.
+Action ordering recovery: selected and unsafe traversal cancellation repaired committed truth through GET, and an inherited GET-form push rollback retained the same recovery owner; no path repeated the mutation.

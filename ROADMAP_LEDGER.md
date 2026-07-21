@@ -46,8 +46,11 @@ exactly one pending minor Changeset is required.
   pending-owner isolation, superseding recovery, native fallback, file
   identity, direct and redirect-chain same-resource fragment teardown,
   redirect-GET result consumption, and selected/unsafe traversal recovery,
-  including prevented native activation and history-stage failure, with
-  permanent three-browser evidence before merge.
+  including prevented native activation, history-stage failure, native
+  fragment history and same-hash behavior, request-privacy refusal, single
+  successful-control construction, inherited GET-form push rollback, and
+  synchronous cancelled-reload teardown recovery in permanent three-browser
+  evidence before merge.
 
 ## Blockers
 

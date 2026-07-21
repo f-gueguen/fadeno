@@ -120,11 +120,12 @@ function encodeControls(data: FormData): URLSearchParams {
   return encoded;
 }
 
-export function privateNativeGetFormSameDocumentDestination(
+export function privateNativeGetFormDestination(
   form: HTMLFormElement,
   candidate: SubmitEvent["submitter"],
 ): URL | undefined {
   if (!form.isConnected || form.ownerDocument !== document) return undefined;
+  if (form.relList.contains("noreferrer")) return undefined;
   const submitter = validSubmitter(form, candidate);
   if (submitter === false) return undefined;
   const method = effectiveAttribute(
@@ -153,13 +154,13 @@ export function privateNativeGetFormSameDocumentDestination(
     destination.search = encodeControls(data).toString();
   } catch { return undefined; }
   const current = new URL(location.href);
-  return destination.origin === current.origin
+  const trustworthy = current.protocol === "https:"
+    || (current.protocol === "http:" && loopbackHosts.has(current.hostname));
+  return trustworthy
+    && destination.protocol === current.protocol
+    && destination.origin === current.origin
     && destination.username === ""
     && destination.password === ""
-    && destination.pathname === current.pathname
-    && destination.search === current.search
-    && destination.hash !== ""
-    && destination.hash !== current.hash
     ? destination
     : undefined;
 }

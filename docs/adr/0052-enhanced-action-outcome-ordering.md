@@ -76,8 +76,14 @@ ownership until a replacement document or native departure commits. An
 ineligible same-context activation or history traversal that returns to native
 behavior observes cancellation with the same recovery owner, including when a
 cancelled traversal first has to repair its selected URL to the displayed
-document. A same-document native GET form supersession uses the same fresh
-fragment-bearing native reload as a link. That ownership is recovery provenance only; it carries no mutation
+document. A same-document native link or GET-form supersession uses the same
+fresh fragment-bearing native reload. The activation receives a new history
+entry, including a same-hash activation, so Back still reaches the prior
+fragment-free entry. A GET form derives that destination from one platform
+`FormData(form, submitter)` construction and prevents a second successful-control
+construction. An explicit anchor referrer policy or link/form `noreferrer`
+directive stays entirely browser-owned and is never converted into a forced
+reload. That ownership is recovery provenance only; it carries no mutation
 request or authority into the newer GET.
 
 The redirect GET is not mutation recovery and carries no action body, proof,
@@ -96,7 +102,9 @@ fragment URL in the current history entry and performs one real native reload
 instead. A cancelled reload repairs the displayed-truth URL before
 current-truth recovery begins. Reload starts synchronously after staging, so
 pending-state observers or teardown cannot close enhancement in an intervening
-stale-markup window.
+stale-markup window. Recovery ownership remains live until departure commits;
+if teardown runs synchronously inside `beforeunload` and the user cancels, the
+same runtime resumes and fetches current truth.
 
 ### Ordering and atomic publication
 
@@ -171,8 +179,11 @@ refusal, post-handoff edit, caret/selection, and file-identity refusal, pending
 owner isolation, enhanced and native
 supersession recovery, recovery when native activation remains in the current
 document, teardown-safe same-resource fragment reload with history-stage
-failure preservation, redirect-chain fragment reload, selected and unsafe
-traversal cancellation recovery, same-document native GET form supersession,
+failure preservation and synchronous cancelled-close recovery, redirect-chain
+fragment reload, selected and unsafe traversal cancellation recovery, inherited
+GET-form push rollback, same- and same-hash native GET-form supersession with
+one successful-control construction and native history preservation,
+referrer-policy refusal,
 redirect-result consumption, no repeated mutation, redacted causal flow, and
 current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`
 retains every prior native, browser, security, package, and release gate.

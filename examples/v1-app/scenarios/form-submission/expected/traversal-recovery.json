@@ -1,15 +1,20 @@
 {
   "schema": "fadeno.example.action-ordering-traversal-recovery",
   "version": 1,
-  "mutationRequests": 3,
-  "signInRuns": 2,
-  "redirectChainRuns": 2,
+  "mutationRequests": 5,
+  "signInRuns": 3,
+  "redirectChainRuns": 3,
   "selectedCommitFailure": {
     "currentTruthReloaded": true,
     "finalPath": "/projects",
     "currentTruthVisible": true
   },
   "unsafeTraversal": {
+    "currentTruthReloaded": true,
+    "finalPath": "/projects",
+    "currentTruthVisible": true
+  },
+  "getFormPushFailure": {
     "currentTruthReloaded": true,
     "finalPath": "/projects",
     "currentTruthVisible": true

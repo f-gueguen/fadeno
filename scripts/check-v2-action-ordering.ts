@@ -97,7 +97,9 @@ for (const fragment of [
   "samePrivateFormHandoffFiles",
   "observeCancelledDeparture",
   "privateReloadFragmentDestination",
-  "privateNativeGetFormSameDocumentDestination",
+  "privateNativeGetFormDestination",
+  'stageDestination: "replace" | "push" | "none"',
+  "nativeDepartureRecovery",
   "privateFormHandoffSelectionState",
   "let ownsPending = true",
   "selectedHistoryState !== undefined",
@@ -120,6 +122,9 @@ for (const fragment of [
   "caret/selection range and direction",
   "newer submission's busy state",
   "unsafe-entry native recovery",
+  "does not trigger a second `formdata` event",
+  "Explicit referrer-policy and `noreferrer`",
+  "selected-push rollback",
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
 
 const formSpecification = read("docs/spec/forms-actions-sessions.md").replace(/\s+/gu, " ");
@@ -127,6 +132,8 @@ for (const fragment of [
   "state-changing expected response commits",
   "unchanged expected validation response does not run revalidation",
   "cannot publish stale assumptions about changed resources",
+  "platform successful controls once",
+  "push-style history",
 ]) assert.equal(formSpecification.includes(fragment), true, `form specification is missing ${fragment}`);
 
 const threatModel = read("docs/security/browser-update-threat-model.md").replace(/\s+/gu, " ");
@@ -135,6 +142,9 @@ for (const fragment of [
   "Mutation-to-redirect-GET handoff loses identity, preservation, or recovery ownership",
   "post-handoff edit/file/caret refusal",
   "selected/unsafe traversal cancellation",
+  "GET-form push rollback",
+  "cancelled-close recovery",
+  "zero-forced-request policy-protected fragment evidence",
   "V2-08 and V2-09 must qualify structural reconciliation",
 ]) assert.equal(threatModel.includes(fragment), true, `browser update threat model is missing ${fragment}`);
 assert.equal(threatModel.includes("V2-07 through V2-09 must qualify complete action ordering"), false);
@@ -160,6 +170,7 @@ for (const fragment of [
   "native activation supersedes the redirect",
   "native activation has no document departure",
   "same-document native GET form that supersedes the redirect",
+  "serialized successful controls once",
   "same-metadata file replacement",
   "same-resource fragment redirects",
   "fragments returned by the redirect GET",
@@ -167,6 +178,7 @@ for (const fragment of [
   "submitted-control caret change made after redirect handoff",
   "newer submission pending owner after redirect handoff",
   "selected traversal URLs and retains recovery through unsafe traversal",
+  "intentional inherited GET form commit failure",
   "authenticated CRUD through native documents without JavaScript",
 ]) assert.equal(tests.includes(fragment), true, `V2-07 browser evidence is missing ${fragment}`);
 
@@ -187,13 +199,13 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/pending-handoff.json", '"newerPendingRetained": true'],
   ["examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json", '"currentTruthVisible": true'],
   ["examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json", '"nativeSupersedingGets": 0'],
-  ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"redirectAndRecoveryGets": 2'],
-  ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"nativeCurrentTruthGets": 1'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"forcedNativeGets": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"formDataEvents": 2'],
   ["examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json", '"newerFileSelectionNotPrivatelyOverwritten": true'],
-  ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"privateRedirectGets": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"cancelledCloseRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect-chain.json", '"nativeDestinationGets": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json", '"duplicateResultRefused": true'],
-  ["examples/v1-app/scenarios/form-submission/expected/traversal-recovery.json", '"currentTruthReloaded": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/traversal-recovery.json", '"getFormPushFailure"'],
 ] as const) assert.equal(read(path).includes(fragment), true, `${path} is missing ${fragment}`);
 assert.equal(
   read("examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json").includes('"historyFailureHandoff"'),

@@ -280,7 +280,12 @@ recovery owner until its native departure commits or is cancelled. If that
 activation stays in the document because a later listener prevents it, the
 same recovery owner fetches committed current truth. A selected same-document
 fragment, whether selected by a link or native GET form, instead reloads the
-fragment-bearing destination as a fresh document.
+fragment-bearing destination as a fresh document. Native fragment
+supersession stages a new history entry, including for a same-hash activation,
+so Back preserves the preceding entry. Native GET-form supersession derives
+its URL from one platform successful-control construction and does not trigger
+a second `formdata` event. Explicit referrer-policy and `noreferrer`
+activations retain browser ownership and are not converted into forced reloads.
 A redirect GET result is consumed before a further redirect returns to native
 ownership. When that further redirect selects a fragment on the still-displayed
 current resource, it also reloads one fresh native document. A history
@@ -294,7 +299,11 @@ resource bypasses private GET and performs one real native destination reload;
 that reload starts synchronously after URL staging. If history staging fails,
 the native handoff first selects the intended fragment destination; a cancelled
 reload repairs displayed truth before recovery. V2-08 owns broader structural
-preservation.
+preservation. If synchronous teardown occurs inside the fragment reload's
+cancelled `beforeunload`, recovery ownership remains live and the runtime
+resumes current-truth recovery. A GET form that inherits committed-mutation
+recovery also carries it through selected-push rollback and a cancelled native
+replacement.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and
