@@ -667,7 +667,6 @@ test("retains committed-mutation recovery when native activation supersedes the 
     event.returnValue = "keep committed current truth";
   }, { once: true }));
   await page.locator("#redirect-away-passcode").fill("changed-after-handoff");
-  await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("rel", "noreferrer"));
   const cancelledDeparture = page.waitForEvent("dialog");
   const activation = page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
   await (await cancelledDeparture).dismiss();
