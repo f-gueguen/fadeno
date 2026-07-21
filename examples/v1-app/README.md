@@ -130,23 +130,29 @@ A same-document native GET form that supersedes pending redirect work also
 loads a fresh fragment-bearing current-truth document instead of retaining
 stale markup. If its submit event stops before the window finalizer and a later
 listener prevents departure, current truth still recovers without serializing
-the form. The same recovery happens when the submit reaches the window only
+the form. If that stopped submission remains unprevented, the browser's single
+successful-control serialization supplies the final native destination instead.
+The same recovery happens when the submit reaches the window only
 after a later document listener cancelled it, or was already cancelled before
-the runtime document listener. A later target change into a separate browsing
+the runtime document listener. A retained `dialog` submission recovers without
+departure, while a late change from `dialog` to GET follows the final native
+destination. A later target change into a separate browsing
 context leaves that destination native while the opener recovers current truth.
 If a second cancelled activation supersedes an in-flight recovery GET, the new
 GET retains recovery ownership and still clears stale markup. Explicit and
 empty fragment delimiters both force a fresh native document. If its
 pushed-fragment reload is cancelled, rollback happens before
 recovery so Back reaches the preceding page without a duplicate stop. Handoff
-also detects disabled-state changes inherited from `fieldset` and `optgroup`,
+also detects exact control-ancestry changes and disabled-state changes inherited from `fieldset` and `optgroup`,
 exact optgroup hierarchy, and stays authoritative through interrupted-departure
 recovery. A failed fragment push repairs the current entry without traversing
-Back. Late listeners may select the current form target. Link recovery re-reads
+Back; if that repair is blocked, native current-truth replacement prevents the
+staged fragment URL from surviving. Late listeners may select the current form target. Link recovery re-reads
 the destination, target, download state, and privacy directives after document
-listeners; an activation moved into another browsing context leaves that
-activation native while the current document recovers. Explicit link privacy
-remains browser-owned for same-document and cross-document destinations.
+listeners; an initially external, later external, or already-cancelled trusted
+activation cannot leave obsolete redirect work publishing in the current
+document. Explicit link and form privacy remains browser-owned for same-document,
+cross-document, and external-context destinations.
 A redirect GET result cannot be reused after its redirect chain
 begins. Concurrent
 equal-title creates leave one logical project owner, and the single stable

@@ -287,19 +287,25 @@ and an empty fragment delimiter follows the same rule even though its parsed
 its URL from one platform successful-control construction and does not trigger
 a second `formdata` event. The final link destination, browsing context,
 download ownership, and privacy directives are read again after document
-listeners. Explicit referrer-policy and `noreferrer` activations retain browser
-ownership and are not converted into forced reloads. An activation that leaves
-the current document in place, including another browsing context or a
+listeners. Explicit referrer-policy and `noreferrer` activations, including
+external-context forms, retain browser ownership and are not converted into
+forced reloads. An activation that leaves
+the current document in place, including an initially or finally selected browsing context or a
 non-document handler, preserves browser ownership while committed current truth
-recovers in the current document.
+recovers in the current document. A trusted click already cancelled before the
+runtime document listener cancels obsolete redirect work and begins the same
+current-truth recovery.
 A preinstalled window finalizer observes final document-listener edits before
 it constructs a native GET destination. It validates origin, credentials,
 protocol, method, target, trust, and request-privacy eligibility before any
 `FormData` construction; only then may it construct successful controls once
 and prevent the still-cancelable native default. If propagation is stopped,
 the post-dispatch path never calls `preventDefault()` and never stages a second
-history entry; it either reloads the already selected fragment or recovers a
-prevented activation. A submission that reaches the window finalizer already
+history entry; it derives the browser's final native GET destination from the
+one successful-control construction, reloads the already selected fragment, or
+recovers a prevented activation. A final `dialog` method that cannot depart
+recovers current truth, while a listener change from `dialog` to GET follows
+the final native destination. A submission that reaches the window finalizer already
 cancelled by a later document listener recovers immediately rather than waiting
 for a departure that cannot happen. A submission already cancelled before the
 runtime document listener follows the same recovery path. If the final target
@@ -312,7 +318,8 @@ current resource, it also reloads one fresh native document. A history
 traversal retains committed-mutation recovery through selected-URL repair and
 unsafe-entry native recovery; cancellation repairs the displayed URL before
 current-truth GET begins.
-Handoff comparison includes control attributes, effective disabled state from
+Handoff comparison includes each control's exact bounded parent ancestry,
+control attributes, effective disabled state from
 the control and its owning `fieldset`, form association, select-option
 structure, exact option identity, and option disabled state inherited from an
 `optgroup`, plus exact optgroup parent identity and option hierarchy, as well as
@@ -324,7 +331,9 @@ through GET without repeating POST. A fragment redirect on the current
 resource bypasses private GET and performs one real native destination reload;
 that reload starts synchronously after URL staging. If history staging fails,
 the native handoff first selects the intended fragment destination; a cancelled
-reload repairs displayed truth before recovery. V2-08 owns broader structural
+reload repairs displayed truth before recovery. If application-owned history
+state prevents that repair, native replacement immediately returns to current
+truth rather than beginning private recovery against the staged URL. V2-08 owns broader structural
 preservation. If synchronous teardown occurs inside the fragment reload's
 cancelled `beforeunload`, recovery ownership remains live and the runtime
 resumes current-truth recovery. A GET form that inherits committed-mutation

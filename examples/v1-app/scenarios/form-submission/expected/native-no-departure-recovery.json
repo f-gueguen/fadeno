@@ -1,8 +1,8 @@
 {
   "schema": "fadeno.example.action-ordering-native-no-departure-recovery",
   "version": 1,
-  "mutationRequests": 8,
-  "signInRuns": 7,
+  "mutationRequests": 10,
+  "signInRuns": 9,
   "sameDocumentFragment": {
     "privateRedirectGets": 1,
     "nativeCurrentTruthGets": 1,
@@ -41,6 +41,16 @@
     "redirectAndRecoveryGets": 2,
     "finalPath": "/projects",
     "freshCurrentTruthVisible": true
+  },
+  "initialExternalContextRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "browserOwnedDestinationLoaded": true,
+    "openerCurrentTruthVisible": true
+  },
+  "preCancelledLinkRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "currentTruthVisible": true
   },
   "mutationRetried": false
 }

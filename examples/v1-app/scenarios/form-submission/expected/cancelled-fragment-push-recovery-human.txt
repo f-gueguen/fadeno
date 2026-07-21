@@ -1,1 +1,1 @@
-Action ordering recovery: a cancelled pushed-fragment reload rolled back before current-truth recovery, Back reached the preceding page without a duplicate same-URL stop, and POST was not repeated.
+Action ordering recovery: a cancelled pushed-fragment reload rolled back before current-truth recovery, Back reached the preceding page without a duplicate same-URL stop, and POST was not repeated. When application-owned history replacement blocked URL repair, recovery fell back to a native current-truth replacement instead of retaining the staged fragment URL.

@@ -56,8 +56,11 @@ exactly one pending minor Changeset is required.
   recovery, failed-push direct repair, frozen handoff preservation through
   recovery, late target finalization into current or separate contexts,
   empty-fragment delimiter reload, already-cancelled submit recovery,
-  recovery-GET supersession continuity, cross-document privacy ownership, and obsolete
-  policy-owned operation cancellation in permanent three-browser evidence
+  recovery-GET supersession continuity, cross-document privacy ownership,
+  already-cancelled and initially external link recovery, external-context form
+  privacy ownership, stopped-submit destination observation, bounded control
+  ancestry, final dialog-method handling, failed-repair native replacement, and
+  obsolete policy-owned operation cancellation in permanent three-browser evidence
   before merge.
 
 ## Blockers

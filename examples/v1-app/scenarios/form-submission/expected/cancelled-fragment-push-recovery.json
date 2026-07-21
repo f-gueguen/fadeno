@@ -1,12 +1,17 @@
 {
   "schema": "fadeno.example.action-ordering-cancelled-fragment-push-recovery",
   "version": 1,
-  "mutationRequests": 1,
-  "redirectGets": 1,
-  "currentTruthRecoveryGets": 1,
-  "redirectChainRuns": 1,
+  "mutationRequests": 2,
+  "redirectGets": 2,
+  "currentTruthRecoveryGets": 2,
+  "redirectChainRuns": 2,
   "finalHashBeforeBack": "",
   "currentTruthVisible": true,
   "backReachedPrecedingPage": true,
+  "repairFailureRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "finalHash": "",
+    "currentTruthVisible": true
+  },
   "mutationRetried": false
 }

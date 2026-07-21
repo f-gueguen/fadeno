@@ -1,10 +1,10 @@
 {
   "schema": "fadeno.example.action-ordering-late-target-recovery",
   "version": 1,
-  "mutationRequests": 2,
-  "redirectGets": 2,
+  "mutationRequests": 3,
+  "redirectGets": 3,
   "projectDocumentGetsAtLeastThree": true,
-  "projectDocumentGetsAtMostFour": true,
+  "projectDocumentGetsAtMostFive": true,
   "externalContextRecovery": {
     "destinationAndRecoveryObserved": true,
     "boundedProjectGets": true,
@@ -12,7 +12,12 @@
     "openerCurrentTruthReplaced": true,
     "openerCurrentTruthVisible": true
   },
-  "redirectChainRuns": 2,
+  "externalNoreferrerOwnership": {
+    "browserOwnedDestinationLoaded": true,
+    "forcedOpenerRecoveryGets": 0,
+    "openerEpochUnchanged": true
+  },
+  "redirectChainRuns": 3,
   "finalHash": "#details",
   "currentTruthVisible": true,
   "mutationRetried": false

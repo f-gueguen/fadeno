@@ -174,6 +174,8 @@ committed mutation's current-truth recovery owner. The rollback completes
 before recovery so Back reaches the preceding page. If submit propagation stops
 before the window finalizer and a later listener prevents departure, the
 post-dispatch observer recovers current truth without constructing `FormData`.
+A stopped but unprevented native GET submission instead retains the final
+destination derived from the browser's single successful-control construction.
 A submission cancelled by a later document listener after it reaches the
 window finalizer, or already cancelled before the runtime document listener,
 recovers through the same no-serialization path. Final target ownership may
@@ -183,7 +185,10 @@ finalization re-reads destination, target, download ownership, and privacy
 directives after document listeners; an activation that leaves the current
 document in place remains browser-owned while that document recovers committed
 truth.
-Handoff equality includes effective disabled state inherited through
+The final effective method is equally authoritative: a retained `dialog`
+submission recovers without document departure, while a listener-selected GET
+uses its final native destination. Handoff equality includes exact bounded
+control ancestry and effective disabled state inherited through
 `fieldset` and `optgroup` ownership, exact optgroup hierarchy, and remains in
 force through interrupted-departure recovery. Final target ownership is
 resolved after document submit listeners. A failed fragment push repairs the

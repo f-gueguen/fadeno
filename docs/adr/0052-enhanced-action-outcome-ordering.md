@@ -66,7 +66,8 @@ destination. That operation performs GET through the existing route/resource
 projection and the same document, history, focus, scroll, cancellation, and
 stale-result admission used by enhanced links.
 
-The handoff freezes the submitted form controls, their sorted attributes and
+The handoff freezes the submitted form controls, their exact bounded parent
+ancestry, their sorted attributes and
 effective disabled state (including disabled `fieldset` inheritance),
 select-option structure, exact option and optgroup parent identities and
 hierarchy, and effective disabled state
@@ -101,18 +102,27 @@ default before the browser can serialize them again; a later submit-listener
 edit is therefore included without a second `formdata` event. If propagation
 does not reach the finalizer, no timer attempts late cancellation or creates a
 second history entry: browser-selected fragment state is reloaded without
-restaging, or prevented activation recovers committed current truth. This
+restaging, or prevented activation recovers committed current truth. The
+post-dispatch observer derives the final native GET destination from the
+browser's one successful-control construction, so an unprevented stopped
+submission retains listener edits. This
 includes a submit stopped at `document` before the window finalizer: the
 post-dispatch observer recognizes the later cancellation and recovers without
 serializing the form. A submission that reaches the window finalizer after a
 later document listener cancelled it, or is already cancelled before the
-runtime document listener observes it, recovers immediately. A late final
+runtime document listener observes it, recovers immediately. A `dialog` method
+is also re-read after document listeners: a submission that remains
+dialog-owned recovers the current document without navigation, while a final
+GET method follows its final native destination. A late final
 target in a separate browsing context remains a browser-owned destination while
 the current document independently recovers committed current truth. Link finalization
 re-reads destination, target, download, and privacy state after document
-listeners; an activation that leaves the current document in place preserves
-browser ownership while current truth recovers. An explicit anchor referrer
-policy or link/form `noreferrer` directive aborts the obsolete private
+listeners; an activation that initially or finally selects another browsing
+context preserves browser ownership while current truth recovers in the
+opener. A trusted click already cancelled before the runtime document listener
+also supersedes obsolete redirect work and recovers current truth. An explicit anchor referrer
+policy or link/form `noreferrer` directive, including an external-context form,
+aborts the obsolete private
 operation for same-document and cross-document destinations, stays entirely
 browser-owned, and is never converted into a forced reload. That ownership is recovery provenance only; it
 carries no mutation request or authority into the newer GET.
@@ -140,6 +150,9 @@ fragment entry successfully, cancellation first traverses back to the source ent
 recovers current truth, so Back still reaches the preceding page rather than a
 duplicate same-URL entry. A failed push created no entry, so cancellation
 repairs the current slot directly and never traverses to the preceding page.
+If that repair itself fails, the browser immediately replaces the staged URL
+with native current truth; private recovery never proceeds against a URL that
+could not be repaired.
 An explicit empty fragment delimiter is still a fragment selection even though
 the URL API exposes its `hash` value as an empty string; it follows the same
 fresh native-document rule.
@@ -223,7 +236,10 @@ GET-form push rollback, same- and same-hash native GET-form supersession with
 one successful-control construction and native history preservation,
 referrer-policy refusal,
 redirect-result consumption, explicit empty-fragment delimiter preservation,
-final separate-context target recovery, cancellation observed before the
-runtime submit listener, recovery-GET supersession continuity, no repeated mutation, redacted causal flow, and
+final separate-context target recovery, initially external and already-cancelled
+link recovery, external-context `noreferrer` ownership, cancellation observed before the
+runtime submit listener, stopped-submit native destination retention, dialog
+method revalidation, control-ancestry refusal, failed history-repair native
+replacement, recovery-GET supersession continuity, no repeated mutation, redacted causal flow, and
 current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`
 retains every prior native, browser, security, package, and release gate.
