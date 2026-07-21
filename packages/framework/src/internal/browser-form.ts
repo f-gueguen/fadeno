@@ -123,6 +123,7 @@ function encodeControls(data: FormData): URLSearchParams {
 export function privateNativeGetFormDestination(
   form: HTMLFormElement,
   candidate: SubmitEvent["submitter"],
+  successfulControls?: FormData,
 ): URL | undefined {
   if (!form.isConnected || form.ownerDocument !== document) return undefined;
   if (form.relList.contains("noreferrer")) return undefined;
@@ -150,19 +151,20 @@ export function privateNativeGetFormDestination(
       () => submitter?.formAction ?? "",
       () => form.action,
     ), location.href);
-    const data = submitter ? new FormData(form, submitter) : new FormData(form);
-    destination.search = encodeControls(data).toString();
   } catch { return undefined; }
   const current = new URL(location.href);
   const trustworthy = current.protocol === "https:"
     || (current.protocol === "http:" && loopbackHosts.has(current.hostname));
-  return trustworthy
-    && destination.protocol === current.protocol
-    && destination.origin === current.origin
-    && destination.username === ""
-    && destination.password === ""
-    ? destination
-    : undefined;
+  if (!trustworthy
+    || destination.protocol !== current.protocol
+    || destination.origin !== current.origin
+    || destination.username !== ""
+    || destination.password !== "") return undefined;
+  try {
+    const data = successfulControls ?? (submitter ? new FormData(form, submitter) : new FormData(form));
+    destination.search = encodeControls(data).toString();
+  } catch { return undefined; }
+  return destination;
 }
 
 export function privateFormRequest(eligibility: PrivateFormEligibility): PrivateFormRequest {

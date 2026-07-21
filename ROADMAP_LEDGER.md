@@ -48,9 +48,12 @@ exactly one pending minor Changeset is required.
   redirect-GET result consumption, and selected/unsafe traversal recovery,
   including prevented native activation, history-stage failure, native
   fragment history and same-hash behavior, request-privacy refusal, single
-  successful-control construction, inherited GET-form push rollback, and
-  synchronous cancelled-reload teardown recovery in permanent three-browser
-  evidence before merge.
+  successful-control construction, inherited GET-form push rollback,
+  synchronous cancelled-reload teardown recovery, structural control/option
+  handoff refusal, late submit-listener destination capture, pre-serialization
+  unsafe-destination refusal, propagation-stopped recovery, and obsolete
+  policy-owned operation cancellation in permanent three-browser evidence
+  before merge.
 
 ## Blockers
 

@@ -66,11 +66,13 @@ destination. That operation performs GET through the existing route/resource
 projection and the same document, history, focus, scroll, cancellation, and
 stale-result admission used by enhanced links.
 
-The handoff freezes the submitted form controls, selected `File` object
+The handoff freezes the submitted form controls, their sorted attributes,
+select-option structure and exact option identities, selected `File` object
 identities, active element, and a focused text control's caret/selection range
-and direction after the mutation result is admitted. Any later edit,
-file/control replacement, focus change, or caret/selection change refuses
-private destination publication and returns to native GET. A newer eligible
+and direction after the mutation result is admitted. Any later value or
+structural edit, file/control/option replacement, form-association change,
+focus change, or caret/selection change refuses private destination publication
+and returns to native GET. A newer eligible
 GET that supersedes the redirect GET inherits committed-mutation recovery
 ownership until a replacement document or native departure commits. An
 ineligible same-context activation or history traversal that returns to native
@@ -79,12 +81,21 @@ cancelled traversal first has to repair its selected URL to the displayed
 document. A same-document native link or GET-form supersession uses the same
 fresh fragment-bearing native reload. The activation receives a new history
 entry, including a same-hash activation, so Back still reaches the prior
-fragment-free entry. A GET form derives that destination from one platform
-`FormData(form, submitter)` construction and prevents a second successful-control
-construction. An explicit anchor referrer policy or link/form `noreferrer`
-directive stays entirely browser-owned and is never converted into a forced
-reload. That ownership is recovery provenance only; it carries no mutation
-request or authority into the newer GET.
+fragment-free entry. A preinstalled window finalizer decides recovery takeover
+while the activation is still cancelable and after document submit listeners
+have finished. It revalidates the final GET action, method, target, origin,
+credentials, trust boundary, and request-privacy policy before constructing
+`FormData(form, submitter)`. For an admitted takeover, that recovery preflight
+constructs successful controls once and then prevents the original native
+default before the browser can serialize them again; a later submit-listener
+edit is therefore included without a second `formdata` event. If propagation
+does not reach the finalizer, no timer attempts late cancellation or creates a
+second history entry: browser-selected fragment state is reloaded without
+restaging, or prevented activation recovers committed current truth. An
+explicit anchor referrer policy or link/form `noreferrer` directive aborts the
+obsolete private operation, stays entirely browser-owned, and is never
+converted into a forced reload. That ownership is recovery provenance only; it
+carries no mutation request or authority into the newer GET.
 
 The redirect GET is not mutation recovery and carries no action body, proof,
 or mutation authority. A newer eligible navigation may cancel and supersede

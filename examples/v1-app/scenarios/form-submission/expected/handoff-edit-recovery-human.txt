@@ -1,1 +1,1 @@
-Action ordering recovery: post-handoff edit refused private publication; one native GET displayed committed current truth without repeating POST.
+Action ordering recovery: post-handoff edit refused private publication for simultaneous value, control-attribute, and option-identity changes; one native GET displayed committed current truth without repeating POST.

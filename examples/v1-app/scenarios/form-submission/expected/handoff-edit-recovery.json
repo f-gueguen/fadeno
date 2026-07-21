@@ -6,5 +6,7 @@
   "nativeCurrentTruthGets": 1,
   "signInRuns": 1,
   "submittedDocumentNotPublishedOverNewerEdit": true,
+  "controlAttributesRecovered": true,
+  "optionIdentityRecovered": true,
   "currentTruthVisible": true
 }

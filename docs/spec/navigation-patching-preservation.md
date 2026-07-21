@@ -286,12 +286,24 @@ so Back preserves the preceding entry. Native GET-form supersession derives
 its URL from one platform successful-control construction and does not trigger
 a second `formdata` event. Explicit referrer-policy and `noreferrer`
 activations retain browser ownership and are not converted into forced reloads.
+A preinstalled window finalizer observes final document-listener edits before
+it constructs a native GET destination. It validates origin, credentials,
+protocol, method, target, trust, and request-privacy eligibility before any
+`FormData` construction; only then may it construct successful controls once
+and prevent the still-cancelable native default. If propagation is stopped,
+the post-dispatch path never calls `preventDefault()` and never stages a second
+history entry; it either reloads the already selected fragment or recovers a
+prevented activation. Policy-owned activation aborts obsolete private work
+without installing a forced recovery navigation.
 A redirect GET result is consumed before a further redirect returns to native
 ownership. When that further redirect selects a fragment on the still-displayed
 current resource, it also reloads one fresh native document. A history
 traversal retains committed-mutation recovery through selected-URL repair and
 unsafe-entry native recovery; cancellation repairs the displayed URL before
 current-truth GET begins.
+Handoff comparison includes control attributes, form association,
+select-option structure, and exact option identity as well as values, files,
+focus, and selection.
 Transport, projection, preservation, or document-commit failure returns to
 native GET, while a cancelled native departure reloads committed current truth
 through GET without repeating POST. A fragment redirect on the current
