@@ -284,8 +284,13 @@ fragment-bearing destination as a fresh document. Native fragment
 supersession stages a new history entry, including for a same-hash activation,
 so Back preserves the preceding entry. Native GET-form supersession derives
 its URL from one platform successful-control construction and does not trigger
-a second `formdata` event. Explicit referrer-policy and `noreferrer`
-activations retain browser ownership and are not converted into forced reloads.
+a second `formdata` event. The final link destination, browsing context,
+download ownership, and privacy directives are read again after document
+listeners. Explicit referrer-policy and `noreferrer` activations retain browser
+ownership and are not converted into forced reloads. An activation that leaves
+the current document in place, including another browsing context or a
+non-document handler, preserves browser ownership while committed current truth
+recovers in the current document.
 A preinstalled window finalizer observes final document-listener edits before
 it constructs a native GET destination. It validates origin, credentials,
 protocol, method, target, trust, and request-privacy eligibility before any
@@ -293,8 +298,10 @@ protocol, method, target, trust, and request-privacy eligibility before any
 and prevent the still-cancelable native default. If propagation is stopped,
 the post-dispatch path never calls `preventDefault()` and never stages a second
 history entry; it either reloads the already selected fragment or recovers a
-prevented activation. Policy-owned activation aborts obsolete private work
-without installing a forced recovery navigation.
+prevented activation. A submission that reaches the window finalizer already
+cancelled by a later document listener recovers immediately rather than waiting
+for a departure that cannot happen. Policy-owned activation aborts obsolete
+private work without installing a forced recovery navigation.
 A redirect GET result is consumed before a further redirect returns to native
 ownership. When that further redirect selects a fragment on the still-displayed
 current resource, it also reloads one fresh native document. A history
@@ -323,11 +330,14 @@ before current-truth recovery only when the push committed; a failed push
 repairs the current entry directly. After a committed push, the next Back
 reaches the preceding page rather than a duplicate same-URL entry. If submit propagation stops before the window
 finalizer and a later document listener prevents departure, post-dispatch
-observation recovers current truth without serializing successful controls.
-Finalization resolves the effective form and submitter target after document
-listeners, including a late change into the current browsing context. Every
-explicit anchor referrer policy or `noreferrer` directive remains browser-owned
-for both same-document and cross-document destinations.
+observation recovers current truth without serializing successful controls. A
+submission cancelled by a later document listener after it reaches the window
+finalizer recovers through the same no-serialization path. Finalization
+resolves the effective form and submitter target after document listeners,
+including a late change into the current browsing context, and re-reads link
+destination, target, download, and privacy state. Every explicit anchor
+referrer policy or `noreferrer` directive remains browser-owned for both
+same-document and cross-document destinations.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

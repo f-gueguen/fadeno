@@ -1357,13 +1357,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       nativeDestination?: () => URL | undefined;
       afterNativeDestination?: () => URL | undefined;
       finalizeNow?: boolean;
-      policyProtected?: boolean;
+      policyProtected?: () => boolean;
     }>,
   ): boolean => {
     if (active?.kind === "mutation") return false;
     if (!traversing && !active) return false;
     const recoverCancelledMutation = active?.recoverCancelledMutation;
-    if (active && recoverCancelledMutation && observation?.policyProtected) {
+    if (active && recoverCancelledMutation && observation?.policyProtected?.()) {
       const relinquished = active;
       relinquished.cancellation.abort(new DOMException("Policy-protected activation retained browser ownership", "AbortError"));
       if (active === relinquished) active = undefined;
@@ -1413,6 +1413,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             recoverOnce();
             return;
           }
+          if (observation.policyProtected?.()) {
+            finalized = true;
+            return;
+          }
           const nativeDestination = observation.afterNativeDestination?.();
           if (!nativeDestination || !sameResourceFragment(nativeDestination)) return;
           const selectedDestination = new URL(location.href);
@@ -1428,8 +1432,12 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             recoverOnce();
             return;
           }
+          if (observation.policyProtected?.()) return;
           const nativeDestination = observation.nativeDestination?.();
-          if (!nativeDestination) return;
+          if (!nativeDestination) {
+            recoverOnce();
+            return;
+          }
           preventedByFramework = true;
           observation.event.preventDefault();
           if (sameResourceFragment(nativeDestination)) {
@@ -1472,7 +1480,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             if (reachedWindow || recovered || closed) return;
             const nativeDestination = observation.afterNativeDestination?.();
             recoverAfterNativeFragmentSelection();
-            if (!finalized && nativeDestination && sameResourceFragment(nativeDestination)) recoverOnce();
+            if (!finalized && (!nativeDestination || sameResourceFragment(nativeDestination))) recoverOnce();
           }, 50);
         }, 0);
       }
@@ -2024,23 +2032,20 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const sameContext = !target.hasAttribute("download")
       && privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"));
     const selectedUrl = new URL(location.href);
-    let sameDocumentDestination: URL | undefined;
-    let policyProtected = false;
-    try {
-      const candidate = new URL(target.href, selectedUrl);
-      policyProtected = target.hasAttribute("referrerpolicy") || target.relList.contains("noreferrer");
-      if (candidate.origin === selectedUrl.origin
-        && candidate.pathname === selectedUrl.pathname
-        && candidate.search === selectedUrl.search
-        && candidate.href.includes("#")) sameDocumentDestination = candidate;
-    } catch { /* malformed native href retains browser ownership */ }
+    const policyProtected = (): boolean => target.hasAttribute("referrerpolicy") || target.relList.contains("noreferrer");
+    const nativeDestination = (): URL | undefined => {
+      if (target.hasAttribute("download")
+        || !privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"))) return undefined;
+      try {
+        const candidate = new URL(target.href, selectedUrl);
+        return candidate.protocol === "http:" || candidate.protocol === "https:" ? candidate : undefined;
+      } catch { return undefined; }
+    };
     const nativeObservation = Object.freeze({
       event,
-      ...(sameDocumentDestination ? {
-        nativeDestination: () => sameDocumentDestination,
-        afterNativeDestination: () => sameDocumentDestination,
-      } : {}),
-      ...(policyProtected ? { policyProtected: true } : {}),
+      nativeDestination,
+      afterNativeDestination: nativeDestination,
+      policyProtected,
     });
     if (sameContext && active?.kind === "mutation") {
       event.preventDefault();
@@ -2128,6 +2133,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         supersedePendingWorkForNativeActivation(
           "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
           "cancelled same-context form submission superseded pending navigation",
+          Object.freeze({ event, finalizeNow: true }),
         );
         return;
       }
@@ -2154,7 +2160,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             nativeDestination: () => privateNativeGetFormDestination(form, event.submitter),
             afterNativeDestination: () => afterNativeDestination,
             ...(finalizingAtWindow ? { finalizeNow: true } : {}),
-            ...(form.relList.contains("noreferrer") ? { policyProtected: true } : {}),
+            policyProtected: () => form.relList.contains("noreferrer"),
           }),
         );
       };
@@ -2197,7 +2203,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           "browser-owned same-context form submission superseded pending navigation",
           Object.freeze({
             event,
-            ...(form.relList.contains("noreferrer") ? { policyProtected: true } : {}),
+            policyProtected: () => form.relList.contains("noreferrer"),
           }),
         );
       }, 0);

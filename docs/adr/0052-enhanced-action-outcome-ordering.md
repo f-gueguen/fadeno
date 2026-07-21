@@ -101,10 +101,14 @@ second history entry: browser-selected fragment state is reloaded without
 restaging, or prevented activation recovers committed current truth. This
 includes a submit stopped at `document` before the window finalizer: the
 post-dispatch observer recognizes the later cancellation and recovers without
-serializing the form. An
-explicit anchor referrer policy or link/form `noreferrer` directive aborts the
-obsolete private operation for same-document and cross-document destinations,
-stays entirely browser-owned, and is never converted into a forced reload. That ownership is recovery provenance only; it
+serializing the form. A submission that reaches the window finalizer after a
+later document listener cancelled it recovers immediately. Link finalization
+re-reads destination, target, download, and privacy state after document
+listeners; an activation that leaves the current document in place preserves
+browser ownership while current truth recovers. An explicit anchor referrer
+policy or link/form `noreferrer` directive aborts the obsolete private
+operation for same-document and cross-document destinations, stays entirely
+browser-owned, and is never converted into a forced reload. That ownership is recovery provenance only; it
 carries no mutation request or authority into the newer GET.
 
 The redirect GET is not mutation recovery and carries no action body, proof,

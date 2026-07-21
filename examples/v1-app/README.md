@@ -130,13 +130,17 @@ A same-document native GET form that supersedes pending redirect work also
 loads a fresh fragment-bearing current-truth document instead of retaining
 stale markup. If its submit event stops before the window finalizer and a later
 listener prevents departure, current truth still recovers without serializing
-the form. If its pushed-fragment reload is cancelled, rollback happens before
+the form. The same recovery happens when the submit reaches the window only
+after a later document listener cancelled it. If its pushed-fragment reload is cancelled, rollback happens before
 recovery so Back reaches the preceding page without a duplicate stop. Handoff
 also detects disabled-state changes inherited from `fieldset` and `optgroup`,
 exact optgroup hierarchy, and stays authoritative through interrupted-departure
 recovery. A failed fragment push repairs the current entry without traversing
-Back. Late listeners may select the current form target, while explicit link
-privacy remains browser-owned for same-document and cross-document destinations.
+Back. Late listeners may select the current form target. Link recovery re-reads
+the destination, target, download state, and privacy directives after document
+listeners; an activation moved into another browsing context leaves that
+activation native while the current document recovers. Explicit link privacy
+remains browser-owned for same-document and cross-document destinations.
 A redirect GET result cannot be reused after its redirect chain
 begins. Concurrent
 equal-title creates leave one logical project owner, and the single stable

@@ -1,8 +1,8 @@
 {
   "schema": "fadeno.example.action-ordering-native-no-departure-recovery",
   "version": 1,
-  "mutationRequests": 5,
-  "signInRuns": 4,
+  "mutationRequests": 8,
+  "signInRuns": 7,
   "sameDocumentFragment": {
     "privateRedirectGets": 1,
     "nativeCurrentTruthGets": 1,
@@ -27,6 +27,20 @@
   "crossDocumentPolicyProtected": {
     "forcedRecoveryGets": 0,
     "finalPath": "/projects"
+  },
+  "lateDestination": {
+    "privateRedirectGets": 1,
+    "selectedNativeGets": 1,
+    "finalPath": "/"
+  },
+  "latePolicyProtected": {
+    "forcedNativeGets": 0,
+    "finalHash": "#late-policy"
+  },
+  "separateContextRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "freshCurrentTruthVisible": true
   },
   "mutationRetried": false
 }

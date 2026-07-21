@@ -131,6 +131,9 @@ for (const fragment of [
   "privateSelectHandoffStructure",
   "privateFragmentReloadRecoveryMode",
   "preservationSafe: () => boolean",
+  "observation.policyProtected?.()",
+  "!nativeDestination || sameResourceFragment(nativeDestination)",
+  "candidate.protocol === \"http:\" || candidate.protocol === \"https:\"",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
@@ -158,10 +161,11 @@ for (const fragment of [
   "exact option identity",
   "option disabled state inherited from an `optgroup`",
   "next Back reaches the preceding page",
-  "submit propagation stops before the window finalizer",
+  "submission cancelled by a later document listener",
   "exact optgroup parent identity",
   "failed push",
   "effective form and submitter target after document listeners",
+  "re-reads link destination, target, download, and privacy state",
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
 
 const formSpecification = read("docs/spec/forms-actions-sessions.md").replace(/\s+/gu, " ");
@@ -187,7 +191,9 @@ for (const fragment of [
   "committed and failed GET-form push recovery",
   "cancelled-close recovery",
   "zero-forced-request policy-protected fragment evidence",
-  "propagation-stopped submit recovery",
+  "propagation-stopped and late-cancelled submit recovery",
+  "late link destination/privacy changes",
+  "separate-context recovery",
   "recovery-time handoff refusal",
   "same- and cross-document policy ownership",
   "unsafe-destination preflight",
@@ -222,7 +228,9 @@ for (const fragment of [
   "propagation-stopped",
   "late submit listeners",
   "unsafe destinations",
-  "submit propagation stops before window finalization",
+  "submit propagation stops or a late listener cancels before window finalization",
+  "captured-before-listeners",
+  'setAttribute("target", "_blank")',
   "cancelled pushed fragment reload before recovering current truth",
   "final same-context target selected by late submit listeners",
   "frozen handoff snapshot through interrupted-departure recovery",
@@ -257,8 +265,10 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json", '"currentTruthVisible": true'],
   ["examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json", '"nativeSupersedingGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"forcedNativeGets": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"separateContextRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"unsafeDestinationFormDataEvents": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"formDataEvents": 0'],
+  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"lateWindowCancellation"'],
   ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"finalHash": "#details"'],
   ["examples/v1-app/scenarios/form-submission/expected/recovery-handoff-preservation.json", '"nativeCurrentTruthGets": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/cancelled-fragment-push-recovery.json", '"backReachedPrecedingPage": true'],
