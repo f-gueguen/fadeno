@@ -1040,7 +1040,8 @@ test("reloads a same-document native GET form that supersedes the redirect after
     mutationRequests: privateMutations().length - mutationsBefore,
     redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
-    nativeCurrentTruthGets: recoveredNativeGets,
+    nativeCurrentTruthGetsAtLeastThree: recoveredNativeGets >= 3,
+    nativeCurrentTruthGetsAtMostFour: recoveredNativeGets <= 4,
     redirectChainRuns: state.redirectChainRuns,
     formDataEvents: await page.evaluate(() => Number(sessionStorage.getItem("fadeno-native-formdata-count"))),
     lateSubmitListenerDestination,
