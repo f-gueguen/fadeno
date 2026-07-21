@@ -1358,6 +1358,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       afterNativeDestination?: () => URL | undefined;
       finalizeNow?: boolean;
       policyProtected?: () => boolean;
+      canDepartCurrentDocument?: () => boolean;
     }>,
   ): boolean => {
     if (active?.kind === "mutation") return false;
@@ -1435,7 +1436,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           if (observation.policyProtected?.()) return;
           const nativeDestination = observation.nativeDestination?.();
           if (!nativeDestination) {
-            recoverOnce();
+            if (!observation.canDepartCurrentDocument?.()) recoverOnce();
             return;
           }
           preventedByFramework = true;
@@ -1480,7 +1481,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             if (reachedWindow || recovered || closed) return;
             const nativeDestination = observation.afterNativeDestination?.();
             recoverAfterNativeFragmentSelection();
-            if (!finalized && (!nativeDestination || sameResourceFragment(nativeDestination))) recoverOnce();
+            if (!finalized && ((!nativeDestination && !observation.canDepartCurrentDocument?.())
+              || (nativeDestination && sameResourceFragment(nativeDestination)))) recoverOnce();
           }, 50);
         }, 0);
       }
@@ -2033,7 +2035,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       && privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"));
     const selectedUrl = new URL(location.href);
     const policyProtected = (): boolean => target.hasAttribute("referrerpolicy") || target.relList.contains("noreferrer");
-    const nativeDestination = (): URL | undefined => {
+    const nativeDocumentDestination = (): URL | undefined => {
       if (target.hasAttribute("download")
         || !privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"))) return undefined;
       try {
@@ -2041,11 +2043,22 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         return candidate.protocol === "http:" || candidate.protocol === "https:" ? candidate : undefined;
       } catch { return undefined; }
     };
+    const nativeDestination = (): URL | undefined => {
+      const candidate = nativeDocumentDestination();
+      return candidate
+        && candidate.origin === selectedUrl.origin
+        && candidate.pathname === selectedUrl.pathname
+        && candidate.search === selectedUrl.search
+        && candidate.href.includes("#")
+        ? candidate
+        : undefined;
+    };
     const nativeObservation = Object.freeze({
       event,
       nativeDestination,
       afterNativeDestination: nativeDestination,
       policyProtected,
+      canDepartCurrentDocument: () => nativeDocumentDestination() !== undefined,
     });
     if (sameContext && active?.kind === "mutation") {
       event.preventDefault();

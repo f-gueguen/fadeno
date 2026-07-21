@@ -132,7 +132,7 @@ for (const fragment of [
   "privateFragmentReloadRecoveryMode",
   "preservationSafe: () => boolean",
   "observation.policyProtected?.()",
-  "!nativeDestination || sameResourceFragment(nativeDestination)",
+  "canDepartCurrentDocument",
   "candidate.protocol === \"http:\" || candidate.protocol === \"https:\"",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
