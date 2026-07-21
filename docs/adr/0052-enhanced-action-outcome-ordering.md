@@ -80,7 +80,10 @@ GET that supersedes the redirect GET inherits committed-mutation recovery
 ownership until a replacement document or native departure commits. An
 interrupted-departure current-truth GET retains the same frozen handoff
 predicate; a later submitted-control edit therefore refuses private recovery
-publication and selects native current truth. An
+publication and selects native current truth. A recovery GET retains the
+committed-mutation recovery owner itself, so a newer cancelled activation may
+supersede that GET and start a newer current-truth GET rather than stranding
+stale markup. An
 ineligible same-context activation or history traversal that returns to native
 behavior observes cancellation with the same recovery owner, including when a
 cancelled traversal first has to repair its selected URL to the displayed
@@ -90,7 +93,7 @@ entry, including a same-hash activation, so Back still reaches the prior
 fragment-free entry. A preinstalled window finalizer decides recovery takeover
 while the activation is still cancelable and after document submit listeners
 have finished. It revalidates the final GET action, method, target (including a
-late change from another browsing context to the current context), origin,
+late change into either the current context or a separate browsing context), origin,
 credentials, trust boundary, and request-privacy policy before constructing
 `FormData(form, submitter)`. For an admitted takeover, that recovery preflight
 constructs successful controls once and then prevents the original native
@@ -102,7 +105,10 @@ restaging, or prevented activation recovers committed current truth. This
 includes a submit stopped at `document` before the window finalizer: the
 post-dispatch observer recognizes the later cancellation and recovers without
 serializing the form. A submission that reaches the window finalizer after a
-later document listener cancelled it recovers immediately. Link finalization
+later document listener cancelled it, or is already cancelled before the
+runtime document listener observes it, recovers immediately. A late final
+target in a separate browsing context remains a browser-owned destination while
+the current document independently recovers committed current truth. Link finalization
 re-reads destination, target, download, and privacy state after document
 listeners; an activation that leaves the current document in place preserves
 browser ownership while current truth recovers. An explicit anchor referrer
@@ -134,6 +140,9 @@ fragment entry successfully, cancellation first traverses back to the source ent
 recovers current truth, so Back still reaches the preceding page rather than a
 duplicate same-URL entry. A failed push created no entry, so cancellation
 repairs the current slot directly and never traverses to the preceding page.
+An explicit empty fragment delimiter is still a fragment selection even though
+the URL API exposes its `hash` value as an empty string; it follows the same
+fresh native-document rule.
 
 ### Ordering and atomic publication
 
@@ -213,6 +222,8 @@ fragment reload, selected and unsafe traversal cancellation recovery, inherited
 GET-form push rollback, same- and same-hash native GET-form supersession with
 one successful-control construction and native history preservation,
 referrer-policy refusal,
-redirect-result consumption, no repeated mutation, redacted causal flow, and
+redirect-result consumption, explicit empty-fragment delimiter preservation,
+final separate-context target recovery, cancellation observed before the
+runtime submit listener, recovery-GET supersession continuity, no repeated mutation, redacted causal flow, and
 current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`
 retains every prior native, browser, security, package, and release gate.

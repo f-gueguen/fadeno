@@ -1,15 +1,21 @@
 {
   "schema": "fadeno.example.action-ordering-fragment-redirect",
   "version": 1,
-  "mutationRequests": 2,
+  "mutationRequests": 3,
   "privateRedirectGets": 1,
-  "nativeDestinationGets": 1,
-  "fragmentRedirectRuns": 2,
-  "finalHash": "#details",
+  "nativeDestinationGetsAtLeastTwo": true,
+  "nativeDestinationGetsAtMostThree": true,
+  "fragmentRedirectRuns": 3,
+  "finalHash": "",
+  "emptyFragment": {
+    "nativeDestinationGets": 1,
+    "finalUrlEndsWithDelimiter": true,
+    "currentTruthVisible": true
+  },
   "teardownFollowedHandoff": true,
   "cancelledCloseRecovery": {
     "privateCurrentTruthGets": 1,
-    "nativeDestinationGets": 0,
+    "nativeDestinationGetsAtMostOne": true,
     "finalHash": "#details",
     "currentTruthVisible": true,
     "enhancementActive": true

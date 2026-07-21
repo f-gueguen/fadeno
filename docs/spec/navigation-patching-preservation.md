@@ -282,7 +282,8 @@ same recovery owner fetches committed current truth. A selected same-document
 fragment, whether selected by a link or native GET form, instead reloads the
 fragment-bearing destination as a fresh document. Native fragment
 supersession stages a new history entry, including for a same-hash activation,
-so Back preserves the preceding entry. Native GET-form supersession derives
+and an empty fragment delimiter follows the same rule even though its parsed
+`hash` string is empty, so Back preserves the preceding entry. Native GET-form supersession derives
 its URL from one platform successful-control construction and does not trigger
 a second `formdata` event. The final link destination, browsing context,
 download ownership, and privacy directives are read again after document
@@ -300,7 +301,10 @@ the post-dispatch path never calls `preventDefault()` and never stages a second
 history entry; it either reloads the already selected fragment or recovers a
 prevented activation. A submission that reaches the window finalizer already
 cancelled by a later document listener recovers immediately rather than waiting
-for a departure that cannot happen. Policy-owned activation aborts obsolete
+for a departure that cannot happen. A submission already cancelled before the
+runtime document listener follows the same recovery path. If the final target
+selects a separate browsing context, that destination remains browser-owned
+while the current document recovers committed truth. Policy-owned activation aborts obsolete
 private work without installing a forced recovery navigation.
 A redirect GET result is consumed before a further redirect returns to native
 ownership. When that further redirect selects a fragment on the still-displayed
@@ -334,10 +338,16 @@ observation recovers current truth without serializing successful controls. A
 submission cancelled by a later document listener after it reaches the window
 finalizer recovers through the same no-serialization path. Finalization
 resolves the effective form and submitter target after document listeners,
-including a late change into the current browsing context, and re-reads link
+including a late change into the current browsing context or a separate
+browsing context, and re-reads link
 destination, target, download, and privacy state. Every explicit anchor
 referrer policy or `noreferrer` directive remains browser-owned for both
 same-document and cross-document destinations.
+
+Every current-truth recovery GET retains the committed-mutation recovery owner.
+If a newer activation supersedes that GET and is then cancelled, the newer
+operation starts current-truth recovery again; obsolete completion cannot clear
+or publish over that recovery owner.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

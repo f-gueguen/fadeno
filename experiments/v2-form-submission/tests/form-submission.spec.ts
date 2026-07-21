@@ -1129,6 +1129,37 @@ test("recovers committed truth when submit propagation stops or a late listener 
     formDataEvents: await page.evaluate(() => Number(sessionStorage.getItem("fadeno-late-cancelled-formdata-count"))),
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
+  const captureCancellationGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 3);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.evaluate(() => {
+    sessionStorage.setItem("fadeno-capture-cancelled-formdata-count", "0");
+    document.addEventListener("formdata", () => {
+      const count = Number(sessionStorage.getItem("fadeno-capture-cancelled-formdata-count"));
+      sessionStorage.setItem("fadeno-capture-cancelled-formdata-count", String(count + 1));
+    }, { once: true });
+    document.addEventListener("submit", (event) => {
+      if (event.target instanceof HTMLFormElement && event.target.id === "native-fragment-form") event.preventDefault();
+    }, { capture: true, once: true });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length)
+    .toBe(captureCancellationGetsBefore + 2);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const captureCancellation = {
+    redirectAndRecoveryGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
+      - captureCancellationGetsBefore,
+    formDataEvents: await page.evaluate(() => Number(sessionStorage.getItem("fadeno-capture-cancelled-formdata-count"))),
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-submit-propagation-recovery",
@@ -1139,13 +1170,14 @@ test("recovers committed truth when submit propagation stops or a late listener 
       - redirectGetsBefore - privateTruthBefore - nativeTruthBefore,
     formDataEvents: stoppedFormDataEvents,
     lateWindowCancellation,
+    captureCancellation,
     redirectChainRuns: state.redirectChainRuns,
     finalHash: new URL(page.url()).hash,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
-    mutationRetried: privateMutations().length - mutationsBefore > 2,
+    mutationRetried: privateMutations().length - mutationsBefore > 3,
   }).toEqual(expected("submit-propagation-recovery"));
   expect(readFileSync(join(outputRoot, "expected-submit-propagation-recovery-human.txt"), "utf8"))
-    .toContain("submit propagation either stopped before window finalization");
+    .toContain("submit propagation stopped before window finalization");
 });
 
 test("uses the final same-context target selected by late submit listeners", async ({ page }) => {
@@ -1153,6 +1185,7 @@ test("uses the final same-context target selected by late submit listeners", asy
   const mutationsBefore = privateMutations().length;
   const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/redirect-chain" && accept === mediaType).length;
+  const projectGetsBefore = transportRequests.filter(({ method, path }) => method === "GET" && path === "/projects").length;
   const nativeTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length;
   holdNextPrivateGetResponse = true;
@@ -1173,6 +1206,39 @@ test("uses the final same-context target selected by late submit listeners", asy
     && path === "/projects" && accept !== mediaType).length).toBe(nativeTruthBefore + 1);
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+
+  const externalContextGetsBefore = transportRequests.filter(({ method, path }) => method === "GET" && path === "/projects").length;
+  const openerEpochBefore = await page.locator('meta[name="fadeno-document-epoch"]').getAttribute("content");
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 2);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator("#native-fragment-form").evaluate((form) => document.addEventListener("submit", (event) => {
+    if (event.target === form) form.setAttribute("target", "_blank");
+  }, { once: true }));
+  const popupPromise = page.waitForEvent("popup");
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  const popup = await popupPromise;
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path }) => method === "GET" && path === "/projects").length)
+    .toBeGreaterThanOrEqual(externalContextGetsBefore + 2);
+  await expect.poll(() => page.locator('meta[name="fadeno-document-epoch"]').getAttribute("content"))
+    .not.toBe(openerEpochBefore);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await page.waitForTimeout(100);
+  const externalContextProjectGets = transportRequests.filter(({ method, path }) => method === "GET" && path === "/projects").length
+    - externalContextGetsBefore;
+  expect(externalContextProjectGets).toBeLessThanOrEqual(3);
+  const externalContextRecovery = {
+    destinationAndRecoveryObserved: externalContextProjectGets >= 2,
+    boundedProjectGets: externalContextProjectGets <= 3,
+    browserOwnedDestinationLoaded: new URL(popup.url()).pathname === "/projects",
+    openerCurrentTruthReplaced: await page.locator('meta[name="fadeno-document-epoch"]').getAttribute("content") !== openerEpochBefore,
+    openerCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
+  await popup.close();
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-late-target-recovery",
@@ -1180,15 +1246,80 @@ test("uses the final same-context target selected by late submit listeners", asy
     mutationRequests: privateMutations().length - mutationsBefore,
     redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
-    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
-      && path === "/projects" && accept !== mediaType).length - nativeTruthBefore,
+    projectDocumentGetsAtLeastThree: transportRequests.filter(({ method, path }) => method === "GET" && path === "/projects").length
+      - projectGetsBefore >= 3,
+    projectDocumentGetsAtMostFour: transportRequests.filter(({ method, path }) => method === "GET" && path === "/projects").length
+      - projectGetsBefore <= 4,
+    externalContextRecovery,
     redirectChainRuns: state.redirectChainRuns,
     finalHash: new URL(page.url()).hash,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
-    mutationRetried: privateMutations().length - mutationsBefore > 1,
+    mutationRetried: privateMutations().length - mutationsBefore > 2,
   }).toEqual(expected("late-target-recovery"));
   expect(readFileSync(join(outputRoot, "expected-late-target-recovery-human.txt"), "utf8"))
     .toContain("late submit listener selected the current context");
+});
+
+test("retains current-truth recovery when a newer cancelled activation supersedes recovery GET", async ({ page }) => {
+  await signIn(page);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length;
+  const privateTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length;
+  const nativeTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 1_000;
+  await page.evaluate(() => {
+    document.addEventListener("mousedown", (event) => {
+      if (event.target instanceof Element && event.target.closest("#native-fragment-form")) event.preventDefault();
+    }, { once: true });
+    document.addEventListener("submit", (event) => {
+      if (event.target instanceof HTMLFormElement && event.target.id === "native-fragment-form") event.preventDefault();
+    }, { capture: true, once: true });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length).toBe(privateTruthBefore + 1);
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 400;
+  await page.evaluate(() => {
+    document.addEventListener("mousedown", (event) => {
+      if (event.target instanceof Element && event.target.closest("#native-fragment-form")) event.preventDefault();
+    }, { once: true });
+    document.addEventListener("submit", (event) => {
+      if (event.target instanceof HTMLFormElement && event.target.id === "native-fragment-form") event.preventDefault();
+    }, { capture: true, once: true });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length).toBe(privateTruthBefore + 2);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-recovery-supersession-continuity",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    privateCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept === mediaType).length - privateTruthBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - nativeTruthBefore,
+    redirectChainRuns: state.redirectChainRuns,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("recovery-supersession-continuity"));
+  expect(readFileSync(join(outputRoot, "expected-recovery-supersession-continuity-human.txt"), "utf8"))
+    .toContain("newer cancelled activation superseded an in-flight recovery GET");
 });
 
 test("retains the frozen handoff snapshot through interrupted-departure recovery", async ({ page }) => {
@@ -1476,18 +1607,39 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
   await page.locator("#fragment-redirect-form button").click({ noWaitAfter: true });
   await (await cancelledCloseDialog).dismiss();
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  await expect.poll(() => page.evaluate(() => {
+  await expect.poll(async () => page.evaluate(() => {
     const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string };
     return runtime.state();
-  })).toBe("active");
+  }).catch(() => "navigating")).toBe("active");
   const cancelledCloseRecovery = {
     privateCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/projects" && accept === mediaType).length - cancelledClosePrivateBefore,
-    nativeDestinationGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
-      && path === "/projects" && accept !== mediaType).length - cancelledCloseNativeBefore,
+    nativeDestinationGetsAtMostOne: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - cancelledCloseNativeBefore <= 1,
     finalHash: new URL(page.url()).hash,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
     enhancementActive: true,
+  };
+  const nativeFragmentGetsBeforeEmpty = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length - nativeGetsBefore;
+  // Begin the empty-delimiter case from a fresh server document so its proof is
+  // independent from the deliberately interrupted mutation above.
+  await page.reload();
+  const emptyFragmentNativeBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  await page.locator('#fragment-redirect-form input:not([name="__fadeno_proof"])').evaluate((input: HTMLInputElement) => {
+    input.value = "empty-fragment";
+  });
+  await page.locator("#fragment-redirect-form button").click({ noWaitAfter: true });
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length).toBe(emptyFragmentNativeBefore + 1);
+  await expect.poll(() => page.url().endsWith("#")).toBe(true);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const emptyFragment = {
+    nativeDestinationGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - emptyFragmentNativeBefore,
+    finalUrlEndsWithDelimiter: page.url().endsWith("#"),
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
   const historyFailureHandoff = await page.evaluate(async () => {
     const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
@@ -1521,17 +1673,18 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
     mutationRequests: privateMutations().length - mutationsBefore,
     privateRedirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/projects" && accept === mediaType).length - privateGetsBefore,
-    nativeDestinationGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
-      && path === "/projects" && accept !== mediaType).length - nativeGetsBefore,
+    nativeDestinationGetsAtLeastTwo: nativeFragmentGetsBeforeEmpty + emptyFragment.nativeDestinationGets >= 2,
+    nativeDestinationGetsAtMostThree: nativeFragmentGetsBeforeEmpty + emptyFragment.nativeDestinationGets <= 3,
     fragmentRedirectRuns: state.fragmentRedirectRuns,
     finalHash: new URL(page.url()).hash,
+    emptyFragment,
     teardownFollowedHandoff: await page.evaluate(() => sessionStorage.getItem("fadeno-fragment-close-after-handoff") === "1"),
     cancelledCloseRecovery,
     freshCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
     historyFailureHandoff,
   }).toEqual(expected("fragment-redirect"));
   expect(readFileSync(join(outputRoot, "expected-fragment-redirect-human.txt"), "utf8"))
-    .toContain("fragment selected only with a fresh native document");
+    .toContain("explicit and empty fragment delimiters selected only with fresh native documents");
 });
 
 test("reloads same-resource fragments returned by the redirect GET", async ({ page }) => {

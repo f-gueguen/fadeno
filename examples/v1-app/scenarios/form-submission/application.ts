@@ -86,9 +86,9 @@ export const redirectAway = defineAction({
 export const redirectFragment = defineAction({
   fields: { intent: textField({ maximumBytes: 16 }) },
   authorize({ session }) { return session.get("viewer") === "owner"; },
-  run() {
+  run({ input }) {
     fragmentRedirectRuns += 1;
-    return redirect("/projects#details");
+    return redirect(input.intent === "empty-fragment" ? "/projects#" : "/projects#details");
   },
 });
 

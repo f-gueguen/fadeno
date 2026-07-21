@@ -73,9 +73,11 @@ export type PrivateFragmentReloadOwner = Readonly<{
 export function privateReloadFragmentDestination(
   owner: PrivateFragmentReloadOwner,
   destination: URL,
+  reloadCurrentEntry: () => void = () => owner.reload(),
 ): void {
   if (owner.href !== destination.href) owner.replace(destination.href);
-  owner.reload();
+  if (destination.hash === "" && destination.href.includes("#")) reloadCurrentEntry();
+  else owner.reload();
 }
 
 export function privateFragmentReloadRecoveryMode(
@@ -499,7 +501,7 @@ function privateFormHandoffPreservationCheck(
 
 function sameResourceFragmentRedirect(destination: URL, currentTruthUrl: string): boolean {
   const currentTruth = new URL(currentTruthUrl);
-  return destination.hash !== ""
+  return destination.href.includes("#")
     && destination.origin === currentTruth.origin
     && destination.pathname === currentTruth.pathname
     && destination.search === currentTruth.search;
@@ -1211,7 +1213,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         restoreFocus?.();
       },
     );
-    if (replace) location.replace(destination.href);
+    if (replace && destination.href === location.href) location.reload();
+    else if (replace) location.replace(destination.href);
     else location.assign(destination.href);
   };
 
@@ -1303,7 +1306,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           recoverFragmentReload,
         );
         try {
-          privateReloadFragmentDestination(location, destination);
+          privateReloadFragmentDestination(location, destination, () => setTimeout(() => location.reload(), 0));
         } catch {
           recoverFragmentReload();
         }
@@ -1315,7 +1318,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       recoverFragmentReload,
     );
     try {
-      privateReloadFragmentDestination(location, destination);
+      privateReloadFragmentDestination(location, destination, () => setTimeout(() => location.reload(), 0));
     } catch {
       recoverFragmentReload();
     }
@@ -1693,6 +1696,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     eligibility: PrivateFormEligibility,
     preservationSafe: () => boolean = () => privateFormPreservationSafe(eligibility, { allowDocumentScroll: true }),
   ): void => {
+    const recoverAgain = (): void => recoverCommittedMutationCurrentTruth(currentTruthUrl, eligibility, preservationSafe);
     const selectedState = privateHistoryState(history.state);
     recordFormFlow({
       status: "refused",
@@ -1711,7 +1715,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       outcome: "current-truth-reload",
     });
     if (!selectedState || !ownsHistoryState(selectedState, location.href, true)) {
-      fallback(new URL(currentTruthUrl), true);
+      fallback(new URL(currentTruthUrl), true, false, undefined, recoverAgain);
       return;
     }
     setTimeout(() => {
@@ -1722,6 +1726,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         undefined,
         selectedState,
         preservationSafe,
+        recoverAgain,
       );
     }, 0);
   };
@@ -2113,7 +2118,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     void navigate(destination, false, target, state);
   };
   const submit = (event: SubmitEvent): void => {
-    if (closed || event.defaultPrevented || !event.isTrusted || !(event.target instanceof HTMLFormElement)) return;
+    if (closed || !event.isTrusted || !(event.target instanceof HTMLFormElement)
+      || (event.defaultPrevented && !active?.recoverCancelledMutation)) return;
     if (event.target.method.toLowerCase() === "dialog") return;
     const form = event.target;
     const ownsCurrentContext = (): boolean => {
@@ -2141,7 +2147,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     let finalizingAtWindow = false;
     const finalizeSubmission = (): void => {
       if (closed) return;
-      if (!ownsCurrentContext()) return;
+      if (!ownsCurrentContext()) {
+        supersedePendingWorkForNativeActivation(
+          "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
+          "browser-owned external-context form submission superseded pending navigation",
+          Object.freeze({ event, finalizeNow: true }),
+        );
+        return;
+      }
       if (event.defaultPrevented) {
         supersedePendingWorkForNativeActivation(
           "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
@@ -2210,13 +2223,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       setTimeout(() => {
         if (nativeActivationFinalizers.get(event) !== finalizeAtWindow) return;
         nativeActivationFinalizers.delete(event);
-        if (!ownsCurrentContext()) return;
         supersedePendingWorkForNativeActivation(
           "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
-          "browser-owned same-context form submission superseded pending navigation",
+          ownsCurrentContext()
+            ? "browser-owned same-context form submission superseded pending navigation"
+            : "browser-owned external-context form submission superseded pending navigation",
           Object.freeze({
             event,
-            policyProtected: () => form.relList.contains("noreferrer"),
+            policyProtected: () => ownsCurrentContext() && form.relList.contains("noreferrer"),
           }),
         );
       }, 0);

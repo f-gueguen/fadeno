@@ -131,7 +131,13 @@ loads a fresh fragment-bearing current-truth document instead of retaining
 stale markup. If its submit event stops before the window finalizer and a later
 listener prevents departure, current truth still recovers without serializing
 the form. The same recovery happens when the submit reaches the window only
-after a later document listener cancelled it. If its pushed-fragment reload is cancelled, rollback happens before
+after a later document listener cancelled it, or was already cancelled before
+the runtime document listener. A later target change into a separate browsing
+context leaves that destination native while the opener recovers current truth.
+If a second cancelled activation supersedes an in-flight recovery GET, the new
+GET retains recovery ownership and still clears stale markup. Explicit and
+empty fragment delimiters both force a fresh native document. If its
+pushed-fragment reload is cancelled, rollback happens before
 recovery so Back reaches the preceding page without a duplicate stop. Handoff
 also detects disabled-state changes inherited from `fieldset` and `optgroup`,
 exact optgroup hierarchy, and stays authoritative through interrupted-departure

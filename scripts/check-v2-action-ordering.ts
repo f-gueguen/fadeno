@@ -41,6 +41,8 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/late-target-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/recovery-supersession-continuity.json",
+  "examples/v1-app/scenarios/form-submission/expected/recovery-supersession-continuity-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/recovery-handoff-preservation.json",
   "examples/v1-app/scenarios/form-submission/expected/recovery-handoff-preservation-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/cancelled-fragment-push-recovery.json",
@@ -134,12 +136,23 @@ for (const fragment of [
   "observation.policyProtected?.()",
   "canDepartCurrentDocument",
   "candidate.protocol === \"http:\" || candidate.protocol === \"https:\"",
+  "const recoverAgain = (): void",
+  "destination.href.includes(\"#\")",
+  "browser-owned external-context form submission superseded pending navigation",
+  "event.defaultPrevented && !active?.recoverCancelledMutation",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
     && browser.indexOf('repairDisplayedTruth(\n                  recovery.truthUrl') < browser.indexOf("recovery.recoverCancelledMutation();"),
   true,
   "staged mutation recovery must repair displayed truth before requesting current truth",
+);
+
+const actionDecision = read("packages/framework/src/internal/action-decision.ts");
+assert.equal(
+  actionDecision.includes('url.hash === "" && url.href.includes("#") ? "#" : ""'),
+  true,
+  "action redirect normalization must preserve an explicit empty fragment delimiter",
 );
 
 const navigationSpecification = read("docs/spec/navigation-patching-preservation.md").replace(/\s+/gu, " ");
@@ -166,6 +179,8 @@ for (const fragment of [
   "failed push",
   "effective form and submitter target after document listeners",
   "re-reads link destination, target, download, and privacy state",
+  "empty fragment delimiter",
+  "recovery GET retains the committed-mutation recovery owner",
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
 
 const formSpecification = read("docs/spec/forms-actions-sessions.md").replace(/\s+/gu, " ");
@@ -180,6 +195,8 @@ for (const fragment of [
   "without constructing `FormData`",
   "exact optgroup hierarchy",
   "Final target ownership is resolved after document submit listeners",
+  "already cancelled before the runtime document listener",
+  "separate browsing context",
 ]) assert.equal(formSpecification.includes(fragment), true, `form specification is missing ${fragment}`);
 
 const threatModel = read("docs/security/browser-update-threat-model.md").replace(/\s+/gu, " ");
@@ -194,6 +211,8 @@ for (const fragment of [
   "propagation-stopped and late-cancelled submit recovery",
   "late link destination/privacy changes",
   "separate-context recovery",
+  "recovery-GET supersession continuity",
+  "empty-fragment delimiter",
   "recovery-time handoff refusal",
   "same- and cross-document policy ownership",
   "unsafe-destination preflight",
@@ -233,6 +252,7 @@ for (const fragment of [
   'setAttribute("target", "_blank")',
   "cancelled pushed fragment reload before recovering current truth",
   "final same-context target selected by late submit listeners",
+  "newer cancelled activation supersedes recovery GET",
   "frozen handoff snapshot through interrupted-departure recovery",
   "fragment push that failed before staging an entry",
   "optgroup-hierarchy",
@@ -269,12 +289,16 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"unsafeDestinationFormDataEvents": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"formDataEvents": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"lateWindowCancellation"'],
+  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"captureCancellation"'],
   ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"finalHash": "#details"'],
+  ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"externalContextRecovery"'],
+  ["examples/v1-app/scenarios/form-submission/expected/recovery-supersession-continuity.json", '"privateCurrentTruthGets": 2'],
   ["examples/v1-app/scenarios/form-submission/expected/recovery-handoff-preservation.json", '"nativeCurrentTruthGets": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/cancelled-fragment-push-recovery.json", '"backReachedPrecedingPage": true'],
   ["examples/v1-app/scenarios/form-submission/expected/failed-fragment-push-recovery.json", '"failedPush": "repair-current-entry"'],
   ["examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json", '"newerFileSelectionNotPrivatelyOverwritten": true'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"cancelledCloseRecovery"'],
+  ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json", '"finalUrlEndsWithDelimiter": true'],
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect-chain.json", '"nativeDestinationGets": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json", '"duplicateResultRefused": true'],
   ["examples/v1-app/scenarios/form-submission/expected/traversal-recovery.json", '"getFormPushFailure"'],
@@ -321,6 +345,8 @@ for (const fragment of [
   '"scenarios/form-submission/expected/submit-propagation-recovery-human.txt"',
   '"scenarios/form-submission/expected/late-target-recovery.json"',
   '"scenarios/form-submission/expected/late-target-recovery-human.txt"',
+  '"scenarios/form-submission/expected/recovery-supersession-continuity.json"',
+  '"scenarios/form-submission/expected/recovery-supersession-continuity-human.txt"',
   '"scenarios/form-submission/expected/recovery-handoff-preservation.json"',
   '"scenarios/form-submission/expected/recovery-handoff-preservation-human.txt"',
   '"scenarios/form-submission/expected/cancelled-fragment-push-recovery.json"',
@@ -354,6 +380,13 @@ assert.equal(
   ),
   true,
   "cancelled pushed-fragment recovery must participate in stale artifact cleanup",
+);
+assert.equal(
+  documentationSourceDocument.evidence?.staleRemoval?.includes(
+    "scenarios/form-submission/expected/recovery-supersession-continuity.json",
+  ),
+  true,
+  "recovery supersession continuity must participate in stale artifact cleanup",
 );
 
 console.log("V2-07 action ordering contract passed (redirect GET handoff, authenticated CRUD, stale suppression, and native recovery)");

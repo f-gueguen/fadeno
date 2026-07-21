@@ -1,1 +1,1 @@
-Action ordering recovery: fragment selected only with a fresh native document; stale pre-mutation markup was never retained, synchronous teardown during a cancelled reload recovered safely, and history-stage failure preserved the fragment destination.
+Action ordering recovery: explicit and empty fragment delimiters selected only with fresh native documents; stale pre-mutation markup was never retained, synchronous teardown during a cancelled reload recovered safely, and history-stage failure preserved the fragment destination.

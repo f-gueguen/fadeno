@@ -1,1 +1,1 @@
-Action ordering recovery: a late submit listener selected the current context, the finalizer superseded obsolete redirect work, one fresh fragment-bearing document loaded, and POST was not repeated.
+Action ordering recovery: a late submit listener selected the current context, then another selected a separate context; both final targets superseded obsolete redirect work, the opener recovered committed current truth while the browser owned the separate destination, and POST was not repeated.

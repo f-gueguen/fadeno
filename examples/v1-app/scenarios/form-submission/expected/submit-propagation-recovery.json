@@ -1,15 +1,20 @@
 {
   "schema": "fadeno.example.action-ordering-submit-propagation-recovery",
   "version": 1,
-  "mutationRequests": 2,
-  "redirectAndRecoveryGets": 4,
+  "mutationRequests": 3,
+  "redirectAndRecoveryGets": 6,
   "formDataEvents": 0,
   "lateWindowCancellation": {
     "redirectAndRecoveryGets": 2,
     "formDataEvents": 0,
     "currentTruthVisible": true
   },
-  "redirectChainRuns": 2,
+  "captureCancellation": {
+    "redirectAndRecoveryGets": 2,
+    "formDataEvents": 0,
+    "currentTruthVisible": true
+  },
+  "redirectChainRuns": 3,
   "finalHash": "",
   "currentTruthVisible": true,
   "mutationRetried": false

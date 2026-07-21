@@ -175,7 +175,10 @@ before recovery so Back reaches the preceding page. If submit propagation stops
 before the window finalizer and a later listener prevents departure, the
 post-dispatch observer recovers current truth without constructing `FormData`.
 A submission cancelled by a later document listener after it reaches the
-window finalizer recovers through the same no-serialization path. Link
+window finalizer, or already cancelled before the runtime document listener,
+recovers through the same no-serialization path. Final target ownership may
+select a separate browsing context after earlier listeners; that destination
+stays browser-owned while the current document recovers committed truth. Link
 finalization re-reads destination, target, download ownership, and privacy
 directives after document listeners; an activation that leaves the current
 document in place remains browser-owned while that document recovers committed
@@ -184,7 +187,10 @@ Handoff equality includes effective disabled state inherited through
 `fieldset` and `optgroup` ownership, exact optgroup hierarchy, and remains in
 force through interrupted-departure recovery. Final target ownership is
 resolved after document submit listeners. A failed fragment push repairs the
-current entry directly because no pushed entry exists to roll back.
+current entry directly because no pushed entry exists to roll back. A recovery
+GET retains the committed-mutation recovery owner when newer work supersedes
+it, and an empty fragment delimiter still selects the fresh native-document
+path even though its parsed hash string is empty.
 
 ## V1 conformance
 

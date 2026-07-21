@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-recovery-supersession-continuity",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectGets": 1,
+  "privateCurrentTruthGets": 2,
+  "nativeCurrentTruthGets": 0,
+  "redirectChainRuns": 1,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

@@ -54,7 +54,9 @@ exactly one pending minor Changeset is required.
   capture, pre-serialization unsafe-destination refusal, propagation-stopped
   submit recovery, cancelled pushed-fragment rollback before current-truth
   recovery, failed-push direct repair, frozen handoff preservation through
-  recovery, late target finalization, cross-document privacy ownership, and obsolete
+  recovery, late target finalization into current or separate contexts,
+  empty-fragment delimiter reload, already-cancelled submit recovery,
+  recovery-GET supersession continuity, cross-document privacy ownership, and obsolete
   policy-owned operation cancellation in permanent three-browser evidence
   before merge.
 
