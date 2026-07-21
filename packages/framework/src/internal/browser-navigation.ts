@@ -1213,8 +1213,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         restoreFocus?.();
       },
     );
-    if (replace && destination.href === location.href) location.reload();
-    else if (replace) location.replace(destination.href);
+    if (replace) location.replace(destination.href);
     else location.assign(destination.href);
   };
 

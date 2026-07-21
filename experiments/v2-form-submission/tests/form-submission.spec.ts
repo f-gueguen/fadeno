@@ -1623,23 +1623,27 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
   const nativeFragmentGetsBeforeEmpty = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length - nativeGetsBefore;
   // Begin the empty-delimiter case from a fresh server document so its proof is
-  // independent from the deliberately interrupted mutation above.
-  await page.reload();
+  // independent from the deliberately interrupted mutation above and cannot
+  // race that document's cancelled-departure observer.
+  const emptyPage = await page.context().newPage();
+  await emptyPage.goto(`${origin}/projects`);
+  await expect(emptyPage.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(async () => emptyPage.evaluate(() => Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
   const emptyFragmentNativeBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length;
-  await page.locator('#fragment-redirect-form input:not([name="__fadeno_proof"])').evaluate((input: HTMLInputElement) => {
+  await emptyPage.locator('#fragment-redirect-form input:not([name="__fadeno_proof"])').evaluate((input: HTMLInputElement) => {
     input.value = "empty-fragment";
   });
-  await page.locator("#fragment-redirect-form button").click({ noWaitAfter: true });
+  await emptyPage.locator("#fragment-redirect-form button").click({ noWaitAfter: true });
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length).toBe(emptyFragmentNativeBefore + 1);
-  await expect.poll(() => page.url().endsWith("#")).toBe(true);
-  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(() => emptyPage.url().endsWith("#")).toBe(true);
+  await expect(emptyPage.locator("#viewer")).toHaveText("Signed in owner");
   const emptyFragment = {
     nativeDestinationGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/projects" && accept !== mediaType).length - emptyFragmentNativeBefore,
-    finalUrlEndsWithDelimiter: page.url().endsWith("#"),
-    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    finalUrlEndsWithDelimiter: emptyPage.url().endsWith("#"),
+    currentTruthVisible: await emptyPage.locator("#viewer").textContent() === "Signed in owner",
   };
   const historyFailureHandoff = await page.evaluate(async () => {
     const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
@@ -1676,13 +1680,14 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
     nativeDestinationGetsAtLeastTwo: nativeFragmentGetsBeforeEmpty + emptyFragment.nativeDestinationGets >= 2,
     nativeDestinationGetsAtMostThree: nativeFragmentGetsBeforeEmpty + emptyFragment.nativeDestinationGets <= 3,
     fragmentRedirectRuns: state.fragmentRedirectRuns,
-    finalHash: new URL(page.url()).hash,
+    finalHash: new URL(emptyPage.url()).hash,
     emptyFragment,
     teardownFollowedHandoff: await page.evaluate(() => sessionStorage.getItem("fadeno-fragment-close-after-handoff") === "1"),
     cancelledCloseRecovery,
     freshCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
     historyFailureHandoff,
   }).toEqual(expected("fragment-redirect"));
+  await emptyPage.close();
   expect(readFileSync(join(outputRoot, "expected-fragment-redirect-human.txt"), "utf8"))
     .toContain("explicit and empty fragment delimiters selected only with fresh native documents");
 });
