@@ -68,7 +68,8 @@ stale-result admission used by enhanced links.
 
 The handoff freezes the submitted form controls, their sorted attributes and
 effective disabled state (including disabled `fieldset` inheritance),
-select-option structure, exact option identities, and effective disabled state
+select-option structure, exact option and optgroup parent identities and
+hierarchy, and effective disabled state
 (including disabled `optgroup` inheritance), selected `File` object identities,
 active element, and a focused text control's caret/selection range and direction
 after the mutation result is admitted. Any later value or structural edit,
@@ -77,6 +78,9 @@ form-association change, focus change, or caret/selection change refuses private
 destination publication and returns to native GET. A newer eligible
 GET that supersedes the redirect GET inherits committed-mutation recovery
 ownership until a replacement document or native departure commits. An
+interrupted-departure current-truth GET retains the same frozen handoff
+predicate; a later submitted-control edit therefore refuses private recovery
+publication and selects native current truth. An
 ineligible same-context activation or history traversal that returns to native
 behavior observes cancellation with the same recovery owner, including when a
 cancelled traversal first has to repair its selected URL to the displayed
@@ -85,7 +89,8 @@ fresh fragment-bearing native reload. The activation receives a new history
 entry, including a same-hash activation, so Back still reaches the prior
 fragment-free entry. A preinstalled window finalizer decides recovery takeover
 while the activation is still cancelable and after document submit listeners
-have finished. It revalidates the final GET action, method, target, origin,
+have finished. It revalidates the final GET action, method, target (including a
+late change from another browsing context to the current context), origin,
 credentials, trust boundary, and request-privacy policy before constructing
 `FormData(form, submitter)`. For an admitted takeover, that recovery preflight
 constructs successful controls once and then prevents the original native
@@ -98,8 +103,8 @@ includes a submit stopped at `document` before the window finalizer: the
 post-dispatch observer recognizes the later cancellation and recovers without
 serializing the form. An
 explicit anchor referrer policy or link/form `noreferrer` directive aborts the
-obsolete private operation, stays entirely browser-owned, and is never
-converted into a forced reload. That ownership is recovery provenance only; it
+obsolete private operation for same-document and cross-document destinations,
+stays entirely browser-owned, and is never converted into a forced reload. That ownership is recovery provenance only; it
 carries no mutation request or authority into the newer GET.
 
 The redirect GET is not mutation recovery and carries no action body, proof,
@@ -121,9 +126,10 @@ pending-state observers or teardown cannot close enhancement in an intervening
 stale-markup window. Recovery ownership remains live until departure commits;
 if teardown runs synchronously inside `beforeunload` and the user cancels, the
 same runtime resumes and fetches current truth. If a GET form staged a pushed
-fragment entry, cancellation first traverses back to the source entry, then
+fragment entry successfully, cancellation first traverses back to the source entry, then
 recovers current truth, so Back still reaches the preceding page rather than a
-duplicate same-URL entry.
+duplicate same-URL entry. A failed push created no entry, so cancellation
+repairs the current slot directly and never traverses to the preceding page.
 
 ### Ordering and atomic publication
 

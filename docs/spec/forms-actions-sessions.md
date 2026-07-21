@@ -175,7 +175,10 @@ before recovery so Back reaches the preceding page. If submit propagation stops
 before the window finalizer and a later listener prevents departure, the
 post-dispatch observer recovers current truth without constructing `FormData`.
 Handoff equality includes effective disabled state inherited through
-`fieldset` and `optgroup` ownership.
+`fieldset` and `optgroup` ownership, exact optgroup hierarchy, and remains in
+force through interrupted-departure recovery. Final target ownership is
+resolved after document submit listeners. A failed fragment push repairs the
+current entry directly because no pushed entry exists to roll back.
 
 ## V1 conformance
 

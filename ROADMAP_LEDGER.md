@@ -53,7 +53,8 @@ exactly one pending minor Changeset is required.
   and inherited-disabled handoff refusal, late submit-listener destination
   capture, pre-serialization unsafe-destination refusal, propagation-stopped
   submit recovery, cancelled pushed-fragment rollback before current-truth
-  recovery, and obsolete
+  recovery, failed-push direct repair, frozen handoff preservation through
+  recovery, late target finalization, cross-document privacy ownership, and obsolete
   policy-owned operation cancellation in permanent three-browser evidence
   before merge.
 

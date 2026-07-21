@@ -304,7 +304,9 @@ current-truth GET begins.
 Handoff comparison includes control attributes, effective disabled state from
 the control and its owning `fieldset`, form association, select-option
 structure, exact option identity, and option disabled state inherited from an
-`optgroup`, as well as values, files, focus, and selection.
+`optgroup`, plus exact optgroup parent identity and option hierarchy, as well as
+values, files, focus, and selection. The same frozen comparison remains the
+publication predicate for an interrupted-departure current-truth GET.
 Transport, projection, preservation, or document-commit failure returns to
 native GET, while a cancelled native departure reloads committed current truth
 through GET without repeating POST. A fragment redirect on the current
@@ -317,10 +319,15 @@ cancelled `beforeunload`, recovery ownership remains live and the runtime
 resumes current-truth recovery. A GET form that inherits committed-mutation
 recovery also carries it through selected-push rollback and a cancelled native
 replacement. Cancellation of a pushed-fragment replacement traverses back
-before current-truth recovery; the next Back reaches the preceding page rather
-than a duplicate same-URL entry. If submit propagation stops before the window
+before current-truth recovery only when the push committed; a failed push
+repairs the current entry directly. After a committed push, the next Back
+reaches the preceding page rather than a duplicate same-URL entry. If submit propagation stops before the window
 finalizer and a later document listener prevents departure, post-dispatch
 observation recovers current truth without serializing successful controls.
+Finalization resolves the effective form and submitter target after document
+listeners, including a late change into the current browsing context. Every
+explicit anchor referrer policy or `noreferrer` directive remains browser-owned
+for both same-document and cross-document destinations.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

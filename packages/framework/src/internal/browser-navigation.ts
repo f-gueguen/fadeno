@@ -78,6 +78,15 @@ export function privateReloadFragmentDestination(
   owner.reload();
 }
 
+export function privateFragmentReloadRecoveryMode(
+  stageDestination: "replace" | "push" | "none",
+  pushedDestination: boolean,
+): "rollback-staged-entry" | "repair-current-entry" {
+  return stageDestination === "push" && pushedDestination
+    ? "rollback-staged-entry"
+    : "repair-current-entry";
+}
+
 export type PrivateLinkNavigationFlow = Readonly<{
   schema: "fadeno.private.link-navigation-flow";
   version: 1;
@@ -361,6 +370,41 @@ function dirtyControl(control: Element): boolean {
 }
 
 type PrivateFormHandoffControl = HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+type PrivateSelectHandoffChild = Readonly<{
+  child: Element;
+  attributes: string;
+  options: readonly HTMLOptionElement[];
+}>;
+
+function privateFormHandoffAttributes(element: Element): string {
+  return JSON.stringify([...element.attributes]
+    .map(({ name, value }) => [name, value] as const)
+    .sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function privateSelectHandoffStructure(select: HTMLSelectElement): readonly PrivateSelectHandoffChild[] {
+  return Object.freeze([...select.children].map((child) => Object.freeze({
+    child,
+    attributes: privateFormHandoffAttributes(child),
+    options: Object.freeze(child instanceof HTMLOptGroupElement
+      ? [...child.children].filter((option): option is HTMLOptionElement => option instanceof HTMLOptionElement)
+      : []),
+  })));
+}
+
+function samePrivateSelectHandoffStructure(
+  select: HTMLSelectElement,
+  expected: readonly PrivateSelectHandoffChild[],
+): boolean {
+  const current = privateSelectHandoffStructure(select);
+  return current.length === expected.length && expected.every((owner, index) => {
+    const candidate = current[index];
+    return candidate?.child === owner.child
+      && candidate.attributes === owner.attributes
+      && candidate.options.length === owner.options.length
+      && owner.options.every((option, optionIndex) => candidate.options[optionIndex] === option);
+  });
+}
 
 function privateFormHandoffControls(form: HTMLFormElement): readonly PrivateFormHandoffControl[] {
   return [...form.elements].filter((control): control is PrivateFormHandoffControl => control instanceof HTMLButtonElement
@@ -435,6 +479,7 @@ function privateFormHandoffPreservationCheck(
     control,
     files: Object.freeze(control instanceof HTMLInputElement ? [...(control.files ?? [])] : []),
     options: Object.freeze(control instanceof HTMLSelectElement ? [...control.options] : []),
+    selectStructure: Object.freeze(control instanceof HTMLSelectElement ? privateSelectHandoffStructure(control) : []),
     state: privateFormHandoffControlState(control),
   }));
   return () => {
@@ -442,11 +487,13 @@ function privateFormHandoffPreservationCheck(
       || document.activeElement !== activeElement
       || privateFormHandoffSelectionState(activeElement) !== activeSelection) return false;
     const currentControls = privateFormHandoffControls(eligibility.form);
-    return currentControls.length === controls.length && controls.every(({ control, files, options, state }, index) => currentControls[index] === control
+    return currentControls.length === controls.length && controls.every(({ control, files, options, selectStructure, state }, index) => currentControls[index] === control
       && privateFormHandoffControlState(control) === state
       && samePrivateFormHandoffFiles(control, files)
       && (!(control instanceof HTMLSelectElement)
-        || (control.options.length === options.length && options.every((option, optionIndex) => control.options[optionIndex] === option))));
+        || (control.options.length === options.length
+          && options.every((option, optionIndex) => control.options[optionIndex] === option)
+          && samePrivateSelectHandoffStructure(control, selectStructure))));
   };
 }
 
@@ -1176,6 +1223,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     restoreScrollRestoration();
     const truthUrl = displayedTruthUrl;
     let recovered = false;
+    let pushedDestination = false;
     let recoveryOperation: ActiveOperation | undefined;
     const recoverFragmentReload = (): void => {
       if (recovered) return;
@@ -1194,7 +1242,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           finishClose();
         }
       }
-      if (stageDestination === "push") {
+      if (privateFragmentReloadRecoveryMode(stageDestination, pushedDestination) === "rollback-staged-entry") {
         recoverSelectedPush(
           new URL(truthUrl),
           1,
@@ -1239,14 +1287,19 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           stageDestination === "replace" ? currentState.entry : undefined,
         );
         if (stageDestination === "replace") writeHistory.replace(stagedState, destination.href);
-        else writeHistory.push(stagedState, destination.href);
+        else {
+          writeHistory.push(stagedState, destination.href);
+          pushedDestination = true;
+        }
         const selectedState = privateHistoryState(history.state);
         if (!selectedState || location.href !== destination.href) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
         rememberHistoryState(selectedState, destination.href);
         selectedHistoryEntry = selectedState.entry;
       } catch {
         observeCancelledDeparture(
-          () => displayedTruthUrl === truthUrl && location.href === destination.href,
+          () => displayedTruthUrl === truthUrl
+            && (location.href === destination.href
+              || (stageDestination === "push" && !pushedDestination && location.href === truthUrl)),
           recoverFragmentReload,
         );
         try {
@@ -1628,6 +1681,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   const recoverCommittedMutationCurrentTruth = (
     currentTruthUrl: string,
     eligibility: PrivateFormEligibility,
+    preservationSafe: () => boolean = () => privateFormPreservationSafe(eligibility, { allowDocumentScroll: true }),
   ): void => {
     const selectedState = privateHistoryState(history.state);
     recordFormFlow({
@@ -1657,7 +1711,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         true,
         undefined,
         selectedState,
-        () => privateFormPreservationSafe(eligibility, { allowDocumentScroll: true }),
+        preservationSafe,
       );
     }, 0);
   };
@@ -1750,9 +1804,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         const redirect = new URL(admission.outcome.location, location.origin);
         if (operation.kind === "mutation") {
           consumeResultId(admission.resultId);
-          const recoverCancelledMutation = () => recoverCommittedMutationCurrentTruth(operation.currentTruthUrl, eligibility);
           const sameResourceFragment = sameResourceFragmentRedirect(redirect, operation.currentTruthUrl);
           const handoffPreservationSafe = privateFormHandoffPreservationCheck(eligibility);
+          const recoverCancelledMutation = () => recoverCommittedMutationCurrentTruth(
+            operation.currentTruthUrl,
+            eligibility,
+            handoffPreservationSafe,
+          );
           clearPending();
           if (activeFormEligibility?.operation === operation) activeFormEligibility = undefined;
           if (active === operation) active = undefined;
@@ -1982,7 +2040,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         nativeDestination: () => sameDocumentDestination,
         afterNativeDestination: () => sameDocumentDestination,
       } : {}),
-      ...(policyProtected && sameDocumentDestination ? { policyProtected: true } : {}),
+      ...(policyProtected ? { policyProtected: true } : {}),
     });
     if (sameContext && active?.kind === "mutation") {
       event.preventDefault();
@@ -2040,9 +2098,12 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (closed || event.defaultPrevented || !event.isTrusted || !(event.target instanceof HTMLFormElement)) return;
     if (event.target.method.toLowerCase() === "dialog") return;
     const form = event.target;
-    const submitterTarget = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formtarget") : null;
-    const sameContext = privateTargetOwnsCurrentBrowsingContext(submitterTarget ?? form.getAttribute("target"));
-    if (!sameContext) return;
+    const ownsCurrentContext = (): boolean => {
+      const submitterTarget = event.submitter instanceof HTMLElement ? event.submitter.getAttribute("formtarget") : null;
+      return privateTargetOwnsCurrentBrowsingContext(submitterTarget ?? form.getAttribute("target"));
+    };
+    const sameContext = ownsCurrentContext();
+    if (!sameContext && !active?.recoverCancelledMutation) return;
     if (active?.kind === "mutation") {
       event.preventDefault();
       recordFormFlow({
@@ -2062,6 +2123,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     let finalizingAtWindow = false;
     const finalizeSubmission = (): void => {
       if (closed) return;
+      if (!ownsCurrentContext()) return;
       if (event.defaultPrevented) {
         supersedePendingWorkForNativeActivation(
           "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
@@ -2129,6 +2191,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       setTimeout(() => {
         if (nativeActivationFinalizers.get(event) !== finalizeAtWindow) return;
         nativeActivationFinalizers.delete(event);
+        if (!ownsCurrentContext()) return;
         supersedePendingWorkForNativeActivation(
           "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
           "browser-owned same-context form submission superseded pending navigation",

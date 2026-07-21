@@ -1,0 +1,1 @@
+Action ordering recovery: a failed push created no entry to roll back, so recovery repairs the current source slot; only a committed pushed entry selects rollback.

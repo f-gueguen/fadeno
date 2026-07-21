@@ -1,0 +1,1 @@
+Action ordering recovery: a late submit listener selected the current context, the finalizer superseded obsolete redirect work, one fresh fragment-bearing document loaded, and POST was not repeated.

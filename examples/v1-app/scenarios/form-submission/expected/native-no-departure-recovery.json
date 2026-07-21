@@ -1,7 +1,7 @@
 {
   "schema": "fadeno.example.action-ordering-native-no-departure-recovery",
   "version": 1,
-  "mutationRequests": 4,
+  "mutationRequests": 5,
   "signInRuns": 4,
   "sameDocumentFragment": {
     "privateRedirectGets": 1,
@@ -23,6 +23,10 @@
   "policyProtectedFragment": {
     "forcedNativeGets": 0,
     "nativeFragmentSelected": true
+  },
+  "crossDocumentPolicyProtected": {
+    "forcedRecoveryGets": 0,
+    "finalPath": "/projects"
   },
   "mutationRetried": false
 }

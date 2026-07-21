@@ -535,7 +535,7 @@ test("suppresses a delayed redirect result after newer enhanced navigation wins"
   expect(readFileSync(join(outputRoot, "expected-ordering-human.txt"), "utf8")).toContain("newer navigation remained visible");
 });
 
-test("refuses form edits made after redirect handoff, including control-attribute, inherited-disabled, and option-identity changes", async ({ page }) => {
+test("refuses form edits made after redirect handoff, including control-attribute, inherited-disabled, option-identity, and optgroup-hierarchy changes", async ({ page }) => {
   const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
   await page.goto(`${origin}/projects`);
@@ -554,7 +554,20 @@ test("refuses form edits made after redirect handoff, including control-attribut
     group.append(option);
     select.append(group);
     fieldset.append(select);
-    form.append(fieldset);
+    const hierarchySelect = document.createElement("select");
+    hierarchySelect.id = "handoff-hierarchy";
+    const firstGroup = document.createElement("optgroup");
+    firstGroup.id = "handoff-hierarchy-first";
+    const secondGroup = document.createElement("optgroup");
+    secondGroup.id = "handoff-hierarchy-second";
+    const hierarchyOption = document.createElement("option");
+    hierarchyOption.id = "handoff-hierarchy-option";
+    hierarchyOption.value = "same";
+    hierarchyOption.text = "Same";
+    hierarchyOption.selected = true;
+    firstGroup.append(hierarchyOption);
+    hierarchySelect.append(firstGroup, secondGroup);
+    form.append(fieldset, hierarchySelect);
   });
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
@@ -571,10 +584,14 @@ test("refuses form edits made after redirect handoff, including control-attribut
   await page.locator("#handoff-fieldset").evaluate((fieldset: HTMLFieldSetElement) => { fieldset.disabled = true; });
   await page.locator("#handoff-optgroup").evaluate((group: HTMLOptGroupElement) => { group.disabled = true; });
   await page.locator("#handoff-structure option").evaluate((option) => option.replaceWith(option.cloneNode(true)));
+  await page.locator("#handoff-hierarchy-option").evaluate((option) => {
+    document.querySelector("#handoff-hierarchy-second")?.append(option);
+  });
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   const controlAttributesRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
   const optionIdentityRecovered = controlAttributesRecovered;
   const inheritedDisabledRecovered = controlAttributesRecovered;
+  const optgroupHierarchyRecovered = controlAttributesRecovered;
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-handoff-edit-recovery",
@@ -587,6 +604,7 @@ test("refuses form edits made after redirect handoff, including control-attribut
     controlAttributesRecovered,
     optionIdentityRecovered,
     inheritedDisabledRecovered,
+    optgroupHierarchyRecovered,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   }).toEqual(expected("handoff-edit-recovery"));
   expect(readFileSync(join(outputRoot, "expected-handoff-edit-recovery-human.txt"), "utf8"))
@@ -746,7 +764,6 @@ test("recovers committed truth when native activation has no document departure"
   const secondNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
   await expect.poll(() => projectGets(true)).toBe(secondPrivateBefore + 1);
-  await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("rel", "noreferrer"));
   await page.evaluate(() => document.addEventListener("click", (event) => {
     if (event.target instanceof Element && event.target.closest("a")?.textContent === "Search") event.preventDefault();
   }, { once: true }));
@@ -783,6 +800,31 @@ test("recovers committed truth when native activation has no document departure"
   };
   await page.goto(`${origin}/projects`);
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const crossDocumentProjectBefore = projectGets(true) + projectGets(false);
+  const crossDocumentRootBefore = transportRequests.filter(({ method, path }) => method === "GET" && path === "/").length;
+  const crossDocumentChainBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(crossDocumentChainBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.getByRole("link", { name: "Search" }).evaluate((link) => {
+    link.setAttribute("href", "/");
+    link.setAttribute("rel", "noreferrer");
+  });
+  await page.evaluate(() => document.addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest("a")?.textContent === "Search") event.preventDefault();
+  }, { once: true }));
+  await page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
+  releaseHeldResponse?.();
+  await page.waitForTimeout(100);
+  const crossDocumentPolicyProtected = {
+    forcedRecoveryGets: projectGets(true) + projectGets(false) - crossDocumentProjectBefore
+      + transportRequests.filter(({ method, path }) => method === "GET" && path === "/").length - crossDocumentRootBefore,
+    finalPath: new URL(page.url()).pathname,
+  };
   const finalState = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-native-no-departure-recovery",
@@ -793,7 +835,8 @@ test("recovers committed truth when native activation has no document departure"
     stoppedPropagationRecovery,
     preventedActivation,
     policyProtectedFragment,
-    mutationRetried: privateMutations().length - mutationsBefore > 4,
+    crossDocumentPolicyProtected,
+    mutationRetried: privateMutations().length - mutationsBefore > 5,
   }).toEqual(expected("native-no-departure-recovery"));
   expect(readFileSync(join(outputRoot, "expected-native-no-departure-recovery-human.txt"), "utf8"))
     .toContain("native activation stayed in the document");
@@ -987,6 +1030,110 @@ test("recovers committed truth when submit propagation stops before window final
     .toContain("submit propagation stopped before window finalization");
 });
 
+test("uses the final same-context target selected by late submit listeners", async ({ page }) => {
+  await signIn(page);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length;
+  const nativeTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator("#native-fragment-form").evaluate((form) => {
+    form.setAttribute("target", "_blank");
+    document.addEventListener("submit", (event) => {
+      if (event.target === form) form.setAttribute("target", "_self");
+    }, { once: true });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length).toBe(nativeTruthBefore + 1);
+  await expect.poll(() => new URL(page.url()).hash).toBe("#details");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-late-target-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - nativeTruthBefore,
+    redirectChainRuns: state.redirectChainRuns,
+    finalHash: new URL(page.url()).hash,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("late-target-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-late-target-recovery-human.txt"), "utf8"))
+    .toContain("late submit listener selected the current context");
+});
+
+test("retains the frozen handoff snapshot through interrupted-departure recovery", async ({ page }) => {
+  await page.addInitScript(() => document.addEventListener("click", (event) => {
+    if (sessionStorage.getItem("fadeno-stop-handoff-recovery-propagation") === "1"
+      && event.target instanceof Element
+      && event.target.closest("a")?.textContent === "Search") {
+      event.stopPropagation();
+    }
+  }));
+  await signIn(page);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length;
+  const privateTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length;
+  const nativeTruthBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  delayedPrivateGetPath = "/redirect-chain";
+  delayedPrivateGetMilliseconds = 1_000;
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 1);
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/projects";
+  await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("href", "/projects#handoff-recovery"));
+  await page.evaluate(() => {
+    sessionStorage.setItem("fadeno-stop-handoff-recovery-propagation", "1");
+    document.addEventListener("mousedown", (event) => {
+      if (event.target instanceof Element && event.target.closest("a")?.textContent === "Search") event.preventDefault();
+    }, { once: true });
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest("a")?.textContent === "Search") event.preventDefault();
+    }, { once: true });
+  });
+  await page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length).toBe(privateTruthBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator('#redirect-chain-form input[value="chain"]').evaluate((input: HTMLInputElement) => { input.value = "newer"; });
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length).toBe(nativeTruthBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-recovery-handoff-preservation",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    privateCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept === mediaType).length - privateTruthBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - nativeTruthBefore,
+    redirectChainRuns: state.redirectChainRuns,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("recovery-handoff-preservation"));
+  expect(readFileSync(join(outputRoot, "expected-recovery-handoff-preservation-human.txt"), "utf8"))
+    .toContain("frozen handoff snapshot remained authoritative");
+});
+
 test("rolls back a cancelled pushed fragment reload before recovering current truth", async ({ page }) => {
   await signIn(page);
   const rollbackPage = await page.context().newPage();
@@ -1043,6 +1190,31 @@ test("rolls back a cancelled pushed fragment reload before recovering current tr
   expect(readFileSync(join(outputRoot, "expected-cancelled-fragment-push-recovery-human.txt"), "utf8"))
     .toContain("cancelled pushed-fragment reload rolled back");
   await rollbackPage.close();
+});
+
+test("does not roll back a fragment push that failed before staging an entry", async ({ page }) => {
+  await page.goto(`${origin}/projects`);
+  const recoveryModes = await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      privateFragmentReloadRecoveryMode(
+        stageDestination: "replace" | "push" | "none",
+        pushedDestination: boolean,
+      ): "rollback-staged-entry" | "repair-current-entry";
+    }>;
+    return {
+      failedPush: runtime.privateFragmentReloadRecoveryMode("push", false),
+      committedPush: runtime.privateFragmentReloadRecoveryMode("push", true),
+      replacement: runtime.privateFragmentReloadRecoveryMode("replace", false),
+    };
+  });
+  expect({
+    schema: "fadeno.example.action-ordering-failed-fragment-push-recovery",
+    version: 1,
+    ...recoveryModes,
+  }).toEqual(expected("failed-fragment-push-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-failed-fragment-push-recovery-human.txt"), "utf8"))
+    .toContain("failed push created no entry to roll back");
 });
 
 test("refuses a submitted-control caret change made after redirect handoff", async ({ page }) => {
