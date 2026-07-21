@@ -300,7 +300,10 @@ async function signIn(page: import("@playwright/test").Page): Promise<void> {
   await page.locator("#passcode").fill("example-owner");
   await page.locator("#sign-in-form button").click();
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  await expect.poll(async () => page.evaluate(() => Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  await expect.poll(async () => page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
+    return runtime?.state();
+  })).toBe("active");
 }
 
 test("submits exact successful controls through one enhanced GET navigation", async ({ page }) => {
@@ -957,6 +960,10 @@ test("reloads a same-document native GET form that supersedes the redirect after
   const backReturnedToFragmentFreeEntry = await page.locator("#viewer").textContent() === "Signed in owner";
   await page.goForward();
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
+  await expect.poll(async () => page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
+    return runtime?.state();
+  }).catch(() => undefined)).toBe("active");
 
   holdNextPrivateGetResponse = true;
   holdNextPrivateGetPath = "/redirect-chain";
