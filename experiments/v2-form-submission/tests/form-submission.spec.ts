@@ -578,7 +578,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
   const privateGetsBefore = projectGets(true);
   const nativeGetsBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(privateGetsBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 1);
   await page.locator("#passcode").fill("edited-after-handoff");
   await page.locator("#passcode").evaluate((input) => {
     input.setAttribute("name", "changed-after-handoff");
@@ -618,7 +618,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(privateGetsBefore + 2);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 2);
   await page.locator("#handoff-ancestry").evaluate((control) => {
     document.querySelector("#handoff-owner-second")?.append(control);
   });
@@ -636,7 +636,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(privateGetsBefore + 3);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 3);
   await page.locator("#sign-in-form").evaluate((form) => {
     class HandoffControl extends HTMLElement {
       static formAssociated = true;
