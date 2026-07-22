@@ -1475,7 +1475,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           if (observation.policyProtected?.()) return;
           const nativeDestination = observation.nativeDestination?.();
           if (!nativeDestination) {
-            if (!observation.canDepartCurrentDocument?.()) recoverOnce();
+            if (!observation.canDepartCurrentDocument?.()) setTimeout(() => {
+              if (recovered || closed || displayedTruthUrl !== truthUrl) return;
+              if (location.href !== selectedUrl && !repairDisplayedTruth(truthUrl, code, decision)) {
+                fallback(new URL(truthUrl), true, false, undefined, recoverOnce);
+                return;
+              }
+              recoverOnce();
+            }, 50);
             return;
           }
           preventedByFramework = true;

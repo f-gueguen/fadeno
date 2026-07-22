@@ -1295,21 +1295,19 @@ test("recovers committed truth when submit propagation stops or a late listener 
     const dialog = document.createElement("dialog");
     dialog.id = "recovery-dialog";
     const form = document.createElement("form");
-    form.method = "dialog";
+    form.method = "get";
     const button = document.createElement("button");
     button.textContent = "Close dialog";
     form.append(button);
     dialog.append(form);
     document.body.append(dialog);
-    dialog.show();
-  });
-  const dialogRecoveryResponse = page.waitForResponse((response) => {
-    const request = response.request();
-    return request.method() === "GET" && new URL(response.url()).pathname === "/projects";
+    dialog.showModal();
+    document.addEventListener("submit", (event) => {
+      if (event.target === form) form.method = "dialog";
+    }, { capture: true, once: true });
   });
   await page.getByRole("button", { name: "Close dialog" }).click({ noWaitAfter: true });
   releaseHeldResponse?.();
-  await dialogRecoveryResponse;
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
     && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length).toBe(dialogGetsBefore + 2);
   await expect.poll(() => page.evaluate(() => {
@@ -1345,19 +1343,22 @@ test("recovers committed truth when submit propagation stops or a late listener 
     dialog.id = "late-method-dialog";
     const form = document.createElement("form");
     form.id = "late-method-dialog-form";
-    form.method = "dialog";
+    form.method = "get";
     form.action = "/projects#dialog-final-method";
     const button = document.createElement("button");
     button.textContent = "Use final GET method";
     form.append(button);
     dialog.append(form);
     document.body.append(dialog);
-    dialog.show();
+    dialog.showModal();
     sessionStorage.setItem("fadeno-dialog-formdata-count", "0");
     document.addEventListener("formdata", () => {
       const count = Number(sessionStorage.getItem("fadeno-dialog-formdata-count"));
       sessionStorage.setItem("fadeno-dialog-formdata-count", String(count + 1));
     }, { once: true });
+    document.addEventListener("submit", (event) => {
+      if (event.target === form) form.method = "dialog";
+    }, { capture: true, once: true });
     document.addEventListener("submit", (event) => {
       if (event.target !== form) return;
       form.method = "get";
