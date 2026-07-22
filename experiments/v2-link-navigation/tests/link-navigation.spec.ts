@@ -1670,6 +1670,7 @@ test("rolls back pushes made during traversal replacement before native recovery
   const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
   await page.goBack({ waitUntil: "load" });
   await expect(page.locator("h1")).toHaveText("Next");
+  await waitForPrivateHistoryOwner(page);
   await page.goBack({ waitUntil: "load" });
   await expect(page.locator("h1")).toHaveText("Home");
   expect({
