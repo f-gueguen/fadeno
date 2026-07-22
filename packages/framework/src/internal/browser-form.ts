@@ -162,7 +162,9 @@ export function privateNativeGetFormDestination(
     || destination.password !== "") return undefined;
   try {
     const data = successfulControls ?? (submitter ? new FormData(form, submitter) : new FormData(form));
-    destination.search = encodeControls(data).toString();
+    const encoded = encodeControls(data).toString();
+    if (encoded === "") destination = new URL(`${destination.origin}${destination.pathname}?${destination.hash}`);
+    else destination.search = encoded;
   } catch { return undefined; }
   return destination;
 }

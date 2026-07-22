@@ -974,6 +974,30 @@ test("recovers committed truth when native activation has no document departure"
   await page.goto(`${origin}/projects`);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
+  const modifiedPrivateBefore = projectGets(true);
+  const modifiedNativeBefore = projectGets(false);
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => projectGets(true)).toBe(modifiedPrivateBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("href", "/"));
+  const modifiedPopupPromise = page.context().waitForEvent("page");
+  await page.getByRole("link", { name: "Search" }).click({ modifiers: ["Meta"], noWaitAfter: true });
+  const modifiedPopup = await modifiedPopupPromise;
+  releaseHeldResponse?.();
+  await expect.poll(() => projectGets(true) + projectGets(false))
+    .toBe(modifiedPrivateBefore + modifiedNativeBefore + 2);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const modifiedPrimaryContextRecovery = {
+    redirectAndRecoveryGets: projectGets(true) + projectGets(false) - modifiedPrivateBefore - modifiedNativeBefore,
+    browserOwnedDestinationLoaded: new URL(modifiedPopup.url()).pathname === "/",
+    openerCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
+  await modifiedPopup.close();
+
+  await page.context().clearCookies();
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  holdNextPrivateGetResponse = true;
   const preCancelledPrivateBefore = projectGets(true);
   const preCancelledNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
@@ -1008,8 +1032,9 @@ test("recovers committed truth when native activation has no document departure"
     latePolicyProtected,
     separateContextRecovery,
     initialExternalContextRecovery,
+    modifiedPrimaryContextRecovery,
     preCancelledLinkRecovery,
-    mutationRetried: privateMutations().length - mutationsBefore > 10,
+    mutationRetried: privateMutations().length - mutationsBefore > 11,
   }).toEqual(expected("native-no-departure-recovery"));
   expect(readFileSync(join(outputRoot, "expected-native-no-departure-recovery-human.txt"), "utf8"))
     .toContain("native activation stayed in the document");
@@ -1376,6 +1401,143 @@ test("recovers committed truth when submit propagation stops or a late listener 
     finalHash: new URL(page.url()).hash,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
+
+  const finalFormStateGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 7);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.evaluate(() => {
+    const form = document.createElement("form");
+    form.id = "final-formdata-form";
+    form.method = "get";
+    form.action = "/projects#initial-formdata";
+    form.rel = "noreferrer";
+    const button = document.createElement("button");
+    button.textContent = "Use final form data";
+    form.append(button);
+    document.body.append(form);
+    document.addEventListener("submit", (event) => {
+      if (event.target !== form) return;
+      new FormData(form);
+      form.removeAttribute("rel");
+      form.action = "/projects#final-formdata";
+    }, { once: true });
+  });
+  await page.getByRole("button", { name: "Use final form data" }).click({ noWaitAfter: true });
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length)
+    .toBe(finalFormStateGetsBefore + 2);
+  await expect.poll(() => new URL(page.url()).hash).toBe("#final-formdata");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const finalFormStateRecovery = {
+    redirectAndRecoveryGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
+      - finalFormStateGetsBefore,
+    finalHash: new URL(page.url()).hash,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
+
+  const lateUnloadGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length;
+  const lateUnloadNativeDestinationBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/" && accept !== mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 8);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.evaluate(() => {
+    const form = document.createElement("form");
+    form.id = "late-unload-form";
+    form.method = "get";
+    form.action = "/";
+    const button = document.createElement("button");
+    button.textContent = "Cancel late native departure";
+    form.append(button);
+    document.body.append(form);
+    document.addEventListener("submit", (event) => {
+      if (event.target !== form) return;
+      event.stopPropagation();
+      globalThis.addEventListener("beforeunload", (beforeUnload) => {
+        beforeUnload.preventDefault();
+        beforeUnload.returnValue = "keep current truth";
+      }, { once: true });
+    }, { once: true });
+  });
+  const lateUnloadDialog = page.waitForEvent("dialog");
+  const lateUnloadClick = page.getByRole("button", { name: "Cancel late native departure" }).click({ noWaitAfter: true });
+  await (await lateUnloadDialog).dismiss();
+  await lateUnloadClick;
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length)
+    .toBe(lateUnloadGetsBefore + 2);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const lateUnloadCancellation = {
+    redirectAndRecoveryGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
+      - lateUnloadGetsBefore,
+    nativeDestinationGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/" && accept !== mediaType).length - lateUnloadNativeDestinationBefore,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
+
+  const nativePage = await page.context().newPage();
+  await nativePage.goto(`${origin}/projects`);
+  await expect(nativePage.locator("#viewer")).toHaveText("Signed in owner");
+  const nativeOwnershipProjectGetsBefore = transportRequests.filter(({ method, path }) => method === "GET"
+    && path === "/projects").length;
+  const nativeOwnershipPostsBefore = transportRequests.filter(({ method, path, accept }) => method === "POST"
+    && path === "/native-owned" && accept !== mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await nativePage.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 9);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  let releaseNativeRequest: (() => void) | undefined;
+  let markNativeRequestStarted: (() => void) | undefined;
+  const nativeRequestStarted = new Promise<void>((resolve) => { markNativeRequestStarted = resolve; });
+  const nativeRequestGate = new Promise<void>((resolve) => { releaseNativeRequest = resolve; });
+  await nativePage.route("**/native-owned", async (route) => {
+    markNativeRequestStarted?.();
+    await nativeRequestGate;
+    await route.continue();
+  });
+  await nativePage.evaluate(() => {
+    const form = document.createElement("form");
+    form.id = "native-owned-form";
+    form.method = "post";
+    form.action = "/native-owned";
+    const button = document.createElement("button");
+    button.textContent = "Keep native POST ownership";
+    form.append(button);
+    document.body.append(form);
+  });
+  await nativePage.getByRole("button", { name: "Keep native POST ownership" }).click({ noWaitAfter: true });
+  await nativeRequestStarted;
+  releaseHeldResponse?.();
+  await nativePage.waitForTimeout(200);
+  const prematureRecoveryGets = transportRequests.filter(({ method, path }) => method === "GET"
+    && path === "/projects").length - nativeOwnershipProjectGetsBefore;
+  releaseNativeRequest?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "POST"
+    && path === "/native-owned" && accept !== mediaType).length).toBe(nativeOwnershipPostsBefore + 1);
+  await expect.poll(() => new URL(nativePage.url()).pathname).toBe("/native-owned");
+  const nativeFormOwnership = {
+    prematureRecoveryGets,
+    nativePostRequests: transportRequests.filter(({ method, path, accept }) => method === "POST"
+      && path === "/native-owned" && accept !== mediaType).length - nativeOwnershipPostsBefore,
+    finalPath: new URL(nativePage.url()).pathname,
+  };
+  await nativePage.close();
+
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-submit-propagation-recovery",
@@ -1390,10 +1552,13 @@ test("recovers committed truth when submit propagation stops or a late listener 
     stoppedNativeFragmentSelection,
     dialogRecovery,
     lateDialogMethod,
+    finalFormStateRecovery,
+    lateUnloadCancellation,
+    nativeFormOwnership,
     redirectChainRuns: state.redirectChainRuns,
     finalHash: new URL(page.url()).hash,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
-    mutationRetried: privateMutations().length - mutationsBefore > 6,
+    mutationRetried: privateMutations().length - mutationsBefore > 9,
   }).toEqual(expected("submit-propagation-recovery"));
   expect(readFileSync(join(outputRoot, "expected-submit-propagation-recovery-human.txt"), "utf8"))
     .toContain("submit propagation stopped before window finalization");

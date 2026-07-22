@@ -136,7 +136,11 @@ The same recovery happens when the submit reaches the window only
 after a later document listener cancelled it, or was already cancelled before
 the runtime document listener. A retained `dialog` submission recovers without
 departure, while a late change from `dialog` to GET follows the final native
-destination. A later target change into a separate browsing
+destination. Observation uses the final privacy state and the last native
+`FormData` snapshot, including when application code constructs an earlier
+snapshot. Cancellation registered by a later `beforeunload` listener is still
+observed, while a slow ineligible native POST keeps browser ownership without a
+racing private recovery. A modified primary click and a later target change into a separate browsing
 context leaves that destination native while the opener recovers current truth.
 If a second cancelled activation supersedes an in-flight recovery GET, the new
 GET retains recovery ownership and still clears stale markup. Explicit and

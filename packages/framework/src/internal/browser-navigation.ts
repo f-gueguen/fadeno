@@ -1044,12 +1044,29 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     guard: () => boolean,
     repair: () => void,
     recoverWithoutDeparture?: () => boolean,
-  ): void => {
+    followLateBeforeUnloadRegistrations = false,
+  ): (() => void) => {
     let departureCommitted = false;
     let repaired = false;
+    const originalAddEventListener = EventTarget.prototype.addEventListener;
+    const lateBeforeUnloadObservers = new Set<EventListener>();
+    let followingLateRegistrations = false;
+    let wrappedAddEventListener: typeof EventTarget.prototype.addEventListener | undefined;
+    const restoreAddEventListener = (): void => {
+      if (!followingLateRegistrations) return;
+      followingLateRegistrations = false;
+      if (wrappedAddEventListener && EventTarget.prototype.addEventListener === wrappedAddEventListener) {
+        EventTarget.prototype.addEventListener = originalAddEventListener;
+      }
+    };
     const cleanup = (): void => {
+      restoreAddEventListener();
       globalThis.removeEventListener("pagehide", pageHidden);
       globalThis.removeEventListener("beforeunload", beforeUnload);
+      for (const lateBeforeUnload of lateBeforeUnloadObservers) {
+        globalThis.removeEventListener("beforeunload", lateBeforeUnload);
+      }
+      lateBeforeUnloadObservers.clear();
     };
     const repairOnce = (): void => {
       if (repaired) return;
@@ -1063,15 +1080,36 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     };
     const beforeUnload = (event: BeforeUnloadEvent): void => {
       if (!requestsUnloadConfirmation(event)) return;
-      setTimeout(() => {
+      queueMicrotask(() => setTimeout(() => {
         if (!closed && !departureCommitted && guard()) repairOnce();
-      }, 0);
+      }, 0));
     };
     globalThis.addEventListener("pagehide", pageHidden, { once: true });
     globalThis.addEventListener("beforeunload", beforeUnload, { once: true });
+    if (followLateBeforeUnloadRegistrations) {
+      wrappedAddEventListener = function (
+        this: EventTarget,
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ): void {
+        originalAddEventListener.call(this, type, listener, options);
+        if (this === globalThis && type === "beforeunload" && listener !== beforeUnload) {
+          const lateBeforeUnload: EventListener = (event) => beforeUnload(event as BeforeUnloadEvent);
+          lateBeforeUnloadObservers.add(lateBeforeUnload);
+          originalAddEventListener.call(this, "beforeunload", lateBeforeUnload, { once: true });
+        }
+      };
+      try {
+        EventTarget.prototype.addEventListener = wrappedAddEventListener;
+        followingLateRegistrations = EventTarget.prototype.addEventListener === wrappedAddEventListener;
+      } catch { /* the early observer remains active */ }
+      setTimeout(restoreAddEventListener, 0);
+    }
     if (recoverWithoutDeparture) setTimeout(() => {
       if (!closed && !departureCommitted && recoverWithoutDeparture()) repairOnce();
     }, 0);
+    return cleanup;
   };
   const repairDisplayedTruth = (
     truthUrl: string,
@@ -1384,6 +1422,15 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     nativeActivationFinalizers.delete(activation);
     finalize();
   };
+  const recoverOperationCurrentTruthNatively = (operation: ActiveOperation): (() => void) =>
+    operation.recoverCurrentTruthNatively ?? (() => setTimeout(() => fallback(
+      new URL(operation.currentTruthUrl),
+      true,
+      false,
+      undefined,
+      operation.recoverCancelledMutation,
+      true,
+    ), pendingTraversalRecoveryDelayMs));
 
   const supersedePendingWorkForNativeActivation = (
     code: string,
@@ -1396,12 +1443,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       policyProtected?: () => boolean;
       canDepartCurrentDocument?: () => boolean;
       preferNativeCurrentTruthRecovery?: boolean;
+      skipCancelledDepartureObservation?: boolean;
     }>,
   ): boolean => {
     if (active?.kind === "mutation") return false;
     if (!traversing && !active) return false;
     const recoverCancelledMutation = observation?.preferNativeCurrentTruthRecovery
-      ? active?.recoverCurrentTruthNatively ?? active?.recoverCancelledMutation
+      ? active ? recoverOperationCurrentTruthNatively(active) : undefined
       : active?.recoverCancelledMutation;
     if (active && recoverCancelledMutation && observation?.policyProtected?.()) {
       const relinquished = active;
@@ -1431,10 +1479,12 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         recovered = true;
         recoverCancelledMutation();
       };
-      observeCancelledDeparture(
-        () => displayedTruthUrl === truthUrl && location.href === selectedUrl,
-        recoverOnce,
-      );
+      if (!observation?.skipCancelledDepartureObservation) {
+        observeCancelledDeparture(
+          () => displayedTruthUrl === truthUrl && location.href === selectedUrl,
+          recoverOnce,
+        );
+      }
       if (observation) {
         let finalized = false;
         let reachedWindow = false;
@@ -1527,8 +1577,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             if (reachedWindow || recovered || closed) return;
             const nativeDestination = observation.afterNativeDestination?.();
             recoverAfterNativeFragmentSelection();
-            if (!finalized && ((!nativeDestination && !observation.canDepartCurrentDocument?.())
-              || (nativeDestination && sameResourceFragment(nativeDestination)))) recoverOnce();
+            if (!finalized && nativeDestination && sameResourceFragment(nativeDestination)) {
+              fallbackSameResourceFragmentRedirect(nativeDestination, recoverOnce, "push");
+              return;
+            }
+            if (!finalized && !nativeDestination && !observation.canDepartCurrentDocument?.()) recoverOnce();
           }, 50);
         }, 0);
       }
@@ -2090,16 +2143,20 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   };
 
   const click = (event: MouseEvent): void => {
+    const modifiedPrimaryActivation = event.button === 0
+      && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey);
     if (closed || (event.defaultPrevented && !active?.recoverCancelledMutation) || !event.isTrusted || event.button !== 0
-      || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      || (modifiedPrimaryActivation && !active?.recoverCancelledMutation)) return;
     const target = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (!(target instanceof HTMLAnchorElement)) return;
-    const sameContext = !target.hasAttribute("download")
+    const sameContext = !modifiedPrimaryActivation
+      && !target.hasAttribute("download")
       && privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"));
     const selectedUrl = new URL(location.href);
     const policyProtected = (): boolean => target.hasAttribute("referrerpolicy") || target.relList.contains("noreferrer");
     const nativeDocumentDestination = (): URL | undefined => {
-      if (target.hasAttribute("download")
+      if (modifiedPrimaryActivation
+        || target.hasAttribute("download")
         || !privateTargetOwnsCurrentBrowsingContext(target.getAttribute("target"))) return undefined;
       try {
         const candidate = new URL(target.href, selectedUrl);
@@ -2235,8 +2292,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (formDataEvent.target !== form) return;
       afterNativeDestination = privateNativeGetFormDestination(form, event.submitter, formDataEvent.formData);
     };
-    if (active?.recoverCancelledMutation && !form.relList.contains("noreferrer")) {
-      form.addEventListener("formdata", observeNativeFormData, { once: true });
+    if (active?.recoverCancelledMutation) {
+      form.addEventListener("formdata", observeNativeFormData);
       setTimeout(() => form.removeEventListener("formdata", observeNativeFormData), 0);
     }
     const finalizeSubmission = (): void => {
@@ -2277,6 +2334,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             afterNativeDestination: () => afterNativeDestination,
             ...(finalizingAtWindow ? { finalizeNow: true } : {}),
             policyProtected: () => form.relList.contains("noreferrer"),
+            canDepartCurrentDocument,
           }),
         );
       };
@@ -2305,8 +2363,27 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       void submitFormOperation(eligibility, request, sourceState);
     };
     if (active?.recoverCancelledMutation) {
+      const observedOperation = active;
+      const observedTruthUrl = displayedTruthUrl;
+      const stopEarlyDepartureObservation = observeCancelledDeparture(
+        () => !finalizingAtWindow
+          && (active === observedOperation || active === undefined)
+          && displayedTruthUrl === observedTruthUrl
+          && !form.relList.contains("noreferrer"),
+        () => {
+          if ((active !== observedOperation && active !== undefined) || form.relList.contains("noreferrer")) return;
+          if (active === observedOperation) observedOperation.cancellation.abort(
+            new DOMException("Cancelled native form departure superseded pending work", "AbortError"),
+          );
+          if (active === observedOperation) active = undefined;
+          recoverOperationCurrentTruthNatively(observedOperation)();
+        },
+        undefined,
+        true,
+      );
       const finalizeAtWindow = (): void => {
         finalizingAtWindow = true;
+        stopEarlyDepartureObservation();
         finalizeSubmission();
       };
       nativeActivationFinalizers.set(event, finalizeAtWindow);
@@ -2320,12 +2397,18 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             : "browser-owned external-context form submission superseded pending navigation",
           Object.freeze({
             event,
-            afterNativeDestination: () => afterNativeDestination,
+            afterNativeDestination: () => privateNativeGetFormDestination(form, event.submitter) ?? afterNativeDestination,
             policyProtected: () => form.relList.contains("noreferrer"),
             canDepartCurrentDocument,
-            preferNativeCurrentTruthRecovery: !ownsCurrentContext(),
+            preferNativeCurrentTruthRecovery: !ownsCurrentContext() || !event.defaultPrevented,
+            skipCancelledDepartureObservation: true,
           }),
         );
+        setTimeout(() => {
+          if (event.defaultPrevented || !canDepartCurrentDocument() || form.relList.contains("noreferrer")) {
+            stopEarlyDepartureObservation();
+          }
+        }, 100);
       }, 0);
       return;
     }
