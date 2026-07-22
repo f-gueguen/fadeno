@@ -34,6 +34,7 @@
   "finalFormStateRecovery": {
     "redirectAndRecoveryGets": 2,
     "finalHash": "#final-formdata",
+    "formDataEvents": 2,
     "currentTruthVisible": true
   },
   "lateUnloadCancellation": {

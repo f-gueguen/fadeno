@@ -538,7 +538,7 @@ test("suppresses a delayed redirect result after newer enhanced navigation wins"
   expect(readFileSync(join(outputRoot, "expected-ordering-human.txt"), "utf8")).toContain("newer navigation remained visible");
 });
 
-test("refuses form edits made after redirect handoff, including control ancestry, control-attribute, inherited-disabled, option-identity, and optgroup-hierarchy changes", async ({ page }) => {
+test("refuses form edits made after redirect handoff, including untracked custom controls, control ancestry, attributes, disabled state, and option structure", async ({ page }) => {
   const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
   await page.goto(`${origin}/projects`);
@@ -625,13 +625,40 @@ test("refuses form edits made after redirect handoff, including control ancestry
   await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 2);
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   const ancestryRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
+
+  await page.context().clearCookies();
+  await page.goto(`${origin}/projects`);
+  await expect.poll(async () => page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
+    return runtime?.state();
+  })).toBe("active");
+  await page.locator("#passcode").fill("example-owner");
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 400;
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => projectGets(true)).toBe(privateGetsBefore + 3);
+  await page.locator("#sign-in-form").evaluate((form) => {
+    class HandoffControl extends HTMLElement {
+      static formAssociated = true;
+      constructor() {
+        super();
+        this.attachInternals().setFormValue("newer-custom-value");
+      }
+    }
+    customElements.define("handoff-control", HandoffControl);
+    const control = document.createElement("handoff-control");
+    control.setAttribute("name", "handoff-custom");
+    form.append(control);
+  });
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const customControlRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-handoff-edit-recovery",
     version: 1,
     mutationRequests: privateMutations().length - mutationsBefore,
     privateRedirectGets: projectGets(true) - privateGetsBefore,
-    nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore - 1,
+    nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore - 2,
     signInRuns: state.signInRuns,
     submittedDocumentNotPublishedOverNewerEdit: await page.locator("#passcode").count() === 0,
     controlAttributesRecovered,
@@ -639,6 +666,7 @@ test("refuses form edits made after redirect handoff, including control ancestry
     inheritedDisabledRecovered,
     optgroupHierarchyRecovered,
     ancestryRecovered,
+    customControlRecovered,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   }).toEqual(expected("handoff-edit-recovery"));
   expect(readFileSync(join(outputRoot, "expected-handoff-edit-recovery-human.txt"), "utf8"))
@@ -1017,6 +1045,33 @@ test("recovers committed truth when native activation has no document departure"
     finalPath: new URL(page.url()).pathname,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
+
+  await page.context().clearCookies();
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  holdNextPrivateGetResponse = true;
+  const lateCancelledPrivateBefore = projectGets(true);
+  const lateCancelledNativeBefore = projectGets(false);
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => projectGets(true)).toBe(lateCancelledPrivateBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.getByRole("link", { name: "Search" }).evaluate((link) => {
+    link.setAttribute("href", "/");
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest("a") === link) event.preventDefault();
+    }, { once: true });
+  });
+  await page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
+  releaseHeldResponse?.();
+  await expect.poll(() => projectGets(true) + projectGets(false))
+    .toBe(lateCancelledPrivateBefore + lateCancelledNativeBefore + 2);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const lateCancelledEligibleLink = {
+    redirectAndRecoveryGets: projectGets(true) + projectGets(false)
+      - lateCancelledPrivateBefore - lateCancelledNativeBefore,
+    finalPath: new URL(page.url()).pathname,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
   const finalState = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-native-no-departure-recovery",
@@ -1034,7 +1089,8 @@ test("recovers committed truth when native activation has no document departure"
     initialExternalContextRecovery,
     modifiedPrimaryContextRecovery,
     preCancelledLinkRecovery,
-    mutationRetried: privateMutations().length - mutationsBefore > 11,
+    lateCancelledEligibleLink,
+    mutationRetried: privateMutations().length - mutationsBefore > 12,
   }).toEqual(expected("native-no-departure-recovery"));
   expect(readFileSync(join(outputRoot, "expected-native-no-departure-recovery-human.txt"), "utf8"))
     .toContain("native activation stayed in the document");
@@ -1420,6 +1476,12 @@ test("recovers committed truth when submit propagation stops or a late listener 
     button.textContent = "Use final form data";
     form.append(button);
     document.body.append(form);
+    sessionStorage.setItem("fadeno-final-formdata-count", "0");
+    document.addEventListener("formdata", (event) => {
+      if (event.target !== form) return;
+      const count = Number(sessionStorage.getItem("fadeno-final-formdata-count"));
+      sessionStorage.setItem("fadeno-final-formdata-count", String(count + 1));
+    });
     document.addEventListener("submit", (event) => {
       if (event.target !== form) return;
       new FormData(form);
@@ -1439,6 +1501,7 @@ test("recovers committed truth when submit propagation stops or a late listener 
       && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
       - finalFormStateGetsBefore,
     finalHash: new URL(page.url()).hash,
+    formDataEvents: await page.evaluate(() => Number(sessionStorage.getItem("fadeno-final-formdata-count"))),
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
 
@@ -1464,10 +1527,12 @@ test("recovers committed truth when submit propagation stops or a late listener 
     document.addEventListener("submit", (event) => {
       if (event.target !== form) return;
       event.stopPropagation();
-      globalThis.addEventListener("beforeunload", (beforeUnload) => {
+      globalThis.onbeforeunload = (beforeUnload) => {
         beforeUnload.preventDefault();
         beforeUnload.returnValue = "keep current truth";
-      }, { once: true });
+        globalThis.onbeforeunload = null;
+        return "keep current truth";
+      };
     }, { once: true });
   });
   const lateUnloadDialog = page.waitForEvent("dialog");

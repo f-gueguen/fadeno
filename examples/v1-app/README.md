@@ -138,16 +138,20 @@ the runtime document listener. A retained `dialog` submission recovers without
 departure, while a late change from `dialog` to GET follows the final native
 destination. Observation uses the final privacy state and the last native
 `FormData` snapshot, including when application code constructs an earlier
-snapshot. Cancellation registered by a later `beforeunload` listener is still
+snapshot without an extra serialization. Cancellation registered by a later
+`beforeunload` listener or `onbeforeunload` assignment is still
 observed, while a slow ineligible native POST keeps browser ownership without a
 racing private recovery. A modified primary click and a later target change into a separate browsing
 context leaves that destination native while the opener recovers current truth.
+An initially eligible link is not taken over until later document listeners
+finish, so their cancellation and final link attributes remain authoritative.
 If a second cancelled activation supersedes an in-flight recovery GET, the new
 GET retains recovery ownership and still clears stale markup. Explicit and
 empty fragment delimiters both force a fresh native document. If its
 pushed-fragment reload is cancelled, rollback happens before
 recovery so Back reaches the preceding page without a duplicate stop. Handoff
-also detects exact control-ancestry changes and disabled-state changes inherited from `fieldset` and `optgroup`,
+also detects untracked form-associated custom controls, exact control-ancestry
+changes, and disabled-state changes inherited from `fieldset` and `optgroup`,
 exact optgroup hierarchy, and stays authoritative through interrupted-departure
 recovery. A failed fragment push repairs the current entry without traversing
 Back; if that repair is blocked, native current-truth replacement prevents the
