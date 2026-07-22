@@ -1421,6 +1421,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       finalizeNow?: boolean;
       policyProtected?: () => boolean;
       canDepartCurrentDocument?: () => boolean;
+      reloadsCurrentDocument?: () => boolean;
       preferNativeCurrentTruthRecovery?: boolean;
       skipCancelledDepartureObservation?: boolean;
     }>,
@@ -1486,6 +1487,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             finalized = true;
             return;
           }
+          if (observation.reloadsCurrentDocument?.()) return;
           const nativeDestination = observation.afterNativeDestination?.();
           if (!nativeDestination || !sameResourceFragment(nativeDestination)) return;
           const selectedDestination = new URL(location.href);
@@ -1557,7 +1559,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             const nativeDestination = observation.afterNativeDestination?.();
             recoverAfterNativeFragmentSelection();
             if (!finalized && ((!nativeDestination && !observation.canDepartCurrentDocument?.())
-              || (nativeDestination && sameResourceFragment(nativeDestination)))) recoverOnce();
+              || (nativeDestination && sameResourceFragment(nativeDestination)
+                && !observation.reloadsCurrentDocument?.()))) recoverOnce();
           }, 50);
         }, 0);
       }
@@ -2363,6 +2366,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             ...(finalizingAtWindow ? { finalizeNow: true } : {}),
             policyProtected: () => form.relList.contains("noreferrer"),
             canDepartCurrentDocument,
+            reloadsCurrentDocument: canDepartCurrentDocument,
           }),
         );
       };
@@ -2427,6 +2431,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             afterNativeDestination: () => afterNativeDestination ?? privateNativeGetFormDestination(form, event.submitter),
             policyProtected: () => form.relList.contains("noreferrer"),
             canDepartCurrentDocument,
+            reloadsCurrentDocument: canDepartCurrentDocument,
             preferNativeCurrentTruthRecovery: !ownsCurrentContext() || !event.defaultPrevented,
             skipCancelledDepartureObservation: true,
           }),
