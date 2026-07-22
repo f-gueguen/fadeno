@@ -1580,11 +1580,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             if (reachedWindow || recovered || closed) return;
             const nativeDestination = observation.afterNativeDestination?.();
             recoverAfterNativeFragmentSelection();
-            if (!finalized && nativeDestination && sameResourceFragment(nativeDestination)) {
-              fallbackSameResourceFragmentRedirect(nativeDestination, recoverOnce, "push");
-              return;
-            }
-            if (!finalized && !nativeDestination && !observation.canDepartCurrentDocument?.()) recoverOnce();
+            if (!finalized && ((!nativeDestination && !observation.canDepartCurrentDocument?.())
+              || (nativeDestination && sameResourceFragment(nativeDestination)))) recoverOnce();
           }, 50);
         }, 0);
       }
