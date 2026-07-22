@@ -10,6 +10,7 @@
   "optionIdentityRecovered": true,
   "inheritedDisabledRecovered": true,
   "optgroupHierarchyRecovered": true,
+  "indeterminateRecovered": true,
   "ancestryRecovered": true,
   "customControlRecovered": true,
   "currentTruthVisible": true

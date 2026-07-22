@@ -1,8 +1,8 @@
 {
   "schema": "fadeno.example.action-ordering-native-no-departure-recovery",
   "version": 1,
-  "mutationRequests": 12,
-  "signInRuns": 11,
+  "mutationRequests": 13,
+  "signInRuns": 12,
   "sameDocumentFragment": {
     "privateRedirectGets": 1,
     "nativeCurrentTruthGets": 1,
@@ -58,6 +58,11 @@
     "currentTruthVisible": true
   },
   "lateCancelledEligibleLink": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "currentTruthVisible": true
+  },
+  "removedPolicyCancellation": {
     "redirectAndRecoveryGets": 2,
     "finalPath": "/projects",
     "currentTruthVisible": true

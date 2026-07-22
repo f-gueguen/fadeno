@@ -141,16 +141,21 @@ destination. Observation uses the final privacy state and the last native
 snapshot without an extra serialization. Cancellation registered by a later
 `beforeunload` listener or `onbeforeunload` assignment is still
 observed, while a slow ineligible native POST keeps browser ownership without a
-racing private recovery. A modified primary click and a later target change into a separate browsing
+racing private recovery. If a native form receives a response that retains the
+current document, bounded observation recovers current truth afterward. A
+modified primary click and a later target change into a separate browsing
 context leaves that destination native while the opener recovers current truth.
-An initially eligible link is not taken over until later document listeners
-finish, so their cancellation and final link attributes remain authoritative.
+An initially eligible or policy-protected link is not finalized until later
+document listeners finish, so their cancellation and final link attributes
+remain authoritative. If propagation stops after a late fragment change, the
+browser's selected history entry is not staged a second time.
 If a second cancelled activation supersedes an in-flight recovery GET, the new
 GET retains recovery ownership and still clears stale markup. Explicit and
 empty fragment delimiters both force a fresh native document. If its
 pushed-fragment reload is cancelled, rollback happens before
 recovery so Back reaches the preceding page without a duplicate stop. Handoff
-also detects untracked form-associated custom controls, exact control-ancestry
+also detects untracked form-associated custom controls, checkbox indeterminate
+state, exact control-ancestry
 changes, and disabled-state changes inherited from `fieldset` and `optgroup`,
 exact optgroup hierarchy, and stays authoritative through interrupted-departure
 recovery. A failed fragment push repairs the current entry without traversing
