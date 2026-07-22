@@ -538,7 +538,7 @@ test("suppresses a delayed redirect result after newer enhanced navigation wins"
   expect(readFileSync(join(outputRoot, "expected-ordering-human.txt"), "utf8")).toContain("newer navigation remained visible");
 });
 
-test("refuses form edits made after redirect handoff, including untracked custom controls, control ancestry, attributes, disabled state, and option structure", async ({ page }) => {
+test("refuses form edits made after redirect handoff, including untracked custom controls, control ancestry, control-attribute, inherited-disabled, option-identity, and optgroup-hierarchy changes", async ({ page }) => {
   const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
   await page.goto(`${origin}/projects`);
