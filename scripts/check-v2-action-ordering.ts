@@ -447,5 +447,10 @@ assert.equal(
   true,
   "recovery supersession continuity must participate in stale artifact cleanup",
 );
+assert.equal(
+  browser.includes("globalThis.clearTimeout(recoveryTimer)"),
+  true,
+  "cancelled-departure cleanup must cancel its delayed recovery owner",
+);
 
 console.log("V2-07 action ordering contract passed (redirect GET handoff, authenticated CRUD, stale suppression, and native recovery)");

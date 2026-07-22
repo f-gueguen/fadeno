@@ -1063,9 +1063,12 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
   ): (() => void) => {
     let departureCommitted = false;
     let repaired = false;
+    let recoveryTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
     const cleanup = (): void => {
       globalThis.removeEventListener("pagehide", pageHidden);
       globalThis.removeEventListener("beforeunload", beforeUnload);
+      if (recoveryTimer !== undefined) globalThis.clearTimeout(recoveryTimer);
+      recoveryTimer = undefined;
     };
     const repairOnce = (): void => {
       if (repaired) return;
@@ -1084,7 +1087,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     };
     globalThis.addEventListener("pagehide", pageHidden, { once: true });
     globalThis.addEventListener("beforeunload", beforeUnload, { once: true });
-    if (recoverWithoutDeparture) setTimeout(() => {
+    if (recoverWithoutDeparture) recoveryTimer = globalThis.setTimeout(() => {
+      recoveryTimer = undefined;
       if (!closed && !departureCommitted && recoverWithoutDeparture()) repairOnce();
     }, recoverWithoutDepartureDelayMs);
     return cleanup;
