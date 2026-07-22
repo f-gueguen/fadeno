@@ -1510,10 +1510,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           const nativeDestination = observation.afterNativeDestination?.();
           if (!nativeDestination || !sameResourceFragment(nativeDestination)) return;
           const selectedDestination = new URL(location.href);
-          if (selectedDestination.origin !== nativeDestination.origin
-            || selectedDestination.pathname !== nativeDestination.pathname
-            || selectedDestination.search !== nativeDestination.search
-            || selectedDestination.hash !== nativeDestination.hash) return;
+          if (selectedDestination.href !== nativeDestination.href) return;
           finalized = true;
           fallbackSameResourceFragmentRedirect(nativeDestination, recoverOnce, "none");
         };
