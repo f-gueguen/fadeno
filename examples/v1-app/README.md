@@ -150,7 +150,10 @@ document listeners finish, so their cancellation and final link attributes
 remain authoritative. If propagation stops after a late fragment change, the
 browser's selected history entry is not staged a second time.
 If a second cancelled activation supersedes an in-flight recovery GET, the new
-GET retains recovery ownership and still clears stale markup. Explicit and
+GET retains recovery ownership and still clears stale markup. Delayed native
+recovery remains attached when a newer enhanced operation takes ownership, so
+the older timer neither overwrites that operation nor abandons committed truth.
+Explicit and
 empty fragment delimiters both force a fresh native document. If its
 pushed-fragment reload is cancelled, rollback happens before
 recovery so Back reaches the preceding page without a duplicate stop. Handoff

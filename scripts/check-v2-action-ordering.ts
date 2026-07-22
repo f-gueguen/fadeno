@@ -146,7 +146,7 @@ for (const fragment of [
   "observation.policyProtected?.()",
   "canDepartCurrentDocument",
   "candidate.protocol === \"http:\" || candidate.protocol === \"https:\"",
-  "const recoverAgain = (): void",
+  "const recoverAgain: PrivateMutationRecovery",
   "reloadExactDestination",
   "recoverCurrentTruthNatively",
   "preferNativeCurrentTruthRecovery",
@@ -159,10 +159,15 @@ for (const fragment of [
   "propagation-stopped browser-owned click superseded pending work",
   "observeNativeFormData",
   "const repaired = repairDisplayedTruth(",
+  "nativeMutationRecoveryCarrier",
+  "nativeMutationRecoveryFallback",
+  "nativeMutationRecoveryCarrier !== operation",
+  "stopCancelledDepartureObservation?.()",
+  'recovery.recoverCancelledMutation("replace")',
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
-    && browser.indexOf('repairDisplayedTruth(\n                  recovery.truthUrl') < browser.indexOf("recovery.recoverCancelledMutation();"),
+    && browser.indexOf('repairDisplayedTruth(\n                  recovery.truthUrl') < browser.indexOf('recovery.recoverCancelledMutation("replace");'),
   true,
   "staged mutation recovery must repair displayed truth before requesting current truth",
 );
