@@ -1,0 +1,1 @@
+Action ordering recovery: the redirect GET selected server-selected current truth, so Fadeno consumed that result, skipped the redirect destination and mutation retry, and loaded that current truth.

@@ -121,6 +121,11 @@ superseding it with another failed enhanced or native GET all recover committed 
 repeating POST. An older redirect cleanup cannot clear a newer submission's
 pending indicator. Replacing a selected upload with a same-metadata `File` after
 handoff also refuses private publication. A direct or redirect-chain
+handoff whose encoded control snapshot exceeds its byte or structural limits
+loads current truth instead of issuing an unobservable redirect destination.
+If the redirect GET itself returns a current-truth recovery outcome, that
+result is consumed and the mutation is not repeated.
+An otherwise safe direct or redirect-chain
 same-resource fragment redirect starts a real native reload before teardown can
 strand its staged URL, retains
 the intended fragment if history staging fails, and recovers current truth when

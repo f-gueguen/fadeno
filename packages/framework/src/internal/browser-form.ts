@@ -12,6 +12,7 @@ export type PrivateFormEligibility = Readonly<{
 }>;
 
 export type PrivateFormRequest = Readonly<{
+  eligibility: PrivateFormEligibility;
   destination: URL;
   body?: FormData | URLSearchParams;
 }>;
@@ -173,7 +174,7 @@ export function privateNativeGetFormDestination(
   successfulControls?: FormData,
   selectedDestination?: URL,
 ): URL | undefined {
-  const destination = selectedDestination
+  const destination = successfulControls === undefined && selectedDestination
     ? new URL(selectedDestination.href)
     : privateNativeGetFormDestinationBase(form, candidate, successfulControls !== undefined);
   if (!destination) return undefined;
@@ -190,14 +191,17 @@ export function privateFormRequest(eligibility: PrivateFormEligibility): Private
   const data = eligibility.submitter
     ? new FormData(eligibility.form, eligibility.submitter)
     : new FormData(eligibility.form);
-  if (eligibility.kind === "navigation") {
-    const destination = new URL(eligibility.destination);
+  const finalEligibility = privateFormEligibility(eligibility.form, eligibility.submitter ?? null);
+  if (!finalEligibility) throw new TypeError("FADENO_FORM_ELIGIBILITY");
+  if (finalEligibility.kind === "navigation") {
+    const destination = new URL(finalEligibility.destination);
     destination.search = encodeControls(data).toString();
-    return Object.freeze({ destination });
+    return Object.freeze({ eligibility: finalEligibility, destination });
   }
   return Object.freeze({
-    destination: eligibility.destination,
-    body: eligibility.encoding === "multipart/form-data" ? data : encodeControls(data),
+    eligibility: finalEligibility,
+    destination: finalEligibility.destination,
+    body: finalEligibility.encoding === "multipart/form-data" ? data : encodeControls(data),
   });
 }
 

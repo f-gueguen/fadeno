@@ -1,0 +1,13 @@
+{
+  "schema": "fadeno.example.action-ordering-redirect-recovery-outcome",
+  "version": 1,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "nativeCurrentTruthGets": 1,
+  "signInRuns": 1,
+  "flowCode": "FADENO_UPDATE_RECOVERY",
+  "flowStatus": "refused",
+  "flowOutcome": "native-navigation",
+  "mutationRetrySkipped": true,
+  "currentTruthVisible": true
+}

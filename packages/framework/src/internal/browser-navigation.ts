@@ -6,7 +6,6 @@ import {
 import {
   privateFormEligibility,
   privateNativeGetFormDestination,
-  privateNativeGetFormDestinationBase,
   privateFormPreservationSafe,
   privateFormRequest,
   type PrivateFormEligibility,
@@ -436,14 +435,14 @@ type PrivateFormHandoffBudget = { bytes: number; records: number };
 
 function consumePrivateFormHandoffRecord(budget: PrivateFormHandoffBudget): boolean {
   budget.records += 1;
-  return budget.records <= maximumPrivateFormHandoffRecords;
+  budget.bytes += 32;
+  return budget.records <= maximumPrivateFormHandoffRecords
+    && budget.bytes <= maximumPrivateFormHandoffBytes;
 }
 
 function consumePrivateFormHandoffText(budget: PrivateFormHandoffBudget, value: string | null): boolean {
   if (value === null) return true;
-  const remaining = maximumPrivateFormHandoffBytes - budget.bytes;
-  if (value.length > remaining) return false;
-  budget.bytes += new TextEncoder().encode(value).byteLength;
+  budget.bytes += new TextEncoder().encode(JSON.stringify(value)).byteLength;
   return budget.bytes <= maximumPrivateFormHandoffBytes;
 }
 
@@ -577,8 +576,9 @@ function privateFormHandoffPreservationCheck(
   const activeElement = document.activeElement;
   const activeSelection = privateFormHandoffSelectionState(activeElement);
   const trackedControls = privateFormHandoffControls(eligibility.form);
-  if (!trackedControls || !privateFormHandoffWithinLimit(trackedControls)) return undefined;
-  const hasUntrackedCustomControl = hasUntrackedPrivateFormHandoffControl(eligibility.form, trackedControls);
+  if (!trackedControls
+    || hasUntrackedPrivateFormHandoffControl(eligibility.form, trackedControls)
+    || !privateFormHandoffWithinLimit(trackedControls)) return undefined;
   const controls = trackedControls.map((control) => Object.freeze({
     ancestry: privateFormHandoffAncestry(control),
     control,
@@ -587,9 +587,9 @@ function privateFormHandoffPreservationCheck(
     selectStructure: Object.freeze(control instanceof HTMLSelectElement ? privateSelectHandoffStructure(control) : []),
     state: privateFormHandoffControlState(control),
   }));
+  if (controls.some(({ ancestry }) => ancestry === undefined)) return undefined;
   return () => {
-    if (hasUntrackedCustomControl
-      || hasUntrackedPrivateFormHandoffControl(eligibility.form)
+    if (hasUntrackedPrivateFormHandoffControl(eligibility.form)
       || !privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })
       || document.activeElement !== activeElement
       || privateFormHandoffSelectionState(activeElement) !== activeSelection) return false;
@@ -1760,7 +1760,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         consumedResultIds: Object.freeze([...consumedResultIds]),
         requestCommitted: false,
       }, { signal: operation.cancellation.signal });
-      if (active !== operation || operation.cancellation.signal.aborted || admission.decision.status !== "accepted" || !admission.outcome || !admission.resultId) {
+      const acceptedAdmission = admission.decision.status === "accepted"
+        || (admission.decision.status === "recovery" && admission.outcome?.kind === "recover");
+      if (active !== operation || operation.cancellation.signal.aborted || !acceptedAdmission || !admission.outcome || !admission.resultId) {
         throw new TypeError(admission.decision.code);
       }
       if (!preservationSafe()) throw new TypeError("FADENO_UPDATE_PRESERVATION");
@@ -1784,6 +1786,21 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         return;
       }
       if (admission.outcome.kind === "recover") {
+        consumeResultId(admission.resultId);
+        recordFlow({
+          status: "refused",
+          code: admission.decision.code,
+          decisions: Object.freeze([
+            "server selected independently trusted current truth",
+            "redirect destination was not requested again",
+          ]),
+          ownership: Object.freeze({
+            browser: Object.freeze(["operation", "current-truth navigation"]),
+            server: Object.freeze(["recovery decision", "current truth"]),
+          }),
+          skipped: Object.freeze(["redirect destination commit", "mutation retry"]),
+          outcome: "native-navigation",
+        });
         fallback(new URL(operation.currentTruthUrl), true, false, undefined, effectiveMutationRecovery);
         return;
       }
@@ -2016,8 +2033,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         consumedResultIds: Object.freeze([...consumedResultIds]),
         requestCommitted,
       }, { signal: operation.cancellation.signal });
+      const acceptedAdmission = admission.decision.status === "accepted"
+        || (admission.decision.status === "recovery" && admission.outcome?.kind === "recover");
       if (active !== operation || operation.cancellation.signal.aborted
-        || admission.decision.status !== "accepted" || !admission.outcome || !admission.resultId) {
+        || !acceptedAdmission || !admission.outcome || !admission.resultId) {
         throw new TypeError(admission.decision.code);
       }
       if (!privateFormPreservationSafe(eligibility, { allowDocumentScroll: true })) {
@@ -2065,18 +2084,22 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
                 ? ["submit event", "mutation operation", "pending cleanup", "native fragment reload"]
                 : handoffPreservationSafe
                   ? ["submit event", "mutation operation", "pending cleanup", "redirect GET operation"]
-                  : ["submit event", "mutation operation", "pending cleanup", "native destination"]),
+                  : ["submit event", "mutation operation", "pending cleanup", "current-truth navigation"]),
               server: Object.freeze(["origin", "proof", "replay", "authorization", "action", "session", "revalidation", "redirect", "destination route"]),
             }),
             skipped: Object.freeze(["mutation retry", "POST redirect resubmission", "transported redirect execution", "general state reconciliation"]),
-            outcome: sameResourceFragment || !handoffPreservationSafe ? "native-navigation" : "enhanced-redirect",
+            outcome: sameResourceFragment
+              ? "native-navigation"
+              : handoffPreservationSafe
+                ? "enhanced-redirect"
+                : "current-truth-reload",
           });
           if (sameResourceFragment) {
             fallbackSameResourceFragmentRedirect(redirect, recoverCancelledMutation);
             return;
           }
           if (!handoffPreservationSafe) {
-            fallback(redirect, false, false, undefined, recoverCancelledMutation);
+            recoverCancelledMutation();
             return;
           }
           await navigate(
@@ -2116,6 +2139,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         return;
       }
       if (admission.outcome.kind === "recover") {
+        consumeResultId(admission.resultId);
         recordFormFlow({
           status: "refused",
           code: admission.decision.code,
@@ -2492,12 +2516,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     }
     let finalizingAtWindow = false;
     let observedNativeFormData: FormData | undefined;
-    let observedNativeDestinationBase: URL | undefined;
     let afterNativeDestination: URL | undefined;
     const observeNativeFormData = (formDataEvent: FormDataEvent): void => {
-      if (formDataEvent.target !== form) return;
+      if (formDataEvent.target !== form || event.eventPhase !== Event.NONE) return;
       observedNativeFormData = formDataEvent.formData;
-      observedNativeDestinationBase = privateNativeGetFormDestinationBase(form, event.submitter, true);
+      form.removeEventListener("formdata", observeNativeFormData);
     };
     if (active?.recoverCancelledMutation) {
       form.addEventListener("formdata", observeNativeFormData);
@@ -2508,7 +2531,6 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             form,
             event.submitter,
             observedNativeFormData,
-            observedNativeDestinationBase,
           );
         }
       });
@@ -2580,7 +2602,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         return;
       }
       event.preventDefault();
-      void submitFormOperation(eligibility, request, sourceState);
+      void submitFormOperation(request.eligibility, request, sourceState);
     };
     if (active?.recoverCancelledMutation) {
       const observedOperation = active;

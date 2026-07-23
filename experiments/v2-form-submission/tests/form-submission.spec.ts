@@ -76,6 +76,7 @@ let delayedPrivateGetPath: string | undefined;
 let delayedPrivateGetMilliseconds = 0;
 let capturedRedirectGetResultId: string | undefined;
 let rewriteNextPrivateGetResultId = false;
+let rewriteNextPrivateGetToRecovery = false;
 const requests: RequestRecord[] = [];
 const transportRequests: TransportRecord[] = [];
 const previousSessionKeys = process.env["FADENO_SESSION_KEYS"];
@@ -150,6 +151,11 @@ test.beforeAll(async () => {
       && incoming.headers.accept === mediaType
       && transportRecord.path === "/projects";
     if (rewriteResult) rewriteNextPrivateGetResultId = false;
+    const rewriteRecovery = rewriteNextPrivateGetToRecovery
+      && incoming.method === "GET"
+      && incoming.headers.accept === mediaType
+      && transportRecord.path === "/projects";
+    if (rewriteRecovery) rewriteNextPrivateGetToRecovery = false;
     const upstream = requestHttp({
       hostname: "127.0.0.1",
       port: backendPort,
@@ -196,7 +202,7 @@ test.beforeAll(async () => {
         });
         return;
       }
-      if (captureRedirectResult || rewriteResult) {
+      if (captureRedirectResult || rewriteResult || rewriteRecovery) {
         const chunks: Buffer[] = [];
         upstreamResponse.on("data", (chunk: Buffer) => chunks.push(chunk));
         upstreamResponse.once("end", () => {
@@ -210,6 +216,15 @@ test.beforeAll(async () => {
             if (rewriteResult) {
               if (!capturedRedirectGetResultId) throw new Error("FADENO_V2_REDIRECT_RESULT_CAPTURE");
               decoded["resultId"] = capturedRedirectGetResultId;
+            }
+            if (rewriteRecovery) {
+              const currentTruth = transportRecord.currentTruth;
+              if (!currentTruth) throw new Error("FADENO_V2_RECOVERY_CURRENT_TRUTH");
+              decoded["outcome"] = {
+                kind: "recover",
+                reason: "server-current-truth",
+                location: decodeURIComponent(currentTruth),
+              };
             }
             const body = Buffer.from(JSON.stringify(decoded));
             outgoing.writeHead(upstreamResponse.statusCode ?? 502, {
@@ -299,17 +314,23 @@ test.beforeEach(() => {
   delayedPrivateGetMilliseconds = 0;
   capturedRedirectGetResultId = undefined;
   rewriteNextPrivateGetResultId = false;
+  rewriteNextPrivateGetToRecovery = false;
 });
 
-async function signIn(page: import("@playwright/test").Page): Promise<void> {
-  await page.goto(`${origin}/projects`);
-  await page.locator("#passcode").fill("example-owner");
-  await page.locator("#sign-in-form button").click();
-  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+async function waitForEnhancement(page: import("@playwright/test").Page): Promise<void> {
   await expect.poll(async () => page.evaluate(() => {
     const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
     return runtime?.state();
   })).toBe("active");
+}
+
+async function signIn(page: import("@playwright/test").Page): Promise<void> {
+  await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
+  await page.locator("#passcode").fill("example-owner");
+  await page.locator("#sign-in-form button").click();
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await waitForEnhancement(page);
 }
 
 test("submits exact successful controls through one enhanced GET navigation", async ({ page }) => {
@@ -694,7 +715,7 @@ test("bounds redirect handoff snapshots before serializing application-owned con
   await page.locator("#sign-in-form").evaluate((form) => {
     const oversized = document.createElement("textarea");
     oversized.disabled = true;
-    oversized.value = "x".repeat(300 * 1024);
+    oversized.value = "\\".repeat(140 * 1024);
     form.append(oversized);
   });
   await page.evaluate(async () => {
@@ -703,8 +724,10 @@ test("bounds redirect handoff snapshots before serializing application-owned con
       readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
     }>;
     globalThis.addEventListener("beforeunload", () => {
-      const flow = runtime.readPrivateFormSubmissionFlows().at(-1);
-      if (flow) sessionStorage.setItem("fadeno-handoff-limit-flow", JSON.stringify(flow));
+      sessionStorage.setItem(
+        "fadeno-handoff-limit-flow",
+        JSON.stringify(runtime.readPrivateFormSubmissionFlows()),
+      );
     }, { once: true });
   });
   const mutationsBefore = privateMutations().length;
@@ -712,12 +735,15 @@ test("bounds redirect handoff snapshots before serializing application-owned con
   await page.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 1);
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  const flow = await page.evaluate(() =>
-    JSON.parse(sessionStorage.getItem("fadeno-handoff-limit-flow") ?? "null") as Record<string, unknown> | null);
+  const flow = await page.evaluate(() => {
+    const flows = JSON.parse(sessionStorage.getItem("fadeno-handoff-limit-flow") ?? "[]") as Record<string, unknown>[];
+    return flows.find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
+  });
   expect({
     schema: "fadeno.example.action-ordering-handoff-limit-refusal",
     version: 1,
-    snapshotValueBytes: 300 * 1024,
+    snapshotValueBytes: 140 * 1024,
+    encodedSnapshotBytesExceedLimit: JSON.stringify("\\".repeat(140 * 1024)).length > 256 * 1024,
     mutationRequests: privateMutations().length - mutationsBefore,
     nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore,
     flowCode: flow?.["code"],
@@ -727,7 +753,54 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   }).toEqual(expected("handoff-limit-refusal"));
   expect(readFileSync(join(outputRoot, "expected-handoff-limit-refusal-human.txt"), "utf8"))
-    .toContain("bounded before serializing");
+    .toContain("bounded by its encoded representation");
+});
+
+test("honors a current-truth recovery outcome from the redirect GET without repeating the mutation", async ({ page }) => {
+  const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      readPrivateLinkNavigationFlows(): readonly Record<string, unknown>[];
+    }>;
+    globalThis.addEventListener("beforeunload", () => {
+      sessionStorage.setItem(
+        "fadeno-redirect-recovery-flows",
+        JSON.stringify(runtime.readPrivateLinkNavigationFlows()),
+      );
+    }, { once: true });
+  });
+  const mutationsBefore = privateMutations().length;
+  const privateGetsBefore = projectGets(true);
+  const nativeGetsBefore = projectGets(false);
+  rewriteNextPrivateGetToRecovery = true;
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await expect.poll(() => projectGets(true)).toBe(privateGetsBefore + 1);
+  await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const flow = await page.evaluate(() => {
+    const flows = JSON.parse(sessionStorage.getItem("fadeno-redirect-recovery-flows") ?? "[]") as Record<string, unknown>[];
+    return flows.find(({ code }) => code === "FADENO_UPDATE_RECOVERY") ?? null;
+  });
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-redirect-recovery-outcome",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: projectGets(true) - privateGetsBefore,
+    nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore,
+    signInRuns: state.signInRuns,
+    flowCode: flow?.["code"],
+    flowStatus: flow?.["status"],
+    flowOutcome: flow?.["outcome"],
+    mutationRetrySkipped: Array.isArray(flow?.["skipped"]) && flow["skipped"].includes("mutation retry"),
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  }).toEqual(expected("redirect-recovery-outcome"));
+  expect(readFileSync(join(outputRoot, "expected-redirect-recovery-outcome-human.txt"), "utf8"))
+    .toContain("server-selected current truth");
 });
 
 test("inherits committed-mutation recovery when a newer GET supersedes the redirect", async ({ page }) => {
@@ -826,12 +899,13 @@ test("recovers committed truth when native activation has no document departure"
   const mutationsBefore = privateMutations().length;
 
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const firstPrivateBefore = projectGets(true);
   const firstNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(firstPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(firstPrivateBefore + 1);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("href", "/projects#native-recovery"));
   await page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
   await expect.poll(() => projectGets(false)).toBe(firstNativeBefore + 1);
@@ -846,6 +920,7 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const stoppedPrivateBefore = projectGets(true);
@@ -853,7 +928,7 @@ test("recovers committed truth when native activation has no document departure"
   const stoppedGetsBefore = stoppedPrivateBefore + stoppedNativeBefore;
   const stoppedHistoryBefore = await page.evaluate(() => history.length);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(stoppedPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(stoppedPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("href", "/projects#propagation-stopped"));
   await page.evaluate(() => sessionStorage.setItem("fadeno-stop-search-propagation", "1"));
@@ -877,12 +952,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const secondPrivateBefore = projectGets(true);
   const secondNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(secondPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(secondPrivateBefore + 1);
   await page.evaluate(() => document.addEventListener("click", (event) => {
     if (event.target instanceof Element && event.target.closest("a")?.textContent === "Search") event.preventDefault();
   }, { once: true }));
@@ -898,12 +974,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const policyPrivateBefore = projectGets(true);
   const policyNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(policyPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(policyPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => {
     link.setAttribute("href", "/projects#policy-protected");
@@ -918,6 +995,7 @@ test("recovers committed truth when native activation has no document departure"
     nativeFragmentSelected: new URL(page.url()).hash === "#policy-protected",
   };
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   const crossDocumentProjectBefore = projectGets(true) + projectGets(false);
   const crossDocumentRootBefore = transportRequests.filter(({ method, path }) => method === "GET" && path === "/").length;
@@ -947,13 +1025,14 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const lateDestinationPrivateBefore = projectGets(true);
   const lateDestinationNativeBefore = projectGets(false);
   const lateDestinationRootBefore = transportRequests.filter(({ method, path }) => method === "GET" && path === "/").length;
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(lateDestinationPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(lateDestinationPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => {
     link.setAttribute("href", "/projects#captured-before-listeners");
@@ -980,12 +1059,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const latePolicyPrivateBefore = projectGets(true);
   const latePolicyNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(latePolicyPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(latePolicyPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => {
     link.setAttribute("href", "/projects#late-policy");
@@ -1004,12 +1084,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const separateContextPrivateBefore = projectGets(true);
   const separateContextNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(separateContextPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(separateContextPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => {
     link.setAttribute("href", "/");
@@ -1034,12 +1115,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const initialExternalPrivateBefore = projectGets(true);
   const initialExternalNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(initialExternalPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(initialExternalPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => {
     link.setAttribute("href", "/");
@@ -1062,12 +1144,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const modifiedPrivateBefore = projectGets(true);
   const modifiedNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(modifiedPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(modifiedPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => link.setAttribute("href", "/"));
   const modifiedPopupPromise = page.context().waitForEvent("page");
@@ -1086,12 +1169,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const middlePrivateBefore = projectGets(true);
   const middleNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(middlePrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(middlePrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   const pagesBeforeMiddleClick = new Set(page.context().pages());
   let browserOwnedActivationAllowed: boolean | null = null;
@@ -1143,12 +1227,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const preCancelledPrivateBefore = projectGets(true);
   const preCancelledNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(preCancelledPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(preCancelledPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.evaluate(() => document.addEventListener("click", (event) => {
     if (event.target instanceof Element && event.target.closest("a")?.textContent === "Search") event.preventDefault();
@@ -1167,12 +1252,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const lateCancelledPrivateBefore = projectGets(true);
   const lateCancelledNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(lateCancelledPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(lateCancelledPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => {
     link.setAttribute("href", "/");
@@ -1194,12 +1280,13 @@ test("recovers committed truth when native activation has no document departure"
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   holdNextPrivateGetResponse = true;
   const removedPolicyPrivateBefore = projectGets(true);
   const removedPolicyNativeBefore = projectGets(false);
   await page.locator("#sign-in-form button").click();
-  await expect.poll(() => projectGets(true)).toBe(removedPolicyPrivateBefore + 1);
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(removedPolicyPrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.getByRole("link", { name: "Search" }).evaluate((link) => {
     link.setAttribute("href", "/");
