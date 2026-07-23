@@ -1324,7 +1324,10 @@ test("reloads a same-document native GET form that supersedes the redirect after
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
 
-  await page.goto(`${origin}/projects`);
+  await expect.poll(async () => page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
+    return runtime?.state();
+  }).catch(() => undefined)).toBe("active");
   holdNextPrivateGetResponse = true;
   holdNextPrivateGetPath = "/redirect-chain";
   await page.locator("#redirect-chain-form button").click();
@@ -1371,7 +1374,10 @@ test("reloads a same-document native GET form that supersedes the redirect after
   recoveredNativeGets = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length - nativeGetsBefore;
 
-  await page.goto(`${origin}/projects`);
+  await expect.poll(async () => page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
+    return runtime?.state();
+  }).catch(() => undefined)).toBe("active");
   holdNextPrivateGetResponse = true;
   holdNextPrivateGetPath = "/redirect-chain";
   await page.locator("#redirect-chain-form button").click();
