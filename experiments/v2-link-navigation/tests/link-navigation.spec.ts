@@ -2328,6 +2328,7 @@ test("cancels an older traversal before a newer native recovery", async ({ page 
   await expect(page.locator("h1")).toHaveText("Home");
   await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length)
     .toBeGreaterThan(nativeHomeBefore);
+  await page.waitForLoadState("domcontentloaded");
   expect({
     schema: "fadeno.example.history-native-supersession-recovery",
     version: 1,
