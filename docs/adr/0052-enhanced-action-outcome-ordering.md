@@ -66,8 +66,11 @@ destination. That operation performs GET through the existing route/resource
 projection and the same document, history, focus, scroll, cancellation, and
 stale-result admission used by enhanced links.
 
-The handoff freezes the submitted form controls, their exact bounded parent
-ancestry, their sorted attributes and
+The handoff first bounds the number of controls, aggregate records, and UTF-8
+bytes that could be copied. An over-limit handoff refuses private destination
+publication before serializing control state and returns to native destination
+GET with current-truth recovery ownership. An admitted handoff then freezes the submitted form controls, their
+exact bounded parent ancestry, their sorted attributes and
 effective disabled state (including disabled `fieldset` inheritance),
 select-option structure, exact option and optgroup parent identities and
 hierarchy, and effective disabled state
@@ -84,9 +87,8 @@ predicate; a later submitted-control edit therefore refuses private recovery
 publication and selects native current truth. A recovery GET retains the
 committed-mutation recovery owner itself, so a newer cancelled activation may
 supersede that GET and start a newer current-truth GET rather than stranding
-stale markup. An
-ineligible same-context activation or history traversal that returns to native
-behavior observes cancellation with the same recovery owner, including when a
+stale markup. A history traversal that returns to native behavior observes
+cancellation with the same recovery owner, including when a
 cancelled traversal first has to repair its selected URL to the displayed
 document. A same-document native link or GET-form supersession uses the same
 fresh fragment-bearing native reload. The activation receives a new history
@@ -96,21 +98,26 @@ while the activation is still cancelable and after document submit listeners
 have finished. It revalidates the final GET action, method, target (including a
 late change into either the current context or a separate browsing context), origin,
 credentials, trust boundary, and request-privacy policy before constructing
-`FormData(form, submitter)`. For an admitted takeover, that recovery preflight
+`FormData(form, submitter)`. Native observation accepts an image submitter only
+when the browser supplies its successful-control entry list; private form
+eligibility remains conservative. For an admitted takeover, that recovery preflight
 constructs successful controls once and then prevents the original native
 default before the browser can serialize them again; a later submit-listener
 edit is therefore included without a second `formdata` event. If propagation
-does not reach the finalizer, no timer attempts late cancellation or creates a
-second history entry: browser-selected fragment state is reloaded without
-restaging, or prevented activation recovers committed current truth. The
-post-dispatch observer derives the final native GET destination from the
-browser's one successful-control construction, so an unprevented stopped
-submission retains listener edits. This
-includes a submit stopped at `document` before the window finalizer: the
-post-dispatch observer recognizes the later cancellation and recovers without
-serializing the form. A submission that reaches the window finalizer after a
-later document listener cancelled it, or is already cancelled before the
-runtime document listener observes it, recovers immediately. A `dialog` method
+does not reach the finalizer, no elapsed-time threshold infers that a native
+departure finished. If propagation was already stopped when the runtime
+observes a same-context form, it refuses the activation while it is still
+cancelable and recovers current truth without serializing controls. If a later
+listener stops propagation after runtime observation and the browser selects a
+same-document fragment, the post-dispatch observer retains the browser's one
+`FormData` object, derives the destination only after every `formdata` listener
+has finished, and stops observing before a later microtask can construct an
+unrelated `FormData`. A listener-hidden cross-document activation stays
+browser-owned because its response outcome is not observable to the current
+document; no private recovery or freshness claim is made for that unsupported
+handoff. A submission that reaches the window finalizer after a later document
+listener cancelled it, or is already cancelled before the runtime document
+listener observes it, recovers immediately. A `dialog` method
 is also re-read after document listeners: a submission that remains
 dialog-owned recovers the current document without navigation, while a final
 GET method follows its final native destination. A late final
@@ -119,13 +126,23 @@ the current document independently recovers committed current truth. Link finali
 re-reads destination, target, download, and privacy state after document
 listeners; an activation that initially or finally selects another browsing
 context preserves browser ownership while current truth recovers in the
-opener. A trusted click already cancelled before the runtime document listener
+opener. Modified-primary and middle-button activations follow the same
+separate-context rule. A trusted click already cancelled before the runtime document listener
 also supersedes obsolete redirect work and recovers current truth. An explicit anchor referrer
 policy or link/form `noreferrer` directive, including an external-context form,
 aborts the obsolete private
 operation for same-document and cross-document destinations, stays entirely
 browser-owned, and is never converted into a forced reload. That ownership is recovery provenance only; it
 carries no mutation request or authority into the newer GET.
+
+While committed-mutation recovery ownership is live, a same-context
+cross-document link or form that reaches the finalizer but cannot be enhanced
+safely is refused before its request starts. The current document recovers
+committed truth and the user may retry from the fresh document. A native
+response that creates no document exposes neither a completion event nor a
+status to the old document, so a timeout would race a slow GET or POST.
+Separate-context and explicit request-privacy activations remain browser-owned.
+No native-departure timeout is evidence of completion.
 
 The redirect GET is not mutation recovery and carries no action body, proof,
 or mutation authority. A newer eligible navigation may cancel and supersede
@@ -229,7 +246,9 @@ permuted result suppression, cancellation/supersession, unsafe-boundary
 refusal, post-handoff edit, caret/selection, and file-identity refusal, pending
 owner isolation, enhanced and native
 supersession recovery, recovery when native activation remains in the current
-document, teardown-safe same-resource fragment reload with history-stage
+document, pre-request refusal for observable unenhanceable same-context
+departures without elapsed-time inference, separate-context middle-button
+ownership, teardown-safe same-resource fragment reload with history-stage
 failure preservation and synchronous cancelled-close recovery, redirect-chain
 fragment reload, selected and unsafe traversal cancellation recovery, inherited
 GET-form push rollback, same- and same-hash native GET-form supersession with
@@ -238,8 +257,10 @@ referrer-policy refusal,
 redirect-result consumption, explicit empty-fragment delimiter preservation,
 final separate-context target recovery, initially external and already-cancelled
 link recovery, external-context `noreferrer` ownership, cancellation observed before the
-runtime submit listener, stopped-submit native destination retention, dialog
-method revalidation, control-ancestry refusal, failed history-repair native
-replacement, recovery-GET supersession continuity, no repeated mutation, redacted causal flow, and
+runtime submit listener, stopped-submit refusal or safe fragment observation,
+image-submitter and final-`formdata` retention, bounded handoff-snapshot
+refusal, dialog method revalidation, control-ancestry refusal, failed
+history-repair native replacement, recovery-GET supersession continuity, no
+repeated mutation, redacted causal flow, and
 current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`
 retains every prior native, browser, security, package, and release gate.

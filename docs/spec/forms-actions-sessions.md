@@ -171,11 +171,16 @@ history, including a same-hash activation; explicit request-privacy directives
 remain native and are never replaced by a forced reload. Selected-push rollback
 and synchronous teardown during a cancelled fragment reload retain the
 committed mutation's current-truth recovery owner. The rollback completes
-before recovery so Back reaches the preceding page. If submit propagation stops
-before the window finalizer and a later listener prevents departure, the
-post-dispatch observer recovers current truth without constructing `FormData`.
-A stopped but unprevented native GET submission instead retains the final
-destination derived from the browser's single successful-control construction.
+before recovery so Back reaches the preceding page. Handoff capture has bounded
+control, record, and UTF-8 byte budgets; an over-limit handoff refuses private
+publication before serializing controls. If submit propagation is already
+stopped when the runtime observes a same-context form, the runtime refuses it
+while the event is cancelable and recovers current truth without constructing
+`FormData`. If a later listener stops propagation and the browser selects a
+safe same-document fragment, the observer retains the browser's one `FormData`
+object, accepts an image submitter from that browser-owned entry list, derives
+the destination after every `formdata` listener, and stops observing before a
+later programmatic construction can replace that snapshot.
 A submission cancelled by a later document listener after it reaches the
 window finalizer, or already cancelled before the runtime document listener,
 recovers through the same no-serialization path. Final target ownership may
@@ -185,6 +190,14 @@ finalization re-reads destination, target, download ownership, and privacy
 directives after document listeners; an activation that leaves the current
 document in place remains browser-owned while that document recovers committed
 truth.
+Modified-primary and middle-button activations use the same separate-context
+ownership. A same-context cross-document activation that reaches the finalizer
+but cannot be enhanced safely is refused before its request starts while
+committed recovery is live; current truth recovers and the user may retry. No
+timeout treats elapsed time as native completion. A cross-document activation
+hidden from the finalizer by a later propagation stop remains browser-owned,
+and the runtime makes no private freshness claim because the old document
+cannot observe a no-document response.
 The final effective method is equally authoritative: a retained `dialog`
 submission recovers without document departure, while a listener-selected GET
 uses its final native destination. Handoff equality includes exact bounded

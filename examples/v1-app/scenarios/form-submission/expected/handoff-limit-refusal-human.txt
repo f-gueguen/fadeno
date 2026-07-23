@@ -1,0 +1,1 @@
+Action ordering refusal: the redirect handoff snapshot was bounded before serializing application-owned controls. An oversized disabled value could not consume unbounded browser memory, so private destination publication was refused, native current truth loaded, and the mutation was not repeated.

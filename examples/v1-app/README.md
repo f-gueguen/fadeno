@@ -130,20 +130,23 @@ A same-document native GET form that supersedes pending redirect work also
 loads a fresh fragment-bearing current-truth document instead of retaining
 stale markup. If its submit event stops before the window finalizer and a later
 listener prevents departure, current truth still recovers without serializing
-the form. If that stopped submission remains unprevented, the browser's single
-successful-control serialization supplies the final native destination instead.
+the form. A same-context form already hidden from the finalizer is refused
+while it remains cancelable. When propagation stops only after runtime
+observation and the browser selects a same-document fragment, the browser's
+single successful-control object supplies the final destination instead.
 The same recovery happens when the submit reaches the window only
 after a later document listener cancelled it, or was already cancelled before
 the runtime document listener. A retained `dialog` submission recovers without
 departure, while a late change from `dialog` to GET follows the final native
-destination. Observation uses the final privacy state and the last native
-`FormData` snapshot, including when application code constructs an earlier
-snapshot without an extra serialization. Cancellation registered by a later
+destination. Observation uses final privacy state and the browser-owned
+`FormData` object after all listeners, accepts image submitters on that native
+path, and closes before a later microtask constructs an unrelated snapshot.
+Cancellation registered by a later
 `beforeunload` listener or `onbeforeunload` assignment is still
-observed, while a slow ineligible native POST keeps browser ownership without a
-racing private recovery. If a native form receives a response that retains the
-current document, bounded observation recovers current truth afterward. A
-modified primary click and a later target change into a separate browsing
+observed. An observable ineligible same-context cross-document form or link is
+refused before its request while committed recovery is pending; no timeout
+races a slow request or claims to detect a response that creates no document.
+A modified-primary or middle-button click and a later target change into a separate browsing
 context leaves that destination native while the opener recovers current truth.
 An initially eligible or policy-protected link is not finalized until later
 document listeners finish, so their cancellation and final link attributes
@@ -152,7 +155,7 @@ browser's selected history entry is not staged a second time.
 If a second cancelled activation supersedes an in-flight recovery GET, the new
 GET retains recovery ownership and still clears stale markup. Delayed native
 recovery remains attached when a newer enhanced operation takes ownership, so
-the older timer neither overwrites that operation nor abandons committed truth.
+obsolete work neither overwrites that operation nor abandons committed truth.
 Explicit and
 empty fragment delimiters both force a fresh native document. If its
 pushed-fragment reload is cancelled, rollback happens before
@@ -161,9 +164,12 @@ also detects untracked form-associated custom controls, checkbox indeterminate
 state, exact control-ancestry
 changes, and disabled-state changes inherited from `fieldset` and `optgroup`,
 exact optgroup hierarchy, and stays authoritative through interrupted-departure
-recovery. A failed fragment push repairs the current entry without traversing
+recovery. Control count, record count, and aggregate UTF-8 bytes are bounded
+before values are serialized; an oversized disabled control produces a tested
+`FADENO_UPDATE_LIMIT` refusal and native current-truth recovery. A failed fragment push repairs the current entry without traversing
 Back; if that repair is blocked, native current-truth replacement prevents the
-staged fragment URL from surviving. Late listeners may select the current form target. Link recovery re-reads
+staged fragment URL from surviving. The same replacement applies when a
+cancelled cross-resource traversal cannot repair its selected URL. Late listeners may select the current form target. Link recovery re-reads
 the destination, target, download state, and privacy directives after document
 listeners; an initially external, later external, or already-cancelled trusted
 activation cannot leave obsolete redirect work publishing in the current

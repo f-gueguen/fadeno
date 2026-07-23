@@ -2,7 +2,7 @@
   "schema": "fadeno.example.action-ordering-submit-propagation-recovery",
   "version": 1,
   "mutationRequests": 10,
-  "redirectAndRecoveryGets": 21,
+  "redirectAndRecoveryGets": 22,
   "formDataEvents": 0,
   "lateWindowCancellation": {
     "redirectAndRecoveryGets": 2,
@@ -14,10 +14,10 @@
     "formDataEvents": 0,
     "currentTruthVisible": true
   },
-  "stoppedNativeFragmentSelection": {
-    "redirectAndNativeGets": 2,
-    "formDataEvents": 1,
-    "finalHash": "#details",
+  "stoppedPropagationRefusal": {
+    "redirectAndRecoveryGets": 2,
+    "formDataEvents": 0,
+    "finalHash": "",
     "currentTruthVisible": true
   },
   "dialogRecovery": {
@@ -42,14 +42,15 @@
     "nativeDestinationGets": 0,
     "currentTruthVisible": true
   },
-  "nativeFormOwnership": {
-    "prematureRecoveryGets": 0,
-    "nativePostRequests": 1,
-    "finalPath": "/native-owned"
+  "nativeFormRefusal": {
+    "currentTruthGets": 1,
+    "nativePostRequests": 0,
+    "waitedPastUnsafeHeuristicMs": 1200,
+    "currentTruthVisible": true
   },
-  "nativeNoContentRecovery": {
+  "nativeNoDocumentLinkRefusal": {
     "redirectAndRecoveryGets": 2,
-    "nativeNoContentRequests": 1,
+    "nativeNoContentRequests": 0,
     "currentTruthVisible": true
   },
   "redirectChainRuns": 10,

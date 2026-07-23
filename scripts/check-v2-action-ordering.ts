@@ -25,6 +25,8 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/staged-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json",
+  "examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/handoff-caret-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/handoff-caret-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/pending-handoff.json",
@@ -76,7 +78,8 @@ for (const fragment of [
   "exact bounded parent ancestry",
   "trusted click already cancelled",
   "external-context form",
-  "final native GET destination",
+  "aggregate records",
+  "No native-departure timeout is evidence of completion",
   "`dialog` method",
   "repair itself fails",
   "same frozen handoff predicate",
@@ -104,15 +107,13 @@ for (const feature of ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "S
 const risks = read("docs/ledgers/risks.md");
 assert.equal(risks.includes("ADR 0052 consumes mutation and redirect-GET results independently"), true);
 assert.equal(risks.includes("redirect GET reuses mutation identity or an admitted result"), true);
-assert.equal(risks.includes("fails to recover when native activation is prevented"), true);
-assert.equal(risks.includes("unsafe destination constructs form data"), true);
+assert.equal(risks.includes("refuses observable unenhanceable same-context departures"), true);
+assert.equal(risks.includes("elapsed time races a live native GET or POST"), true);
 assert.equal(risks.includes("effective disabled inheritance"), true);
-assert.equal(risks.includes("rolls back only a committed pushed fragment before current-truth recovery"), true);
+assert.equal(risks.includes("bounds control/record/byte handoff capture before serialization"), true);
 assert.equal(risks.includes("exact option/optgroup hierarchy"), true);
-assert.equal(risks.includes("repairs a failed push in place"), true);
-assert.equal(risks.includes("bounded control-ancestry identity"), true);
-assert.equal(risks.includes("already cancelled before runtime handling"), true);
-assert.equal(risks.includes("external-context forms"), true);
+assert.equal(risks.includes("accepts image submitters only with browser-owned entries"), true);
+assert.equal(risks.includes("modified-primary/middle-button destinations"), true);
 assert.equal(risks.includes("failed repair retains a staged URL"), true);
 
 const browser = read("packages/framework/src/internal/browser-navigation.ts");
@@ -164,7 +165,18 @@ for (const fragment of [
   "nativeMutationRecoveryCarrier !== operation",
   "stopCancelledDepartureObservation?.()",
   'recovery.recoverCancelledMutation("replace")',
+  "maximumPrivateFormHandoffBytes",
+  "maximumPrivateFormHandoffRecords",
+  "maximumPrivateFormHandoffControls",
+  "privateFormHandoffWithinLimit",
+  "refuseUnobservableSameContextDeparture",
+  "auxclick",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
+assert.equal(browser.includes("recoverWithoutDeparture"), false, "native completion must not be inferred by timeout");
+const browserForm = read("packages/framework/src/internal/browser-form.ts");
+for (const fragment of ["allowNativeImage", 'value.type === "image"', "selectedDestination"]) {
+  assert.equal(browserForm.includes(fragment), true, `native form observation is missing ${fragment}`);
+}
 assert.equal(
   browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
     && browser.indexOf('repairDisplayedTruth(\n                  recovery.truthUrl') < browser.indexOf('recovery.recoverCancelledMutation("replace");'),
@@ -185,7 +197,7 @@ for (const fragment of [
   "fresh cancellable GET",
   "newer eligible navigation supersedes that GET",
   "cancelled native departure reloads committed current truth",
-  "activation stays in the document",
+  "observable ineligible same-context",
   "history staging fails",
   "caret/selection range and direction",
   "newer submission's busy state",
@@ -193,7 +205,7 @@ for (const fragment of [
   "does not trigger a second `formdata` event",
   "Explicit referrer-policy and `noreferrer`",
   "selected-push rollback",
-  "post-dispatch path never calls `preventDefault()`",
+  "stops observation before a later microtask serialization",
   "before any `FormData` construction",
   "exact option identity",
   "option disabled state inherited from an `optgroup`",
@@ -209,7 +221,7 @@ for (const fragment of [
   "trusted click already cancelled before the runtime document listener",
   "external-context forms",
   "listener change from `dialog` to GET",
-  "browser's final native GET destination",
+  "accepts an image submitter",
   "native replacement immediately returns to current truth",
 ]) assert.equal(navigationSpecification.includes(fragment), true, `navigation specification is missing ${fragment}`);
 
@@ -227,7 +239,8 @@ for (const fragment of [
   "Final target ownership is resolved after document submit listeners",
   "already cancelled before the runtime document listener",
   "separate browsing context",
-  "stopped but unprevented native GET submission",
+  "accepts an image submitter",
+  "No timeout treats elapsed time as native completion",
   "retained `dialog` submission",
   "exact bounded control ancestry",
 ]) assert.equal(formSpecification.includes(fragment), true, `form specification is missing ${fragment}`);
@@ -236,22 +249,20 @@ const threatModel = read("docs/security/browser-update-threat-model.md").replace
 for (const fragment of [
   "V2-07's mutation-to-redirect-GET ownership selected by ADR 0052",
   "Mutation-to-redirect-GET handoff loses identity, preservation, or recovery ownership",
-  "post-handoff edit/file/caret/ancestry refusal",
+  "post-handoff edit/file/caret/ancestry/attribute/option/disabled and resource-limit refusal",
   "selected/unsafe traversal cancellation",
-  "committed and failed GET-form push recovery",
+  "final-`formdata`/image/microtask evidence",
   "cancelled-close recovery",
-  "zero-forced-request policy-protected fragment evidence",
-  "propagation-stopped native-destination and late-cancelled submit recovery",
-  "late and initially external link ownership",
-  "separate-context and already-cancelled-link recovery",
+  "zero-forced-request protected fragments",
+  "stopped-propagation refusal or safe fragment observation",
+  "modified-primary/middle-button and privacy ownership",
+  "no-timeout slow-departure refusal",
   "dialog final-method handling",
   "failed-repair native replacement",
-  "external-context `noreferrer` ownership",
   "recovery-GET supersession continuity",
   "empty-fragment delimiter",
   "recovery-time handoff refusal",
-  "same- and cross-document policy ownership",
-  "unsafe-destination preflight",
+  "same/same-hash/empty-fragment reload",
   "V2-08 and V2-09 must qualify structural reconciliation",
 ]) assert.equal(threatModel.includes(fragment), true, `browser update threat model is missing ${fragment}`);
 assert.equal(threatModel.includes("V2-07 through V2-09 must qualify complete action ordering"), false);
@@ -273,9 +284,11 @@ for (const fragment of [
   "close is cancelled during the redirect GET",
   "staged redirect URL before cancelled replacement recovery",
   "form edits made after redirect handoff",
+  "bounds redirect handoff snapshots before serializing application-owned controls",
   "newer GET supersedes the redirect",
   "native activation supersedes the redirect",
   "native activation has no document departure",
+  'button: "middle"',
   "same-document native GET form that supersedes the redirect",
   "serialized successful controls once",
   "control-attribute",
@@ -292,7 +305,8 @@ for (const fragment of [
   "frozen handoff snapshot through interrupted-departure recovery",
   "fragment push that failed before staging an entry",
   "control ancestry",
-  "stoppedNativeFragmentSelection",
+  "stoppedPropagationRefusal",
+  "native-image-submitter",
   "lateDialogMethod",
   "repairFailureRecovery",
   "optgroup-hierarchy",
@@ -303,6 +317,7 @@ for (const fragment of [
   "submitted-control caret change made after redirect handoff",
   "newer submission pending owner after redirect handoff",
   "selected traversal URLs and retains recovery through unsafe traversal",
+  "intentional traversal repair write failure",
   "intentional inherited GET form commit failure",
   "authenticated CRUD through native documents without JavaScript",
 ]) assert.equal(tests.includes(fragment), true, `V2-07 browser evidence is missing ${fragment}`);
@@ -323,6 +338,7 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json", '"ancestryRecovered": true'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json", '"customControlRecovered": true'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-edit-recovery.json", '"indeterminateRecovered": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"flowCode": "FADENO_UPDATE_LIMIT"'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-caret-recovery.json", '"newerCaretNotOverwritten": true'],
   ["examples/v1-app/scenarios/form-submission/expected/pending-handoff.json", '"newerPendingRetained": true'],
   ["examples/v1-app/scenarios/form-submission/expected/supersession-recovery.json", '"currentTruthVisible": true'],
@@ -332,21 +348,23 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"initialExternalContextRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"preCancelledLinkRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"modifiedPrimaryContextRecovery"'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"middleButtonContextRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"lateCancelledEligibleLink"'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"removedPolicyCancellation"'],
   ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"unsafeDestinationFormDataEvents": 0'],
-  ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"nativeCurrentTruthGetsAtLeastThree": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"nativeCurrentTruthGetsAtLeastFive": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"imageSubmitterFormDataEvents": 2'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"formDataEvents": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"lateWindowCancellation"'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"captureCancellation"'],
-  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"stoppedNativeFragmentSelection"'],
+  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"stoppedPropagationRefusal"'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"dialogRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"lateDialogMethod"'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"finalFormStateRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"formDataEvents": 2'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"nativeDestinationGets": 0'],
-  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"prematureRecoveryGets": 0'],
-  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"nativeNoContentRecovery"'],
+  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"waitedPastUnsafeHeuristicMs": 1200'],
+  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"nativeNoDocumentLinkRefusal"'],
   ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"finalHash": "#details"'],
   ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"externalContextRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"externalNoreferrerOwnership"'],
@@ -361,6 +379,7 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/fragment-redirect-chain.json", '"nativeDestinationGets": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/redirect-get-consumption.json", '"duplicateResultRefused": true'],
   ["examples/v1-app/scenarios/form-submission/expected/traversal-recovery.json", '"getFormPushFailure"'],
+  ["examples/v1-app/scenarios/form-submission/expected/traversal-recovery.json", '"repairWriteFailure"'],
 ] as const) assert.equal(read(path).includes(fragment), true, `${path} is missing ${fragment}`);
 assert.equal(
   read("examples/v1-app/scenarios/form-submission/expected/fragment-redirect.json").includes('"historyFailureHandoff"'),
@@ -388,6 +407,8 @@ for (const fragment of [
   '"scenarios/form-submission/expected/staged-recovery.json"',
   '"scenarios/form-submission/expected/handoff-edit-recovery.json"',
   '"scenarios/form-submission/expected/handoff-edit-recovery-human.txt"',
+  '"scenarios/form-submission/expected/handoff-limit-refusal.json"',
+  '"scenarios/form-submission/expected/handoff-limit-refusal-human.txt"',
   '"scenarios/form-submission/expected/handoff-caret-recovery.json"',
   '"scenarios/form-submission/expected/handoff-caret-recovery-human.txt"',
   '"scenarios/form-submission/expected/pending-handoff.json"',
@@ -447,10 +468,4 @@ assert.equal(
   true,
   "recovery supersession continuity must participate in stale artifact cleanup",
 );
-assert.equal(
-  browser.includes("globalThis.clearTimeout(recoveryTimer)"),
-  true,
-  "cancelled-departure cleanup must cancel its delayed recovery owner",
-);
-
 console.log("V2-07 action ordering contract passed (redirect GET handoff, authenticated CRUD, stale suppression, and native recovery)");

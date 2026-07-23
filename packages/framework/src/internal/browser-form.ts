@@ -35,11 +35,15 @@ function effectiveAttribute(
   return submitter?.hasAttribute(submitterAttribute) ? submitterValue() : formValue();
 }
 
-function validSubmitter(form: HTMLFormElement, value: SubmitEvent["submitter"]): PrivateFormSubmitter | undefined | false {
+function validSubmitter(
+  form: HTMLFormElement,
+  value: SubmitEvent["submitter"],
+  allowNativeImage = false,
+): PrivateFormSubmitter | undefined | false {
   if (value === null) return undefined;
   if (!(value instanceof HTMLButtonElement || value instanceof HTMLInputElement) || value.form !== form) return false;
   if (value instanceof HTMLButtonElement) return value.type === "submit" ? value : false;
-  return value.type === "submit" ? value : false;
+  return value.type === "submit" || (allowNativeImage && value.type === "image") ? value : false;
 }
 
 function safeDestination(value: string): URL | undefined {
@@ -120,14 +124,14 @@ function encodeControls(data: FormData): URLSearchParams {
   return encoded;
 }
 
-export function privateNativeGetFormDestination(
+export function privateNativeGetFormDestinationBase(
   form: HTMLFormElement,
   candidate: SubmitEvent["submitter"],
-  successfulControls?: FormData,
+  allowNativeImage = false,
 ): URL | undefined {
   if (!form.isConnected || form.ownerDocument !== document) return undefined;
   if (form.relList.contains("noreferrer")) return undefined;
-  const submitter = validSubmitter(form, candidate);
+  const submitter = validSubmitter(form, candidate, allowNativeImage);
   if (submitter === false) return undefined;
   const method = effectiveAttribute(
     submitter,
@@ -160,6 +164,21 @@ export function privateNativeGetFormDestination(
     || destination.origin !== current.origin
     || destination.username !== ""
     || destination.password !== "") return undefined;
+  return destination;
+}
+
+export function privateNativeGetFormDestination(
+  form: HTMLFormElement,
+  candidate: SubmitEvent["submitter"],
+  successfulControls?: FormData,
+  selectedDestination?: URL,
+): URL | undefined {
+  const destination = selectedDestination
+    ? new URL(selectedDestination.href)
+    : privateNativeGetFormDestinationBase(form, candidate, successfulControls !== undefined);
+  if (!destination) return undefined;
+  const submitter = validSubmitter(form, candidate, successfulControls !== undefined);
+  if (submitter === false) return undefined;
   try {
     const data = successfulControls ?? (submitter ? new FormData(form, submitter) : new FormData(form));
     destination.search = encodeControls(data).toString();

@@ -60,8 +60,13 @@ exactly one pending minor Changeset is required.
   already-cancelled and initially external link recovery, external-context form
   privacy ownership, stopped-submit destination observation, bounded control
   ancestry, final dialog-method handling, failed-repair native replacement, and
-  obsolete policy-owned operation cancellation in permanent three-browser evidence
-  before merge.
+  obsolete policy-owned operation cancellation; then close the final review
+  boundary with pre-serialization handoff record/byte/control limits,
+  browser-owned image submitters, post-listener `FormData` derivation,
+  post-default observer cleanup, middle-button opener recovery, traversal
+  repair-write native replacement, and a no-timeout refusal contract for
+  observable unenhanceable same-context departures in permanent three-browser
+  evidence before merge.
 
 ## Blockers
 

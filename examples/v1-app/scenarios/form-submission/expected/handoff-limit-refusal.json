@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-handoff-limit-refusal",
+  "version": 1,
+  "snapshotValueBytes": 307200,
+  "mutationRequests": 1,
+  "nativeCurrentTruthGets": 1,
+  "flowCode": "FADENO_UPDATE_LIMIT",
+  "flowStatus": "refused",
+  "flowOutcome": "native-navigation",
+  "mutationRetrySkipped": true,
+  "currentTruthVisible": true
+}

@@ -269,16 +269,18 @@ An admitted action redirect first consumes the mutation result, clears its
 pending owner, and releases the mutation operation. A fresh cancellable GET
 operation with a newer sequence then owns the redirect destination through the
 same document, history, focus, scroll, and stale-result checks as an eligible
-link. Handoff freezes the submitted controls, selected `File` identities,
+link. Handoff bounds control count, aggregate records, and UTF-8 bytes before
+serializing any control value; over-limit evidence refuses private destination
+publication. An admitted handoff freezes the submitted controls, selected `File` identities,
 active element, and a focused text control's caret/selection range and
 direction; a later edit, file/control replacement, focus change, or selection
 change refuses private publication. Pending cleanup is one-shot and cannot
 clear a newer submission's busy state. A newer eligible navigation supersedes that GET while
 inheriting committed-current-truth recovery until a replacement document or
-native departure commits. An ineligible same-context activation keeps the same
-recovery owner until its native departure commits or is cancelled. If that
-activation stays in the document because a later listener prevents it, the
-same recovery owner fetches committed current truth. A selected same-document
+native departure commits. An observable ineligible same-context
+cross-document activation is refused while it remains cancelable; current
+truth recovers before any native request, and no elapsed-time threshold infers
+completion. A selected same-document
 fragment, whether selected by a link or native GET form, instead reloads the
 fragment-bearing destination as a fresh document. Native fragment
 supersession stages a new history entry, including for a same-hash activation,
@@ -289,21 +291,24 @@ a second `formdata` event. The final link destination, browsing context,
 download ownership, and privacy directives are read again after document
 listeners. Explicit referrer-policy and `noreferrer` activations, including
 external-context forms, retain browser ownership and are not converted into
-forced reloads. An activation that leaves
-the current document in place, including an initially or finally selected browsing context or a
-non-document handler, preserves browser ownership while committed current truth
-recovers in the current document. A trusted click already cancelled before the
+forced reloads. An activation that selects another browsing context, including
+modified-primary and middle-button activation, preserves browser ownership
+while committed current truth recovers in the opener. A trusted click already cancelled before the
 runtime document listener cancels obsolete redirect work and begins the same
 current-truth recovery.
 A preinstalled window finalizer observes final document-listener edits before
 it constructs a native GET destination. It validates origin, credentials,
 protocol, method, target, trust, and request-privacy eligibility before any
 `FormData` construction; only then may it construct successful controls once
-and prevent the still-cancelable native default. If propagation is stopped,
-the post-dispatch path never calls `preventDefault()` and never stages a second
-history entry; it derives the browser's final native GET destination from the
-one successful-control construction, reloads the already selected fragment, or
-recovers a prevented activation. A final `dialog` method that cannot depart
+and prevent the still-cancelable native default. If propagation was already
+stopped when the runtime observes a same-context form, the runtime refuses it
+without serialization. If a later listener stops propagation and the browser
+selects a same-document fragment, the post-dispatch path retains the browser's
+one successful-control object, accepts an image submitter from that native
+entry list, derives the destination after all `formdata` listeners, stops
+observation before a later microtask serialization, and never stages a second
+history entry. A listener-hidden cross-document activation remains
+browser-owned without a private freshness claim. A final `dialog` method that cannot depart
 recovers current truth, while a listener change from `dialog` to GET follows
 the final native destination. A submission that reaches the window finalizer already
 cancelled by a later document listener recovers immediately rather than waiting
