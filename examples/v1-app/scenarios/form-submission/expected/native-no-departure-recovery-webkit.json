@@ -54,9 +54,9 @@
     "openerCurrentTruthVisible": true
   },
   "middleButtonContextRecovery": {
-    "redirectAndRecoveryGets": 2,
-    "driverSupport": "available",
-    "browserOwnedActivationAllowed": true,
+    "redirectAndRecoveryGets": 1,
+    "driverSupport": "unavailable",
+    "browserOwnedActivationAllowed": null,
     "openerCurrentTruthVisible": true
   },
   "preCancelledLinkRecovery": {

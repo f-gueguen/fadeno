@@ -148,6 +148,9 @@ refused before its request while committed recovery is pending; no timeout
 races a slow request or claims to detect a response that creates no document.
 A modified-primary or middle-button click and a later target change into a separate browsing
 context leaves that destination native while the opener recovers current truth.
+The automated middle-button proof runs only where the headless browser driver
+emits a trusted auxiliary activation; an engine-specific fixture records the
+unavailable driver capability explicitly instead of synthesizing browser trust.
 An initially eligible or policy-protected link is not finalized until later
 document listeners finish, so their cancellation and final link attributes
 remain authoritative. If propagation stops after a late fragment change, the

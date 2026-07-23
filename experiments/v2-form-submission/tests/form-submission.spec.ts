@@ -813,7 +813,7 @@ test("retains committed-mutation recovery when native activation supersedes the 
     .toContain("native supersession retained mutation recovery ownership");
 });
 
-test("recovers committed truth when native activation has no document departure", async ({ page }) => {
+test("recovers committed truth when native activation has no document departure", async ({ page, browserName }) => {
   const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
   await page.addInitScript(() => document.addEventListener("click", (event) => {
@@ -1094,32 +1094,46 @@ test("recovers committed truth when native activation has no document departure"
   await expect.poll(() => projectGets(true)).toBe(middlePrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   const pagesBeforeMiddleClick = new Set(page.context().pages());
-  let resolveMiddleActivationAllowed: (allowed: boolean) => void = () => undefined;
-  const middleActivationAllowed = new Promise<boolean>((resolve) => {
-    resolveMiddleActivationAllowed = resolve;
-  });
-  await page.exposeFunction("fadenoRecordMiddleActivationAllowed", (allowed: boolean) => {
-    resolveMiddleActivationAllowed(allowed);
-  });
-  await page.getByRole("link", { name: "Search" }).evaluate((link) => {
-    link.setAttribute("href", "/");
-    document.addEventListener("auxclick", (event) => {
-      if (event.button !== 1 || !(event.target instanceof Element) || event.target.closest("a") !== link) return;
-      const record = Reflect.get(globalThis, "fadenoRecordMiddleActivationAllowed") as
-        | ((allowed: boolean) => void)
-        | undefined;
-      record?.(!event.defaultPrevented);
-    }, { once: true });
-  });
-  await page.getByRole("link", { name: "Search" }).click({ button: "middle", noWaitAfter: true });
-  const browserOwnedActivationAllowed = await middleActivationAllowed;
-  expect(browserOwnedActivationAllowed).toBe(true);
-  await expect.poll(() => projectGets(true) + projectGets(false))
-    .toBe(middlePrivateBefore + middleNativeBefore + 2);
-  releaseHeldResponse?.();
+  let browserOwnedActivationAllowed: boolean | null = null;
+  if (browserName === "webkit") {
+    releaseHeldResponse?.();
+    await expect.poll(() => projectGets(true) + projectGets(false))
+      .toBe(middlePrivateBefore + middleNativeBefore + 1);
+  } else {
+    let resolveMiddleActivationAllowed: (allowed: boolean) => void = () => undefined;
+    const middleActivationAllowed = new Promise<boolean>((resolve) => {
+      resolveMiddleActivationAllowed = resolve;
+    });
+    await page.exposeFunction("fadenoRecordMiddleActivationAllowed", (allowed: boolean) => {
+      resolveMiddleActivationAllowed(allowed);
+    });
+    await page.getByRole("link", { name: "Search" }).evaluate((link) => {
+      link.setAttribute("href", "/");
+      document.addEventListener("auxclick", (event) => {
+        if (event.button !== 1 || !(event.target instanceof Element) || event.target.closest("a") !== link) return;
+        const record = Reflect.get(globalThis, "fadenoRecordMiddleActivationAllowed") as
+          | ((allowed: boolean) => void)
+          | undefined;
+        record?.(!event.defaultPrevented);
+      }, { once: true });
+    });
+    const middleLinkBox = await page.getByRole("link", { name: "Search" }).boundingBox();
+    expect(middleLinkBox).not.toBeNull();
+    await page.mouse.click(
+      middleLinkBox!.x + middleLinkBox!.width / 2,
+      middleLinkBox!.y + middleLinkBox!.height / 2,
+      { button: "middle" },
+    );
+    browserOwnedActivationAllowed = await middleActivationAllowed;
+    expect(browserOwnedActivationAllowed).toBe(true);
+    await expect.poll(() => projectGets(true) + projectGets(false))
+      .toBe(middlePrivateBefore + middleNativeBefore + 2);
+    releaseHeldResponse?.();
+  }
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   const middleButtonContextRecovery = {
     redirectAndRecoveryGets: projectGets(true) + projectGets(false) - middlePrivateBefore - middleNativeBefore,
+    driverSupport: browserName === "webkit" ? "unavailable" : "available",
     browserOwnedActivationAllowed,
     openerCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
@@ -1228,7 +1242,9 @@ test("recovers committed truth when native activation has no document departure"
     lateCancelledEligibleLink,
     removedPolicyCancellation,
     mutationRetried: privateMutations().length - mutationsBefore > 14,
-  }).toEqual(expected("native-no-departure-recovery"));
+  }).toEqual(expected(browserName === "webkit"
+    ? "native-no-departure-recovery-webkit"
+    : "native-no-departure-recovery"));
   expect(readFileSync(join(outputRoot, "expected-native-no-departure-recovery-human.txt"), "utf8"))
     .toContain("native activation stayed in the document");
 });

@@ -36,6 +36,7 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/native-supersession-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json",
+  "examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery-webkit.json",
   "examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery-human.txt",
@@ -351,6 +352,8 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"middleButtonContextRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"lateCancelledEligibleLink"'],
   ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery.json", '"removedPolicyCancellation"'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery-webkit.json", '"driverSupport": "unavailable"'],
+  ["examples/v1-app/scenarios/form-submission/expected/native-no-departure-recovery-webkit.json", '"browserOwnedActivationAllowed": null'],
   ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"unsafeDestinationFormDataEvents": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"nativeCurrentTruthGetsAtLeastFive": true'],
   ["examples/v1-app/scenarios/form-submission/expected/native-form-fragment-recovery.json", '"imageSubmitterFormDataEvents": 2'],
@@ -418,6 +421,7 @@ for (const fragment of [
   '"scenarios/form-submission/expected/native-supersession-recovery.json"',
   '"scenarios/form-submission/expected/native-supersession-recovery-human.txt"',
   '"scenarios/form-submission/expected/native-no-departure-recovery.json"',
+  '"scenarios/form-submission/expected/native-no-departure-recovery-webkit.json"',
   '"scenarios/form-submission/expected/native-no-departure-recovery-human.txt"',
   '"scenarios/form-submission/expected/native-form-fragment-recovery.json"',
   '"scenarios/form-submission/expected/native-form-fragment-recovery-human.txt"',
@@ -453,6 +457,13 @@ assert.equal(
   ),
   true,
   "native no-departure recovery must participate in stale artifact cleanup",
+);
+assert.equal(
+  documentationSourceDocument.evidence?.staleRemoval?.includes(
+    "scenarios/form-submission/expected/native-no-departure-recovery-webkit.json",
+  ),
+  true,
+  "unavailable auxiliary-driver evidence must participate in stale artifact cleanup",
 );
 assert.equal(
   documentationSourceDocument.evidence?.staleRemoval?.includes(
