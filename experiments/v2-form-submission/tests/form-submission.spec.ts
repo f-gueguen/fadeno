@@ -1092,30 +1092,33 @@ test("recovers committed truth when native activation has no document departure"
   await expect.poll(() => projectGets(true)).toBe(middlePrivateBefore + 1);
   await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   const pagesBeforeMiddleClick = new Set(page.context().pages());
+  let resolveMiddleActivationAllowed: (allowed: boolean) => void = () => undefined;
+  const middleActivationAllowed = new Promise<boolean>((resolve) => {
+    resolveMiddleActivationAllowed = resolve;
+  });
+  await page.exposeFunction("fadenoRecordMiddleActivationAllowed", (allowed: boolean) => {
+    resolveMiddleActivationAllowed(allowed);
+  });
   await page.getByRole("link", { name: "Search" }).evaluate((link) => {
     link.setAttribute("href", "/");
-    sessionStorage.setItem("fadeno-middle-activation-allowed", "false");
     document.addEventListener("auxclick", (event) => {
       if (event.button !== 1 || !(event.target instanceof Element) || event.target.closest("a") !== link) return;
-      queueMicrotask(() => sessionStorage.setItem(
-        "fadeno-middle-activation-allowed",
-        String(!event.defaultPrevented),
-      ));
+      const record = Reflect.get(globalThis, "fadenoRecordMiddleActivationAllowed") as
+        | ((allowed: boolean) => void)
+        | undefined;
+      record?.(!event.defaultPrevented);
     }, { once: true });
   });
   await page.getByRole("link", { name: "Search" }).click({ button: "middle", noWaitAfter: true });
-  await expect.poll(() => page.evaluate(() => sessionStorage.getItem("fadeno-middle-activation-allowed")))
-    .toBe("true");
-  await page.waitForTimeout(0);
-  releaseHeldResponse?.();
+  const browserOwnedActivationAllowed = await middleActivationAllowed;
+  expect(browserOwnedActivationAllowed).toBe(true);
   await expect.poll(() => projectGets(true) + projectGets(false))
     .toBe(middlePrivateBefore + middleNativeBefore + 2);
+  releaseHeldResponse?.();
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   const middleButtonContextRecovery = {
     redirectAndRecoveryGets: projectGets(true) + projectGets(false) - middlePrivateBefore - middleNativeBefore,
-    browserOwnedActivationAllowed: await page.evaluate(
-      () => sessionStorage.getItem("fadeno-middle-activation-allowed") === "true",
-    ),
+    browserOwnedActivationAllowed,
     openerCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
   for (const contextPage of page.context().pages()) {
@@ -1248,32 +1251,38 @@ test("reloads a same-document native GET form that supersedes the redirect after
   await page.locator("#redirect-chain-form button").click();
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  releaseHeldResponse?.();
   await page.goBack();
   await expect.poll(() => new URL(page.url()).hash).toBe("");
   const backReturnedToFragmentFreeEntry = await page.locator("#viewer").textContent() === "Signed in owner";
-  await page.goForward();
+  await page.goForward({ waitUntil: "commit" });
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect.poll(async () => page.evaluate(() => {
     const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
     return runtime?.state();
   }).catch(() => undefined)).toBe("active");
+  const nativeGetsBeforeSameHash = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
 
   holdNextPrivateGetResponse = true;
   holdNextPrivateGetPath = "/redirect-chain";
   await page.locator("#redirect-chain-form button").click();
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 2);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await observeFormData();
   await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
-    && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 2);
+    && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBeforeSameHash + 1);
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  releaseHeldResponse?.();
   const nativeFragmentHistoryEntries = await page.evaluate(() => history.length) - initialHistoryLength;
   const sameHashRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
   const finalHash = new URL(page.url()).hash;
@@ -1285,6 +1294,7 @@ test("reloads a same-document native GET form that supersedes the redirect after
   await page.locator("#redirect-chain-form button").click();
   await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 3);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
   await observeFormData();
   await page.locator("#native-fragment-form").evaluate((form) => {
     const outside = document.createElement("input");
@@ -1304,6 +1314,7 @@ test("reloads a same-document native GET form that supersedes the redirect after
   await expect.poll(() => new URL(page.url()).search).toBe("");
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  releaseHeldResponse?.();
   const nativeGetsAfterLateListener = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length;
   recoveredNativeGets += nativeGetsAfterLateListener - (nativeGetsBefore + recoveredNativeGets);
