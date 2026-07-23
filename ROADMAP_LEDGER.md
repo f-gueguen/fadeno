@@ -10,22 +10,22 @@ V2-07 — complete enhanced action redirects, revalidation, ordering, and recove
 
 ## Exit criteria
 
-- [ ] Accept one durable action-ordering decision that retains the native route,
+- [x] Accept one durable action-ordering decision that retains the native route,
   resource, action, authorization, proof, replay, session, redirect, and
   revalidation owners.
-- [ ] Complete enhanced redirect, expected-error, validation, and
+- [x] Complete enhanced redirect, expected-error, validation, and
   current-server-truth outcomes without repeating a committed mutation.
-- [ ] Prove complete revalidation and authenticated CRUD ordering for every
+- [x] Prove complete revalidation and authenticated CRUD ordering for every
   boundary that is safe before V2-08 structural reconciliation.
-- [ ] Suppress stale, duplicate, delayed, permuted, cancelled, and superseded
+- [x] Suppress stale, duplicate, delayed, permuted, cancelled, and superseded
   results through protocol-selected ordering and recovery.
-- [ ] Refuse before action interception when an unsafe preservation boundary
+- [x] Refuse before action interception when an unsafe preservation boundary
   would require V2-08 reconciliation.
-- [ ] Extend the isolated current-packed scenario with authenticated CRUD
+- [x] Extend the isolated current-packed scenario with authenticated CRUD
   success, failure, correction, flow, recovery, ordering, and native-baseline
   evidence; retain canonical evaluator integration as the blocking V2-07A
   owner before V2-08.
-- [ ] Add exactly one pending minor Changeset, pass every affected gate and full
+- [x] Add exactly one pending minor Changeset, pass every affected gate and full
   local CI on the final commit, and complete remote review triage.
 
 ## Active sub-slice
