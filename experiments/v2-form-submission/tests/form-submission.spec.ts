@@ -965,6 +965,8 @@ test("recovers committed truth when native activation has no document departure"
   });
   await page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
   releaseHeldResponse?.();
+  await expect.poll(() => projectGets(true) + projectGets(false))
+    .toBe(lateDestinationPrivateBefore + lateDestinationNativeBefore + 2);
   await expect.poll(() => new URL(page.url()).pathname).toBe("/projects");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   const lateDestinationRefusal = {
