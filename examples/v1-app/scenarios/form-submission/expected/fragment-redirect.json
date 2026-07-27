@@ -2,7 +2,7 @@
   "schema": "fadeno.example.action-ordering-fragment-redirect",
   "version": 1,
   "mutationRequests": 3,
-  "privateRedirectGets": 1,
+  "privateRedirectGets": 0,
   "nativeDestinationGetsAtLeastTwo": true,
   "nativeDestinationGetsAtMostThree": true,
   "fragmentRedirectRuns": 3,
@@ -14,7 +14,7 @@
   },
   "teardownFollowedHandoff": true,
   "cancelledCloseRecovery": {
-    "privateCurrentTruthGets": 1,
+    "privateCurrentTruthGets": 0,
     "nativeDestinationGetsAtMostOne": true,
     "finalHash": "#details",
     "currentTruthVisible": true,

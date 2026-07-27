@@ -612,7 +612,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
   const mutationsBefore = privateMutations().length;
   const privateGetsBefore = projectGets(true);
   const nativeGetsBefore = projectGets(false);
-  await page.locator("#sign-in-form button").click();
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 1);
   await page.locator("#passcode").fill("edited-after-handoff");
   await page.locator("#passcode").evaluate((input) => {
@@ -651,7 +651,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
   });
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
-  await page.locator("#sign-in-form button").click();
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 2);
   await page.locator("#handoff-ancestry").evaluate((control) => {
     document.querySelector("#handoff-owner-second")?.append(control);
@@ -661,14 +661,15 @@ test("refuses form edits made after redirect handoff, including untracked custom
   const ancestryRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
 
   await page.context().clearCookies();
-  await page.goto(`${origin}/projects`);
-  await waitForEnhancement(page);
-  await page.locator("#passcode").fill("example-owner");
+  const customPage = await page.context().newPage();
+  await customPage.goto(`${origin}/projects`);
+  await waitForEnhancement(customPage);
+  await customPage.locator("#passcode").fill("example-owner");
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
-  await page.locator("#sign-in-form button").click();
+  await customPage.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 3);
-  await page.locator("#sign-in-form").evaluate((form) => {
+  await customPage.locator("#sign-in-form").evaluate((form) => {
     class HandoffControl extends HTMLElement {
       static formAssociated = true;
       constructor() {
@@ -681,8 +682,8 @@ test("refuses form edits made after redirect handoff, including untracked custom
     control.setAttribute("name", "handoff-custom");
     form.append(control);
   });
-  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  const customControlRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
+  await expect(customPage.locator("#viewer")).toHaveText("Signed in owner");
+  const customControlRecovered = await customPage.locator("#viewer").textContent() === "Signed in owner";
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-handoff-edit-recovery",
@@ -691,7 +692,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
     privateRedirectGets: projectGets(true) - privateGetsBefore,
     nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore - 2,
     signInRuns: state.signInRuns,
-    submittedDocumentNotPublishedOverNewerEdit: await page.locator("#passcode").count() === 0,
+    submittedDocumentNotPublishedOverNewerEdit: await customPage.locator("#passcode").count() === 0,
     controlAttributesRecovered,
     optionIdentityRecovered,
     inheritedDisabledRecovered,
@@ -699,10 +700,11 @@ test("refuses form edits made after redirect handoff, including untracked custom
     indeterminateRecovered,
     ancestryRecovered,
     customControlRecovered,
-    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    currentTruthVisible: await customPage.locator("#viewer").textContent() === "Signed in owner",
   }).toEqual(expected("handoff-edit-recovery"));
   expect(readFileSync(join(outputRoot, "expected-handoff-edit-recovery-human.txt"), "utf8"))
     .toContain("post-handoff edit refused private publication");
+  await customPage.close();
 });
 
 test("tracks customizable-select option parents through redirect handoff", async ({ page }) => {
@@ -2951,7 +2953,7 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
   }).toEqual(expected("fragment-redirect"));
   await emptyPage.close();
   expect(readFileSync(join(outputRoot, "expected-fragment-redirect-human.txt"), "utf8"))
-    .toContain("explicit and empty fragment delimiters selected only with fresh native documents");
+    .toContain("explicit and empty fragment delimiters selected directly with fresh native documents");
 });
 
 test("pushes initial fragment redirect history before the fresh native document", async ({ page }) => {
