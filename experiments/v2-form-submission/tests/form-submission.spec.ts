@@ -635,10 +635,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
-  await expect.poll(async () => page.evaluate(() => {
-    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
-    return runtime?.state();
-  })).toBe("active");
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   await page.locator("#sign-in-form").evaluate((form) => {
     const firstOwner = document.createElement("div");
@@ -665,10 +662,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
 
   await page.context().clearCookies();
   await page.goto(`${origin}/projects`);
-  await expect.poll(async () => page.evaluate(() => {
-    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
-    return runtime?.state();
-  })).toBe("active");
+  await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
