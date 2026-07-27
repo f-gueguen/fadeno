@@ -793,6 +793,36 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     const flows = JSON.parse(sessionStorage.getItem("fadeno-handoff-limit-flow") ?? "[]") as Record<string, unknown>[];
     return flows.find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
   });
+  await page.context().clearCookies();
+  const descendantSetupGetsBefore = projectGets(false);
+  await page.goto(`${origin}/projects`);
+  const descendantSetupGets = projectGets(false) - descendantSetupGetsBefore;
+  await waitForEnhancement(page);
+  await page.locator("#passcode").fill("example-owner");
+  await page.locator("#sign-in-form").evaluate((form) => {
+    const select = document.createElement("select");
+    select.disabled = true;
+    const querySelectorAll = select.querySelectorAll;
+    Object.defineProperty(select, "querySelectorAll", {
+      configurable: true,
+      value(selector: string): NodeListOf<Element> {
+        if (selector === "*") {
+          sessionStorage.setItem("fadeno-descendant-static-list-allocated", "true");
+          throw new TypeError("handoff descendant traversal must stop before static allocation");
+        }
+        return Reflect.apply(querySelectorAll, select, [selector]) as NodeListOf<Element>;
+      },
+    });
+    for (let index = 0; index < 4_097; index += 1) select.append(document.createElement("span"));
+    sessionStorage.setItem("fadeno-descendant-static-list-allocated", "false");
+    form.append(select);
+  });
+  const descendantNativeGetsBefore = projectGets(false);
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await expect.poll(() => projectGets(false)).toBe(descendantNativeGetsBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const descendantStaticListAllocated = await page.evaluate(() =>
+    sessionStorage.getItem("fadeno-descendant-static-list-allocated") === "true");
   await page.locator("#redirect-chain-form").evaluate((form) => {
     const oversized = document.createElement("textarea");
     oversized.disabled = true;
@@ -836,6 +866,8 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     version: 1,
     snapshotValueBytes: 140 * 1024,
     encodedSnapshotBytesExceedLimit: JSON.stringify("\\".repeat(140 * 1024)).length > 256 * 1024,
+    descendantRecords: 4_097,
+    descendantStaticListAllocated,
     singleValueBytes: 2 * 1024 * 1024,
     singleValueWasStringified: await page.evaluate(() =>
       sessionStorage.getItem("fadeno-large-handoff-stringified") === "true"),
@@ -844,7 +876,7 @@ test("bounds redirect handoff snapshots before serializing application-owned con
       method === "GET" && path === "/redirect-chain" && accept !== mediaType).length - nativeRedirectGetsBefore,
     nativeRedirectTerminalGets: transportRequests.filter(({ method, path, accept }) =>
       method === "GET" && path === "/" && accept !== mediaType).length - nativeRedirectTerminalGetsBefore,
-    nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore,
+    nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore - descendantSetupGets,
     flowCode: flow?.["code"],
     flowStatus: flow?.["status"],
     flowOutcome: flow?.["outcome"],

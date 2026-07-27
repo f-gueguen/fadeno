@@ -364,6 +364,8 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/handoff-option-wrapper.json", '"outcome": "parent-move-recovered"'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"flowCode": "FADENO_UPDATE_LIMIT"'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"encodedSnapshotBytesExceedLimit": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"descendantRecords": 4097'],
+  ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"descendantStaticListAllocated": false'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"singleValueWasStringified": false'],
   ["examples/v1-app/scenarios/form-submission/expected/formdata-routing-refusal.json", '"formDataEvents": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/formdata-routing-refusal.json", '"mutationRequests": 0'],

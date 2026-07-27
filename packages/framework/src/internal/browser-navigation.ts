@@ -455,6 +455,19 @@ function consumePrivateFormHandoffAttributes(budget: PrivateFormHandoffBudget, e
   return true;
 }
 
+function visitPrivateSelectHandoffDescendants(
+  select: HTMLSelectElement,
+  visit: (descendant: Element) => boolean,
+): boolean {
+  const walker = select.ownerDocument.createTreeWalker(select, NodeFilter.SHOW_ELEMENT);
+  let descendant = walker.nextNode();
+  while (descendant) {
+    if (!(descendant instanceof Element) || !visit(descendant)) return false;
+    descendant = walker.nextNode();
+  }
+  return true;
+}
+
 function privateFormHandoffWithinLimit(controls: readonly PrivateFormHandoffControl[]): boolean {
   const budget: PrivateFormHandoffBudget = { bytes: 0, records: 0 };
   for (const control of controls) {
@@ -475,10 +488,9 @@ function privateFormHandoffWithinLimit(controls: readonly PrivateFormHandoffCont
       }
     }
     if (control instanceof HTMLSelectElement) {
-      for (const child of control.querySelectorAll("*")) {
-        if (!consumePrivateFormHandoffRecord(budget)
-          || !consumePrivateFormHandoffAttributes(budget, child)) return false;
-      }
+      if (!visitPrivateSelectHandoffDescendants(control, (child) =>
+        consumePrivateFormHandoffRecord(budget)
+          && consumePrivateFormHandoffAttributes(budget, child))) return false;
       for (const option of control.options) {
         if (!consumePrivateFormHandoffRecord(budget)
           || !consumePrivateFormHandoffAttributes(budget, option)
