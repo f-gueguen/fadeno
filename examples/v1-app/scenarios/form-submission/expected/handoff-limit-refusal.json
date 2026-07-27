@@ -6,12 +6,15 @@
   "singleValueBytes": 2097152,
   "singleValueWasStringified": false,
   "mutationRequests": 2,
-  "nativeCurrentTruthGets": 2,
+  "nativeRedirectDestinationGets": 1,
+  "nativeRedirectTerminalGets": 1,
+  "nativeCurrentTruthGets": 1,
   "flowCode": "FADENO_UPDATE_LIMIT",
   "flowStatus": "refused",
-  "flowOutcome": "current-truth-reload",
+  "flowOutcome": "native-navigation",
   "mutationRetrySkipped": true,
   "largeValueFlowCode": "FADENO_UPDATE_LIMIT",
   "largeValueMutationRetrySkipped": true,
-  "currentTruthVisible": true
+  "finalPath": "/",
+  "redirectDestinationVisible": true
 }

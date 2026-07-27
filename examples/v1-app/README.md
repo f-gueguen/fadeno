@@ -174,7 +174,11 @@ changes, and disabled-state changes inherited from `fieldset` and `optgroup`,
 exact optgroup hierarchy, and stays authoritative through interrupted-departure
 recovery. Control count, record count, and aggregate UTF-8 bytes are bounded
 before values are serialized; an oversized disabled control produces a tested
-`FADENO_UPDATE_LIMIT` refusal and native current-truth recovery. A failed fragment push repairs the current entry without traversing
+`FADENO_UPDATE_LIMIT` refusal and continues the server-selected redirect as a
+native GET with current-truth recovery ownership. A GET form with no successful
+controls preserves both the empty query and explicit empty-fragment delimiters,
+and a final `formdata` routing refusal retains its single observed controls
+construction even while committed recovery is active. A failed fragment push repairs the current entry without traversing
 Back; if that repair is blocked, native current-truth replacement prevents the
 staged fragment URL from surviving. The same replacement applies when a
 cancelled cross-resource traversal cannot repair its selected URL. Late listeners may select the current form target. Link recovery re-reads

@@ -126,12 +126,13 @@ function encodeControls(data: FormData): URLSearchParams {
 }
 
 function replaceGetFormQuery(destination: URL, data: FormData): URL {
+  const fragmentIndex = destination.href.indexOf("#");
+  const fragment = fragmentIndex === -1 ? "" : destination.href.slice(fragmentIndex);
   const query = encodeControls(data).toString();
   destination.search = query;
   if (query !== "") return destination;
-  const hash = destination.hash;
   destination.hash = "";
-  return new URL(`${destination.href}?${hash}`);
+  return new URL(`${destination.href}?${fragment}`);
 }
 
 export function privateNativeGetFormDestinationBase(

@@ -736,6 +736,10 @@ test("bounds redirect handoff snapshots before serializing application-owned con
   });
   const mutationsBefore = privateMutations().length;
   const nativeGetsBefore = projectGets(false);
+  const nativeRedirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept !== mediaType).length;
+  const nativeRedirectTerminalGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/" && accept !== mediaType).length;
   await page.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 1);
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
@@ -770,8 +774,13 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     }, { once: true });
   });
   await page.locator("#redirect-chain-form button").click({ noWaitAfter: true });
-  await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 2);
-  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept !== mediaType).length)
+    .toBe(nativeRedirectGetsBefore + 1);
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/" && accept !== mediaType).length)
+    .toBe(nativeRedirectTerminalGetsBefore + 1);
+  await expect(page.locator("h1")).toHaveText("GET form navigation");
   const largeFlow = await page.evaluate(() => {
     const flows = JSON.parse(sessionStorage.getItem("fadeno-large-handoff-flow") ?? "[]") as Record<string, unknown>[];
     return flows.reverse().find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
@@ -785,6 +794,10 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     singleValueWasStringified: await page.evaluate(() =>
       sessionStorage.getItem("fadeno-large-handoff-stringified") === "true"),
     mutationRequests: privateMutations().length - mutationsBefore,
+    nativeRedirectDestinationGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept !== mediaType).length - nativeRedirectGetsBefore,
+    nativeRedirectTerminalGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/" && accept !== mediaType).length - nativeRedirectTerminalGetsBefore,
     nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore,
     flowCode: flow?.["code"],
     flowStatus: flow?.["status"],
@@ -793,7 +806,8 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     largeValueFlowCode: largeFlow?.["code"],
     largeValueMutationRetrySkipped: Array.isArray(largeFlow?.["skipped"])
       && largeFlow["skipped"].includes("mutation retry"),
-    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    finalPath: new URL(page.url()).pathname,
+    redirectDestinationVisible: await page.locator("h1").textContent() === "GET form navigation",
   }).toEqual(expected("handoff-limit-refusal"));
   expect(readFileSync(join(outputRoot, "expected-handoff-limit-refusal-human.txt"), "utf8"))
     .toContain("rejected before serialization");
@@ -824,6 +838,54 @@ test("refuses late formdata routing changes without constructing successful cont
   }).toEqual(expected("formdata-routing-refusal"));
   expect(readFileSync(join(outputRoot, "expected-formdata-routing-refusal-human.txt"), "utf8"))
     .toContain("successful controls were constructed once");
+});
+
+test("retains one formdata construction when committed recovery refuses final routing", async ({ page }) => {
+  await signIn(page);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length;
+  const currentTruthGetsBefore = transportRequests.filter(({ method, path }) =>
+    method === "GET" && path === "/projects").length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator("#native-fragment-form").evaluate((form) => {
+    sessionStorage.setItem("fadeno-recovery-formdata-count", "0");
+    form.addEventListener("formdata", () => {
+      const count = Number(sessionStorage.getItem("fadeno-recovery-formdata-count") ?? "0");
+      sessionStorage.setItem("fadeno-recovery-formdata-count", String(count + 1));
+      form.setAttribute("enctype", "text/plain");
+    });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await expect.poll(() => transportRequests.filter(({ method, path }) =>
+    method === "GET" && path === "/projects").length)
+    .toBe(currentTruthGetsBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  releaseHeldResponse?.();
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-recovery-formdata-routing-refusal",
+    version: 1,
+    formDataEvents: await page.evaluate(() =>
+      Number(sessionStorage.getItem("fadeno-recovery-formdata-count") ?? "0")),
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    currentTruthGets: transportRequests.filter(({ method, path }) =>
+      method === "GET" && path === "/projects").length - currentTruthGetsBefore,
+    redirectChainRuns: state.redirectChainRuns,
+    finalPath: new URL(page.url()).pathname,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("recovery-formdata-routing-refusal"));
+  expect(readFileSync(join(outputRoot, "expected-recovery-formdata-routing-refusal-human.txt"), "utf8"))
+    .toContain("retained the single observed construction");
 });
 
 test("honors a current-truth recovery outcome from the redirect GET without repeating the mutation", async ({ page }) => {
@@ -2718,6 +2780,55 @@ test("reloads same-resource fragment redirects instead of retaining stale markup
   await emptyPage.close();
   expect(readFileSync(join(outputRoot, "expected-fragment-redirect-human.txt"), "utf8"))
     .toContain("explicit and empty fragment delimiters selected only with fresh native documents");
+});
+
+test("preserves empty query and fragment delimiters for a recovery-owned GET form", async ({ page }) => {
+  await signIn(page);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length;
+  const nativeGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/projects" && accept !== mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator("#native-fragment-form").evaluate((form) => {
+    form.setAttribute("action", "/projects#");
+    sessionStorage.setItem("fadeno-empty-fragment-formdata-count", "0");
+    form.addEventListener("formdata", () => {
+      const count = Number(sessionStorage.getItem("fadeno-empty-fragment-formdata-count") ?? "0");
+      sessionStorage.setItem("fadeno-empty-fragment-formdata-count", String(count + 1));
+    });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/projects" && accept !== mediaType).length)
+    .toBe(nativeGetsBefore + 1);
+  await expect.poll(() => page.url().endsWith("?#")).toBe(true);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  releaseHeldResponse?.();
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-native-empty-fragment-form",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    nativeDestinationGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/projects" && accept !== mediaType).length - nativeGetsBefore,
+    formDataEvents: await page.evaluate(() =>
+      Number(sessionStorage.getItem("fadeno-empty-fragment-formdata-count") ?? "0")),
+    finalUrlEndsWithEmptyQueryAndFragment: page.url().endsWith("?#"),
+    redirectChainRuns: state.redirectChainRuns,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("native-empty-fragment-form"));
+  expect(readFileSync(join(outputRoot, "expected-native-empty-fragment-form-human.txt"), "utf8"))
+    .toContain("retained both empty delimiters");
 });
 
 test("reloads same-resource fragments returned by the redirect GET", async ({ page }) => {

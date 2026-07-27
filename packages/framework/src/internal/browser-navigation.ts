@@ -2106,7 +2106,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
                 ? ["submit event", "mutation operation", "pending cleanup", "native fragment reload"]
                 : handoffPreservationSafe
                   ? ["submit event", "mutation operation", "pending cleanup", "redirect GET operation"]
-                  : ["submit event", "mutation operation", "pending cleanup", "current-truth navigation"]),
+                  : ["submit event", "mutation operation", "pending cleanup", "native redirect destination"]),
               server: Object.freeze(["origin", "proof", "replay", "authorization", "action", "session", "revalidation", "redirect", "destination route"]),
             }),
             skipped: Object.freeze(["mutation retry", "POST redirect resubmission", "transported redirect execution", "general state reconciliation"]),
@@ -2114,14 +2114,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
               ? "native-navigation"
               : handoffPreservationSafe
                 ? "enhanced-redirect"
-                : "current-truth-reload",
+                : "native-navigation",
           });
           if (sameResourceFragment) {
             fallbackSameResourceFragmentRedirect(redirect, recoverCancelledMutation);
             return;
           }
           if (!handoffPreservationSafe) {
-            recoverCancelledMutation();
+            fallback(redirect, false, false, undefined, recoverCancelledMutation);
             return;
           }
           await navigate(
@@ -2587,13 +2587,15 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         "same-context form submission superseded pending traversal",
       );
       const eligibility = privateFormEligibility(form, event.submitter);
-      const retainNativeSubmission = (): void => {
+      const retainNativeSubmission = (successfulControlsConstructed = false): void => {
         supersedePendingWorkForNativeActivation(
           "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
           "same-context form submission superseded pending navigation",
           Object.freeze({
             event,
-            nativeDestination: () => privateNativeGetFormDestination(form, event.submitter),
+            ...(successfulControlsConstructed
+              ? {}
+              : { nativeDestination: () => privateNativeGetFormDestination(form, event.submitter) }),
             afterNativeDestination: () => afterNativeDestination,
             ...(finalizingAtWindow ? { finalizeNow: true } : {}),
             policyProtected: () => form.relList.contains("noreferrer"),
@@ -2626,7 +2628,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
       if (!request) {
         event.preventDefault();
-        retainNativeSubmission();
+        retainNativeSubmission(true);
         return;
       }
       event.preventDefault();

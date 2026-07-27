@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-native-empty-fragment-form",
+  "version": 1,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "nativeDestinationGets": 1,
+  "formDataEvents": 1,
+  "finalUrlEndsWithEmptyQueryAndFragment": true,
+  "redirectChainRuns": 1,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}
