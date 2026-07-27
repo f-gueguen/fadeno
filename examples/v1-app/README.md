@@ -178,7 +178,13 @@ before values are serialized; an oversized disabled control produces a tested
 native GET with current-truth recovery ownership. A GET form with no successful
 controls preserves both the empty query and explicit empty-fragment delimiters,
 and a final `formdata` routing refusal retains its single observed controls
-construction even while committed recovery is active. A failed fragment push repairs the current entry without traversing
+construction even while committed recovery is active. Programmatic `FormData`
+construction during submit dispatch cannot hide the later browser-owned entry
+list, and direct recovery removes its departure observers. The handoff also
+tracks option parents inside customizable select wrappers. An initial
+same-resource action redirect pushes its native destination so Back retains the
+pre-submit entry; if cancelled teardown cannot reacquire scroll ownership, a
+native current-truth replacement starts before close. A failed fragment push repairs the current entry without traversing
 Back; if that repair is blocked, native current-truth replacement prevents the
 staged fragment URL from surviving. The same replacement applies when a
 cancelled cross-resource traversal cannot repair its selected URL. Late listeners may select the current form target. Link recovery re-reads

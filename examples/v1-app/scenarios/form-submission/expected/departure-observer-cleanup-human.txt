@@ -1,0 +1,1 @@
+Action ordering recovery: a cancelled activation directly started enhanced current-truth recovery. Fadeno removed both departure observers before recovery, kept the current document usable, and did not repeat the committed mutation.

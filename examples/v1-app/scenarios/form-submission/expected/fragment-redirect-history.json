@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-fragment-redirect-history",
+  "version": 1,
+  "mutationRequests": 1,
+  "nativeDestinationGets": 1,
+  "nativeGetsIncludingBack": 2,
+  "fragmentRedirectRuns": 1,
+  "historyEntriesAdded": 1,
+  "backReachedFragmentFreeEntry": true,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

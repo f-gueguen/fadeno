@@ -381,8 +381,8 @@ type PrivateFormHandoffControl = HTMLButtonElement | HTMLInputElement | HTMLSele
 const maximumPrivateFormHandoffAncestry = 128;
 type PrivateSelectHandoffChild = Readonly<{
   child: Element;
+  parent: Element | null;
   attributes: string;
-  options: readonly HTMLOptionElement[];
 }>;
 
 function privateFormHandoffAttributes(element: Element): string {
@@ -392,12 +392,10 @@ function privateFormHandoffAttributes(element: Element): string {
 }
 
 function privateSelectHandoffStructure(select: HTMLSelectElement): readonly PrivateSelectHandoffChild[] {
-  return Object.freeze([...select.children].map((child) => Object.freeze({
+  return Object.freeze([...select.querySelectorAll("*")].map((child) => Object.freeze({
     child,
+    parent: child.parentElement,
     attributes: privateFormHandoffAttributes(child),
-    options: Object.freeze(child instanceof HTMLOptGroupElement
-      ? [...child.children].filter((option): option is HTMLOptionElement => option instanceof HTMLOptionElement)
-      : []),
   })));
 }
 
@@ -409,9 +407,8 @@ function samePrivateSelectHandoffStructure(
   return current.length === expected.length && expected.every((owner, index) => {
     const candidate = current[index];
     return candidate?.child === owner.child
-      && candidate.attributes === owner.attributes
-      && candidate.options.length === owner.options.length
-      && owner.options.every((option, optionIndex) => candidate.options[optionIndex] === option);
+      && candidate.parent === owner.parent
+      && candidate.attributes === owner.attributes;
   });
 }
 
@@ -478,7 +475,7 @@ function privateFormHandoffWithinLimit(controls: readonly PrivateFormHandoffCont
       }
     }
     if (control instanceof HTMLSelectElement) {
-      for (const child of control.children) {
+      for (const child of control.querySelectorAll("*")) {
         if (!consumePrivateFormHandoffRecord(budget)
           || !consumePrivateFormHandoffAttributes(budget, child)) return false;
       }
@@ -1359,7 +1356,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           if (history.scrollRestoration !== "manual") throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
           closing = false;
         } catch {
-          finishClose();
+          try { location.replace(truthUrl); }
+          catch {
+            try { location.href = truthUrl; } catch { /* native current-truth recovery could not start */ }
+          } finally {
+            finishClose();
+          }
+          return;
         }
       }
       if (privateFragmentReloadRecoveryMode(stageDestination, pushedDestination) === "rollback-staged-entry") {
@@ -1583,6 +1586,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       const recoverOnce = (): void => {
         if (recovered) return;
         recovered = true;
+        stopCancelledDepartureObservation?.();
         recoverCancelledMutation();
       };
       if (!observation?.skipCancelledDepartureObservation) {
@@ -2117,7 +2121,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
                 : "native-navigation",
           });
           if (sameResourceFragment) {
-            fallbackSameResourceFragmentRedirect(redirect, recoverCancelledMutation);
+            fallbackSameResourceFragmentRedirect(redirect, recoverCancelledMutation, "push");
             return;
           }
           if (!handoffPreservationSafe) {
@@ -2544,7 +2548,6 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (formDataEvent.target !== form) return;
       nativeFormDataObserved = true;
       observedNativeFormData = formDataEvent.formData;
-      form.removeEventListener("formdata", observeNativeFormData);
       queueMicrotask(() => {
         if (observedNativeFormData) {
           afterNativeDestination = privateNativeGetFormDestination(

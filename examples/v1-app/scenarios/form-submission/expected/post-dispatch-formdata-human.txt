@@ -1,0 +1,1 @@
+Action ordering recovery: Fadeno ignored the unrelated in-dispatch construction and retained the later native `FormData` entry list. The final same-resource fragment selected a fresh native document, current truth remained visible, and the committed mutation was not repeated.

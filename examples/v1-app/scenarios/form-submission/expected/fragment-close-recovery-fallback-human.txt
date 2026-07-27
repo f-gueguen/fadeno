@@ -1,0 +1,1 @@
+Action ordering close recovery: the user cancelled a same-resource fragment reload while teardown could not reacquire scroll ownership. A native current-truth replacement started before teardown, the fresh document restarted enhancement, and the committed mutation was not repeated.
