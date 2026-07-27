@@ -187,12 +187,12 @@ export function privateNativeGetFormDestination(
   return destination;
 }
 
-export function privateFormRequest(eligibility: PrivateFormEligibility): PrivateFormRequest {
+export function privateFormRequest(eligibility: PrivateFormEligibility): PrivateFormRequest | undefined {
   const data = eligibility.submitter
     ? new FormData(eligibility.form, eligibility.submitter)
     : new FormData(eligibility.form);
   const finalEligibility = privateFormEligibility(eligibility.form, eligibility.submitter ?? null);
-  if (!finalEligibility) throw new TypeError("FADENO_FORM_ELIGIBILITY");
+  if (!finalEligibility) return undefined;
   if (finalEligibility.kind === "navigation") {
     const destination = new URL(finalEligibility.destination);
     destination.search = encodeControls(data).toString();

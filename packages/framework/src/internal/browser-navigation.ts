@@ -9,6 +9,7 @@ import {
   privateFormPreservationSafe,
   privateFormRequest,
   type PrivateFormEligibility,
+  type PrivateFormRequest,
 } from "./browser-form.ts";
 
 const mediaType = "application/vnd.fadeno.private-update+json; version=1";
@@ -442,6 +443,8 @@ function consumePrivateFormHandoffRecord(budget: PrivateFormHandoffBudget): bool
 
 function consumePrivateFormHandoffText(budget: PrivateFormHandoffBudget, value: string | null): boolean {
   if (value === null) return true;
+  const remainingBytes = maximumPrivateFormHandoffBytes - budget.bytes;
+  if (remainingBytes < 2 || value.length > remainingBytes - 2) return false;
   budget.bytes += new TextEncoder().encode(JSON.stringify(value)).byteLength;
   return budget.bytes <= maximumPrivateFormHandoffBytes;
 }
@@ -1395,21 +1398,26 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     active = recoveryOperation;
     nativeDepartureRecovery = Object.freeze({ operation: recoveryOperation, recover: recoverFragmentReload });
     if (stageDestination !== "none") {
+      let stagedState: PrivateHistoryState | undefined;
+      let stagedHistoryState: Readonly<Record<string, unknown>> | undefined;
+      const historyLengthBeforeStage = history.length;
       try {
         const currentState = privateHistoryState(history.state);
         if (!currentState || !ownsHistoryState(currentState, location.href)) {
           throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
         }
-        const stagedState = createHistoryState(
+        stagedHistoryState = createHistoryState(
           scrollX,
           scrollY,
           false,
           historySession,
           stageDestination === "replace" ? currentState.entry : undefined,
         );
-        if (stageDestination === "replace") writeHistory.replace(stagedState, destination.href);
+        stagedState = privateHistoryState(stagedHistoryState);
+        if (!stagedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+        if (stageDestination === "replace") writeHistory.replace(stagedHistoryState, destination.href);
         else {
-          writeHistory.push(stagedState, destination.href);
+          writeHistory.push(stagedHistoryState, destination.href);
           pushedDestination = true;
         }
         const selectedState = privateHistoryState(history.state);
@@ -1417,6 +1425,20 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         rememberHistoryState(selectedState, destination.href);
         selectedHistoryEntry = selectedState.entry;
       } catch {
+        const selectedState = privateHistoryState(history.state);
+        if (stageDestination === "push"
+          && !pushedDestination
+          && stagedState
+          && history.length === historyLengthBeforeStage + 1
+          && location.href === destination.href
+          && selectedState
+          && samePrivateHistoryState(selectedState, stagedState)) {
+          pushedDestination = true;
+          knownHistoryLength = history.length;
+          historyPushSequence += 1;
+          rememberHistoryState(selectedState, destination.href);
+          selectedHistoryEntry = selectedState.entry;
+        }
         observeCancelledDeparture(
           () => displayedTruthUrl === truthUrl
             && (location.href === destination.href
@@ -1965,7 +1987,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
 
   const submitFormOperation = async (
     eligibility: PrivateFormEligibility,
-    request: ReturnType<typeof privateFormRequest>,
+    request: PrivateFormRequest,
     sourceState: PrivateHistoryState,
   ): Promise<void> => {
     if (active?.kind === "mutation") return;
@@ -2598,6 +2620,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       let request: ReturnType<typeof privateFormRequest>;
       try { request = privateFormRequest(eligibility); }
       catch {
+        retainNativeSubmission();
+        return;
+      }
+      if (!request) {
+        event.preventDefault();
         retainNativeSubmission();
         return;
       }

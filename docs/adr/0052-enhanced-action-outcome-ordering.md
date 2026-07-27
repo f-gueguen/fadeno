@@ -93,7 +93,10 @@ cancelled traversal first has to repair its selected URL to the displayed
 document. A same-document native link or GET-form supersession uses the same
 fresh fragment-bearing native reload. The activation receives a new history
 entry, including a same-hash activation, so Back still reaches the prior
-fragment-free entry. A preinstalled window finalizer decides recovery takeover
+fragment-free entry. If an application history hook commits that exact private
+push and then throws, observable URL, state identity, and history-length
+evidence keep rollback ownership instead of treating the push as uncommitted.
+A preinstalled window finalizer decides recovery takeover
 while the activation is still cancelable and after document submit listeners
 have finished. It revalidates the final GET action, method, target (including a
 late change into either the current context or a separate browsing context), origin,
@@ -102,7 +105,10 @@ credentials, trust boundary, and request-privacy policy before constructing
 when the browser supplies its successful-control entry list; private form
 eligibility remains conservative. For an admitted takeover, that recovery preflight
 constructs successful controls once and then prevents the original native
-default before the browser can serialize them again; a later submit-listener
+default before the browser can serialize them again. If a `formdata` listener
+makes the final private route ineligible during that construction, the
+activation is refused instead of returning to a native default that would
+serialize the controls a second time. A later submit-listener
 edit is therefore included without a second `formdata` event. If propagation
 does not reach the finalizer, no elapsed-time threshold infers that a native
 departure finished. If propagation was already stopped when the runtime

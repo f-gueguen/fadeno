@@ -739,21 +739,87 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     const flows = JSON.parse(sessionStorage.getItem("fadeno-handoff-limit-flow") ?? "[]") as Record<string, unknown>[];
     return flows.find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
   });
+  await page.locator("#redirect-chain-form").evaluate((form) => {
+    const oversized = document.createElement("textarea");
+    oversized.disabled = true;
+    oversized.value = "x".repeat(2 * 1024 * 1024);
+    form.append(oversized);
+    sessionStorage.setItem("fadeno-large-handoff-stringified", "false");
+    const stringify = JSON.stringify;
+    JSON.stringify = function boundedStringify(value: unknown, ...arguments_: unknown[]): string | undefined {
+      if (typeof value === "string" && value.length === 2 * 1024 * 1024) {
+        sessionStorage.setItem("fadeno-large-handoff-stringified", "true");
+      }
+      return Reflect.apply(stringify, JSON, [value, ...arguments_]) as string | undefined;
+    } as JSON["stringify"];
+  });
+  await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
+    }>;
+    globalThis.addEventListener("beforeunload", () => {
+      sessionStorage.setItem(
+        "fadeno-large-handoff-flow",
+        JSON.stringify(runtime.readPrivateFormSubmissionFlows()),
+      );
+    }, { once: true });
+  });
+  await page.locator("#redirect-chain-form button").click({ noWaitAfter: true });
+  await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 2);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const largeFlow = await page.evaluate(() => {
+    const flows = JSON.parse(sessionStorage.getItem("fadeno-large-handoff-flow") ?? "[]") as Record<string, unknown>[];
+    return flows.reverse().find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
+  });
   expect({
     schema: "fadeno.example.action-ordering-handoff-limit-refusal",
     version: 1,
     snapshotValueBytes: 140 * 1024,
     encodedSnapshotBytesExceedLimit: JSON.stringify("\\".repeat(140 * 1024)).length > 256 * 1024,
+    singleValueBytes: 2 * 1024 * 1024,
+    singleValueWasStringified: await page.evaluate(() =>
+      sessionStorage.getItem("fadeno-large-handoff-stringified") === "true"),
     mutationRequests: privateMutations().length - mutationsBefore,
     nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore,
     flowCode: flow?.["code"],
     flowStatus: flow?.["status"],
     flowOutcome: flow?.["outcome"],
     mutationRetrySkipped: Array.isArray(flow?.["skipped"]) && flow["skipped"].includes("mutation retry"),
+    largeValueFlowCode: largeFlow?.["code"],
+    largeValueMutationRetrySkipped: Array.isArray(largeFlow?.["skipped"])
+      && largeFlow["skipped"].includes("mutation retry"),
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   }).toEqual(expected("handoff-limit-refusal"));
   expect(readFileSync(join(outputRoot, "expected-handoff-limit-refusal-human.txt"), "utf8"))
-    .toContain("bounded by its encoded representation");
+    .toContain("rejected before serialization");
+});
+
+test("refuses late formdata routing changes without constructing successful controls twice", async ({ page }) => {
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  await page.locator("#sign-in-form").evaluate((form) => {
+    sessionStorage.setItem("fadeno-late-formdata-count", "0");
+    form.addEventListener("formdata", () => {
+      const count = Number(sessionStorage.getItem("fadeno-late-formdata-count") ?? "0");
+      sessionStorage.setItem("fadeno-late-formdata-count", String(count + 1));
+      form.setAttribute("enctype", "text/plain");
+    });
+  });
+  const mutationsBefore = privateMutations().length;
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await page.waitForTimeout(100);
+  expect({
+    schema: "fadeno.example.action-ordering-formdata-routing-refusal",
+    version: 1,
+    formDataEvents: await page.evaluate(() =>
+      Number(sessionStorage.getItem("fadeno-late-formdata-count") ?? "0")),
+    mutationRequests: privateMutations().length - mutationsBefore,
+    finalPath: new URL(page.url()).pathname,
+    signedOutFormVisible: await page.locator("#sign-in-form").isVisible(),
+  }).toEqual(expected("formdata-routing-refusal"));
+  expect(readFileSync(join(outputRoot, "expected-formdata-routing-refusal-human.txt"), "utf8"))
+    .toContain("successful controls were constructed once");
 });
 
 test("honors a current-truth recovery outcome from the redirect GET without repeating the mutation", async ({ page }) => {
@@ -2268,6 +2334,58 @@ test("rolls back a cancelled pushed fragment reload before recovering current tr
     currentTruthVisible: await repairFailurePage.locator("#viewer").textContent() === "Signed in owner",
   };
   await repairFailurePage.close();
+
+  const postCommitThrowPage = await page.context().newPage();
+  await postCommitThrowPage.addInitScript(() => {
+    const nativePush = history.pushState;
+    Object.defineProperty(history, "pushState", {
+      configurable: true,
+      writable: true,
+      value(data: unknown, unused: string, url?: string | URL | null): never {
+        nativePush.call(history, data, unused, url);
+        throw new TypeError("application push hook threw after commit");
+      },
+    });
+  });
+  await postCommitThrowPage.goto(origin);
+  await postCommitThrowPage.goto(`${origin}/projects`);
+  await expect(postCommitThrowPage.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(async () => postCommitThrowPage.evaluate(() =>
+    Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  const postCommitThrowGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await postCommitThrowPage.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 3);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await postCommitThrowPage.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "cancel fragment reload after committed push throws";
+  }, { once: true }));
+  const postCommitThrowDialog = postCommitThrowPage.waitForEvent("dialog");
+  const postCommitThrowActivation = postCommitThrowPage.locator("#native-fragment-form button")
+    .click({ noWaitAfter: true });
+  await (await postCommitThrowDialog).dismiss();
+  await postCommitThrowActivation;
+  releaseHeldResponse?.();
+  await expect.poll(() => new URL(postCommitThrowPage.url()).hash).toBe("");
+  await expect(postCommitThrowPage.locator("#viewer")).toHaveText("Signed in owner");
+  const postCommitThrowCurrentTruthVisible =
+    await postCommitThrowPage.locator("#viewer").textContent() === "Signed in owner";
+  const postCommitThrowFinalHash = new URL(postCommitThrowPage.url()).hash;
+  await postCommitThrowPage.goBack();
+  await expect.poll(() => new URL(postCommitThrowPage.url()).pathname).toBe("/");
+  const postCommitThrowRecovery = {
+    redirectAndRecoveryGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
+      - postCommitThrowGetsBefore,
+    finalHash: postCommitThrowFinalHash,
+    currentTruthVisible: postCommitThrowCurrentTruthVisible,
+    backReachedPrecedingPage: new URL(postCommitThrowPage.url()).pathname === "/",
+  };
+  await postCommitThrowPage.close();
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-cancelled-fragment-push-recovery",
@@ -2282,7 +2400,8 @@ test("rolls back a cancelled pushed fragment reload before recovering current tr
     currentTruthVisible,
     backReachedPrecedingPage: new URL(rollbackPage.url()).pathname === "/",
     repairFailureRecovery,
-    mutationRetried: privateMutations().length - mutationsBefore > 2,
+    postCommitThrowRecovery,
+    mutationRetried: privateMutations().length - mutationsBefore > 3,
   }).toEqual(expected("cancelled-fragment-push-recovery"));
   expect(readFileSync(join(outputRoot, "expected-cancelled-fragment-push-recovery-human.txt"), "utf8"))
     .toContain("cancelled pushed-fragment reload rolled back");

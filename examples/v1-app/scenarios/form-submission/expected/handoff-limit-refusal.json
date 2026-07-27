@@ -3,11 +3,15 @@
   "version": 1,
   "snapshotValueBytes": 143360,
   "encodedSnapshotBytesExceedLimit": true,
-  "mutationRequests": 1,
-  "nativeCurrentTruthGets": 1,
+  "singleValueBytes": 2097152,
+  "singleValueWasStringified": false,
+  "mutationRequests": 2,
+  "nativeCurrentTruthGets": 2,
   "flowCode": "FADENO_UPDATE_LIMIT",
   "flowStatus": "refused",
   "flowOutcome": "current-truth-reload",
   "mutationRetrySkipped": true,
+  "largeValueFlowCode": "FADENO_UPDATE_LIMIT",
+  "largeValueMutationRetrySkipped": true,
   "currentTruthVisible": true
 }

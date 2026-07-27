@@ -300,7 +300,10 @@ A preinstalled window finalizer observes final document-listener edits before
 it constructs a native GET destination. It validates origin, credentials,
 protocol, method, target, trust, and request-privacy eligibility before any
 `FormData` construction; only then may it construct successful controls once
-and prevent the still-cancelable native default. If propagation was already
+and prevent the still-cancelable native default. If a `formdata` listener
+makes the final private route ineligible during that construction, the runtime
+refuses the activation rather than returning to a native default that would
+construct successful controls again. If propagation was already
 stopped when the runtime observes a same-context form, the runtime refuses it
 without serialization. If a later listener stops propagation and the browser
 selects a same-document fragment, the post-dispatch path retains the browser's
@@ -322,7 +325,10 @@ ownership. When that further redirect selects a fragment on the still-displayed
 current resource, it also reloads one fresh native document. A history
 traversal retains committed-mutation recovery through selected-URL repair and
 unsafe-entry native recovery; cancellation repairs the displayed URL before
-current-truth GET begins.
+current-truth GET begins. If an application history hook commits the exact
+staged push and then throws, the selected URL, private state identity, and
+history-length change prove that the entry exists, so cancelled recovery rolls
+it back instead of treating the push as uncommitted.
 Handoff comparison includes each control's exact bounded parent ancestry,
 control attributes, effective disabled state from
 the control and its owning `fieldset`, form association, select-option
