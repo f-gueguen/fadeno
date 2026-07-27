@@ -2538,16 +2538,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     }
     let finalizingAtWindow = false;
     let observedNativeFormData: FormData | undefined;
+    let nativeFormDataObserved = false;
     let afterNativeDestination: URL | undefined;
     const observeNativeFormData = (formDataEvent: FormDataEvent): void => {
-      if (formDataEvent.target !== form || event.eventPhase !== Event.NONE) return;
+      if (formDataEvent.target !== form) return;
+      nativeFormDataObserved = true;
       observedNativeFormData = formDataEvent.formData;
       form.removeEventListener("formdata", observeNativeFormData);
-    };
-    if (active?.recoverCancelledMutation) {
-      form.addEventListener("formdata", observeNativeFormData);
       queueMicrotask(() => {
-        form.removeEventListener("formdata", observeNativeFormData);
         if (observedNativeFormData) {
           afterNativeDestination = privateNativeGetFormDestination(
             form,
@@ -2556,6 +2554,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           );
         }
       });
+    };
+    if (active?.recoverCancelledMutation) {
+      form.addEventListener("formdata", observeNativeFormData);
     }
     const selectedTruthUrl = displayedTruthUrl;
     const finalizeSubmission = (): void => {
@@ -2659,6 +2660,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         },
       );
       const finalizeAtWindow = (): void => {
+        form.removeEventListener("formdata", observeNativeFormData);
         finalizingAtWindow = true;
         stopEarlyDepartureObservation();
         finalizeSubmission();
@@ -2667,6 +2669,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       setTimeout(() => {
         if (nativeActivationFinalizers.get(event) !== finalizeAtWindow) return;
         nativeActivationFinalizers.delete(event);
+        form.removeEventListener("formdata", observeNativeFormData);
         supersedePendingWorkForNativeActivation(
           "FADENO_UPDATE_NATIVE_FORM_SUPERSESSION",
           ownsCurrentContext()
@@ -2674,7 +2677,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             : "browser-owned external-context form submission superseded pending navigation",
           Object.freeze({
             event,
-            afterNativeDestination: () => afterNativeDestination ?? privateNativeGetFormDestination(form, event.submitter),
+            afterNativeDestination: () => nativeFormDataObserved
+              ? afterNativeDestination
+              : privateNativeGetFormDestination(form, event.submitter),
             policyProtected: () => form.relList.contains("noreferrer"),
             canDepartCurrentDocument,
             reloadsCurrentDocument: canDepartCurrentDocument,
@@ -2886,6 +2891,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       document.removeEventListener("auxclick", auxiliaryClick);
       document.removeEventListener("submit", submit);
       document.removeEventListener("scroll", recordCurrentScroll, true);
+      const truthUrl = displayedTruthUrl;
       const recoverAfterCancelledClose = (): void => {
         if (!recoverCancelledMutation) return;
         try {
@@ -2898,11 +2904,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           closing = false;
           recoverCancelledMutation();
         } catch {
-          finishClose();
-          recoverCancelledMutation();
+          try { location.replace(truthUrl); }
+          catch {
+            try { location.href = truthUrl; } catch { /* native current-truth recovery could not start */ }
+          } finally {
+            finishClose();
+          }
         }
       };
-      const truthUrl = displayedTruthUrl;
       const selectedUrl = location.href;
       observeCancelledDeparture(
         () => closing && displayedTruthUrl === truthUrl && location.href === selectedUrl,

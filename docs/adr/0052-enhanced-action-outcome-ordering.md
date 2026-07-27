@@ -118,7 +118,9 @@ listener stops propagation after runtime observation and the browser selects a
 same-document fragment, the post-dispatch observer retains the browser's one
 `FormData` object, derives the destination only after every `formdata` listener
 has finished, and stops observing before a later microtask can construct an
-unrelated `FormData`. A listener-hidden cross-document activation stays
+unrelated `FormData`. If that observed object yields no safe destination,
+recovery retains the refusal and never reconstructs successful controls.
+A listener-hidden cross-document activation stays
 browser-owned because its response outcome is not observable to the current
 document; no private recovery or freshness claim is made for that unsupported
 handoff. A submission that reaches the window finalizer after a later document
@@ -168,7 +170,10 @@ current-truth recovery begins. Reload starts synchronously after staging, so
 pending-state observers or teardown cannot close enhancement in an intervening
 stale-markup window. Recovery ownership remains live until departure commits;
 if teardown runs synchronously inside `beforeunload` and the user cancels, the
-same runtime resumes and fetches current truth. If a GET form staged a pushed
+same runtime resumes and fetches current truth. If the runtime cannot reacquire
+private scroll ownership after that cancellation, it starts a native
+current-truth replacement before teardown instead of closing over stale
+markup. If a GET form staged a pushed
 fragment entry successfully, cancellation first traverses back to the source entry, then
 recovers current truth, so Back still reaches the preceding page rather than a
 duplicate same-URL entry. A failed push created no entry, so cancellation

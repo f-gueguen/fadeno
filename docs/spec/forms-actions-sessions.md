@@ -180,7 +180,10 @@ while the event is cancelable and recovers current truth without constructing
 safe same-document fragment, the observer retains the browser's one `FormData`
 object, accepts an image submitter from that browser-owned entry list, derives
 the destination after every `formdata` listener, and stops observing before a
-later programmatic construction can replace that snapshot.
+later programmatic construction can replace that snapshot. Observation and
+destination derivation are distinct facts: if the observed object yields no
+safe destination, recovery does not construct another `FormData` merely
+because derivation returned no URL.
 A submission cancelled by a later document listener after it reaches the
 window finalizer, or already cancelled before the runtime document listener,
 recovers through the same no-serialization path. Final target ownership may
@@ -228,7 +231,8 @@ path even though its parsed hash string is empty.
   successful controls, expected validation, pending cleanup, origin,
   authorization, cross-user, replay, cancellation, duplicate, network,
   teardown, redirect, and current-truth recovery across three browsers and the
-  JavaScript-disabled baseline.
+  JavaScript-disabled baseline. Replacing a GET form action query with an empty
+  successful-control set retains the native empty `?` delimiter.
 - Logs and diagnostics prove that secret and sensitive values are redacted.
 - The V1-12 normalized success, refusal, correction, flow, and recovery files
   are private evidence, not a supported wire schema or public runtime output.

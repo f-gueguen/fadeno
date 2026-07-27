@@ -125,6 +125,15 @@ function encodeControls(data: FormData): URLSearchParams {
   return encoded;
 }
 
+function replaceGetFormQuery(destination: URL, data: FormData): URL {
+  const query = encodeControls(data).toString();
+  destination.search = query;
+  if (query !== "") return destination;
+  const hash = destination.hash;
+  destination.hash = "";
+  return new URL(`${destination.href}?${hash}`);
+}
+
 export function privateNativeGetFormDestinationBase(
   form: HTMLFormElement,
   candidate: SubmitEvent["submitter"],
@@ -182,9 +191,8 @@ export function privateNativeGetFormDestination(
   if (submitter === false) return undefined;
   try {
     const data = successfulControls ?? (submitter ? new FormData(form, submitter) : new FormData(form));
-    destination.search = encodeControls(data).toString();
+    return replaceGetFormQuery(destination, data);
   } catch { return undefined; }
-  return destination;
 }
 
 export function privateFormRequest(eligibility: PrivateFormEligibility): PrivateFormRequest | undefined {
@@ -195,8 +203,7 @@ export function privateFormRequest(eligibility: PrivateFormEligibility): Private
   if (!finalEligibility) return undefined;
   if (finalEligibility.kind === "navigation") {
     const destination = new URL(finalEligibility.destination);
-    destination.search = encodeControls(data).toString();
-    return Object.freeze({ eligibility: finalEligibility, destination });
+    return Object.freeze({ eligibility: finalEligibility, destination: replaceGetFormQuery(destination, data) });
   }
   return Object.freeze({
     eligibility: finalEligibility,

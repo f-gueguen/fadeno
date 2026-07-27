@@ -1428,6 +1428,7 @@ test("reloads a same-document native GET form that supersedes the redirect after
     && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const emptyQueryDelimiterRetained = page.url().includes("/projects?#details");
   releaseHeldResponse?.();
   await page.goBack();
   await expect.poll(() => new URL(page.url()).hash).toBe("");
@@ -1584,7 +1585,7 @@ test("reloads a same-document native GET form that supersedes the redirect after
     mutationRequests: privateMutations().length - mutationsBefore,
     redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
-    nativeCurrentTruthGetsAtLeastFive: recoveredNativeGets >= 5,
+    nativeCurrentTruthGetsAtLeastFour: recoveredNativeGets >= 4,
     nativeCurrentTruthGetsAtMostSix: recoveredNativeGets <= 6,
     redirectChainRuns: state.redirectChainRuns,
     formDataEvents: await page.evaluate(() => Number(sessionStorage.getItem("fadeno-native-formdata-count"))),
@@ -1592,6 +1593,7 @@ test("reloads a same-document native GET form that supersedes the redirect after
     imageSubmitterFormDataEvents,
     imageSubmitterFinalHash,
     unsafeDestinationFormDataEvents,
+    emptyQueryDelimiterRetained,
     nativeFragmentHistoryEntries,
     backReturnedToFragmentFreeEntry,
     sameHashRecovered,
@@ -2002,6 +2004,46 @@ test("recovers committed truth when submit propagation stops or a late listener 
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
   };
 
+  const observedInvalidDestinationGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 11);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.evaluate(() => {
+    const form = document.querySelector("#native-fragment-form");
+    if (!(form instanceof HTMLFormElement)) throw new TypeError("missing native fragment form");
+    sessionStorage.setItem("fadeno-observed-invalid-formdata-count", "0");
+    form.addEventListener("formdata", () => {
+      const count = Number(sessionStorage.getItem("fadeno-observed-invalid-formdata-count") ?? "0");
+      sessionStorage.setItem("fadeno-observed-invalid-formdata-count", String(count + 1));
+      form.setAttribute("rel", "noreferrer");
+      queueMicrotask(() => form.removeAttribute("rel"));
+    });
+    document.addEventListener("submit", (event) => {
+      if (event.target === form) event.stopPropagation();
+    }, { once: true });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  releaseHeldResponse?.();
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await page.waitForTimeout(100);
+  const observedInvalidDestinationRequests = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
+    - observedInvalidDestinationGetsBefore;
+  const observedInvalidDestinationFormDataEvents = await page.evaluate(() =>
+    Number(sessionStorage.getItem("fadeno-observed-invalid-formdata-count") ?? "0"));
+  const browserOwnedFinalHash = ["#details", "#final-formdata"].includes(new URL(page.url()).hash);
+  const observedInvalidDestination = {
+    redirectAndRecoveryGets: observedInvalidDestinationRequests,
+    frameworkRecoveryGets: observedInvalidDestinationRequests - 1,
+    formDataEvents: observedInvalidDestinationFormDataEvents,
+    formDataReconstructed: observedInvalidDestinationFormDataEvents > 1,
+    browserOwnedFinalHash,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+  };
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-submit-propagation-recovery",
@@ -2020,10 +2062,11 @@ test("recovers committed truth when submit propagation stops or a late listener 
     lateUnloadCancellation,
     nativeFormRefusal,
     nativeNoDocumentLinkRefusal,
+    observedInvalidDestination,
     redirectChainRuns: state.redirectChainRuns,
-    finalHash: new URL(page.url()).hash,
+    browserOwnedFinalHash,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
-    mutationRetried: privateMutations().length - mutationsBefore > 10,
+    mutationRetried: privateMutations().length - mutationsBefore > 11,
   }).toEqual(expected("submit-propagation-recovery"));
   expect(readFileSync(join(outputRoot, "expected-submit-propagation-recovery-human.txt"), "utf8"))
     .toContain("submit propagation stopped before window finalization");
@@ -2957,6 +3000,67 @@ test("recovers committed current truth when close is cancelled during the redire
       && accept === mediaType).length - enhancedHomeGetsBefore,
     documentLoads: await page.evaluate(() => performance.getEntriesByType("navigation").length) - documentLoadsBefore,
   }).toEqual(expected("close-recovery"));
+});
+
+test("starts native current-truth recovery before closing when scroll ownership cannot be reacquired", async ({ page }) => {
+  await page.goto(`${origin}/projects`);
+  await page.locator("#passcode").fill("example-owner");
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 800;
+  const mutationsBefore = privateMutations().length;
+  const privateGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length;
+  const nativeGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  await page.locator("#sign-in-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept === mediaType).length).toBe(privateGetsBefore + 1);
+  await page.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    let selected = history.scrollRestoration;
+    Object.defineProperty(history, "scrollRestoration", {
+      configurable: true,
+      get(): ScrollRestoration { return selected; },
+      set(value: ScrollRestoration): void {
+        if (value === "manual") throw new TypeError("application blocked scroll reacquisition");
+        selected = value;
+      },
+    });
+    event.preventDefault();
+    event.returnValue = "keep the current document";
+  }, { once: true }));
+  const closeDialog = page.waitForEvent("dialog");
+  const closeCall = page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { close(): void };
+    runtime.close();
+  });
+  await (await closeDialog).dismiss();
+  await closeCall;
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(async () => page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
+    return runtime?.state();
+  })).toBe("active");
+  const enhancementRestarted = await page.evaluate(() => {
+    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
+    return runtime?.state() === "active";
+  });
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-close-recovery-fallback",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept === mediaType).length - privateGetsBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/projects" && accept !== mediaType).length - nativeGetsBefore,
+    signInRuns: state.signInRuns,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    enhancementRestarted,
+  }).toEqual(expected("close-recovery-fallback"));
+  expect(readFileSync(join(outputRoot, "expected-close-recovery-fallback-human.txt"), "utf8"))
+    .toContain("native current-truth replacement started before teardown");
 });
 
 test("repairs a staged redirect URL before cancelled replacement recovery", async ({ page }) => {

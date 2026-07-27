@@ -310,7 +310,8 @@ selects a same-document fragment, the post-dispatch path retains the browser's
 one successful-control object, accepts an image submitter from that native
 entry list, derives the destination after all `formdata` listeners, stops
 observation before a later microtask serialization, and never stages a second
-history entry. A listener-hidden cross-document activation remains
+history entry. If the observed object produces no safe destination, the
+runtime does not construct another `FormData` as a fallback. A listener-hidden cross-document activation remains
 browser-owned without a private freshness claim. A final `dialog` method that cannot depart
 recovers current truth, while a listener change from `dialog` to GET follows
 the final native destination. A submission that reaches the window finalizer already
@@ -347,7 +348,9 @@ state prevents that repair, native replacement immediately returns to current
 truth rather than beginning private recovery against the staged URL. V2-08 owns broader structural
 preservation. If synchronous teardown occurs inside the fragment reload's
 cancelled `beforeunload`, recovery ownership remains live and the runtime
-resumes current-truth recovery. A GET form that inherits committed-mutation
+resumes current-truth recovery. If private scroll ownership cannot be
+reacquired, native current-truth replacement starts before runtime teardown.
+A GET form that inherits committed-mutation
 recovery also carries it through selected-push rollback and a cancelled native
 replacement. Cancellation of a pushed-fragment replacement traverses back
 before current-truth recovery only when the push committed; a failed push
