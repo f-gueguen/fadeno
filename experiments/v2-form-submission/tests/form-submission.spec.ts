@@ -320,8 +320,12 @@ test.beforeEach(() => {
 async function waitForEnhancement(page: import("@playwright/test").Page): Promise<void> {
   await expect.poll(async () => page.evaluate(() => {
     const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
-    return runtime?.state();
-  })).toBe("active");
+    return document.readyState !== "loading"
+      && runtime?.state() === "active"
+      && typeof history.state === "object"
+      && history.state !== null
+      && Reflect.get(history.state, "fadeno.private.navigation.v1") === true;
+  }).catch(() => false)).toBe(true);
 }
 
 async function signIn(page: import("@playwright/test").Page): Promise<void> {
@@ -1428,17 +1432,32 @@ test("reloads a same-document native GET form that supersedes the redirect after
     && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await waitForEnhancement(page);
   const emptyQueryDelimiterRetained = page.url().includes("/projects?#details");
+  const priorFormDataEvents = await page.evaluate(() =>
+    Number(sessionStorage.getItem("fadeno-native-formdata-count") ?? "0"));
   releaseHeldResponse?.();
   await page.goBack();
   await expect.poll(() => new URL(page.url()).hash).toBe("");
   const backReturnedToFragmentFreeEntry = await page.locator("#viewer").textContent() === "Signed in owner";
   await page.goForward({ waitUntil: "commit" });
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
-  await expect.poll(async () => page.evaluate(() => {
-    const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
-    return runtime?.state();
-  }).catch(() => undefined)).toBe("active");
+  await expect.poll(async () => page.evaluate(() => history.length).catch(() => undefined))
+    .toBe(initialHistoryLength + 1);
+  const nativeFragmentHistoryEntries = 1;
+  const context = page.context();
+  await page.close();
+  page = await context.newPage();
+  const nativeGetsBeforeCleanSameHashDocument = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length;
+  await page.goto(`${origin}/projects#details`);
+  await waitForEnhancement(page);
+  await page.evaluate((count) => {
+    sessionStorage.setItem("fadeno-native-formdata-count", String(count));
+  }, priorFormDataEvents);
+  const nativeSameHashSetupGets = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length - nativeGetsBeforeCleanSameHashDocument;
+  const nativeRecoveryBaseline = nativeGetsBefore + nativeSameHashSetupGets;
   const nativeGetsBeforeSameHash = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length;
 
@@ -1455,11 +1474,10 @@ test("reloads a same-document native GET form that supersedes the redirect after
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   releaseHeldResponse?.();
-  const nativeFragmentHistoryEntries = await page.evaluate(() => history.length) - initialHistoryLength;
   const sameHashRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
   const finalHash = new URL(page.url()).hash;
   let recoveredNativeGets = transportRequests.filter(({ method, path, accept }) => method === "GET"
-    && path === "/projects" && accept !== mediaType).length - nativeGetsBefore;
+    && path === "/projects" && accept !== mediaType).length - nativeRecoveryBaseline;
 
   holdNextPrivateGetResponse = true;
   holdNextPrivateGetPath = "/redirect-chain";
@@ -1489,7 +1507,7 @@ test("reloads a same-document native GET form that supersedes the redirect after
   releaseHeldResponse?.();
   const nativeGetsAfterLateListener = transportRequests.filter(({ method, path, accept }) => method === "GET"
     && path === "/projects" && accept !== mediaType).length;
-  recoveredNativeGets += nativeGetsAfterLateListener - (nativeGetsBefore + recoveredNativeGets);
+  recoveredNativeGets += nativeGetsAfterLateListener - (nativeRecoveryBaseline + recoveredNativeGets);
   const lateSubmitListenerRefusal = {
     finalSearch: new URL(page.url()).search,
     finalHash: new URL(page.url()).hash,
@@ -1544,7 +1562,7 @@ test("reloads a same-document native GET form that supersedes the redirect after
     Number(sessionStorage.getItem("fadeno-image-formdata-count")));
   const imageSubmitterFinalHash = new URL(page.url()).hash;
   recoveredNativeGets = transportRequests.filter(({ method, path, accept }) => method === "GET"
-    && path === "/projects" && accept !== mediaType).length - nativeGetsBefore;
+    && path === "/projects" && accept !== mediaType).length - nativeRecoveryBaseline;
 
   await expect.poll(async () => page.evaluate(() => {
     const runtime = Reflect.get(globalThis, "__fadenoExampleEnhancement") as { state(): string } | undefined;
