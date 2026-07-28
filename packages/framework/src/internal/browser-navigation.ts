@@ -468,13 +468,28 @@ function visitPrivateSelectHandoffDescendants(
   return true;
 }
 
+function visitPrivateFormHandoffTextNodes(
+  control: PrivateFormHandoffControl,
+  visit: (text: string) => boolean,
+): boolean {
+  const walker = control.ownerDocument.createTreeWalker(control, NodeFilter.SHOW_TEXT);
+  let text = walker.nextNode();
+  while (text) {
+    if (!visit(text.nodeValue ?? "")) return false;
+    text = walker.nextNode();
+  }
+  return true;
+}
+
 function privateFormHandoffWithinLimit(controls: readonly PrivateFormHandoffControl[]): boolean {
   const budget: PrivateFormHandoffBudget = { bytes: 0, records: 0 };
   for (const control of controls) {
     if (!consumePrivateFormHandoffRecord(budget)
       || !consumePrivateFormHandoffAttributes(budget, control)
       || !consumePrivateFormHandoffText(budget, control.value)
-      || !consumePrivateFormHandoffText(budget, control.textContent)) return false;
+      || !visitPrivateFormHandoffTextNodes(control, (text) =>
+        consumePrivateFormHandoffRecord(budget)
+          && consumePrivateFormHandoffText(budget, text))) return false;
     let ancestor = control.parentElement;
     while (ancestor) {
       if (!consumePrivateFormHandoffRecord(budget)) return false;
@@ -1120,6 +1135,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     stageDestination: boolean;
     recoverAfterRollback: boolean;
     recoverCancelledMutation: PrivateMutationRecovery | undefined;
+    operation: ActiveOperation | undefined;
+    traversal: number;
+  }> | undefined;
+  let selectedPushSupersession: Readonly<{
+    operation: ActiveOperation;
+    destination: URL;
+    recoverCancelledMutation: PrivateMutationRecovery | undefined;
   }> | undefined;
   const unsafeHistoryEntries = createPrivateUnsafeHistoryEntryTracker();
 
@@ -1356,8 +1378,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const recoverFragmentReload = (): void => {
       if (recovered) return;
       recovered = true;
+      const recoveryMode = privateFragmentReloadRecoveryMode(stageDestination, pushedDestination);
       if (nativeDepartureRecovery?.operation === recoveryOperation) nativeDepartureRecovery = undefined;
-      if (active === recoveryOperation) active = undefined;
+      if (recoveryMode !== "rollback-staged-entry" && active === recoveryOperation) active = undefined;
       if (closing) {
         document.addEventListener("click", click);
         document.addEventListener("auxclick", auxiliaryClick);
@@ -1377,7 +1400,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           return;
         }
       }
-      if (privateFragmentReloadRecoveryMode(stageDestination, pushedDestination) === "rollback-staged-entry") {
+      if (recoveryMode === "rollback-staged-entry") {
         recoverSelectedPush(
           new URL(truthUrl),
           1,
@@ -1488,13 +1511,35 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     recoverAfterRollback = false,
   ): void => {
     restoreScrollRestoration();
+    const truthUrl = displayedTruthUrl;
+    const recoveryOperation: ActiveOperation | undefined = recoverCancelledMutation
+      ? Object.freeze({
+        kind: "navigation",
+        id: `selected-push-recovery:${globalThis.crypto.randomUUID()}`,
+        sequence: ++sequence,
+        destination,
+        currentTruthUrl: truthUrl,
+        generation: currentMetadata?.generation ?? "",
+        documentEpoch: currentMetadata?.epoch ?? "",
+        cancellation: new AbortController(),
+        recoverCancelledMutation,
+      })
+      : undefined;
+    if (recoveryOperation) {
+      active?.cancellation.abort(new DOMException("Selected push entered rollback recovery", "AbortError"));
+      active = recoveryOperation;
+    }
+    const rollbackTraversal = ++traversalSequence;
+    traversing = true;
     selectedPushRecovery = Object.freeze({
       destination,
-      truthUrl: displayedTruthUrl,
+      truthUrl,
       restoreFocus,
       stageDestination,
       recoverAfterRollback,
       recoverCancelledMutation,
+      operation: recoveryOperation,
+      traversal: rollbackTraversal,
     });
     history.go(-selectedPushCount);
   };
@@ -1817,7 +1862,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         const redirect = new URL(admission.outcome.location, location.origin);
         consumeResultId(admission.resultId);
         if (effectiveMutationRecovery && sameResourceFragmentRedirect(redirect, operation.currentTruthUrl)) {
-          fallbackSameResourceFragmentRedirect(redirect, effectiveMutationRecovery);
+          fallbackSameResourceFragmentRedirect(redirect, effectiveMutationRecovery, replace ? "replace" : "push");
           return;
         }
         fallback(redirect, replace, false, undefined, effectiveMutationRecovery);
@@ -2112,7 +2157,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
               "server selected a same-origin redirect after one admitted mutation",
               "the mutation result was consumed before redirect ownership changed",
               !handoffPreservationSafe
-                ? "bounded handoff evidence refused private destination publication"
+                ? "bounded handoff evidence refused private destination publication and unobservable destination departure"
                 : sameResourceFragment
                 ? "a same-resource fragment selected one native destination reload"
                 : "a fresh cancellable GET operation acquired the redirect destination",
@@ -2122,7 +2167,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
                 ? ["submit event", "mutation operation", "pending cleanup", "native fragment reload"]
                 : handoffPreservationSafe
                   ? ["submit event", "mutation operation", "pending cleanup", "redirect GET operation"]
-                  : ["submit event", "mutation operation", "pending cleanup", "native redirect destination"]),
+                  : ["submit event", "mutation operation", "pending cleanup", "current-truth recovery"]),
               server: Object.freeze(["origin", "proof", "replay", "authorization", "action", "session", "revalidation", "redirect", "destination route"]),
             }),
             skipped: Object.freeze(["mutation retry", "POST redirect resubmission", "transported redirect execution", "general state reconciliation"]),
@@ -2130,14 +2175,14 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
               ? "native-navigation"
               : handoffPreservationSafe
                 ? "enhanced-redirect"
-                : "native-navigation",
+                : "current-truth-reload",
           });
           if (sameResourceFragment) {
             fallbackSameResourceFragmentRedirect(redirect, recoverCancelledMutation, "push");
             return;
           }
           if (!handoffPreservationSafe) {
-            fallback(redirect, false, false, undefined, recoverCancelledMutation);
+            recoverCancelledMutation();
             return;
           }
           await navigate(
@@ -2716,6 +2761,22 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     finalizeSubmission();
   };
   const popstate = (): void => {
+    if (selectedPushSupersession) {
+      const supersession = selectedPushSupersession;
+      selectedPushSupersession = undefined;
+      traversalSequence += 1;
+      traversing = false;
+      recoveringTraversal = undefined;
+      if (active === supersession.operation) active = undefined;
+      fallback(
+        supersession.destination,
+        false,
+        false,
+        undefined,
+        supersession.recoverCancelledMutation,
+      );
+      return;
+    }
     if (mutationTraversalRecovery) {
       const recovery = mutationTraversalRecovery;
       mutationTraversalRecovery = undefined;
@@ -2748,69 +2809,109 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (selectedPushRecovery) {
       const recovery = selectedPushRecovery;
       selectedPushRecovery = undefined;
-      traversalSequence += 1;
-      traversing = false;
-      recoveringTraversal = undefined;
-      const rollbackUrl = location.href;
-      restoreScrollRestoration();
-      setTimeout(() => {
-        if (closed || location.href !== rollbackUrl) return;
-        if (recovery.recoverAfterRollback) {
-          repairDisplayedTruth(
-            recovery.truthUrl,
-            "FADENO_FORM_FRAGMENT_RELOAD_CANCELLED",
-            "cancelled pushed-fragment reload rolled back before current-truth recovery",
+      const recoveryIsCurrent = recovery.traversal === traversalSequence
+        && (!recovery.operation
+          || (active === recovery.operation && !recovery.operation.cancellation.signal.aborted));
+      if (!recoveryIsCurrent) {
+        const supersedingOperation = active?.kind === "navigation" && active !== recovery.operation
+          ? active
+          : undefined;
+        if (supersedingOperation) {
+          supersedingOperation.cancellation.abort(
+            new DOMException("Navigation waited for obsolete selected-push rollback compensation", "AbortError"),
           );
-          fallback(
-            new URL(recovery.truthUrl),
-            true,
-            false,
-            recovery.restoreFocus,
-            recovery.recoverCancelledMutation,
-          );
+          selectedPushSupersession = Object.freeze({
+            operation: supersedingOperation,
+            destination: supersedingOperation.destination,
+            recoverCancelledMutation: supersedingOperation.recoverCancelledMutation,
+          });
+          traversing = true;
+          try { history.forward(); }
+          catch {
+            selectedPushSupersession = undefined;
+            traversing = false;
+            if (active === supersedingOperation) active = undefined;
+            fallback(
+              supersedingOperation.destination,
+              false,
+              false,
+              undefined,
+              supersedingOperation.recoverCancelledMutation,
+            );
+          }
           return;
         }
-        try {
-          if (recovery.stageDestination) {
-            const stagedState = createHistoryState(scrollX, scrollY, false, historySession);
-            const stagedPrivateState = privateHistoryState(stagedState);
-            if (!stagedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
-            writeHistory.push(stagedState, recovery.destination.href);
-            rememberHistoryState(stagedPrivateState, recovery.destination.href);
+        if (active === recovery.operation) active = undefined;
+        traversing = false;
+        recoveringTraversal = undefined;
+        return;
+      } else {
+        traversalSequence += 1;
+        traversing = false;
+        recoveringTraversal = undefined;
+        const rollbackUrl = location.href;
+        restoreScrollRestoration();
+        setTimeout(() => {
+          if (closed || location.href !== rollbackUrl
+            || (recovery.operation && active !== recovery.operation)) return;
+          if (recovery.recoverAfterRollback) {
+            repairDisplayedTruth(
+              recovery.truthUrl,
+              "FADENO_FORM_FRAGMENT_RELOAD_CANCELLED",
+              "cancelled pushed-fragment reload rolled back before current-truth recovery",
+            );
+            if (active === recovery.operation) active = undefined;
+            fallback(
+              new URL(recovery.truthUrl),
+              true,
+              false,
+              recovery.restoreFocus,
+              recovery.recoverCancelledMutation,
+            );
+            return;
           }
-          observeCancelledDeparture(
-            () => location.href === recovery.destination.href,
-            () => {
-              if (recovery.recoverCancelledMutation) {
+          try {
+            if (recovery.stageDestination) {
+              const stagedState = createHistoryState(scrollX, scrollY, false, historySession);
+              const stagedPrivateState = privateHistoryState(stagedState);
+              if (!stagedPrivateState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+              writeHistory.push(stagedState, recovery.destination.href);
+              rememberHistoryState(stagedPrivateState, recovery.destination.href);
+            }
+            observeCancelledDeparture(
+              () => location.href === recovery.destination.href,
+              () => {
+                if (recovery.recoverCancelledMutation) {
+                  repairDisplayedTruth(
+                    recovery.truthUrl,
+                    "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
+                    "native post-selection mutation recovery was cancelled",
+                  );
+                  recovery.recoverCancelledMutation("replace");
+                  recovery.restoreFocus?.();
+                  return;
+                }
                 repairDisplayedTruth(
                   recovery.truthUrl,
                   "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
-                  "native post-selection mutation recovery was cancelled",
+                  "native post-selection recovery was cancelled",
                 );
-                recovery.recoverCancelledMutation("replace");
                 recovery.restoreFocus?.();
-                return;
-              }
-              repairDisplayedTruth(
-                recovery.truthUrl,
-                "FADENO_UPDATE_NATIVE_FALLBACK_CANCELLED",
-                "native post-selection recovery was cancelled",
-              );
-              recovery.restoreFocus?.();
-            },
-          );
-          location.replace(recovery.destination.href);
-        } catch {
-          fallback(
-            recovery.destination,
-            false,
-            false,
-            undefined,
-            recovery.recoverCancelledMutation,
-          );
-        }
-      }, 0);
-      return;
+              },
+            );
+            location.replace(recovery.destination.href);
+          } catch {
+            fallback(
+              recovery.destination,
+              false,
+              false,
+              undefined,
+              recovery.recoverCancelledMutation,
+            );
+          }
+        }, 0);
+        return;
+      }
     }
     const outgoingElementScroll = [...document.querySelectorAll("*")].some((element) => element !== document.scrollingElement
       && (element.scrollTop !== 0 || element.scrollLeft !== 0));

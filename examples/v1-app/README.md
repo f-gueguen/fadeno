@@ -167,15 +167,18 @@ obsolete work neither overwrites that operation nor abandons committed truth.
 Explicit and
 empty fragment delimiters both force a fresh native document. If its
 pushed-fragment reload is cancelled, rollback happens before
-recovery so Back reaches the preceding page without a duplicate stop. Handoff
+recovery so Back reaches the preceding page without a duplicate stop. That
+rollback remains an owned operation until its exact traversal arrives; a newer
+activation supersedes it and obsolete rollback completion cannot overwrite the
+newer destination. Handoff
 also detects untracked form-associated custom controls, checkbox indeterminate
 state, exact control-ancestry
 changes, and disabled-state changes inherited from `fieldset` and `optgroup`,
 exact optgroup hierarchy, and stays authoritative through interrupted-departure
-recovery. Control count, record count, and aggregate UTF-8 bytes are bounded
-before values are serialized; an oversized disabled control produces a tested
-`FADENO_UPDATE_LIMIT` refusal and continues the server-selected redirect as a
-native GET with current-truth recovery ownership. A GET form with no successful
+recovery. Control count, text-node traversal, record count, and aggregate UTF-8
+bytes are bounded before values are serialized; oversized control or option
+text produces a tested `FADENO_UPDATE_LIMIT` refusal, refreshes current truth,
+and does not issue an unobservable redirect that could return no document. A GET form with no successful
 controls preserves both the empty query and explicit empty-fragment delimiters,
 and a final `formdata` routing refusal retains its single observed controls
 construction even while committed recovery is active. Programmatic `FormData`

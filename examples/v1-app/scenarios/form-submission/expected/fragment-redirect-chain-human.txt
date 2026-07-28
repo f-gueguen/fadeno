@@ -1,1 +1,1 @@
-Action ordering recovery: the redirect GET fragment selected a fresh native document; admitted intermediate evidence could not leave stale pre-mutation markup visible.
+Action ordering recovery: the redirect GET fragment pushed and selected a fresh native document; admitted intermediate evidence could not leave stale pre-mutation markup visible, and Back reached the fragment-free pre-submit entry.

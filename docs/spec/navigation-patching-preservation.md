@@ -271,7 +271,8 @@ operation with a newer sequence then owns the redirect destination through the
 same document, history, focus, scroll, and stale-result checks as an eligible
 link. Handoff bounds control count, aggregate records, and UTF-8 bytes before
 serializing any control value; over-limit evidence refuses private destination
-publication. An admitted handoff freezes the submitted controls, selected `File` identities,
+publication and refreshes current truth without issuing an unobservable
+destination GET. An admitted handoff freezes the submitted controls, selected `File` identities,
 active element, and a focused text control's caret/selection range and
 direction; a later edit, file/control replacement, focus change, or selection
 change refuses private publication. Pending cleanup is one-shot and cannot
@@ -371,6 +372,15 @@ Every current-truth recovery GET retains the committed-mutation recovery owner.
 If a newer activation supersedes that GET and is then cancelled, the newer
 operation starts current-truth recovery again; obsolete completion cannot clear
 or publish over that recovery owner.
+
+A selected-push rollback is itself pending owned work. Its exact traversal
+identity and recovery operation remain current until the matching `popstate`.
+A newer activation may supersede that owner; the delayed rollback then observes
+the newer operation and cannot replace its destination with obsolete current
+truth. When a bounded handoff cannot be captured, current truth is refreshed
+directly and the redirect destination is not requested, because a `204`,
+attachment, or other no-document response offers no native completion event
+with which to discharge committed-mutation recovery.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

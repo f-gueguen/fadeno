@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-fragment-rollback-supersession",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectGets": 1,
+  "newerNavigationGets": 1,
+  "rollbackWasPendingBeforeActivation": true,
+  "finalPath": "/search",
+  "newerActivationVisible": true,
+  "mutationRetried": false
+}

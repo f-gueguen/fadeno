@@ -760,6 +760,23 @@ test("tracks customizable-select option parents through redirect handoff", async
 test("bounds redirect handoff snapshots before serializing application-owned controls", async ({ page }) => {
   const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
+  const persistLimitFlow = async (key: string): Promise<void> => {
+    await page.evaluate(async (storageKey) => {
+      const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+      const runtime = await import(modulePath) as Readonly<{
+        readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
+      }>;
+      globalThis.addEventListener("beforeunload", () => {
+        const flow = [...runtime.readPrivateFormSubmissionFlows()]
+          .reverse()
+          .find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
+        sessionStorage.setItem(storageKey, JSON.stringify(flow));
+      }, { once: true });
+    }, key);
+  };
+  const persistedLimitFlow = async (key: string): Promise<Record<string, unknown> | null> =>
+    page.evaluate((storageKey) =>
+      JSON.parse(sessionStorage.getItem(storageKey) ?? "null") as Record<string, unknown> | null, key);
   await page.goto(`${origin}/projects`);
   await page.locator("#passcode").fill("example-owner");
   await page.locator("#sign-in-form").evaluate((form) => {
@@ -768,35 +785,22 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     oversized.value = "\\".repeat(140 * 1024);
     form.append(oversized);
   });
-  await page.evaluate(async () => {
-    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
-    const runtime = await import(modulePath) as Readonly<{
-      readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
-    }>;
-    globalThis.addEventListener("beforeunload", () => {
-      sessionStorage.setItem(
-        "fadeno-handoff-limit-flow",
-        JSON.stringify(runtime.readPrivateFormSubmissionFlows()),
-      );
-    }, { once: true });
-  });
   const mutationsBefore = privateMutations().length;
+  const privateGetsBefore = projectGets(true);
   const nativeGetsBefore = projectGets(false);
   const nativeRedirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/redirect-chain" && accept !== mediaType).length;
   const nativeRedirectTerminalGetsBefore = transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/" && accept !== mediaType).length;
+  const nativeNoContentGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/native-no-content" && accept !== mediaType).length;
+  await persistLimitFlow("fadeno-handoff-limit-flow");
   await page.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 1);
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  const flow = await page.evaluate(() => {
-    const flows = JSON.parse(sessionStorage.getItem("fadeno-handoff-limit-flow") ?? "[]") as Record<string, unknown>[];
-    return flows.find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
-  });
+  const flow = await persistedLimitFlow("fadeno-handoff-limit-flow");
   await page.context().clearCookies();
-  const descendantSetupGetsBefore = projectGets(false);
   await page.goto(`${origin}/projects`);
-  const descendantSetupGets = projectGets(false) - descendantSetupGetsBefore;
   await waitForEnhancement(page);
   await page.locator("#passcode").fill("example-owner");
   await page.locator("#sign-in-form").evaluate((form) => {
@@ -823,6 +827,29 @@ test("bounds redirect handoff snapshots before serializing application-owned con
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   const descendantStaticListAllocated = await page.evaluate(() =>
     sessionStorage.getItem("fadeno-descendant-static-list-allocated") === "true");
+  await page.locator("#redirect-no-content-form").evaluate((form) => {
+    const select = document.createElement("select");
+    select.disabled = true;
+    const option = document.createElement("option");
+    option.value = "short";
+    option.textContent = "x".repeat(2 * 1024 * 1024);
+    select.append(option);
+    sessionStorage.setItem("fadeno-aggregate-text-content-read", "false");
+    Object.defineProperty(select, "textContent", {
+      configurable: true,
+      get(): never {
+        sessionStorage.setItem("fadeno-aggregate-text-content-read", "true");
+        throw new TypeError("handoff text traversal must stop before aggregate textContent");
+      },
+    });
+    form.append(select);
+  });
+  const noContentNativeTruthGetsBefore = projectGets(false);
+  await persistLimitFlow("fadeno-no-content-handoff-limit-flow");
+  await page.locator("#redirect-no-content-form button").click({ noWaitAfter: true });
+  await expect.poll(() => projectGets(false)).toBe(noContentNativeTruthGetsBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const noContentFlow = await persistedLimitFlow("fadeno-no-content-handoff-limit-flow");
   await page.locator("#redirect-chain-form").evaluate((form) => {
     const oversized = document.createElement("textarea");
     oversized.disabled = true;
@@ -837,30 +864,12 @@ test("bounds redirect handoff snapshots before serializing application-owned con
       return Reflect.apply(stringify, JSON, [value, ...arguments_]) as string | undefined;
     } as JSON["stringify"];
   });
-  await page.evaluate(async () => {
-    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
-    const runtime = await import(modulePath) as Readonly<{
-      readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
-    }>;
-    globalThis.addEventListener("beforeunload", () => {
-      sessionStorage.setItem(
-        "fadeno-large-handoff-flow",
-        JSON.stringify(runtime.readPrivateFormSubmissionFlows()),
-      );
-    }, { once: true });
-  });
+  const largeValueNativeTruthGetsBefore = projectGets(false);
+  await persistLimitFlow("fadeno-large-handoff-limit-flow");
   await page.locator("#redirect-chain-form button").click({ noWaitAfter: true });
-  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
-    method === "GET" && path === "/redirect-chain" && accept !== mediaType).length)
-    .toBe(nativeRedirectGetsBefore + 1);
-  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
-    method === "GET" && path === "/" && accept !== mediaType).length)
-    .toBe(nativeRedirectTerminalGetsBefore + 1);
-  await expect(page.locator("h1")).toHaveText("GET form navigation");
-  const largeFlow = await page.evaluate(() => {
-    const flows = JSON.parse(sessionStorage.getItem("fadeno-large-handoff-flow") ?? "[]") as Record<string, unknown>[];
-    return flows.reverse().find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
-  });
+  await expect.poll(() => projectGets(false)).toBe(largeValueNativeTruthGetsBefore + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const largeFlow = await persistedLimitFlow("fadeno-large-handoff-limit-flow");
   expect({
     schema: "fadeno.example.action-ordering-handoff-limit-refusal",
     version: 1,
@@ -868,6 +877,9 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     encodedSnapshotBytesExceedLimit: JSON.stringify("\\".repeat(140 * 1024)).length > 256 * 1024,
     descendantRecords: 4_097,
     descendantStaticListAllocated,
+    largeTextBytes: 2 * 1024 * 1024,
+    aggregateTextContentRead: await page.evaluate(() =>
+      sessionStorage.getItem("fadeno-aggregate-text-content-read") === "true"),
     singleValueBytes: 2 * 1024 * 1024,
     singleValueWasStringified: await page.evaluate(() =>
       sessionStorage.getItem("fadeno-large-handoff-stringified") === "true"),
@@ -876,16 +888,23 @@ test("bounds redirect handoff snapshots before serializing application-owned con
       method === "GET" && path === "/redirect-chain" && accept !== mediaType).length - nativeRedirectGetsBefore,
     nativeRedirectTerminalGets: transportRequests.filter(({ method, path, accept }) =>
       method === "GET" && path === "/" && accept !== mediaType).length - nativeRedirectTerminalGetsBefore,
-    nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore - descendantSetupGets,
+    nativeNoContentGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/native-no-content" && accept !== mediaType).length - nativeNoContentGetsBefore,
+    privateCurrentTruthGets: projectGets(true) - privateGetsBefore,
+    nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore - 1,
     flowCode: flow?.["code"],
     flowStatus: flow?.["status"],
     flowOutcome: flow?.["outcome"],
     mutationRetrySkipped: Array.isArray(flow?.["skipped"]) && flow["skipped"].includes("mutation retry"),
+    noContentFlowCode: noContentFlow?.["code"],
+    noContentMutationRetrySkipped: Array.isArray(noContentFlow?.["skipped"])
+      && noContentFlow["skipped"].includes("mutation retry"),
     largeValueFlowCode: largeFlow?.["code"],
     largeValueMutationRetrySkipped: Array.isArray(largeFlow?.["skipped"])
       && largeFlow["skipped"].includes("mutation retry"),
     finalPath: new URL(page.url()).pathname,
-    redirectDestinationVisible: await page.locator("h1").textContent() === "GET form navigation",
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 4,
   }).toEqual(expected("handoff-limit-refusal"));
   expect(readFileSync(join(outputRoot, "expected-handoff-limit-refusal-human.txt"), "utf8"))
     .toContain("rejected before serialization");
@@ -2737,6 +2756,89 @@ test("rolls back a cancelled pushed fragment reload before recovering current tr
   await rollbackPage.close();
 });
 
+test("does not let an obsolete fragment rollback override a newer activation", async ({ page }) => {
+  await signIn(page);
+  const rollbackPage = await page.context().newPage();
+  await rollbackPage.goto(origin);
+  await rollbackPage.goto(`${origin}/projects`);
+  await expect(rollbackPage.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(async () => rollbackPage.evaluate(() =>
+    Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  await rollbackPage.evaluate(() => {
+    const nativeGo = history.go.bind(history);
+    let deferredDelta: number | undefined;
+    Object.defineProperty(history, "go", {
+      configurable: true,
+      writable: true,
+      value(delta = 0): void {
+        deferredDelta = delta;
+        sessionStorage.setItem("fadeno-fragment-rollback-pending", "true");
+      },
+    });
+    Reflect.set(globalThis, "__fadenoReleaseFragmentRollback", () => {
+      if (deferredDelta === undefined) return;
+      const selectedDelta = deferredDelta;
+      deferredDelta = undefined;
+      nativeGo(selectedDelta);
+    });
+  });
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await rollbackPage.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await rollbackPage.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "cancel pushed fragment reload before supersession";
+  }, { once: true }));
+  const dialog = rollbackPage.waitForEvent("dialog");
+  const fragmentActivation = rollbackPage.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await (await dialog).dismiss();
+  await fragmentActivation;
+  await expect.poll(() => rollbackPage.evaluate(() =>
+    sessionStorage.getItem("fadeno-fragment-rollback-pending"))).toBe("true");
+  await rollbackPage.locator("#create-form").evaluate((form) => {
+    form.setAttribute("method", "get");
+    form.setAttribute("action", "/search");
+  });
+  const newerGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/search" && accept === mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/search";
+  await rollbackPage.locator("#create-form button").click({ noWaitAfter: true });
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/search" && accept === mediaType).length).toBe(newerGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await rollbackPage.evaluate(() => {
+    const release = Reflect.get(globalThis, "__fadenoReleaseFragmentRollback") as (() => void) | undefined;
+    release?.();
+  });
+  releaseHeldResponse?.();
+  await expect.poll(() => new URL(rollbackPage.url()).pathname).toBe("/search");
+  await expect(rollbackPage.locator("h1")).toHaveText("Search result");
+  expect({
+    schema: "fadeno.example.action-ordering-fragment-rollback-supersession",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    newerNavigationGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/search" && accept === mediaType).length - newerGetsBefore,
+    rollbackWasPendingBeforeActivation: await rollbackPage.evaluate(() =>
+      sessionStorage.getItem("fadeno-fragment-rollback-pending") === "true"),
+    finalPath: new URL(rollbackPage.url()).pathname,
+    newerActivationVisible: await rollbackPage.locator("h1").textContent() === "Search result",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("fragment-rollback-supersession"));
+  expect(readFileSync(join(outputRoot, "expected-fragment-rollback-supersession-human.txt"), "utf8"))
+    .toContain("newer activation remained authoritative");
+  await rollbackPage.close();
+});
+
 test("does not roll back a fragment push that failed before staging an entry", async ({ page }) => {
   await page.goto(`${origin}/projects`);
   const recoveryModes = await page.evaluate(async () => {
@@ -3132,6 +3234,13 @@ test("reloads same-resource fragments returned by the redirect GET", async ({ pa
     && path === "/projects" && accept !== mediaType).length).toBe(nativeGetsBefore + 1);
   await expect.poll(() => new URL(page.url()).hash).toBe("#details");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const finalHash = new URL(page.url()).hash;
+  const nativeDestinationGets = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/projects" && accept !== mediaType).length - nativeGetsBefore;
+  const freshCurrentTruthVisible = await page.locator("#viewer").textContent() === "Signed in owner";
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-fragment-redirect-chain",
@@ -3139,14 +3248,14 @@ test("reloads same-resource fragments returned by the redirect GET", async ({ pa
     mutationRequests: privateMutations().length - mutationsBefore,
     redirectChainGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/redirect-fragment-chain" && accept === mediaType).length - chainGetsBefore,
-    nativeDestinationGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
-      && path === "/projects" && accept !== mediaType).length - nativeGetsBefore,
+    nativeDestinationGets,
     fragmentChainRuns: state.fragmentChainRuns,
-    finalHash: new URL(page.url()).hash,
-    freshCurrentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    finalHash,
+    freshCurrentTruthVisible,
+    backReachedFragmentFreeEntry: new URL(page.url()).hash === "",
   }).toEqual(expected("fragment-redirect-chain"));
   expect(readFileSync(join(outputRoot, "expected-fragment-redirect-chain-human.txt"), "utf8"))
-    .toContain("redirect GET fragment selected a fresh native document");
+    .toContain("redirect GET fragment pushed and selected a fresh native document");
 });
 
 test("consumes a redirect GET result before following its redirect chain", async ({ page }) => {

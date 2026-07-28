@@ -6,5 +6,6 @@
   "nativeDestinationGets": 1,
   "fragmentChainRuns": 1,
   "finalHash": "#details",
-  "freshCurrentTruthVisible": true
+  "freshCurrentTruthVisible": true,
+  "backReachedFragmentFreeEntry": true
 }

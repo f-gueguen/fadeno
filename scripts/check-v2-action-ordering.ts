@@ -66,6 +66,8 @@ for (const path of [
   "examples/v1-app/scenarios/form-submission/expected/recovery-handoff-preservation-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/cancelled-fragment-push-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/cancelled-fragment-push-recovery-human.txt",
+  "examples/v1-app/scenarios/form-submission/expected/fragment-rollback-supersession.json",
+  "examples/v1-app/scenarios/form-submission/expected/fragment-rollback-supersession-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/failed-fragment-push-recovery.json",
   "examples/v1-app/scenarios/form-submission/expected/failed-fragment-push-recovery-human.txt",
   "examples/v1-app/scenarios/form-submission/expected/file-handoff-recovery.json",
@@ -100,6 +102,7 @@ for (const fragment of [
   "trusted click already cancelled",
   "external-context form",
   "aggregate records",
+  "without issuing the redirect destination",
   "No native-departure timeout is evidence of completion",
   "`dialog` method",
   "repair itself fails",
@@ -131,7 +134,8 @@ assert.equal(risks.includes("redirect GET reuses mutation identity or an admitte
 assert.equal(risks.includes("refuses observable unenhanceable same-context departures"), true);
 assert.equal(risks.includes("elapsed time races a live native GET or POST"), true);
 assert.equal(risks.includes("effective disabled inheritance"), true);
-assert.equal(risks.includes("bounds control/record/byte handoff capture before serialization"), true);
+assert.equal(risks.includes("bounds control/record/text/byte handoff capture before serialization"), true);
+assert.equal(risks.includes("unobservable over-limit destination"), true);
 assert.equal(risks.includes("exact option/optgroup hierarchy"), true);
 assert.equal(risks.includes("accepts image submitters only with browser-owned entries"), true);
 assert.equal(risks.includes("modified-primary/middle-button destinations"), true);
@@ -190,6 +194,8 @@ for (const fragment of [
   "maximumPrivateFormHandoffRecords",
   "maximumPrivateFormHandoffControls",
   "privateFormHandoffWithinLimit",
+  "visitPrivateFormHandoffTextNodes",
+  "selected-push-recovery:",
   "refuseUnobservableSameContextDeparture",
   "auxclick",
 ]) assert.equal(browser.includes(fragment), true, `browser action ordering is missing ${fragment}`);
@@ -199,8 +205,9 @@ for (const fragment of ["allowNativeImage", 'value.type === "image"', "selectedD
   assert.equal(browserForm.includes(fragment), true, `native form observation is missing ${fragment}`);
 }
 assert.equal(
-  browser.includes('repairDisplayedTruth(\n                  recovery.truthUrl')
-    && browser.indexOf('repairDisplayedTruth(\n                  recovery.truthUrl') < browser.indexOf('recovery.recoverCancelledMutation("replace");'),
+  browser.includes('"cancelled pushed-fragment reload rolled back before current-truth recovery"')
+    && browser.indexOf('"cancelled pushed-fragment reload rolled back before current-truth recovery"')
+      < browser.indexOf("recovery.recoverCancelledMutation,\n            );"),
   true,
   "staged mutation recovery must repair displayed truth before requesting current truth",
 );
@@ -321,6 +328,7 @@ for (const fragment of [
   "captured-before-listeners",
   'setAttribute("target", "_blank")',
   "cancelled pushed fragment reload before recovering current truth",
+  "obsolete fragment rollback override a newer activation",
   "final same-context target selected by late submit listeners",
   "newer cancelled activation supersedes recovery GET",
   "frozen handoff snapshot through interrupted-departure recovery",
@@ -366,7 +374,10 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"encodedSnapshotBytesExceedLimit": true'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"descendantRecords": 4097'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"descendantStaticListAllocated": false'],
+  ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"aggregateTextContentRead": false'],
+  ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"nativeNoContentGets": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/handoff-limit-refusal.json", '"singleValueWasStringified": false'],
+  ["examples/v1-app/scenarios/form-submission/expected/fragment-rollback-supersession.json", '"newerActivationVisible": true'],
   ["examples/v1-app/scenarios/form-submission/expected/formdata-routing-refusal.json", '"formDataEvents": 1'],
   ["examples/v1-app/scenarios/form-submission/expected/formdata-routing-refusal.json", '"mutationRequests": 0'],
   ["examples/v1-app/scenarios/form-submission/expected/recovery-formdata-routing-refusal.json", '"formDataEvents": 1'],

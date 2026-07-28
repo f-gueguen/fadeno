@@ -173,7 +173,10 @@ and synchronous teardown during a cancelled fragment reload retain the
 committed mutation's current-truth recovery owner. The rollback completes
 before recovery so Back reaches the preceding page. Handoff capture has bounded
 control, record, and UTF-8 byte budgets; an over-limit handoff refuses private
-publication before serializing controls. If submit propagation is already
+publication before serializing controls and refreshes current truth without
+requesting an unobservable redirect destination. This covers `204`, attachment,
+and other responses that create no document and therefore emit no reliable
+departure-completion event. If submit propagation is already
 stopped when the runtime observes a same-context form, the runtime refuses it
 while the event is cancelable and recovers current truth without constructing
 `FormData`. If a later listener stops propagation and the browser selects a

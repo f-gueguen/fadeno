@@ -95,9 +95,9 @@ export const redirectFragment = defineAction({
 export const redirectChain = defineAction({
   fields: { intent: textField({ maximumBytes: 16 }) },
   authorize({ session }) { return session.get("viewer") === "owner"; },
-  run() {
+  run({ input }) {
     redirectChainRuns += 1;
-    return redirect("/redirect-chain");
+    return redirect(input.intent === "no-content" ? "/native-no-content" : "/redirect-chain");
   },
 });
 
@@ -349,6 +349,10 @@ function projectsPage(signedIn: boolean): RenderChild {
     jsxs("form", { id: "redirect-chain-form", action: redirectChain, children: [
       jsx("input", { name: redirectChain.fields.intent, type: "hidden", value: "chain" }),
       jsx("button", { type: "submit", children: "Follow redirect chain" }),
+    ] }),
+    jsxs("form", { id: "redirect-no-content-form", action: redirectChain, children: [
+      jsx("input", { name: redirectChain.fields.intent, type: "hidden", value: "no-content" }),
+      jsx("button", { type: "submit", children: "Refuse an unobservable redirect" }),
     ] }),
     jsxs("form", { id: "redirect-fragment-chain-form", action: redirectFragmentChain, children: [
       jsx("input", { name: redirectFragmentChain.fields.intent, type: "hidden", value: "fragment-chain" }),

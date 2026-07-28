@@ -68,8 +68,12 @@ stale-result admission used by enhanced links.
 
 The handoff first bounds the number of controls, aggregate records, and UTF-8
 bytes that could be copied. An over-limit handoff refuses private destination
-publication before serializing control state and returns to native destination
-GET with current-truth recovery ownership. An admitted handoff then freezes the submitted form controls, their
+publication before serializing control state. It refreshes current truth
+through GET without issuing the redirect destination: a native destination
+that returns no document provides no completion signal with which to retain
+committed-mutation recovery safely. This is an explicit conservative refusal;
+the action is not repeated and the page cannot retain stale pre-mutation
+markup. An admitted handoff then freezes the submitted form controls, their
 exact bounded parent ancestry, their sorted attributes and
 effective disabled state (including disabled `fieldset` inheritance),
 select-option structure, exact option and optgroup parent identities and
