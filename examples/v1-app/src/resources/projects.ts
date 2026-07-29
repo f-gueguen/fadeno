@@ -44,6 +44,7 @@ export const recoveringProject = defineResource({
     if (recoveryAttempt === 1) {
       throw resourceError({ code: "PROJECT_TEMPORARILY_UNAVAILABLE", status: 503 });
     }
+    recoveryAttempts.delete(input.region);
     return Object.freeze({ projectId: input.projectId });
   },
 });

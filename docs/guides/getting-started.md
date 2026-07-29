@@ -283,8 +283,10 @@ production build.
   "type": "module",
   "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "check": "fadeno check --project-root .",
-    "build": "fadeno build --project-root .",
+    "generate:source-excerpts": "node --no-warnings --experimental-strip-types scripts/generate-source-excerpts.ts",
+    "check:source-excerpts": "node --no-warnings --experimental-strip-types scripts/generate-source-excerpts.ts --check",
+    "check": "pnpm check:source-excerpts && fadeno check --project-root .",
+    "build": "pnpm generate:source-excerpts && fadeno build --project-root .",
     "dev": "fadeno dev --project-root . --port 4173",
     "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"
   },
@@ -356,8 +358,8 @@ boundary visible and gives an exact correction:
 
 ```text
 Refused safely. Native navigation completed.
-The browser-owned draft was not silently reconciled.
-Correction: clear the draft before the next eligible navigation.
+The draft made in the previous document was not silently reconciled. The browser loaded this complete current document through the native path.
+Correction: clear the draft first when you want the eligible enhanced path.
 ```
 
 The normalized flow records only verified decisions, causes, ownership,
@@ -501,6 +503,7 @@ import { routeHref } from "fadeno:routes";
 import { Overview } from "../components/overview.tsx";
 import { projectSummary } from "../resources/projects.ts";
 
+// fadeno-demo-source:start overview
 const greetingHref = routeHref({ route: "/hello/[name]", parameters: { name: "Reader" } });
 
 const page: Page = async ({ read }) => {
@@ -512,6 +515,7 @@ const page: Page = async ({ read }) => {
 
   return <Overview evidence={first} greetingHref={greetingHref} />;
 };
+// fadeno-demo-source:end overview
 
 export default page;
 ```

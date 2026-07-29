@@ -28,19 +28,19 @@ const page: Page = ({ request }) => {
         <p class="eyebrow">Safe refusal laboratory</p>
         <h2 id="refusal-heading">{refused ? "Refused safely. Native navigation completed." : "Make browser-owned state unsafe."}</h2>
         <p>{refused
-          ? "The draft made in the previous document was not silently reconciled. The browser loaded this complete current document through the native path."
+          ? <span id="refusal-outcome-detail">The draft made in the previous document was not silently reconciled. The browser loaded this complete current document through the native path.</span>
           : "Type into the draft field, then follow the link. Before V2-08, a dirty control keeps the interaction native instead of risking silent state loss."}</p>
       </div>
       <div class="refusal-controls">
         <label for="refusal-draft">Unsaved browser draft</label>
         <input id="refusal-draft" name="refusal-draft" type="text" placeholder="Type before continuing" />
         <a class="button-link button-warning" href="/routing?outcome=dirty-control">Try the guarded navigation</a>
-        <small>Correction: clear the draft first when you want the eligible enhanced path.</small>
+        <small id="refusal-correction">Correction: clear the draft first when you want the eligible enhanced path.</small>
       </div>
     </section>
     <DeveloperPanel
       source="src/routes/hello/[name]/page.tsx"
-      code={'const page: Page = ({ parameters }) => (\n  <h1>Hello {parameters["name"]}</h1>\n);'}
+      excerpt="routing"
       explanation={[
         "The generated route matcher selects the parameterized page.",
         "The decoded name becomes ordinary escaped JSX text.",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +10,27 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from "@playwri
 const root = fileURLToPath(new URL("../", import.meta.url));
 const example = join(root, "examples/v1-app");
 const browsers = { chromium, firefox, webkit } satisfies Readonly<Record<string, BrowserType>>;
+
+function signalChild(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (child.pid === undefined) return;
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    child.kill(signal);
+  }
+}
+
+async function terminateChild(child: ChildProcess): Promise<number | null> {
+  if (child.exitCode !== null || child.signalCode !== null) return child.exitCode;
+  return new Promise<number | null>((resolve) => {
+    const force = setTimeout(() => signalChild(child, "SIGKILL"), 5_000);
+    child.once("exit", (code) => {
+      clearTimeout(force);
+      resolve(code);
+    });
+    signalChild(child, "SIGTERM");
+  });
+}
 
 function expectedJson(name: string, value: unknown): void {
   assert.equal(
@@ -31,6 +53,13 @@ async function startDemo(): Promise<Readonly<{
   output(): string;
   stop(): Promise<void>;
 }>> {
+  const temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-demo-check-"));
+  let cleaned = false;
+  const cleanup = (): void => {
+    if (cleaned) return;
+    cleaned = true;
+    rmSync(temporaryRoot, { recursive: true, force: true });
+  };
   const child = spawn(process.execPath, [
     "--no-warnings",
     "--experimental-strip-types",
@@ -39,6 +68,8 @@ async function startDemo(): Promise<Readonly<{
     "0",
   ], {
     cwd: root,
+    detached: true,
+    env: { ...process.env, FADENO_DEMO_TEMPORARY_ROOT: temporaryRoot },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stdout = "";
@@ -47,33 +78,48 @@ async function startDemo(): Promise<Readonly<{
   child.stderr.setEncoding("utf8");
   child.stdout.on("data", (chunk: string) => { stdout += chunk; });
   child.stderr.on("data", (chunk: string) => { stderr += chunk; });
-  const origin = await new Promise<string>((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error(`FADENO_V2_DEMO_START_TIMEOUT\n${stdout}\n${stderr}`)),
-      60_000,
-    );
-    const inspect = (): void => {
-      const match = /Fadeno secure demo ready at (https:\/\/127\.0\.0\.1:[0-9]+)\./u.exec(stdout);
-      if (!match?.[1] || !stdout.includes("certificate is self-signed")) return;
-      clearTimeout(timeout);
-      resolve(match[1]);
-    };
-    child.stdout.on("data", inspect);
-    child.once("exit", (code) => {
-      clearTimeout(timeout);
-      reject(new Error(`FADENO_V2_DEMO_START_EXIT:${code}\n${stdout}\n${stderr}`));
+  try {
+    const origin = await new Promise<string>((resolve, reject) => {
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        void terminateChild(child).then(
+          () => reject(new Error(`FADENO_V2_DEMO_START_TIMEOUT\n${stdout}\n${stderr}`)),
+          reject,
+        );
+      }, 60_000);
+      const inspect = (): void => {
+        const match = /Fadeno secure demo ready at (https:\/\/127\.0\.0\.1:[0-9]+)\./u.exec(stdout);
+        if (settled || !match?.[1] || !stdout.includes("certificate is self-signed")) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve(match[1]);
+      };
+      child.stdout.on("data", inspect);
+      child.once("exit", (code) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        reject(new Error(`FADENO_V2_DEMO_START_EXIT:${code}\n${stdout}\n${stderr}`));
+      });
     });
-  });
-  return Object.freeze({
-    origin,
-    output: () => `${stdout}${stderr}`,
-    stop: () => new Promise<void>((resolve, reject) => {
-      child.once("exit", (code) => code === 0
-        ? resolve()
-        : reject(new Error(`FADENO_V2_DEMO_STOP:${code}\n${stdout}\n${stderr}`)));
-      child.kill("SIGTERM");
-    }),
-  });
+    return Object.freeze({
+      origin,
+      output: () => `${stdout}${stderr}`,
+      stop: async () => {
+        try {
+          const code = await terminateChild(child);
+          if (code !== 0) throw new Error(`FADENO_V2_DEMO_STOP:${code}\n${stdout}\n${stderr}`);
+        } finally {
+          cleanup();
+        }
+      },
+    });
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
 }
 
 async function waitForEnhancement(page: Page): Promise<void> {
@@ -93,7 +139,11 @@ async function documentIdentity(page: Page): Promise<string> {
   });
 }
 
-async function verifyEnhancedWorkflow(name: string, browserType: BrowserType, origin: string): Promise<void> {
+async function verifyEnhancedWorkflow(
+  name: string,
+  browserType: BrowserType,
+  origin: string,
+): Promise<Readonly<{ refusalHuman: string }>> {
   const browser = await browserType.launch({ headless: true });
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, colorScheme: "light" });
@@ -104,10 +154,22 @@ async function verifyEnhancedWorkflow(name: string, browserType: BrowserType, or
     assert.equal(await page.locator("#demo-enhancement-status").textContent(), "Active for eligible links and forms.", `${name}: public enhancement state`);
     assert.equal(await page.locator("nav[aria-label='Guided demonstration'] a").count(), 5, `${name}: guided steps`);
     assert.equal(await page.locator("details.developer-panel").count(), 1, `${name}: source panel`);
+    const routeAudit = await browser.newContext({ ignoreHTTPSErrors: true });
+    const catalog = await routeAudit.request.get(`${origin}/shop/catalog`);
+    assert.equal(catalog.status(), 200, `${name}: generated catalog route`);
+    assert.match(await catalog.text(), /<h1>Shop catalog<\/h1>/u, `${name}: generated catalog page`);
+    const missingShop = await routeAudit.request.get(`${origin}/shop/missing`);
+    assert.equal(missingShop.status(), 404, `${name}: generated scoped fallback`);
+    assert.match(await missingShop.text(), /<h1>Shop page not found<\/h1>/u, `${name}: generated shop not found`);
+    const raw = await routeAudit.request.get(`${origin}/raw`);
+    assert.equal(raw.status(), 200, `${name}: generated raw route`);
+    assert.equal(await raw.text(), "raw:/raw", `${name}: generated raw handler`);
+    await routeAudit.close();
     const homeIdentity = await documentIdentity(page);
 
     await page.getByRole("link", { name: "Resources", exact: true }).click();
     await page.getByRole("heading", { name: "Two reads. One request-owned result." }).waitFor();
+    await waitForEnhancement(page);
     assert.equal(await documentIdentity(page), homeIdentity, `${name}: eligible link stayed enhanced`);
     await page.locator("details.developer-panel summary").click();
     assert.equal(await page.getByText("src/routes/resources/page.tsx", { exact: true }).count(), 2, `${name}: source path`);
@@ -124,6 +186,12 @@ async function verifyEnhancedWorkflow(name: string, browserType: BrowserType, or
     await waitForEnhancement(page);
     assert.notEqual(await documentIdentity(page), routingIdentity, `${name}: dirty-control refusal stayed native`);
     assert.match(await page.getByRole("heading", { name: /Refused safely/u }).textContent() ?? "", /Native navigation completed/u, `${name}: refusal outcome`);
+    const refusalHuman = [
+      await page.locator("#refusal-heading").textContent(),
+      await page.locator("#refusal-outcome-detail").textContent(),
+      await page.locator("#refusal-correction").textContent(),
+      "",
+    ].join("\n");
 
     const recoveredIdentity = await documentIdentity(page);
     await page.locator("#refusal-draft").fill("");
@@ -205,17 +273,56 @@ async function verifyEnhancedWorkflow(name: string, browserType: BrowserType, or
       nativePage.getByRole("button", { name: "Sign in" }).click(),
     ]);
     assert.equal(await nativePage.locator("#authenticated-viewer").count(), 1, `${name}: native protected form`);
+    await nativePage.locator("#new-project-title").fill("   ");
+    await Promise.all([
+      nativePage.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      nativePage.getByRole("button", { name: "Create project" }).click(),
+    ]);
+    assert.equal(await nativePage.getByText("The project was not created.", { exact: true }).count(), 1, `${name}: native validation`);
+    const nativeTitle = `Native ${name}`;
+    await nativePage.locator("#new-project-title").fill(nativeTitle);
+    await Promise.all([
+      nativePage.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      nativePage.getByRole("button", { name: "Create project" }).click(),
+    ]);
+    assert.equal(await nativePage.getByRole("heading", { name: nativeTitle, exact: true }).count(), 1, `${name}: native create`);
+    const updatedTitle = `${nativeTitle} updated`;
+    const createdCard = nativePage.locator(".project-card").filter({
+      has: nativePage.getByRole("heading", { name: nativeTitle, exact: true }),
+    });
+    await createdCard.getByLabel("New title").fill(updatedTitle);
+    await Promise.all([
+      nativePage.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      createdCard.getByRole("button", { name: "Update project" }).click(),
+    ]);
+    assert.equal(await nativePage.getByRole("heading", { name: updatedTitle, exact: true }).count(), 1, `${name}: native update`);
+    const updatedCard = nativePage.locator(".project-card").filter({
+      has: nativePage.getByRole("heading", { name: updatedTitle, exact: true }),
+    });
+    await updatedCard.getByLabel("Confirm deletion").check();
+    await Promise.all([
+      nativePage.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      updatedCard.getByRole("button", { name: "Delete project" }).click(),
+    ]);
+    assert.equal(await nativePage.getByRole("heading", { name: updatedTitle, exact: true }).count(), 0, `${name}: native delete`);
     await nativeContext.close();
+    return Object.freeze({ refusalHuman });
   } finally {
     await browser.close();
   }
 }
 
-const scenarioSource = readFileSync(join(example, "scenarios/evaluator-demo/application.tsx"), "utf8");
+execFileSync("pnpm", ["check:source-excerpts"], { cwd: example, stdio: "inherit" });
+assert.equal(existsSync(join(example, "scenarios/evaluator-demo/application.tsx")), false);
+const routerPreparationSource = readFileSync(join(example, "scripts/prepare-evaluator-router.ts"), "utf8");
+const sourceGenerator = readFileSync(join(example, "scripts/generate-source-excerpts.ts"), "utf8");
 const browserSource = readFileSync(join(example, "scenarios/evaluator-demo/browser-entry.ts"), "utf8");
-assert.match(scenarioSource, /from "@fadeno\/framework"/u);
-assert.match(scenarioSource, /from "@fadeno\/framework\/node"/u);
-assert.doesNotMatch(scenarioSource, /\/internal\//u);
+assert.match(routerPreparationSource, /\.fadeno\/routes\/app\.ts/u);
+assert.match(routerPreparationSource, /generation\.sourceSha256/u);
+assert.match(routerPreparationSource, /browserModule/u);
+assert.doesNotMatch(routerPreparationSource, /src\/routes\/(page|projects|resources)/u);
+assert.match(sourceGenerator, /fadeno-demo-source:start/u);
+assert.doesNotMatch(sourceGenerator, /read\(projectSummary/u);
 assert.match(browserSource, /from "@fadeno\/framework\/browser"/u);
 assert.doesNotMatch(browserSource, /fadeno\.private|\/internal\//u);
 
@@ -277,12 +384,6 @@ expectedJson("recovery.json", {
   staleResourceResultRemoved: true,
   currentDocumentPublished: true,
 });
-expectedText("failure-human.txt", [
-  "Refused safely. Native navigation completed.",
-  "The browser-owned draft was not silently reconciled.",
-  "Correction: clear the draft before the next eligible navigation.",
-  "",
-].join("\n"));
 expectedText("setup.txt", [
   "command: pnpm demo",
   "input: clean canonical application plus current packed framework",
@@ -295,10 +396,16 @@ expectedText("setup.txt", [
 const demo = await startDemo();
 try {
   assert.match(demo.output(), /Fadeno production build completed/u);
+  assert.match(demo.output(), /Fadeno evaluator router derived from canonical generation [a-f0-9]{64}/u);
   assert.match(demo.output(), /certificate is self-signed/u);
+  let refusalHuman: string | undefined;
   for (const [name, browserType] of Object.entries(browsers)) {
-    await verifyEnhancedWorkflow(name, browserType, demo.origin);
+    const evidence = await verifyEnhancedWorkflow(name, browserType, demo.origin);
+    if (refusalHuman === undefined) refusalHuman = evidence.refusalHuman;
+    else assert.equal(evidence.refusalHuman, refusalHuman, `${name}: refusal evidence matches every engine`);
   }
+  if (refusalHuman === undefined) throw new Error("FADENO_V2_DEMO_REFUSAL_EVIDENCE");
+  expectedText("failure-human.txt", refusalHuman);
 } finally {
   await demo.stop();
 }

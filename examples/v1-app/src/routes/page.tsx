@@ -3,6 +3,7 @@ import { routeHref } from "fadeno:routes";
 import { Overview } from "../components/overview.tsx";
 import { projectSummary } from "../resources/projects.ts";
 
+// fadeno-demo-source:start overview
 const greetingHref = routeHref({ route: "/hello/[name]", parameters: { name: "Reader" } });
 
 const page: Page = async ({ read }) => {
@@ -14,5 +15,6 @@ const page: Page = async ({ read }) => {
 
   return <Overview evidence={first} greetingHref={greetingHref} />;
 };
+// fadeno-demo-source:end overview
 
 export default page;

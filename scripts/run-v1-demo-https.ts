@@ -41,8 +41,25 @@ const requestedPort = parsePort(option("--port"));
 const noBuild = arguments_.includes("--no-build");
 let temporaryRoot: string | undefined;
 
+function createTemporaryRoot(): string {
+  const supplied = process.env["FADENO_DEMO_TEMPORARY_ROOT"];
+  if (supplied === undefined) return mkdtempSync(join(tmpdir(), "fadeno-demo-"));
+  let candidate: string;
+  try {
+    candidate = realpathSync(supplied);
+  } catch {
+    throw new TypeError("FADENO_DEMO_TEMPORARY_ROOT");
+  }
+  const temporaryDirectory = realpathSync(tmpdir());
+  if (!candidate.startsWith(`${temporaryDirectory}/fadeno-demo-check-`)
+    || readdirSync(candidate).length !== 0) {
+    throw new TypeError("FADENO_DEMO_TEMPORARY_ROOT");
+  }
+  return candidate;
+}
+
 if (!noBuild) {
-  temporaryRoot = mkdtempSync(join(tmpdir(), "fadeno-demo-"));
+  temporaryRoot = createTemporaryRoot();
   try {
     const packedApplication = join(temporaryRoot, "application");
     const tarballs = join(temporaryRoot, "tarballs");
@@ -70,6 +87,11 @@ if (!noBuild) {
     rmSync(linkedFramework, { recursive: true, force: true });
     cpSync(retainedFramework, linkedFramework, { recursive: true, dereference: true });
     execFileSync("pnpm", ["build"], { cwd: packedApplication, stdio: "inherit" });
+    execFileSync(process.execPath, [
+      "--no-warnings",
+      "--experimental-strip-types",
+      "scripts/prepare-evaluator-router.ts",
+    ], { cwd: packedApplication, stdio: "inherit" });
     execFileSync("pnpm", ["exec", "tsc", "-p", "scenarios/evaluator-demo/tsconfig.json"], {
       cwd: packedApplication,
       stdio: "inherit",
@@ -141,8 +163,9 @@ if (noBuild) {
   });
 } else {
   process.env["FADENO_SESSION_KEYS"] = `demo:${randomBytes(32).toString("base64url")}`;
+  await import(pathToFileURL(join(projectRoot, "dist/.fadeno/routes/loader.js")).href);
   const application = await import(pathToFileURL(
-    join(projectRoot, ".fadeno/demo-dist/scenarios/evaluator-demo/application.js"),
+    join(projectRoot, ".fadeno/demo-dist/.fadeno/demo-source/application.js"),
   ).href) as Readonly<{
     applicationGeneration: string;
     handler(request: Request): Response | Promise<Response>;

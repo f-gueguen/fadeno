@@ -131,10 +131,12 @@ behavior again. An opaque request-bound authorization owner and exact operation
 authority must match the construction evidence attached to the response.
 Document, expected-error, redirect, and recovery outcomes retain a separate
 redacted causal record; markup and authorization identity remain absent from
-that record. Missing ownership, cross-user or cross-generation input,
-incomplete output, unsupported status or media type, cancellation, and limit
-exhaustion produce no envelope. Request transport and interception remain
-unimplemented until V2-04 and V2-06.
+that record. Construction evidence accepts the exact bounded generated route
+identity grammar, including root, parameter, and rest routes, while unrelated
+or malformed identity strings remain refused. Missing ownership, cross-user or
+cross-generation input, incomplete output, unsupported status or media type,
+cancellation, and limit exhaustion produce no envelope. Request transport and
+interception remain unimplemented until V2-04 and V2-06.
 
 ADR 0049 implements V2-04's first link path. The runtime decides eligibility
 before preventing native activation and admits only ordinary same-origin GET

@@ -65,6 +65,7 @@ export const recoveringProject = defineResource({
     if (recoveryAttempt === 1) {
       throw resourceError({ code: "PROJECT_TEMPORARILY_UNAVAILABLE", status: 503 });
     }
+    recoveryAttempts.delete(input.region);
     return Object.freeze({ projectId: input.projectId });
   },
 });
@@ -121,6 +122,7 @@ function authenticated(viewer: unknown): boolean {
   return viewer === "owner";
 }
 
+// fadeno-demo-source:start sign-in
 export const signIn = defineAction({
   fields: { passcode: textField({ maximumBytes: 64 }) },
   authorize() { return true; },
@@ -137,7 +139,9 @@ export const signIn = defineAction({
     return redirect("/projects");
   },
 });
+// fadeno-demo-source:end sign-in
 
+// fadeno-demo-source:start create-project
 export const createProject = defineAction({
   fields: {
     title: textField({ maximumBytes: 128 }),
@@ -166,6 +170,7 @@ export const createProject = defineAction({
     return redirect("/projects");
   },
 });
+// fadeno-demo-source:end create-project
 
 export const updateProject = defineAction({
   fields: {
@@ -276,7 +281,7 @@ const page: Page = async ({ read, session }) => {
         )}
         <DeveloperPanel
           source="src/projects.ts"
-          code={'export const signIn = defineAction({\n  fields: { passcode: textField(...) },\n  run({ input, session }) {\n    session.set("viewer", "owner");\n    session.rotate();\n    return redirect("/projects");\n  },\n});'}
+          excerpt="signIn"
           explanation={[
             "The form is complete native HTML before enhancement starts.",
             "The server validates the exact origin, proof, fields, and session.",
@@ -347,7 +352,7 @@ const page: Page = async ({ read, session }) => {
       </section>
       <DeveloperPanel
         source="src/projects.ts"
-        code={'export const createProject = defineAction({\n  fields: { title: textField(...), attachment: fileField(...) },\n  keeps: [projectCollection],\n  run({ input }) {\n    projects.set(nextProjectId, project);\n    return redirect("/projects");\n  },\n});'}
+        excerpt="createProject"
         explanation={[
           "The browser submits the same successful controls in native or eligible enhanced mode.",
           "The action validates and mutates once on the server.",

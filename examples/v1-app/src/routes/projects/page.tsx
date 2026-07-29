@@ -52,7 +52,7 @@ const page: Page = async ({ read, session }) => {
         )}
         <DeveloperPanel
           source="src/projects.ts"
-          code={'export const signIn = defineAction({\n  fields: { passcode: textField(...) },\n  run({ input, session }) {\n    session.set("viewer", "owner");\n    session.rotate();\n    return redirect("/projects");\n  },\n});'}
+          excerpt="signIn"
           explanation={[
             "The form is complete native HTML before enhancement starts.",
             "The server validates the exact origin, proof, fields, and session.",
@@ -123,7 +123,7 @@ const page: Page = async ({ read, session }) => {
       </section>
       <DeveloperPanel
         source="src/projects.ts"
-        code={'export const createProject = defineAction({\n  fields: { title: textField(...), attachment: fileField(...) },\n  keeps: [projectCollection],\n  run({ input }) {\n    projects.set(nextProjectId, project);\n    return redirect("/projects");\n  },\n});'}
+        excerpt="createProject"
         explanation={[
           "The browser submits the same successful controls in native or eligible enhanced mode.",
           "The action validates and mutates once on the server.",

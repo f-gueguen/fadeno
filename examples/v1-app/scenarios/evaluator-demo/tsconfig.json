@@ -17,5 +17,9 @@
     "jsxImportSource": "@fadeno/framework",
     "types": ["node"]
   },
-  "include": ["application.tsx", "browser-entry.ts"]
+  "include": [
+    "../../.fadeno/demo-source/application.ts",
+    "../../.fadeno/routes/index.d.ts",
+    "browser-entry.ts"
+  ]
 }

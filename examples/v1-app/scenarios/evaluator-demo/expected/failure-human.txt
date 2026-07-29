@@ -1,3 +1,3 @@
 Refused safely. Native navigation completed.
-The browser-owned draft was not silently reconciled.
-Correction: clear the draft before the next eligible navigation.
+The draft made in the previous document was not silently reconciled. The browser loaded this complete current document through the native path.
+Correction: clear the draft first when you want the eligible enhanced path.

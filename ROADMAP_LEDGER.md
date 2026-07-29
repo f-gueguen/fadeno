@@ -22,16 +22,17 @@ V2-07A — integrate the enhanced workflow into the evaluator demonstration
   focus, success, failure, correction, flow, refusal, and recovery evidence.
 - [x] Pass documentation/source and public-claim audits,
   `pnpm check:v2-demo-experience`, and full local CI on the final commit.
-- [x] Declare no package release impact, complete remote review triage, merge,
+- [ ] Declare patch package release impact, complete remote review triage, merge,
   and clean the branch before V2-08.
 
 ## Active sub-slice
 
 V2-07A integrates the already accepted link and form behavior into one
-developer-facing, application-owned walkthrough. It changes examples,
-qualification, and documentation only: no framework package behavior, public
-API, public protocol, public analyzer schema, or general reconciliation claim
-is added. Release impact: none; no Changeset is required.
+developer-facing, application-owned walkthrough. Canonical-router integration
+also repairs private projection admission for the exact generated route
+identity grammar exposed by the walkthrough. It changes no public API, public
+protocol, public analyzer schema, or general reconciliation claim. Release
+impact: patch for `@fadeno/framework`; one pending Changeset is required.
 
 ## In progress
 

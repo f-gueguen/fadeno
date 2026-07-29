@@ -8,6 +8,7 @@ import {
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const identityPattern = /^[A-Za-z0-9][A-Za-z0-9:._/-]*$/u;
+const generatedRouteIdentityPattern = /^\/(?:(?:[a-z0-9]+(?:-[a-z0-9]+)*|\[(?:\.\.\.)?[A-Za-z_][A-Za-z0-9_]*\])(?:\/(?:[a-z0-9]+(?:-[a-z0-9]+)*|\[(?:\.\.\.)?[A-Za-z_][A-Za-z0-9_]*\]))*)?$/u;
 const errorCodePattern = /^[A-Z][A-Z0-9_]{1,63}$/u;
 const recordSchema = "fadeno.private.server-update-projection";
 const maximumEvidenceEntries = 128;
@@ -111,6 +112,12 @@ function boundedIdentity(value: unknown): value is string {
     && withinPrivateUpdateFieldLimit("identity", value);
 }
 
+function boundedRouteIdentity(value: unknown): value is string {
+  return typeof value === "string"
+    && (identityPattern.test(value) || generatedRouteIdentityPattern.test(value))
+    && withinPrivateUpdateFieldLimit("identity", value);
+}
+
 function boundedCode(value: unknown): value is string {
   return typeof value === "string" && errorCodePattern.test(value);
 }
@@ -205,7 +212,7 @@ export function attachPrivateServerUpdateRouteEvidence(
 ): Response {
   const authority = requestOperations.get(request);
   if (!authority) return response;
-  if (!boundedIdentity(input.routeId)
+  if (!boundedRouteIdentity(input.routeId)
     || !boundedIdentity(input.generation)
     || (input.expectedCode !== undefined && !boundedCode(input.expectedCode))) {
     return response;
@@ -569,7 +576,7 @@ export function deserializePrivateServerUpdateRecord(bytes: Uint8Array): Private
   const route = provenance["route"];
   if (route !== null && (!plainRecord(route)
     || !exactKeys(route, ["generation", "id", "outcome"])
-    || !boundedIdentity(route["id"])
+        || !boundedRouteIdentity(route["id"])
     || !boundedIdentity(route["generation"])
     || !["document", "not-found", "expected-error", "redirect", "unexpected-error"].includes(String(route["outcome"])))) {
     throw new TypeError("FADENO_UPDATE_PROJECTION_RECORD");

@@ -3,9 +3,13 @@ import { DeveloperPanel } from "../../components/developer-panel.tsx";
 import { recoveringProject } from "../../resources/projects.ts";
 
 const page: Page = async ({ read, request }) => {
+  // fadeno-demo-source:start recovery
   const run = new URL(request.url).searchParams.get("run");
-  const region = run && /^[a-z0-9-]{1,32}$/u.test(run) ? `recovery-${run}` : "north";
+  const region = run === "chromium" || run === "firefox" || run === "webkit"
+    ? `recovery-${run}`
+    : "recovery-demo";
   const project = await read(recoveringProject, { projectId: 7, region });
+  // fadeno-demo-source:end recovery
   return (
     <section aria-labelledby="recovery-heading" class="result-page recovery-result">
       <p class="eyebrow">Recovery result · 200</p>
@@ -16,7 +20,7 @@ const page: Page = async ({ read, request }) => {
       <a class="button-link button-secondary" href="/resources">Back to resource lab</a>
       <DeveloperPanel
         source="src/routes/resource-recovery/page.tsx"
-        code={'const project = await read(recoveringProject, {\n  projectId: 7,\n  region,\n});'}
+        excerpt="recovery"
         explanation={[
           "The first request returns one typed 503 outcome.",
           "Its request-owned resource value is discarded at response completion.",

@@ -3,11 +3,13 @@ import { DeveloperPanel } from "../../components/developer-panel.tsx";
 import { projectSummary } from "../../resources/projects.ts";
 
 const page: Page = async ({ read }) => {
+  // fadeno-demo-source:start resources
   const [first, second] = await Promise.all([
     read(projectSummary, { projectId: 21, region: "east" }),
     read(projectSummary, { region: "east", projectId: 21 }),
   ]);
   if (first !== second) throw new Error("resource laboratory lost request ownership");
+  // fadeno-demo-source:end resources
 
   return (
     <div class="lab-page">
@@ -43,7 +45,7 @@ const page: Page = async ({ read }) => {
       </section>
       <DeveloperPanel
         source="src/routes/resources/page.tsx"
-        code={'const [first, second] = await Promise.all([\n  read(projectSummary, input),\n  read(projectSummary, equivalentInput),\n]);\n\nif (first !== second) throw new Error();'}
+        excerpt="resources"
         explanation={[
           "The page asks for the same structural resource input twice.",
           "One request scope owns the shared promise and frozen value.",

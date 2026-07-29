@@ -60,7 +60,7 @@ export function Overview({
       </section>
       <DeveloperPanel
         source="src/routes/page.tsx"
-        code={'const [first, equivalent] = await Promise.all([\n  read(projectSummary, input),\n  read(projectSummary, equivalentInput),\n]);\n\nreturn <Overview evidence={first} />;'}
+        excerpt="overview"
         explanation={[
           "The URL selects the page and root layout.",
           "Equivalent resource inputs share one request-owned result.",

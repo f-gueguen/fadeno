@@ -1,12 +1,13 @@
 import type { RenderChild } from "@fadeno/framework";
+import { demoSourceExcerpts, type DemoSourceExcerpt } from "../generated/demo-source-excerpts.ts";
 
 export function DeveloperPanel({
   source,
-  code,
+  excerpt,
   explanation,
 }: Readonly<{
   source: string;
-  code: string;
+  excerpt: DemoSourceExcerpt;
   explanation: readonly string[];
 }>): RenderChild {
   return (
@@ -19,7 +20,7 @@ export function DeveloperPanel({
         <section aria-labelledby="developer-source-heading">
           <p class="utility-label">Application source</p>
           <h2 id="developer-source-heading">{source}</h2>
-          <pre><code>{code}</code></pre>
+          <pre><code>{demoSourceExcerpts[excerpt]}</code></pre>
         </section>
         <section aria-labelledby="developer-explanation-heading">
           <p class="utility-label">What happens</p>

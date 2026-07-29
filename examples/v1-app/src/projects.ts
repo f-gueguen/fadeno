@@ -36,6 +36,7 @@ function authenticated(viewer: unknown): boolean {
   return viewer === "owner";
 }
 
+// fadeno-demo-source:start sign-in
 export const signIn = defineAction({
   fields: { passcode: textField({ maximumBytes: 64 }) },
   authorize() { return true; },
@@ -52,7 +53,9 @@ export const signIn = defineAction({
     return redirect("/projects");
   },
 });
+// fadeno-demo-source:end sign-in
 
+// fadeno-demo-source:start create-project
 export const createProject = defineAction({
   fields: {
     title: textField({ maximumBytes: 128 }),
@@ -81,6 +84,7 @@ export const createProject = defineAction({
     return redirect("/projects");
   },
 });
+// fadeno-demo-source:end create-project
 
 export const updateProject = defineAction({
   fields: {
