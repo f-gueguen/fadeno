@@ -1,12 +1,15 @@
 import type { Page } from "@fadeno/framework";
+import { DeveloperPanel } from "../../components/developer-panel.tsx";
 import { projectSummary } from "../../resources/projects.ts";
 
 const page: Page = async ({ read }) => {
+  // fadeno-demo-source:start resources
   const [first, second] = await Promise.all([
     read(projectSummary, { projectId: 21, region: "east" }),
     read(projectSummary, { region: "east", projectId: 21 }),
   ]);
   if (first !== second) throw new Error("resource laboratory lost request ownership");
+  // fadeno-demo-source:end resources
 
   return (
     <div class="lab-page">
@@ -40,6 +43,16 @@ const page: Page = async ({ read }) => {
           <a class="button-link button-secondary" href="/resource-recovery">Start 503 → recovery</a>
         </div>
       </section>
+      <DeveloperPanel
+        source="src/routes/resources/page.tsx"
+        excerpt="resources"
+        explanation={[
+          "The page asks for the same structural resource input twice.",
+          "One request scope owns the shared promise and frozen value.",
+          "A reload creates a new request scope and a new execution.",
+          "Typed failure and recovery never reuse the previous request result.",
+        ]}
+      />
     </div>
   );
 };

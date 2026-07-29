@@ -32,6 +32,14 @@ application response. Build, analyzer, security, and browser-lifecycle claims
 remain separately labeled reproducible evidence; the UI does not present them
 as live request telemetry.
 
+The five-step guided rail moves from the current request through routing,
+request-owned resource sharing, protected actions, and typed recovery. Its
+mode ribbon distinguishes the complete native baseline, eligible enhancement,
+and conservative refusal. Each main laboratory has a collapsible developer
+panel containing the tracked application source excerpt and a plain-language
+description of the public behavior on that page. It does not expose private
+transport, analyzer, or browser-session records.
+
 After installing the packed framework, the demonstrated production workflow is:
 
 ```sh
@@ -93,18 +101,15 @@ Run the optional enhanced-form qualification with:
 pnpm check:v2-form-submission
 ```
 
-That gate packs the current framework, installs it into a clean consumer, and
-runs the same public GET and protected POST forms over HTTPS in Chromium,
-Firefox, and WebKit. It proves exact successful controls, session-cookie
-rotation, expected validation, correction, pending cleanup, duplicate
-suppression, origin and authorization refusal, redacted ownership evidence,
-and current-truth recovery after a response is lost without sending the
-mutation again. The forms also complete with JavaScript disabled. The primary
-application remains native in this slice; its Evidence page names this
-reproducible qualification instead of presenting private flow data as live UI.
-V2-07 owns the complete enhanced authenticated workflow.
+That isolated gate packs the current framework, installs it into a clean
+consumer, and runs the same public GET and protected POST forms over HTTPS in
+Chromium, Firefox, and WebKit. It proves exact successful controls,
+session-cookie rotation, expected validation, correction, pending cleanup,
+duplicate suppression, origin and authorization refusal, redacted ownership
+evidence, and current-truth recovery after a response is lost without sending
+the mutation again. The forms also complete with JavaScript disabled.
 
-Run that complete V2-07 action-ordering workflow with:
+Run the complete isolated action-ordering qualification with:
 
 ```sh
 pnpm check:v2-action-ordering
@@ -125,6 +130,7 @@ handoff whose encoded control snapshot exceeds its byte or structural limits
 loads current truth instead of issuing an unobservable redirect destination.
 If the redirect GET itself returns a current-truth recovery outcome, that
 result is consumed and the mutation is not repeated.
+
 An otherwise safe direct or redirect-chain
 same-resource fragment redirect starts a real native reload before teardown can
 strand its staged URL, retains
@@ -216,6 +222,22 @@ deliberate validation error retains its tested correction; JavaScript-disabled
 CRUD retains the same final server state. Normalized CRUD, ordering, refusal,
 and recovery results live beside the scenario source under
 `scenarios/form-submission/expected/`.
+
+Run the integrated evaluator workflow with:
+
+```sh
+pnpm check:v2-demo-experience
+```
+
+That gate starts the canonical application from the current packed framework
+with the same `pnpm demo` path, then exercises the guided native, enhanced, and
+refused workflow in Chromium, Firefox, and WebKit. It asserts route changes,
+request resource sharing, validation correction, protected sign-in and
+creation, one fresh server document after redirected actions, typed 503
+recovery with stale failure removal, keyboard destination focus, responsive
+layout, the source panel, and the complete no-JavaScript form path. Before
+V2-08, dirty browser-owned state is intentionally refused rather than
+structurally reconciled.
 
 The application uses native external CSS only. The root layout links `/styles`,
 and `src/routes/styles/handler.ts` serves `src/styles.ts` through the public

@@ -1,0 +1,5 @@
+command: pnpm demo
+input: clean canonical application plus current packed framework
+result: one local HTTPS evaluator workflow
+modes: native baseline; eligible enhancement; conservative refusal
+stop: Ctrl-C closes all owned listeners and temporary files

@@ -457,7 +457,7 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         ]);
         assert.equal(refusedSignIn?.status(), 200, `${browserName}: sign-in correction status`);
         assert.equal(await page.getByRole("alert").getByText("Sign-in was refused.").count(), 1);
-        assert.equal(await page.getByText("Use the example owner passcode.").count(), 1);
+        assert.equal(await page.getByText("Use the example owner passcode.", { exact: true }).count(), 1);
         assert.equal(await page.getByLabel("Example owner passcode").getAttribute("value"), null, `${browserName}: password not restored`);
         assert.doesNotMatch(await page.content(), /incorrect/u, `${browserName}: refused credential not reflected`);
 
@@ -482,7 +482,7 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
         assert.equal(invalidCreate?.status(), 200, `${browserName}: create validation status`);
         const humanFailure = readFileSync(join(exampleRoot, "expected/action-failure.txt"), "utf8").trim().split("\n");
         assert.equal(await page.getByRole("alert").getByText(humanFailure[0] ?? "missing").count(), 1);
-        assert.equal(await page.getByText(humanFailure[1] ?? "missing").count(), 1);
+        assert.equal(await page.getByText(humanFailure[1] ?? "missing", { exact: true }).count(), 1);
         const invalidTitle = page.getByLabel("Title", { exact: true });
         assert.equal(await invalidTitle.getAttribute("aria-invalid"), "true");
         const describedBy = await invalidTitle.getAttribute("aria-describedby");
@@ -519,7 +519,11 @@ async function verifyAuthenticatedCrud(project: string): Promise<void> {
           createForm.getByRole("button", { name: "Create project" }).click(),
         ]);
         assert.equal(created?.status(), 200, `${browserName}: create redirect target`);
-        assert.equal(await page.getByText("The project was not created.").count(), 0, `${browserName}: stale create failure removed`);
+        assert.equal(
+          await page.getByRole("alert").getByText("The project was not created.", { exact: true }).count(),
+          0,
+          `${browserName}: stale create failure removed`,
+        );
         assert.equal(await page.getByText("Browser project", { exact: true }).count(), 1);
         assert.equal(await page.getByText("notes.txt (11 bytes)", { exact: true }).count(), 1);
         assert.equal(await page.locator("#project-list > li").count(), 2);

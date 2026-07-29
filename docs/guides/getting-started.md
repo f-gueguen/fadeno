@@ -179,7 +179,7 @@ fadeno deploy --project-root . --output ../releases/my-fadeno-app-001
 The packed canonical scenario normalizes only the temporary artifact path:
 
 ```text
-Fadeno production build completed: 28 files written to dist.
+Fadeno production build completed: 31 files written to dist.
 Fadeno deployment artifact completed at <ARTIFACT_ROOT>.
 ```
 
@@ -283,8 +283,10 @@ production build.
   "type": "module",
   "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "check": "fadeno check --project-root .",
-    "build": "fadeno build --project-root .",
+    "generate:source-excerpts": "node --no-warnings --experimental-strip-types scripts/generate-source-excerpts.ts",
+    "check:source-excerpts": "node --no-warnings --experimental-strip-types scripts/generate-source-excerpts.ts --check",
+    "check": "pnpm check:source-excerpts && fadeno check --project-root .",
+    "build": "pnpm generate:source-excerpts && fadeno build --project-root .",
     "dev": "fadeno dev --project-root . --port 4173",
     "start": "node --import ./dist/.fadeno/routes/loader.js ./dist/server/bootstrap.js"
   },
@@ -301,27 +303,120 @@ production build.
 ## Run the evaluator demonstration
 
 After the repository's standard `pnpm install`, one root command builds the
-current framework and canonical application, then starts its generated
-production server behind the local HTTPS demonstration boundary. The launcher
-prints the exact loopback URL and self-signed-certificate limitation. The
-Projects laboratory displays the example passcode and runs the complete native
-action/session workflow. The certificate-free read-only command keeps mutation
+current framework, installs its packed artifact into a clean copy of the
+canonical application, and starts the guided evaluator workflow behind the
+local HTTPS demonstration boundary. The launcher prints the exact loopback URL
+and self-signed-certificate limitation. The Projects laboratory displays the
+example passcode and runs the same protected action/session flow in native or
+eligible enhanced mode. The certificate-free read-only command keeps mutation
 controls hidden instead of weakening the action origin rule.
 
 ```text
 command: pnpm demo
-result: current application built; local HTTPS launcher ready
-mutation path: Projects; passcode example-owner
-read-only path: pnpm demo:read-only; protected mutation controls hidden
-stop: Ctrl-C closes proxy and generated production server
+input: clean canonical application plus current packed framework
+result: one local HTTPS evaluator workflow
+modes: native baseline; eligible enhancement; conservative refusal
+stop: Ctrl-C closes all owned listeners and temporary files
 ```
 
-The Overview, Routing, Resources, Projects, and Evidence destinations expose
-application-owned outcomes. Private analyzer, build, security, and browser
-records remain reproducible through named gates; the UI does not claim they ran
-during the current request. Run `pnpm check:v2-demo-experience` for the
-current-packed three-engine setup, success, failure, flow, recovery, responsive,
-focus, reduced-motion, and no-JavaScript assertions.
+The five-step guided rail covers the current request, routing, request-owned
+resource sharing, protected actions, and typed recovery. The mode ribbon labels
+the complete native baseline, eligible enhancement, and conservative refusal.
+Each main laboratory includes a collapsible panel with tracked application
+source and a public-behavior explanation for developers. Private analyzer,
+build, security, transport, and browser-session records remain reproducible
+through named gates; the UI does not present them as live request telemetry.
+
+```json
+{
+  "schemaVersion": 1,
+  "scenario": "canonical-evaluator-walkthrough",
+  "browserEngines": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "steps": [
+    "observe-request",
+    "change-route",
+    "share-read",
+    "run-action",
+    "recover-truth"
+  ],
+  "modes": {
+    "native": "complete-links-and-forms",
+    "enhanced": "eligible-links-and-protected-actions",
+    "refused": "unsafe-state-returns-to-native"
+  },
+  "developerPanel": "application-source-and-public-behavior-only",
+  "preV208Limit": "no-general-structural-reconciliation"
+}
+```
+
+The deliberate dirty-control case makes the current pre-reconciliation
+boundary visible and gives an exact correction:
+
+```text
+Guarded destination reached.
+This server document reports only that the guarded destination loaded. It does not infer whether the browser used native or enhanced navigation.
+To exercise conservative refusal, type a draft before following the link; clear it to restore eligible enhancement.
+```
+
+The normalized flow records only verified decisions, causes, ownership,
+skipped work, and the observable outcome:
+
+```json
+{
+  "schemaVersion": 1,
+  "scenario": "canonical-evaluator-flow",
+  "decisions": [
+    "match-route",
+    "share-request-resource",
+    "validate-action",
+    "revalidate",
+    "enhance-eligible",
+    "refuse-unsafe"
+  ],
+  "causes": [
+    "request-url",
+    "resource-input",
+    "protected-form",
+    "browser-owned-dirty-control"
+  ],
+  "ownership": {
+    "route": "canonical-application",
+    "resource": "request",
+    "actionAndSession": "server",
+    "eligibility": "public-browser-runtime"
+  },
+  "skippedWork": [
+    "client-router",
+    "optimistic-mutation",
+    "unsafe-reconciliation",
+    "private-record-publication"
+  ],
+  "redirectedActionOutcome": "fresh-server-document",
+  "observableOutcome": "complete-current-server-document"
+}
+```
+
+Run `pnpm check:v2-demo-experience` for the current-packed Chromium, Firefox,
+and WebKit setup, success, failure, correction, flow, recovery, responsive,
+focus, keyboard, source-panel, and no-JavaScript assertions. The recovery
+assertion proves a typed 503 and its stale output disappear on the next
+successful request:
+
+```json
+{
+  "schemaVersion": 1,
+  "scenario": "typed-resource-recovery",
+  "firstStatus": 503,
+  "nextStatus": 200,
+  "staleDiagnosticRemoved": true,
+  "staleResourceResultRemoved": true,
+  "currentDocumentPublished": true
+}
+```
 
 ## Configure routes
 
@@ -367,6 +462,29 @@ const layout: Layout = ({ children }) => (
           </nav>
         </div>
       </header>
+      <section aria-label="Interaction ownership" class="mode-ribbon">
+        <div>
+          <span class="status-chip status-native">Native</span>
+          <strong>Every link and form has a complete server path.</strong>
+        </div>
+        <div>
+          <span class="status-chip status-enhanced">Enhanced</span>
+          <strong id="demo-enhancement-status">Native mode remains active until the optional runtime starts.</strong>
+        </div>
+        <div>
+          <span class="status-chip status-refused">Refused safely</span>
+          <strong>Unsafe state stays native until structural reconciliation is qualified.</strong>
+        </div>
+      </section>
+      <nav aria-label="Guided demonstration" class="guided-rail">
+        <ol>
+          <li><a href="/"><span>01</span>Observe one request</a></li>
+          <li><a href="/routing"><span>02</span>Change the route</a></li>
+          <li><a href="/resources"><span>03</span>Share one read</a></li>
+          <li><a href="/projects"><span>04</span>Run an action</a></li>
+          <li><a href="/resource-recovery"><span>05</span>Recover fresh truth</a></li>
+        </ol>
+      </nav>
       <main class="page-content" id="main-content">{children}</main>
       <footer class="site-footer">
         <p><strong>Server-owned by default.</strong> Links, forms, and documents remain useful without client JavaScript.</p>
@@ -382,8 +500,10 @@ export default layout;
 ```tsx
 import type { Page } from "@fadeno/framework";
 import { routeHref } from "fadeno:routes";
+import { Overview } from "../components/overview.tsx";
 import { projectSummary } from "../resources/projects.ts";
 
+// fadeno-demo-source:start overview
 const greetingHref = routeHref({ route: "/hello/[name]", parameters: { name: "Reader" } });
 
 const page: Page = async ({ read }) => {
@@ -393,53 +513,9 @@ const page: Page = async ({ read }) => {
   ]);
   if (first !== equivalent) throw new Error("equivalent resource reads did not share one result");
 
-  return (
-    <div class="overview-grid">
-      <section aria-labelledby="welcome-heading" class="hero-panel">
-        <p class="eyebrow">One server response · visible from cause to outcome</p>
-        <h1 id="welcome-heading">Follow the request thread.</h1>
-        <p class="hero-copy">Fadeno keeps the document, its data, and its recovery path on the server. This page makes that ownership visible without exposing private framework machinery.</p>
-        <div class="hero-actions">
-          <a class="button-link button-primary" href={greetingHref}>Try a typed route</a>
-          <a class="button-link button-secondary" href="/projects">Open the project workflow</a>
-        </div>
-        <p class="native-note"><span aria-hidden="true">●</span> Native HTML baseline. No client JavaScript is required.</p>
-      </section>
-
-      <section aria-labelledby="thread-heading" class="request-panel">
-        <div class="request-panel-heading">
-          <div>
-            <p class="utility-label">Current response</p>
-            <h2 id="thread-heading">GET /</h2>
-          </div>
-          <span class="status-chip status-success">200 HTML</span>
-        </div>
-        <ol class="request-thread">
-          <li><span class="thread-label">Route matched</span><strong>/</strong></li>
-          <li><span class="thread-label">Resource calls</span><strong>2</strong></li>
-          <li><span class="thread-label">Loader executions</span><strong>1 · shared</strong></li>
-          <li><span class="thread-label">Viewer</span><strong>{first.viewer}</strong></li>
-          <li><span class="thread-label">Rendering</span><strong>escaped · streamed</strong></li>
-          <li class="thread-outcome"><span class="thread-label">Observable outcome</span><strong>Project {first.projectId} ready</strong></li>
-        </ol>
-        <p class="request-proof">Project {first.projectId} is ready for {first.viewer}. Equivalent resource reads shared one request result. Execution <code>{first.executionId}</code> was created once for this response.</p>
-      </section>
-
-      <section aria-labelledby="feature-map-heading" class="feature-map">
-        <div class="section-heading">
-          <p class="eyebrow">Explore by outcome</p>
-          <h2 id="feature-map-heading">What the running application proves</h2>
-        </div>
-        <div class="feature-grid">
-          <a class="feature-link" href="/routing"><span>01</span><strong>Routing</strong><small>Parameters, layouts, redirects, 404s, errors, and raw responses.</small></a>
-          <a class="feature-link" href="/resources"><span>02</span><strong>Resources</strong><small>One request owner, shared reads, typed failures, and clean recovery.</small></a>
-          <a class="feature-link" href="/projects"><span>03</span><strong>Actions &amp; sessions</strong><small>Protected sign-in, validation, upload, CRUD, replay refusal, and revalidation.</small></a>
-          <a class="feature-link" href="/evidence"><span>04</span><strong>Build &amp; recovery</strong><small>Reproducible commands for last-good output, cleanup, and browser qualification.</small></a>
-        </div>
-      </section>
-    </div>
-  );
+  return <Overview evidence={first} greetingHref={greetingHref} />;
 };
+// fadeno-demo-source:end overview
 
 export default page;
 ```
@@ -657,6 +733,91 @@ code {
 .primary-nav a:hover {
   background: var(--mist);
   color: var(--ink);
+}
+
+.mode-ribbon {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(76rem, calc(100% - 2.5rem));
+  margin: 1rem auto 0;
+  overflow: hidden;
+  border: 1px solid rgb(18 24 38 / 14%);
+  border-radius: 0.7rem;
+  background: var(--paper);
+  box-shadow: 0 0.8rem 2.5rem rgb(24 39 75 / 7%);
+}
+
+.mode-ribbon > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.8rem 0.9rem;
+}
+
+.mode-ribbon > div + div {
+  border-left: 1px solid var(--line);
+}
+
+.mode-ribbon strong {
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.status-native {
+  background: #e7ecf4;
+  color: #344154;
+}
+
+.status-enhanced {
+  background: var(--mint-soft);
+  color: var(--mint);
+}
+
+.status-refused {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.guided-rail {
+  width: min(76rem, calc(100% - 2.5rem));
+  margin: 1rem auto 0;
+}
+
+.guided-rail ol {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block: 1px solid rgb(18 24 38 / 14%);
+}
+
+.guided-rail li + li {
+  border-left: 1px solid rgb(18 24 38 / 14%);
+}
+
+.guided-rail a {
+  display: grid;
+  min-height: 3.7rem;
+  padding: 0.7rem 0.8rem;
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.guided-rail a:hover {
+  background: rgb(49 92 244 / 6%);
+}
+
+.guided-rail span {
+  color: var(--cobalt);
+  font-family: var(--utility);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
 }
 
 .page-content {
@@ -1044,6 +1205,33 @@ button:hover {
   color: #6d4b1c;
 }
 
+.refusal-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+  gap: 2rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid #e4bd76;
+  border-radius: 0.75rem;
+  background: var(--amber-soft);
+}
+
+.refusal-demo p:last-child,
+.refusal-controls small {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.refusal-controls {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.refusal-controls input {
+  width: 100%;
+}
+
 .compact-thread {
   box-shadow: none;
 }
@@ -1314,6 +1502,105 @@ main > section:not([class]) {
   background: var(--paper);
 }
 
+.developer-panel {
+  position: static;
+  width: 100%;
+  margin-top: 2rem;
+  overflow: hidden;
+  border: 1px solid rgb(18 24 38 / 20%);
+  border-radius: 0.8rem;
+  background: var(--paper);
+  box-shadow: 0 1rem 3rem rgb(24 39 75 / 10%);
+}
+
+.developer-panel[open] {
+  position: fixed;
+  z-index: 12;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  width: min(52rem, calc(100% - 2.5rem));
+  margin-top: 0;
+  box-shadow: 0 1.4rem 4rem rgb(24 39 75 / 18%);
+}
+
+.developer-panel summary {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.9rem 1rem;
+  background: var(--ink);
+  color: var(--white);
+  cursor: pointer;
+  font-weight: 750;
+  list-style: none;
+}
+
+.developer-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.developer-panel summary::before {
+  content: "↳";
+  position: absolute;
+  right: 1rem;
+  color: var(--cobalt);
+  font-family: var(--utility);
+}
+
+.developer-panel[open] summary::before {
+  content: "×";
+}
+
+.developer-panel summary small {
+  color: #b9c4d8;
+  font-family: var(--utility);
+  font-size: 0.67rem;
+  font-weight: 500;
+}
+
+.developer-panel-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(16rem, 0.9fr);
+  gap: 1.25rem;
+  max-height: min(65vh, 34rem);
+  padding: 1rem;
+  overflow: auto;
+}
+
+.developer-panel-content h2 {
+  margin-bottom: 0.7rem;
+  font-size: 1.2rem;
+}
+
+.developer-panel pre {
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+  border-radius: 0.45rem;
+  background: #0d1422;
+  color: #dce6ff;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.developer-panel ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.developer-panel li + li {
+  margin-top: 0.55rem;
+}
+
+.developer-boundary {
+  margin: 1rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 a:focus-visible,
 button:focus-visible,
 input:focus-visible {
@@ -1337,7 +1624,8 @@ input:focus-visible {
 
   .overview-grid,
   .resource-proof-grid,
-  .workflow-grid {
+  .workflow-grid,
+  .refusal-demo {
     grid-template-columns: 1fr;
   }
 
@@ -1356,12 +1644,26 @@ input:focus-visible {
   .project-summary {
     grid-column: 1 / -1;
   }
+
+  .developer-panel,
+  .developer-panel[open] {
+    position: static;
+    width: 100%;
+    margin-top: 2rem;
+  }
+
+  .developer-panel-content {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
 }
 
 @media (max-width: 42rem) {
   .header-inner,
   .page-content,
-  .site-footer {
+  .site-footer,
+  .mode-ribbon,
+  .guided-rail {
     width: min(100% - 1.25rem, 76rem);
   }
 
@@ -1375,6 +1677,23 @@ input:focus-visible {
     padding-inline: 0.55rem;
     text-align: center;
     white-space: nowrap;
+  }
+
+  .mode-ribbon {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-ribbon > div + div {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .guided-rail {
+    overflow-x: auto;
+  }
+
+  .guided-rail ol {
+    min-width: 42rem;
   }
 
   .page-content {

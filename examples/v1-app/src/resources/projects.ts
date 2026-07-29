@@ -35,14 +35,16 @@ export const missingProject = defineResource({
   },
 });
 
-let recoveryAttempt = 0;
+const recoveryAttempts = new Map<string, number>();
 
 export const recoveringProject = defineResource({
   read({ input }: ResourceReadContext<ProjectInput>) {
-    recoveryAttempt += 1;
+    const recoveryAttempt = (recoveryAttempts.get(input.region) ?? 0) + 1;
+    recoveryAttempts.set(input.region, recoveryAttempt);
     if (recoveryAttempt === 1) {
       throw resourceError({ code: "PROJECT_TEMPORARILY_UNAVAILABLE", status: 503 });
     }
+    recoveryAttempts.delete(input.region);
     return Object.freeze({ projectId: input.projectId });
   },
 });

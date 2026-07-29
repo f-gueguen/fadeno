@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "scenario": "dirty-control-native-refusal",
+  "before": "eligible-enhanced-document",
+  "cause": "browser-owned-draft",
+  "decision": "refuse-before-interception",
+  "outcome": "native-current-document",
+  "correction": "clear-draft-before-next-navigation"
+}

@@ -1,5 +1,6 @@
 import type { Page } from "@fadeno/framework";
 
+// fadeno-demo-source:start routing
 const page: Page = ({ parameters }) => {
   const name = parameters["name"];
   if (typeof name !== "string") throw new TypeError("FADENO_EXAMPLE_NAME_PARAMETER");
@@ -13,5 +14,6 @@ const page: Page = ({ parameters }) => {
     </section>
   );
 };
+// fadeno-demo-source:end routing
 
 export default page;

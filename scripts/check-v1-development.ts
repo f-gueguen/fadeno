@@ -188,7 +188,7 @@ try {
   rmSync(runtimeOutputRoot, { recursive: true });
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);
 
-  const pagePath = join(project, "src/routes/page.tsx");
+  const pagePath = join(project, "src/components/overview.tsx");
   const originalPage = readFileSync(pagePath, "utf8");
   writeFileSync(pagePath, originalPage.replace(
     "Follow the request thread.",
@@ -201,8 +201,8 @@ try {
   writeFileSync(helperPath, "export const developmentMessage = 'Transitive generation one';\n");
   writeFileSync(pagePath, originalPage
     .replace(
-      'import type { Page } from "@fadeno/framework";\n',
-      'import type { Page } from "@fadeno/framework";\nimport { developmentMessage } from "../development-message.js";\n',
+      'import type { RenderChild } from "@fadeno/framework";\n',
+      'import type { RenderChild } from "@fadeno/framework";\nimport { developmentMessage } from "../development-message.js";\n',
     )
     .replace('<h1 id="welcome-heading">Follow the request thread.</h1>', '<h1 id="welcome-heading">{developmentMessage}</h1>'));
   stdoutOffset = await development.waitForStdout("Fadeno development diagnostics cleared; new generation active.\n", stdoutOffset);

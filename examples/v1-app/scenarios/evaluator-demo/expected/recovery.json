@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "scenario": "typed-resource-recovery",
+  "firstStatus": 503,
+  "nextStatus": 200,
+  "staleDiagnosticRemoved": true,
+  "staleResourceResultRemoved": true,
+  "currentDocumentPublished": true
+}

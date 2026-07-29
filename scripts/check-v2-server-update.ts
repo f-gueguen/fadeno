@@ -51,6 +51,7 @@ function responseFor(
     outcome?: "document" | "not-found" | "expected-error" | "redirect" | "unexpected-error";
     expectedCode?: string;
     generation?: string;
+    routeId?: string;
   }> = {},
 ): Readonly<{ request: Request; response: Response }> {
   const request = new Request(`${authority.origin}${authority.operation.url}`);
@@ -60,7 +61,7 @@ function responseFor(
     headers: input.headers ?? { "content-type": "text/html; charset=utf-8" },
   });
   attachPrivateServerUpdateRouteEvidence(response, request, {
-    routeId: "route:projects:index",
+    routeId: input.routeId ?? "route:projects:index",
     generation: input.generation ?? authority.applicationGeneration,
     outcome: input.outcome ?? "document",
     ...(input.expectedCode ? { expectedCode: input.expectedCode } : {}),
@@ -95,6 +96,39 @@ assert.deepEqual(
   deserializePrivateServerUpdateRecord(serializePrivateServerUpdateRecord(successful.record)),
   successful.record,
 );
+for (const [index, routeId] of ["/", "/projects", "/hello/[name]", "/files/[...parts]"].entries()) {
+  const generatedRouteOperation = operation({ resultId: `result-generated-route-${index}` });
+  const generatedRoute = await projectPrivateServerUpdate(
+    responseFor(generatedRouteOperation, { routeId }).response,
+    generatedRouteOperation,
+  );
+  assert.equal(generatedRoute.status, "projected", `generated route identity ${routeId}`);
+  assert.equal(generatedRoute.record.provenance.route?.id, routeId);
+  assert.deepEqual(
+    deserializePrivateServerUpdateRecord(serializePrivateServerUpdateRecord(generatedRoute.record)),
+    generatedRoute.record,
+  );
+}
+for (const routeId of [
+  "//projects",
+  "/Projects",
+  "/projects/[...]",
+  "/projects/[bad-name]",
+  "/[__proto__]",
+  "/[constructor]",
+  "/[prototype]",
+  "/[id]/[id]",
+  "/[...parts]/child",
+]) {
+  const invalidRouteOperation = operation({ resultId: `result-invalid-route-${routeId.length}` });
+  const invalidRoute = await projectPrivateServerUpdate(
+    responseFor(invalidRouteOperation, { routeId }).response,
+    invalidRouteOperation,
+  );
+  assert.equal(invalidRoute.status, "refused", `invalid generated route identity ${routeId}`);
+  if (invalidRoute.status !== "refused") throw new Error("invalid generated route identity projected");
+  assert.equal(invalidRoute.code, "FADENO_UPDATE_PROJECTION_OWNERSHIP");
+}
 const admitted = evaluatePrivateUpdateBytes(successful.bytes, {
   origin: successfulOperation.origin,
   currentTruthUrl: successfulOperation.currentTruthUrl,

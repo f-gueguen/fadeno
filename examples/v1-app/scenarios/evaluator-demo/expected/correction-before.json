@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "scenario": "project-title-validation",
+  "submittedTitle": "<redacted-invalid-value>",
+  "result": "PROJECT_TITLE_REQUIRED"
+}
