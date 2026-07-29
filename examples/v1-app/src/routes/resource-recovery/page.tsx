@@ -15,8 +15,8 @@ const page: Page = async ({ read, request }) => {
       <dl class="result-facts"><div><dt>Previous request</dt><dd>503</dd></div><div><dt>Current request</dt><dd>200</dd></div><div><dt>Stale failure</dt><dd>removed</dd></div></dl>
       <a class="button-link button-secondary" href="/resources">Back to resource lab</a>
       <DeveloperPanel
-        source="src/resources/projects.ts"
-        code={'if (recoveryAttempt === 1) {\n  throw resourceError({\n    code: "PROJECT_TEMPORARILY_UNAVAILABLE",\n    status: 503,\n  });\n}\nreturn { projectId: input.projectId };'}
+        source="src/routes/resource-recovery/page.tsx"
+        code={'const project = await read(recoveringProject, {\n  projectId: 7,\n  region,\n});'}
         explanation={[
           "The first request returns one typed 503 outcome.",
           "Its request-owned resource value is discarded at response completion.",
