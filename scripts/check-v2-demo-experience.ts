@@ -188,6 +188,7 @@ async function verifyEnhancedWorkflow(
     assert.equal(await documentIdentity(page), cleanRoutingIdentity, `${name}: clean guarded route stayed enhanced`);
     assert.equal(await page.getByText("Native navigation completed", { exact: false }).count(), 0, `${name}: enhanced route makes no native claim`);
     await page.getByRole("link", { name: "Routing", exact: true }).click();
+    await page.waitForURL(`${origin}/routing`);
     await page.getByRole("heading", { name: "URLs select typed server outcomes." }).waitFor();
     assert.equal(await documentIdentity(page), cleanRoutingIdentity, `${name}: clean route reset stayed enhanced`);
     const routingIdentity = await documentIdentity(page);
