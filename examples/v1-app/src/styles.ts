@@ -186,6 +186,91 @@ code {
   color: var(--ink);
 }
 
+.mode-ribbon {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(76rem, calc(100% - 2.5rem));
+  margin: 1rem auto 0;
+  overflow: hidden;
+  border: 1px solid rgb(18 24 38 / 14%);
+  border-radius: 0.7rem;
+  background: var(--paper);
+  box-shadow: 0 0.8rem 2.5rem rgb(24 39 75 / 7%);
+}
+
+.mode-ribbon > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.8rem 0.9rem;
+}
+
+.mode-ribbon > div + div {
+  border-left: 1px solid var(--line);
+}
+
+.mode-ribbon strong {
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.status-native {
+  background: #e7ecf4;
+  color: #344154;
+}
+
+.status-enhanced {
+  background: var(--mint-soft);
+  color: var(--mint);
+}
+
+.status-refused {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.guided-rail {
+  width: min(76rem, calc(100% - 2.5rem));
+  margin: 1rem auto 0;
+}
+
+.guided-rail ol {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block: 1px solid rgb(18 24 38 / 14%);
+}
+
+.guided-rail li + li {
+  border-left: 1px solid rgb(18 24 38 / 14%);
+}
+
+.guided-rail a {
+  display: grid;
+  min-height: 3.7rem;
+  padding: 0.7rem 0.8rem;
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.guided-rail a:hover {
+  background: rgb(49 92 244 / 6%);
+}
+
+.guided-rail span {
+  color: var(--cobalt);
+  font-family: var(--utility);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
 .page-content {
   min-height: calc(100vh - 12rem);
   padding-block: clamp(3rem, 7vw, 6.5rem);
@@ -888,7 +973,9 @@ input:focus-visible {
 @media (max-width: 42rem) {
   .header-inner,
   .page-content,
-  .site-footer {
+  .site-footer,
+  .mode-ribbon,
+  .guided-rail {
     width: min(100% - 1.25rem, 76rem);
   }
 
@@ -902,6 +989,23 @@ input:focus-visible {
     padding-inline: 0.55rem;
     text-align: center;
     white-space: nowrap;
+  }
+
+  .mode-ribbon {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-ribbon > div + div {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .guided-rail {
+    overflow-x: auto;
+  }
+
+  .guided-rail ol {
+    min-width: 42rem;
   }
 
   .page-content {

@@ -2,11 +2,11 @@ import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { request as requestHttp } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const arguments_ = process.argv.slice(2);
@@ -53,13 +53,40 @@ if (!noBuild) {
       recursive: true,
       filter: (source) => !source.includes("/scenarios") && !source.includes("/.fadeno") && !source.includes("/dist") && !source.includes("/node_modules"),
     });
+    cpSync(
+      join(projectRoot, "scenarios/evaluator-demo"),
+      join(packedApplication, "scenarios/evaluator-demo"),
+      { recursive: true },
+    );
     const tarball = join(tarballs, readdirSync(tarballs).find((name) => name.endsWith(".tgz")) ?? "missing.tgz");
     const packagePath = join(packedApplication, "package.json");
     const packageDocument = JSON.parse(readFileSync(packagePath, "utf8")) as { dependencies: Record<string, string> };
     packageDocument.dependencies["@fadeno/framework"] = `file:${tarball}`;
     writeFileSync(packagePath, `${JSON.stringify(packageDocument, null, 2)}\n`);
     execFileSync("pnpm", ["install", "--offline", "--ignore-scripts"], { cwd: packedApplication, stdio: "ignore" });
+    const linkedFramework = join(packedApplication, "node_modules/@fadeno/framework");
+    const retainedFramework = join(temporaryRoot, "installed-framework");
+    cpSync(realpathSync(linkedFramework), retainedFramework, { recursive: true, dereference: true });
+    rmSync(linkedFramework, { recursive: true, force: true });
+    cpSync(retainedFramework, linkedFramework, { recursive: true, dereference: true });
     execFileSync("pnpm", ["build"], { cwd: packedApplication, stdio: "inherit" });
+    execFileSync("pnpm", ["exec", "tsc", "-p", "scenarios/evaluator-demo/tsconfig.json"], {
+      cwd: packedApplication,
+      stdio: "inherit",
+    });
+    const demoSite = join(packedApplication, ".fadeno/demo-site");
+    mkdirSync(join(demoSite, "_fadeno/framework"), { recursive: true });
+    cpSync(
+      join(packedApplication, "node_modules/@fadeno/framework/dist"),
+      join(demoSite, "_fadeno/framework"),
+      { recursive: true },
+    );
+    const browserEntry = readFileSync(
+      join(packedApplication, ".fadeno/demo-dist/scenarios/evaluator-demo/browser-entry.js"),
+      "utf8",
+    ).replace('from "@fadeno/framework/browser"', 'from "./framework/browser.js"');
+    if (browserEntry.includes("@fadeno/framework")) throw new Error("FADENO_DEMO_BROWSER_LINK");
+    writeFileSync(join(demoSite, "_fadeno/browser-entry.js"), browserEntry);
     projectRoot = packedApplication;
   } catch (error) {
     rmSync(temporaryRoot, { recursive: true, force: true });
@@ -70,37 +97,89 @@ if (!noBuild) {
 const frontendReservation = requestedPort === 0 ? await reservePort() : requestedPort;
 const backendPort = await reservePort();
 const origin = `https://127.0.0.1:${frontendReservation}`;
-const child = spawn(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "./dist/server/bootstrap.js"], {
-  cwd: projectRoot,
-  env: {
-    ...process.env,
-    FADENO_ORIGIN: origin,
-    FADENO_PORT: String(backendPort),
-    FADENO_SESSION_KEYS: `demo:${randomBytes(32).toString("base64url")}`,
-  },
-  stdio: ["ignore", "pipe", "pipe"],
-});
-
-let childOutput = "";
+const sessionKeysBefore = process.env["FADENO_SESSION_KEYS"];
+let child: ReturnType<typeof spawn> | undefined;
 let childError = "";
-child.stdout.setEncoding("utf8");
-child.stderr.setEncoding("utf8");
-child.stdout.on("data", (chunk: string) => { childOutput += chunk; });
-child.stderr.on("data", (chunk: string) => { childError += chunk; });
+let closeBackend: () => Promise<void>;
 
-await new Promise<void>((resolvePromise, reject) => {
-  const timeout = setTimeout(() => reject(new Error(`FADENO_DEMO_START_TIMEOUT\n${childError}`)), 15_000);
-  const inspect = (): void => {
-    if (!childOutput.includes(`Fadeno production server ready at http://127.0.0.1:${backendPort}.`)) return;
-    clearTimeout(timeout);
-    resolvePromise();
-  };
-  child.stdout.on("data", inspect);
-  child.once("exit", (code) => {
-    clearTimeout(timeout);
-    reject(new Error(`FADENO_DEMO_START_EXIT:${code}\n${childError}`));
+if (noBuild) {
+  child = spawn(process.execPath, ["--import", "./dist/.fadeno/routes/loader.js", "./dist/server/bootstrap.js"], {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      FADENO_ORIGIN: origin,
+      FADENO_PORT: String(backendPort),
+      FADENO_SESSION_KEYS: `demo:${randomBytes(32).toString("base64url")}`,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
   });
-});
+  let childOutput = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => { childOutput += chunk; });
+  child.stderr.on("data", (chunk: string) => { childError += chunk; });
+  await new Promise<void>((resolvePromise, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`FADENO_DEMO_START_TIMEOUT\n${childError}`)), 15_000);
+    const inspect = (): void => {
+      if (!childOutput.includes(`Fadeno production server ready at http://127.0.0.1:${backendPort}.`)) return;
+      clearTimeout(timeout);
+      resolvePromise();
+    };
+    child?.stdout.on("data", inspect);
+    child?.once("exit", (code) => {
+      clearTimeout(timeout);
+      reject(new Error(`FADENO_DEMO_START_EXIT:${code}\n${childError}`));
+    });
+  });
+  closeBackend = () => new Promise<void>((resolvePromise) => {
+    if (!child || child.exitCode !== null || child.signalCode !== null) {
+      resolvePromise();
+      return;
+    }
+    child.once("exit", () => resolvePromise());
+    child.kill("SIGTERM");
+  });
+} else {
+  process.env["FADENO_SESSION_KEYS"] = `demo:${randomBytes(32).toString("base64url")}`;
+  const application = await import(pathToFileURL(
+    join(projectRoot, ".fadeno/demo-dist/scenarios/evaluator-demo/application.js"),
+  ).href) as Readonly<{
+    applicationGeneration: string;
+    handler(request: Request): Response | Promise<Response>;
+    listenNodeHttp(options: Readonly<{
+      handler(request: Request): Response | Promise<Response>;
+      hostname: string;
+      port: number;
+      canonicalOrigin: string;
+      applicationGeneration: string;
+    }>): Promise<Readonly<{ close(): Promise<void> }>>;
+  }>;
+  const demoSite = resolve(projectRoot, ".fadeno/demo-site");
+  const handler = (request: Request): Response | Promise<Response> => {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith("/_fadeno/")) return application.handler(request);
+    const asset = resolve(demoSite, `.${url.pathname}`);
+    if (!asset.startsWith(`${demoSite}/`)) return new Response("not found", { status: 404 });
+    try {
+      return new Response(readFileSync(asset), {
+        headers: {
+          "cache-control": "no-store",
+          "content-type": "text/javascript; charset=utf-8",
+        },
+      });
+    } catch {
+      return new Response("not found", { status: 404 });
+    }
+  };
+  const backend = await application.listenNodeHttp({
+    handler,
+    hostname: "127.0.0.1",
+    port: backendPort,
+    canonicalOrigin: origin,
+    applicationGeneration: application.applicationGeneration,
+  });
+  closeBackend = backend.close;
+}
 
 const proxy = createHttpsServer({
   key: readFileSync(`${root}/scripts/fixtures/v1-example-tls-key.pem`),
@@ -136,12 +215,9 @@ async function close(): Promise<void> {
   if (closing) return;
   closing = true;
   await new Promise<void>((resolvePromise) => proxy.close(() => resolvePromise()));
-  if (child.exitCode === null && child.signalCode === null) {
-    await new Promise<void>((resolvePromise) => {
-      child.once("exit", () => resolvePromise());
-      child.kill("SIGTERM");
-    });
-  }
+  await closeBackend();
+  if (sessionKeysBefore === undefined) delete process.env["FADENO_SESSION_KEYS"];
+  else process.env["FADENO_SESSION_KEYS"] = sessionKeysBefore;
   if (temporaryRoot) rmSync(temporaryRoot, { recursive: true, force: true });
 }
 
@@ -149,7 +225,7 @@ await new Promise<void>((resolvePromise, reject) => {
   const stop = (): void => { void close().then(resolvePromise, reject); };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  child.once("exit", (code) => {
+  child?.once("exit", (code) => {
     if (closing) return;
     void close().then(() => reject(new Error(`FADENO_DEMO_RUNTIME_EXIT:${code}\n${childError}`)), reject);
   });
