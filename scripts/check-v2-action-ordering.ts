@@ -319,9 +319,11 @@ for (const fragment of [
   "empty-fragment delimiter",
   "recovery-time handoff refusal",
   "same/same-hash/empty-fragment reload",
-  "V2-08 and V2-09 must qualify structural reconciliation",
+  "V2-08's bounded private structural reconciliation selected by ADR 0053",
+  "V2-09 must qualify the canonical application across the accepted V2-08 reconciliation boundary",
 ]) assert.equal(threatModel.includes(fragment), true, `browser update threat model is missing ${fragment}`);
 assert.equal(threatModel.includes("V2-07 through V2-09 must qualify complete action ordering"), false);
+assert.equal(threatModel.includes("V2-08 and V2-09 must qualify structural reconciliation"), false);
 
 const application = read("examples/v1-app/scenarios/form-submission/application.ts");
 for (const fragment of ["createProject", "updateProject", "deleteProject", "projectPageRenders", 'id: "update-form"', 'id: "delete-form"']) {
