@@ -374,13 +374,21 @@ operation starts current-truth recovery again; obsolete completion cannot clear
 or publish over that recovery owner.
 
 A selected-push rollback is itself pending owned work. Its exact traversal
-identity and recovery operation remain current until the matching `popstate`.
+identity, requested source entry and URL, and recovery operation remain current
+until the matching `popstate`. An unrelated selected entry reloads natively
+rather than continuing rollback recovery from the wrong history record.
 A newer activation may supersede that owner; the delayed rollback then observes
 the newer operation and cannot replace its destination with obsolete current
 truth. When a bounded handoff cannot be captured, current truth is refreshed
 directly and the redirect destination is not requested, because a `204`,
 attachment, or other no-document response offers no native completion event
 with which to discharge committed-mutation recovery.
+
+Fragment staging is admitted only when the selected private state equals the
+exact generated state and the URL, history length, and push-write sequence
+prove the requested replace or push. A hook that changes the state or performs
+the other write kind is refused; if it observably appended an entry, cancelled
+recovery rolls that entry back before continuing.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

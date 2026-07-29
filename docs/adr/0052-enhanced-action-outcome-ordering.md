@@ -100,6 +100,10 @@ entry, including a same-hash activation, so Back still reaches the prior
 fragment-free entry. If an application history hook commits that exact private
 push and then throws, observable URL, state identity, and history-length
 evidence keep rollback ownership instead of treating the push as uncommitted.
+Successful staging also requires the selected private state, URL, history
+length, and push-write sequence to match the exact requested replacement or
+push. A hook cannot substitute state or change the write kind and have that
+entry claimed as framework-owned.
 A preinstalled window finalizer decides recovery takeover
 while the activation is still cancelable and after document submit listeners
 have finished. It revalidates the final GET action, method, target (including a
@@ -180,7 +184,9 @@ current-truth replacement before teardown instead of closing over stale
 markup. If a GET form staged a pushed
 fragment entry successfully, cancellation first traverses back to the source entry, then
 recovers current truth, so Back still reaches the preceding page rather than a
-duplicate same-URL entry. A failed push created no entry, so cancellation
+duplicate same-URL entry. Completion requires the exact requested source entry
+and URL; an unrelated selected entry reloads natively instead of continuing
+rollback recovery from the wrong record. A failed push created no entry, so cancellation
 repairs the current slot directly and never traverses to the preceding page.
 If that repair itself fails, the browser immediately replaces the staged URL
 with native current truth; private recovery never proceeds against a URL that

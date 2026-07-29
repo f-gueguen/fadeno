@@ -2676,8 +2676,9 @@ test("rolls back a cancelled pushed fragment reload before recovering current tr
   await expect.poll(() => new URL(repairFailurePage.url()).hash).toBe("");
   await expect(repairFailurePage.locator("#viewer")).toHaveText("Signed in owner");
   const repairFailureRecovery = {
-    redirectAndRecoveryGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
-      && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length - repairFailureGetsBefore,
+    redirectAndRecoveryObserved: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
+      - repairFailureGetsBefore >= 1,
     finalHash: new URL(repairFailurePage.url()).hash,
     currentTruthVisible: await repairFailurePage.locator("#viewer").textContent() === "Signed in owner",
   };
@@ -2726,30 +2727,85 @@ test("rolls back a cancelled pushed fragment reload before recovering current tr
   await postCommitThrowPage.goBack();
   await expect.poll(() => new URL(postCommitThrowPage.url()).pathname).toBe("/");
   const postCommitThrowRecovery = {
-    redirectAndRecoveryGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+    redirectAndRecoveryObserved: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
-      - postCommitThrowGetsBefore,
+      - postCommitThrowGetsBefore >= 1,
     finalHash: postCommitThrowFinalHash,
     currentTruthVisible: postCommitThrowCurrentTruthVisible,
     backReachedPrecedingPage: new URL(postCommitThrowPage.url()).pathname === "/",
   };
   await postCommitThrowPage.close();
+
+  const mutatedStatePage = await page.context().newPage();
+  await mutatedStatePage.addInitScript(() => {
+    const nativePush = history.pushState;
+    Object.defineProperty(history, "pushState", {
+      configurable: true,
+      writable: true,
+      value(data: unknown, unused: string, url?: string | URL | null): void {
+        const changed = typeof data === "object" && data !== null
+          ? { ...data, entry: "history:application-mutated" }
+          : data;
+        nativePush.call(history, changed, unused, url);
+      },
+    });
+  });
+  await mutatedStatePage.goto(origin);
+  await mutatedStatePage.goto(`${origin}/projects`);
+  await expect(mutatedStatePage.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(async () => mutatedStatePage.evaluate(() =>
+    Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  const mutatedStateGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await mutatedStatePage.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 4);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await mutatedStatePage.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "cancel fragment reload after staged state mutation";
+  }, { once: true }));
+  const mutatedStateDialog = mutatedStatePage.waitForEvent("dialog");
+  const mutatedStateActivation = mutatedStatePage.locator("#native-fragment-form button")
+    .click({ noWaitAfter: true });
+  await (await mutatedStateDialog).dismiss();
+  await mutatedStateActivation;
+  releaseHeldResponse?.();
+  await expect.poll(() => new URL(mutatedStatePage.url()).hash).toBe("");
+  await expect(mutatedStatePage.locator("#viewer")).toHaveText("Signed in owner");
+  const mutatedStateCurrentTruthVisible =
+    await mutatedStatePage.locator("#viewer").textContent() === "Signed in owner";
+  const mutatedStateFinalHash = new URL(mutatedStatePage.url()).hash;
+  await mutatedStatePage.goBack();
+  await expect.poll(() => new URL(mutatedStatePage.url()).pathname).toBe("/");
+  const mutatedStateRecovery = {
+    redirectAndRecoveryObserved: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && ((path === "/redirect-chain" && accept === mediaType) || path === "/projects")).length
+      - mutatedStateGetsBefore >= 1,
+    finalHash: mutatedStateFinalHash,
+    currentTruthVisible: mutatedStateCurrentTruthVisible,
+    backReachedPrecedingPage: new URL(mutatedStatePage.url()).pathname === "/",
+  };
+  await mutatedStatePage.close();
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-cancelled-fragment-push-recovery",
-    version: 1,
+    version: 2,
     mutationRequests: privateMutations().length - mutationsBefore,
     redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
-    currentTruthRecoveryGets: transportRequests.filter(({ method, path }) => method === "GET"
-      && path === "/projects").length - privateTruthBefore - nativeTruthBefore - 1,
+    currentTruthRecoveryObserved: transportRequests.filter(({ method, path }) => method === "GET"
+      && path === "/projects").length - privateTruthBefore - nativeTruthBefore - 1 >= 1,
     redirectChainRuns: state.redirectChainRuns,
     finalHashBeforeBack: finalHash,
     currentTruthVisible,
     backReachedPrecedingPage: new URL(rollbackPage.url()).pathname === "/",
     repairFailureRecovery,
     postCommitThrowRecovery,
-    mutationRetried: privateMutations().length - mutationsBefore > 3,
+    mutatedStateRecovery,
+    mutationRetried: privateMutations().length - mutationsBefore > 4,
   }).toEqual(expected("cancelled-fragment-push-recovery"));
   expect(readFileSync(join(outputRoot, "expected-cancelled-fragment-push-recovery-human.txt"), "utf8"))
     .toContain("cancelled pushed-fragment reload rolled back");
@@ -2839,6 +2895,73 @@ test("does not let an obsolete fragment rollback override a newer activation", a
   await rollbackPage.close();
 });
 
+test("refuses fragment rollback completion from an unrelated history entry", async ({ page }) => {
+  await signIn(page);
+  const rollbackPage = await page.context().newPage();
+  await rollbackPage.addInitScript(() => {
+    try {
+      const documentLoadKey = "__fadenoFragmentRollbackSelectionDocumentLoads";
+      const priorLoads = Number.parseInt(sessionStorage.getItem(documentLoadKey) ?? "0", 10);
+      sessionStorage.setItem(documentLoadKey, String(priorLoads + 1));
+    } catch {
+      // The qualification reads the counter only after an owned same-origin document loads.
+    }
+    const nativeGo = history.go.bind(history);
+    Object.defineProperty(history, "go", {
+      configurable: true,
+      writable: true,
+      value(delta = 0): void {
+        nativeGo(delta < 0 ? delta - 1 : delta);
+      },
+    });
+  });
+  await rollbackPage.goto(origin);
+  await rollbackPage.goto(`${origin}/search?q=preceding`);
+  await rollbackPage.goto(`${origin}/projects`);
+  await expect(rollbackPage.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(async () => rollbackPage.evaluate(() =>
+    Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length;
+  const documentLoadsBefore = await rollbackPage.evaluate(() =>
+    Number.parseInt(sessionStorage.getItem("__fadenoFragmentRollbackSelectionDocumentLoads") ?? "0", 10));
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await rollbackPage.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) => method === "GET"
+    && path === "/redirect-chain" && accept === mediaType).length).toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await rollbackPage.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "cancel fragment reload before unrelated rollback selection";
+  }, { once: true }));
+  const dialog = rollbackPage.waitForEvent("dialog");
+  const fragmentActivation = rollbackPage.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await (await dialog).dismiss();
+  await fragmentActivation;
+  releaseHeldResponse?.();
+  await expect.poll(() => new URL(rollbackPage.url()).pathname).toBe("/search");
+  await expect(rollbackPage.locator("h1")).toHaveText("Search result");
+  expect({
+    schema: "fadeno.example.action-ordering-fragment-rollback-selection-refusal",
+    version: 2,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    redirectGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
+      && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    nativeSelectedEntryDocumentLoads: await rollbackPage.evaluate(() =>
+      Number.parseInt(sessionStorage.getItem("__fadenoFragmentRollbackSelectionDocumentLoads") ?? "0", 10))
+      - documentLoadsBefore,
+    finalPath: new URL(rollbackPage.url()).pathname,
+    finalSearch: new URL(rollbackPage.url()).search,
+    selectedEntryVisible: await rollbackPage.locator("h1").textContent() === "Search result",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("fragment-rollback-selection-refusal"));
+  expect(readFileSync(join(outputRoot, "expected-fragment-rollback-selection-refusal-human.txt"), "utf8"))
+    .toContain("unrelated selected entry reloaded natively");
+  await rollbackPage.close();
+});
+
 test("does not roll back a fragment push that failed before staging an entry", async ({ page }) => {
   await page.goto(`${origin}/projects`);
   const recoveryModes = await page.evaluate(async () => {
@@ -2853,6 +2976,7 @@ test("does not roll back a fragment push that failed before staging an entry", a
       failedPush: runtime.privateFragmentReloadRecoveryMode("push", false),
       committedPush: runtime.privateFragmentReloadRecoveryMode("push", true),
       replacement: runtime.privateFragmentReloadRecoveryMode("replace", false),
+      replacementThatPushed: runtime.privateFragmentReloadRecoveryMode("replace", true),
     };
   });
   expect({

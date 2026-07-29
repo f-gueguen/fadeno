@@ -171,7 +171,11 @@ history, including a same-hash activation; explicit request-privacy directives
 remain native and are never replaced by a forced reload. Selected-push rollback
 and synchronous teardown during a cancelled fragment reload retain the
 committed mutation's current-truth recovery owner. The rollback completes
-before recovery so Back reaches the preceding page. Handoff capture has bounded
+before recovery so Back reaches the preceding page. Completion requires the
+exact requested source entry and URL; an unrelated `popstate` reloads natively
+instead of continuing obsolete recovery. Fragment staging likewise requires
+the exact requested private state, URL, history length, and push-write sequence
+before ownership is claimed. Handoff capture has bounded
 control, record, and UTF-8 byte budgets; an over-limit handoff refuses private
 publication before serializing controls and refreshes current truth without
 requesting an unobservable redirect destination. This covers `204`, attachment,

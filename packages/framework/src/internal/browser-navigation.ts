@@ -90,7 +90,7 @@ export function privateFragmentReloadRecoveryMode(
   stageDestination: "replace" | "push" | "none",
   pushedDestination: boolean,
 ): "rollback-staged-entry" | "repair-current-entry" {
-  return stageDestination === "push" && pushedDestination
+  return stageDestination !== "none" && pushedDestination
     ? "rollback-staged-entry"
     : "repair-current-entry";
 }
@@ -1137,6 +1137,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     recoverCancelledMutation: PrivateMutationRecovery | undefined;
     operation: ActiveOperation | undefined;
     traversal: number;
+    expectedRollbackEntry: string | undefined;
+    expectedRollbackUrl: string;
   }> | undefined;
   let selectedPushSupersession: Readonly<{
     operation: ActiveOperation;
@@ -1439,6 +1441,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       let stagedState: PrivateHistoryState | undefined;
       let stagedHistoryState: Readonly<Record<string, unknown>> | undefined;
       const historyLengthBeforeStage = history.length;
+      const historyPushSequenceBeforeStage = historyPushSequence;
       try {
         const currentState = privateHistoryState(history.state);
         if (!currentState || !ownsHistoryState(currentState, location.href)) {
@@ -1454,28 +1457,40 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         stagedState = privateHistoryState(stagedHistoryState);
         if (!stagedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
         if (stageDestination === "replace") writeHistory.replace(stagedHistoryState, destination.href);
-        else {
-          writeHistory.push(stagedHistoryState, destination.href);
-          pushedDestination = true;
-        }
+        else writeHistory.push(stagedHistoryState, destination.href);
         const selectedState = privateHistoryState(history.state);
-        if (!selectedState || location.href !== destination.href) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+        const expectedHistoryLength = stageDestination === "replace"
+          ? historyLengthBeforeStage
+          : historyLengthBeforeStage + 1;
+        const expectedHistoryPushSequence = stageDestination === "replace"
+          ? historyPushSequenceBeforeStage
+          : historyPushSequenceBeforeStage + 1;
+        if (!selectedState
+          || !samePrivateHistoryState(selectedState, stagedState)
+          || location.href !== destination.href
+          || history.length !== expectedHistoryLength
+          || historyPushSequence !== expectedHistoryPushSequence) {
+          throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+        }
+        if (stageDestination === "push") pushedDestination = true;
         rememberHistoryState(selectedState, destination.href);
         selectedHistoryEntry = selectedState.entry;
       } catch {
         const selectedState = privateHistoryState(history.state);
-        if (stageDestination === "push"
-          && !pushedDestination
+        if (!pushedDestination
           && stagedState
           && history.length === historyLengthBeforeStage + 1
-          && location.href === destination.href
-          && selectedState
-          && samePrivateHistoryState(selectedState, stagedState)) {
+          && location.href === destination.href) {
           pushedDestination = true;
           knownHistoryLength = history.length;
-          historyPushSequence += 1;
-          rememberHistoryState(selectedState, destination.href);
-          selectedHistoryEntry = selectedState.entry;
+          historyPushSequence = Math.max(
+            historyPushSequence,
+            historyPushSequenceBeforeStage + 1,
+          );
+          if (selectedState && samePrivateHistoryState(selectedState, stagedState)) {
+            rememberHistoryState(selectedState, destination.href);
+            selectedHistoryEntry = selectedState.entry;
+          }
         }
         observeCancelledDeparture(
           () => displayedTruthUrl === truthUrl
@@ -1540,6 +1555,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       recoverCancelledMutation,
       operation: recoveryOperation,
       traversal: rollbackTraversal,
+      expectedRollbackEntry: displayedHistoryEntry,
+      expectedRollbackUrl: truthUrl,
     });
     history.go(-selectedPushCount);
   };
@@ -2809,7 +2826,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     if (selectedPushRecovery) {
       const recovery = selectedPushRecovery;
       selectedPushRecovery = undefined;
+      const selectedRollbackState = privateHistoryState(history.state);
+      const rollbackSelectionMatches = recovery.expectedRollbackEntry !== undefined
+        && location.href === recovery.expectedRollbackUrl
+        && selectedRollbackState?.entry === recovery.expectedRollbackEntry
+        && ownsHistoryState(selectedRollbackState, recovery.expectedRollbackUrl, true);
       const recoveryIsCurrent = recovery.traversal === traversalSequence
+        && rollbackSelectionMatches
         && (!recovery.operation
           || (active === recovery.operation && !recovery.operation.cancellation.signal.aborted));
       if (!recoveryIsCurrent) {
@@ -2844,6 +2867,16 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         if (active === recovery.operation) active = undefined;
         traversing = false;
         recoveringTraversal = undefined;
+        if (!rollbackSelectionMatches) {
+          fallback(
+            new URL(location.href),
+            true,
+            false,
+            undefined,
+            recovery.recoverCancelledMutation,
+            true,
+          );
+        }
         return;
       } else {
         traversalSequence += 1;

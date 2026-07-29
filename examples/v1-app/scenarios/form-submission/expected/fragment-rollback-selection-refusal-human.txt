@@ -1,0 +1,1 @@
+Action ordering refusal: the selected popstate did not match the exact entry and URL requested by fragment rollback. Obsolete recovery did not continue from the wrong entry; the unrelated selected entry reloaded natively, and the committed mutation was not repeated.

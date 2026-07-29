@@ -170,7 +170,10 @@ pushed-fragment reload is cancelled, rollback happens before
 recovery so Back reaches the preceding page without a duplicate stop. That
 rollback remains an owned operation until its exact traversal arrives; a newer
 activation supersedes it and obsolete rollback completion cannot overwrite the
-newer destination. Handoff
+newer destination. An unrelated selected entry cannot impersonate rollback
+completion and reloads natively. Fragment staging also verifies the exact
+generated state, URL, history length, and push provenance before claiming
+ownership, including hooks that mutate the supplied state. Handoff
 also detects untracked form-associated custom controls, checkbox indeterminate
 state, exact control-ancestry
 changes, and disabled-state changes inherited from `fieldset` and `optgroup`,

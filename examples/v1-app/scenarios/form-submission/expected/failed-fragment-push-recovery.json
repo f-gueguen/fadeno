@@ -3,5 +3,6 @@
   "version": 1,
   "failedPush": "repair-current-entry",
   "committedPush": "rollback-staged-entry",
-  "replacement": "repair-current-entry"
+  "replacement": "repair-current-entry",
+  "replacementThatPushed": "rollback-staged-entry"
 }
