@@ -707,7 +707,7 @@ test("refuses form edits made after redirect handoff, including untracked custom
   await customPage.close();
 });
 
-test("tracks customizable-select option parents through redirect handoff", async ({ page }) => {
+test("tracks customizable-select option parents and wrapper text through redirect handoff", async ({ page }) => {
   const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
   await page.goto(`${origin}/projects`);
@@ -741,20 +741,82 @@ test("tracks customizable-select option parents through redirect handoff", async
   });
   await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 1);
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const optionParentMoveRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
+  let nativeCurrentTruthGets = 1;
+
+  await page.context().clearCookies();
+  await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
+  await page.locator("#passcode").fill("example-owner");
+  await page.locator("#sign-in-form").evaluate((form) => {
+    const select = document.createElement("select");
+    select.id = "handoff-wrapper-text-select";
+    const wrapper = document.createElement("div");
+    wrapper.id = "handoff-wrapper-text-owner";
+    wrapper.append(document.createTextNode("Stable wrapper text"));
+    select.append(wrapper);
+    form.append(select);
+  });
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 400;
+  const nativeGetsBeforeTextEdit = projectGets(false);
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 2);
+  await page.locator("#handoff-wrapper-text-owner").evaluate((wrapper) => {
+    const text = [...wrapper.childNodes].find((child): child is Text => child instanceof Text);
+    if (text) text.data = "Edited wrapper text";
+  });
+  await expect.poll(() => projectGets(false)).toBe(nativeGetsBeforeTextEdit + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const wrapperTextEditRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
+  nativeCurrentTruthGets += 1;
+
+  await page.context().clearCookies();
+  await page.goto(`${origin}/projects`);
+  await waitForEnhancement(page);
+  await page.locator("#passcode").fill("example-owner");
+  await page.locator("#sign-in-form").evaluate((form) => {
+    const select = document.createElement("select");
+    select.id = "handoff-wrapper-text-move-select";
+    const firstWrapper = document.createElement("div");
+    firstWrapper.id = "handoff-wrapper-text-first";
+    const secondWrapper = document.createElement("div");
+    secondWrapper.id = "handoff-wrapper-text-second";
+    firstWrapper.append(document.createTextNode("Stable movable text"));
+    select.append(firstWrapper, secondWrapper);
+    form.append(select);
+  });
+  delayedPrivateGetPath = "/projects";
+  delayedPrivateGetMilliseconds = 400;
+  const nativeGetsBeforeTextMove = projectGets(false);
+  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 3);
+  await page.locator("#handoff-wrapper-text-first").evaluate((wrapper) => {
+    const text = [...wrapper.childNodes].find((child): child is Text => child instanceof Text);
+    const destination = document.querySelector("#handoff-wrapper-text-second");
+    if (text && destination) destination.append(text);
+  });
+  await expect.poll(() => projectGets(false)).toBe(nativeGetsBeforeTextMove + 1);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const wrapperTextMoveRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
+  nativeCurrentTruthGets += 1;
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-handoff-option-wrapper",
-    version: 1,
-    outcome: "parent-move-recovered",
+    version: 2,
+    outcome: "structure-changes-recovered",
     mutationRequests: privateMutations().length - mutationsBefore,
     privateRedirectGets: projectGets(true) - privateGetsBefore,
-    nativeCurrentTruthGets: projectGets(false) - nativeGetsBefore,
+    nativeCurrentTruthGets,
     signInRuns: state.signInRuns,
+    optionParentMoveRecovered,
+    wrapperTextEditRecovered,
+    wrapperTextMoveRecovered,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
-    mutationRetried: privateMutations().length - mutationsBefore > 1,
+    mutationRetried: privateMutations().length - mutationsBefore > 3,
   }).toEqual(expected("handoff-option-wrapper"));
   expect(readFileSync(join(outputRoot, "expected-handoff-option-wrapper-human.txt"), "utf8"))
-    .toContain("option-parent move refused private publication");
+    .toContain("option-parent and wrapper-text changes refused private publication");
 });
 
 test("bounds redirect handoff snapshots before serializing application-owned controls", async ({ page }) => {
@@ -1561,6 +1623,133 @@ test("captures final synchronous FormData routing and refuses candidate overflow
     "expected-final-formdata-routing-human.txt",
   ), "utf8")).toContain("candidate overflow refused even though an exact destination had been retained");
   await overflowPage.close();
+});
+
+test("bounds browser-owned FormData before retaining a recovery destination", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
+  await signIn(page);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length;
+  const projectPageRendersBefore = application.readApplicationState().projectPageRenders;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator("#native-fragment-form").evaluate(async (form: HTMLFormElement) => {
+    sessionStorage.setItem("fadeno-bounded-formdata-iterator-steps", "0");
+    sessionStorage.setItem("fadeno-bounded-formdata-oversized-appends", "0");
+    sessionStorage.setItem("fadeno-bounded-formdata-events", "0");
+    const originalAppend = FormData.prototype.append;
+    Reflect.set(globalThis, "fadenoOriginalFormDataAppend", originalAppend);
+    Object.defineProperty(FormData.prototype, "append", {
+      configurable: true,
+      writable: true,
+      value(this: FormData, ...args: unknown[]) {
+        if (typeof args[1] === "string" && args[1].length > 256 * 1024) {
+          const count = Number(sessionStorage.getItem("fadeno-bounded-formdata-oversized-appends") ?? "0");
+          sessionStorage.setItem("fadeno-bounded-formdata-oversized-appends", String(count + 1));
+        }
+        return Reflect.apply(originalAppend, this, args);
+      },
+    });
+    document.addEventListener("formdata", (formDataEvent) => {
+      if (formDataEvent.target !== form) return;
+      const eventCount = Number(sessionStorage.getItem("fadeno-bounded-formdata-events") ?? "0");
+      sessionStorage.setItem("fadeno-bounded-formdata-events", String(eventCount + 1));
+      Reflect.apply(originalAppend, formDataEvent.formData, ["oversized", "x".repeat(300 * 1024)]);
+      const originalIterator = formDataEvent.formData[Symbol.iterator].bind(formDataEvent.formData);
+      Object.defineProperty(formDataEvent.formData, Symbol.iterator, {
+        configurable: true,
+        value() {
+          const iterator = originalIterator();
+          return {
+            next() {
+              const count = Number(sessionStorage.getItem("fadeno-bounded-formdata-iterator-steps") ?? "0");
+              sessionStorage.setItem("fadeno-bounded-formdata-iterator-steps", String(count + 1));
+              return iterator.next();
+            },
+            [Symbol.iterator]() { return this; },
+          };
+        },
+      });
+    }, { capture: true, once: true });
+    document.addEventListener("submit", (submitEvent) => {
+      if (submitEvent.target !== form) return;
+      new FormData(form);
+      submitEvent.stopPropagation();
+    }, { once: true });
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
+    }>;
+    globalThis.addEventListener("beforeunload", () => {
+      const flow = [...runtime.readPrivateFormSubmissionFlows()]
+        .reverse()
+        .find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
+      sessionStorage.setItem("fadeno-bounded-formdata-flow", JSON.stringify(flow));
+    });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  let evidence: Readonly<{
+    formDataEvents: number;
+    iteratorSteps: number;
+    oversizedAppends: number;
+    flow: Record<string, unknown> | null;
+  }> | undefined;
+  await expect.poll(async () => {
+    try {
+      evidence = await page.evaluate(async () => {
+        const retainedFlow = JSON.parse(sessionStorage.getItem("fadeno-bounded-formdata-flow") ?? "null") as
+          Record<string, unknown> | null;
+        const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+        const runtime = retainedFlow ? undefined : await import(modulePath) as Readonly<{
+          readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
+        }>;
+        return {
+          formDataEvents: Number(sessionStorage.getItem("fadeno-bounded-formdata-events") ?? "0"),
+          iteratorSteps: Number(sessionStorage.getItem("fadeno-bounded-formdata-iterator-steps") ?? "0"),
+          oversizedAppends: Number(sessionStorage.getItem("fadeno-bounded-formdata-oversized-appends") ?? "0"),
+          flow: retainedFlow ?? [...runtime!.readPrivateFormSubmissionFlows()]
+            .reverse()
+            .find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null,
+        };
+      });
+      return evidence?.flow?.["code"] === "FADENO_UPDATE_LIMIT";
+    } catch {
+      return false;
+    }
+  }).toBe(true);
+  if (!evidence) throw new Error("bounded FormData evidence was not retained after recovery");
+  releaseHeldResponse?.();
+  await expect.poll(() => application.readApplicationState().projectPageRenders)
+    .toBeGreaterThan(projectPageRendersBefore);
+  await expect.poll(() => new URL(page.url()).hash).toBe("");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-formdata-snapshot-limit",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    browserOwnedFormDataEvents: evidence.formDataEvents,
+    boundedIteratorSteps: evidence.iteratorSteps,
+    oversizedValueWasNotCloned: evidence.oversizedAppends === 0,
+    flowCode: evidence.flow?.["code"],
+    flowStatus: evidence.flow?.["status"],
+    flowOutcome: evidence.flow?.["outcome"],
+    destinationNotPublished: new URL(page.url()).hash !== "#details",
+    currentTruthRenderObserved: state.projectPageRenders > projectPageRendersBefore,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("formdata-snapshot-limit"));
+  expect(readFileSync(join(outputRoot, "expected-formdata-snapshot-limit-human.txt"), "utf8"))
+    .toContain("oversized browser-owned entry was refused before cloning");
 });
 
 test("honors a current-truth recovery outcome from the redirect GET without repeating the mutation", async ({ page }) => {

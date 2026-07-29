@@ -192,7 +192,8 @@ entry list, and copies the entries plus contemporaneous safe routing before
 listener microtasks. Document-bubble and final window observation restore the
 browser-owned list to that capture snapshot and admit it only while routing
 remains unchanged. Later entry-list or routing changes recover current truth
-as ambiguous. At most sixteen distinct candidates are
+as ambiguous. Capture stops at the same 4,096-record and 256-KiB UTF-8 bounds
+before cloning a value or deriving a destination. At most sixteen distinct candidates are
 retained; overflow rejects the whole set even if an exact candidate appeared earlier. Only a complete
 candidate URL that matches the browser-selected entry may retain that
 fragment; a hidden event, later unrelated snapshot, overflow, or ambiguity
@@ -223,7 +224,8 @@ The final effective method is equally authoritative: a retained `dialog`
 submission recovers without document departure, while a listener-selected GET
 uses its final native destination. Handoff equality includes exact bounded
 control ancestry and effective disabled state inherited through
-`fieldset` and `optgroup` ownership, exact optgroup hierarchy, and remains in
+`fieldset` and `optgroup` ownership, exact optgroup hierarchy, descendant
+text-node identity, parent, and content, and remains in
 force through interrupted-departure recovery. Final target ownership is
 resolved after document submit listeners. A failed fragment push repairs the
 current entry directly because no pushed entry exists to roll back. A recovery

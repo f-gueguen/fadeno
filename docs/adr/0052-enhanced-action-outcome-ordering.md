@@ -77,7 +77,7 @@ markup. An admitted handoff then freezes the submitted form controls, their
 exact bounded parent ancestry, their sorted attributes and
 effective disabled state (including disabled `fieldset` inheritance),
 select-option structure, exact option and optgroup parent identities and
-hierarchy, and effective disabled state
+hierarchy, exact descendant text-node identity, parent, and content, and effective disabled state
 (including disabled `optgroup` inheritance), selected `File` object identities,
 active element, and a focused text control's caret/selection range and direction
 after the mutation result is admitted. Any later value or structural edit,
@@ -133,7 +133,9 @@ same-document fragment, document capture recognizes the trusted browser-owned
 and records the contemporaneous routing selection. Document-bubble and final
 window observation restore the supplied browser list to that capture snapshot
 and admit it only while routing remains unchanged. Later entry-list or routing
-changes are therefore ambiguous and recover current truth. At most sixteen distinct destination candidates are
+changes are therefore ambiguous and recover current truth. Capture applies the
+same 4,096-record and 256-KiB UTF-8 bounds while iterating, before cloning a
+value or deriving a destination. At most sixteen distinct destination candidates are
 retained. Candidate overflow invalidates the entire set even when an exact URL
 was retained earlier. Recovery accepts only the complete candidate whose URL
 matches the browser-selected entry; a listener-hidden event, later unrelated

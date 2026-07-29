@@ -382,9 +382,10 @@ function dirtyControl(control: Element): boolean {
 type PrivateFormHandoffControl = HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 const maximumPrivateFormHandoffAncestry = 128;
 type PrivateSelectHandoffChild = Readonly<{
-  child: Element;
-  parent: Element | null;
-  attributes: string;
+  child: Element | Text;
+  parent: Node | null;
+  attributes: string | null;
+  text: string | null;
 }>;
 
 function privateFormHandoffAttributes(element: Element): string {
@@ -394,11 +395,31 @@ function privateFormHandoffAttributes(element: Element): string {
 }
 
 function privateSelectHandoffStructure(select: HTMLSelectElement): readonly PrivateSelectHandoffChild[] {
-  return Object.freeze([...select.querySelectorAll("*")].map((child) => Object.freeze({
-    child,
-    parent: child.parentElement,
-    attributes: privateFormHandoffAttributes(child),
-  })));
+  const structure: PrivateSelectHandoffChild[] = [];
+  const walker = select.ownerDocument.createTreeWalker(
+    select,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+  );
+  let child = walker.nextNode();
+  while (child) {
+    if (child instanceof Element) {
+      structure.push(Object.freeze({
+        child,
+        parent: child.parentNode,
+        attributes: privateFormHandoffAttributes(child),
+        text: null,
+      }));
+    } else if (child instanceof Text) {
+      structure.push(Object.freeze({
+        child,
+        parent: child.parentNode,
+        attributes: null,
+        text: child.data,
+      }));
+    }
+    child = walker.nextNode();
+  }
+  return Object.freeze(structure);
 }
 
 function samePrivateSelectHandoffStructure(
@@ -410,7 +431,8 @@ function samePrivateSelectHandoffStructure(
     const candidate = current[index];
     return candidate?.child === owner.child
       && candidate.parent === owner.parent
-      && candidate.attributes === owner.attributes;
+      && candidate.attributes === owner.attributes
+      && candidate.text === owner.text;
   });
 }
 
@@ -446,6 +468,39 @@ function consumePrivateFormHandoffText(budget: PrivateFormHandoffBudget, value: 
   if (remainingBytes < 2 || value.length > remainingBytes - 2) return false;
   budget.bytes += new TextEncoder().encode(JSON.stringify(value)).byteLength;
   return budget.bytes <= maximumPrivateFormHandoffBytes;
+}
+
+function boundedPrivateNativeFormDataEntries(
+  data: FormData,
+): readonly (readonly [string, FormDataEntryValue])[] | undefined {
+  const budget: PrivateFormHandoffBudget = { bytes: 0, records: 0 };
+  const entries: (readonly [string, FormDataEntryValue])[] = [];
+  try {
+    for (const [name, value] of data) {
+      if (!consumePrivateFormHandoffRecord(budget)
+        || !consumePrivateFormHandoffText(budget, name)
+        || (typeof value === "string"
+          ? !consumePrivateFormHandoffText(budget, value)
+          : (!consumePrivateFormHandoffText(budget, value.name)
+            || !consumePrivateFormHandoffText(budget, value.type)))) return undefined;
+      entries.push(Object.freeze([name, value] as const));
+    }
+  } catch {
+    return undefined;
+  }
+  return Object.freeze(entries);
+}
+
+function boundedPrivateNativeFormDataSnapshot(data: FormData): FormData | undefined {
+  const entries = boundedPrivateNativeFormDataEntries(data);
+  if (!entries) return undefined;
+  const snapshot = new FormData();
+  try {
+    for (const [name, value] of entries) snapshot.append(name, value);
+  } catch {
+    return undefined;
+  }
+  return snapshot;
 }
 
 function consumePrivateFormHandoffAttributes(budget: PrivateFormHandoffBudget, element: Element): boolean {
@@ -2678,6 +2733,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     const pendingNativeFormDataFinalizers = new Set<EventListener>();
     const observeNativeFormData = (formDataEvent: Event): void => {
       if (formDataEvent.target !== form || !formDataEvent.isTrusted) return;
+      if (nativeDestinationCandidatesOverflowed) {
+        event.preventDefault();
+        return;
+      }
       const observedNativeFormData = Reflect.get(formDataEvent, "formData") as unknown;
       if (!(observedNativeFormData instanceof FormData)) return;
       const observedNativeSelection = privateNativeGetFormDestinationBase(
@@ -2686,10 +2745,26 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         true,
       );
       if (!observedNativeSelection) return;
-      const snapshot = new FormData();
-      try {
-        for (const [name, value] of observedNativeFormData) snapshot.append(name, value);
-      } catch {
+      const snapshot = boundedPrivateNativeFormDataSnapshot(observedNativeFormData);
+      if (!snapshot) {
+        nativeDestinationCandidatesOverflowed = true;
+        event.preventDefault();
+        recordFormFlow({
+          status: "refused",
+          code: "FADENO_UPDATE_LIMIT",
+          operation: "navigation",
+          decisions: Object.freeze([
+            "browser-owned successful controls exceeded the bounded recovery snapshot",
+            "no destination candidate was retained",
+            "committed current truth was recovered without repeating the mutation",
+          ]),
+          ownership: Object.freeze({
+            browser: Object.freeze(["form event", "bounded successful-control observation"]),
+            server: Object.freeze(["committed current truth"]),
+          }),
+          skipped: Object.freeze(["unbounded snapshot", "native destination publication", "mutation retry"]),
+          outcome: "current-truth-reload",
+        });
         return;
       }
       observedNativeFormDataEvents.set(formDataEvent, Object.freeze({
@@ -2702,16 +2777,16 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       data: FormData;
       source: FormData;
     }>): boolean => {
+      const currentEntries = boundedPrivateNativeFormDataEntries(observation.source);
+      const admittedEntries = boundedPrivateNativeFormDataEntries(observation.data);
+      if (!currentEntries || !admittedEntries) return false;
+      if (currentEntries.length === admittedEntries.length
+        && currentEntries.every(([name, value], index) => {
+          const admitted = admittedEntries[index];
+          return admitted?.[0] === name && admitted[1] === value;
+        })) return true;
       try {
-        const currentEntries = [...observation.source];
-        const admittedEntries = [...observation.data];
-        if (currentEntries.length === admittedEntries.length
-          && currentEntries.every(([name, value], index) => {
-            const admitted = admittedEntries[index];
-            return admitted?.[0] === name && admitted[1] === value;
-          })) return true;
-        const names = new Set<string>();
-        for (const [name] of currentEntries) names.add(name);
+        const names = new Set(currentEntries.map(([name]) => name));
         for (const name of names) observation.source.delete(name);
         for (const [name, value] of admittedEntries) observation.source.append(name, value);
         return true;

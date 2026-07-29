@@ -314,7 +314,8 @@ entry list plus contemporaneous routing before listener microtasks.
 Document-bubble and final window observation restore the browser-owned list to
 that capture snapshot and admit it only while routing remains unchanged.
 Later entry-list or routing changes are ambiguous and recover current truth.
-It retains at most sixteen distinct derived destinations. Overflow invalidates the entire set even if an exact
+Capture stops at the 4,096-record and 256-KiB UTF-8 bounds before cloning a
+value or deriving a destination. It retains at most sixteen distinct derived destinations. Overflow invalidates the entire set even if an exact
 candidate was retained earlier. The complete candidate matching the
 browser-selected URL remains authoritative; a hidden event, later unrelated
 snapshot, overflow, or ambiguity recovers current truth. Every terminal path
@@ -345,7 +346,8 @@ control attributes, effective disabled state from
 the control and its owning `fieldset`, form association, select-option
 structure, exact option identity, and option disabled state inherited from an
 `optgroup`, plus exact optgroup parent identity and option hierarchy, as well as
-values, files, focus, and selection. The same frozen comparison remains the
+descendant text-node identity, parent, and content, values, files, focus, and
+selection. The same frozen comparison remains the
 publication predicate for an interrupted-departure current-truth GET.
 Transport, projection, preservation, or document-commit failure returns to
 native GET, while a cancelled native departure reloads committed current truth
