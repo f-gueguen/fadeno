@@ -448,6 +448,8 @@ for (const [path, fragment] of [
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"waitedPastUnsafeHeuristicMs": 1200'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"nativeNoDocumentLinkRefusal"'],
   ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"observedInvalidDestination"'],
+  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"destinationAndRecoveryGetsBounded": true'],
+  ["examples/v1-app/scenarios/form-submission/expected/submit-propagation-recovery.json", '"frameworkRecoveryGetsAtMostOne": true'],
   ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"finalHash": "#details"'],
   ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"externalContextRecovery"'],
   ["examples/v1-app/scenarios/form-submission/expected/late-target-recovery.json", '"externalNoreferrerOwnership"'],

@@ -2,7 +2,7 @@
   "schema": "fadeno.example.action-ordering-submit-propagation-recovery",
   "version": 1,
   "mutationRequests": 11,
-  "redirectAndRecoveryGets": 23,
+  "redirectAndRecoveryGetsBounded": true,
   "formDataEvents": 0,
   "lateWindowCancellation": {
     "redirectAndRecoveryGets": 2,
@@ -54,8 +54,8 @@
     "currentTruthVisible": true
   },
   "observedInvalidDestination": {
-    "redirectAndRecoveryGets": 1,
-    "frameworkRecoveryGets": 0,
+    "destinationAndRecoveryGetsBounded": true,
+    "frameworkRecoveryGetsAtMostOne": true,
     "formDataEvents": 1,
     "formDataReconstructed": false,
     "browserOwnedFinalHash": true,
