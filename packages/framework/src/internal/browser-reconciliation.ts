@@ -51,6 +51,27 @@ type AttributeSnapshot = readonly Readonly<{
   attributes: readonly (readonly [string, string])[];
 }>[];
 
+type LiveControlSnapshot = readonly (
+  | Readonly<{
+    kind: "input";
+    element: HTMLInputElement;
+    value: string | null;
+    checked: boolean;
+    indeterminate: boolean;
+  }>
+  | Readonly<{
+    kind: "select";
+    element: HTMLSelectElement;
+    selected: readonly boolean[];
+    selectedIndex: number;
+  }>
+  | Readonly<{
+    kind: "textarea";
+    element: HTMLTextAreaElement;
+    value: string;
+  }>
+)[];
+
 type AttributePlan = Readonly<{
   element: Element;
   remove: readonly string[];
@@ -378,7 +399,7 @@ function preservesStateAttribute(element: Element, name: string): boolean {
   if (name === "open" && (element.localName === "details" || element.localName === "dialog")) {
     return true;
   }
-  return element === document.activeElement
+  return element === element.ownerDocument.activeElement
     && (name === "data-fadeno-navigation-focus" || name === "tabindex");
 }
 
@@ -406,6 +427,110 @@ function stateOwnedLeafContent(element: Element): boolean {
   return element.localName === "textarea"
     || element.hasAttribute("contenteditable")
     || element.localName === "audio";
+}
+
+function selectionTouches(
+  document_: Document,
+  element: Element,
+  requireNonCollapsed: boolean,
+): boolean {
+  const selection = document_.getSelection();
+  if (!selection || (requireNonCollapsed && selection.isCollapsed)) return false;
+  return Boolean(
+    (selection.anchorNode && element.contains(selection.anchorNode))
+    || (selection.focusNode && element.contains(selection.focusNode)),
+  );
+}
+
+function ownsBrowserState(document_: Document, element: Element): boolean {
+  const active = document_.activeElement;
+  if ((active && element.contains(active)) || selectionTouches(document_, element, false)) {
+    return true;
+  }
+  return element.matches(
+    "input, textarea, select, details, dialog, audio, fadeno-island, [contenteditable]",
+  ) || element.querySelector(
+    "input, textarea, select, details, dialog, audio, fadeno-island, [contenteditable]",
+  ) !== null;
+}
+
+function directlyMovedChildren(plan: StructurePlan): readonly Element[] {
+  const desired = new Set(plan.desiredChildren);
+  const sequence = Array.from(plan.parent.children).filter((child) => desired.has(child));
+  const moved: Element[] = [];
+  let cursor: Element | null = null;
+  for (const child of [...plan.desiredChildren].reverse()) {
+    const originalIndex = sequence.indexOf(child);
+    const next = originalIndex < 0 ? null : sequence[originalIndex + 1] ?? null;
+    if (originalIndex < 0 || next !== cursor) {
+      if (originalIndex >= 0) {
+        sequence.splice(originalIndex, 1);
+        moved.push(child);
+      }
+      const cursorIndex = cursor === null ? sequence.length : sequence.indexOf(cursor);
+      sequence.splice(cursorIndex, 0, child);
+    }
+    cursor = child;
+  }
+  return Object.freeze(moved);
+}
+
+function snapshotLiveControls(tree: CollectedTree): LiveControlSnapshot {
+  const snapshot: Array<LiveControlSnapshot[number]> = [];
+  for (const element of tree.elements) {
+    if (element instanceof HTMLInputElement) {
+      snapshot.push(Object.freeze({
+        kind: "input",
+        element,
+        value: element.type === "file" ? null : element.value,
+        checked: element.checked,
+        indeterminate: element.indeterminate,
+      }));
+    } else if (element instanceof HTMLSelectElement) {
+      snapshot.push(Object.freeze({
+        kind: "select",
+        element,
+        selected: Object.freeze(Array.from(element.options, ({ selected }) => selected)),
+        selectedIndex: element.selectedIndex,
+      }));
+    } else if (element instanceof HTMLTextAreaElement) {
+      snapshot.push(Object.freeze({
+        kind: "textarea",
+        element,
+        value: element.value,
+      }));
+    }
+  }
+  return Object.freeze(snapshot);
+}
+
+function restoreLiveControls(snapshot: LiveControlSnapshot): void {
+  for (const entry of snapshot) {
+    if (entry.kind === "input" && entry.element.type === "radio") {
+      entry.element.checked = false;
+    }
+  }
+  for (const entry of snapshot) {
+    if (entry.kind === "input") {
+      if (entry.value !== null) entry.element.value = entry.value;
+      if (entry.element.type !== "radio") entry.element.checked = entry.checked;
+      entry.element.indeterminate = entry.indeterminate;
+    } else if (entry.kind === "textarea") {
+      entry.element.value = entry.value;
+    } else {
+      for (const option of entry.element.options) option.selected = false;
+      entry.selected.forEach((selected, index) => {
+        const option = entry.element.options.item(index);
+        if (option) option.selected = selected;
+      });
+      entry.element.selectedIndex = entry.selectedIndex;
+    }
+  }
+  for (const entry of snapshot) {
+    if (entry.kind === "input" && entry.element.type === "radio" && entry.checked) {
+      entry.element.checked = true;
+    }
+  }
 }
 
 function attributes(element: Element): readonly (readonly [string, string])[] {
@@ -593,6 +718,9 @@ export function preparePrivateDocumentReconciliation(
         && (incoming.children.get(identity)?.length ?? 0) === 0
         && !stateOwnedLeafContent(incomingElement)
         && currentElement.textContent !== incomingElement.textContent) {
+        if (selectionTouches(currentDocument, currentElement, true)) {
+          refuse("FADENO_RECONCILIATION_OWNERSHIP");
+        }
         textPlans.push(Object.freeze({
           element: currentElement,
           text: incomingElement.textContent ?? "",
@@ -633,6 +761,13 @@ export function preparePrivateDocumentReconciliation(
       originalChildren: Object.freeze(Array.from(parent.children)),
     }));
   }
+  for (const plan of structurePlans) {
+    if (directlyMovedChildren(plan).some((element) =>
+      ownsBrowserState(currentDocument, element)
+    )) {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
+    }
+  }
 
   const attributeSnapshot: AttributeSnapshot = Object.freeze(
     current.elements.map((element) => Object.freeze({
@@ -640,6 +775,7 @@ export function preparePrivateDocumentReconciliation(
       attributes: attributes(element),
     })),
   );
+  const liveControlSnapshot = snapshotLiveControls(current);
   const textSnapshot = new Map<Element, string>();
   for (const plan of textPlans) {
     const identity = current.identityByElement.get(plan.element);
@@ -651,10 +787,20 @@ export function preparePrivateDocumentReconciliation(
   const activeIdentity = active instanceof Element
     ? current.identityByElement.get(active)
     : undefined;
+  const activeOpaqueOwner = active instanceof Element
+    ? current.elements.find((element) =>
+      element.localName === opaqueElementName && element.contains(active)
+    )
+    : undefined;
+  const activeOpaqueIdentity = activeOpaqueOwner
+    ? current.identityByElement.get(activeOpaqueOwner)
+    : undefined;
   const preservesActiveElement = active instanceof HTMLElement
-    && activeIdentity !== undefined
-    && current.identities.get(activeIdentity) === active
-    && desiredNodes.get(activeIdentity) === active;
+    && ((activeIdentity !== undefined
+        && current.identities.get(activeIdentity) === active
+        && desiredNodes.get(activeIdentity) === active)
+      || (activeOpaqueIdentity !== undefined
+        && desiredNodes.get(activeOpaqueIdentity) === activeOpaqueOwner));
 
   let state: "prepared" | "applied" | "rolled-back" = "prepared";
   const rollback = (): void => {
@@ -663,6 +809,7 @@ export function preparePrivateDocumentReconciliation(
       restoreStructure(structurePlans);
       restoreAttributes(attributeSnapshot);
       for (const [element, text] of textSnapshot) element.textContent = text;
+      restoreLiveControls(liveControlSnapshot);
     } finally {
       state = "rolled-back";
     }

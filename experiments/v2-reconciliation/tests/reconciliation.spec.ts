@@ -569,6 +569,236 @@ test("revalidates the prepared tree after history selection", async ({ page }) =
   expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
 });
 
+test("preserves focus inside one reused opaque island", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=island-identity-remove&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    const currentIsland = document.querySelector("#mounted-island");
+    const incomingIsland = incoming.querySelector("#mounted-island");
+    if (!currentIsland || !incomingIsland) {
+      throw new Error("FADENO_RECONCILIATION_ISLAND");
+    }
+    const clientMarkup = "<button type=\"button\">Client-owned focus</button>";
+    currentIsland.innerHTML = clientMarkup;
+    incomingIsland.innerHTML = clientMarkup;
+    const button = currentIsland.querySelector("button");
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error("FADENO_RECONCILIATION_ISLAND_BUTTON");
+    }
+    button.focus();
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): {
+        preservesActiveElement: boolean;
+        commit(): unknown;
+      };
+    };
+    const transaction = module.preparePrivateDocumentReconciliation(
+      document,
+      incoming,
+    );
+    const preservesActiveElement = transaction.preservesActiveElement;
+    transaction.commit();
+    return {
+      preservesActiveElement,
+      retainedFocus: document.activeElement === button,
+      retainedIsland: document.querySelector("#mounted-island") === currentIsland,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=island-identity-remove&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    preservesActiveElement: true,
+    retainedFocus: true,
+    retainedIsland: true,
+  });
+});
+
+test("refuses a direct move of a retained state owner", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-text").fill("client-dirty");
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#inserted-peer")?.remove();
+    const peer = incoming.querySelector("#peer-a");
+    const owner = incoming.querySelector("#dirty-text");
+    if (!peer || !owner) throw new Error("FADENO_RECONCILIATION_MOVE_FIXTURE");
+    owner.before(peer);
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    let refusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      refusal,
+      order: [...(document.querySelector("#root")?.children ?? [])]
+        .slice(0, 2)
+        .map(({ id }) => id),
+      value: (document.querySelector("#dirty-text") as HTMLInputElement | null)?.value,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-text-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    order: ["dirty-text", "peer-a"],
+    value: "client-dirty",
+  });
+});
+
+test("refuses replacement of text owned by a live selection", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const peer = document.querySelector("#peer-a");
+    const text = peer?.firstChild;
+    if (!peer || !text) throw new Error("FADENO_RECONCILIATION_SELECTION_FIXTURE");
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, text.textContent?.length ?? 0);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    const incomingPeer = incoming.querySelector("#peer-a");
+    if (!incomingPeer) throw new Error("FADENO_RECONCILIATION_INCOMING_SELECTION");
+    incomingPeer.textContent = "server-changed";
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    let refusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      refusal,
+      selectedText: document.getSelection()?.toString(),
+      text: peer.textContent,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-text-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    selectedText: "peer-a",
+    text: "peer-a",
+  });
+});
+
+test("restores live radio state after an applied transaction rolls back", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-radio-reorder&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-radio-a").check();
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#dirty-radio-b")?.setAttribute("checked", "");
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): {
+        commit(): unknown;
+        rollback(): void;
+      };
+    };
+    const read = () => ({
+      checkedA:
+        (document.querySelector("#dirty-radio-a") as HTMLInputElement | null)?.checked,
+      checkedB:
+        (document.querySelector("#dirty-radio-b") as HTMLInputElement | null)?.checked,
+    });
+    const transaction = module.preparePrivateDocumentReconciliation(
+      document,
+      incoming,
+    );
+    const setAttribute = Element.prototype.setAttribute;
+    let applied: ReturnType<typeof read>;
+    Element.prototype.setAttribute = function (
+      name: string,
+      value: string,
+    ): void {
+      setAttribute.call(this, name, value);
+      if (this.id === "dirty-radio-b" && name === "checked") {
+        (this as HTMLInputElement).checked = true;
+      }
+    };
+    try {
+      transaction.commit();
+      applied = read();
+    } finally {
+      Element.prototype.setAttribute = setAttribute;
+    }
+    transaction.rollback();
+    return { applied, restored: read() };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-radio-reorder&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    applied: { checkedA: false, checkedB: true },
+    restored: { checkedA: true, checkedB: false },
+  });
+});
+
 test("refuses every claimed hostile production reconciliation boundary", async ({ page }) => {
   await page.goto(
     `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
