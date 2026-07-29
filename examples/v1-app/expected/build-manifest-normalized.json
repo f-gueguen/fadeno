@@ -9,6 +9,7 @@
     "server/bootstrap.js",
     "src/components/developer-panel.js",
     "src/components/overview.js",
+    "src/generated/demo-source-excerpts.js",
     "src/projects.js",
     "src/resources/projects.js",
     "src/routes/admin/dashboard/page.js",

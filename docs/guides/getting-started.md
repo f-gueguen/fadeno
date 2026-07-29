@@ -179,7 +179,7 @@ fadeno deploy --project-root . --output ../releases/my-fadeno-app-001
 The packed canonical scenario normalizes only the temporary artifact path:
 
 ```text
-Fadeno production build completed: 30 files written to dist.
+Fadeno production build completed: 31 files written to dist.
 Fadeno deployment artifact completed at <ARTIFACT_ROOT>.
 ```
 
