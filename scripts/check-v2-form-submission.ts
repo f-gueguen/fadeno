@@ -25,8 +25,8 @@ for (const fragment of [
 const formTests = readFileSync(join(root, "experiments/v2-form-submission/tests/form-submission.spec.ts"), "utf8");
 assert.equal(
   formTests.match(/@fresh-webkit-worker/gu)?.length,
-  10,
-  "form qualification must keep eleven resource-intensive cases in one fresh WebKit worker",
+  13,
+  "form qualification must keep fourteen resource-intensive cases in one fresh WebKit worker",
 );
 
 function run(command: string, arguments_: readonly string[], cwd: string): string {

@@ -633,11 +633,14 @@ test("refuses form edits made after redirect handoff, including untracked custom
   const optgroupHierarchyRecovered = controlAttributesRecovered;
   const indeterminateRecovered = controlAttributesRecovered;
 
-  await page.context().clearCookies();
-  await page.goto(`${origin}/projects`);
-  await waitForEnhancement(page);
-  await page.locator("#passcode").fill("example-owner");
-  await page.locator("#sign-in-form").evaluate((form) => {
+  const context = page.context();
+  await page.close();
+  await context.clearCookies();
+  const ancestryPage = await context.newPage();
+  await ancestryPage.goto(`${origin}/projects`);
+  await waitForEnhancement(ancestryPage);
+  await ancestryPage.locator("#passcode").fill("example-owner");
+  await ancestryPage.locator("#sign-in-form").evaluate((form) => {
     const firstOwner = document.createElement("div");
     firstOwner.id = "handoff-owner-first";
     const secondOwner = document.createElement("div");
@@ -651,17 +654,18 @@ test("refuses form edits made after redirect handoff, including untracked custom
   });
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
-  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await ancestryPage.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 2);
-  await page.locator("#handoff-ancestry").evaluate((control) => {
+  await ancestryPage.locator("#handoff-ancestry").evaluate((control) => {
     document.querySelector("#handoff-owner-second")?.append(control);
   });
   await expect.poll(() => projectGets(false)).toBe(nativeGetsBefore + 2);
-  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  const ancestryRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
+  await expect(ancestryPage.locator("#viewer")).toHaveText("Signed in owner");
+  const ancestryRecovered = await ancestryPage.locator("#viewer").textContent() === "Signed in owner";
 
-  await page.context().clearCookies();
-  const customPage = await page.context().newPage();
+  await ancestryPage.close();
+  await context.clearCookies();
+  const customPage = await context.newPage();
   await customPage.goto(`${origin}/projects`);
   await waitForEnhancement(customPage);
   await customPage.locator("#passcode").fill("example-owner");
@@ -744,11 +748,14 @@ test("tracks customizable-select option parents and wrapper text through redirec
   const optionParentMoveRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
   let nativeCurrentTruthGets = 1;
 
-  await page.context().clearCookies();
-  await page.goto(`${origin}/projects`);
-  await waitForEnhancement(page);
-  await page.locator("#passcode").fill("example-owner");
-  await page.locator("#sign-in-form").evaluate((form) => {
+  const context = page.context();
+  await page.close();
+  await context.clearCookies();
+  const wrapperTextEditPage = await context.newPage();
+  await wrapperTextEditPage.goto(`${origin}/projects`);
+  await waitForEnhancement(wrapperTextEditPage);
+  await wrapperTextEditPage.locator("#passcode").fill("example-owner");
+  await wrapperTextEditPage.locator("#sign-in-form").evaluate((form) => {
     const select = document.createElement("select");
     select.id = "handoff-wrapper-text-select";
     const wrapper = document.createElement("div");
@@ -760,22 +767,24 @@ test("tracks customizable-select option parents and wrapper text through redirec
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
   const nativeGetsBeforeTextEdit = projectGets(false);
-  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await wrapperTextEditPage.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 2);
-  await page.locator("#handoff-wrapper-text-owner").evaluate((wrapper) => {
+  await wrapperTextEditPage.locator("#handoff-wrapper-text-owner").evaluate((wrapper) => {
     const text = [...wrapper.childNodes].find((child): child is Text => child instanceof Text);
     if (text) text.data = "Edited wrapper text";
   });
   await expect.poll(() => projectGets(false)).toBe(nativeGetsBeforeTextEdit + 1);
-  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  const wrapperTextEditRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
+  await expect(wrapperTextEditPage.locator("#viewer")).toHaveText("Signed in owner");
+  const wrapperTextEditRecovered = await wrapperTextEditPage.locator("#viewer").textContent() === "Signed in owner";
   nativeCurrentTruthGets += 1;
 
-  await page.context().clearCookies();
-  await page.goto(`${origin}/projects`);
-  await waitForEnhancement(page);
-  await page.locator("#passcode").fill("example-owner");
-  await page.locator("#sign-in-form").evaluate((form) => {
+  await wrapperTextEditPage.close();
+  await context.clearCookies();
+  const wrapperTextMovePage = await context.newPage();
+  await wrapperTextMovePage.goto(`${origin}/projects`);
+  await waitForEnhancement(wrapperTextMovePage);
+  await wrapperTextMovePage.locator("#passcode").fill("example-owner");
+  await wrapperTextMovePage.locator("#sign-in-form").evaluate((form) => {
     const select = document.createElement("select");
     select.id = "handoff-wrapper-text-move-select";
     const firstWrapper = document.createElement("div");
@@ -789,16 +798,16 @@ test("tracks customizable-select option parents and wrapper text through redirec
   delayedPrivateGetPath = "/projects";
   delayedPrivateGetMilliseconds = 400;
   const nativeGetsBeforeTextMove = projectGets(false);
-  await page.locator("#sign-in-form button").click({ noWaitAfter: true });
+  await wrapperTextMovePage.locator("#sign-in-form button").click({ noWaitAfter: true });
   await expect.poll(() => projectGets(true), { timeout: 10_000 }).toBe(privateGetsBefore + 3);
-  await page.locator("#handoff-wrapper-text-first").evaluate((wrapper) => {
+  await wrapperTextMovePage.locator("#handoff-wrapper-text-first").evaluate((wrapper) => {
     const text = [...wrapper.childNodes].find((child): child is Text => child instanceof Text);
     const destination = document.querySelector("#handoff-wrapper-text-second");
     if (text && destination) destination.append(text);
   });
   await expect.poll(() => projectGets(false)).toBe(nativeGetsBeforeTextMove + 1);
-  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
-  const wrapperTextMoveRecovered = await page.locator("#viewer").textContent() === "Signed in owner";
+  await expect(wrapperTextMovePage.locator("#viewer")).toHaveText("Signed in owner");
+  const wrapperTextMoveRecovered = await wrapperTextMovePage.locator("#viewer").textContent() === "Signed in owner";
   nativeCurrentTruthGets += 1;
   const state = application.readApplicationState();
   expect({
@@ -812,11 +821,12 @@ test("tracks customizable-select option parents and wrapper text through redirec
     optionParentMoveRecovered,
     wrapperTextEditRecovered,
     wrapperTextMoveRecovered,
-    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    currentTruthVisible: await wrapperTextMovePage.locator("#viewer").textContent() === "Signed in owner",
     mutationRetried: privateMutations().length - mutationsBefore > 3,
   }).toEqual(expected("handoff-option-wrapper"));
   expect(readFileSync(join(outputRoot, "expected-handoff-option-wrapper-human.txt"), "utf8"))
     .toContain("option-parent and wrapper-text changes refused private publication");
+  await wrapperTextMovePage.close();
 });
 
 test("bounds redirect handoff snapshots before serializing application-owned controls", async ({ page }) => {
@@ -4507,7 +4517,9 @@ test("recovers committed current truth when close is cancelled during the redire
   }).toEqual(expected("close-recovery"));
 });
 
-test("starts native current-truth recovery before closing when scroll ownership cannot be reacquired", async ({ page }) => {
+test("starts native current-truth recovery before closing when scroll ownership cannot be reacquired", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
   await page.goto(`${origin}/projects`);
   await page.locator("#passcode").fill("example-owner");
   delayedPrivateGetPath = "/projects";
@@ -4568,7 +4580,9 @@ test("starts native current-truth recovery before closing when scroll ownership 
     .toContain("native current-truth replacement started before teardown");
 });
 
-test("repairs a staged redirect URL before cancelled replacement recovery", async ({ page }) => {
+test("repairs a staged redirect URL before cancelled replacement recovery", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
   await page.goto(`${origin}/projects`);
   await page.locator("#redirect-away-passcode").fill("example-owner");
   const mutationsBefore = privateMutations().length;
@@ -4622,7 +4636,9 @@ test("repairs a staged redirect URL before cancelled replacement recovery", asyn
   }).toEqual(expected("staged-recovery"));
 });
 
-test("repairs selected traversal URLs and retains recovery through unsafe traversal", async ({ page }) => {
+test("repairs selected traversal URLs and retains recovery through unsafe traversal", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
   const projectGets = (): number => transportRequests.filter(({ method, path }) => method === "GET" && path === "/projects").length;
   const documentEpoch = (): Promise<string | null> => page.locator('meta[name="fadeno-document-epoch"]').getAttribute("content");
   const establishForwardEntry = async (unsafe: boolean): Promise<void> => {
