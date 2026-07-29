@@ -127,7 +127,7 @@
         },
         {
           "path": "src/routes/hello/[name]/page.tsx",
-          "length": 805
+          "length": 875
         },
         {
           "path": "src/routes/layout.tsx",
@@ -143,11 +143,11 @@
         },
         {
           "path": "src/routes/page.tsx",
-          "length": 710
+          "length": 782
         },
         {
           "path": "src/routes/projects/page.tsx",
-          "length": 7318
+          "length": 6878
         },
         {
           "path": "src/routes/raw/handler.ts",
@@ -159,15 +159,15 @@
         },
         {
           "path": "src/routes/resource-recovery/page.tsx",
-          "length": 1616
+          "length": 1659
         },
         {
           "path": "src/routes/resources/page.tsx",
-          "length": 3493
+          "length": 3415
         },
         {
           "path": "src/routes/routing/page.tsx",
-          "length": 3628
+          "length": 3616
         },
         {
           "path": "src/routes/shop/catalog/page.tsx",

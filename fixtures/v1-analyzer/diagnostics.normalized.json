@@ -12,7 +12,7 @@
       "documents": [
         { "path": "fadeno.config.ts", "length": 116 },
         { "path": "src/routes/layout.tsx", "length": 2560 },
-        { "path": "src/routes/page.tsx", "length": 710 }
+        { "path": "src/routes/page.tsx", "length": 782 }
       ]
     },
     "diagnostics": [],
@@ -37,7 +37,7 @@
         { "path": "fadeno.config.ts", "length": 116 },
         { "path": "src/routes/handler.ts", "length": 69 },
         { "path": "src/routes/layout.tsx", "length": 2560 },
-        { "path": "src/routes/page.tsx", "length": 710 }
+        { "path": "src/routes/page.tsx", "length": 782 }
       ]
     },
     "diagnostics": [
@@ -132,7 +132,7 @@
           { "path": "fadeno.config.ts", "length": 115 },
           { "path": "src/routes/handler.ts", "length": 69 },
           { "path": "src/routes/layout.tsx", "length": 2560 },
-          { "path": "src/routes/page.tsx", "length": 710 }
+          { "path": "src/routes/page.tsx", "length": 782 }
         ]
       },
       "diagnostics": [
@@ -197,7 +197,7 @@
         { "path": "fadeno.config.ts", "length": 115 },
         { "path": "src/routes/handler.ts", "length": 69 },
         { "path": "src/routes/layout.tsx", "length": 2560 },
-        { "path": "src/routes/page.tsx", "length": 710 }
+        { "path": "src/routes/page.tsx", "length": 782 }
       ]
     },
     "diagnostics": [
