@@ -1,4 +1,5 @@
 import type { Page } from "@fadeno/framework";
+import { DeveloperPanel } from "../../components/developer-panel.tsx";
 import { projectSummary } from "../../resources/projects.ts";
 
 const page: Page = async ({ read }) => {
@@ -40,6 +41,16 @@ const page: Page = async ({ read }) => {
           <a class="button-link button-secondary" href="/resource-recovery">Start 503 → recovery</a>
         </div>
       </section>
+      <DeveloperPanel
+        source="src/routes/resources/page.tsx"
+        code={'const [first, second] = await Promise.all([\n  read(projectSummary, input),\n  read(projectSummary, equivalentInput),\n]);\n\nif (first !== second) throw new Error();'}
+        explanation={[
+          "The page asks for the same structural resource input twice.",
+          "One request scope owns the shared promise and frozen value.",
+          "A reload creates a new request scope and a new execution.",
+          "Typed failure and recovery never reuse the previous request result.",
+        ]}
+      />
     </div>
   );
 };

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "scenario": "canonical-evaluator-flow",
+  "decisions": [
+    "match-route",
+    "share-request-resource",
+    "validate-action",
+    "revalidate",
+    "enhance-eligible",
+    "refuse-unsafe"
+  ],
+  "causes": [
+    "request-url",
+    "resource-input",
+    "protected-form",
+    "browser-owned-dirty-control"
+  ],
+  "ownership": {
+    "route": "canonical-application",
+    "resource": "request",
+    "actionAndSession": "server",
+    "eligibility": "public-browser-runtime"
+  },
+  "skippedWork": [
+    "client-router",
+    "optimistic-mutation",
+    "unsafe-reconciliation",
+    "private-record-publication"
+  ],
+  "redirectedActionOutcome": "fresh-server-document",
+  "observableOutcome": "complete-current-server-document"
+}

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "scenario": "project-title-validation",
+  "submittedTitle": "<redacted-corrected-value>",
+  "result": "created-and-revalidated"
+}

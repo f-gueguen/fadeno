@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "scenario": "canonical-evaluator-walkthrough",
+  "browserEngines": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "steps": [
+    "observe-request",
+    "change-route",
+    "share-read",
+    "run-action",
+    "recover-truth"
+  ],
+  "modes": {
+    "native": "complete-links-and-forms",
+    "enhanced": "eligible-links-and-protected-actions",
+    "refused": "unsafe-state-returns-to-native"
+  },
+  "developerPanel": "application-source-and-public-behavior-only",
+  "preV208Limit": "no-general-structural-reconciliation"
+}

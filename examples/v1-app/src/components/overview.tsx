@@ -1,4 +1,5 @@
 import type { RenderChild } from "@fadeno/framework";
+import { DeveloperPanel } from "./developer-panel.tsx";
 
 export type OverviewEvidence = Readonly<{
   executionId: string;
@@ -57,6 +58,16 @@ export function Overview({
           <a class="feature-link" href="/evidence"><span>04</span><strong>Build &amp; recovery</strong><small>Reproducible commands for last-good output, cleanup, and browser qualification.</small></a>
         </div>
       </section>
+      <DeveloperPanel
+        source="src/routes/page.tsx"
+        code={'const [first, equivalent] = await Promise.all([\n  read(projectSummary, input),\n  read(projectSummary, equivalentInput),\n]);\n\nreturn <Overview evidence={first} />;'}
+        explanation={[
+          "The URL selects the page and root layout.",
+          "Equivalent resource inputs share one request-owned result.",
+          "The renderer publishes one complete escaped document.",
+          "The optional runtime may enhance only an eligible next interaction.",
+        ]}
+      />
     </div>
   );
 }

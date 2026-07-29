@@ -1,4 +1,5 @@
 import type { Page } from "@fadeno/framework";
+import { DeveloperPanel } from "../../components/developer-panel.tsx";
 import {
   createProject,
   deleteProject,
@@ -49,6 +50,16 @@ const page: Page = async ({ read, session }) => {
             <a class="button-link button-secondary" href="/resources">Continue to resource recovery</a>
           </section>
         )}
+        <DeveloperPanel
+          source="src/projects.ts"
+          code={'export const signIn = defineAction({\n  fields: { passcode: textField(...) },\n  run({ input, session }) {\n    session.set("viewer", "owner");\n    session.rotate();\n    return redirect("/projects");\n  },\n});'}
+          explanation={[
+            "The form is complete native HTML before enhancement starts.",
+            "The server validates the exact origin, proof, fields, and session.",
+            "A successful sign-in rotates the protected session.",
+            "The redirect returns through a fresh page request.",
+          ]}
+        />
       </div>
     );
   }
@@ -110,6 +121,16 @@ const page: Page = async ({ read, session }) => {
         ))}
         </ul>
       </section>
+      <DeveloperPanel
+        source="src/projects.ts"
+        code={'export const createProject = defineAction({\n  fields: { title: textField(...), attachment: fileField(...) },\n  keeps: [projectCollection],\n  run({ input }) {\n    projects.set(nextProjectId, project);\n    return redirect("/projects");\n  },\n});'}
+        explanation={[
+          "The browser submits the same successful controls in native or eligible enhanced mode.",
+          "The action validates and mutates once on the server.",
+          "The project collection is completely revalidated.",
+          "The redirected page atomically replaces stale project output.",
+        ]}
+      />
     </div>
   );
 };

@@ -1,7 +1,10 @@
 import type { Page } from "@fadeno/framework";
+import { DeveloperPanel } from "../../components/developer-panel.tsx";
 
-const page: Page = () => (
-  <div class="lab-page">
+const page: Page = ({ request }) => {
+  const refused = new URL(request.url).searchParams.get("outcome") === "dirty-control";
+  return (
+    <div class="lab-page">
     <header class="lab-heading">
       <p class="eyebrow">Routing laboratory</p>
       <h1>URLs select typed server outcomes.</h1>
@@ -20,7 +23,33 @@ const page: Page = () => (
       <h2 id="routing-explanation">The URL owns the route; the route owns the outcome.</h2>
       <p>No client router is required. Use Back after each example to return to this laboratory.</p>
     </section>
+    <section aria-labelledby="refusal-heading" class="refusal-demo">
+      <div>
+        <p class="eyebrow">Safe refusal laboratory</p>
+        <h2 id="refusal-heading">{refused ? "Refused safely. Native navigation completed." : "Make browser-owned state unsafe."}</h2>
+        <p>{refused
+          ? "The draft made in the previous document was not silently reconciled. The browser loaded this complete current document through the native path."
+          : "Type into the draft field, then follow the link. Before V2-08, a dirty control keeps the interaction native instead of risking silent state loss."}</p>
+      </div>
+      <div class="refusal-controls">
+        <label for="refusal-draft">Unsaved browser draft</label>
+        <input id="refusal-draft" name="refusal-draft" type="text" placeholder="Type before continuing" />
+        <a class="button-link button-warning" href="/routing?outcome=dirty-control">Try the guarded navigation</a>
+        <small>Correction: clear the draft first when you want the eligible enhanced path.</small>
+      </div>
+    </section>
+    <DeveloperPanel
+      source="src/routes/hello/[name]/page.tsx"
+      code={'const page: Page = ({ parameters }) => (\n  <h1>Hello {parameters["name"]}</h1>\n);'}
+      explanation={[
+        "The generated route matcher selects the parameterized page.",
+        "The decoded name becomes ordinary escaped JSX text.",
+        "The root layout wraps the page before the response streams.",
+        "A raw handler or typed redirect stays an explicit route outcome.",
+      ]}
+    />
   </div>
-);
+  );
+};
 
 export default page;
