@@ -987,6 +987,35 @@ test("retains an indeterminate checkbox through keyed navigation", async ({ page
   expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
 });
 
+test("retains an unrelated indeterminate checkbox through an action", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-checkbox-remove&mode=action&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-checkbox").evaluate((element) => {
+    const checkbox = element as HTMLInputElement;
+    checkbox.indeterminate = true;
+    Reflect.set(globalThis, "__fadenoOriginalTarget", checkbox);
+  });
+  requests.length = 0;
+
+  await activate(page, "action");
+
+  await expect(page.locator("#root")).toHaveClass("after");
+  expect(await page.locator("#dirty-checkbox").evaluate((element) => ({
+    retained: Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
+    checked: (element as HTMLInputElement).checked,
+    indeterminate: (element as HTMLInputElement).indeterminate,
+  }))).toEqual({
+    retained: true,
+    checked: false,
+    indeterminate: true,
+  });
+  expect(requests.filter(({ method, privateUpdate }) =>
+    method === "POST" && privateUpdate
+  )).toHaveLength(1);
+});
+
 test("refuses removal of a dirty select's live option", async ({ page }) => {
   await page.goto(
     `${origin}/case?case=dirty-select-insert&mode=navigation&phase=current`,
