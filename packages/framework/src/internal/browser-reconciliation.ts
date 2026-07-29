@@ -51,6 +51,11 @@ type AttributeSnapshot = readonly Readonly<{
   attributes: readonly (readonly [string, string])[];
 }>[];
 
+type ContentSnapshot = readonly Readonly<{
+  element: Element;
+  content: string;
+}>[];
+
 type LiveControlSnapshot = readonly (
   | Readonly<{
     kind: "input";
@@ -454,6 +459,22 @@ function ownsBrowserState(document_: Document, element: Element): boolean {
   ) !== null;
 }
 
+function dirtyRadioGroup(tree: CollectedTree, owner: HTMLInputElement): boolean {
+  return tree.elements.some((element) =>
+    element instanceof HTMLInputElement
+    && element.type === "radio"
+    && element.name === owner.name
+    && element.form === owner.form
+    && element.checked !== element.defaultChecked
+  );
+}
+
+function dirtySelect(owner: HTMLSelectElement): boolean {
+  return Array.from(owner.options).some(({ selected, defaultSelected }) =>
+    selected !== defaultSelected
+  );
+}
+
 function directlyMovedChildren(plan: StructurePlan): readonly Element[] {
   const desired = new Set(plan.desiredChildren);
   const sequence = Array.from(plan.parent.children).filter((child) => desired.has(child));
@@ -562,6 +583,7 @@ function assertPreparedCurrentTree(
   document_: Document,
   expected: CollectedTree,
   attributeSnapshot: AttributeSnapshot,
+  contentSnapshot: ContentSnapshot,
 ): void {
   const received = collectDocument(document_, "current");
   if (received.root !== expected.root
@@ -581,6 +603,9 @@ function assertPreparedCurrentTree(
   if (attributeSnapshot.some(({ element, attributes: expectedAttributes }) =>
     !sameAttributes(element, expectedAttributes)
   )) {
+    refuse("FADENO_RECONCILIATION_OWNERSHIP");
+  }
+  if (contentSnapshot.some(({ element, content }) => element.innerHTML !== content)) {
     refuse("FADENO_RECONCILIATION_OWNERSHIP");
   }
 }
@@ -666,6 +691,26 @@ export function preparePrivateDocumentReconciliation(
       if (currentType !== incomingType) {
         refuse("FADENO_RECONCILIATION_OWNERSHIP");
       }
+      if (currentElement instanceof HTMLInputElement
+        && currentType === "radio"
+        && dirtyRadioGroup(current, currentElement)
+        && (currentElement.hasAttribute("checked")
+          !== incomingElement.hasAttribute("checked")
+          || currentElement.getAttribute("name") !== incomingElement.getAttribute("name"))) {
+        refuse("FADENO_RECONCILIATION_OWNERSHIP");
+      }
+    }
+    if (currentElement instanceof HTMLSelectElement
+      && dirtySelect(currentElement)
+      && currentElement.innerHTML !== incomingElement.innerHTML) {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
+    }
+    const activeElement = currentDocument.activeElement;
+    if (activeElement
+      && currentElement.contains(activeElement)
+      && currentElement.hasAttribute("disabled")
+        !== incomingElement.hasAttribute("disabled")) {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
     for (const stateOwnerAttribute of ["contenteditable", "popover"] as const) {
       if ((currentElement.hasAttribute(stateOwnerAttribute)
@@ -775,6 +820,20 @@ export function preparePrivateDocumentReconciliation(
       attributes: attributes(element),
     })),
   );
+  const contentSnapshot: ContentSnapshot = Object.freeze(
+    current.elements
+      .filter((element) =>
+        element.localName === opaqueElementName
+        || (current.children.get(
+          current.identityByElement.get(element)
+            ?? refuse("FADENO_RECONCILIATION_OWNERSHIP"),
+        )?.length ?? 0) === 0
+      )
+      .map((element) => Object.freeze({
+        element,
+        content: element.innerHTML,
+      })),
+  );
   const liveControlSnapshot = snapshotLiveControls(current);
   const textSnapshot = new Map<Element, string>();
   for (const plan of textPlans) {
@@ -820,7 +879,12 @@ export function preparePrivateDocumentReconciliation(
     }
     state = "applied";
     try {
-      assertPreparedCurrentTree(currentDocument, current, attributeSnapshot);
+      assertPreparedCurrentTree(
+        currentDocument,
+        current,
+        attributeSnapshot,
+        contentSnapshot,
+      );
       for (const plan of attributePlans) {
         for (const name of plan.remove) plan.element.removeAttribute(name);
         for (const [name, value] of plan.set) plan.element.setAttribute(name, value);

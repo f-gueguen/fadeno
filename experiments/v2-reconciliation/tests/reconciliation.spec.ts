@@ -749,7 +749,6 @@ test("restores live radio state after an applied transaction rolls back", async 
       await response.text(),
       "text/html",
     );
-    incoming.querySelector("#dirty-radio-b")?.setAttribute("checked", "");
     const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
     const module = await import(modulePath) as {
       preparePrivateDocumentReconciliation(
@@ -777,8 +776,9 @@ test("restores live radio state after an applied transaction rolls back", async 
       value: string,
     ): void {
       setAttribute.call(this, name, value);
-      if (this.id === "dirty-radio-b" && name === "checked") {
-        (this as HTMLInputElement).checked = true;
+      if (this.id === "root" && name === "class") {
+        const radio = document.querySelector("#dirty-radio-b");
+        if (radio instanceof HTMLInputElement) radio.checked = true;
       }
     };
     try {
@@ -796,6 +796,178 @@ test("restores live radio state after an applied transaction rolls back", async 
   expect(result).toEqual({
     applied: { checkedA: false, checkedB: true },
     restored: { checkedA: true, checkedB: false },
+  });
+});
+
+test("refuses a checked plan that would switch a dirty radio group", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-radio-reorder&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-radio-a").check();
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#dirty-radio-b")?.setAttribute("checked", "");
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    let refusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      refusal,
+      checkedA:
+        (document.querySelector("#dirty-radio-a") as HTMLInputElement | null)?.checked,
+      checkedB:
+        (document.querySelector("#dirty-radio-b") as HTMLInputElement | null)?.checked,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-radio-reorder&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    checkedA: true,
+    checkedB: false,
+  });
+});
+
+test("refuses removal of a dirty select's live option", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-select-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-select").selectOption("b");
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#select-b")?.remove();
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    let refusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    const select = document.querySelector("#dirty-select");
+    return {
+      refusal,
+      value: select instanceof HTMLSelectElement ? select.value : null,
+      optionRetained: document.querySelector("#select-b") !== null,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-select-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    value: "b",
+    optionRetained: true,
+  });
+});
+
+test("revalidates prepared leaf text after history selection", async ({ page }) => {
+  await page.addInitScript(() => {
+    const pushState = History.prototype.pushState;
+    History.prototype.pushState = function (
+      data: unknown,
+      unused: string,
+      url?: string | URL | null,
+    ): void {
+      pushState.call(this, data, unused, url);
+      const peer = document.querySelector("#peer-a");
+      if (peer) peer.textContent = "application-mutated";
+    };
+  });
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-text").fill("client-dirty");
+  await page.locator("#dirty-text").evaluate((element) => {
+    Reflect.set(globalThis, "__fadenoOriginalTarget", element);
+  });
+  requests.length = 0;
+
+  await activate(page, "navigation");
+
+  await expect(page.locator("#root")).toHaveClass("after");
+  await expect(page.locator("#peer-a")).toHaveText("peer-a");
+  expect(await page.locator("#dirty-text").evaluate(
+    (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
+  )).toBe(false);
+  expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
+});
+
+test("refuses disabling a retained focus owner", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=focused-input-selection-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#focused-input").focus();
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#focused-input")?.setAttribute("disabled", "");
+    const input = document.querySelector("#focused-input");
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    let refusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      refusal,
+      focused: document.activeElement === input,
+      disabled: input instanceof HTMLInputElement ? input.disabled : null,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=focused-input-selection-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    focused: true,
+    disabled: false,
   });
 });
 
