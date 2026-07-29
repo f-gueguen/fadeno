@@ -4150,7 +4150,9 @@ test("repairs selected traversal URLs and retains recovery through unsafe traver
     .toContain("selected and unsafe traversal cancellation repaired committed truth");
 });
 
-test("refuses invalid origin, forbidden authorization, and unsupported enhancement boundaries", async ({ page }) => {
+test("refuses invalid origin, forbidden authorization, and unsupported enhancement boundaries", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
   await page.goto(`${origin}/projects`);
   const action = await page.locator("#sign-in-form").getAttribute("action");
   const epoch = await page.locator('meta[name="fadeno-document-epoch"]').getAttribute("content");
@@ -4218,7 +4220,9 @@ test("refuses invalid origin, forbidden authorization, and unsupported enhanceme
   }).toEqual(expected("security"));
 });
 
-test("preserves form privacy, focus ownership, and legal current-truth URLs", async ({ page }) => {
+test("preserves form privacy, focus ownership, and legal current-truth URLs", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
   await page.goto(origin);
   await expect.poll(async () => page.evaluate(() => Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
   requests.length = 0;
@@ -4278,7 +4282,9 @@ test("preserves form privacy, focus ownership, and legal current-truth URLs", as
   }).toEqual(expected("privacy"));
 });
 
-test("rejects cross-user proof reuse and oversized fields before action execution", async ({ page, browser }) => {
+test("rejects cross-user proof reuse and oversized fields before action execution", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page, browser }) => {
   await signIn(page);
   const form = await page.locator("#create-form").evaluate((element) => {
     const owner = element as HTMLFormElement;
@@ -4342,7 +4348,9 @@ test("rejects cross-user proof reuse and oversized fields before action executio
   }).toEqual(expected("security"));
 });
 
-test("tears down a pending mutation through one current-truth recovery", async ({ page }) => {
+test("tears down a pending mutation through one current-truth recovery", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
   await signIn(page);
   application.setMutationDelay(300);
   await page.locator("#title").fill("Cancelled project");
@@ -4373,7 +4381,7 @@ test("tears down a pending mutation through one current-truth recovery", async (
   }).toEqual(expected("teardown"));
 });
 
-test.describe("native fallback", () => {
+test.describe("native fallback", { tag: "@fresh-webkit-worker" }, () => {
   test.use({ javaScriptEnabled: false });
 
   test("keeps GET controls and protected actions usable without JavaScript", async ({ page }) => {

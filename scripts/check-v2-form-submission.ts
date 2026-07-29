@@ -14,6 +14,21 @@ const outputRoot = join(root, "output/v2-form-submission");
 const require = createRequire(import.meta.url);
 const tsc = join(dirname(require.resolve("typescript/package.json")), "bin/tsc");
 
+const playwrightConfig = readFileSync(join(root, "experiments/v2-form-submission/playwright.config.ts"), "utf8");
+for (const fragment of [
+  "const freshWebkitWorker = /@fresh-webkit-worker/u",
+  'name: "webkit"',
+  "grepInvert: freshWebkitWorker",
+  'name: "webkit-fresh"',
+  "grep: freshWebkitWorker",
+]) assert.equal(playwrightConfig.includes(fragment), true, `form Playwright config is missing ${fragment}`);
+const formTests = readFileSync(join(root, "experiments/v2-form-submission/tests/form-submission.spec.ts"), "utf8");
+assert.equal(
+  formTests.match(/@fresh-webkit-worker/gu)?.length,
+  5,
+  "form qualification must move its final six cases to one fresh WebKit worker",
+);
+
 function run(command: string, arguments_: readonly string[], cwd: string): string {
   const result = spawnSync(command, arguments_, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
   if (result.error) throw result.error;
