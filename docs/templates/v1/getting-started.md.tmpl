@@ -141,21 +141,43 @@ production build.
 ## Run the evaluator demonstration
 
 After the repository's standard `pnpm install`, one root command builds the
-current framework and canonical application, then starts its generated
-production server behind the local HTTPS demonstration boundary. The launcher
-prints the exact loopback URL and self-signed-certificate limitation. The
-Projects laboratory displays the example passcode and runs the complete native
-action/session workflow. The certificate-free read-only command keeps mutation
+current framework, installs its packed artifact into a clean copy of the
+canonical application, and starts the guided evaluator workflow behind the
+local HTTPS demonstration boundary. The launcher prints the exact loopback URL
+and self-signed-certificate limitation. The Projects laboratory displays the
+example passcode and runs the same protected action/session flow in native or
+eligible enhanced mode. The certificate-free read-only command keeps mutation
 controls hidden instead of weakening the action origin rule.
 
-<!-- fadeno:include {"path":"examples/v1-app/expected/demo-setup.txt","language":"text"} -->
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/evaluator-demo/expected/setup.txt","language":"text"} -->
 
-The Overview, Routing, Resources, Projects, and Evidence destinations expose
-application-owned outcomes. Private analyzer, build, security, and browser
-records remain reproducible through named gates; the UI does not claim they ran
-during the current request. Run `pnpm check:v2-demo-experience` for the
-current-packed three-engine setup, success, failure, flow, recovery, responsive,
-focus, reduced-motion, and no-JavaScript assertions.
+The five-step guided rail covers the current request, routing, request-owned
+resource sharing, protected actions, and typed recovery. The mode ribbon labels
+the complete native baseline, eligible enhancement, and conservative refusal.
+Each main laboratory includes a collapsible panel with tracked application
+source and a public-behavior explanation for developers. Private analyzer,
+build, security, transport, and browser-session records remain reproducible
+through named gates; the UI does not present them as live request telemetry.
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/evaluator-demo/expected/experience.json","language":"json"} -->
+
+The deliberate dirty-control case makes the current pre-reconciliation
+boundary visible and gives an exact correction:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/evaluator-demo/expected/failure-human.txt","language":"text"} -->
+
+The normalized flow records only verified decisions, causes, ownership,
+skipped work, and the observable outcome:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/evaluator-demo/expected/flow.json","language":"json"} -->
+
+Run `pnpm check:v2-demo-experience` for the current-packed Chromium, Firefox,
+and WebKit setup, success, failure, correction, flow, recovery, responsive,
+focus, keyboard, source-panel, and no-JavaScript assertions. The recovery
+assertion proves a typed 503 and its stale output disappear on the next
+successful request:
+
+<!-- fadeno:include {"path":"examples/v1-app/scenarios/evaluator-demo/expected/recovery.json","language":"json"} -->
 
 ## Configure routes
 

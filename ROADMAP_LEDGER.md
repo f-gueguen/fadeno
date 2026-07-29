@@ -10,19 +10,19 @@ V2-07A — integrate the enhanced workflow into the evaluator demonstration
 
 ## Exit criteria
 
-- [ ] Add one guided route, resource, action, refusal, and recovery walkthrough
+- [x] Add one guided route, resource, action, refusal, and recovery walkthrough
   to the canonical evaluator application without exposing private telemetry.
-- [ ] Derive visible native, enhanced, and refused labels only from public
+- [x] Derive visible native, enhanced, and refused labels only from public
   application and browser behavior.
-- [ ] Prove the current packed package and canonical application start from a
+- [x] Prove the current packed package and canonical application start from a
   clean checkout through one documented HTTPS command.
-- [ ] Retain the complete no-JavaScript path and state the exact pre-V2-08
+- [x] Retain the complete no-JavaScript path and state the exact pre-V2-08
   preservation limits beside the enhanced workflow.
-- [ ] Add permanent Chromium, Firefox, and WebKit desktop/mobile, keyboard,
+- [x] Add permanent Chromium, Firefox, and WebKit desktop/mobile, keyboard,
   focus, success, failure, correction, flow, refusal, and recovery evidence.
-- [ ] Pass documentation/source and public-claim audits,
+- [x] Pass documentation/source and public-claim audits,
   `pnpm check:v2-demo-experience`, and full local CI on the final commit.
-- [ ] Declare no package release impact, complete remote review triage, merge,
+- [x] Declare no package release impact, complete remote review triage, merge,
   and clean the branch before V2-08.
 
 ## Active sub-slice
@@ -35,14 +35,16 @@ is added. Release impact: none; no Changeset is required.
 
 ## In progress
 
-- Build the guided request-thread sequence around public application outcomes
-  and the existing explicit browser facade.
-- Add example-owned source/explanation context that helps developers connect
-  visible controls to tracked source without publishing private records.
-- Replace the current alias gate with a V2-07A-specific clean packed consumer
-  and three-engine experience check.
-- Source permanent human and normalized machine evidence from those executed
-  files, then align the evaluator guide and canonical application README.
+- The five-step request-thread sequence uses the explicit public browser facade
+  and labels native, enhanced, and refused outcomes without private telemetry.
+- Collapsible developer panels connect the main laboratories to tracked
+  application source and public behavior without publishing private records.
+- `pnpm demo` installs the current packed framework into a clean canonical
+  application and starts the guided HTTPS workflow with one command.
+- `pnpm check:v2-demo-experience` exercises Chromium, Firefox, and WebKit
+  success, refusal, correction, flow, recovery, keyboard, responsive, source,
+  and no-JavaScript behavior, and the generated guide includes its normalized
+  executed evidence.
 
 ## Blockers
 

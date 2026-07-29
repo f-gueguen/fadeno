@@ -38,6 +38,8 @@
       "expected/development-success.txt",
       "expected/demo-experience.json",
       "expected/demo-setup.txt",
+      "scenarios/evaluator-demo/expected/experience.json",
+      "scenarios/evaluator-demo/expected/setup.txt",
       "expected/independent-workflow.txt",
       "expected/resource-success.txt",
       "scenarios/project-creation/expected/app/.gitignore",
@@ -138,6 +140,8 @@
       "scenarios/link-navigation/expected/history-startup-recovery.json",
       "scenarios/link-navigation/expected/history-native-departure.json",
       "scenarios/form-submission/expected/failure-human.txt",
+      "scenarios/evaluator-demo/expected/failure-human.txt",
+      "scenarios/evaluator-demo/expected/refusal.json",
       "scenarios/form-submission/expected/failure.json",
       "scenarios/form-submission/expected/security.json",
       "scenarios/form-submission/expected/privacy.json",
@@ -199,7 +203,9 @@
       "scenarios/resource-lifecycle/expected/correction-before.json",
       "scenarios/deployment/expected/correction-after.json",
       "scenarios/deployment/expected/correction-before.json",
-      "scenarios/form-submission/expected/correction.json"
+      "scenarios/form-submission/expected/correction.json",
+      "scenarios/evaluator-demo/expected/correction-before.json",
+      "scenarios/evaluator-demo/expected/correction-after.json"
     ],
     "flow": [
       "expected/check-collision-explain.txt",
@@ -218,6 +224,8 @@
       "scenarios/server-update/expected/flow.json",
       "scenarios/link-navigation/expected/flow.json",
       "scenarios/form-submission/expected/flow.json",
+      "scenarios/evaluator-demo/expected/flow.json",
+      "scenarios/evaluator-demo/expected/refusal.json",
       "scenarios/form-submission/expected/terminal-flow.json",
       "scenarios/form-submission/expected/ordering.json",
       "scenarios/form-submission/expected/close-recovery-fallback.json",
@@ -264,6 +272,7 @@
     "recovery": [
       "expected/resource-recovery.txt",
       "expected/demo-recovery.json",
+      "scenarios/evaluator-demo/expected/recovery.json",
       "expected/independent-workflow.txt",
       "scenarios/action-lifecycle/expected/recovery.json",
       "scenarios/build-compiler-error/expected/recovery.json",
@@ -368,6 +377,7 @@
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",
+      "scenarios/evaluator-demo/expected/recovery.json",
       "scenarios/action-lifecycle/expected/recovery.json",
       "scenarios/build-compiler-error/expected/recovery.json",
       "scenarios/css-boundary/expected/recovery.json",
