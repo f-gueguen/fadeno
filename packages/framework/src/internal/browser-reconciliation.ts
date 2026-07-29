@@ -429,7 +429,7 @@ function stateOwnedLeafContent(element: Element): boolean {
     || element.localName === "audio";
 }
 
-function selectionTouches(
+function selectionIntersects(
   document_: Document,
   element: Element,
   requireNonCollapsed: boolean,
@@ -444,7 +444,7 @@ function selectionTouches(
 
 function ownsBrowserState(document_: Document, element: Element): boolean {
   const active = document_.activeElement;
-  if ((active && element.contains(active)) || selectionTouches(document_, element, false)) {
+  if ((active && element.contains(active)) || selectionIntersects(document_, element, false)) {
     return true;
   }
   return element.matches(
@@ -718,7 +718,7 @@ export function preparePrivateDocumentReconciliation(
         && (incoming.children.get(identity)?.length ?? 0) === 0
         && !stateOwnedLeafContent(incomingElement)
         && currentElement.textContent !== incomingElement.textContent) {
-        if (selectionTouches(currentDocument, currentElement, true)) {
+        if (selectionIntersects(currentDocument, currentElement, true)) {
           refuse("FADENO_RECONCILIATION_OWNERSHIP");
         }
         textPlans.push(Object.freeze({
