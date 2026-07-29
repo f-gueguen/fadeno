@@ -601,6 +601,7 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
+  await waitForPrivateHistoryOwner(page);
   const recoveredPath = new URL(page.url()).pathname;
   const recoveredHeading = await page.locator("h1").textContent();
   const nativeScrollRestored = await page.evaluate(() => scrollY > 0);
