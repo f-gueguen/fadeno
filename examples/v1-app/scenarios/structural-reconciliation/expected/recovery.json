@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.structural-reconciliation-recovery",
+  "version": 1,
+  "staleRemovedPeerAbsent": true,
+  "originalRemovedPeerDisconnected": true,
+  "currentTargetRetained": true,
+  "pendingOwnerCleared": true
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "types": ["node", "@playwright/test"]
+  },
+  "include": [
+    "scripts/check-v2-reconciliation.ts",
+    "experiments/v2-reconciliation/**/*.ts",
+    "examples/v1-app/scenarios/structural-reconciliation/**/*.ts"
+  ]
+}

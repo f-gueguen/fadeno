@@ -17,9 +17,9 @@ V2-08 — implement bounded structural reconciliation
 - [ ] Preserve the accepted dirty-control, disclosure/top-layer, media, focus,
   selection, caret, and future-island classes for eligible link and action
   updates.
-- [ ] Refuse before mutation when identity, ownership, supported structure, or
-  the proven-unaffected document/element scroll boundary is absent or
-  ambiguous.
+- [ ] Refuse before mutation when identity, ownership, or supported structure
+  is absent or ambiguous; retain the qualified destination-top reset for
+  document scroll and native refusal for element scroll.
 - [ ] Replay the complete locked preservation corpus for navigation- and
   action-driven updates in Chromium, Firefox, and WebKit with permanent
   success, refusal, correction, flow, recovery, and cleanup evidence.
@@ -29,23 +29,23 @@ V2-08 — implement bounded structural reconciliation
 
 ## Active sub-slice
 
-V2-08 implements only ADR 0014's sixteen accepted preservation classes through
-one private browser reconciliation owner. It retains ADR 0045's conservative
-refusal for affected or unknown document/element scroll and introduces no
-public patch schema, application-authored identity protocol, or broad scroll
-claim. Release impact: prerelease-compatible package behavior; one pending
-Changeset is required.
+V2-08 implements only ADR 0014's accepted preservation classes through one
+private browser reconciliation owner. ADR 0053 retains the V2-05-qualified
+destination-top reset for document scroll and native refusal for element
+scroll; it introduces no public patch schema, application-authored identity
+protocol, or broad scroll claim. Release impact: prerelease-compatible package
+behavior; one pending Changeset is required.
 
 ## In progress
 
 - The locked K0-04 candidate and result remain evidence inputs rather than
   production code or a public compatibility surface.
-- The current complete-document commit boundary and pre-interception
-  preservation refusals are being narrowed around one atomic, rollback-safe
-  reconciliation owner.
-- The V2-08 conformance harness will replay the locked cases through real
-  current-packed navigation and action outcomes rather than direct candidate
-  calls.
+- The current complete-document commit boundary now owns one atomic,
+  rollback-safe private structural reconciliation transaction.
+- The V2-08 conformance harness replays the exact locked cases through real
+  current-packed navigation and action outcomes in all three engines, with
+  direct private checks limited to replacement, refusal, and rollback
+  boundaries that have no public authoring contract.
 
 ## Blockers
 

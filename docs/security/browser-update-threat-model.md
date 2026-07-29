@@ -29,6 +29,7 @@ identity/replacement protocol.
 | --- | --- | --- |
 | Untrusted script location | Generated-only root-relative path; network paths, credentials, fragments, backslashes, NUL, and other origins refuse | Renderer module-path tests |
 | CSP bypass or policy drift | One external module uses the request-owned nonce; wrong/missing nonce and missing artifact execute nothing; rollback restores `script-src 'none'` | Three-engine packed browser runtime gate |
+| Local media preservation broadens the deny-by-default document policy | The renderer permits only `media-src data:`; reconciliation accepts only bounded WAV data sources and never treats media bytes as script, style, navigation, or form authority | Rendering-security replay plus three-engine playing/paused media preservation |
 | Browser code enters server graphs | Exact `./browser` export; neutral root and Node closures cannot reach it; no Node dependency in browser closure | Current packed package gate |
 | Import unexpectedly acquires ownership | Facade import has no side effect; startup is explicit, idempotent while active, and closable | Packed consumer and three-engine lifecycle |
 | Insecure startup cannot create private identity | History ownership requires HTTPS or trustworthy loopback plus a secure random UUID capability before any private identity is created | Three-engine missing-capability refusal with native link recovery |

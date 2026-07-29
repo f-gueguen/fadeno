@@ -199,6 +199,35 @@ mutation("V2-07 action-ordering risk contract drifted", (context) => Object.free
   ...context,
   risks: context.risks.replace(/^\| Enhanced forms change controls.*\n/mu, ""),
 }));
+mutation("ADR 0053 is missing same DOM objects", (context) => Object.freeze({
+  ...context,
+  reconciliationAdr: context.reconciliationAdr.replace("same DOM objects", "equivalent nodes"),
+}));
+mutation("V2-08 Changeset contract drifted", (context) => Object.freeze({
+  ...context,
+  reconciliationChangeset: context.reconciliationChangeset.replace(
+    '"@fadeno/framework": minor',
+    '"@fadeno/framework": patch',
+  ),
+}));
+mutation("V2-08 PATCH-01 scope contract drifted", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace(
+    /^\| PATCH-01 \|.*$/mu,
+    (line) => line.replace(/; \[ADR 0053\][^|]+/u, ""),
+  ),
+}));
+mutation("V2-08 ACCESS-01 traceability contract drifted", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace(
+    /^\| ACCESS-01 \|.*$/mu,
+    (line) => line.replace("check:v2-reconciliation", "removed reconciliation gate"),
+  ),
+}));
+mutation("V2-08 browser-state risk contract drifted", (context) => Object.freeze({
+  ...context,
+  risks: context.risks.replace("ADR 0053", "decision removed"),
+}));
 mutation("V2 entry package identity drifted", (context) => Object.freeze({
   ...context,
   packageDocument: { ...(context.packageDocument as Record<string, unknown>), private: true },

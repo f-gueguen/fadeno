@@ -97,12 +97,14 @@ const supportedDescendantNames = new Set([
 ]);
 const supportedAttributeNames = new Set([
   "action",
+  "aria-busy",
   "aria-label",
   "checked",
   "class",
   "contenteditable",
   "data-fadeno-navigation-focus",
   "disabled",
+  "enctype",
   "for",
   "href",
   "id",
@@ -184,12 +186,13 @@ function validateAttributeOwner(
     name === "id"
     || name === "class"
     || name === "aria-label"
+    || (name === "aria-busy" && localName === "form")
     || name === "role"
     || name === "tabindex"
     || name === "data-fadeno-navigation-focus"
     || (name === "href" && localName === "a")
     || (name === "target" && (localName === "a" || localName === "form"))
-    || ((name === "action" || name === "method") && localName === "form")
+    || ((name === "action" || name === "method" || name === "enctype") && localName === "form")
     || (name === "for" && localName === "label")
     || (name === "disabled" && ["button", "input", "option", "select"].includes(localName))
     || (name === "value" && (localName === "input" || localName === "option"))
@@ -241,7 +244,10 @@ function validateElementSurface(
   }
   if (element.localName === "form") {
     const method = (element.getAttribute("method") ?? "get").toLowerCase();
-    if (method !== "get" && method !== "post") {
+    const encoding = (element.getAttribute("enctype") ?? "application/x-www-form-urlencoded").toLowerCase();
+    if ((method !== "get" && method !== "post")
+      || (encoding !== "application/x-www-form-urlencoded"
+        && encoding !== "multipart/form-data")) {
       refuse("FADENO_RECONCILIATION_SURFACE");
     }
   }

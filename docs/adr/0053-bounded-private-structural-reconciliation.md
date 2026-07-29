@@ -65,7 +65,9 @@ event attributes, foreign namespaces, unsupported form controls, executable
 URLs, application-authored unkeyed descendants, duplicate renderer-owned proof
 controls, and ambiguous custom elements refuse. A future broader HTML surface
 requires new executable evidence; it is not inferred from successful handling
-of the locked corpus.
+of the locked corpus. The renderer's existing deny-by-default policy adds only
+`media-src data:` so the locked local audio fixture can execute without a
+network owner; reconciliation still accepts only bounded WAV data sources.
 
 ### Reuse, insertion, removal, and replacement
 
@@ -116,11 +118,14 @@ those nodes. The same predicate and incoming plan are rechecked after response
 admission and before commit. An action is not intercepted when its current
 document cannot satisfy that preflight.
 
-V2-08 does not restore numeric scroll. Nonzero document scroll, any nonzero
-element scroll, and every transported affected or unknown document/element
-preceding-layout classification remain refusal boundaries. The two locked
-scroll cases therefore prove native refusal and current-truth recovery rather
-than in-place preservation.
+V2-08 does not restore numeric scroll. A forward link or form update may retain
+the V2-05-qualified behavior that records a nonzero origin entry as unsafe and
+commits the destination at the exact top boundary; this is not scroll
+preservation. Any nonzero element scroll and every transported affected or
+unknown element preceding-layout classification remain native refusal
+boundaries. The two locked scroll cases therefore retain their exact
+non-preservation conclusions: document scroll resets through the qualified top
+commit, while element scroll follows native current-truth recovery.
 
 ### Contract status
 
@@ -164,6 +169,8 @@ mechanism without a separate decision and demonstrated consumer need.
 private preflight and rollback boundaries, and run every locked K0 preservation
 case as both navigation- and action-driven work in Chromium, Firefox, and
 WebKit. It retains normalized success, deliberate refusal, human correction,
-causal ownership flow, current-truth recovery, and cleanup evidence. The two
-accepted scroll failures remain explicit refusals. `pnpm ci:local` retains
-every prior native, package, security, browser, and release gate.
+causal ownership flow, current-truth recovery, and cleanup evidence. The locked
+document-scroll case must prove the qualified top reset without claiming
+numeric preservation; the locked element-scroll case remains an explicit
+native refusal. `pnpm ci:local` retains every prior native, package, security,
+browser, and release gate.

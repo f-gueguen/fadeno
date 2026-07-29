@@ -1,0 +1,1 @@
+Fadeno kept this update native because a browser-owned control had no bounded structural identity.

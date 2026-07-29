@@ -464,11 +464,13 @@ current owner are rechecked after response admission. A failed link plan
 returns to native destination navigation; an uncertain committed action reloads
 current truth through GET and never repeats the mutation.
 
-Document and element scroll remain outside reconciliation. Any nonzero current
-document or element scroll and any affected or unknown transported
-preceding-layout classification refuse in-place mutation. The locked
-document-scroll and element-scroll cases therefore remain expected native
-refusals rather than claimed preservation.
+Document and element scroll remain outside preservation claims. The accepted
+V2-05 forward-navigation rule may record a nonzero origin entry as unsafe and
+commit the destination at the exact top boundary; it does not retain numeric
+document scroll. Nonzero element scroll and affected or unknown transported
+element preceding-layout classification remain native refusal boundaries. The
+locked document-scroll and element-scroll cases therefore retain their exact
+non-preservation outcomes: top reset and native refusal, respectively.
 
 The identity map, reconciliation result, replacement set, and flow evidence are
 private package internals. This specification introduces no public patch

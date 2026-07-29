@@ -329,7 +329,7 @@ function assertDocument(node: RenderChild): void {
 function contentSecurityPolicy(nonce: string | undefined, updateTransport: boolean): string {
   const script = nonce === undefined ? "script-src 'none'; " : `script-src 'nonce-${nonce}'; `;
   const connect = updateTransport ? "connect-src 'self'; " : "";
-  return `default-src 'none'; ${script}${connect}style-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`;
+  return `default-src 'none'; ${script}${connect}style-src 'self'; media-src data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`;
 }
 
 export function renderDocument(node: RenderChild, options: RenderDocumentOptions): Response {
