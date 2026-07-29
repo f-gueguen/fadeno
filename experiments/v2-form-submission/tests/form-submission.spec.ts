@@ -1113,6 +1113,88 @@ test("uses the post-dispatch native FormData after an unrelated construction", a
     .toContain("ignored the unrelated in-dispatch construction");
 });
 
+test("does not let later formdata microtasks displace the final native GET destination", async ({ page }) => {
+  await signIn(page);
+  await page.goto(`${origin}/projects?x=1`);
+  await waitForEnhancement(page);
+  const projectPageRendersBefore = application.readApplicationState().projectPageRenders;
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator("#native-fragment-form").evaluate((form: HTMLFormElement) => {
+    form.action = "/projects?x=1#details";
+    const query = document.createElement("input");
+    query.name = "x";
+    query.value = "1";
+    form.prepend(query);
+    sessionStorage.setItem("fadeno-formdata-microtask-count", "0");
+    form.addEventListener("formdata", () => {
+      const count = Number(sessionStorage.getItem("fadeno-formdata-microtask-count") ?? "0") + 1;
+      sessionStorage.setItem("fadeno-formdata-microtask-count", String(count));
+      if (count !== 1) return;
+      queueMicrotask(() => {
+        sessionStorage.setItem("fadeno-formdata-microtask-ran", "1");
+        query.value = "poisoned";
+        const unrelated = new FormData();
+        unrelated.append("x", query.value);
+        if (Number(sessionStorage.getItem("fadeno-formdata-microtask-count") ?? "0") === count) {
+          const laterEvent = new Event("formdata");
+          Object.defineProperty(laterEvent, "formData", { value: unrelated });
+          form.dispatchEvent(laterEvent);
+        }
+      });
+    });
+    document.addEventListener("submit", (event) => {
+      if (event.target === form) event.stopPropagation();
+    }, { once: true });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await expect.poll(() => application.readApplicationState().projectPageRenders)
+    .toBeGreaterThan(projectPageRendersBefore);
+  releaseHeldResponse?.();
+  await expect.poll(() => new URL(page.url()).search).toBe("?x=1");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await page.waitForLoadState("domcontentloaded");
+  let formDataEvidence: Readonly<{ listenerMicrotaskRan: boolean; formDataEvents: number }> | undefined;
+  await expect.poll(async () => {
+    try {
+      formDataEvidence = await page.evaluate(() => ({
+        listenerMicrotaskRan: sessionStorage.getItem("fadeno-formdata-microtask-ran") === "1",
+        formDataEvents: Number(sessionStorage.getItem("fadeno-formdata-microtask-count") ?? "0"),
+      }));
+      return formDataEvidence;
+    } catch {
+      return undefined;
+    }
+  }).toEqual({ listenerMicrotaskRan: true, formDataEvents: 2 });
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-formdata-microtask-recovery",
+    version: 1,
+    listenerMicrotaskRan: formDataEvidence?.listenerMicrotaskRan,
+    formDataEvents: formDataEvidence?.formDataEvents,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    currentTruthRenderObserved: state.projectPageRenders > projectPageRendersBefore,
+    redirectChainRuns: state.redirectChainRuns,
+    finalSearch: new URL(page.url()).search,
+    selectedFragmentOrCurrentTruth: new Set(["", "#details"]).has(new URL(page.url()).hash),
+    unrelatedSnapshotRefused: new URL(page.url()).search !== "?x=poisoned",
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("formdata-microtask-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-formdata-microtask-recovery-human.txt"), "utf8"))
+    .toContain("later FormData snapshot could not displace");
+});
+
 test("honors a current-truth recovery outcome from the redirect GET without repeating the mutation", async ({ page }) => {
   const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
@@ -2607,6 +2689,72 @@ test("retains the frozen handoff snapshot through interrupted-departure recovery
     .toContain("frozen handoff snapshot remained authoritative");
 });
 
+test("recovers current truth when a persisted page cannot reacquire history ownership", async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      const key = "fadeno-persisted-reacquisition-document-loads";
+      sessionStorage.setItem(key, String(Number(sessionStorage.getItem(key) ?? "0") + 1));
+    } catch {
+      // The qualification reads the counter only after an owned same-origin document loads.
+    }
+  });
+  await signIn(page);
+  const documentLoadsBefore = await page.evaluate(() =>
+    Number(sessionStorage.getItem("fadeno-persisted-reacquisition-document-loads") ?? "0"));
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.evaluate(() => {
+    globalThis.addEventListener("pagehide", (event) => {
+      if (!(event instanceof PageTransitionEvent) || !event.persisted) return;
+      Object.defineProperty(history, "pushState", {
+        configurable: false,
+        enumerable: false,
+        writable: false,
+        value: history.pushState,
+      });
+    }, { once: true });
+  });
+  await page.evaluate(() => {
+    globalThis.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    globalThis.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+  }).catch(() => undefined);
+  releaseHeldResponse?.();
+  await expect.poll(() => page.evaluate(() =>
+    Number(sessionStorage.getItem("fadeno-persisted-reacquisition-document-loads") ?? "0"))
+    .catch(() => undefined))
+    .toBe(documentLoadsBefore + 1);
+  await page.waitForLoadState("domcontentloaded");
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/projects");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  await waitForEnhancement(page);
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-persisted-reacquisition-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    redirectGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    nativeCurrentTruthDocumentLoads: await page.evaluate(() =>
+      Number(sessionStorage.getItem("fadeno-persisted-reacquisition-document-loads") ?? "0"))
+      - documentLoadsBefore,
+    redirectChainRuns: state.redirectChainRuns,
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    enhancementRestarted: await page.evaluate(() =>
+      Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement"))),
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("persisted-reacquisition-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-persisted-reacquisition-recovery-human.txt"), "utf8"))
+    .toContain("persisted page could not reacquire history ownership");
+});
+
 test("rolls back a cancelled pushed fragment reload before recovering current truth", async ({ page }) => {
   await signIn(page);
   const rollbackPage = await page.context().newPage();
@@ -2809,6 +2957,70 @@ test("rolls back a cancelled pushed fragment reload before recovering current tr
   }).toEqual(expected("cancelled-fragment-push-recovery"));
   expect(readFileSync(join(outputRoot, "expected-cancelled-fragment-push-recovery-human.txt"), "utf8"))
     .toContain("cancelled pushed-fragment reload rolled back");
+  await rollbackPage.close();
+});
+
+test("recovers current truth when fragment rollback traversal throws synchronously", async ({ page }) => {
+  await signIn(page);
+  const rollbackPage = await page.context().newPage();
+  await rollbackPage.addInitScript(() => {
+    const nativeGo = history.go.bind(history);
+    Object.defineProperty(history, "go", {
+      configurable: true,
+      writable: true,
+      value(delta = 0): void {
+        if (delta < 0) throw new TypeError("application blocked fragment rollback traversal");
+        nativeGo(delta);
+      },
+    });
+  });
+  await rollbackPage.goto(origin);
+  await rollbackPage.goto(`${origin}/projects`);
+  await expect(rollbackPage.locator("#viewer")).toHaveText("Signed in owner");
+  await expect.poll(async () => rollbackPage.evaluate(() =>
+    Boolean(Reflect.get(globalThis, "__fadenoExampleEnhancement")))).toBe(true);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length;
+  const nativeTruthBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/projects" && accept !== mediaType).length;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await rollbackPage.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await rollbackPage.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "cancel fragment reload before rollback traversal";
+  }, { once: true }));
+  const dialog = rollbackPage.waitForEvent("dialog");
+  const activation = rollbackPage.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await (await dialog).dismiss();
+  await activation;
+  releaseHeldResponse?.();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/projects" && accept !== mediaType).length)
+    .toBe(nativeTruthBefore + 1);
+  await expect.poll(() => new URL(rollbackPage.url()).hash).toBe("");
+  await expect(rollbackPage.locator("#viewer")).toHaveText("Signed in owner");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-fragment-rollback-traversal-failure",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    redirectGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/projects" && accept !== mediaType).length - nativeTruthBefore,
+    redirectChainRuns: state.redirectChainRuns,
+    finalHash: new URL(rollbackPage.url()).hash,
+    currentTruthVisible: await rollbackPage.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("fragment-rollback-traversal-failure"));
+  expect(readFileSync(join(outputRoot, "expected-fragment-rollback-traversal-failure-human.txt"), "utf8"))
+    .toContain("synchronous rollback traversal failure");
   await rollbackPage.close();
 });
 

@@ -184,11 +184,13 @@ export function privateNativeGetFormDestination(
   successfulControls?: FormData,
   selectedDestination?: URL,
 ): URL | undefined {
-  const destination = successfulControls === undefined && selectedDestination
+  const destination = selectedDestination
     ? new URL(selectedDestination.href)
     : privateNativeGetFormDestinationBase(form, candidate, successfulControls !== undefined);
   if (!destination) return undefined;
-  const submitter = validSubmitter(form, candidate, successfulControls !== undefined);
+  const submitter = successfulControls !== undefined && selectedDestination
+    ? undefined
+    : validSubmitter(form, candidate, successfulControls !== undefined);
   if (submitter === false) return undefined;
   try {
     const data = successfulControls ?? (submitter ? new FormData(form, submitter) : new FormData(form));

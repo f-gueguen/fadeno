@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-fragment-rollback-traversal-failure",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectGets": 1,
+  "nativeCurrentTruthGets": 1,
+  "redirectChainRuns": 1,
+  "finalHash": "",
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

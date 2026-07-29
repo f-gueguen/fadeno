@@ -1,0 +1,1 @@
+Action ordering recovery: a later FormData snapshot could not displace the final browser-owned GET destination after a formdata listener queued an unrelated construction. Fadeno matched bounded destination candidates to the selected URL or recovered current truth, and did not repeat the committed mutation.
