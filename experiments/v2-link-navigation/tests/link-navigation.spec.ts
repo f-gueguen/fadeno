@@ -2417,7 +2417,7 @@ test("retains normalized flow evidence without exposing a public schema", async 
       "eligible same-origin GET acquired browser operation ownership",
       "exact native server response was projected once",
       "current generation, epoch, operation, URL, cache, and result were admitted",
-      "document, title, URL, history, and focus committed",
+      "complete document, title, URL, history, and focus committed",
       "destination scroll committed at the native top boundary without transition work",
     ],
     ownership: {
