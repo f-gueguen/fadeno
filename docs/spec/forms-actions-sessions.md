@@ -184,13 +184,16 @@ departure-completion event. If submit propagation is already
 stopped when the runtime observes a same-context form, the runtime refuses it
 while the event is cancelable and recovers current truth without constructing
 `FormData`. If a later listener stops propagation and the browser selects a
-safe same-document fragment, the observer retains the browser's one `FormData`
-object, accepts an image submitter from that browser-owned entry list, derives
-the destination after every `formdata` listener, and stops observing before a
-later programmatic construction can replace that snapshot. Observation and
-destination derivation are distinct facts: if the observed object yields no
-safe destination, recovery does not construct another `FormData` merely
-because derivation returned no URL.
+safe same-document fragment, the observer accepts an image submitter from the
+browser-owned entry list, freezes the safe GET routing selection before later
+listener microtasks, and derives its query from that supplied object. At most
+sixteen distinct candidates are retained. Only a complete candidate URL that
+matches the browser-selected entry may retain that fragment; a later unrelated
+snapshot, overflow, or ambiguity recovers current truth. Whether the GET
+replaces the document is determined from that exact destination relative to
+the trusted source path and query, not from the method alone. Observation and
+destination derivation remain distinct facts: recovery does not construct
+another `FormData` merely because no safe candidate is admissible.
 A submission cancelled by a later document listener after it reaches the
 window finalizer, or already cancelled before the runtime document listener,
 recovers through the same no-serialization path. Final target ownership may

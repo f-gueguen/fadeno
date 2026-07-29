@@ -138,14 +138,18 @@ listener prevents departure, current truth still recovers without serializing
 the form. A same-context form already hidden from the finalizer is refused
 while it remains cancelable. When propagation stops only after runtime
 observation and the browser selects a same-document fragment, the browser's
-single successful-control object supplies the final destination instead.
+successful-control entry list supplies bounded destination candidates. Routing
+is frozen before later listener microtasks, and only the complete candidate
+matching the selected URL may retain the fragment; ambiguity recovers current
+truth.
 The same recovery happens when the submit reaches the window only
 after a later document listener cancelled it, or was already cancelled before
 the runtime document listener. A retained `dialog` submission recovers without
 departure, while a late change from `dialog` to GET follows the final native
 destination. Observation uses final privacy state and the browser-owned
-`FormData` object after all listeners, accepts image submitters on that native
-path, and closes before a later microtask constructs an unrelated snapshot.
+`FormData` entry list after all listeners, accepts image submitters on that
+native path, and prevents a later microtask snapshot from displacing the
+selected URL.
 Cancellation registered by a later
 `beforeunload` listener or `onbeforeunload` assignment is still
 observed. An observable ineligible same-context cross-document form or link is
@@ -171,7 +175,9 @@ recovery so Back reaches the preceding page without a duplicate stop. That
 rollback remains an owned operation until its exact traversal arrives; a newer
 activation supersedes it and obsolete rollback completion cannot overwrite the
 newer destination. An unrelated selected entry cannot impersonate rollback
-completion and reloads natively. Fragment staging also verifies the exact
+completion and reloads natively. A synchronous rollback traversal refusal
+starts native current-truth replacement instead of waiting for a `popstate`
+that cannot arrive. Fragment staging also verifies the exact
 generated state, URL, history length, and push provenance before claiming
 ownership, including hooks that mutate the supplied state. Handoff
 also detects untracked form-associated custom controls, checkbox indeterminate
@@ -190,7 +196,10 @@ list, and direct recovery removes its departure observers. The handoff also
 tracks option parents inside customizable select wrappers. An initial
 same-resource action redirect pushes its native destination so Back retains the
 pre-submit entry; if cancelled teardown cannot reacquire scroll ownership, a
-native current-truth replacement starts before close. A failed fragment push repairs the current entry without traversing
+native current-truth replacement starts before close. Persisted-page history
+reacquisition failure follows the same rule while committed recovery is live:
+obsolete work is aborted, fresh current truth loads, and enhancement restarts.
+A failed fragment push repairs the current entry without traversing
 Back; if that repair is blocked, native current-truth replacement prevents the
 staged fragment URL from surviving. The same replacement applies when a
 cancelled cross-resource traversal cannot repair its selected URL. Late listeners may select the current form target. Link recovery re-reads

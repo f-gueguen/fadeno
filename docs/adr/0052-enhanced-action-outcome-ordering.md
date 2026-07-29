@@ -123,11 +123,16 @@ departure finished. If propagation was already stopped when the runtime
 observes a same-context form, it refuses the activation while it is still
 cancelable and recovers current truth without serializing controls. If a later
 listener stops propagation after runtime observation and the browser selects a
-same-document fragment, the post-dispatch observer retains the browser's one
-`FormData` object, derives the destination only after every `formdata` listener
-has finished, and stops observing before a later microtask can construct an
-unrelated `FormData`. If that observed object yields no safe destination,
-recovery retains the refusal and never reconstructs successful controls.
+same-document fragment, the post-dispatch observer freezes each safe GET
+routing selection before later listener microtasks, derives the corresponding
+query from the supplied entry list, and retains at most sixteen distinct
+destination candidates. Recovery accepts the candidate whose complete URL
+matches the browser-selected entry; a later unrelated `FormData` snapshot,
+candidate overflow, or ambiguity cannot replace it and instead recovers
+current truth. The same-document decision compares that exact destination with
+the trusted source path and query rather than assuming every HTTP GET creates
+a replacement document. Recovery never reconstructs successful controls merely
+because no candidate is admissible.
 A listener-hidden cross-document activation stays
 browser-owned because its response outcome is not observable to the current
 document; no private recovery or freshness claim is made for that unsupported
@@ -181,12 +186,18 @@ if teardown runs synchronously inside `beforeunload` and the user cancels, the
 same runtime resumes and fetches current truth. If the runtime cannot reacquire
 private scroll ownership after that cancellation, it starts a native
 current-truth replacement before teardown instead of closing over stale
-markup. If a GET form staged a pushed
+markup. The same rule applies when a persisted page resumes while a committed
+mutation recovery timer or GET owns freshness: failed history-method
+reacquisition aborts the obsolete result and starts native current-truth
+replacement before teardown. If a GET form staged a pushed
 fragment entry successfully, cancellation first traverses back to the source entry, then
 recovers current truth, so Back still reaches the preceding page rather than a
 duplicate same-URL entry. Completion requires the exact requested source entry
 and URL; an unrelated selected entry reloads natively instead of continuing
-rollback recovery from the wrong record. A failed push created no entry, so cancellation
+rollback recovery from the wrong record. If the rollback traversal call throws
+synchronously, the pending rollback owner is cleared and native current-truth
+replacement starts rather than waiting for a `popstate` that cannot arrive. A
+failed push created no entry, so cancellation
 repairs the current slot directly and never traverses to the preceding page.
 If that repair itself fails, the browser immediately replaces the staged URL
 with native current truth; private recovery never proceeds against a URL that
@@ -280,7 +291,9 @@ final separate-context target recovery, initially external and already-cancelled
 link recovery, external-context `noreferrer` ownership, cancellation observed before the
 runtime submit listener, stopped-submit refusal or safe fragment observation,
 image-submitter and final-`formdata` retention, bounded handoff-snapshot
-refusal, dialog method revalidation, control-ancestry refusal, failed
+refusal, bounded post-dispatch destination selection, persisted-page recovery
+reacquisition failure, synchronous rollback-traversal failure, dialog method
+revalidation, control-ancestry refusal, failed
 history-repair native replacement, recovery-GET supersession continuity, no
 repeated mutation, redacted causal flow, and
 current-truth recovery in Chromium, Firefox, and WebKit. `pnpm ci:local`

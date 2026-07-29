@@ -308,11 +308,14 @@ construct successful controls again. If propagation was already
 stopped when the runtime observes a same-context form, the runtime refuses it
 without serialization. If a later listener stops propagation and the browser
 selects a same-document fragment, the post-dispatch path retains the browser's
-one successful-control object, accepts an image submitter from that native
-entry list, derives the destination after all `formdata` listeners, stops
-observation before a later microtask serialization, and never stages a second
-history entry. If the observed object produces no safe destination, the
-runtime does not construct another `FormData` as a fallback. A listener-hidden cross-document activation remains
+successful-control entry list, accepts an image submitter on that native path,
+freezes each safe GET routing selection before later listener microtasks, and
+retains at most sixteen distinct derived destinations. The complete candidate
+matching the browser-selected URL remains authoritative; later unrelated
+snapshots, overflow, and ambiguity recover current truth. The runtime decides
+whether a GET replaces the document from that exact destination relative to
+the trusted source path and query, never from the method alone, and does not
+construct another `FormData` as a fallback. A listener-hidden cross-document activation remains
 browser-owned without a private freshness claim. A final `dialog` method that cannot depart
 recovers current truth, while a listener change from `dialog` to GET follows
 the final native destination. A submission that reaches the window finalizer already
@@ -356,7 +359,10 @@ recovery also carries it through selected-push rollback and a cancelled native
 replacement. Cancellation of a pushed-fragment replacement traverses back
 before current-truth recovery only when the push committed; a failed push
 repairs the current entry directly. After a committed push, the next Back
-reaches the preceding page rather than a duplicate same-URL entry. If submit propagation stops before the window
+reaches the preceding page rather than a duplicate same-URL entry. A
+synchronous exception from the requested rollback traversal
+clears that pending owner and starts native current-truth replacement rather
+than waiting for an impossible `popstate`. If submit propagation stops before the window
 finalizer and a later document listener prevents departure, post-dispatch
 observation recovers current truth without serializing successful controls. A
 submission cancelled by a later document listener after it reaches the window
@@ -400,7 +406,11 @@ descriptors, and wrapper/write-sequence provenance detects a native prototype
 push even when it cannot be inferred from history length, so it cannot
 reuse a registered state as framework ownership. Repair carries monotonic
 unsafe-scroll evidence to the fresh repaired entry. Failure to read back manual
-restoration on a persisted page closes enhancement before another traversal.
+restoration on a persisted page closes enhancement before another traversal
+when no committed-mutation recovery owner exists. If a recovery timer, GET, or
+selected recovery still owns committed freshness, failed reacquisition first
+aborts the obsolete result and starts native current-truth replacement; runtime
+teardown completes only after that departure begins.
 
 ## Narrowed H1 result and V2 conformance
 
