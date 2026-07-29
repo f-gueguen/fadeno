@@ -12,6 +12,11 @@ import {
   type PrivateFormEligibility,
   type PrivateFormRequest,
 } from "./browser-form.ts";
+import {
+  preparePrivateDocumentReconciliation,
+  privateCurrentDocumentReconciliationSafe,
+  type PrivateReconciliationTransaction,
+} from "./browser-reconciliation.ts";
 
 const mediaType = "application/vnd.fadeno.private-update+json; version=1";
 const generationMeta = "fadeno-application-generation";
@@ -701,19 +706,38 @@ function sameResourceFragmentRedirect(destination: URL, currentTruthUrl: string)
 
 export function privateLinkPreservationSafe(
   initiator?: HTMLAnchorElement,
-  options: Readonly<{ allowDocumentScroll?: boolean }> = {},
+  options: Readonly<{
+    allowDocumentScroll?: boolean;
+    allowReconciliation?: boolean;
+  }> = {},
 ): boolean {
   if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
-  if ([...document.querySelectorAll("input, textarea, select")].some(dirtyControl)) return false;
-  if (document.querySelector("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])") !== null) return false;
-  try { if (document.querySelector(":popover-open") !== null) return false; } catch { /* unsupported selector has no open popover state */ }
+  const reconciliationOwners: Node[] = [
+    ...[...document.querySelectorAll("input, textarea, select")].filter(dirtyControl),
+    ...document.querySelectorAll("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
+  ];
+  try {
+    const popover = document.querySelector(":popover-open");
+    if (popover) reconciliationOwners.push(popover);
+  } catch { /* unsupported selector has no open popover state */ }
   const selection = document.getSelection();
-  if (selection && !selection.isCollapsed) return false;
+  if (selection && !selection.isCollapsed) {
+    if (selection.anchorNode) reconciliationOwners.push(selection.anchorNode);
+    if (selection.focusNode) reconciliationOwners.push(selection.focusNode);
+  }
   const active = document.activeElement;
   const runtimeFocus = active instanceof HTMLElement
     && active === (document.querySelector("h1") ?? document.querySelector("main"))
     && active.getAttribute("data-fadeno-navigation-focus") === "";
-  if (active && active !== document.body && active !== document.documentElement && active !== initiator && !runtimeFocus) return false;
+  if (active
+    && active !== document.body
+    && active !== document.documentElement
+    && active !== initiator
+    && !runtimeFocus) reconciliationOwners.push(active);
+  if (reconciliationOwners.length > 0
+    && options.allowReconciliation === false) return false;
+  if (reconciliationOwners.length > 0
+    && !privateCurrentDocumentReconciliationSafe(document, reconciliationOwners)) return false;
   const documentScroller = document.scrollingElement;
   for (const element of document.querySelectorAll("*")) {
     if (options.allowDocumentScroll && element === documentScroller) continue;
@@ -759,6 +783,18 @@ function nextDocument(outcome: Extract<PrivateDecodedUpdateOutcome, { kind: "doc
     || !nextMetadata
     || nextMetadata.generation !== generation) return undefined;
   return parsed;
+}
+
+function documentReconciliation(
+  next: Document,
+  required: boolean,
+): PrivateReconciliationTransaction | undefined {
+  try {
+    return preparePrivateDocumentReconciliation(document, next);
+  } catch (cause) {
+    if (required) throw new TypeError("FADENO_UPDATE_RECONCILIATION", { cause });
+    return undefined;
+  }
 }
 
 function replaceAttributes(target: Element, source: Element): void {
@@ -832,6 +868,7 @@ function applyDocument(
     push(state: Readonly<Record<string, unknown>>, url: string): void;
   }>,
   oldFocusedNode: HTMLElement | undefined,
+  reconciliation?: PrivateReconciliationTransaction,
 ): void {
   const expectedMetadata = metadata(next);
   if (!expectedMetadata) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
@@ -884,8 +921,13 @@ function applyDocument(
     history.scrollRestoration = "manual";
     replaceAttributes(document.documentElement, next.documentElement);
     document.head.replaceChildren(...[...next.head.childNodes].map((node) => document.importNode(node, true)));
-    document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
-    const destinationFocus = focusNewDocument();
+    if (reconciliation) reconciliation.commit();
+    else document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
+    const destinationFocus = reconciliation?.preservesActiveElement
+      && oldFocusedNode?.isConnected
+      && document.activeElement === oldFocusedNode
+      ? oldFocusedNode
+      : focusNewDocument();
     scrollTo({ left: 0, top: 0, behavior: "instant" });
     const committedState = privateHistoryState(history.state);
     const committedMetadata = metadata(document);
@@ -904,7 +946,8 @@ function applyDocument(
       try { history.scrollRestoration = "manual"; } catch { /* native fallback will restore ownership */ }
       replaceAttributes(document.documentElement, oldAttributes);
       document.head.replaceChildren(...oldHead);
-      document.body.replaceChildren(...oldBody);
+      if (reconciliation) reconciliation.rollback();
+      else document.body.replaceChildren(...oldBody);
       restoreFocus();
       restoreSelection();
       scrollTo({ left: oldScroll.x, top: oldScroll.y, behavior: "instant" });
@@ -1985,6 +2028,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
+      const reconciliation = documentReconciliation(
+        next,
+        !privateLinkPreservationSafe(initiator, {
+          allowDocumentScroll: true,
+          allowReconciliation: false,
+        }),
+      );
       if (!initiator && selectedHistoryState) {
         if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || liveElementScroll()) {
           markHistoryUnsafe(displayedHistoryEntry);
@@ -2013,6 +2063,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
           writeHistory,
           operationFocusedNode,
+          reconciliation,
         );
       } finally {
         committing = false;
@@ -2034,14 +2085,18 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           "eligible same-origin GET acquired browser operation ownership",
           "exact native server response was projected once",
           "current generation, epoch, operation, URL, cache, and result were admitted",
-          "document, title, URL, history, and focus committed",
+          reconciliation
+            ? "bounded keyed structure, title, URL, history, and owned focus committed"
+            : "complete document, title, URL, history, and focus committed",
           "destination scroll committed at the native top boundary without transition work",
         ]),
         ownership: Object.freeze({
           browser: Object.freeze(["activation", "operation", "history", "focus", "scroll"]),
           server: Object.freeze(["authorization", "route", "resources", "rendered outcome"]),
         }),
-        skipped: Object.freeze(["form interception", "general state reconciliation", "transported script execution", "animation"]),
+        skipped: Object.freeze(reconciliation
+          ? ["form interception", "public patch schema", "transported script execution", "animation"]
+          : ["form interception", "general state reconciliation", "transported script execution", "animation"]),
         outcome: "enhanced-document",
       });
     } catch (cause) {
@@ -2370,6 +2425,13 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       }
       const next = nextDocument(admission.outcome, operation.generation);
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
+      const reconciliation = documentReconciliation(
+        next,
+        !privateFormPreservationSafe(eligibility, {
+          allowDocumentScroll: true,
+          allowReconciliation: false,
+        }),
+      );
       if (!flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       const operationFocusedNode = document.activeElement instanceof HTMLElement
         ? document.activeElement
@@ -2392,6 +2454,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
           writeHistory,
           operationFocusedNode,
+          reconciliation,
         );
       } finally {
         committing = false;
@@ -2417,7 +2480,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           "platform successful controls were submitted once",
           "exact native server response was projected once",
           "current generation, epoch, operation, URL, cache, and result were admitted",
-          "document, URL, history, focus, and pending state committed",
+          reconciliation
+            ? "bounded keyed structure, URL, history, owned focus, and pending state committed"
+            : "complete document, URL, history, focus, and pending state committed",
         ]),
         ownership: Object.freeze({
           browser: Object.freeze(["submit event", "successful controls", "operation", "pending state", "history", "focus"]),
@@ -2425,7 +2490,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             ? ["origin", "proof", "replay", "authorization", "action", "session", "revalidation", "rendered outcome"]
             : ["route", "resources", "rendered outcome"]),
         }),
-        skipped: Object.freeze(["optimistic mutation", "mutation retry", "general state reconciliation", "transported script execution"]),
+        skipped: Object.freeze(reconciliation
+          ? ["optimistic mutation", "mutation retry", "public patch schema", "transported script execution"]
+          : ["optimistic mutation", "mutation retry", "general state reconciliation", "transported script execution"]),
         outcome: "enhanced-document",
       });
     } catch (cause) {

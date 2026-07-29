@@ -1,3 +1,5 @@
+import { privateCurrentDocumentReconciliationSafe } from "./browser-reconciliation.ts";
+
 const generatedActionPrefix = "/.fadeno/actions/v1/";
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
@@ -238,16 +240,27 @@ function controlOwner(control: Element): HTMLFormElement | null | undefined {
 
 export function privateFormPreservationSafe(
   eligibility: PrivateFormEligibility,
-  options: Readonly<{ allowDocumentScroll?: boolean }> = {},
+  options: Readonly<{
+    allowDocumentScroll?: boolean;
+    allowReconciliation?: boolean;
+  }> = {},
 ): boolean {
   if (!eligibility.form.isConnected || eligibility.form.ownerDocument !== document) return false;
   if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
-  if ([...document.querySelectorAll("input, textarea, select")]
-    .some((control) => controlOwner(control) !== eligibility.form && dirtyControl(control))) return false;
-  if (document.querySelector("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])") !== null) return false;
-  try { if (document.querySelector(":popover-open") !== null) return false; } catch { /* unsupported selector has no open popover state */ }
+  const reconciliationOwners: Node[] = [
+    ...[...document.querySelectorAll("input, textarea, select")]
+      .filter((control) => controlOwner(control) !== eligibility.form && dirtyControl(control)),
+    ...document.querySelectorAll("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
+  ];
+  try {
+    const popover = document.querySelector(":popover-open");
+    if (popover) reconciliationOwners.push(popover);
+  } catch { /* unsupported selector has no open popover state */ }
   const selection = document.getSelection();
-  if (selection && !selection.isCollapsed) return false;
+  if (selection && !selection.isCollapsed) {
+    if (selection.anchorNode) reconciliationOwners.push(selection.anchorNode);
+    if (selection.focusNode) reconciliationOwners.push(selection.focusNode);
+  }
   const active = document.activeElement;
   const activeOwner = active ? controlOwner(active) : undefined;
   const runtimeFocus = active instanceof HTMLElement
@@ -258,7 +271,11 @@ export function privateFormPreservationSafe(
     && active !== document.documentElement
     && activeOwner !== eligibility.form
     && active !== eligibility.submitter
-    && !runtimeFocus) return false;
+    && !runtimeFocus) reconciliationOwners.push(active);
+  if (reconciliationOwners.length > 0
+    && options.allowReconciliation === false) return false;
+  if (reconciliationOwners.length > 0
+    && !privateCurrentDocumentReconciliationSafe(document, reconciliationOwners)) return false;
   const documentScroller = document.scrollingElement;
   for (const element of document.querySelectorAll("*")) {
     if (options.allowDocumentScroll && element === documentScroller) continue;
