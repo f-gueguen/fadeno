@@ -357,9 +357,9 @@ The deliberate dirty-control case makes the current pre-reconciliation
 boundary visible and gives an exact correction:
 
 ```text
-Refused safely. Native navigation completed.
-The draft made in the previous document was not silently reconciled. The browser loaded this complete current document through the native path.
-Correction: clear the draft first when you want the eligible enhanced path.
+Guarded destination reached.
+This server document reports only that the guarded destination loaded. It does not infer whether the browser used native or enhanced navigation.
+To exercise conservative refusal, type a draft before following the link; clear it to restore eligible enhancement.
 ```
 
 The normalized flow records only verified decisions, causes, ownership,

@@ -109,7 +109,17 @@ for (const [index, routeId] of ["/", "/projects", "/hello/[name]", "/files/[...p
     generatedRoute.record,
   );
 }
-for (const routeId of ["//projects", "/Projects", "/projects/[...]", "/projects/[bad-name]"]) {
+for (const routeId of [
+  "//projects",
+  "/Projects",
+  "/projects/[...]",
+  "/projects/[bad-name]",
+  "/[__proto__]",
+  "/[constructor]",
+  "/[prototype]",
+  "/[id]/[id]",
+  "/[...parts]/child",
+]) {
   const invalidRouteOperation = operation({ resultId: `result-invalid-route-${routeId.length}` });
   const invalidRoute = await projectPrivateServerUpdate(
     responseFor(invalidRouteOperation, { routeId }).response,

@@ -388,7 +388,7 @@
           "path": "src/routes/routing/page.tsx",
           "range": {
             "start": 0,
-            "end": 3616
+            "end": 3674
           }
         },
         {
@@ -674,7 +674,7 @@
         },
         {
           "path": "src/routes/routing/page.tsx",
-          "length": 3616
+          "length": 3674
         },
         {
           "path": "src/routes/shop/catalog/page.tsx",

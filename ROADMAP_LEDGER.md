@@ -20,7 +20,7 @@ V2-07A — integrate the enhanced workflow into the evaluator demonstration
   preservation limits beside the enhanced workflow.
 - [x] Add permanent Chromium, Firefox, and WebKit desktop/mobile, keyboard,
   focus, success, failure, correction, flow, refusal, and recovery evidence.
-- [x] Pass documentation/source and public-claim audits,
+- [ ] Pass documentation/source and public-claim audits,
   `pnpm check:v2-demo-experience`, and full local CI on the final commit.
 - [ ] Declare patch package release impact, complete remote review triage, merge,
   and clean the branch before V2-08.

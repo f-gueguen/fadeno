@@ -164,6 +164,11 @@ async function verifyEnhancedWorkflow(
     const raw = await routeAudit.request.get(`${origin}/raw`);
     assert.equal(raw.status(), 200, `${name}: generated raw route`);
     assert.equal(await raw.text(), "raw:/raw", `${name}: generated raw handler`);
+    const directGuarded = await routeAudit.request.get(`${origin}/routing?outcome=dirty-control`);
+    const directGuardedBody = await directGuarded.text();
+    assert.equal(directGuarded.status(), 200, `${name}: direct guarded destination`);
+    assert.match(directGuardedBody, /Guarded destination reached\./u, `${name}: direct guarded wording`);
+    assert.doesNotMatch(directGuardedBody, /Native navigation completed/u, `${name}: direct load makes no browser claim`);
     await routeAudit.close();
     const homeIdentity = await documentIdentity(page);
 
@@ -177,6 +182,14 @@ async function verifyEnhancedWorkflow(
     await page.locator("details.developer-panel summary").click();
 
     await page.getByRole("link", { name: "Routing", exact: true }).click();
+    const cleanRoutingIdentity = await documentIdentity(page);
+    await page.getByRole("link", { name: "Try the guarded navigation" }).click();
+    await page.getByRole("heading", { name: "Guarded destination reached." }).waitFor();
+    assert.equal(await documentIdentity(page), cleanRoutingIdentity, `${name}: clean guarded route stayed enhanced`);
+    assert.equal(await page.getByText("Native navigation completed", { exact: false }).count(), 0, `${name}: enhanced route makes no native claim`);
+    await page.getByRole("link", { name: "Routing", exact: true }).click();
+    await page.getByRole("heading", { name: "URLs select typed server outcomes." }).waitFor();
+    assert.equal(await documentIdentity(page), cleanRoutingIdentity, `${name}: clean route reset stayed enhanced`);
     const routingIdentity = await documentIdentity(page);
     await page.locator("#refusal-draft").fill("browser-owned draft");
     await Promise.all([
@@ -185,7 +198,8 @@ async function verifyEnhancedWorkflow(
     ]);
     await waitForEnhancement(page);
     assert.notEqual(await documentIdentity(page), routingIdentity, `${name}: dirty-control refusal stayed native`);
-    assert.match(await page.getByRole("heading", { name: /Refused safely/u }).textContent() ?? "", /Native navigation completed/u, `${name}: refusal outcome`);
+    assert.equal(await page.getByRole("heading", { name: "Guarded destination reached." }).count(), 1, `${name}: guarded destination`);
+    assert.equal(await page.getByText("Native navigation completed", { exact: false }).count(), 0, `${name}: destination makes no inferred refusal claim`);
     const refusalHuman = [
       await page.locator("#refusal-heading").textContent(),
       await page.locator("#refusal-outcome-detail").textContent(),
