@@ -13,7 +13,7 @@ function mutation(expected: string, mutate: (context: V2PlanContext) => V2PlanCo
 
 const valid = validateV2Plan(source);
 if (valid.length > 0) throw new Error(`valid V2 plan refused:\n${valid.join("\n")}`);
-mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-05, V2-05A, V2-06 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, V2-11A, V2-11B, then V2-12 in order", (context) => Object.freeze({
+mutation("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-05, V2-05A, V2-06, V2-07, V2-07A, V2-08 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, V2-11A, V2-11B, then V2-12 in order", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace("| V2-06 |", "| V2-16 |"),
 }));
@@ -108,6 +108,13 @@ mutation("V2 roadmap is missing Islands remain V3", (context) => Object.freeze({
   ...context,
   roadmap: context.roadmap.replace("Islands remain V3", "Islands move into V2"),
 }));
+mutation("V2 roadmap is missing Every user-observable capability extends the canonical application", (context) => Object.freeze({
+  ...context,
+  roadmap: context.roadmap.replace(
+    "Every user-observable capability extends the canonical application",
+    "Protocol fixtures replace canonical integration",
+  ),
+}));
 mutation("ENH-01 traceability is missing the V2-01 decision boundary", (context) => Object.freeze({
   ...context,
   traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-patch-protocol", "removed gate")),
@@ -161,6 +168,34 @@ mutation("V2-06 ENH-01 traceability contract drifted", (context) => Object.freez
   traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-form-submission", "removed form gate")),
 }));
 mutation("V2-06 form risk contract drifted", (context) => Object.freeze({
+  ...context,
+  risks: context.risks.replace(/^\| Enhanced forms change controls.*\n/mu, ""),
+}));
+mutation("ADR 0052 is missing never submits POST again", (context) => Object.freeze({
+  ...context,
+  actionAdr: context.actionAdr.replace("never submits POST again", "may submit POST again"),
+}));
+mutation("V2-07 Changeset contract drifted", (context) => Object.freeze({
+  ...context,
+  actionChangeset: context.actionChangeset.replace('"@fadeno/framework": minor', '"@fadeno/framework": patch'),
+}));
+mutation("V2-07 DATA-03 scope contract drifted", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace(/^\| DATA-03 \|.*$/mu, (line) => line.replace(/; \[ADR 0052\][^|]+/u, "")),
+}));
+mutation("V2-07 ENH-01 traceability contract drifted", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace(/^\| ENH-01 \|.*$/mu, (line) => line.replace("check:v2-action-ordering", "removed action gate")),
+}));
+mutation("V2-07 SEC-01 traceability contract drifted", (context) => Object.freeze({
+  ...context,
+  traceability: context.traceability.replace(/^\| SEC-01 \|.*$/mu, (line) => line.replace("check:v2-action-ordering", "removed action gate")),
+}));
+mutation("V2-07 TEST-01 scope contract drifted", (context) => Object.freeze({
+  ...context,
+  scope: context.scope.replace(/^\| TEST-01 \|.*$/mu, (line) => line.replace(/; \[ADR 0052\][^|]+/u, "")),
+}));
+mutation("V2-07 action-ordering risk contract drifted", (context) => Object.freeze({
   ...context,
   risks: context.risks.replace(/^\| Enhanced forms change controls.*\n/mu, ""),
 }));

@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-fragment-close-recovery-fallback",
+  "version": 1,
+  "mutationRequests": 1,
+  "nativeCurrentTruthGets": 1,
+  "fragmentRedirectRuns": 1,
+  "finalHash": "",
+  "currentTruthVisible": true,
+  "enhancementRestarted": true,
+  "mutationRetried": false
+}

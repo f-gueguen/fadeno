@@ -14,6 +14,21 @@ const outputRoot = join(root, "output/v2-form-submission");
 const require = createRequire(import.meta.url);
 const tsc = join(dirname(require.resolve("typescript/package.json")), "bin/tsc");
 
+const playwrightConfig = readFileSync(join(root, "experiments/v2-form-submission/playwright.config.ts"), "utf8");
+for (const fragment of [
+  "const freshWebkitWorker = /@fresh-webkit-worker/u",
+  'name: "webkit"',
+  "grepInvert: freshWebkitWorker",
+  'name: "webkit-fresh"',
+  "grep: freshWebkitWorker",
+]) assert.equal(playwrightConfig.includes(fragment), true, `form Playwright config is missing ${fragment}`);
+const formTests = readFileSync(join(root, "experiments/v2-form-submission/tests/form-submission.spec.ts"), "utf8");
+assert.equal(
+  formTests.match(/@fresh-webkit-worker/gu)?.length,
+  10,
+  "form qualification must keep eleven resource-intensive cases in one fresh WebKit worker",
+);
+
 function run(command: string, arguments_: readonly string[], cwd: string): string {
   const result = spawnSync(command, arguments_, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
   if (result.error) throw result.error;
@@ -107,7 +122,10 @@ try {
   assert.equal(entry.includes(packageName), false);
   writeFileSync(join(site, "_fadeno/browser-entry.js"), entry);
 
-  for (const name of ["success.json", "failure.json", "failure-human.txt", "correction.json", "flow.json", "recovery.json", "history-recovery.json", "terminal-flow.json", "security.json", "privacy.json", "teardown.json"]) {
+  for (const name of ["success.json", "failure.json", "failure-human.txt", "correction.json", "flow.json", "recovery.json", "history-recovery.json", "terminal-flow.json", "security.json", "privacy.json", "teardown.json", "crud.json", "ordering.json", "ordering-human.txt", "native-crud.json", "duplicate.json", "duplicate-human.txt", "concurrency.json", "concurrency-human.txt", "close-recovery.json", "close-recovery-fallback.json", "close-recovery-fallback-human.txt", "staged-recovery.json", "handoff-edit-recovery.json", "handoff-edit-recovery-human.txt", "handoff-limit-refusal.json", "handoff-limit-refusal-human.txt", "fragment-limit-refusal.json", "fragment-limit-refusal-human.txt", "formdata-routing-refusal.json", "formdata-routing-refusal-human.txt", "recovery-formdata-routing-refusal.json", "recovery-formdata-routing-refusal-human.txt", "formdata-observer-recovery.json", "formdata-observer-recovery-human.txt", "post-dispatch-formdata.json", "post-dispatch-formdata-human.txt", "formdata-microtask-recovery.json", "formdata-microtask-recovery-human.txt", "final-formdata-routing.json", "final-formdata-routing-human.txt", "redirect-recovery-outcome.json", "redirect-recovery-outcome-human.txt", "handoff-caret-recovery.json", "handoff-caret-recovery-human.txt", "pending-handoff.json", "pending-handoff-human.txt", "supersession-recovery.json", "supersession-recovery-human.txt", "native-supersession-recovery.json", "native-supersession-recovery-human.txt", "native-no-departure-recovery.json", "native-no-departure-recovery-webkit.json", "native-no-departure-recovery-human.txt", "native-form-fragment-recovery.json", "native-form-fragment-recovery-human.txt", "native-empty-fragment-form.json", "native-empty-fragment-form-human.txt", "submit-propagation-recovery.json", "submit-propagation-recovery-human.txt", "late-target-recovery.json", "late-target-recovery-human.txt", "recovery-supersession-continuity.json", "recovery-supersession-continuity-human.txt", "recovery-handoff-preservation.json", "recovery-handoff-preservation-human.txt", "persisted-reacquisition-recovery.json", "persisted-reacquisition-recovery-human.txt", "cancelled-fragment-push-recovery.json", "cancelled-fragment-push-recovery-human.txt", "fragment-rollback-traversal-failure.json", "fragment-rollback-traversal-failure-human.txt", "fragment-rollback-supersession.json", "fragment-rollback-supersession-human.txt", "fragment-rollback-selection-refusal.json", "fragment-rollback-selection-refusal-human.txt", "failed-fragment-push-recovery.json", "failed-fragment-push-recovery-human.txt", "forward-history-fragment-recovery.json", "forward-history-fragment-recovery-human.txt", "file-handoff-recovery.json", "file-handoff-recovery-human.txt", "fragment-redirect.json", "fragment-redirect-human.txt", "fragment-redirect-history.json", "fragment-redirect-history-human.txt", "fragment-close-recovery-fallback.json", "fragment-close-recovery-fallback-human.txt", "fragment-redirect-chain.json", "fragment-redirect-chain-human.txt", "redirect-get-consumption.json", "redirect-get-consumption-human.txt", "traversal-recovery.json", "traversal-recovery-human.txt"]) {
+    cpSync(join(scenarioRoot, "expected", name), join(outputRoot, `expected-${name}`));
+  }
+  for (const name of ["departure-observer-cleanup.json", "departure-observer-cleanup-human.txt", "handoff-option-wrapper.json", "handoff-option-wrapper-human.txt", "formdata-snapshot-limit.json", "formdata-snapshot-limit-human.txt"]) {
     cpSync(join(scenarioRoot, "expected", name), join(outputRoot, `expected-${name}`));
   }
 } finally {

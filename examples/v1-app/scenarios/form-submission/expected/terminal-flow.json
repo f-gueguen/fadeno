@@ -2,11 +2,15 @@
   "schema": "fadeno.example.form-submission-terminal-flow",
   "version": 1,
   "redirectRecorded": true,
-  "redirectCancellationRecovered": true,
+  "redirectDestinationRequests": 1,
+  "redirectAvoidedDocumentReload": true,
   "signedInTruthVisible": true,
+  "failedRedirectRecoveryRequests": 2,
+  "failedRedirectRecoveryVisible": true,
+  "failedRedirectRecoveryRecorded": true,
   "terminalRecoveryRecorded": true,
   "recoveryCancellationRecovered": true,
-  "mutationRequests": 2,
-  "signInRuns": 1,
+  "mutationRequests": 3,
+  "signInRuns": 2,
   "forbiddenRuns": 0
 }

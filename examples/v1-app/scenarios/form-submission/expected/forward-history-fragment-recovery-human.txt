@@ -1,0 +1,1 @@
+Action ordering recovery: the fragment push truncated an existing forward entry without growing history length. Fadeno still recognized the exact pushed state and URL, rolled that entry back after cancellation, recovered current truth, and kept Back connected to the preceding page without repeating the mutation.

@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-departure-observer-cleanup",
+  "version": 1,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "currentTruthGets": 1,
+  "redirectChainRuns": 1,
+  "departureObserversAddedAtLeastTwo": true,
+  "departureObserversRetained": 0,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

@@ -1,0 +1,25 @@
+{
+  "schema": "fadeno.example.action-ordering-native-form-fragment-recovery",
+  "version": 1,
+  "mutationRequests": 5,
+  "redirectGets": 5,
+  "nativeCurrentTruthGetsAtLeastFour": true,
+  "nativeCurrentTruthGetsAtMostSix": true,
+  "redirectChainRuns": 5,
+  "formDataEvents": 3,
+  "lateSubmitListenerRefusal": {
+    "finalSearch": "",
+    "finalHash": "#details",
+    "currentTruthVisible": true
+  },
+  "imageSubmitterFormDataEvents": 2,
+  "imageSubmitterFinalHash": "#image-final",
+  "unsafeDestinationFormDataEvents": 0,
+  "emptyQueryDelimiterRetained": true,
+  "nativeFragmentHistoryEntries": 1,
+  "backReturnedToFragmentFreeEntry": true,
+  "sameHashRecovered": true,
+  "finalHash": "#details",
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

@@ -1,0 +1,1 @@
+Action ordering recovery: when a cancelled close could not reacquire private scroll ownership, a native current-truth replacement started before teardown. The committed mutation was not repeated, the fresh signed-in document replaced stale markup, and enhancement restarted from that document.

@@ -1097,11 +1097,15 @@ test("keeps delayed traversal recovery supersedable by a native click", async ({
   enhancedSlowDelay = 250;
   await page.evaluate(() => history.back());
   await expect.poll(() => new URL(page.url()).pathname).toBe("/slow");
-  await page.evaluate(() => scrollTo(0, 100));
-  await page.waitForTimeout(10);
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    addEventListener("scroll", () => resolve(), { once: true });
+    scrollTo(0, 100);
+  }));
   const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
   await page.locator("#next-link").click();
   await expect(page.locator("h1")).toHaveText("Next");
+  await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length)
+    .toBeGreaterThan(nativeNextBefore);
   await page.waitForTimeout(300);
   expect({
     schema: "fadeno.example.history-delayed-recovery-supersession",
@@ -1670,6 +1674,7 @@ test("rolls back pushes made during traversal replacement before native recovery
   const nativeNextBefore = requests.filter(({ path, enhanced }) => path === "/next" && !enhanced).length;
   await page.goBack({ waitUntil: "load" });
   await expect(page.locator("h1")).toHaveText("Next");
+  await waitForPrivateHistoryOwner(page);
   await page.goBack({ waitUntil: "load" });
   await expect(page.locator("h1")).toHaveText("Home");
   expect({
@@ -2323,6 +2328,7 @@ test("cancels an older traversal before a newer native recovery", async ({ page 
   await expect(page.locator("h1")).toHaveText("Home");
   await expect.poll(() => requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length)
     .toBeGreaterThan(nativeHomeBefore);
+  await page.waitForLoadState("domcontentloaded");
   expect({
     schema: "fadeno.example.history-native-supersession-recovery",
     version: 1,

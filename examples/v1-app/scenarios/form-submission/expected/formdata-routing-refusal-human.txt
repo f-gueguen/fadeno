@@ -1,0 +1,1 @@
+Action ordering refusal: a `formdata` listener changed the request to an unsupported encoding after successful controls were constructed once. Fadeno cancelled that activation without constructing the controls again, sent no mutation, and left the native form available for a fresh user attempt.

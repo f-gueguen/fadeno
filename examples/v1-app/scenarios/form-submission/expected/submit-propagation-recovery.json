@@ -1,0 +1,68 @@
+{
+  "schema": "fadeno.example.action-ordering-submit-propagation-recovery",
+  "version": 1,
+  "mutationRequests": 11,
+  "redirectAndRecoveryGetsBounded": true,
+  "formDataEvents": 0,
+  "lateWindowCancellation": {
+    "redirectAndRecoveryGets": 2,
+    "formDataEvents": 0,
+    "currentTruthVisible": true
+  },
+  "captureCancellation": {
+    "redirectAndRecoveryGets": 2,
+    "formDataEvents": 0,
+    "currentTruthVisible": true
+  },
+  "stoppedPropagationRefusal": {
+    "redirectAndRecoveryGets": 2,
+    "formDataEvents": 0,
+    "finalHash": "",
+    "currentTruthVisible": true
+  },
+  "dialogRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "dialogClosedOrReplaced": true,
+    "currentTruthVisible": true
+  },
+  "lateDialogMethod": {
+    "redirectAndNativeGets": 2,
+    "formDataEvents": 1,
+    "finalHash": "#dialog-final-method",
+    "currentTruthVisible": true
+  },
+  "finalFormStateRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "finalHash": "#final-formdata",
+    "formDataEvents": 2,
+    "currentTruthVisible": true
+  },
+  "lateUnloadCancellation": {
+    "redirectAndRecoveryGets": 2,
+    "nativeDestinationGets": 0,
+    "currentTruthVisible": true
+  },
+  "nativeFormRefusal": {
+    "currentTruthGets": 1,
+    "nativePostRequests": 0,
+    "waitedPastUnsafeHeuristicMs": 1200,
+    "currentTruthVisible": true
+  },
+  "nativeNoDocumentLinkRefusal": {
+    "redirectAndRecoveryGets": 2,
+    "nativeNoContentRequests": 0,
+    "currentTruthVisible": true
+  },
+  "observedInvalidDestination": {
+    "destinationAndRecoveryGetsBounded": true,
+    "frameworkRecoveryGetsAtMostOne": true,
+    "formDataEvents": 1,
+    "formDataReconstructed": false,
+    "browserOwnedFinalHash": true,
+    "currentTruthVisible": true
+  },
+  "redirectChainRuns": 11,
+  "browserOwnedFinalHash": true,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

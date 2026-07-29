@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-native-crud",
+  "version": 1,
+  "privateRequests": 0,
+  "projects": [],
+  "signInRuns": 1,
+  "createRuns": 1,
+  "updateRuns": 1,
+  "deleteRuns": 1,
+  "staleOutputAbsent": true
+}

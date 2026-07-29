@@ -1,0 +1,1 @@
+Action ordering recovery: when a persisted page could not reacquire history ownership, Fadeno started native current-truth replacement before teardown. The fresh document restarted enhancement and the committed mutation was not repeated.

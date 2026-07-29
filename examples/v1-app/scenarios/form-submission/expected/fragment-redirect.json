@@ -1,0 +1,31 @@
+{
+  "schema": "fadeno.example.action-ordering-fragment-redirect",
+  "version": 1,
+  "mutationRequests": 3,
+  "privateRedirectGets": 0,
+  "nativeDestinationGetsAtLeastTwo": true,
+  "nativeDestinationGetsAtMostThree": true,
+  "fragmentRedirectRuns": 3,
+  "finalHash": "",
+  "emptyFragment": {
+    "nativeDestinationGets": 1,
+    "finalUrlEndsWithDelimiter": true,
+    "currentTruthVisible": true
+  },
+  "teardownFollowedHandoff": true,
+  "cancelledCloseRecovery": {
+    "privateCurrentTruthGets": 0,
+    "nativeDestinationGetsAtMostOne": true,
+    "finalHash": "#details",
+    "currentTruthVisible": true,
+    "enhancementActive": true
+  },
+  "freshCurrentTruthVisible": true,
+  "historyFailureHandoff": {
+    "calls": [
+      "replace:/projects#details",
+      "reload:/projects#details"
+    ],
+    "finalUrl": "/projects#details"
+  }
+}

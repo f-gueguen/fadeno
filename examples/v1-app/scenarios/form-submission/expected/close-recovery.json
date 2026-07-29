@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-close-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectGets": 2,
+  "nativeCurrentTruthGets": 0,
+  "signInRuns": 1,
+  "currentTruthVisible": true,
+  "enhancementActiveAfterRecovery": true,
+  "enhancedNavigationAfterRecovery": 1,
+  "documentLoads": 0
+}

@@ -63,6 +63,14 @@ or send no second request. A submitted form receives bounded busy state. Once
 POST delivery begins, every ambiguous failure recovers current server truth by
 GET and never repeats the mutation.
 
+ADR 0052 gives an admitted action redirect a separate enhanced GET operation
+after the mutation result is consumed and pending ownership ends. The GET has
+fresh identity, can be cancelled or superseded like link navigation, and has no
+mutation authority. Document and expected-error outcomes still publish only as
+one complete server response. Unsafe redirect preservation or failed commit
+returns to native destination GET; no redirect, cancellation, or recovery path
+repeats POST.
+
 When enhancement code is available, it may intercept a link or form only when
 it can preserve the baseline semantics. It may then:
 

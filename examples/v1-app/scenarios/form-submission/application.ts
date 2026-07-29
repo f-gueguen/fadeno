@@ -1,6 +1,7 @@
 import {
   actionError,
   defineAction,
+  fileField,
   redirect,
   renderRoute,
   textField,
@@ -15,8 +16,16 @@ export const browserModule = "/_fadeno/browser-entry.js";
 let projects: string[] = [];
 let searchRequests = 0;
 let signInRuns = 0;
+let redirectAwayRuns = 0;
+let fragmentRedirectRuns = 0;
+let fragmentChainRuns = 0;
+let redirectChainRuns = 0;
+let uploadRedirectRuns = 0;
 let createRuns = 0;
+let updateRuns = 0;
+let deleteRuns = 0;
 let forbiddenRuns = 0;
+let projectPageRenders = 0;
 let mutationDelayMilliseconds = 0;
 
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
@@ -27,6 +36,14 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
       clearTimeout(timer);
       reject(signal.reason);
     }, { once: true });
+  });
+}
+
+function duplicateProjectTitle(): never {
+  throw actionError({
+    code: "PROJECT_TITLE_DUPLICATE",
+    fieldErrors: { title: "Use a title that is not already in the project list." },
+    formErrors: ["The project was not created because that title already exists."],
   });
 }
 
@@ -48,6 +65,60 @@ export const signIn = defineAction({
   },
 });
 
+export const redirectAway = defineAction({
+  fields: { passcode: textField({ maximumBytes: 64 }) },
+  authorize() { return true; },
+  run({ input, session }) {
+    redirectAwayRuns += 1;
+    if (input.passcode !== "example-owner") {
+      throw actionError({
+        code: "REDIRECT_AWAY_REFUSED",
+        fieldErrors: { passcode: "Use the example owner passcode." },
+        formErrors: ["Redirect-away sign-in was refused."],
+      });
+    }
+    session.set("viewer", "owner");
+    session.rotate();
+    return redirect("/");
+  },
+});
+
+export const redirectFragment = defineAction({
+  fields: { intent: textField({ maximumBytes: 16 }) },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run({ input }) {
+    fragmentRedirectRuns += 1;
+    return redirect(input.intent === "empty-fragment" ? "/projects#" : "/projects#details");
+  },
+});
+
+export const redirectChain = defineAction({
+  fields: { intent: textField({ maximumBytes: 16 }) },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run({ input }) {
+    redirectChainRuns += 1;
+    return redirect(input.intent === "no-content" ? "/native-no-content" : "/redirect-chain");
+  },
+});
+
+export const redirectFragmentChain = defineAction({
+  fields: { intent: textField({ maximumBytes: 16 }) },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run() {
+    fragmentChainRuns += 1;
+    return redirect("/redirect-fragment-chain");
+  },
+});
+
+export const uploadRedirect = defineAction({
+  fields: { attachment: fileField({ required: true, maximumBytes: 1_024, acceptedTypes: ["text/plain"] }) },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run() {
+    uploadRedirectRuns += 1;
+    return redirect("/projects");
+  },
+});
+
 export const createProject = defineAction({
   fields: {
     title: textField({ maximumBytes: 128 }),
@@ -64,8 +135,58 @@ export const createProject = defineAction({
         formErrors: ["The project was not created."],
       });
     }
+    if (projects.includes(title)) duplicateProjectTitle();
     await wait(mutationDelayMilliseconds, signal);
+    if (projects.includes(title)) duplicateProjectTitle();
     projects = [...projects, title];
+  },
+});
+
+export const updateProject = defineAction({
+  fields: {
+    project: textField({ maximumBytes: 128 }),
+    title: textField({ maximumBytes: 128 }),
+    intent: textField({ maximumBytes: 16 }),
+  },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run({ input }) {
+    updateRuns += 1;
+    const index = projects.indexOf(input.project);
+    const title = input.title.trim();
+    if (index === -1) {
+      throw actionError({ code: "PROJECT_NOT_FOUND", formErrors: ["The project no longer exists."] });
+    }
+    if (title.length < 3) {
+      throw actionError({
+        code: "PROJECT_TITLE_SHORT",
+        fieldErrors: { title: "Use at least three characters." },
+        formErrors: ["The project was not updated."],
+      });
+    }
+    if (projects.some((project, projectIndex) => projectIndex !== index && project === title)) {
+      throw actionError({
+        code: "PROJECT_TITLE_DUPLICATE",
+        fieldErrors: { title: "Use a title that is not already in the project list." },
+        formErrors: ["The project was not updated because that title already exists."],
+      });
+    }
+    projects = projects.map((project, projectIndex) => projectIndex === index ? title : project);
+    return redirect("/projects");
+  },
+});
+
+export const deleteProject = defineAction({
+  fields: {
+    project: textField({ maximumBytes: 128 }),
+    intent: textField({ maximumBytes: 16 }),
+  },
+  authorize({ session }) { return session.get("viewer") === "owner"; },
+  run({ input }) {
+    deleteRuns += 1;
+    if (!projects.includes(input.project)) {
+      throw actionError({ code: "PROJECT_NOT_FOUND", formErrors: ["The project no longer exists."] });
+    }
+    projects = projects.filter((project) => project !== input.project);
   },
 });
 
@@ -79,8 +200,16 @@ export function resetApplicationState(): void {
   projects = [];
   searchRequests = 0;
   signInRuns = 0;
+  redirectAwayRuns = 0;
+  fragmentRedirectRuns = 0;
+  fragmentChainRuns = 0;
+  redirectChainRuns = 0;
+  uploadRedirectRuns = 0;
   createRuns = 0;
+  updateRuns = 0;
+  deleteRuns = 0;
   forbiddenRuns = 0;
+  projectPageRenders = 0;
   mutationDelayMilliseconds = 0;
 }
 
@@ -92,15 +221,31 @@ export function readApplicationState(): Readonly<{
   projects: readonly string[];
   searchRequests: number;
   signInRuns: number;
+  redirectAwayRuns: number;
+  fragmentRedirectRuns: number;
+  fragmentChainRuns: number;
+  redirectChainRuns: number;
+  uploadRedirectRuns: number;
   createRuns: number;
+  updateRuns: number;
+  deleteRuns: number;
   forbiddenRuns: number;
+  projectPageRenders: number;
 }> {
   return Object.freeze({
     projects: Object.freeze([...projects]),
     searchRequests,
     signInRuns,
+    redirectAwayRuns,
+    fragmentRedirectRuns,
+    fragmentChainRuns,
+    redirectChainRuns,
+    uploadRedirectRuns,
     createRuns,
+    updateRuns,
+    deleteRuns,
     forbiddenRuns,
+    projectPageRenders,
   });
 }
 
@@ -147,6 +292,7 @@ function search(url: URL): RenderChild {
 }
 
 function projectsPage(signedIn: boolean): RenderChild {
+  projectPageRenders += 1;
   if (!signedIn) {
     return shell("Protected forms", "Protected forms", jsxs("section", { children: [
       jsxs("form", { id: "sign-in-form", action: signIn, children: [
@@ -158,16 +304,68 @@ function projectsPage(signedIn: boolean): RenderChild {
         jsx("input", { name: forbiddenAction.fields.note, value: "secret-form-canary" }),
         jsx("button", { type: "submit", children: "Attempt forbidden action" }),
       ] }),
+      jsxs("form", { id: "redirect-away-form", action: redirectAway, children: [
+        jsx("label", { for: "redirect-away-passcode", children: "Redirect-away passcode" }),
+        jsx("input", { id: "redirect-away-passcode", name: redirectAway.fields.passcode, type: "password", required: true }),
+        jsx("button", { type: "submit", children: "Sign in and redirect away" }),
+      ] }),
     ] }));
   }
   return shell("Project forms", "Project forms", jsxs("section", { children: [
     jsx("p", { id: "viewer", children: "Signed in owner" }),
+    jsx("p", { id: "details", children: "Project action details" }),
     jsxs("form", { id: "create-form", action: createProject, children: [
       jsx("label", { for: "title", children: "Project title" }),
       jsx("input", { id: "title", name: createProject.fields.title, value: "ab" }),
       jsx("button", { name: createProject.fields.intent, value: "create", type: "submit", children: "Create project" }),
     ] }),
-    jsx("ul", { id: "projects", children: projects.map((project) => jsx("li", { children: project })) }),
+    jsx("ul", { id: "projects", children: projects.map((project) => jsx("li", { children:
+      jsx("span", { class: "project-title", children: project }),
+    })) }),
+    jsxs("form", { id: "update-form", action: updateProject, children: [
+        jsx("label", { for: "update-title", children: "Updated title" }),
+        jsx("input", { id: "update-title", name: updateProject.fields.title, value: projects[0] ?? "" }),
+        jsx("input", { name: updateProject.fields.intent, type: "hidden", value: "update" }),
+        projects.map((project) => jsx("button", {
+          name: updateProject.fields.project,
+          value: project,
+          type: "submit",
+          children: `Update ${project}`,
+        })),
+    ] }),
+    jsxs("form", { id: "delete-form", action: deleteProject, children: [
+        jsx("input", { name: deleteProject.fields.intent, type: "hidden", value: "delete" }),
+        projects.map((project) => jsx("button", {
+          name: deleteProject.fields.project,
+          value: project,
+          type: "submit",
+          children: `Delete ${project}`,
+        })),
+    ] }),
+    jsxs("form", { id: "fragment-redirect-form", action: redirectFragment, children: [
+      jsx("input", { name: redirectFragment.fields.intent, type: "hidden", value: "fragment" }),
+      jsx("button", { type: "submit", children: "Reload project details" }),
+    ] }),
+    jsxs("form", { id: "redirect-chain-form", action: redirectChain, children: [
+      jsx("input", { name: redirectChain.fields.intent, type: "hidden", value: "chain" }),
+      jsx("button", { type: "submit", children: "Follow redirect chain" }),
+    ] }),
+    jsxs("form", { id: "redirect-no-content-form", action: redirectChain, children: [
+      jsx("input", { name: redirectChain.fields.intent, type: "hidden", value: "no-content" }),
+      jsx("button", { type: "submit", children: "Refuse an unobservable redirect" }),
+    ] }),
+    jsxs("form", { id: "redirect-fragment-chain-form", action: redirectFragmentChain, children: [
+      jsx("input", { name: redirectFragmentChain.fields.intent, type: "hidden", value: "fragment-chain" }),
+      jsx("button", { type: "submit", children: "Follow fragment redirect chain" }),
+    ] }),
+    jsx("form", { id: "native-fragment-form", action: "/projects#details", method: "get", children:
+      jsx("button", { type: "submit", children: "Use native fragment form" }),
+    }),
+    jsxs("form", { id: "upload-redirect-form", action: uploadRedirect, children: [
+      jsx("label", { for: "handoff-upload", children: "Handoff upload" }),
+      jsx("input", { id: "handoff-upload", name: uploadRedirect.fields.attachment, type: "file", accept: "text/plain", required: true }),
+      jsx("button", { type: "submit", children: "Upload and redirect" }),
+    ] }),
   ] }));
 }
 
@@ -183,6 +381,30 @@ function render(request: Request, routeId: string, page: (session: Readonly<{ ge
   });
 }
 
+function renderRedirectChain(request: Request): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId: "redirect-chain",
+    generation: applicationGeneration,
+    browserModule,
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => redirect("/"),
+  });
+}
+
+function renderFragmentRedirectChain(request: Request): Promise<Response> {
+  return renderRoute({
+    request,
+    routeId: "redirect-fragment-chain",
+    generation: applicationGeneration,
+    browserModule,
+    parameters: Object.freeze({}),
+    layouts: [],
+    page: () => redirect("/projects#details"),
+  });
+}
+
 export const handler: Handler = (request) => {
   const url = new URL(request.url);
   if (url.pathname === "/") return render(request, "home", () => home());
@@ -190,5 +412,7 @@ export const handler: Handler = (request) => {
   if (url.pathname === "/projects") {
     return render(request, "projects", (session) => projectsPage(session.get("viewer") === "owner"));
   }
+  if (url.pathname === "/redirect-chain") return renderRedirectChain(request);
+  if (url.pathname === "/redirect-fragment-chain") return renderFragmentRedirectChain(request);
   return new Response("not found", { status: 404 });
 };

@@ -1,0 +1,14 @@
+{
+  "schema": "fadeno.example.action-ordering-handoff-option-wrapper",
+  "version": 2,
+  "outcome": "structure-changes-recovered",
+  "mutationRequests": 3,
+  "privateRedirectGets": 3,
+  "nativeCurrentTruthGets": 3,
+  "signInRuns": 3,
+  "optionParentMoveRecovered": true,
+  "wrapperTextEditRecovered": true,
+  "wrapperTextMoveRecovered": true,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

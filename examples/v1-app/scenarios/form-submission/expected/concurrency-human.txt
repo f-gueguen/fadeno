@@ -1,0 +1,3 @@
+Two concurrent create requests used the same title. One request created the
+project and one received the structured duplicate correction.
+The result keeps one logical project owner visible in both current server documents.

@@ -1,0 +1,1 @@
+Action ordering recovery: a GET form with no successful controls and an explicit empty fragment retained both empty delimiters as `?#`. The browser loaded one fresh native destination document, current truth remained visible, and the committed mutation was not repeated.

@@ -1,0 +1,1 @@
+Action ordering refusal: redirect GET result consumed before the chain continued; a later bound duplicate could not publish and current truth recovered through native GET.

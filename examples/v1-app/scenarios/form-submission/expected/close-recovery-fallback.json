@@ -1,0 +1,10 @@
+{
+  "schema": "fadeno.example.action-ordering-close-recovery-fallback",
+  "version": 1,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "nativeCurrentTruthGets": 1,
+  "signInRuns": 1,
+  "currentTruthVisible": true,
+  "enhancementRestarted": true
+}

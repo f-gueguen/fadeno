@@ -1,0 +1,78 @@
+{
+  "schema": "fadeno.example.action-ordering-native-no-departure-recovery",
+  "version": 1,
+  "mutationRequests": 14,
+  "signInRuns": 13,
+  "sameDocumentFragment": {
+    "privateRedirectGets": 1,
+    "nativeCurrentTruthGets": 1,
+    "finalHash": "#native-recovery",
+    "freshCurrentTruthVisible": true
+  },
+  "stoppedPropagationRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "historyEntries": 0,
+    "finalHash": "",
+    "freshCurrentTruthVisible": true
+  },
+  "preventedActivation": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "freshCurrentTruthVisible": true
+  },
+  "policyProtectedFragment": {
+    "forcedNativeGets": 0,
+    "nativeFragmentSelected": true
+  },
+  "crossDocumentPolicyProtected": {
+    "forcedRecoveryGets": 0,
+    "finalPath": "/projects"
+  },
+  "lateDestinationRefusal": {
+    "redirectAndRecoveryGets": 2,
+    "selectedNativeGets": 0,
+    "finalPath": "/projects",
+    "currentTruthVisible": true
+  },
+  "latePolicyProtected": {
+    "forcedNativeGets": 0,
+    "finalHash": "#late-policy"
+  },
+  "separateContextRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "freshCurrentTruthVisible": true
+  },
+  "initialExternalContextRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "browserOwnedDestinationLoaded": true,
+    "openerCurrentTruthVisible": true
+  },
+  "modifiedPrimaryContextRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "browserOwnedDestinationLoaded": true,
+    "openerCurrentTruthVisible": true
+  },
+  "middleButtonContextRecovery": {
+    "redirectAndRecoveryGets": 1,
+    "driverSupport": "unavailable",
+    "browserOwnedActivationAllowed": null,
+    "openerCurrentTruthVisible": true
+  },
+  "preCancelledLinkRecovery": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "currentTruthVisible": true
+  },
+  "lateCancelledEligibleLink": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "currentTruthVisible": true
+  },
+  "removedPolicyCancellation": {
+    "redirectAndRecoveryGets": 2,
+    "finalPath": "/projects",
+    "currentTruthVisible": true
+  },
+  "mutationRetried": false
+}

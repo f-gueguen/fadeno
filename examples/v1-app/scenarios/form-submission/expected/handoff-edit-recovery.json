@@ -1,0 +1,17 @@
+{
+  "schema": "fadeno.example.action-ordering-handoff-edit-recovery",
+  "version": 1,
+  "mutationRequests": 3,
+  "privateRedirectGets": 3,
+  "nativeCurrentTruthGets": 3,
+  "signInRuns": 3,
+  "submittedDocumentNotPublishedOverNewerEdit": true,
+  "controlAttributesRecovered": true,
+  "optionIdentityRecovered": true,
+  "inheritedDisabledRecovered": true,
+  "optgroupHierarchyRecovered": true,
+  "indeterminateRecovered": true,
+  "ancestryRecovered": true,
+  "customControlRecovered": true,
+  "currentTruthVisible": true
+}

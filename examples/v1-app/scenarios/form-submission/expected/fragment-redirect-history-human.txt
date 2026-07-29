@@ -1,0 +1,1 @@
+Action ordering history: the initial same-resource fragment redirect pushed one destination entry before loading its fresh native document. Back reached the pre-submit fragment-free entry, and the committed mutation was not repeated.

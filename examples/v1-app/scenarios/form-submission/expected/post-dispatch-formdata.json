@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-post-dispatch-formdata",
+  "version": 1,
+  "formDataEvents": 2,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "nativeDestinationGets": 1,
+  "redirectChainRuns": 1,
+  "finalHash": "#post-dispatch",
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

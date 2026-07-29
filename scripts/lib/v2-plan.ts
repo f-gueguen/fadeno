@@ -14,6 +14,7 @@ const V2_PLAN_OUTCOMES = Object.freeze({
   "V2-05A": "Make the canonical application an evaluator-ready feature demonstration",
   "V2-06": "Enhance form submission without changing successful controls or action authority",
   "V2-07": "Complete enhanced action redirects, revalidation, ordering, and recovery",
+  "V2-07A": "Integrate the enhanced workflow into the evaluator demonstration",
   "V2-08": "Implement bounded structural reconciliation for the accepted preservation classes",
   "V2-09": "Qualify the canonical application in native and enhanced modes",
   "V2-10": "Freeze the shipped-browser cost measurement contract",
@@ -38,9 +39,10 @@ const V2_PLAN_ROWS_WITHOUT_OUTCOMES = Object.freeze([
   { id: "V2-05", features: ["ENH-01", "PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-04; ADR 0014", artifacts: "History traversal matrix; focus/selection rules; reduced-motion handling; document/element scroll management or refusal fixtures; one pending Changeset with semantic version intent", validation: "Chromium/Firefox/WebKit navigation corpus; keyboard/focus review; accepted scroll signature; native equivalence; Changeset checks; `pnpm ci:local`" },
   { id: "V2-05A", features: ["BUILD-01", "DOC-01", "TEST-01", "ACCESS-01", "SEC-01"], dependencies: "V2-05", artifacts: "Task-oriented complete navigation; request-thread cause-and-outcome overview using application-owned public facts; styled routing, resource, action/session, failure, recovery, and qualification-evidence laboratories; honest HTTP read-only and HTTPS action guidance; one-command local setup; permanent desktop/mobile and no-JavaScript evidence; exact-origin, secure-cookie, session-rotation, and replay-refusal evidence; explicit no-release-impact declaration", validation: "Current-packed public consumer; Chromium/Firefox/WebKit success, deliberate failure, recovery, keyboard, focus, reduced-motion, responsive, HTTPS CRUD, hostile-origin refusal, secure-cookie, session-rotation, and replay-refusal assertions; injected session-key setup-command replay; screenshot review; documentation-source checks; `pnpm check:v2-demo-experience`; `pnpm ci:local`" },
   { id: "V2-06", features: ["DATA-02", "ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"], dependencies: "V2-03, V2-04, V2-05A", artifacts: "Form interception boundary; exact successful controls; GET forms retained as navigation without mutation authority; pending ownership; expected validation; uncertain-mutation refusal; pre-submit preservation eligibility and refusal before mutation authority; form-interception threat-model update; origin/CSRF, negative authorization, cross-user isolation, resource limits, safe logging, rollback, and teardown evidence; one pending Changeset with semantic version intent", validation: "Native/enhanced GET-form encoding, URL, history, and no-mutation-authority equivalence; native/enhanced mutation payload and outcome equivalence; integrated origin/CSRF, negative authorization, cross-user isolation, resource-limit, redacted-logging, and rollback checks; preservation refusal before interception; duplicate/replay/cancel/network failure; safe fallback and recovery; Changeset checks; `pnpm ci:local`" },
-  { id: "V2-07", features: ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01"], dependencies: "V2-05, V2-06", artifacts: "Redirect and error outcomes; current-server-truth recovery; resource refresh; protocol-selected late-response handling; complete CRUD enhancement only for pre-reconciliation-safe boundaries; unsafe-boundary refusal before action interception; one pending Changeset with semantic version intent", validation: "Packed authenticated CRUD success/failure/correction/flow/recovery; permuted delayed duplicate responses; unsafe-boundary pre-interception refusal; no repeated mutation; Changeset checks; `pnpm ci:local`" },
-  { id: "V2-08", features: ["PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-05, V2-07; K0-04", artifacts: "Stable identity; declared replacement; dirty-control, disclosure/top-layer, media, focus, selection, caret, and future island preservation; scroll boundary enforcement; one pending Changeset with semantic version intent", validation: "Complete K0 corpus for navigation and action updates in three engines; ownership/refusal/recovery fixtures; Changeset checks; `pnpm ci:local`" },
-  { id: "V2-09", features: ["ENH-01", "PATCH-01", "DATA-01", "DATA-02", "STATE-01", "SEC-01", "ACCESS-01", "TEST-01"], dependencies: "V2-07, V2-08", artifacts: "Three-engine canonical workflows; no-JavaScript baseline replay; interruption and recovery scenarios; normalized flow evidence; explicit no-release-impact declaration for qualification-only work", validation: "Public packed install; native/enhanced CRUD equivalence; history/focus/scroll/order/cancel/recovery; no-JavaScript regression; release-impact check; `pnpm ci:local`" },
+  { id: "V2-07", features: ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"], dependencies: "V2-05, V2-06", artifacts: "Redirect and error outcomes; current-server-truth recovery; resource refresh; protocol-selected late-response handling; complete CRUD enhancement only for pre-reconciliation-safe boundaries; unsafe-boundary refusal before action interception; one pending Changeset with semantic version intent", validation: "Packed authenticated CRUD success/failure/correction/flow/recovery; permuted delayed duplicate responses; unsafe-boundary pre-interception refusal; no repeated mutation; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-07A", features: ["BUILD-01", "DATA-01", "DATA-02", "ENH-01", "DOC-01", "TEST-01", "ACCESS-01"], dependencies: "V2-05A, V2-07", artifacts: "One guided route/resource/action/recovery walkthrough in the canonical application; visible native, enhanced, and refused outcome labels derived only from public application behavior; complete task navigation and honest pre-V2-08 limitations; clean-checkout setup preflight and one documented command; permanent desktop/mobile, keyboard, no-JavaScript, success, failure, correction, flow, and recovery evidence; explicit no-release-impact declaration", validation: "Current-packed public consumer from a clean checkout; one-command HTTPS launch; Chromium/Firefox/WebKit guided native and enhanced workflow; public-claim/source audit; responsive, keyboard, focus, no-JavaScript, refusal, and recovery assertions; documentation-source checks; `pnpm check:v2-demo-experience`; `pnpm ci:local`" },
+  { id: "V2-08", features: ["PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"], dependencies: "V2-05, V2-07, V2-07A; K0-04", artifacts: "Stable identity; declared replacement; dirty-control, disclosure/top-layer, media, focus, selection, caret, and future island preservation; scroll boundary enforcement; one pending Changeset with semantic version intent", validation: "Complete K0 corpus for navigation and action updates in three engines; ownership/refusal/recovery fixtures; Changeset checks; `pnpm ci:local`" },
+  { id: "V2-09", features: ["ENH-01", "PATCH-01", "DATA-01", "DATA-02", "STATE-01", "SEC-01", "ACCESS-01", "TEST-01"], dependencies: "V2-07A, V2-08", artifacts: "Three-engine canonical workflows; no-JavaScript baseline replay; interruption and recovery scenarios; normalized flow evidence; explicit no-release-impact declaration for qualification-only work", validation: "Public packed install; native/enhanced CRUD equivalence; history/focus/scroll/order/cancel/recovery; no-JavaScript regression; release-impact check; `pnpm ci:local`" },
   { id: "V2-10", features: ["PERF-01", "TEST-01", "DOC-01"], dependencies: "V2-09", artifacts: "Versioned cost-record schema and harness requiring exact candidate and frozen relative-baseline source, package, browser-artifact, dataset/corpus, hardware/environment, runtime/tool, and command identities; warmups, repetitions and paired schedule; candidate and baseline raw per-sample results; derived comparisons, conclusion, and limitations; no retained result; explicit no-release-impact declaration for contract-only work", validation: "Cost-record schema, paired schedule, candidate/baseline identity, raw-sample completeness, derived-comparison, and mutation checks; deterministic dry run without retained timing result; release-impact check; `pnpm ci:local`" },
   { id: "V2-10A", features: ["SEC-01", "TEST-01", "REL-01"], dependencies: "V2-09, V2-10", artifacts: "Additive decoder/threat hardening; leak/cleanup evidence; rollback; one pending Changeset with semantic version intent", validation: "Additive fuzz/security gates; repeated navigation/action cleanup; rollback; Changeset checks; `pnpm ci:local`" },
   { id: "V2-10B", features: ["ACCESS-01", "TEST-01", "DOC-01"], dependencies: "V2-09, V2-10A", artifacts: "Keyboard, focus, reduced-motion, and preservation evidence; enhanced-form pending-state announcement and field/form validation-error association evidence; retained V2 screen-reader review; manual accessibility boundaries; explicit unsupported claims; explicit no-release-impact declaration for qualification-only work", validation: "Chromium/Firefox/WebKit accessibility checks; screen-reader review record and refusal boundaries; pending feedback and validation-error association regressions; keyboard/focus/preference regression; release-impact check; `pnpm ci:local`" },
@@ -67,6 +69,8 @@ export type V2PlanContext = Readonly<{
   ledger: string;
   formAdr: string;
   formChangeset: string;
+  actionAdr: string;
+  actionChangeset: string;
   packageDocument: unknown;
   tracked: ReadonlySet<string>;
 }>;
@@ -88,6 +92,8 @@ export function loadV2PlanContext(root: string, tracked: ReadonlySet<string>): V
     ledger: read("ROADMAP_LEDGER.md"),
     formAdr: read("docs/adr/0051-conservative-enhanced-form-submission.md"),
     formChangeset: read(".changeset/conservative-form-submission.md"),
+    actionAdr: read("docs/adr/0052-enhanced-action-outcome-ordering.md"),
+    actionChangeset: read(".changeset/enhanced-action-ordering.md"),
     packageDocument: JSON.parse(read("packages/framework/package.json")) as unknown,
     tracked,
   });
@@ -102,6 +108,9 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     "scripts/test-v2-plan.ts",
     "docs/adr/0051-conservative-enhanced-form-submission.md",
     ".changeset/conservative-form-submission.md",
+    "docs/adr/0052-enhanced-action-outcome-ordering.md",
+    ".changeset/enhanced-action-ordering.md",
+    "scripts/check-v2-action-ordering.ts",
   ]) if (!context.tracked.has(path)) errors.push(`V2 plan artifact is not tracked: ${path}`);
 
   const rows = context.roadmap
@@ -110,7 +119,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     .map((line) => line.slice(1, -1).split("|").map((cell) => cell.trim()));
   const ids = rows.map((row) => row[0]);
   const expectedIds = V2_PLAN_ROWS.map((row) => row.id);
-  if (JSON.stringify(ids) !== JSON.stringify(expectedIds)) errors.push("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-05, V2-05A, V2-06 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, V2-11A, V2-11B, then V2-12 in order");
+  if (JSON.stringify(ids) !== JSON.stringify(expectedIds)) errors.push("V2 roadmap slices must be exactly V2-00, V2-01, V2-01A, V2-02 through V2-05, V2-05A, V2-06, V2-07, V2-07A, V2-08 through V2-10, V2-10A, V2-10B, V2-10C, V2-11, V2-11A, V2-11B, then V2-12 in order");
 
   for (const [index, row] of rows.entries()) {
     const id = row[0] ?? expectedIds[index] ?? "V2-unknown";
@@ -141,8 +150,9 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     "future `./browser` facade",
     "Native links and forms remain the correctness baseline",
     "Islands remain V3",
-    "Every user-observable slice extends the canonical application",
+    "Every user-observable capability extends the canonical application",
     "V2-05A establishes the evaluator-facing demonstration surface",
+    "Evaluator handoff checkpoint — V2-07A",
     "success, deliberate failure or refusal",
     "ownership/causal flow inspection",
   ]) if (!roadmap.includes(fragment)) errors.push(`V2 roadmap is missing ${fragment}`);
@@ -154,7 +164,8 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   for (const fragment of ["completed its qualified private V1 and public A0", "current V2 plan", "[current V2 plan](docs/roadmap/v2.md)"]) {
     if (!context.readme.includes(fragment)) errors.push(`README handoff is missing ${fragment}`);
   }
-  if (!context.ledger.includes("V2-06 — enhance form submission without changing successful controls or action authority")
+  if (!context.ledger.includes("V2-07 — complete enhanced action redirects, revalidation, ordering, and recovery")
+    || !context.ledger.includes("V2-06 — Merge commit `dac001d`")
     || !context.ledger.includes("V2-05A — Merge commit `b951e4d`")
     || !context.ledger.includes("V2-05 — Merge commit `9babb9c`")
     || !context.ledger.includes("V2-00 — decompose browser enhancement")
@@ -164,7 +175,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     || !context.ledger.includes("V2-04 — Merge commit `9d526b8`")
     || !context.ledger.includes("V2-01A — Merge commit `46c7ab0`")
     || !context.ledger.includes("V2-01 — Merge commit `d9718c0`")
-    || !context.ledger.includes("V2-07 handoff remains blocked")
+    || !context.ledger.includes("V2-08 handoff remains blocked")
     || !context.ledger.includes("resolves DG-V2-01")) {
     errors.push("V2 roadmap ledger state drifted");
   }
@@ -193,6 +204,30 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   const formRisk = context.risks.split("\n").find((line) => line.startsWith("| Enhanced forms change controls")) ?? "";
   if (!formRisk.includes("FormData(form, submitter)") || !formRisk.includes("without resubmission")) {
     errors.push("V2-06 form risk contract drifted");
+  }
+
+  const actionAdr = context.actionAdr.replace(/\s+/gu, " ");
+  for (const fragment of [
+    "Status: Accepted",
+    "consumes the mutation result ID",
+    "fresh opaque ID and monotonically newer sequence",
+    "never submits POST again",
+    "Duplicate, stale, delayed, permuted, cancelled, superseded",
+    "V2-08",
+    "`pnpm check:v2-action-ordering`",
+  ]) if (!actionAdr.includes(fragment)) errors.push(`ADR 0052 is missing ${fragment}`);
+  const expectedActionChangeset = '---\n"@fadeno/framework": minor\n---\n\nComplete enhanced action redirects through a fresh cancellable GET while\npreserving server revalidation, stale-result suppression, and non-repeating\nmutation recovery.\n';
+  if (context.actionChangeset !== expectedActionChangeset) errors.push("V2-07 Changeset contract drifted");
+  for (const feature of ["DATA-01", "DATA-02", "DATA-03", "ENH-01", "PATCH-01", "STATE-01", "SEC-01", "TEST-01"]) {
+    const scope = context.scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    const trace = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    if (!scope.includes("ADR 0052")) errors.push(`V2-07 ${feature} scope contract drifted`);
+    if (!trace.includes("ADR 0052") || !trace.includes("check:v2-action-ordering")) {
+      errors.push(`V2-07 ${feature} traceability contract drifted`);
+    }
+  }
+  if (!formRisk.includes("ADR 0052") || !formRisk.includes("publishes after supersession")) {
+    errors.push("V2-07 action-ordering risk contract drifted");
   }
 
   for (const feature of ["ENH-01", "PATCH-01"]) {

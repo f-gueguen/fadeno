@@ -1,0 +1,14 @@
+{
+  "schema": "fadeno.example.action-ordering-crud",
+  "version": 1,
+  "mutationRequests": 4,
+  "redirectGetRequests": 2,
+  "documentLoads": 1,
+  "projects": [],
+  "signInRuns": 1,
+  "createRuns": 1,
+  "updateRuns": 1,
+  "deleteRuns": 1,
+  "projectPageRenders": 7,
+  "staleTitlesAbsent": true
+}

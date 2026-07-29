@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-recovery-formdata-routing-refusal",
+  "version": 1,
+  "formDataEvents": 1,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "currentTruthGets": 1,
+  "redirectChainRuns": 1,
+  "finalPath": "/projects",
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

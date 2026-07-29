@@ -59,6 +59,7 @@ effective decision.
 47. [ADR 0049 — Conservative enhanced link navigation](0049-conservative-enhanced-link-navigation.md)
 48. [ADR 0050 — History, focus, and conservative scroll qualification](0050-history-focus-and-scroll-qualification.md)
 49. [ADR 0051 — Conservative enhanced form submission](0051-conservative-enhanced-form-submission.md)
+50. [ADR 0052 — Enhanced action outcome ordering](0052-enhanced-action-outcome-ordering.md)
 
 ## Superseded decisions
 

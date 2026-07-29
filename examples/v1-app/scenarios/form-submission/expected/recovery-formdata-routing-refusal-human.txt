@@ -1,0 +1,1 @@
+Action ordering refusal: while committed-mutation recovery was active, a `formdata` listener changed the final GET route to an unsupported encoding. Fadeno retained the single observed construction, refused the activation, recovered current truth, and did not repeat the committed mutation.

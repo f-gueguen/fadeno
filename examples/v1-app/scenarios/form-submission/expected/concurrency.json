@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-concurrent-identity",
+  "version": 1,
+  "projects": [
+    "Concurrent Thread"
+  ],
+  "mutationRequests": 2,
+  "createRuns": 2,
+  "duplicateRefusals": 1,
+  "visibleProjectDocuments": 2,
+  "oneLogicalOwnerCreated": true
+}

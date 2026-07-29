@@ -1,0 +1,1 @@
+Action ordering recovery: a superseding GET retained mutation recovery ownership when application-selected history changed before the deferred GET. The staged URL was replaced by committed current truth without repeating POST.

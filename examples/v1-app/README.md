@@ -104,6 +104,119 @@ application remains native in this slice; its Evidence page names this
 reproducible qualification instead of presenting private flow data as live UI.
 V2-07 owns the complete enhanced authenticated workflow.
 
+Run that complete V2-07 action-ordering workflow with:
+
+```sh
+pnpm check:v2-action-ordering
+```
+
+The current-packed three-browser scenario signs in and then creates, reads,
+updates, and deletes project data through the same public forms as the native
+application. It proves that complete server revalidation finishes before an
+action redirect hands its destination to a fresh cancellable GET, that the POST
+runs once, and that a delayed redirect cannot overwrite a newer enhanced
+navigation. Closing that GET, cancelling native recovery after a staged URL,
+losing its response, editing or moving a focused caret after handoff, and
+superseding it with another failed enhanced or native GET all recover committed current truth without
+repeating POST. An older redirect cleanup cannot clear a newer submission's
+pending indicator. Replacing a selected upload with a same-metadata `File` after
+handoff also refuses private publication. A direct or redirect-chain
+handoff whose encoded control snapshot exceeds its byte or structural limits
+loads current truth instead of issuing an unobservable redirect destination.
+If the redirect GET itself returns a current-truth recovery outcome, that
+result is consumed and the mutation is not repeated.
+An otherwise safe direct or redirect-chain
+same-resource fragment redirect starts a real native reload before teardown can
+strand its staged URL, retains
+the intended fragment if history staging fails, and recovers current truth when
+a superseding native activation remains in the document. Selected and unsafe
+history traversals repair the displayed URL before recovering committed truth.
+A same-document native GET form that supersedes pending redirect work also
+loads a fresh fragment-bearing current-truth document instead of retaining
+stale markup. If its submit event stops before the window finalizer and a later
+listener prevents departure, current truth still recovers without serializing
+the form. A same-context form already hidden from the finalizer is refused
+while it remains cancelable. When propagation stops only after runtime
+observation and the browser selects a same-document fragment, the browser's
+successful-control entry list supplies bounded destination candidates. Routing
+is frozen before later listener microtasks, and only the complete candidate
+matching the selected URL may retain the fragment; ambiguity recovers current
+truth.
+The same recovery happens when the submit reaches the window only
+after a later document listener cancelled it, or was already cancelled before
+the runtime document listener. A retained `dialog` submission recovers without
+departure, while a late change from `dialog` to GET follows the final native
+destination. Observation uses final privacy state and the browser-owned
+`FormData` entry list after all listeners, accepts image submitters on that
+native path, and prevents a later microtask snapshot from displacing the
+selected URL.
+Cancellation registered by a later
+`beforeunload` listener or `onbeforeunload` assignment is still
+observed. An observable ineligible same-context cross-document form or link is
+refused before its request while committed recovery is pending; no timeout
+races a slow request or claims to detect a response that creates no document.
+A modified-primary or middle-button click and a later target change into a separate browsing
+context leaves that destination native while the opener recovers current truth.
+The automated middle-button proof runs only where the headless browser driver
+emits a trusted auxiliary activation; an engine-specific fixture records the
+unavailable driver capability explicitly instead of synthesizing browser trust.
+An initially eligible or policy-protected link is not finalized until later
+document listeners finish, so their cancellation and final link attributes
+remain authoritative. If propagation stops after a late fragment change, the
+browser's selected history entry is not staged a second time.
+If a second cancelled activation supersedes an in-flight recovery GET, the new
+GET retains recovery ownership and still clears stale markup. Delayed native
+recovery remains attached when a newer enhanced operation takes ownership, so
+obsolete work neither overwrites that operation nor abandons committed truth.
+Explicit and
+empty fragment delimiters both force a fresh native document. If its
+pushed-fragment reload is cancelled, rollback happens before
+recovery so Back reaches the preceding page without a duplicate stop. That
+rollback remains an owned operation until its exact traversal arrives; a newer
+activation supersedes it and obsolete rollback completion cannot overwrite the
+newer destination. An unrelated selected entry cannot impersonate rollback
+completion and reloads natively. A synchronous rollback traversal refusal
+starts native current-truth replacement instead of waiting for a `popstate`
+that cannot arrive. Fragment staging also verifies the exact
+generated state, URL, history length, and push provenance before claiming
+ownership, including hooks that mutate the supplied state. Handoff
+also detects untracked form-associated custom controls, checkbox indeterminate
+state, exact control-ancestry
+changes, and disabled-state changes inherited from `fieldset` and `optgroup`,
+exact optgroup hierarchy, and stays authoritative through interrupted-departure
+recovery. Control count, text-node traversal, record count, and aggregate UTF-8
+bytes are bounded before values are serialized; oversized control or option
+text produces a tested `FADENO_UPDATE_LIMIT` refusal, refreshes current truth,
+and does not issue an unobservable redirect that could return no document. A GET form with no successful
+controls preserves both the empty query and explicit empty-fragment delimiters,
+and a final `formdata` routing refusal retains its single observed controls
+construction even while committed recovery is active. Programmatic `FormData`
+construction during submit dispatch cannot hide the later browser-owned entry
+list, and direct recovery removes its departure observers. The handoff also
+tracks option parents inside customizable select wrappers. An initial
+same-resource action redirect pushes its native destination so Back retains the
+pre-submit entry; if cancelled teardown cannot reacquire scroll ownership, a
+native current-truth replacement starts before close. Persisted-page history
+reacquisition failure follows the same rule while committed recovery is live:
+obsolete work is aborted, fresh current truth loads, and enhancement restarts.
+A failed fragment push repairs the current entry without traversing
+Back; if that repair is blocked, native current-truth replacement prevents the
+staged fragment URL from surviving. The same replacement applies when a
+cancelled cross-resource traversal cannot repair its selected URL. Late listeners may select the current form target. Link recovery re-reads
+the destination, target, download state, and privacy directives after document
+listeners; an initially external, later external, or already-cancelled trusted
+activation cannot leave obsolete redirect work publishing in the current
+document. Explicit link and form privacy remains browser-owned for same-document,
+cross-document, and external-context destinations.
+A redirect GET result cannot be reused after its redirect chain
+begins. Concurrent
+equal-title creates leave one logical project owner, and the single stable
+update and delete forms do not bind failures through mutable list ordinals. The
+deliberate validation error retains its tested correction; JavaScript-disabled
+CRUD retains the same final server state. Normalized CRUD, ordering, refusal,
+and recovery results live beside the scenario source under
+`scenarios/form-submission/expected/`.
+
 The application uses native external CSS only. The root layout links `/styles`,
 and `src/routes/styles/handler.ts` serves `src/styles.ts` through the public
 typed handler boundary. `pnpm check:a0-css` verifies that contract and its

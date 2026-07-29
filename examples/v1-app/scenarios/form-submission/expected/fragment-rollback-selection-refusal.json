@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-fragment-rollback-selection-refusal",
+  "version": 2,
+  "mutationRequests": 1,
+  "redirectGets": 1,
+  "nativeSelectedEntryDocumentLoads": 1,
+  "finalPath": "/search",
+  "finalSearch": "?q=preceding",
+  "selectedEntryVisible": true,
+  "mutationRetried": false
+}

@@ -1,0 +1,13 @@
+{
+  "schema": "fadeno.example.action-ordering-forward-history-fragment-recovery",
+  "version": 1,
+  "mutationRequests": 1,
+  "nativeCurrentTruthGets": 1,
+  "fragmentRedirectRuns": 1,
+  "forwardEntryExisted": true,
+  "recoveryDidNotRequireLengthGrowth": true,
+  "finalHashBeforeBack": "",
+  "currentTruthVisible": true,
+  "backReachedPrecedingPage": true,
+  "mutationRetried": false
+}

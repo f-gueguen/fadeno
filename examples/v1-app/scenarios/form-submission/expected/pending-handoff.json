@@ -1,0 +1,9 @@
+{
+  "schema": "fadeno.example.action-ordering-pending-handoff",
+  "version": 1,
+  "mutationRequests": 2,
+  "signInRuns": 1,
+  "newerPendingRetained": true,
+  "replayRefusedBeforeAction": true,
+  "finalPath": "/projects"
+}

@@ -1,0 +1,1 @@
+Action ordering refusal: an over-limit fragment destination was never published. Fadeno consumed the committed mutation result, recovered current truth without selecting the redirect fragment, and did not repeat the mutation.

@@ -1,0 +1,2 @@
+Fadeno kept project identity unambiguous: duplicate create and update attempts
+returned field-specific corrections, and delete removed exactly one project.

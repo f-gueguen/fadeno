@@ -148,6 +148,91 @@ pre-submit URL with GET and never repeats the mutation. Submitted values,
 filenames, files, proofs, cookies, sessions, and URLs remain absent from private
 flow evidence.
 
+ADR 0052 completes the V2-07 action outcome order. An admitted successful
+action document or state-changing expected response commits at the GET-callable
+current-truth URL after the existing server action and revalidation path runs
+once. An unchanged expected validation response does not run revalidation and
+commits only its exact unchanged-current-truth validation outcome; it cannot
+publish stale assumptions about changed resources. An admitted action redirect
+consumes that mutation result, clears mutation pending
+state, and hands the same-origin destination to a fresh cancellable navigation
+operation. The destination is read through GET with a distinct operation ID and
+sequence; it never carries the action body or repeats the POST. Newer navigation
+may supersede that GET, while unsafe preservation, stale identity, cancellation,
+or commit failure returns to native destination GET or current-truth recovery.
+All document, URL, history, focus, and diagnostic replacement remains atomic.
+At this recovery handoff, a native GET form is finalized after document submit
+listeners, so their final action and control edits are authoritative. The
+recovery preflight validates the destination and request-privacy boundary
+before constructing platform successful controls once, then prevents the
+original native default while it is still cancelable so the browser does not
+serialize them again. A fragment destination receives native push-style
+history, including a same-hash activation; explicit request-privacy directives
+remain native and are never replaced by a forced reload. Selected-push rollback
+and synchronous teardown during a cancelled fragment reload retain the
+committed mutation's current-truth recovery owner. The rollback completes
+before recovery so Back reaches the preceding page. Completion requires the
+exact requested source entry and URL; an unrelated `popstate` reloads natively
+instead of continuing obsolete recovery. Fragment staging likewise requires
+the exact requested private state, URL, replacement length, and push-write
+sequence before ownership is claimed. A push may truncate forward history
+without increasing `history.length`, so its own observed push sequence and
+exact selected state/URL are authoritative. Handoff capture has bounded
+control, record, and UTF-8 byte budgets; an over-limit handoff refuses private
+publication before serializing controls and refreshes current truth without
+requesting an unobservable redirect destination. This covers `204`, attachment,
+and other responses that create no document and therefore emit no reliable
+departure-completion event. If submit propagation is already
+stopped when the runtime observes a same-context form, the runtime refuses it
+while the event is cancelable and recovers current truth without constructing
+`FormData`. If a later listener stops propagation and the browser selects a
+safe same-document fragment, document capture recognizes the trusted
+browser-owned `formdata` event, accepts an image submitter from that supplied
+entry list, and copies the entries plus contemporaneous safe routing before
+listener microtasks. Document-bubble and final window observation restore the
+browser-owned list to that capture snapshot and admit it only while routing
+remains unchanged. Later entry-list or routing changes recover current truth
+as ambiguous. Capture stops at the same 4,096-record and 256-KiB UTF-8 bounds
+before cloning a value or deriving a destination. At most sixteen distinct candidates are
+retained; overflow rejects the whole set even if an exact candidate appeared earlier. Only a complete
+candidate URL that matches the browser-selected entry may retain that
+fragment; a hidden event, later unrelated snapshot, overflow, or ambiguity
+recovers current truth. Capture, bubble, and dynamic window observers are
+detached on every terminal path. Whether the GET
+replaces the document is determined from that exact destination relative to
+the trusted source path and query, not from the method alone. Observation and
+destination derivation remain distinct facts: recovery does not construct
+another `FormData` merely because no safe candidate is admissible.
+A submission cancelled by a later document listener after it reaches the
+window finalizer, or already cancelled before the runtime document listener,
+recovers through the same no-serialization path. Final target ownership may
+select a separate browsing context after earlier listeners; that destination
+stays browser-owned while the current document recovers committed truth. Link
+finalization re-reads destination, target, download ownership, and privacy
+directives after document listeners; an activation that leaves the current
+document in place remains browser-owned while that document recovers committed
+truth.
+Modified-primary and middle-button activations use the same separate-context
+ownership. A same-context cross-document activation that reaches the finalizer
+but cannot be enhanced safely is refused before its request starts while
+committed recovery is live; current truth recovers and the user may retry. No
+timeout treats elapsed time as native completion. A cross-document activation
+hidden from the finalizer by a later propagation stop remains browser-owned,
+and the runtime makes no private freshness claim because the old document
+cannot observe a no-document response.
+The final effective method is equally authoritative: a retained `dialog`
+submission recovers without document departure, while a listener-selected GET
+uses its final native destination. Handoff equality includes exact bounded
+control ancestry and effective disabled state inherited through
+`fieldset` and `optgroup` ownership, exact optgroup hierarchy, descendant
+text-node identity, parent, and content, and remains in
+force through interrupted-departure recovery. Final target ownership is
+resolved after document submit listeners. A failed fragment push repairs the
+current entry directly because no pushed entry exists to roll back. A recovery
+GET retains the committed-mutation recovery owner when newer work supersedes
+it, and an empty fragment delimiter still selects the fresh native-document
+path even though its parsed hash string is empty.
+
 ## V1 conformance
 
 - The authenticated CRUD workflow submits, validates, fails, redirects, and
@@ -166,7 +251,8 @@ flow evidence.
   successful controls, expected validation, pending cleanup, origin,
   authorization, cross-user, replay, cancellation, duplicate, network,
   teardown, redirect, and current-truth recovery across three browsers and the
-  JavaScript-disabled baseline.
+  JavaScript-disabled baseline. Replacing a GET form action query with an empty
+  successful-control set retains the native empty `?` delimiter.
 - Logs and diagnostics prove that secret and sensitive values are redacted.
 - The V1-12 normalized success, refusal, correction, flow, and recovery files
   are private evidence, not a supported wire schema or public runtime output.

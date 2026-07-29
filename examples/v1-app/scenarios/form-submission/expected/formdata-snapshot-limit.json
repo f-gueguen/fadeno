@@ -1,0 +1,16 @@
+{
+  "schema": "fadeno.example.action-ordering-formdata-snapshot-limit",
+  "version": 1,
+  "mutationRequests": 1,
+  "privateRedirectGets": 1,
+  "browserOwnedFormDataEvents": 1,
+  "boundedIteratorSteps": 1,
+  "oversizedValueWasNotCloned": true,
+  "flowCode": "FADENO_UPDATE_LIMIT",
+  "flowStatus": "refused",
+  "flowOutcome": "current-truth-reload",
+  "destinationNotPublished": true,
+  "currentTruthRenderObserved": true,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

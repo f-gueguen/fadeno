@@ -1,0 +1,1 @@
+Action ordering recovery: Fadeno snapshotted the browser-owned FormData before listener microtasks. A later mutation of the live object and an unrelated event could not poison that evidence; the resulting document stayed fresh and the committed mutation was not replayed.

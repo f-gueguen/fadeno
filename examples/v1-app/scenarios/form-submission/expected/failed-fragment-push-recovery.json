@@ -1,0 +1,8 @@
+{
+  "schema": "fadeno.example.action-ordering-failed-fragment-push-recovery",
+  "version": 1,
+  "failedPush": "repair-current-entry",
+  "committedPush": "rollback-staged-entry",
+  "replacement": "repair-current-entry",
+  "replacementThatPushed": "rollback-staged-entry"
+}

@@ -1,0 +1,1 @@
+Action ordering recovery: a cancelled fragment reload began rolling back its staged history entry, then a newer link activation superseded that pending work. The delayed rollback result was ignored, the newer activation remained authoritative, and the committed mutation was not repeated.

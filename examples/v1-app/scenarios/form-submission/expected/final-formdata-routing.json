@@ -1,0 +1,22 @@
+{
+  "schema": "fadeno.example.action-ordering-final-formdata-routing",
+  "version": 1,
+  "mutationRequests": 2,
+  "privateRedirectGets": 2,
+  "freshRendersAtLeastTwo": true,
+  "finalRouting": {
+    "formDataEvents": 1,
+    "finalOrCurrentTruthSelected": true,
+    "originalRoutingNotRetained": true,
+    "currentTruthVisible": true
+  },
+  "exactCandidatePrepared": true,
+  "overflowFormDataEvents": 18,
+  "trustedOverflowFormDataEvents": 18,
+  "programmaticCandidateQualification": "available",
+  "overflowFreshRenderObserved": true,
+  "overflowDestinationNotPublished": true,
+  "redirectChainRuns": 2,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

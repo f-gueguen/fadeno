@@ -1,0 +1,12 @@
+{
+  "schema": "fadeno.example.action-ordering-redirect-get-consumption",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectChainGets": 1,
+  "duplicatePrivateRecoveryGets": 1,
+  "nativeCurrentTruthGets": 1,
+  "capturedResultId": true,
+  "redirectChainRuns": 1,
+  "duplicateResultRefused": true,
+  "currentTruthVisible": true
+}

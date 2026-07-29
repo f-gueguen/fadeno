@@ -1,0 +1,29 @@
+{
+  "schema": "fadeno.example.action-ordering-cancelled-fragment-push-recovery",
+  "version": 2,
+  "mutationRequests": 4,
+  "redirectGets": 4,
+  "currentTruthRecoveryObserved": true,
+  "redirectChainRuns": 4,
+  "finalHashBeforeBack": "",
+  "currentTruthVisible": true,
+  "backReachedPrecedingPage": true,
+  "repairFailureRecovery": {
+    "redirectAndRecoveryObserved": true,
+    "finalHash": "",
+    "currentTruthVisible": true
+  },
+  "postCommitThrowRecovery": {
+    "redirectAndRecoveryObserved": true,
+    "finalHash": "",
+    "currentTruthVisible": true,
+    "backReachedPrecedingPage": true
+  },
+  "mutatedStateRecovery": {
+    "redirectAndRecoveryObserved": true,
+    "finalHash": "",
+    "currentTruthVisible": true,
+    "backReachedPrecedingPage": true
+  },
+  "mutationRetried": false
+}

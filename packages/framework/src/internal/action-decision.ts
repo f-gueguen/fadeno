@@ -405,7 +405,12 @@ function safeRedirect(destination: string | undefined, expectedOrigin: string): 
   let url: URL;
   try { url = new URL(destination, expectedOrigin); } catch { fail("FADENO_ACTION_REDIRECT"); }
   if (url.origin !== expectedOrigin || url.protocol !== "https:" || url.username || url.password) fail("FADENO_ACTION_REDIRECT");
-  return `${url.pathname}${url.search}${url.hash}`;
+  const queryIndex = url.href.indexOf("?");
+  const fragmentIndex = url.href.indexOf("#");
+  const emptyQuery = url.search === ""
+    && queryIndex !== -1
+    && (fragmentIndex === -1 || queryIndex < fragmentIndex);
+  return `${url.pathname}${url.search}${emptyQuery ? "?" : ""}${url.hash}${url.hash === "" && url.href.includes("#") ? "#" : ""}`;
 }
 
 function expectedFailureFields(

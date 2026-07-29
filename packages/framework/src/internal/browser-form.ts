@@ -12,6 +12,7 @@ export type PrivateFormEligibility = Readonly<{
 }>;
 
 export type PrivateFormRequest = Readonly<{
+  eligibility: PrivateFormEligibility;
   destination: URL;
   body?: FormData | URLSearchParams;
 }>;
@@ -35,11 +36,15 @@ function effectiveAttribute(
   return submitter?.hasAttribute(submitterAttribute) ? submitterValue() : formValue();
 }
 
-function validSubmitter(form: HTMLFormElement, value: SubmitEvent["submitter"]): PrivateFormSubmitter | undefined | false {
+function validSubmitter(
+  form: HTMLFormElement,
+  value: SubmitEvent["submitter"],
+  allowNativeImage = false,
+): PrivateFormSubmitter | undefined | false {
   if (value === null) return undefined;
   if (!(value instanceof HTMLButtonElement || value instanceof HTMLInputElement) || value.form !== form) return false;
   if (value instanceof HTMLButtonElement) return value.type === "submit" ? value : false;
-  return value.type === "submit" ? value : false;
+  return value.type === "submit" || (allowNativeImage && value.type === "image") ? value : false;
 }
 
 function safeDestination(value: string): URL | undefined {
@@ -120,18 +125,93 @@ function encodeControls(data: FormData): URLSearchParams {
   return encoded;
 }
 
-export function privateFormRequest(eligibility: PrivateFormEligibility): PrivateFormRequest {
+function replaceGetFormQuery(destination: URL, data: FormData): URL {
+  const fragmentIndex = destination.href.indexOf("#");
+  const fragment = fragmentIndex === -1 ? "" : destination.href.slice(fragmentIndex);
+  const query = encodeControls(data).toString();
+  destination.search = query;
+  if (query !== "") return destination;
+  destination.hash = "";
+  return new URL(`${destination.href}?${fragment}`);
+}
+
+export function privateNativeGetFormDestinationBase(
+  form: HTMLFormElement,
+  candidate: SubmitEvent["submitter"],
+  allowNativeImage = false,
+): URL | undefined {
+  if (!form.isConnected || form.ownerDocument !== document) return undefined;
+  if (form.relList.contains("noreferrer")) return undefined;
+  const submitter = validSubmitter(form, candidate, allowNativeImage);
+  if (submitter === false) return undefined;
+  const method = effectiveAttribute(
+    submitter,
+    "formmethod",
+    () => submitter?.formMethod ?? "",
+    () => form.method,
+  ).toLowerCase();
+  if (method !== "get") return undefined;
+  const target = effectiveAttribute(
+    submitter,
+    "formtarget",
+    () => submitter?.formTarget ?? "",
+    () => form.target,
+  );
+  if (!targetOwnsCurrentContext(target)) return undefined;
+  let destination: URL;
+  try {
+    destination = new URL(effectiveAttribute(
+      submitter,
+      "formaction",
+      () => submitter?.formAction ?? "",
+      () => form.action,
+    ), location.href);
+  } catch { return undefined; }
+  const current = new URL(location.href);
+  const trustworthy = current.protocol === "https:"
+    || (current.protocol === "http:" && loopbackHosts.has(current.hostname));
+  if (!trustworthy
+    || destination.protocol !== current.protocol
+    || destination.origin !== current.origin
+    || destination.username !== ""
+    || destination.password !== "") return undefined;
+  return destination;
+}
+
+export function privateNativeGetFormDestination(
+  form: HTMLFormElement,
+  candidate: SubmitEvent["submitter"],
+  successfulControls?: FormData,
+  selectedDestination?: URL,
+): URL | undefined {
+  const destination = selectedDestination
+    ? new URL(selectedDestination.href)
+    : privateNativeGetFormDestinationBase(form, candidate, successfulControls !== undefined);
+  if (!destination) return undefined;
+  const submitter = successfulControls !== undefined && selectedDestination
+    ? undefined
+    : validSubmitter(form, candidate, successfulControls !== undefined);
+  if (submitter === false) return undefined;
+  try {
+    const data = successfulControls ?? (submitter ? new FormData(form, submitter) : new FormData(form));
+    return replaceGetFormQuery(destination, data);
+  } catch { return undefined; }
+}
+
+export function privateFormRequest(eligibility: PrivateFormEligibility): PrivateFormRequest | undefined {
   const data = eligibility.submitter
     ? new FormData(eligibility.form, eligibility.submitter)
     : new FormData(eligibility.form);
-  if (eligibility.kind === "navigation") {
-    const destination = new URL(eligibility.destination);
-    destination.search = encodeControls(data).toString();
-    return Object.freeze({ destination });
+  const finalEligibility = privateFormEligibility(eligibility.form, eligibility.submitter ?? null);
+  if (!finalEligibility) return undefined;
+  if (finalEligibility.kind === "navigation") {
+    const destination = new URL(finalEligibility.destination);
+    return Object.freeze({ eligibility: finalEligibility, destination: replaceGetFormQuery(destination, data) });
   }
   return Object.freeze({
-    destination: eligibility.destination,
-    body: eligibility.encoding === "multipart/form-data" ? data : encodeControls(data),
+    eligibility: finalEligibility,
+    destination: finalEligibility.destination,
+    body: finalEligibility.encoding === "multipart/form-data" ? data : encodeControls(data),
   });
 }
 

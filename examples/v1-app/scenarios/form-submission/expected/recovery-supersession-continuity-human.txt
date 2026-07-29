@@ -1,0 +1,1 @@
+Action ordering recovery: a newer cancelled activation superseded an in-flight recovery GET, inherited the same committed-mutation recovery owner, published fresh current truth, and did not repeat POST. Delayed native recovery remains transferable to a newer enhanced operation instead of overwriting or abandoning it.

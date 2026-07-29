@@ -1,0 +1,13 @@
+{
+  "schema": "fadeno.example.action-ordering-duplicate-refusal",
+  "version": 1,
+  "projects": [
+    "Other Thread"
+  ],
+  "mutationRequests": 6,
+  "createRuns": 3,
+  "updateRuns": 1,
+  "deleteRuns": 1,
+  "projectPageRenders": 8,
+  "oneLogicalOwnerDeleted": true
+}

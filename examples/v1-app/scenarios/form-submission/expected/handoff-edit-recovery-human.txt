@@ -1,0 +1,1 @@
+Action ordering recovery: post-handoff edit refused private publication for value, checkbox indeterminate state, inherited-disabled, control-attribute, control-ancestry, option-identity, optgroup-hierarchy, and untracked form-associated custom-control changes; native GET displayed committed current truth without repeating POST.

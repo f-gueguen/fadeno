@@ -1,0 +1,11 @@
+{
+  "schema": "fadeno.example.action-ordering-recovery-handoff-preservation",
+  "version": 1,
+  "mutationRequests": 1,
+  "redirectGets": 1,
+  "privateCurrentTruthGets": 1,
+  "nativeCurrentTruthGets": 1,
+  "redirectChainRuns": 1,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

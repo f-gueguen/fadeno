@@ -1,0 +1,1 @@
+Action ordering recovery: a synchronous rollback traversal failure could not strand the selected fragment entry. Fadeno replaced it with fresh current truth and did not repeat the committed mutation.
