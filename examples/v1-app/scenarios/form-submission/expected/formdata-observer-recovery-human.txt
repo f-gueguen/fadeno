@@ -1,0 +1,1 @@
+Action ordering recovery: propagation refusal removed both browser-owned FormData observers on every attempt. A hidden browser-owned FormData never triggered a second construction, current truth recovered, no listener closure remained attached, and the committed mutation was not repeated.

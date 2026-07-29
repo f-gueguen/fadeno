@@ -91,7 +91,10 @@ predicate; a later submitted-control edit therefore refuses private recovery
 publication and selects native current truth. A recovery GET retains the
 committed-mutation recovery owner itself, so a newer cancelled activation may
 supersede that GET and start a newer current-truth GET rather than stranding
-stale markup. A history traversal that returns to native behavior observes
+stale markup. Deferred recovery also holds a private operation owner; if
+application code changes the selected history entry before that GET starts,
+the runtime replaces the staged URL with the exact committed current-truth URL
+instead of abandoning recovery. A history traversal that returns to native behavior observes
 cancellation with the same recovery owner, including when a
 cancelled traversal first has to repair its selected URL to the displayed
 document. A same-document native link or GET-form supersession uses the same
@@ -101,9 +104,11 @@ fragment-free entry. If an application history hook commits that exact private
 push and then throws, observable URL, state identity, and history-length
 evidence keep rollback ownership instead of treating the push as uncommitted.
 Successful staging also requires the selected private state, URL, history
-length, and push-write sequence to match the exact requested replacement or
-push. A hook cannot substitute state or change the write kind and have that
-entry claimed as framework-owned.
+length for replacement, and push-write sequence to match the exact requested
+write. A successful push does not require history length to grow because it may
+truncate a forward entry while retaining the same length. A hook cannot
+substitute state or change the write kind and have that entry claimed as
+framework-owned.
 A preinstalled window finalizer decides recovery takeover
 while the activation is still cancelable and after document submit listeners
 have finished. It revalidates the final GET action, method, target (including a
@@ -123,16 +128,20 @@ departure finished. If propagation was already stopped when the runtime
 observes a same-context form, it refuses the activation while it is still
 cancelable and recovers current truth without serializing controls. If a later
 listener stops propagation after runtime observation and the browser selects a
-same-document fragment, the post-dispatch observer freezes each safe GET
-routing selection before later listener microtasks, derives the corresponding
-query from the supplied entry list, and retains at most sixteen distinct
-destination candidates. Recovery accepts the candidate whose complete URL
-matches the browser-selected entry; a later unrelated `FormData` snapshot,
-candidate overflow, or ambiguity cannot replace it and instead recovers
-current truth. The same-document decision compares that exact destination with
-the trusted source path and query rather than assuming every HTTP GET creates
-a replacement document. Recovery never reconstructs successful controls merely
-because no candidate is admissible.
+same-document fragment, document capture recognizes the trusted browser-owned
+`formdata` event, copies its supplied entry list before listener microtasks,
+and records the contemporaneous routing selection. Document-bubble and final
+window observation restore the supplied browser list to that capture snapshot
+and admit it only while routing remains unchanged. Later entry-list or routing
+changes are therefore ambiguous and recover current truth. At most sixteen distinct destination candidates are
+retained. Candidate overflow invalidates the entire set even when an exact URL
+was retained earlier. Recovery accepts only the complete candidate whose URL
+matches the browser-selected entry; a listener-hidden event, later unrelated
+event, overflow, or ambiguity instead recovers current truth. Every terminal
+path detaches capture, bubble, and dynamic window observers. The same-document decision compares that exact
+destination with the trusted source path and query rather than assuming every
+HTTP GET creates a replacement document. Recovery never reconstructs
+successful controls merely because no candidate is admissible.
 A listener-hidden cross-document activation stays
 browser-owned because its response outcome is not observable to the current
 document; no private recovery or freshness claim is made for that unsupported
@@ -178,7 +187,9 @@ Because URL fragments are not part of an HTTP request, an action redirect to a
 fragment on the current resource does not issue a private GET whose result
 could be confused with the fragment-bearing destination. It stages the
 fragment URL in the current history entry and performs one real native reload
-instead. A cancelled reload repairs the displayed-truth URL before
+instead, but only after the bounded handoff predicate succeeds; an over-limit
+handoff recovers current truth before the fragment can be published. A
+cancelled reload repairs the displayed-truth URL before
 current-truth recovery begins. Reload starts synchronously after staging, so
 pending-state observers or teardown cannot close enhancement in an intervening
 stale-markup window. Recovery ownership remains live until departure commits;
@@ -192,7 +203,9 @@ reacquisition aborts the obsolete result and starts native current-truth
 replacement before teardown. If a GET form staged a pushed
 fragment entry successfully, cancellation first traverses back to the source entry, then
 recovers current truth, so Back still reaches the preceding page rather than a
-duplicate same-URL entry. Completion requires the exact requested source entry
+duplicate same-URL entry. The push remains recognizable when it truncates a
+forward entry and therefore does not increase `history.length`. Completion
+requires the exact requested source entry
 and URL; an unrelated selected entry reloads natively instead of continuing
 rollback recovery from the wrong record. If the rollback traversal call throws
 synchronously, the pending rollback owner is cleared and native current-truth

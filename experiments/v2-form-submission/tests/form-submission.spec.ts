@@ -910,6 +910,75 @@ test("bounds redirect handoff snapshots before serializing application-owned con
     .toContain("rejected before serialization");
 });
 
+test("refuses an over-limit same-resource fragment before publishing its destination", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
+  await signIn(page);
+  await page.locator("#fragment-redirect-form").evaluate((form) => {
+    const oversized = document.createElement("textarea");
+    oversized.disabled = true;
+    oversized.value = "x".repeat(300 * 1024);
+    form.append(oversized);
+  });
+  const mutationsBefore = privateMutations().length;
+  const nativeGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/projects" && accept !== mediaType).length;
+  await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
+    }>;
+    globalThis.addEventListener("beforeunload", () => {
+      const flow = [...runtime.readPrivateFormSubmissionFlows()]
+        .reverse()
+        .find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
+      sessionStorage.setItem("fadeno-fragment-limit-flow", JSON.stringify(flow));
+    }, { once: true });
+  });
+  await page.locator("#fragment-redirect-form button").click({ noWaitAfter: true });
+  await expect.poll(() => new URL(page.url()).hash).toBe("");
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  let flow: Record<string, unknown> | null | undefined;
+  await expect.poll(async () => {
+    try {
+      flow = await page.evaluate(async () => {
+        const persisted = JSON.parse(
+          sessionStorage.getItem("fadeno-fragment-limit-flow") ?? "null",
+        ) as Record<string, unknown> | null;
+        if (persisted) return persisted;
+        const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+        const runtime = await import(modulePath) as Readonly<{
+          readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
+        }>;
+        return [...runtime.readPrivateFormSubmissionFlows()]
+          .reverse()
+          .find(({ code }) => code === "FADENO_UPDATE_LIMIT") ?? null;
+      });
+      return flow?.["code"];
+    } catch {
+      return undefined;
+    }
+  }).toBe("FADENO_UPDATE_LIMIT");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-fragment-limit-refusal",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    nativeCurrentTruthGetsAtMostOne: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/projects" && accept !== mediaType).length - nativeGetsBefore <= 1,
+    fragmentRedirectRuns: state.fragmentRedirectRuns,
+    flowCode: flow?.["code"],
+    flowStatus: flow?.["status"],
+    flowOutcome: flow?.["outcome"],
+    finalHash: new URL(page.url()).hash,
+    destinationNotPublished: new URL(page.url()).hash !== "#details",
+    currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("fragment-limit-refusal"));
+  expect(readFileSync(join(outputRoot, "expected-fragment-limit-refusal-human.txt"), "utf8"))
+    .toContain("over-limit fragment destination was never published");
+});
+
 test("refuses late formdata routing changes without constructing successful controls twice", async ({ page }) => {
   await page.goto(`${origin}/projects`);
   await page.locator("#passcode").fill("example-owner");
@@ -1135,15 +1204,32 @@ test("does not let later formdata microtasks displace the final native GET desti
     query.value = "1";
     form.prepend(query);
     sessionStorage.setItem("fadeno-formdata-microtask-count", "0");
-    form.addEventListener("formdata", () => {
+    sessionStorage.setItem("fadeno-formdata-snapshot-before-microtask", "unread");
+    document.addEventListener("formdata", (formDataEvent) => {
+      if (formDataEvent.target !== form) return;
+      const originalIterator = formDataEvent.formData[Symbol.iterator].bind(formDataEvent.formData);
+      Object.defineProperty(formDataEvent.formData, Symbol.iterator, {
+        configurable: true,
+        value() {
+          if (sessionStorage.getItem("fadeno-formdata-snapshot-before-microtask") === "unread") {
+            sessionStorage.setItem(
+              "fadeno-formdata-snapshot-before-microtask",
+              sessionStorage.getItem("fadeno-formdata-microtask-ran") === "1" ? "false" : "true",
+            );
+          }
+          return originalIterator();
+        },
+      });
+    }, { capture: true, once: true });
+    form.addEventListener("formdata", (formDataEvent) => {
       const count = Number(sessionStorage.getItem("fadeno-formdata-microtask-count") ?? "0") + 1;
       sessionStorage.setItem("fadeno-formdata-microtask-count", String(count));
       if (count !== 1) return;
       queueMicrotask(() => {
         sessionStorage.setItem("fadeno-formdata-microtask-ran", "1");
-        query.value = "poisoned";
+        formDataEvent.formData.set("x", "poisoned");
         const unrelated = new FormData();
-        unrelated.append("x", query.value);
+        unrelated.append("x", "poisoned");
         if (Number(sessionStorage.getItem("fadeno-formdata-microtask-count") ?? "0") === count) {
           const laterEvent = new Event("formdata");
           Object.defineProperty(laterEvent, "formData", { value: unrelated });
@@ -1162,24 +1248,35 @@ test("does not let later formdata microtasks displace the final native GET desti
   await expect.poll(() => new URL(page.url()).search).toBe("?x=1");
   await expect(page.locator("#viewer")).toHaveText("Signed in owner");
   await page.waitForLoadState("domcontentloaded");
-  let formDataEvidence: Readonly<{ listenerMicrotaskRan: boolean; formDataEvents: number }> | undefined;
+  let formDataEvidence: Readonly<{
+    listenerMicrotaskRan: boolean;
+    formDataEvents: number;
+    snapshotReadBeforeListenerMicrotask: boolean;
+  }> | undefined;
   await expect.poll(async () => {
     try {
       formDataEvidence = await page.evaluate(() => ({
         listenerMicrotaskRan: sessionStorage.getItem("fadeno-formdata-microtask-ran") === "1",
         formDataEvents: Number(sessionStorage.getItem("fadeno-formdata-microtask-count") ?? "0"),
+        snapshotReadBeforeListenerMicrotask:
+          sessionStorage.getItem("fadeno-formdata-snapshot-before-microtask") === "true",
       }));
       return formDataEvidence;
     } catch {
       return undefined;
     }
-  }).toEqual({ listenerMicrotaskRan: true, formDataEvents: 2 });
+  }).toEqual({
+    listenerMicrotaskRan: true,
+    formDataEvents: 2,
+    snapshotReadBeforeListenerMicrotask: true,
+  });
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-formdata-microtask-recovery",
-    version: 1,
+    version: 2,
     listenerMicrotaskRan: formDataEvidence?.listenerMicrotaskRan,
     formDataEvents: formDataEvidence?.formDataEvents,
+    snapshotReadBeforeListenerMicrotask: formDataEvidence?.snapshotReadBeforeListenerMicrotask,
     mutationRequests: privateMutations().length - mutationsBefore,
     privateRedirectGets: transportRequests.filter(({ method, path, accept }) =>
       method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
@@ -1187,12 +1284,283 @@ test("does not let later formdata microtasks displace the final native GET desti
     redirectChainRuns: state.redirectChainRuns,
     finalSearch: new URL(page.url()).search,
     selectedFragmentOrCurrentTruth: new Set(["", "#details"]).has(new URL(page.url()).hash),
-    unrelatedSnapshotRefused: new URL(page.url()).search !== "?x=poisoned",
+    mutableSnapshotDidNotLeaveStaleMarkup: state.projectPageRenders > projectPageRendersBefore
+      && await page.locator("#viewer").textContent() === "Signed in owner",
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
     mutationRetried: privateMutations().length - mutationsBefore > 1,
   }).toEqual(expected("formdata-microtask-recovery"));
   expect(readFileSync(join(outputRoot, "expected-formdata-microtask-recovery-human.txt"), "utf8"))
-    .toContain("later FormData snapshot could not displace");
+    .toContain("snapshotted the browser-owned FormData before listener microtasks");
+});
+
+test("removes hidden FormData observers before repeated propagation refusal", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
+  const recoveryPage = await page.context().newPage();
+  await recoveryPage.addInitScript(() => {
+    const add = document.addEventListener.bind(document);
+    const remove = document.removeEventListener.bind(document);
+    const increment = (key: string): void => {
+      sessionStorage.setItem(key, String(Number(sessionStorage.getItem(key) ?? "0") + 1));
+    };
+    Object.defineProperty(document, "addEventListener", {
+      configurable: true,
+      value(type: string, listener: EventListenerOrEventListenerObject | null, options?: AddEventListenerOptions | boolean): void {
+        if (!listener) return;
+        if (type === "formdata") increment("fadeno-formdata-observers-added");
+        add(type, listener, options);
+      },
+    });
+    Object.defineProperty(document, "removeEventListener", {
+      configurable: true,
+      value(type: string, listener: EventListenerOrEventListenerObject | null, options?: EventListenerOptions | boolean): void {
+        if (!listener) return;
+        if (type === "formdata") increment("fadeno-formdata-observers-removed");
+        remove(type, listener, options);
+      },
+    });
+    add("submit", (event) => {
+      if (sessionStorage.getItem("fadeno-stop-observed-submit") === "1"
+        && event.target instanceof HTMLFormElement
+        && event.target.id === "native-fragment-form") {
+        event.stopPropagation();
+      }
+    });
+  });
+  await signIn(recoveryPage);
+  await recoveryPage.evaluate(() => {
+    sessionStorage.setItem("fadeno-formdata-observers-added", "0");
+    sessionStorage.setItem("fadeno-formdata-observers-removed", "0");
+    sessionStorage.setItem("fadeno-hidden-formdata-events", "0");
+  });
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length;
+  const currentTruthGetsBefore = transportRequests.filter(({ method, path }) =>
+    method === "GET" && path === "/projects").length;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    holdNextPrivateGetResponse = true;
+    holdNextPrivateGetPath = "/redirect-chain";
+    await recoveryPage.locator("#redirect-chain-form button").click();
+    await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+      .toBe(redirectGetsBefore + attempt + 1);
+    await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+    await recoveryPage.evaluate(() => {
+      sessionStorage.setItem("fadeno-stop-observed-submit", "1");
+      const form = document.querySelector("#native-fragment-form");
+      if (!(form instanceof HTMLFormElement)) throw new TypeError("missing native fragment form");
+      form.addEventListener("formdata", (event) => {
+        const count = Number(sessionStorage.getItem("fadeno-hidden-formdata-events") ?? "0");
+        sessionStorage.setItem("fadeno-hidden-formdata-events", String(count + 1));
+        event.stopImmediatePropagation();
+      }, { once: true });
+    });
+    await recoveryPage.locator("#native-fragment-form button").click({ noWaitAfter: true });
+    await expect.poll(() => transportRequests.filter(({ method, path }) =>
+      method === "GET" && path === "/projects").length)
+      .toBe(currentTruthGetsBefore + attempt + 1);
+    await expect(recoveryPage.locator("#viewer")).toHaveText("Signed in owner");
+    releaseHeldResponse?.();
+    await waitForEnhancement(recoveryPage);
+  }
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await recoveryPage.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 3);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await recoveryPage.evaluate(() => {
+    sessionStorage.setItem("fadeno-stop-observed-submit", "0");
+    const form = document.querySelector("#native-fragment-form");
+    if (!(form instanceof HTMLFormElement)) throw new TypeError("missing native fragment form");
+    form.addEventListener("formdata", (event) => {
+      const count = Number(sessionStorage.getItem("fadeno-hidden-formdata-events") ?? "0");
+      sessionStorage.setItem("fadeno-hidden-formdata-events", String(count + 1));
+      event.stopImmediatePropagation();
+    }, { once: true });
+    document.addEventListener("submit", (event) => {
+      if (event.target === form) event.stopPropagation();
+    }, { once: true });
+  });
+  await recoveryPage.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await expect.poll(() => transportRequests.filter(({ method, path }) =>
+    method === "GET" && path === "/projects").length)
+    .toBeGreaterThanOrEqual(currentTruthGetsBefore + 3);
+  await expect(recoveryPage.locator("#viewer")).toHaveText("Signed in owner");
+  releaseHeldResponse?.();
+  await waitForEnhancement(recoveryPage);
+  const observerEvidence = await recoveryPage.evaluate(() => ({
+    added: Number(sessionStorage.getItem("fadeno-formdata-observers-added") ?? "0"),
+    removed: Number(sessionStorage.getItem("fadeno-formdata-observers-removed") ?? "0"),
+    formDataEvents: Number(sessionStorage.getItem("fadeno-hidden-formdata-events") ?? "0"),
+  }));
+  const state = application.readApplicationState();
+  const currentTruthGets = transportRequests.filter(({ method, path }) =>
+    method === "GET" && path === "/projects").length - currentTruthGetsBefore;
+  expect({
+    schema: "fadeno.example.action-ordering-formdata-observer-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    currentTruthGetsBetweenThreeAndFour: new Set([3, 4]).has(currentTruthGets),
+    observersAdded: observerEvidence.added,
+    observersRemoved: observerEvidence.removed,
+    observersRetained: observerEvidence.added - observerEvidence.removed,
+    formDataEvents: observerEvidence.formDataEvents,
+    redirectChainRuns: state.redirectChainRuns,
+    currentTruthVisible: await recoveryPage.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 3,
+  }).toEqual(expected("formdata-observer-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-formdata-observer-recovery-human.txt"), "utf8"))
+    .toContain("hidden browser-owned FormData never triggered a second construction");
+  await recoveryPage.close();
+});
+
+test("captures final synchronous FormData routing and refuses candidate overflow", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
+  await signIn(page);
+  const mutationsBefore = privateMutations().length;
+  const redirectGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length;
+  const projectPageRendersBefore = application.readApplicationState().projectPageRenders;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await page.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 1);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  await page.locator("#native-fragment-form").evaluate((form: HTMLFormElement) => {
+    sessionStorage.setItem("fadeno-final-routing-formdata-events", "0");
+    document.addEventListener("submit", (submitEvent) => {
+      if (submitEvent.target !== form) return;
+      form.addEventListener("formdata", () => {
+        const count = Number(sessionStorage.getItem("fadeno-final-routing-formdata-events") ?? "0");
+        sessionStorage.setItem("fadeno-final-routing-formdata-events", String(count + 1));
+        form.action = "/projects#final-synchronous-routing";
+      }, { once: true });
+      submitEvent.stopPropagation();
+    }, { once: true });
+  });
+  await page.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  await expect.poll(() => new Set(["", "#final-synchronous-routing"]).has(new URL(page.url()).hash)).toBe(true);
+  await expect.poll(() => application.readApplicationState().projectPageRenders)
+    .toBeGreaterThan(projectPageRendersBefore);
+  await expect(page.locator("#viewer")).toHaveText("Signed in owner");
+  let finalRouting: Readonly<{
+    formDataEvents: number;
+    finalOrCurrentTruthSelected: boolean;
+    originalRoutingNotRetained: boolean;
+    currentTruthVisible: boolean;
+  }> | undefined;
+  await expect.poll(async () => {
+    try {
+      finalRouting = await page.evaluate(() => ({
+        formDataEvents: Number(sessionStorage.getItem("fadeno-final-routing-formdata-events") ?? "0"),
+        finalOrCurrentTruthSelected: new Set(["", "#final-synchronous-routing"]).has(location.hash),
+        originalRoutingNotRetained: location.hash !== "#details",
+        currentTruthVisible: document.querySelector("#viewer")?.textContent === "Signed in owner",
+      }));
+      return finalRouting;
+    } catch {
+      return undefined;
+    }
+  }).toEqual({
+    formDataEvents: 1,
+    finalOrCurrentTruthSelected: true,
+    originalRoutingNotRetained: true,
+    currentTruthVisible: true,
+  });
+  releaseHeldResponse?.();
+
+  const overflowPage = await page.context().newPage();
+  await overflowPage.goto(`${origin}/projects?`);
+  await expect(overflowPage.locator("#viewer")).toHaveText("Signed in owner");
+  await waitForEnhancement(overflowPage);
+  const projectPageRendersBeforeOverflow = application.readApplicationState().projectPageRenders;
+  holdNextPrivateGetResponse = true;
+  holdNextPrivateGetPath = "/redirect-chain";
+  await overflowPage.locator("#redirect-chain-form button").click();
+  await expect.poll(() => transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/redirect-chain" && accept === mediaType).length)
+    .toBe(redirectGetsBefore + 2);
+  await expect.poll(() => Boolean(releaseHeldResponse)).toBe(true);
+  const exactCandidatePrepared = await overflowPage.locator("#native-fragment-form").evaluate((form: HTMLFormElement) => {
+    sessionStorage.setItem("fadeno-overflow-formdata-events", "0");
+    sessionStorage.setItem("fadeno-overflow-trusted-formdata-events", "0");
+    const countFormData = (event: FormDataEvent): void => {
+      const count = Number(sessionStorage.getItem("fadeno-overflow-formdata-events") ?? "0");
+      sessionStorage.setItem("fadeno-overflow-formdata-events", String(count + 1));
+      if (event.isTrusted) {
+        const trusted = Number(sessionStorage.getItem("fadeno-overflow-trusted-formdata-events") ?? "0");
+        sessionStorage.setItem("fadeno-overflow-trusted-formdata-events", String(trusted + 1));
+      }
+    };
+    form.addEventListener("formdata", countFormData);
+    document.addEventListener("submit", (submitEvent) => {
+      if (submitEvent.target !== form) return;
+      form.action = "/projects";
+      new FormData(form);
+      for (let index = 0; index < 17; index += 1) {
+        form.action = `/projects#overflow-candidate-${index}`;
+        new FormData(form);
+      }
+      form.action = "/projects#overflow-final";
+      submitEvent.stopPropagation();
+    }, { once: true });
+    return location.href.endsWith("?");
+  });
+  await overflowPage.locator("#native-fragment-form button").click({ noWaitAfter: true });
+  let overflowFormDataEvents: number | undefined;
+  let trustedOverflowFormDataEvents: number | undefined;
+  await expect.poll(async () => {
+    try {
+      overflowFormDataEvents = await overflowPage.evaluate(() =>
+        Number(sessionStorage.getItem("fadeno-overflow-formdata-events") ?? "0"));
+      trustedOverflowFormDataEvents = await overflowPage.evaluate(() =>
+        Number(sessionStorage.getItem("fadeno-overflow-trusted-formdata-events") ?? "0"));
+      return overflowFormDataEvents;
+    } catch {
+      return undefined;
+    }
+  }).toBe(18);
+  const programmaticCandidateQualification = trustedOverflowFormDataEvents === 18
+    ? "available"
+    : "unavailable";
+  await expect.poll(() => new URL(overflowPage.url()).hash)
+    .toBe(programmaticCandidateQualification === "available" ? "" : "#overflow-final");
+  await expect(overflowPage.locator("#viewer")).toHaveText("Signed in owner");
+  releaseHeldResponse?.();
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-final-formdata-routing",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    privateRedirectGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/redirect-chain" && accept === mediaType).length - redirectGetsBefore,
+    freshRendersAtLeastTwo: state.projectPageRenders >= projectPageRendersBefore + 2,
+    finalRouting,
+    exactCandidatePrepared,
+    overflowFormDataEvents,
+    trustedOverflowFormDataEvents,
+    programmaticCandidateQualification,
+    overflowFreshRenderObserved: state.projectPageRenders > projectPageRendersBeforeOverflow,
+    overflowDestinationNotPublished: programmaticCandidateQualification === "available"
+      ? new URL(overflowPage.url()).hash === ""
+      : null,
+    redirectChainRuns: state.redirectChainRuns,
+    currentTruthVisible: await overflowPage.locator("#viewer").textContent() === "Signed in owner",
+    mutationRetried: privateMutations().length - mutationsBefore > 2,
+  }).toEqual(expected("final-formdata-routing"));
+  expect(readFileSync(join(
+    outputRoot,
+    "expected-final-formdata-routing-human.txt",
+  ), "utf8")).toContain("candidate overflow refused even though an exact destination had been retained");
+  await overflowPage.close();
 });
 
 test("honors a current-truth recovery outcome from the redirect GET without repeating the mutation", async ({ page }) => {
@@ -1254,10 +1622,32 @@ test("inherits committed-mutation recovery when a newer GET supersedes the redir
     && path === "/projects" && accept === mediaType).length).toBe(1);
   dropNextPrivateGetResponse = true;
   await page.locator("#sign-in-form").evaluate((form: HTMLFormElement) => form.reset());
-  await page.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
-    event.preventDefault();
-    event.returnValue = "keep committed current truth";
-  }, { once: true }));
+  await page.evaluate(async () => {
+    const modulePath: string = "/_fadeno/framework/internal/browser-navigation.js";
+    const runtime = await import(modulePath) as Readonly<{
+      readPrivateFormSubmissionFlows(): readonly Record<string, unknown>[];
+    }>;
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...arguments_: unknown[]): number => {
+      const recoveryScheduled = sessionStorage.getItem("fadeno-arm-deferred-current-truth-history") === "true"
+        && runtime.readPrivateFormSubmissionFlows()
+          .some(({ code }) => code === "FADENO_FORM_MUTATION_CURRENT_TRUTH");
+      if (!recoveryScheduled || timeout !== 0 || typeof handler !== "function") {
+        return originalSetTimeout(handler, timeout, ...arguments_);
+      }
+      window.setTimeout = originalSetTimeout;
+      return originalSetTimeout(() => {
+        history.pushState(history.state, "", "/hello/deferred-current-truth");
+        sessionStorage.setItem("fadeno-deferred-current-truth-history-changed", "true");
+        handler(...arguments_);
+      }, timeout);
+    }) as typeof window.setTimeout;
+    globalThis.addEventListener("beforeunload", (event) => {
+      sessionStorage.setItem("fadeno-arm-deferred-current-truth-history", "true");
+      event.preventDefault();
+      event.returnValue = "keep committed current truth";
+    }, { once: true });
+  });
   const cancelledDeparture = page.waitForEvent("dialog");
   await page.getByRole("link", { name: "Search" }).click({ noWaitAfter: true });
   await (await cancelledDeparture).dismiss();
@@ -1265,19 +1655,22 @@ test("inherits committed-mutation recovery when a newer GET supersedes the redir
   const state = application.readApplicationState();
   expect({
     schema: "fadeno.example.action-ordering-supersession-recovery",
-    version: 1,
+    version: 2,
     mutationRequests: privateMutations().length - mutationsBefore,
     supersedingPrivateGets: transportRequests.filter(({ method, path, accept }) => method === "GET"
       && path === "/" && accept === mediaType).length,
     currentTruthGets: transportRequests.filter(({ method, path }) => method === "GET"
       && path === "/projects").length - recoveryGetsBefore,
     signInRuns: state.signInRuns,
+    historyChangedBeforeRecovery: await page.evaluate(() =>
+      sessionStorage.getItem("fadeno-deferred-current-truth-history-changed") === "true"),
+    stagedPathReplaced: new URL(page.url()).pathname !== "/hello/deferred-current-truth",
     finalPath: new URL(page.url()).pathname,
     currentTruthVisible: await page.locator("#viewer").textContent() === "Signed in owner",
     mutationRetried: privateMutations().length - mutationsBefore > 1,
   }).toEqual(expected("supersession-recovery"));
   expect(readFileSync(join(outputRoot, "expected-supersession-recovery-human.txt"), "utf8"))
-    .toContain("superseding GET retained mutation recovery ownership");
+    .toContain("application-selected history changed before the deferred GET");
 });
 
 test("retains committed-mutation recovery when native activation supersedes the redirect", async ({ page }) => {
@@ -2966,6 +3359,58 @@ test("rolls back a cancelled pushed fragment reload before recovering current tr
   expect(readFileSync(join(outputRoot, "expected-cancelled-fragment-push-recovery-human.txt"), "utf8"))
     .toContain("cancelled pushed-fragment reload rolled back");
   await rollbackPage.close();
+});
+
+test("recognizes a fragment push that truncates forward history", {
+  tag: "@fresh-webkit-worker",
+}, async ({ page }) => {
+  await signIn(page);
+  const forwardPage = await page.context().newPage();
+  await forwardPage.goto(origin);
+  await forwardPage.goto(`${origin}/projects`);
+  await expect(forwardPage.locator("#viewer")).toHaveText("Signed in owner");
+  await forwardPage.goto(`${origin}/hello/forward-entry`);
+  await forwardPage.goBack();
+  await expect.poll(() => new URL(forwardPage.url()).pathname).toBe("/projects");
+  await expect(forwardPage.locator("#viewer")).toHaveText("Signed in owner");
+  await waitForEnhancement(forwardPage);
+  const historyLengthWithForwardEntry = await forwardPage.evaluate(() => history.length);
+  const mutationsBefore = privateMutations().length;
+  const nativeTruthGetsBefore = transportRequests.filter(({ method, path, accept }) =>
+    method === "GET" && path === "/projects" && accept !== mediaType).length;
+  await forwardPage.evaluate(() => globalThis.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "cancel fragment reload after forward-history truncation";
+  }, { once: true }));
+  const cancelledReload = forwardPage.waitForEvent("dialog");
+  const activation = forwardPage.locator("#fragment-redirect-form button").click({ noWaitAfter: true });
+  await (await cancelledReload).dismiss();
+  await activation;
+  await expect.poll(() => new URL(forwardPage.url()).hash).toBe("");
+  await expect(forwardPage.locator("#viewer")).toHaveText("Signed in owner");
+  await waitForEnhancement(forwardPage);
+  const historyLengthAfterRecovery = await forwardPage.evaluate(() => history.length);
+  const currentTruthVisible = await forwardPage.locator("#viewer").textContent() === "Signed in owner";
+  await forwardPage.goBack();
+  await expect.poll(() => new URL(forwardPage.url()).pathname).toBe("/");
+  const state = application.readApplicationState();
+  expect({
+    schema: "fadeno.example.action-ordering-forward-history-fragment-recovery",
+    version: 1,
+    mutationRequests: privateMutations().length - mutationsBefore,
+    nativeCurrentTruthGets: transportRequests.filter(({ method, path, accept }) =>
+      method === "GET" && path === "/projects" && accept !== mediaType).length - nativeTruthGetsBefore,
+    fragmentRedirectRuns: state.fragmentRedirectRuns,
+    forwardEntryExisted: historyLengthWithForwardEntry >= 3,
+    recoveryDidNotRequireLengthGrowth: historyLengthAfterRecovery <= historyLengthWithForwardEntry,
+    finalHashBeforeBack: "",
+    currentTruthVisible,
+    backReachedPrecedingPage: new URL(forwardPage.url()).pathname === "/",
+    mutationRetried: privateMutations().length - mutationsBefore > 1,
+  }).toEqual(expected("forward-history-fragment-recovery"));
+  expect(readFileSync(join(outputRoot, "expected-forward-history-fragment-recovery-human.txt"), "utf8"))
+    .toContain("push truncated an existing forward entry");
+  await forwardPage.close();
 });
 
 test("recovers current truth when fragment rollback traversal throws synchronously", async ({ page }) => {

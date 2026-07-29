@@ -308,11 +308,17 @@ construct successful controls again. If propagation was already
 stopped when the runtime observes a same-context form, the runtime refuses it
 without serialization. If a later listener stops propagation and the browser
 selects a same-document fragment, the post-dispatch path retains the browser's
-successful-control entry list, accepts an image submitter on that native path,
-freezes each safe GET routing selection before later listener microtasks, and
-retains at most sixteen distinct derived destinations. The complete candidate
-matching the browser-selected URL remains authoritative; later unrelated
-snapshots, overflow, and ambiguity recover current truth. The runtime decides
+successful-control entry list. Document capture recognizes the trusted
+browser-owned `formdata` event, accepts an image submitter, and copies the
+entry list plus contemporaneous routing before listener microtasks.
+Document-bubble and final window observation restore the browser-owned list to
+that capture snapshot and admit it only while routing remains unchanged.
+Later entry-list or routing changes are ambiguous and recover current truth.
+It retains at most sixteen distinct derived destinations. Overflow invalidates the entire set even if an exact
+candidate was retained earlier. The complete candidate matching the
+browser-selected URL remains authoritative; a hidden event, later unrelated
+snapshot, overflow, or ambiguity recovers current truth. Every terminal path
+detaches capture, bubble, and dynamic window observers. The runtime decides
 whether a GET replaces the document from that exact destination relative to
 the trusted source path and query, never from the method alone, and does not
 construct another `FormData` as a fallback. A listener-hidden cross-document activation remains
@@ -358,7 +364,9 @@ A GET form that inherits committed-mutation
 recovery also carries it through selected-push rollback and a cancelled native
 replacement. Cancellation of a pushed-fragment replacement traverses back
 before current-truth recovery only when the push committed; a failed push
-repairs the current entry directly. After a committed push, the next Back
+repairs the current entry directly. The runtime-observed push sequence and
+exact selected state/URL recognize a committed push even when it truncated a
+forward entry and did not grow `history.length`. After a committed push, the next Back
 reaches the preceding page rather than a duplicate same-URL entry. A
 synchronous exception from the requested rollback traversal
 clears that pending owner and starts native current-truth replacement rather
@@ -377,7 +385,10 @@ same-document and cross-document destinations.
 Every current-truth recovery GET retains the committed-mutation recovery owner.
 If a newer activation supersedes that GET and is then cancelled, the newer
 operation starts current-truth recovery again; obsolete completion cannot clear
-or publish over that recovery owner.
+or publish over that recovery owner. A deferred recovery timer also owns a
+private operation. If application code changes history before it starts, the
+runtime selects exact committed current truth through native replacement
+rather than silently dropping recovery.
 
 A selected-push rollback is itself pending owned work. Its exact traversal
 identity, requested source entry and URL, and recovery operation remain current
@@ -386,15 +397,17 @@ rather than continuing rollback recovery from the wrong history record.
 A newer activation may supersede that owner; the delayed rollback then observes
 the newer operation and cannot replace its destination with obsolete current
 truth. When a bounded handoff cannot be captured, current truth is refreshed
-directly and the redirect destination is not requested, because a `204`,
+directly before any same-resource fragment is staged, and the redirect
+destination is not requested, because a `204`,
 attachment, or other no-document response offers no native completion event
 with which to discharge committed-mutation recovery.
 
 Fragment staging is admitted only when the selected private state equals the
-exact generated state and the URL, history length, and push-write sequence
-prove the requested replace or push. A hook that changes the state or performs
-the other write kind is refused; if it observably appended an entry, cancelled
-recovery rolls that entry back before continuing.
+exact generated state and the URL, replacement length, and push-write sequence
+prove the requested write. Push admission does not require length growth
+because forward-history truncation can preserve the length. A hook that
+changes the state or performs the other write kind is refused; if it observably
+appended an entry, cancelled recovery rolls that entry back before continuing.
 
 Same-context activation is resolved against the current window, including
 `_parent`, `_top`, and its current name. Explicit anchor referrer-policy and

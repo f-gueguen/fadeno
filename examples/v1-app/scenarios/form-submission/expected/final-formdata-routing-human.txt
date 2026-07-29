@@ -1,0 +1,1 @@
+Action ordering recovery: Fadeno accepted the final synchronous FormData route only when it matched the browser-selected URL; otherwise it recovered current truth. A later candidate overflow refused even though an exact destination had been retained, rendered fresh truth, and did not repeat the committed mutation.

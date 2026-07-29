@@ -174,8 +174,10 @@ committed mutation's current-truth recovery owner. The rollback completes
 before recovery so Back reaches the preceding page. Completion requires the
 exact requested source entry and URL; an unrelated `popstate` reloads natively
 instead of continuing obsolete recovery. Fragment staging likewise requires
-the exact requested private state, URL, history length, and push-write sequence
-before ownership is claimed. Handoff capture has bounded
+the exact requested private state, URL, replacement length, and push-write
+sequence before ownership is claimed. A push may truncate forward history
+without increasing `history.length`, so its own observed push sequence and
+exact selected state/URL are authoritative. Handoff capture has bounded
 control, record, and UTF-8 byte budgets; an over-limit handoff refuses private
 publication before serializing controls and refreshes current truth without
 requesting an unobservable redirect destination. This covers `204`, attachment,
@@ -184,12 +186,18 @@ departure-completion event. If submit propagation is already
 stopped when the runtime observes a same-context form, the runtime refuses it
 while the event is cancelable and recovers current truth without constructing
 `FormData`. If a later listener stops propagation and the browser selects a
-safe same-document fragment, the observer accepts an image submitter from the
-browser-owned entry list, freezes the safe GET routing selection before later
-listener microtasks, and derives its query from that supplied object. At most
-sixteen distinct candidates are retained. Only a complete candidate URL that
-matches the browser-selected entry may retain that fragment; a later unrelated
-snapshot, overflow, or ambiguity recovers current truth. Whether the GET
+safe same-document fragment, document capture recognizes the trusted
+browser-owned `formdata` event, accepts an image submitter from that supplied
+entry list, and copies the entries plus contemporaneous safe routing before
+listener microtasks. Document-bubble and final window observation restore the
+browser-owned list to that capture snapshot and admit it only while routing
+remains unchanged. Later entry-list or routing changes recover current truth
+as ambiguous. At most sixteen distinct candidates are
+retained; overflow rejects the whole set even if an exact candidate appeared earlier. Only a complete
+candidate URL that matches the browser-selected entry may retain that
+fragment; a hidden event, later unrelated snapshot, overflow, or ambiguity
+recovers current truth. Capture, bubble, and dynamic window observers are
+detached on every terminal path. Whether the GET
 replaces the document is determined from that exact destination relative to
 the trusted source path and query, not from the method alone. Observation and
 destination derivation remain distinct facts: recovery does not construct

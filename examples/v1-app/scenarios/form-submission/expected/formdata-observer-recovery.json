@@ -1,0 +1,14 @@
+{
+  "schema": "fadeno.example.action-ordering-formdata-observer-recovery",
+  "version": 1,
+  "mutationRequests": 3,
+  "privateRedirectGets": 3,
+  "currentTruthGetsBetweenThreeAndFour": true,
+  "observersAdded": 6,
+  "observersRemoved": 6,
+  "observersRetained": 0,
+  "formDataEvents": 1,
+  "redirectChainRuns": 3,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

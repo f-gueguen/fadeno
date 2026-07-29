@@ -1,0 +1,14 @@
+{
+  "schema": "fadeno.example.action-ordering-fragment-limit-refusal",
+  "version": 1,
+  "mutationRequests": 1,
+  "nativeCurrentTruthGetsAtMostOne": true,
+  "fragmentRedirectRuns": 1,
+  "flowCode": "FADENO_UPDATE_LIMIT",
+  "flowStatus": "refused",
+  "flowOutcome": "current-truth-reload",
+  "finalHash": "",
+  "destinationNotPublished": true,
+  "currentTruthVisible": true,
+  "mutationRetried": false
+}

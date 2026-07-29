@@ -1,15 +1,16 @@
 {
   "schema": "fadeno.example.action-ordering-formdata-microtask-recovery",
-  "version": 1,
+  "version": 2,
   "listenerMicrotaskRan": true,
   "formDataEvents": 2,
+  "snapshotReadBeforeListenerMicrotask": true,
   "mutationRequests": 1,
   "privateRedirectGets": 1,
   "currentTruthRenderObserved": true,
   "redirectChainRuns": 1,
   "finalSearch": "?x=1",
   "selectedFragmentOrCurrentTruth": true,
-  "unrelatedSnapshotRefused": true,
+  "mutableSnapshotDidNotLeaveStaleMarkup": true,
   "currentTruthVisible": true,
   "mutationRetried": false
 }

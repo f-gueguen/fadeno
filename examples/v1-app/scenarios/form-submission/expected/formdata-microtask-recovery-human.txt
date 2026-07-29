@@ -1,1 +1,1 @@
-Action ordering recovery: a later FormData snapshot could not displace the final browser-owned GET destination after a formdata listener queued an unrelated construction. Fadeno matched bounded destination candidates to the selected URL or recovered current truth, and did not repeat the committed mutation.
+Action ordering recovery: Fadeno snapshotted the browser-owned FormData before listener microtasks. A later mutation of the live object and an unrelated event could not poison that evidence; the resulting document stayed fresh and the committed mutation was not replayed.
