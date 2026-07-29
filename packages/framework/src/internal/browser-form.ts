@@ -283,3 +283,43 @@ export function privateFormPreservationSafe(
   }
   return true;
 }
+
+export function privateSubmittedFormReconciliationSafe(
+  form: HTMLFormElement,
+  incomingDocument: Document,
+): boolean {
+  if (!form.isConnected || form.ownerDocument !== document || form.id === "") return false;
+  const incomingForm = incomingDocument.getElementById(form.id);
+  if (!(incomingForm instanceof HTMLFormElement)) return false;
+  const controls = [...form.elements].filter((control): control is
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement =>
+    control instanceof HTMLInputElement
+      || control instanceof HTMLTextAreaElement
+      || control instanceof HTMLSelectElement
+  );
+  return controls.every((control) => {
+    if (control instanceof HTMLInputElement
+      && control.type === "hidden"
+      && control.id === "") return true;
+    if (control.id === "") return false;
+    const incoming = incomingDocument.getElementById(control.id);
+    if (incoming?.closest("form") !== incomingForm) return false;
+    if (control instanceof HTMLInputElement) {
+      if (!(incoming instanceof HTMLInputElement) || incoming.type !== control.type) return false;
+      if (control.type === "file") return (control.files?.length ?? 0) === 0;
+      if (control.type === "checkbox" || control.type === "radio") {
+        return !control.indeterminate && control.checked === incoming.checked;
+      }
+      return control.value === incoming.value;
+    }
+    if (control instanceof HTMLTextAreaElement) {
+      return incoming instanceof HTMLTextAreaElement
+        && control.value === incoming.value;
+    }
+    return incoming instanceof HTMLSelectElement
+      && control.options.length === incoming.options.length
+      && [...control.options].every((option, index) =>
+        option.selected === incoming.options[index]?.selected
+      );
+  });
+}

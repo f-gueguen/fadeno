@@ -23,6 +23,7 @@ export const advanceScenario = defineAction({
   fields: {
     caseId: textField({ maximumBytes: 128 }),
     mode: textField({ maximumBytes: 16 }),
+    submittedState: textField({ maximumBytes: 128 }),
   },
   authorize() { return true; },
   run({ input }) {
@@ -84,6 +85,11 @@ function document(request: Request): RenderChild {
           name: advanceScenario.fields.mode,
           type: "hidden",
           value: "action",
+        }),
+        jsx("input", {
+          id: "reconciliation-submitted-state",
+          name: advanceScenario.fields.submittedState,
+          value: "server-default",
         }),
         jsx("button", {
           id: "reconciliation-submit",

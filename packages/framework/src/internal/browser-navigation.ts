@@ -9,6 +9,7 @@ import {
   privateNativeGetFormDestinationBase,
   privateFormPreservationSafe,
   privateFormRequest,
+  privateSubmittedFormReconciliationSafe,
   type PrivateFormEligibility,
   type PrivateFormRequest,
 } from "./browser-form.ts";
@@ -1925,6 +1926,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       allowDocumentScroll: true,
       allowReconciliation: false,
     }),
+    reconciliationSafe: (next: Document) => boolean = () => true,
   ): Promise<void> => {
     if (active?.kind === "mutation") return;
     const inheritedMutationRecovery = active?.recoverCancelledMutation;
@@ -2037,6 +2039,9 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         next,
         reconciliationRequired(),
       );
+      if (reconciliation && !reconciliationSafe(next)) {
+        throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      }
       if (!initiator && selectedHistoryState) {
         if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || liveElementScroll()) {
           markHistoryUnsafe(displayedHistoryEntry);
@@ -2222,6 +2227,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           allowDocumentScroll: true,
           allowReconciliation: false,
         }),
+        (next) => privateSubmittedFormReconciliationSafe(eligibility.form, next),
       );
     }, 0);
   };
@@ -2377,6 +2383,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
               allowDocumentScroll: true,
               allowReconciliation: false,
             }),
+            (next) => privateSubmittedFormReconciliationSafe(eligibility.form, next),
           );
           return;
         }
@@ -2444,6 +2451,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           allowReconciliation: false,
         }),
       );
+      if (reconciliation
+        && !privateSubmittedFormReconciliationSafe(eligibility.form, next)) {
+        throw new TypeError("FADENO_UPDATE_PRESERVATION");
+      }
       if (!flushCurrentScroll(true)) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
       const operationFocusedNode = document.activeElement instanceof HTMLElement
         ? document.activeElement

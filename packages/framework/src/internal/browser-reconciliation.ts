@@ -414,6 +414,52 @@ function attributes(element: Element): readonly (readonly [string, string])[] {
   ));
 }
 
+function sameAttributes(
+  element: Element,
+  expected: readonly (readonly [string, string])[],
+): boolean {
+  const received = element.getAttributeNames();
+  return received.length === expected.length
+    && expected.every(([name, value]) => element.getAttribute(name) === value);
+}
+
+function sameIdentitySequence(
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+): boolean {
+  return left !== undefined
+    && right !== undefined
+    && left.length === right.length
+    && left.every((identity, index) => identity === right[index]);
+}
+
+function assertPreparedCurrentTree(
+  document_: Document,
+  expected: CollectedTree,
+  attributeSnapshot: AttributeSnapshot,
+): void {
+  const received = collectDocument(document_, "current");
+  if (received.root !== expected.root
+    || received.elements.length !== expected.elements.length) {
+    refuse("FADENO_RECONCILIATION_OWNERSHIP");
+  }
+  for (const [identity, element] of expected.identities) {
+    if (received.identities.get(identity) !== element
+      || received.parents.get(identity) !== expected.parents.get(identity)
+      || !sameIdentitySequence(
+        received.children.get(identity),
+        expected.children.get(identity),
+      )) {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
+    }
+  }
+  if (attributeSnapshot.some(({ element, attributes: expectedAttributes }) =>
+    !sameAttributes(element, expectedAttributes)
+  )) {
+    refuse("FADENO_RECONCILIATION_OWNERSHIP");
+  }
+}
+
 function restoreAttributes(snapshot: AttributeSnapshot): void {
   for (const { element, attributes: expected } of snapshot) {
     const names = new Set(expected.map(([name]) => name));
@@ -493,6 +539,14 @@ export function preparePrivateDocumentReconciliation(
       const currentType = (currentElement.getAttribute("type") ?? "text").toLowerCase();
       const incomingType = (incomingElement.getAttribute("type") ?? "text").toLowerCase();
       if (currentType !== incomingType) {
+        refuse("FADENO_RECONCILIATION_OWNERSHIP");
+      }
+    }
+    for (const stateOwnerAttribute of ["contenteditable", "popover"] as const) {
+      if ((currentElement.hasAttribute(stateOwnerAttribute)
+          || incomingElement.hasAttribute(stateOwnerAttribute))
+        && currentElement.getAttribute(stateOwnerAttribute)
+          !== incomingElement.getAttribute(stateOwnerAttribute)) {
         refuse("FADENO_RECONCILIATION_OWNERSHIP");
       }
     }
@@ -618,29 +672,35 @@ export function preparePrivateDocumentReconciliation(
       refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
     state = "applied";
-    for (const plan of attributePlans) {
-      for (const name of plan.remove) plan.element.removeAttribute(name);
-      for (const [name, value] of plan.set) plan.element.setAttribute(name, value);
-    }
-    for (const { parent, desiredChildren } of structurePlans) {
-      const desired = new Set(desiredChildren);
-      for (const child of Array.from(parent.children)) {
-        if (!desired.has(child)) child.remove();
+    try {
+      assertPreparedCurrentTree(currentDocument, current, attributeSnapshot);
+      for (const plan of attributePlans) {
+        for (const name of plan.remove) plan.element.removeAttribute(name);
+        for (const [name, value] of plan.set) plan.element.setAttribute(name, value);
       }
-      let cursor: Element | null = null;
-      for (const child of [...desiredChildren].reverse()) {
-        if (child.parentElement !== parent || child.nextElementSibling !== cursor) {
-          parent.insertBefore(child, cursor);
+      for (const { parent, desiredChildren } of structurePlans) {
+        const desired = new Set(desiredChildren);
+        for (const child of Array.from(parent.children)) {
+          if (!desired.has(child)) child.remove();
         }
-        cursor = child;
+        let cursor: Element | null = null;
+        for (const child of [...desiredChildren].reverse()) {
+          if (child.parentElement !== parent || child.nextElementSibling !== cursor) {
+            parent.insertBefore(child, cursor);
+          }
+          cursor = child;
+        }
       }
+      for (const plan of textPlans) plan.element.textContent = plan.text;
+      return Object.freeze({
+        rootIdentity: current.root.id,
+        reusedIdentities: Object.freeze(reusedIdentities),
+        replacedIdentities: Object.freeze(replacedIdentities),
+      });
+    } catch (cause) {
+      rollback();
+      throw cause;
     }
-    for (const plan of textPlans) plan.element.textContent = plan.text;
-    return Object.freeze({
-      rootIdentity: current.root.id,
-      reusedIdentities: Object.freeze(reusedIdentities),
-      replacedIdentities: Object.freeze(replacedIdentities),
-    });
   };
 
   return Object.freeze({

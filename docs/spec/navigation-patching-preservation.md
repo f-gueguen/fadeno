@@ -57,8 +57,8 @@ route execution may provide one root-relative same-origin browser module, which
 the renderer emits once with its existing request nonce. Wrong or missing
 nonce, missing artifact, disabled JavaScript, environment refusal, and rollback
 execute no enhancement and preserve native controls. This is a loading
-boundary only: link/form interception and document reconciliation remain
-unimplemented.
+boundary only; ADRs 0049 through 0053 separately own the implemented link,
+form, action, and bounded private document-reconciliation behavior.
 
 ## Preservation contract
 

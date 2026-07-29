@@ -502,6 +502,249 @@ test("removes stale output and clears pending ownership after an action", async 
   await releaseMorphQualificationState(page, scenario);
 });
 
+test("applies a submitted-control server reset through native current truth", async ({ page }) => {
+  const scenario = MORPH_QUALIFICATION_SCENARIOS.find(({ fixture }) =>
+    fixture.state === "details-open"
+  );
+  if (!scenario) throw new Error("FADENO_RECONCILIATION_FORM_RESET_SCENARIO");
+  await page.goto(
+    `${origin}/case?case=${scenario.fixture.id}&mode=action&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await prepareMorphQualificationState(page, scenario);
+  await page.locator("#reconciliation-submitted-state").fill("client-dirty");
+  await page.locator("#reconciliation-submitted-state").evaluate((element) => {
+    Reflect.set(globalThis, "__fadenoSubmittedControl", element);
+  });
+  requests.length = 0;
+
+  await activate(page, "action");
+
+  await expect(page.locator("#root")).toHaveClass("after");
+  await expect(page.locator("#reconciliation-submitted-state")).toHaveValue(
+    "server-default",
+  );
+  expect(await page.locator("#reconciliation-submitted-state").evaluate(
+    (element) => Reflect.get(globalThis, "__fadenoSubmittedControl") === element,
+  )).toBe(false);
+  expect(await page.locator("#open-details").evaluate(
+    (element) => (element as HTMLDetailsElement).open,
+  )).toBe(false);
+  expect(requests.filter(({ method, privateUpdate }) =>
+    method === "POST" && privateUpdate
+  )).toHaveLength(1);
+  expect(requests.some(({ method, privateUpdate }) =>
+    method === "GET" && !privateUpdate
+  )).toBe(true);
+});
+
+test("revalidates the prepared tree after history selection", async ({ page }) => {
+  await page.addInitScript(() => {
+    const pushState = History.prototype.pushState;
+    History.prototype.pushState = function (
+      data: unknown,
+      unused: string,
+      url?: string | URL | null,
+    ): void {
+      pushState.call(this, data, unused, url);
+      document.querySelector("#dirty-text")?.removeAttribute("id");
+    };
+  });
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-text").fill("client-dirty");
+  await page.locator("#dirty-text").evaluate((element) => {
+    Reflect.set(globalThis, "__fadenoOriginalTarget", element);
+  });
+  requests.length = 0;
+
+  await activate(page, "navigation");
+
+  await expect(page.locator("#root")).toHaveClass("after");
+  expect(await page.locator("#dirty-text").evaluate(
+    (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
+  )).toBe(false);
+  expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
+});
+
+test("refuses every claimed hostile production reconciliation boundary", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const refusals = await page.evaluate(async ({ baseOrigin }) => {
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      PRIVATE_RECONCILIATION_LIMITS: Readonly<{ maximumRecords: number }>;
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    const load = async (
+      caseId: string,
+      phase: "current" | "incoming",
+    ): Promise<Document> => {
+      const response = await fetch(
+        `${baseOrigin}/case?case=${caseId}&mode=navigation&phase=${phase}`,
+        { cache: "no-store", credentials: "same-origin" },
+      );
+      return new DOMParser().parseFromString(await response.text(), "text/html");
+    };
+    const cases = [
+      "duplicate-identity",
+      "document-conflict",
+      "reparented-identity",
+      "retyped-identity",
+      "record-limit",
+      "depth-limit",
+      "identity-limit",
+      "script-surface",
+      "event-attribute",
+      "foreign-namespace",
+      "unsupported-control",
+      "media-drift",
+      "island-drift",
+      "contenteditable-drift",
+      "popover-drift",
+    ] as const;
+    const results: Array<Readonly<{ name: string; code: string }>> = [];
+    for (const name of cases) {
+      const sourceCase = name === "media-drift"
+        ? "media-playing-insert"
+        : name === "island-drift"
+          ? "island-identity-remove"
+          : name === "contenteditable-drift"
+            ? "focused-contenteditable-caret-reorder"
+            : name === "popover-drift"
+              ? "popover-open-reorder"
+              : "dirty-text-insert";
+      const current = await load(sourceCase, "current");
+      const incoming = await load(sourceCase, "incoming");
+      const currentRoot = current.querySelector("main");
+      const incomingRoot = incoming.querySelector("main");
+      if (!currentRoot || !incomingRoot) throw new Error("FADENO_RECONCILIATION_HOSTILE_ROOT");
+      switch (name) {
+        case "duplicate-identity":
+          incoming.querySelector("#inserted-peer")?.setAttribute("id", "peer-a");
+          break;
+        case "document-conflict": {
+          const conflict = current.createElement("meta");
+          conflict.id = "inserted-peer";
+          current.head.append(conflict);
+          break;
+        }
+        case "reparented-identity": {
+          const owner = incoming.createElement("div");
+          owner.id = "new-parent";
+          const target = incoming.querySelector("#dirty-text");
+          if (!target) throw new Error("FADENO_RECONCILIATION_HOSTILE_TARGET");
+          owner.append(target);
+          incomingRoot.prepend(owner);
+          break;
+        }
+        case "retyped-identity": {
+          const replacement = incoming.createElement("textarea");
+          replacement.id = "dirty-text";
+          replacement.textContent = "server-default";
+          incoming.querySelector("#dirty-text")?.replaceWith(replacement);
+          break;
+        }
+        case "record-limit":
+          for (let index = 0; index < module.PRIVATE_RECONCILIATION_LIMITS.maximumRecords; index += 1) {
+            const record = incoming.createElement("span");
+            record.id = `overflow-${index}`;
+            incomingRoot.append(record);
+          }
+          break;
+        case "depth-limit": {
+          let parent = incomingRoot;
+          for (let depth = 0; depth < 17; depth += 1) {
+            const nested = incoming.createElement("div");
+            nested.id = `depth-${depth}`;
+            parent.append(nested);
+            parent = nested;
+          }
+          break;
+        }
+        case "identity-limit":
+          incoming.querySelector("#inserted-peer")?.setAttribute(
+            "id",
+            "x".repeat(129),
+          );
+          break;
+        case "script-surface": {
+          const script = incoming.createElement("script");
+          script.id = "hostile-script";
+          incomingRoot.append(script);
+          break;
+        }
+        case "event-attribute":
+          incoming.querySelector("#dirty-text")?.setAttribute("onclick", "void 0");
+          break;
+        case "foreign-namespace": {
+          const foreign = incoming.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg",
+          );
+          foreign.id = "foreign-node";
+          incomingRoot.append(foreign);
+          break;
+        }
+        case "unsupported-control":
+          incoming.querySelector("#dirty-text")?.setAttribute("type", "date");
+          break;
+        case "media-drift":
+          incoming.querySelector("#playing-media")?.setAttribute(
+            "src",
+            "data:audio/wav;base64,AAAA",
+          );
+          break;
+        case "island-drift": {
+          const island = incoming.querySelector("#mounted-island");
+          if (island) island.innerHTML = "changed-client-owner";
+          break;
+        }
+        case "contenteditable-drift":
+          incoming.querySelector("#focused-editor")?.removeAttribute(
+            "contenteditable",
+          );
+          break;
+        case "popover-drift":
+          incoming.querySelector("#open-popover")?.removeAttribute("popover");
+          break;
+      }
+      let code = "accepted";
+      try {
+        module.preparePrivateDocumentReconciliation(current, incoming);
+      } catch (error) {
+        code = error instanceof Error ? error.message : String(error);
+      }
+      results.push(Object.freeze({ name, code }));
+    }
+    return results;
+  }, { baseOrigin: origin });
+  expect(refusals).toEqual([
+    { name: "duplicate-identity", code: "FADENO_RECONCILIATION_IDENTITY" },
+    { name: "document-conflict", code: "FADENO_RECONCILIATION_OWNERSHIP" },
+    { name: "reparented-identity", code: "FADENO_RECONCILIATION_OWNERSHIP" },
+    { name: "retyped-identity", code: "FADENO_RECONCILIATION_OWNERSHIP" },
+    { name: "record-limit", code: "FADENO_RECONCILIATION_LIMIT" },
+    { name: "depth-limit", code: "FADENO_RECONCILIATION_LIMIT" },
+    { name: "identity-limit", code: "FADENO_RECONCILIATION_IDENTITY" },
+    { name: "script-surface", code: "FADENO_RECONCILIATION_SURFACE" },
+    { name: "event-attribute", code: "FADENO_RECONCILIATION_SURFACE" },
+    { name: "foreign-namespace", code: "FADENO_RECONCILIATION_SURFACE" },
+    { name: "unsupported-control", code: "FADENO_RECONCILIATION_SURFACE" },
+    { name: "media-drift", code: "FADENO_RECONCILIATION_CONTENT" },
+    { name: "island-drift", code: "FADENO_RECONCILIATION_CONTENT" },
+    { name: "contenteditable-drift", code: "FADENO_RECONCILIATION_OWNERSHIP" },
+    { name: "popover-drift", code: "FADENO_RECONCILIATION_OWNERSHIP" },
+  ]);
+});
+
 test("preflights refusal and restores an applied private transaction exactly", async ({ page }) => {
   await page.goto(
     `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
