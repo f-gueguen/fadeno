@@ -6,52 +6,49 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-07A — integrate the enhanced workflow into the evaluator demonstration
+V2-08 — implement bounded structural reconciliation
 
 ## Exit criteria
 
-- [x] Add one guided route, resource, action, refusal, and recovery walkthrough
-  to the canonical evaluator application without exposing private telemetry.
-- [x] Derive visible native, enhanced, and refused labels only from public
-  application and browser behavior.
-- [x] Prove the current packed package and canonical application start from a
-  clean checkout through one documented HTTPS command.
-- [x] Retain the complete no-JavaScript path and state the exact pre-V2-08
-  preservation limits beside the enhanced workflow.
-- [x] Add permanent Chromium, Firefox, and WebKit desktop/mobile, keyboard,
-  focus, success, failure, correction, flow, refusal, and recovery evidence.
-- [ ] Pass documentation/source and public-claim audits,
-  `pnpm check:v2-demo-experience`, and full local CI on the final commit.
-- [ ] Declare patch package release impact, complete remote review triage, merge,
-  and clean the branch before V2-08.
+- [ ] Accept one durable reconciliation decision that keeps the mechanism and
+  evidence private while preserving the native link and form baseline.
+- [ ] Implement bounded stable-identity reuse and declared leaf replacement
+  without adding an application-authored selector or patch protocol.
+- [ ] Preserve the accepted dirty-control, disclosure/top-layer, media, focus,
+  selection, caret, and future-island classes for eligible link and action
+  updates.
+- [ ] Refuse before mutation when identity, ownership, supported structure, or
+  the proven-unaffected document/element scroll boundary is absent or
+  ambiguous.
+- [ ] Replay the complete locked preservation corpus for navigation- and
+  action-driven updates in Chromium, Firefox, and WebKit with permanent
+  success, refusal, correction, flow, recovery, and cleanup evidence.
+- [ ] Add exactly one pending Changeset, pass every affected gate and full local
+  CI on the final reviewed commit, complete remote review triage, merge, and
+  clean the branch before V2-09.
 
 ## Active sub-slice
 
-V2-07A integrates the already accepted link and form behavior into one
-developer-facing, application-owned walkthrough. Canonical-router integration
-also repairs private projection admission for the exact generated route
-identity grammar exposed by the walkthrough. It changes no public API, public
-protocol, public analyzer schema, or general reconciliation claim. Release
-impact: patch for `@fadeno/framework`; one pending Changeset is required.
+V2-08 implements only ADR 0014's sixteen accepted preservation classes through
+one private browser reconciliation owner. It retains ADR 0045's conservative
+refusal for affected or unknown document/element scroll and introduces no
+public patch schema, application-authored identity protocol, or broad scroll
+claim. Release impact: prerelease-compatible package behavior; one pending
+Changeset is required.
 
 ## In progress
 
-- The five-step request-thread sequence uses the explicit public browser facade
-  and labels native, enhanced, and refused outcomes without private telemetry.
-- Collapsible developer panels connect the main laboratories to tracked
-  application source and public behavior without publishing private records.
-- `pnpm demo` installs the current packed framework into a clean canonical
-  application and starts the guided HTTPS workflow with one command.
-- `pnpm check:v2-demo-experience` exercises Chromium, Firefox, and WebKit
-  success, refusal, correction, flow, recovery, keyboard, responsive, source,
-  and no-JavaScript behavior, and the generated guide includes its normalized
-  executed evidence.
+- The locked K0-04 candidate and result remain evidence inputs rather than
+  production code or a public compatibility surface.
+- The current complete-document commit boundary and pre-interception
+  preservation refusals are being narrowed around one atomic, rollback-safe
+  reconciliation owner.
+- The V2-08 conformance harness will replay the locked cases through real
+  current-packed navigation and action outcomes rather than direct candidate
+  calls.
 
 ## Blockers
 
-- V2-08 remains blocked until V2-07A integrates the accepted action
-  path into the current-packed evaluator workflow and proves its clean-checkout
-  setup without overstating private or pre-reconciliation behavior.
 - Independent newcomer usability remains deferred and must not be claimed by
   V2 automation.
 
@@ -61,6 +58,14 @@ impact: patch for `@fadeno/framework`; one pending Changeset is required.
   compatibility decision.
 
 ## Completed slices
+
+- V2-07A — Merge commit `fa01733` integrates the accepted route, resource,
+  action, refusal, and recovery workflow into the current-packed evaluator;
+  derives tracked source panels and visible outcomes from executed evidence;
+  proves clean one-command HTTPS setup, complete native CRUD, and three-engine
+  enhanced behavior; and admits the exact generated route grammar at the
+  private projection boundary without exposing private telemetry or a public
+  reconciliation contract.
 
 - V2-07 — Merge commit `d4a6085` accepts ADR 0052 and completes enhanced
   authenticated CRUD, action redirect, revalidation, current-truth recovery,
