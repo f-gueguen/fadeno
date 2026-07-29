@@ -814,7 +814,6 @@ test("refuses a checked plan that would switch a dirty radio group", async ({ pa
       await response.text(),
       "text/html",
     );
-    incoming.querySelector("#dirty-radio-b")?.setAttribute("checked", "");
     const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
     const module = await import(modulePath) as {
       preparePrivateDocumentReconciliation(
@@ -822,14 +821,32 @@ test("refuses a checked plan that would switch a dirty radio group", async ({ pa
         next: Document,
       ): unknown;
     };
-    let refusal = "accepted";
-    try {
-      module.preparePrivateDocumentReconciliation(document, incoming);
-    } catch (error) {
-      refusal = error instanceof Error ? error.message : String(error);
-    }
+    const refusalFor = (next: Document): string => {
+      try {
+        module.preparePrivateDocumentReconciliation(document, next);
+        return "accepted";
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    };
+    incoming.querySelector("#dirty-radio-b")?.setAttribute("checked", "");
+    const checkedPlanRefusal = refusalFor(incoming);
+    const insertedIncoming = new DOMParser().parseFromString(
+      incoming.documentElement.outerHTML,
+      "text/html",
+    );
+    insertedIncoming.querySelector("#dirty-radio-b")?.removeAttribute("checked");
+    const insertedRadio = insertedIncoming.createElement("input");
+    insertedRadio.id = "inserted-dirty-radio";
+    insertedRadio.type = "radio";
+    insertedRadio.name = "qualification-radio";
+    insertedRadio.checked = true;
+    insertedRadio.setAttribute("checked", "");
+    insertedIncoming.querySelector("#root")?.prepend(insertedRadio);
+    const insertedPlanRefusal = refusalFor(insertedIncoming);
     return {
-      refusal,
+      checkedPlanRefusal,
+      insertedPlanRefusal,
       checkedA:
         (document.querySelector("#dirty-radio-a") as HTMLInputElement | null)?.checked,
       checkedB:
@@ -840,10 +857,38 @@ test("refuses a checked plan that would switch a dirty radio group", async ({ pa
       `${origin}/case?case=dirty-radio-reorder&mode=navigation&phase=incoming`,
   });
   expect(result).toEqual({
-    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    checkedPlanRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    insertedPlanRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
     checkedA: true,
     checkedB: false,
   });
+});
+
+test("retains an indeterminate checkbox through keyed navigation", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-checkbox-remove&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-checkbox").evaluate((element) => {
+    const checkbox = element as HTMLInputElement;
+    checkbox.indeterminate = true;
+    Reflect.set(globalThis, "__fadenoOriginalTarget", checkbox);
+  });
+  requests.length = 0;
+
+  await activate(page, "navigation");
+
+  await expect(page.locator("#root")).toHaveClass("after");
+  expect(await page.locator("#dirty-checkbox").evaluate((element) => ({
+    retained: Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
+    checked: (element as HTMLInputElement).checked,
+    indeterminate: (element as HTMLInputElement).indeterminate,
+  }))).toEqual({
+    retained: true,
+    checked: false,
+    indeterminate: true,
+  });
+  expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
 });
 
 test("refuses removal of a dirty select's live option", async ({ page }) => {
@@ -931,6 +976,9 @@ test("refuses disabling a retained focus owner", async ({ page }) => {
   );
   await waitForEnhancement(page);
   await page.locator("#focused-input").focus();
+  await page.locator("#focused-input").evaluate((element) => {
+    (element as HTMLInputElement).setSelectionRange(2, 6);
+  });
   const result = await page.evaluate(async ({ destination }) => {
     const response = await fetch(destination, {
       cache: "no-store",
@@ -940,8 +988,77 @@ test("refuses disabling a retained focus owner", async ({ page }) => {
       await response.text(),
       "text/html",
     );
-    incoming.querySelector("#focused-input")?.setAttribute("disabled", "");
     const input = document.querySelector("#focused-input");
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    const refusalFor = (next: Document): string => {
+      try {
+        module.preparePrivateDocumentReconciliation(document, next);
+        return "accepted";
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    };
+    incoming.querySelector("#focused-input")?.setAttribute("disabled", "");
+    const disabledRefusal = refusalFor(incoming);
+    const valueIncoming = new DOMParser().parseFromString(
+      incoming.documentElement.outerHTML,
+      "text/html",
+    );
+    valueIncoming.querySelector("#focused-input")?.removeAttribute("disabled");
+    valueIncoming.querySelector("#focused-input")?.setAttribute(
+      "value",
+      "server-updated",
+    );
+    const valueRefusal = refusalFor(valueIncoming);
+    return {
+      disabledRefusal,
+      valueRefusal,
+      focused: document.activeElement === input,
+      disabled: input instanceof HTMLInputElement ? input.disabled : null,
+      value: input instanceof HTMLInputElement ? input.value : null,
+      selectionStart: input instanceof HTMLInputElement ? input.selectionStart : null,
+      selectionEnd: input instanceof HTMLInputElement ? input.selectionEnd : null,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=focused-input-selection-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    disabledRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    valueRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    focused: true,
+    disabled: false,
+    value: "server-default",
+    selectionStart: 2,
+    selectionEnd: 6,
+  });
+});
+
+test("refuses removal of a live top-layer owner before mutation", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dialog-modal-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#modal-dialog").evaluate((element) => {
+    (element as HTMLDialogElement).showModal();
+  });
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#modal-dialog")?.remove();
+    const dialog = document.querySelector("#modal-dialog");
     const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
     const module = await import(modulePath) as {
       preparePrivateDocumentReconciliation(
@@ -957,17 +1074,19 @@ test("refuses disabling a retained focus owner", async ({ page }) => {
     }
     return {
       refusal,
-      focused: document.activeElement === input,
-      disabled: input instanceof HTMLInputElement ? input.disabled : null,
+      connected: dialog?.isConnected ?? false,
+      open: dialog instanceof HTMLDialogElement ? dialog.open : false,
+      modal: dialog instanceof HTMLDialogElement && dialog.matches(":modal"),
     };
   }, {
     destination:
-      `${origin}/case?case=focused-input-selection-insert&mode=navigation&phase=incoming`,
+      `${origin}/case?case=dialog-modal-insert&mode=navigation&phase=incoming`,
   });
   expect(result).toEqual({
     refusal: "FADENO_RECONCILIATION_OWNERSHIP",
-    focused: true,
-    disabled: false,
+    connected: true,
+    open: true,
+    modal: true,
   });
 });
 

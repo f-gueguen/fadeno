@@ -374,7 +374,10 @@ function privateTargetOwnsCurrentBrowsingContext(target: string | null): boolean
 
 function dirtyControl(control: Element): boolean {
   if (control instanceof HTMLInputElement) {
-    if (["checkbox", "radio"].includes(control.type)) return control.checked !== control.defaultChecked;
+    if (control.type === "checkbox") {
+      return control.indeterminate || control.checked !== control.defaultChecked;
+    }
+    if (control.type === "radio") return control.checked !== control.defaultChecked;
     if (["button", "submit", "reset", "image", "hidden"].includes(control.type)) return false;
     return control.value !== control.defaultValue;
   }

@@ -469,6 +469,36 @@ function dirtyRadioGroup(tree: CollectedTree, owner: HTMLInputElement): boolean 
   );
 }
 
+function sameRadioGroup(
+  currentTree: CollectedTree,
+  currentRadio: HTMLInputElement,
+  incomingTree: CollectedTree,
+  incomingRadio: HTMLInputElement,
+): boolean {
+  if (currentRadio.name !== incomingRadio.name) return false;
+  const currentForm = currentRadio.form;
+  const incomingForm = incomingRadio.form;
+  if (currentForm === null || incomingForm === null) {
+    return currentForm === null && incomingForm === null;
+  }
+  const currentFormIdentity = currentTree.identityByElement.get(currentForm);
+  return currentFormIdentity !== undefined
+    && currentFormIdentity === incomingTree.identityByElement.get(incomingForm);
+}
+
+function joinsDirtyRadioGroup(
+  currentTree: CollectedTree,
+  incomingTree: CollectedTree,
+  incomingRadio: HTMLInputElement,
+): boolean {
+  return currentTree.elements.some((element) =>
+    element instanceof HTMLInputElement
+    && element.type === "radio"
+    && sameRadioGroup(currentTree, element, incomingTree, incomingRadio)
+    && element.checked !== element.defaultChecked
+  );
+}
+
 function dirtySelect(owner: HTMLSelectElement): boolean {
   return Array.from(owner.options).some(({ selected, defaultSelected }) =>
     selected !== defaultSelected
@@ -679,6 +709,12 @@ export function preparePrivateDocumentReconciliation(
       if (documentIdentities.has(identity) || incomingElement.localName === opaqueElementName) {
         refuse("FADENO_RECONCILIATION_OWNERSHIP");
       }
+      if (incomingElement instanceof HTMLInputElement
+        && incomingElement.type === "radio"
+        && incomingElement.hasAttribute("checked")
+        && joinsDirtyRadioGroup(current, incoming, incomingElement)) {
+        refuse("FADENO_RECONCILIATION_OWNERSHIP");
+      }
       continue;
     }
     if (elementName(currentElement) !== elementName(incomingElement)
@@ -697,6 +733,12 @@ export function preparePrivateDocumentReconciliation(
         && (currentElement.hasAttribute("checked")
           !== incomingElement.hasAttribute("checked")
           || currentElement.getAttribute("name") !== incomingElement.getAttribute("name"))) {
+        refuse("FADENO_RECONCILIATION_OWNERSHIP");
+      }
+      if (currentElement instanceof HTMLInputElement
+        && currentType === "text"
+        && currentDocument.activeElement === currentElement
+        && currentElement.getAttribute("value") !== incomingElement.getAttribute("value")) {
         refuse("FADENO_RECONCILIATION_OWNERSHIP");
       }
     }
@@ -730,6 +772,15 @@ export function preparePrivateDocumentReconciliation(
       : stateOwnedLeafContent(currentElement)
         && currentElement.innerHTML !== incomingElement.innerHTML) {
       refuse("FADENO_RECONCILIATION_CONTENT");
+    }
+  }
+
+  for (const currentElement of current.elements) {
+    const identity = current.identityByElement.get(currentElement)
+      ?? refuse("FADENO_RECONCILIATION_OWNERSHIP");
+    if (!incoming.identities.has(identity)
+      && ownsBrowserState(currentDocument, currentElement)) {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
   }
 
