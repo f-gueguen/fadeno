@@ -714,7 +714,7 @@ export function privateLinkPreservationSafe(
   if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
   const reconciliationOwners: Node[] = [
     ...[...document.querySelectorAll("input, textarea, select")].filter(dirtyControl),
-    ...document.querySelectorAll("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
+    ...document.querySelectorAll("details[open], dialog[open], audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
   ];
   try {
     const popover = document.querySelector(":popover-open");
@@ -789,6 +789,7 @@ function documentReconciliation(
   next: Document,
   required: boolean,
 ): PrivateReconciliationTransaction | undefined {
+  if (!required && scrollX === 0 && scrollY === 0) return undefined;
   try {
     return preparePrivateDocumentReconciliation(document, next);
   } catch (cause) {
@@ -1920,6 +1921,10 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
     preservationSafe: () => boolean = () => privateLinkPreservationSafe(initiator, { allowDocumentScroll: true }),
     recoverCancelledMutation?: PrivateMutationRecovery,
     recoverCurrentTruthNatively?: PrivateMutationRecovery,
+    reconciliationRequired: () => boolean = () => !privateLinkPreservationSafe(initiator, {
+      allowDocumentScroll: true,
+      allowReconciliation: false,
+    }),
   ): Promise<void> => {
     if (active?.kind === "mutation") return;
     const inheritedMutationRecovery = active?.recoverCancelledMutation;
@@ -2030,10 +2035,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       if (!next) throw new TypeError("FADENO_UPDATE_DOCUMENT_SHELL");
       const reconciliation = documentReconciliation(
         next,
-        !privateLinkPreservationSafe(initiator, {
-          allowDocumentScroll: true,
-          allowReconciliation: false,
-        }),
+        reconciliationRequired(),
       );
       if (!initiator && selectedHistoryState) {
         if (scrollX !== 0 || scrollY !== 0 || pendingElementScroll || liveElementScroll()) {
@@ -2215,6 +2217,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
         selectedState,
         preservationSafe,
         recoverAgain,
+        undefined,
+        () => !privateFormPreservationSafe(eligibility, {
+          allowDocumentScroll: true,
+          allowReconciliation: false,
+        }),
       );
     }, 0);
   };
@@ -2365,6 +2372,11 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             sourceState,
             handoffPreservationSafe,
             recoverCancelledMutation,
+            undefined,
+            () => !privateFormPreservationSafe(eligibility, {
+              allowDocumentScroll: true,
+              allowReconciliation: false,
+            }),
           );
           return;
         }

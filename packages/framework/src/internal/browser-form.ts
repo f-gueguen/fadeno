@@ -250,7 +250,7 @@ export function privateFormPreservationSafe(
   const reconciliationOwners: Node[] = [
     ...[...document.querySelectorAll("input, textarea, select")]
       .filter((control) => controlOwner(control) !== eligibility.form && dirtyControl(control)),
-    ...document.querySelectorAll("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
+    ...document.querySelectorAll("details[open], dialog[open], audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
   ];
   try {
     const popover = document.querySelector(":popover-open");
