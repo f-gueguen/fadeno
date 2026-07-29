@@ -808,7 +808,10 @@ function replaceAttributes(target: Element, source: Element): void {
 }
 
 function focusNewDocument(): HTMLElement {
-  const target = document.querySelector<HTMLElement>("h1") ?? document.querySelector<HTMLElement>("main") ?? document.body;
+  const target = document.querySelector<HTMLElement>("dialog:modal")
+    ?? document.querySelector<HTMLElement>("h1")
+    ?? document.querySelector<HTMLElement>("main")
+    ?? document.body;
   if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
   target.setAttribute("data-fadeno-navigation-focus", "");
   target.focus({ preventScroll: true });
@@ -873,6 +876,7 @@ function applyDocument(
     push(state: Readonly<Record<string, unknown>>, url: string): void;
   }>,
   oldFocusedNode: HTMLElement | undefined,
+  preserveFocusedNode: boolean,
   reconciliation?: PrivateReconciliationTransaction,
 ): void {
   const expectedMetadata = metadata(next);
@@ -928,7 +932,8 @@ function applyDocument(
     document.head.replaceChildren(...[...next.head.childNodes].map((node) => document.importNode(node, true)));
     if (reconciliation) reconciliation.commit();
     else document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
-    const destinationFocus = reconciliation?.preservesActiveElement
+    const destinationFocus = preserveFocusedNode
+      && reconciliation?.preservesActiveElement
       && oldFocusedNode?.isConnected
       && document.activeElement === oldFocusedNode
       ? oldFocusedNode
@@ -2073,6 +2078,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
           writeHistory,
           operationFocusedNode,
+          operationFocusedNode !== initiator,
           reconciliation,
         );
       } finally {
@@ -2480,6 +2486,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
           writeHistory,
           operationFocusedNode,
+          true,
           reconciliation,
         );
       } finally {

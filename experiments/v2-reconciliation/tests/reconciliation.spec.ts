@@ -569,6 +569,71 @@ test("revalidates the prepared tree after history selection", async ({ page }) =
   expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
 });
 
+test("refuses focus drift introduced during history selection", async ({ page }) => {
+  await page.addInitScript(() => {
+    const pushState = History.prototype.pushState;
+    History.prototype.pushState = function (
+      data: unknown,
+      unused: string,
+      url?: string | URL | null,
+    ): void {
+      pushState.call(this, data, unused, url);
+      const input = document.querySelector("#dirty-text");
+      if (input instanceof HTMLInputElement) input.focus();
+    };
+  });
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-text").fill("client-dirty");
+  await page.locator("#dirty-text").evaluate((element) => {
+    Reflect.set(globalThis, "__fadenoOriginalTarget", element);
+  });
+  await page.locator("#reconciliation-link").focus();
+  requests.length = 0;
+
+  await page.locator("#reconciliation-link").press("Enter");
+
+  await expect(page.locator("#root")).toHaveClass("after");
+  expect(await page.locator("#dirty-text").evaluate(
+    (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
+  )).toBe(false);
+  expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
+  expect(requests.some(({ method, privateUpdate }) =>
+    method === "GET" && !privateUpdate
+  )).toBe(true);
+});
+
+test("moves keyboard link focus to the reconciled destination", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-text").fill("client-dirty");
+  await page.locator("#dirty-text").evaluate((element) => {
+    Reflect.set(globalThis, "__fadenoOriginalTarget", element);
+  });
+  await page.locator("#reconciliation-link").focus();
+  requests.length = 0;
+
+  await page.locator("#reconciliation-link").press("Enter");
+
+  await expect(page.locator("#root")).toHaveClass("after");
+  await expect(page.locator("#dirty-text")).toHaveValue("client-dirty");
+  expect(await page.locator("#dirty-text").evaluate(
+    (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
+  )).toBe(true);
+  expect(await page.locator("#root").evaluate((element) => ({
+    focused: document.activeElement === element,
+    focusOwner: element.getAttribute("data-fadeno-navigation-focus"),
+  }))).toEqual({
+    focused: true,
+    focusOwner: "",
+  });
+  expect(requests.filter(({ privateUpdate }) => privateUpdate)).toHaveLength(1);
+});
+
 test("preserves focus inside one reused opaque island", async ({ page }) => {
   await page.goto(
     `${origin}/case?case=island-identity-remove&mode=navigation&phase=current`,
@@ -588,6 +653,22 @@ test("preserves focus inside one reused opaque island", async ({ page }) => {
     if (!currentIsland || !incomingIsland) {
       throw new Error("FADENO_RECONCILIATION_ISLAND");
     }
+    const islandState = globalThis as typeof globalThis & {
+      __fadenoIslandAttributeChanges?: number;
+    };
+    islandState.__fadenoIslandAttributeChanges = 0;
+    if (!customElements.get("fadeno-island")) {
+      customElements.define("fadeno-island", class extends HTMLElement {
+        static get observedAttributes(): string[] {
+          return ["class"];
+        }
+
+        attributeChangedCallback(): void {
+          islandState.__fadenoIslandAttributeChanges =
+            (islandState.__fadenoIslandAttributeChanges ?? 0) + 1;
+        }
+      });
+    }
     const clientMarkup = "<button type=\"button\">Client-owned focus</button>";
     currentIsland.innerHTML = clientMarkup;
     incomingIsland.innerHTML = clientMarkup;
@@ -606,6 +687,17 @@ test("preserves focus inside one reused opaque island", async ({ page }) => {
         commit(): unknown;
       };
     };
+    const incompatible = new DOMParser().parseFromString(
+      incoming.documentElement.outerHTML,
+      "text/html",
+    );
+    incompatible.querySelector("#mounted-island")?.setAttribute("class", "after");
+    let attributeRefusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incompatible);
+    } catch (error) {
+      attributeRefusal = error instanceof Error ? error.message : String(error);
+    }
     const transaction = module.preparePrivateDocumentReconciliation(
       document,
       incoming,
@@ -613,6 +705,8 @@ test("preserves focus inside one reused opaque island", async ({ page }) => {
     const preservesActiveElement = transaction.preservesActiveElement;
     transaction.commit();
     return {
+      attributeRefusal,
+      attributeChanges: islandState.__fadenoIslandAttributeChanges,
       preservesActiveElement,
       retainedFocus: document.activeElement === button,
       retainedIsland: document.querySelector("#mounted-island") === currentIsland,
@@ -622,6 +716,8 @@ test("preserves focus inside one reused opaque island", async ({ page }) => {
       `${origin}/case?case=island-identity-remove&mode=navigation&phase=incoming`,
   });
   expect(result).toEqual({
+    attributeRefusal: "FADENO_RECONCILIATION_CONTENT",
+    attributeChanges: 0,
     preservesActiveElement: true,
     retainedFocus: true,
     retainedIsland: true,
@@ -1122,12 +1218,14 @@ test("refuses every claimed hostile production reconciliation boundary", async (
       "record-limit",
       "depth-limit",
       "identity-limit",
+      "derived-identity-limit",
       "script-surface",
       "event-attribute",
       "foreign-namespace",
       "unsupported-control",
       "media-drift",
       "island-drift",
+      "island-attribute-drift",
       "contenteditable-drift",
       "popover-drift",
     ] as const;
@@ -1135,7 +1233,7 @@ test("refuses every claimed hostile production reconciliation boundary", async (
     for (const name of cases) {
       const sourceCase = name === "media-drift"
         ? "media-playing-insert"
-        : name === "island-drift"
+        : name === "island-drift" || name === "island-attribute-drift"
           ? "island-identity-remove"
           : name === "contenteditable-drift"
             ? "focused-contenteditable-caret-reorder"
@@ -1196,6 +1294,20 @@ test("refuses every claimed hostile production reconciliation boundary", async (
             "x".repeat(129),
           );
           break;
+        case "derived-identity-limit":
+          for (const [owner, root] of [
+            [current, currentRoot],
+            [incoming, incomingRoot],
+          ] as const) {
+            const form = owner.createElement("form");
+            form.id = "x".repeat(128);
+            const proof = owner.createElement("input");
+            proof.type = "hidden";
+            proof.name = "__fadeno_proof";
+            form.append(proof);
+            root.append(form);
+          }
+          break;
         case "script-surface": {
           const script = incoming.createElement("script");
           script.id = "hostile-script";
@@ -1228,6 +1340,12 @@ test("refuses every claimed hostile production reconciliation boundary", async (
           if (island) island.innerHTML = "changed-client-owner";
           break;
         }
+        case "island-attribute-drift":
+          incoming.querySelector("#mounted-island")?.setAttribute(
+            "class",
+            "server-owned-change",
+          );
+          break;
         case "contenteditable-drift":
           incoming.querySelector("#focused-editor")?.removeAttribute(
             "contenteditable",
@@ -1255,12 +1373,14 @@ test("refuses every claimed hostile production reconciliation boundary", async (
     { name: "record-limit", code: "FADENO_RECONCILIATION_LIMIT" },
     { name: "depth-limit", code: "FADENO_RECONCILIATION_LIMIT" },
     { name: "identity-limit", code: "FADENO_RECONCILIATION_IDENTITY" },
+    { name: "derived-identity-limit", code: "FADENO_RECONCILIATION_IDENTITY" },
     { name: "script-surface", code: "FADENO_RECONCILIATION_SURFACE" },
     { name: "event-attribute", code: "FADENO_RECONCILIATION_SURFACE" },
     { name: "foreign-namespace", code: "FADENO_RECONCILIATION_SURFACE" },
     { name: "unsupported-control", code: "FADENO_RECONCILIATION_SURFACE" },
     { name: "media-drift", code: "FADENO_RECONCILIATION_CONTENT" },
     { name: "island-drift", code: "FADENO_RECONCILIATION_CONTENT" },
+    { name: "island-attribute-drift", code: "FADENO_RECONCILIATION_CONTENT" },
     { name: "contenteditable-drift", code: "FADENO_RECONCILIATION_OWNERSHIP" },
     { name: "popover-drift", code: "FADENO_RECONCILIATION_OWNERSHIP" },
   ]);

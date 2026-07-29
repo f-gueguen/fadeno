@@ -175,7 +175,12 @@ function frameworkProofIdentity(element: Element, parentIdentity: string | null)
     || element.getAttribute("type")?.toLowerCase() !== "hidden"
     || element.getAttribute("name") !== frameworkProofFieldName
     || element.parentElement?.localName !== "form") return undefined;
-  return `${frameworkProofIdentityPrefix}${parentIdentity}`;
+  const identity = `${frameworkProofIdentityPrefix}${parentIdentity}`;
+  if (encoder.encode(identity).byteLength
+    > PRIVATE_RECONCILIATION_LIMITS.maximumIdentityBytes) {
+    refuse("FADENO_RECONCILIATION_IDENTITY");
+  }
+  return identity;
 }
 
 function elementName(element: Element): string {
@@ -769,6 +774,7 @@ export function preparePrivateDocumentReconciliation(
     }
     if (currentElement.localName === opaqueElementName
       ? currentElement.innerHTML !== incomingElement.innerHTML
+        || !sameAttributes(currentElement, attributes(incomingElement))
       : stateOwnedLeafContent(currentElement)
         && currentElement.innerHTML !== incomingElement.innerHTML) {
       refuse("FADENO_RECONCILIATION_CONTENT");
@@ -925,7 +931,7 @@ export function preparePrivateDocumentReconciliation(
     }
   };
   const commit = (): PrivateReconciliationResult => {
-    if (state !== "prepared") {
+    if (state !== "prepared" || currentDocument.activeElement !== active) {
       refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
     state = "applied";

@@ -44,7 +44,8 @@ root when both roots have the same unique, nonempty standard `id`. Every element
 inside that root must also have a unique, nonempty standard `id`, except for the
 renderer-owned hidden action-proof input. That one generated control receives
 an internal identity derived from its uniquely identified parent form and exact
-reserved field name; applications cannot author that reserved field. Current
+reserved field name; the complete derived identity remains inside the same
+byte limit, and applications cannot author that reserved field. Current
 standard identities must be unique across the complete current document, and
 incoming identities must be unique within the inert incoming root. Position is
 never an identity fallback.
@@ -73,9 +74,10 @@ network owner; reconciliation still accepts only bounded WAV data sources.
 
 For a shared identity, current and incoming namespace, local name, parent
 identity, state-owned content, input type, media source, and opaque future
-island content must satisfy the bounded equality rules. The current node is
-then reused. Incoming-only identities create inert same-kind nodes, and
-current-only identities are removed.
+island content and attributes must satisfy the bounded equality rules. The
+current node is then reused. Incoming-only identities create inert same-kind
+nodes, and current-only identities are removed only when disconnecting them
+cannot disturb browser- or application-owned state.
 
 The reconciler owns an explicit private declared-replacement set for
 same-identity leaf controls. That set is supplied only by framework-owned
@@ -101,13 +103,17 @@ existing document commit then owns history selection, document metadata, head
 and shell updates, structural commit, focus choice, top-scroll postcondition,
 and result publication as one operation.
 
-When the active element is a reused node, reconciliation retains that exact
-focus owner and any selection or caret naturally attached to it. Otherwise the
-existing destination-heading focus rule applies. Any write or postcondition
-failure restores the prior attributes, text, child order, shell, history
-selection, focus, selection, and scroll as far as the bounded current document
-permits, then enters the existing native recovery path. An uncertain committed
-mutation reloads current server truth and never repeats the POST.
+When the active element is a reused node and is not the activated link,
+reconciliation retains that exact focus owner and any selection or caret
+naturally attached to it. An activated link releases focus to the destination.
+The destination heading or main remains the normal target; a retained modal
+dialog becomes the target when its top-layer ownership makes outside focus
+invalid. Focus ownership is rechecked after history selection and before any
+DOM write. Any write or postcondition failure restores the prior attributes,
+text, child order, shell, history selection, focus, selection, and scroll as
+far as the bounded current document permits, then enters the existing native
+recovery path. An uncertain committed mutation reloads current server truth
+and never repeats the POST.
 
 ### Eligibility and scroll
 
