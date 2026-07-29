@@ -6,73 +6,47 @@ ledger; Git history records completed work.
 
 ## Current slice
 
-V2-07 — complete enhanced action redirects, revalidation, ordering, and recovery
+V2-07A — integrate the enhanced workflow into the evaluator demonstration
 
 ## Exit criteria
 
-- [x] Accept one durable action-ordering decision that retains the native route,
-  resource, action, authorization, proof, replay, session, redirect, and
-  revalidation owners.
-- [x] Complete enhanced redirect, expected-error, validation, and
-  current-server-truth outcomes without repeating a committed mutation.
-- [x] Prove complete revalidation and authenticated CRUD ordering for every
-  boundary that is safe before V2-08 structural reconciliation.
-- [x] Suppress stale, duplicate, delayed, permuted, cancelled, and superseded
-  results through protocol-selected ordering and recovery.
-- [x] Refuse before action interception when an unsafe preservation boundary
-  would require V2-08 reconciliation.
-- [x] Extend the isolated current-packed scenario with authenticated CRUD
-  success, failure, correction, flow, recovery, ordering, and native-baseline
-  evidence; retain canonical evaluator integration as the blocking V2-07A
-  owner before V2-08.
-- [x] Add exactly one pending minor Changeset, pass every affected gate and full
-  local CI on the final commit, and complete remote review triage.
+- [ ] Add one guided route, resource, action, refusal, and recovery walkthrough
+  to the canonical evaluator application without exposing private telemetry.
+- [ ] Derive visible native, enhanced, and refused labels only from public
+  application and browser behavior.
+- [ ] Prove the current packed package and canonical application start from a
+  clean checkout through one documented HTTPS command.
+- [ ] Retain the complete no-JavaScript path and state the exact pre-V2-08
+  preservation limits beside the enhanced workflow.
+- [ ] Add permanent Chromium, Firefox, and WebKit desktop/mobile, keyboard,
+  focus, success, failure, correction, flow, refusal, and recovery evidence.
+- [ ] Pass documentation/source and public-claim audits,
+  `pnpm check:v2-demo-experience`, and full local CI on the final commit.
+- [ ] Declare no package release impact, complete remote review triage, merge,
+  and clean the branch before V2-08.
 
 ## Active sub-slice
 
-V2-07 completes action outcome ordering through the existing explicit browser
-runtime and private server-owned update transport. It does not add a second
-action API, public protocol, public analyzer schema, optimistic mutation, or
-general reconciliation claim. Release impact: additive prerelease behavior;
-exactly one pending minor Changeset is required.
+V2-07A integrates the already accepted link and form behavior into one
+developer-facing, application-owned walkthrough. It changes examples,
+qualification, and documentation only: no framework package behavior, public
+API, public protocol, public analyzer schema, or general reconciliation claim
+is added. Release impact: none; no Changeset is required.
 
 ## In progress
 
-- Record exact redirect, expected-error, revalidation, late-result, and
-  current-truth recovery ordering.
-- Implement and qualify authenticated CRUD enhancement only where the current
-  conservative preservation predicate can prove pre-interception safety.
-- Close exact-commit review findings for handoff edits and caret selection,
-  pending-owner isolation, superseding recovery, native fallback, file
-  identity, direct and redirect-chain same-resource fragment teardown,
-  redirect-GET result consumption, and selected/unsafe traversal recovery,
-  including prevented native activation, history-stage failure, native
-  fragment history and same-hash behavior, request-privacy refusal, single
-  successful-control construction, inherited GET-form push rollback,
-  synchronous cancelled-reload teardown recovery, structural control/option
-  and inherited-disabled handoff refusal, late submit-listener destination
-  capture, pre-serialization unsafe-destination refusal, propagation-stopped
-  submit recovery, cancelled pushed-fragment rollback before current-truth
-  recovery, failed-push direct repair, frozen handoff preservation through
-  recovery, late target finalization into current or separate contexts,
-  empty-fragment delimiter reload, already-cancelled submit recovery,
-  recovery-GET supersession continuity, cross-document privacy ownership,
-  already-cancelled and initially external link recovery, external-context form
-  privacy ownership, stopped-submit destination observation, bounded control
-  ancestry, final dialog-method handling, failed-repair native replacement, and
-  obsolete policy-owned operation cancellation; then close the final review
-  boundary with pre-serialization handoff record/byte/control limits,
-  browser-owned image submitters, post-listener `FormData` derivation,
-  post-default observer cleanup, middle-button opener recovery, traversal
-  repair-write native replacement, and a no-timeout refusal contract for
-  observable unenhanceable same-context departures in permanent three-browser
-  evidence before merge.
+- Build the guided request-thread sequence around public application outcomes
+  and the existing explicit browser facade.
+- Add example-owned source/explanation context that helps developers connect
+  visible controls to tracked source without publishing private records.
+- Replace the current alias gate with a V2-07A-specific clean packed consumer
+  and three-engine experience check.
+- Source permanent human and normalized machine evidence from those executed
+  files, then align the evaluator guide and canonical application README.
 
 ## Blockers
 
-- V2-07A remains blocked until V2-07 proves complete action ordering,
-  revalidation, late-result suppression, and non-repeating recovery.
-- V2-08 handoff remains blocked until V2-07A integrates that accepted action
+- V2-08 remains blocked until V2-07A integrates the accepted action
   path into the current-packed evaluator workflow and proves its clean-checkout
   setup without overstating private or pre-reconciliation behavior.
 - Independent newcomer usability remains deferred and must not be claimed by
@@ -84,6 +58,12 @@ exactly one pending minor Changeset is required.
   compatibility decision.
 
 ## Completed slices
+
+- V2-07 — Merge commit `d4a6085` accepts ADR 0052 and completes enhanced
+  authenticated CRUD, action redirect, revalidation, current-truth recovery,
+  late-result suppression, conservative handoff refusal, and non-repeating
+  mutation evidence across Chromium, Firefox, and WebKit without adding a
+  second action API, public protocol, analyzer schema, or reconciliation claim.
 
 - V2-06 — Merge commit `dac001d` accepts ADR 0051 and adds conservative GET
   and protected POST form enhancement, exact successful-control delivery,
