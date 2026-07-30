@@ -38,6 +38,7 @@ function document(request: Request): RenderChild {
   const url = new URL(request.url);
   const caseId = url.searchParams.get("case") ?? "dirty-text-insert";
   const mode = url.searchParams.get("mode") ?? "navigation";
+  const initialOpen = url.searchParams.get("initial-open") === "true";
   const phase = url.searchParams.get("phase") === "incoming"
     || (mode === "action" && actionOutcomes.has(caseId))
     ? "incoming"
@@ -46,10 +47,23 @@ function document(request: Request): RenderChild {
   if (!scenario || (mode !== "navigation" && mode !== "action")) {
     throw new TypeError("FADENO_RECONCILIATION_EXAMPLE_INPUT");
   }
-  const destination = `/case?case=${encodeURIComponent(caseId)}&mode=${mode}&phase=incoming`;
-  const scenarioMarkup = phase === "incoming"
+  const destination = `/case?case=${encodeURIComponent(caseId)}&mode=${mode}&phase=incoming${
+    initialOpen ? "&initial-open=true" : ""
+  }`;
+  const baseScenarioMarkup = phase === "incoming"
     ? scenario.incomingChildren
     : scenario.currentChildren;
+  const scenarioMarkup = initialOpen && scenario.state === "details-open"
+    ? baseScenarioMarkup.replace(
+        '<details id="open-details">',
+        '<details id="open-details" open>',
+      )
+    : initialOpen && scenario.state === "dialog-nonmodal"
+      ? baseScenarioMarkup.replace(
+          '<dialog id="nonmodal-dialog">',
+          '<dialog id="nonmodal-dialog" open>',
+        )
+      : baseScenarioMarkup;
   const drivenScenarioMarkup = scenario.state === "dialog-modal"
     ? scenarioMarkup.replace(
         '<dialog id="modal-dialog">Modal content</dialog>',

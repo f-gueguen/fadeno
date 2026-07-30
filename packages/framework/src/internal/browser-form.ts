@@ -1,4 +1,7 @@
-import { privateCurrentDocumentReconciliationSafe } from "./browser-reconciliation.ts";
+import {
+  privateCurrentDocumentReconciliationSafe,
+  privateDisclosureStateOwners,
+} from "./browser-reconciliation.ts";
 
 const generatedActionPrefix = "/.fadeno/actions/v1/";
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
@@ -253,7 +256,8 @@ export function privateFormPreservationSafe(
   const reconciliationOwners: Node[] = [
     ...[...document.querySelectorAll("input, textarea, select")]
       .filter((control) => controlOwner(control) !== eligibility.form && dirtyControl(control)),
-    ...document.querySelectorAll("details, dialog, audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
+    ...privateDisclosureStateOwners(document),
+    ...document.querySelectorAll("audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
   ];
   try {
     const popover = document.querySelector(":popover-open");

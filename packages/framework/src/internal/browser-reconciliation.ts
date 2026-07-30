@@ -62,8 +62,10 @@ type LiveControlSnapshot = readonly (
     kind: "input";
     element: HTMLInputElement;
     value: string | null;
+    files: readonly File[] | null;
     checked: boolean;
     indeterminate: boolean;
+    selection: ControlSelectionSnapshot | null;
   }>
   | Readonly<{
     kind: "select";
@@ -75,6 +77,51 @@ type LiveControlSnapshot = readonly (
     kind: "textarea";
     element: HTMLTextAreaElement;
     value: string;
+    selection: ControlSelectionSnapshot | null;
+  }>
+)[];
+
+type ControlSelectionSnapshot = Readonly<{
+  direction: "backward" | "forward" | "none" | null;
+  end: number;
+  start: number;
+}>;
+
+type DocumentSelectionSnapshot = Readonly<{
+  anchorNode: Node | null;
+  anchorOffset: number;
+  focusNode: Node | null;
+  focusOffset: number;
+  ranges: readonly Readonly<{
+    endContainer: Node;
+    endOffset: number;
+    startContainer: Node;
+    startOffset: number;
+  }>[];
+}>;
+
+type LiveOwnerSnapshot = readonly (
+  | Readonly<{
+    kind: "details";
+    element: HTMLDetailsElement;
+    open: boolean;
+  }>
+  | Readonly<{
+    kind: "dialog";
+    element: HTMLDialogElement;
+    modal: boolean;
+    open: boolean;
+  }>
+  | Readonly<{
+    kind: "popover";
+    element: HTMLElement;
+    open: boolean;
+  }>
+  | Readonly<{
+    kind: "media";
+    element: HTMLMediaElement;
+    paused: boolean;
+    playbackRate: number;
   }>
 )[];
 
@@ -95,11 +142,20 @@ type StructurePlan = Readonly<{
   originalChildren: readonly Element[];
 }>;
 
+type StructureSnapshot = Readonly<{
+  parent: Element;
+  originalChildren: readonly Element[];
+}>;
+
 const encoder = new TextEncoder();
 const htmlNamespace = "http://www.w3.org/1999/xhtml";
 const opaqueElementName = "fadeno-island";
 const frameworkProofFieldName = "__fadeno_proof";
 const frameworkProofIdentityPrefix = "\u0000fadeno-proof:";
+const initialDisclosureState = new WeakMap<
+  HTMLDetailsElement | HTMLDialogElement,
+  boolean
+>();
 const supportedDescendantNames = new Set([
   "a",
   "audio",
@@ -447,10 +503,13 @@ function selectionIntersects(
 ): boolean {
   const selection = document_.getSelection();
   if (!selection || (requireNonCollapsed && selection.isCollapsed)) return false;
-  return Boolean(
-    (selection.anchorNode && element.contains(selection.anchorNode))
-    || (selection.focusNode && element.contains(selection.focusNode)),
-  );
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    try {
+      if (selection.getRangeAt(index).intersectsNode(element)) return true;
+    } catch { /* detached or unsupported range falls back to endpoint ownership */ }
+  }
+  return Boolean((selection.anchorNode && element.contains(selection.anchorNode))
+    || (selection.focusNode && element.contains(selection.focusNode)));
 }
 
 function ownsOpenPopover(element: Element): boolean {
@@ -543,6 +602,36 @@ function directlyMovedChildren(plan: StructurePlan): readonly Element[] {
   return Object.freeze(moved);
 }
 
+function controlSelection(
+  element: HTMLInputElement | HTMLTextAreaElement,
+): ControlSelectionSnapshot | null {
+  try {
+    const start = element.selectionStart;
+    const end = element.selectionEnd;
+    if (start === null || end === null) return null;
+    return Object.freeze({
+      direction: element.selectionDirection,
+      end,
+      start,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function sameControlSelection(
+  element: HTMLInputElement | HTMLTextAreaElement,
+  expected: ControlSelectionSnapshot | null,
+): boolean {
+  const current = controlSelection(element);
+  return current === null
+    ? expected === null
+    : expected !== null
+      && current.start === expected.start
+      && current.end === expected.end
+      && current.direction === expected.direction;
+}
+
 function snapshotLiveControls(tree: CollectedTree): LiveControlSnapshot {
   const snapshot: Array<LiveControlSnapshot[number]> = [];
   for (const element of tree.elements) {
@@ -551,8 +640,12 @@ function snapshotLiveControls(tree: CollectedTree): LiveControlSnapshot {
         kind: "input",
         element,
         value: element.type === "file" ? null : element.value,
+        files: element.type === "file"
+          ? Object.freeze(Array.from(element.files ?? []))
+          : null,
         checked: element.checked,
         indeterminate: element.indeterminate,
+        selection: controlSelection(element),
       }));
     } else if (element instanceof HTMLSelectElement) {
       snapshot.push(Object.freeze({
@@ -566,13 +659,29 @@ function snapshotLiveControls(tree: CollectedTree): LiveControlSnapshot {
         kind: "textarea",
         element,
         value: element.value,
+        selection: controlSelection(element),
       }));
     }
   }
   return Object.freeze(snapshot);
 }
 
+function sameFiles(element: HTMLInputElement, expected: readonly File[] | null): boolean {
+  if (expected === null) return true;
+  const current = Array.from(element.files ?? []);
+  return current.length === expected.length
+    && current.every((file, index) => file === expected[index]);
+}
+
+function restoreFiles(element: HTMLInputElement, expected: readonly File[]): void {
+  if (sameFiles(element, expected)) return;
+  const transfer = new DataTransfer();
+  for (const file of expected) transfer.items.add(file);
+  element.files = transfer.files;
+}
+
 function restoreLiveControls(snapshot: LiveControlSnapshot): void {
+  if (sameLiveControls(snapshot)) return;
   for (const entry of snapshot) {
     if (entry.kind === "input" && entry.element.type === "radio") {
       entry.element.checked = false;
@@ -580,18 +689,48 @@ function restoreLiveControls(snapshot: LiveControlSnapshot): void {
   }
   for (const entry of snapshot) {
     if (entry.kind === "input") {
-      if (entry.value !== null) entry.element.value = entry.value;
-      if (entry.element.type !== "radio") entry.element.checked = entry.checked;
-      entry.element.indeterminate = entry.indeterminate;
+      if (entry.value !== null && entry.element.value !== entry.value) {
+        entry.element.value = entry.value;
+      }
+      if (entry.files !== null) restoreFiles(entry.element, entry.files);
+      if (entry.element.type !== "radio"
+        && entry.element.checked !== entry.checked) {
+        entry.element.checked = entry.checked;
+      }
+      if (entry.element.indeterminate !== entry.indeterminate) {
+        entry.element.indeterminate = entry.indeterminate;
+      }
+      if (!sameControlSelection(entry.element, entry.selection)
+        && entry.selection !== null) {
+        entry.element.setSelectionRange(
+          entry.selection.start,
+          entry.selection.end,
+          entry.selection.direction ?? undefined,
+        );
+      }
     } else if (entry.kind === "textarea") {
-      entry.element.value = entry.value;
+      if (entry.element.value !== entry.value) entry.element.value = entry.value;
+      if (!sameControlSelection(entry.element, entry.selection)
+        && entry.selection !== null) {
+        entry.element.setSelectionRange(
+          entry.selection.start,
+          entry.selection.end,
+          entry.selection.direction ?? undefined,
+        );
+      }
     } else {
-      for (const option of entry.element.options) option.selected = false;
-      entry.selected.forEach((selected, index) => {
-        const option = entry.element.options.item(index);
-        if (option) option.selected = selected;
-      });
-      entry.element.selectedIndex = entry.selectedIndex;
+      const sameOptions = entry.element.options.length === entry.selected.length
+        && entry.selected.every((selected, index) =>
+          entry.element.options.item(index)?.selected === selected
+        );
+      if (!sameOptions || entry.element.selectedIndex !== entry.selectedIndex) {
+        for (const option of entry.element.options) option.selected = false;
+        entry.selected.forEach((selected, index) => {
+          const option = entry.element.options.item(index);
+          if (option) option.selected = selected;
+        });
+        entry.element.selectedIndex = entry.selectedIndex;
+      }
     }
   }
   for (const entry of snapshot) {
@@ -605,16 +744,187 @@ function sameLiveControls(snapshot: LiveControlSnapshot): boolean {
   return snapshot.every((entry) => {
     if (entry.kind === "input") {
       return (entry.value === null || entry.element.value === entry.value)
+        && sameFiles(entry.element, entry.files)
         && entry.element.checked === entry.checked
-        && entry.element.indeterminate === entry.indeterminate;
+        && entry.element.indeterminate === entry.indeterminate
+        && sameControlSelection(entry.element, entry.selection);
     }
-    if (entry.kind === "textarea") return entry.element.value === entry.value;
+    if (entry.kind === "textarea") {
+      return entry.element.value === entry.value
+        && sameControlSelection(entry.element, entry.selection);
+    }
     return entry.element.options.length === entry.selected.length
       && entry.element.selectedIndex === entry.selectedIndex
       && entry.selected.every((selected, index) =>
         entry.element.options.item(index)?.selected === selected
       );
   });
+}
+
+function snapshotDocumentSelection(document_: Document): DocumentSelectionSnapshot {
+  const selection = document_.getSelection();
+  const ranges: Array<DocumentSelectionSnapshot["ranges"][number]> = [];
+  if (selection) {
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+      const range = selection.getRangeAt(index);
+      ranges.push(Object.freeze({
+        endContainer: range.endContainer,
+        endOffset: range.endOffset,
+        startContainer: range.startContainer,
+        startOffset: range.startOffset,
+      }));
+    }
+  }
+  return Object.freeze({
+    anchorNode: selection?.anchorNode ?? null,
+    anchorOffset: selection?.anchorOffset ?? 0,
+    focusNode: selection?.focusNode ?? null,
+    focusOffset: selection?.focusOffset ?? 0,
+    ranges: Object.freeze(ranges),
+  });
+}
+
+function sameDocumentSelection(
+  document_: Document,
+  expected: DocumentSelectionSnapshot,
+): boolean {
+  const current = document_.getSelection();
+  if (!current) {
+    return expected.anchorNode === null
+      && expected.focusNode === null
+      && expected.ranges.length === 0;
+  }
+  if (current.anchorNode !== expected.anchorNode
+    || current.anchorOffset !== expected.anchorOffset
+    || current.focusNode !== expected.focusNode
+    || current.focusOffset !== expected.focusOffset
+    || current.rangeCount !== expected.ranges.length) {
+    return false;
+  }
+  return expected.ranges.every((range, index) => {
+    const received = current.getRangeAt(index);
+    return received.startContainer === range.startContainer
+      && received.startOffset === range.startOffset
+      && received.endContainer === range.endContainer
+      && received.endOffset === range.endOffset;
+  });
+}
+
+function restoreDocumentSelection(
+  document_: Document,
+  expected: DocumentSelectionSnapshot,
+): void {
+  if (sameDocumentSelection(document_, expected)) return;
+  const selection = document_.getSelection();
+  if (!selection) return;
+  selection.removeAllRanges();
+  if (expected.anchorNode?.isConnected
+    && expected.focusNode?.isConnected
+    && expected.ranges.length === 1) {
+    selection.setBaseAndExtent(
+      expected.anchorNode,
+      expected.anchorOffset,
+      expected.focusNode,
+      expected.focusOffset,
+    );
+    return;
+  }
+  for (const expectedRange of expected.ranges) {
+    if (!expectedRange.startContainer.isConnected
+      || !expectedRange.endContainer.isConnected) continue;
+    const range = document_.createRange();
+    range.setStart(expectedRange.startContainer, expectedRange.startOffset);
+    range.setEnd(expectedRange.endContainer, expectedRange.endOffset);
+    selection.addRange(range);
+  }
+}
+
+function popoverOpen(element: HTMLElement): boolean {
+  try {
+    return element.matches(":popover-open");
+  } catch {
+    return false;
+  }
+}
+
+function dialogModal(element: HTMLDialogElement): boolean {
+  try {
+    return element.matches(":modal");
+  } catch {
+    return false;
+  }
+}
+
+function snapshotLiveOwners(tree: CollectedTree): LiveOwnerSnapshot {
+  const snapshot: Array<LiveOwnerSnapshot[number]> = [];
+  for (const element of tree.elements) {
+    if (element instanceof HTMLDetailsElement) {
+      snapshot.push(Object.freeze({ kind: "details", element, open: element.open }));
+    } else if (element instanceof HTMLDialogElement) {
+      snapshot.push(Object.freeze({
+        kind: "dialog",
+        element,
+        modal: dialogModal(element),
+        open: element.open,
+      }));
+    } else if (element instanceof HTMLElement && element.hasAttribute("popover")) {
+      snapshot.push(Object.freeze({
+        kind: "popover",
+        element,
+        open: popoverOpen(element),
+      }));
+    } else if (element instanceof HTMLMediaElement) {
+      snapshot.push(Object.freeze({
+        kind: "media",
+        element,
+        paused: element.paused,
+        playbackRate: element.playbackRate,
+      }));
+    }
+  }
+  return Object.freeze(snapshot);
+}
+
+function sameLiveOwners(snapshot: LiveOwnerSnapshot): boolean {
+  return snapshot.every((entry) => {
+    if (entry.kind === "details") return entry.element.open === entry.open;
+    if (entry.kind === "dialog") {
+      return entry.element.open === entry.open
+        && dialogModal(entry.element) === entry.modal;
+    }
+    if (entry.kind === "popover") return popoverOpen(entry.element) === entry.open;
+    return entry.element.paused === entry.paused
+      && entry.element.playbackRate === entry.playbackRate;
+  });
+}
+
+function restoreLiveOwners(snapshot: LiveOwnerSnapshot): void {
+  for (const entry of snapshot) {
+    if (entry.kind === "details") {
+      if (entry.element.open !== entry.open) entry.element.open = entry.open;
+    } else if (entry.kind === "dialog") {
+      const currentModal = dialogModal(entry.element);
+      if (!entry.open) {
+        if (entry.element.open) entry.element.close();
+      } else if (!entry.element.open || currentModal !== entry.modal) {
+        if (entry.element.open) entry.element.close();
+        if (entry.modal) entry.element.showModal();
+        else entry.element.show();
+      }
+    } else if (entry.kind === "popover") {
+      const currentOpen = popoverOpen(entry.element);
+      if (entry.open && !currentOpen) entry.element.showPopover();
+      else if (!entry.open && currentOpen) entry.element.hidePopover();
+    } else {
+      if (entry.element.playbackRate !== entry.playbackRate) {
+        entry.element.playbackRate = entry.playbackRate;
+      }
+      if (entry.paused && !entry.element.paused) entry.element.pause();
+      else if (!entry.paused && entry.element.paused) {
+        void entry.element.play().catch(() => undefined);
+      }
+    }
+  }
 }
 
 function attributes(element: Element): readonly (readonly [string, string])[] {
@@ -679,11 +989,13 @@ function restoreAttributes(snapshot: AttributeSnapshot): void {
     for (const name of element.getAttributeNames()) {
       if (!names.has(name)) element.removeAttribute(name);
     }
-    for (const [name, value] of expected) element.setAttribute(name, value);
+    for (const [name, value] of expected) {
+      if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+    }
   }
 }
 
-function restoreStructure(plans: readonly StructurePlan[]): void {
+function restoreStructure(plans: readonly StructureSnapshot[]): void {
   for (const { parent, originalChildren } of [...plans].reverse()) {
     const original = new Set(originalChildren);
     for (const child of Array.from(parent.children)) {
@@ -709,6 +1021,33 @@ export function privateCurrentDocumentReconciliationSafe(
   } catch {
     return false;
   }
+}
+
+export function recordPrivateDisclosureState(
+  document_: Document = document,
+): void {
+  for (const element of document_.querySelectorAll("details, dialog")) {
+    if ((element instanceof HTMLDetailsElement
+        || element instanceof HTMLDialogElement)
+      && !initialDisclosureState.has(element)) {
+      initialDisclosureState.set(element, element.open);
+    }
+  }
+}
+
+export function privateDisclosureStateOwners(
+  document_: Document = document,
+): readonly (HTMLDetailsElement | HTMLDialogElement)[] {
+  recordPrivateDisclosureState(document_);
+  return Object.freeze(
+    Array.from(document_.querySelectorAll("details, dialog"))
+      .filter((element): element is HTMLDetailsElement | HTMLDialogElement =>
+        (element instanceof HTMLDetailsElement
+          || element instanceof HTMLDialogElement)
+        && (element.open
+          || initialDisclosureState.get(element) !== element.open)
+      ),
+  );
 }
 
 export function preparePrivateDocumentReconciliation(
@@ -929,7 +1268,15 @@ export function preparePrivateDocumentReconciliation(
         content: element.innerHTML,
       })),
   );
+  const structureSnapshot: readonly StructureSnapshot[] = Object.freeze(
+    current.elements.map((parent) => Object.freeze({
+      parent,
+      originalChildren: Object.freeze(Array.from(parent.children)),
+    })),
+  );
   const liveControlSnapshot = snapshotLiveControls(current);
+  const liveOwnerSnapshot = snapshotLiveOwners(current);
+  const documentSelectionSnapshot = snapshotDocumentSelection(currentDocument);
   const textSnapshot = new Map<Element, string>();
   for (const plan of textPlans) {
     const identity = current.identityByElement.get(plan.element);
@@ -958,12 +1305,19 @@ export function preparePrivateDocumentReconciliation(
 
   let state: "prepared" | "applied" | "rolled-back" = "prepared";
   const rollback = (): void => {
-    if (state === "rolled-back" || state === "prepared") return;
+    if (state === "rolled-back") return;
     try {
-      restoreStructure(structurePlans);
+      restoreStructure(structureSnapshot);
       restoreAttributes(attributeSnapshot);
-      for (const [element, text] of textSnapshot) element.textContent = text;
+      for (const { element, content } of contentSnapshot) {
+        if (element.innerHTML !== content) element.innerHTML = content;
+      }
+      for (const [element, text] of textSnapshot) {
+        if (element.textContent !== text) element.textContent = text;
+      }
       restoreLiveControls(liveControlSnapshot);
+      restoreLiveOwners(liveOwnerSnapshot);
+      restoreDocumentSelection(currentDocument, documentSelectionSnapshot);
     } finally {
       state = "rolled-back";
     }
@@ -971,7 +1325,9 @@ export function preparePrivateDocumentReconciliation(
   const validate = (): void => {
     if (state !== "prepared"
       || currentDocument.activeElement !== active
-      || !sameLiveControls(liveControlSnapshot)) {
+      || !sameLiveControls(liveControlSnapshot)
+      || !sameLiveOwners(liveOwnerSnapshot)
+      || !sameDocumentSelection(currentDocument, documentSelectionSnapshot)) {
       refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
     assertPreparedCurrentTree(

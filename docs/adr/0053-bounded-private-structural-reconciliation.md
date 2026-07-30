@@ -109,10 +109,14 @@ reconciliation retains that exact focus owner and any selection or caret
 naturally attached to it. An activated link releases focus to the destination.
 The destination heading or main remains the normal target; a retained modal
 dialog becomes the target when its top-layer ownership makes outside focus
-invalid. Focus ownership, live control properties, and the prepared current
-tree are rechecked after history selection and before any document-shell or
-body write. Closed disclosures and dialogs remain reconciliation owners because
-their missing reflected `open` attribute can itself be user-owned state. Any
+invalid. Focus ownership, selected files, control and document selections,
+disclosure/top-layer state, media play state, live control properties, and the
+prepared current tree are rechecked after history selection and before any
+document-shell or body write. The runtime records initial disclosure and dialog
+state before interaction; open elements and elements whose state differs from
+that baseline remain reconciliation owners, while untouched initially closed
+elements add no preservation cost. Refused prepared work and applied work both
+restore only observed drift; unchanged opaque-island attributes are not replayed. Any
 write or postcondition failure restores the prior attributes, text, child
 order, shell, history selection, focus, selection, and scroll as far as the
 bounded current document permits, then enters the existing native recovery

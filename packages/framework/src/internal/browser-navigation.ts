@@ -14,8 +14,10 @@ import {
   type PrivateFormRequest,
 } from "./browser-form.ts";
 import {
+  privateDisclosureStateOwners,
   preparePrivateDocumentReconciliation,
   privateCurrentDocumentReconciliationSafe,
+  recordPrivateDisclosureState,
   type PrivateReconciliationTransaction,
 } from "./browser-reconciliation.ts";
 
@@ -718,7 +720,8 @@ export function privateLinkPreservationSafe(
   if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
   const reconciliationOwners: Node[] = [
     ...[...document.querySelectorAll("input, textarea, select")].filter(dirtyControl),
-    ...document.querySelectorAll("details, dialog, audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
+    ...privateDisclosureStateOwners(document),
+    ...document.querySelectorAll("audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
   ];
   try {
     const popover = document.querySelector(":popover-open");
@@ -958,6 +961,7 @@ function applyDocument(
       || history.scrollRestoration !== "manual"
       || scrollX !== 0
       || scrollY !== 0) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
+    recordPrivateDisclosureState(document);
   } catch (cause) {
     try {
       try { history.scrollRestoration = "manual"; } catch { /* native fallback will restore ownership */ }
@@ -1000,6 +1004,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       },
     });
   }
+  recordPrivateDisclosureState(document);
   const currentUrl = new URL(location.href);
   const trustworthyLoopback = currentUrl.protocol === "http:"
     && new Set(["127.0.0.1", "localhost", "[::1]"]).has(currentUrl.hostname);
