@@ -452,11 +452,22 @@ function selectionIntersects(
   );
 }
 
+function ownsOpenPopover(element: Element): boolean {
+  try {
+    return element.matches(":popover-open")
+      || element.querySelector(":popover-open") !== null;
+  } catch {
+    return element.matches("[popover]")
+      || element.querySelector("[popover]") !== null;
+  }
+}
+
 function ownsBrowserState(document_: Document, element: Element): boolean {
   const active = document_.activeElement;
   if ((active && element.contains(active)) || selectionIntersects(document_, element, false)) {
     return true;
   }
+  if (ownsOpenPopover(element)) return true;
   return element.matches(
     "input, textarea, select, details, dialog, audio, fadeno-island, [contenteditable]",
   ) || element.querySelector(
@@ -587,6 +598,22 @@ function restoreLiveControls(snapshot: LiveControlSnapshot): void {
       entry.element.checked = true;
     }
   }
+}
+
+function sameLiveControls(snapshot: LiveControlSnapshot): boolean {
+  return snapshot.every((entry) => {
+    if (entry.kind === "input") {
+      return (entry.value === null || entry.element.value === entry.value)
+        && entry.element.checked === entry.checked
+        && entry.element.indeterminate === entry.indeterminate;
+    }
+    if (entry.kind === "textarea") return entry.element.value === entry.value;
+    return entry.element.options.length === entry.selected.length
+      && entry.element.selectedIndex === entry.selectedIndex
+      && entry.selected.every((selected, index) =>
+        entry.element.options.item(index)?.selected === selected
+      );
+  });
 }
 
 function attributes(element: Element): readonly (readonly [string, string])[] {
@@ -753,10 +780,13 @@ export function preparePrivateDocumentReconciliation(
       refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
     const activeElement = currentDocument.activeElement;
-    if (activeElement
+    if (currentElement.localName !== opaqueElementName
+      && activeElement
       && currentElement.contains(activeElement)
-      && currentElement.hasAttribute("disabled")
-        !== incomingElement.hasAttribute("disabled")) {
+      && (currentElement.hasAttribute("disabled")
+          !== incomingElement.hasAttribute("disabled")
+        || currentElement.getAttribute("class")
+          !== incomingElement.getAttribute("class"))) {
       refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
     for (const stateOwnerAttribute of ["contenteditable", "popover"] as const) {
@@ -931,7 +961,9 @@ export function preparePrivateDocumentReconciliation(
     }
   };
   const commit = (): PrivateReconciliationResult => {
-    if (state !== "prepared" || currentDocument.activeElement !== active) {
+    if (state !== "prepared"
+      || currentDocument.activeElement !== active
+      || !sameLiveControls(liveControlSnapshot)) {
       refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
     state = "applied";

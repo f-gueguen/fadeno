@@ -180,6 +180,10 @@ async function activate(
   });
 }
 
+async function expectIncomingPhase(page: Page): Promise<void> {
+  await expect(page.locator("#reconciliation-phase")).toHaveText("incoming");
+}
+
 async function privateFlows(
   page: Page,
   mode: "navigation" | "action",
@@ -233,7 +237,7 @@ for (const scenario of preservedScenarios) {
 
       await activate(page, mode);
 
-      await expect(page.locator("#root")).toHaveClass("after");
+      await expectIncomingPhase(page);
       const after = await readMorphQualificationState(page, scenario);
       expect(morphQualificationStatePreserved(
         scenario.fixture.state,
@@ -297,7 +301,7 @@ for (const scenario of MORPH_QUALIFICATION_SCENARIOS.filter(({ fixture }) =>
 
       await activate(page, mode);
 
-      await expect(page.locator("#root")).toHaveClass("after");
+      await expectIncomingPhase(page);
       expect(await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate(
         (element) => ({
           sameNode: Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
@@ -326,7 +330,7 @@ for (const scenario of MORPH_QUALIFICATION_SCENARIOS.filter(({ fixture }) =>
 
       await activate(page, mode);
 
-      await expect(page.locator("#root")).toHaveClass("after");
+      await expectIncomingPhase(page);
       expect(await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate(
         (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
       )).toBe(false);
@@ -409,7 +413,7 @@ test("keeps a missing browser-owned identity native and shows its correction", a
 
   await activate(page, "navigation");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   const refusal = {
     schema: "fadeno.example.structural-reconciliation-refusal",
     version: 1,
@@ -457,7 +461,7 @@ test("removes stale output and clears pending ownership after an action", async 
 
   await activate(page, "action");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   const recovery = await page.locator(`#${scenario.fixture.targetIdentity}`).evaluate(
     (element) => ({
       schema: "fadeno.example.structural-reconciliation-recovery",
@@ -520,7 +524,7 @@ test("applies a submitted-control server reset through native current truth", as
 
   await activate(page, "action");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   await expect(page.locator("#reconciliation-submitted-state")).toHaveValue(
     "server-default",
   );
@@ -562,7 +566,7 @@ test("revalidates the prepared tree after history selection", async ({ page }) =
 
   await activate(page, "navigation");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   expect(await page.locator("#dirty-text").evaluate(
     (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
   )).toBe(false);
@@ -595,7 +599,7 @@ test("refuses focus drift introduced during history selection", async ({ page })
 
   await page.locator("#reconciliation-link").press("Enter");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   expect(await page.locator("#dirty-text").evaluate(
     (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
   )).toBe(false);
@@ -619,7 +623,7 @@ test("moves keyboard link focus to the reconciled destination", async ({ page })
 
   await page.locator("#reconciliation-link").press("Enter");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   await expect(page.locator("#dirty-text")).toHaveValue("client-dirty");
   expect(await page.locator("#dirty-text").evaluate(
     (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
@@ -865,24 +869,10 @@ test("restores live radio state after an applied transaction rolls back", async 
       document,
       incoming,
     );
-    const setAttribute = Element.prototype.setAttribute;
-    let applied: ReturnType<typeof read>;
-    Element.prototype.setAttribute = function (
-      name: string,
-      value: string,
-    ): void {
-      setAttribute.call(this, name, value);
-      if (this.id === "root" && name === "class") {
-        const radio = document.querySelector("#dirty-radio-b");
-        if (radio instanceof HTMLInputElement) radio.checked = true;
-      }
-    };
-    try {
-      transaction.commit();
-      applied = read();
-    } finally {
-      Element.prototype.setAttribute = setAttribute;
-    }
+    transaction.commit();
+    const radio = document.querySelector("#dirty-radio-b");
+    if (radio instanceof HTMLInputElement) radio.checked = true;
+    const applied = read();
     transaction.rollback();
     return { applied, restored: read() };
   }, {
@@ -974,7 +964,7 @@ test("retains an indeterminate checkbox through keyed navigation", async ({ page
 
   await activate(page, "navigation");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   expect(await page.locator("#dirty-checkbox").evaluate((element) => ({
     retained: Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
     checked: (element as HTMLInputElement).checked,
@@ -1001,7 +991,7 @@ test("retains an unrelated indeterminate checkbox through an action", async ({ p
 
   await activate(page, "action");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   expect(await page.locator("#dirty-checkbox").evaluate((element) => ({
     retained: Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
     checked: (element as HTMLInputElement).checked,
@@ -1087,7 +1077,7 @@ test("revalidates prepared leaf text after history selection", async ({ page }) 
 
   await activate(page, "navigation");
 
-  await expect(page.locator("#root")).toHaveClass("after");
+  await expectIncomingPhase(page);
   await expect(page.locator("#peer-a")).toHaveText("peer-a");
   expect(await page.locator("#dirty-text").evaluate(
     (element) => Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
@@ -1095,7 +1085,64 @@ test("revalidates prepared leaf text after history selection", async ({ page }) 
   expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
 });
 
-test("refuses disabling a retained focus owner", async ({ page }) => {
+test("revalidates live control state before structural commit", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-select-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#select-b")?.remove();
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): {
+        commit(): unknown;
+      };
+    };
+    const transaction = module.preparePrivateDocumentReconciliation(
+      document,
+      incoming,
+    );
+    const select = document.querySelector("#dirty-select");
+    if (!(select instanceof HTMLSelectElement)) {
+      throw new Error("FADENO_RECONCILIATION_SELECT_FIXTURE");
+    }
+    select.selectedIndex = 1;
+    let refusal = "accepted";
+    try {
+      transaction.commit();
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      refusal,
+      value: select.value,
+      optionRetained: document.querySelector("#select-b") !== null,
+      phase: document.querySelector("#reconciliation-phase")?.textContent,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-select-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    value: "b",
+    optionRetained: true,
+    phase: "current",
+  });
+});
+
+test("refuses state-changing attributes on retained focus ancestry", async ({ page }) => {
   await page.goto(
     `${origin}/case?case=focused-input-selection-insert&mode=navigation&phase=current`,
   );
@@ -1141,9 +1188,20 @@ test("refuses disabling a retained focus owner", async ({ page }) => {
       "server-updated",
     );
     const valueRefusal = refusalFor(valueIncoming);
+    const classIncoming = new DOMParser().parseFromString(
+      incoming.documentElement.outerHTML,
+      "text/html",
+    );
+    classIncoming.querySelector("#focused-input")?.removeAttribute("disabled");
+    classIncoming.querySelector("#root")?.setAttribute(
+      "class",
+      "hidden-destination",
+    );
+    const classRefusal = refusalFor(classIncoming);
     return {
       disabledRefusal,
       valueRefusal,
+      classRefusal,
       focused: document.activeElement === input,
       disabled: input instanceof HTMLInputElement ? input.disabled : null,
       value: input instanceof HTMLInputElement ? input.value : null,
@@ -1157,6 +1215,7 @@ test("refuses disabling a retained focus owner", async ({ page }) => {
   expect(result).toEqual({
     disabledRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
     valueRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    classRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
     focused: true,
     disabled: false,
     value: "server-default",
@@ -1212,6 +1271,54 @@ test("refuses removal of a live top-layer owner before mutation", async ({ page 
     connected: true,
     open: true,
     modal: true,
+  });
+});
+
+test("refuses removal of an open popover before mutation", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=popover-open-reorder&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#open-popover").evaluate((element) => {
+    (element as HTMLElement).showPopover();
+  });
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#open-popover")?.remove();
+    const popover = document.querySelector("#open-popover");
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    let refusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      refusal,
+      connected: popover?.isConnected ?? false,
+      open: popover?.matches(":popover-open") ?? false,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=popover-open-reorder&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    connected: true,
+    open: true,
   });
 });
 
@@ -1459,7 +1566,8 @@ test("preflights refusal and restores an applied private transaction exactly", a
       incoming,
     );
     transaction.commit();
-    const applied = document.querySelector("#root")?.className === "after"
+    const applied = document.querySelector("#reconciliation-phase")?.textContent
+      === "incoming"
       && document.querySelector("#inserted-peer") !== null;
     transaction.rollback();
     return {

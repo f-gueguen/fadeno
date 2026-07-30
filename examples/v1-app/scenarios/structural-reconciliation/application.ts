@@ -63,10 +63,14 @@ function document(request: Request): RenderChild {
     ] }),
     jsx("body", { children: jsxs("main", {
       id: "root",
-      class: phase === "incoming" ? "after" : "before",
+      class: "reconciliation-scenario",
       children: [
       unsafeHtml(drivenScenarioMarkup, {
         reason: "locked structural-reconciliation fixture with a top-layer test driver",
+      }),
+      jsx("output", {
+        id: "reconciliation-phase",
+        children: phase,
       }),
       jsx("a", {
         id: "reconciliation-link",
