@@ -573,6 +573,50 @@ test("revalidates the prepared tree after history selection", async ({ page }) =
   expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
 });
 
+test("refuses live-control drift before changing the document shell", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (new URL(location.href).searchParams.get("phase") === "current") {
+      sessionStorage.removeItem("fadeno-reconciliation-shell-write");
+    }
+    const replaceChildren = Element.prototype.replaceChildren;
+    Element.prototype.replaceChildren = function (
+      ...nodes: Array<Node | string>
+    ): void {
+      if (this === document.head) {
+        sessionStorage.setItem("fadeno-reconciliation-shell-write", "observed");
+      }
+      replaceChildren.apply(this, nodes);
+    };
+    const pushState = History.prototype.pushState;
+    History.prototype.pushState = function (
+      data: unknown,
+      unused: string,
+      url?: string | URL | null,
+    ): void {
+      pushState.call(this, data, unused, url);
+      const select = document.querySelector("#dirty-select");
+      if (select instanceof HTMLSelectElement) select.selectedIndex = 0;
+    };
+  });
+  await page.goto(
+    `${origin}/case?case=dirty-select-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await page.locator("#dirty-select").selectOption("b");
+  requests.length = 0;
+
+  await activate(page, "navigation");
+
+  await expectIncomingPhase(page);
+  expect(await page.evaluate(() =>
+    sessionStorage.getItem("fadeno-reconciliation-shell-write")
+  )).toBeNull();
+  expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
+  expect(requests.some(({ method, privateUpdate }) =>
+    method === "GET" && !privateUpdate
+  )).toBe(true);
+});
+
 test("refuses focus drift introduced during history selection", async ({ page }) => {
   await page.addInitScript(() => {
     const pushState = History.prototype.pushState;
@@ -1004,6 +1048,93 @@ test("retains an unrelated indeterminate checkbox through an action", async ({ p
   expect(requests.filter(({ method, privateUpdate }) =>
     method === "POST" && privateUpdate
   )).toHaveLength(1);
+});
+
+test("refuses checked drift on an indeterminate checkbox", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-checkbox-remove&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const checkbox = document.querySelector("#dirty-checkbox");
+    if (!(checkbox instanceof HTMLInputElement)) {
+      throw new Error("FADENO_RECONCILIATION_CHECKBOX_FIXTURE");
+    }
+    checkbox.indeterminate = true;
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    incoming.querySelector("#dirty-checkbox")?.setAttribute("checked", "");
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): unknown;
+    };
+    let refusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      refusal,
+      checked: checkbox.checked,
+      indeterminate: checkbox.indeterminate,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-checkbox-remove&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    checked: false,
+    indeterminate: true,
+  });
+});
+
+test("retains user-closed disclosures and dialogs for links and forms", async ({ page }) => {
+  for (const [caseId, mode, identity] of [
+    ["details-open-reorder", "navigation", "open-details"],
+    ["dialog-nonmodal-remove", "action", "nonmodal-dialog"],
+  ] as const) {
+    await page.goto(
+      `${origin}/case?case=${caseId}&mode=${mode}&phase=current`,
+    );
+    await waitForEnhancement(page);
+    await page.locator(`#${identity}`).evaluate((element) => {
+      if (element instanceof HTMLDetailsElement) {
+        element.open = true;
+        element.open = false;
+      } else if (element instanceof HTMLDialogElement) {
+        element.show();
+        element.close();
+      }
+      Reflect.set(globalThis, "__fadenoOriginalTarget", element);
+    });
+    requests.length = 0;
+
+    await activate(page, mode);
+
+    await expectIncomingPhase(page);
+    expect(await page.locator(`#${identity}`).evaluate((element) => ({
+      retained: Reflect.get(globalThis, "__fadenoOriginalTarget") === element,
+      open: element instanceof HTMLDetailsElement
+        || element instanceof HTMLDialogElement
+        ? element.open
+        : null,
+    }))).toEqual({
+      retained: true,
+      open: false,
+    });
+    expect(requests.some(({ privateUpdate }) => privateUpdate)).toBe(true);
+  }
 });
 
 test("refuses removal of a dirty select's live option", async ({ page }) => {

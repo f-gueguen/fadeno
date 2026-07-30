@@ -718,7 +718,7 @@ export function privateLinkPreservationSafe(
   if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
   const reconciliationOwners: Node[] = [
     ...[...document.querySelectorAll("input, textarea, select")].filter(dirtyControl),
-    ...document.querySelectorAll("details[open], dialog[open], audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
+    ...document.querySelectorAll("details, dialog, audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
   ];
   try {
     const popover = document.querySelector(":popover-open");
@@ -922,16 +922,23 @@ function applyDocument(
   const expectedState = privateHistoryState(state);
   if (!expectedState) throw new TypeError("FADENO_UPDATE_HISTORY_STATE");
   let destinationSelected = false;
+  let shellMutationStarted = false;
+  let bodyMutationStarted = false;
   try {
     if (!replace) history.scrollRestoration = previousScrollRestoration;
     if (replace) writeHistory.replace(state, url);
     else writeHistory.push(state, url);
     destinationSelected = true;
     history.scrollRestoration = "manual";
+    if (reconciliation) reconciliation.validate();
+    shellMutationStarted = true;
     replaceAttributes(document.documentElement, next.documentElement);
     document.head.replaceChildren(...[...next.head.childNodes].map((node) => document.importNode(node, true)));
     if (reconciliation) reconciliation.commit();
-    else document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
+    else {
+      bodyMutationStarted = true;
+      document.body.replaceChildren(...[...next.body.childNodes].map((node) => document.importNode(node, true)));
+    }
     const destinationFocus = preserveFocusedNode
       && reconciliation?.preservesActiveElement
       && oldFocusedNode?.isConnected
@@ -954,10 +961,12 @@ function applyDocument(
   } catch (cause) {
     try {
       try { history.scrollRestoration = "manual"; } catch { /* native fallback will restore ownership */ }
-      replaceAttributes(document.documentElement, oldAttributes);
-      document.head.replaceChildren(...oldHead);
+      if (shellMutationStarted) {
+        replaceAttributes(document.documentElement, oldAttributes);
+        document.head.replaceChildren(...oldHead);
+      }
       if (reconciliation) reconciliation.rollback();
-      else document.body.replaceChildren(...oldBody);
+      else if (bodyMutationStarted) document.body.replaceChildren(...oldBody);
       restoreFocus();
       restoreSelection();
       scrollTo({ left: oldScroll.x, top: oldScroll.y, behavior: "instant" });

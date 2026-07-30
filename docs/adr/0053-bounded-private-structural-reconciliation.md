@@ -109,12 +109,15 @@ reconciliation retains that exact focus owner and any selection or caret
 naturally attached to it. An activated link releases focus to the destination.
 The destination heading or main remains the normal target; a retained modal
 dialog becomes the target when its top-layer ownership makes outside focus
-invalid. Focus ownership and live control properties are rechecked after
-history selection and before any DOM write. Any write or postcondition failure
-restores the prior attributes, text, child order, shell, history selection,
-focus, selection, and scroll as far as the bounded current document permits,
-then enters the existing native recovery path. An uncertain committed mutation
-reloads current server truth and never repeats the POST.
+invalid. Focus ownership, live control properties, and the prepared current
+tree are rechecked after history selection and before any document-shell or
+body write. Closed disclosures and dialogs remain reconciliation owners because
+their missing reflected `open` attribute can itself be user-owned state. Any
+write or postcondition failure restores the prior attributes, text, child
+order, shell, history selection, focus, selection, and scroll as far as the
+bounded current document permits, then enters the existing native recovery
+path. An uncertain committed mutation reloads current server truth and never
+repeats the POST.
 
 ### Eligibility and scroll
 

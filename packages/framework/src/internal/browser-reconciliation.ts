@@ -31,6 +31,7 @@ export type PrivateReconciliationResult = Readonly<{
 
 export type PrivateReconciliationTransaction = Readonly<{
   preservesActiveElement: boolean;
+  validate(): void;
   commit(): PrivateReconciliationResult;
   rollback(): void;
 }>;
@@ -768,6 +769,13 @@ export function preparePrivateDocumentReconciliation(
         refuse("FADENO_RECONCILIATION_OWNERSHIP");
       }
       if (currentElement instanceof HTMLInputElement
+        && currentType === "checkbox"
+        && currentElement.indeterminate
+        && currentElement.hasAttribute("checked")
+          !== incomingElement.hasAttribute("checked")) {
+        refuse("FADENO_RECONCILIATION_OWNERSHIP");
+      }
+      if (currentElement instanceof HTMLInputElement
         && currentType === "text"
         && currentDocument.activeElement === currentElement
         && currentElement.getAttribute("value") !== incomingElement.getAttribute("value")) {
@@ -960,20 +968,23 @@ export function preparePrivateDocumentReconciliation(
       state = "rolled-back";
     }
   };
-  const commit = (): PrivateReconciliationResult => {
+  const validate = (): void => {
     if (state !== "prepared"
       || currentDocument.activeElement !== active
       || !sameLiveControls(liveControlSnapshot)) {
       refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
+    assertPreparedCurrentTree(
+      currentDocument,
+      current,
+      attributeSnapshot,
+      contentSnapshot,
+    );
+  };
+  const commit = (): PrivateReconciliationResult => {
+    validate();
     state = "applied";
     try {
-      assertPreparedCurrentTree(
-        currentDocument,
-        current,
-        attributeSnapshot,
-        contentSnapshot,
-      );
       for (const plan of attributePlans) {
         for (const name of plan.remove) plan.element.removeAttribute(name);
         for (const [name, value] of plan.set) plan.element.setAttribute(name, value);
@@ -1005,6 +1016,7 @@ export function preparePrivateDocumentReconciliation(
 
   return Object.freeze({
     preservesActiveElement,
+    validate,
     commit,
     rollback,
   });
