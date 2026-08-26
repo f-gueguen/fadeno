@@ -205,6 +205,20 @@ try {
   cpSync(join(root, "examples/v1-app/fadeno.config.ts"), join(application, "fadeno.config.ts"));
   const executable = join(consumer, "node_modules/.bin/fadeno");
 
+  assert.deepEqual(run(executable, [], consumer), {
+    status: 2,
+    stdout: "",
+    stderr: "FADENO_CHECK_USAGE: fadeno check --project-root <path> [--explain]\n",
+  });
+  assert.equal(existsSync(join(application, ".fadeno")), false);
+  const unknown = run(executable, ["chekc", "--project-root", "app"], consumer);
+  assert.deepEqual(unknown, {
+    status: 2,
+    stdout: "",
+    stderr: 'FADENO_CLI_COMMAND: unknown command "chekc"\nUsage: fadeno <check|build|create|deploy|dev>\n',
+  });
+  assert.equal(existsSync(join(application, ".fadeno")), false);
+
   const absolute = run(executable, ["check", "--project-root", application], consumer);
   assert.deepEqual(absolute, { status: 0, stdout: fixture("check-success.txt"), stderr: "" });
   const relative = run(executable, ["check", "--project-root", "app"], consumer);
