@@ -179,6 +179,7 @@ try {
   development = startDevelopment(project, port, { FADENO_ORIGIN: "https://conflicting.example" });
   let stdoutOffset = await development.waitForStdout(`Fadeno development server ready at ${origin}.\n`);
   assert.equal(development.stderr(), "");
+  assert.equal(existsSync(join(project, "dist/server/development-bootstrap.js")), false);
   await responseText(origin, "Follow the request thread.");
   const authorityResponse = await fetch(`${origin}/development-authority`, { headers: { origin } });
   assert.deepEqual(await authorityResponse.json(), { url: `${origin}/development-authority`, origin });
