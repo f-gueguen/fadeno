@@ -39,7 +39,6 @@ import {
 import { actionLimits } from "./action-limits.ts";
 import { installActionServerRuntimeFactory } from "./action-server-hook.ts";
 import { reportFrameworkFailure, type FrameworkFailureObserver } from "./failure-observer.ts";
-import { protectedOrigin } from "./protected-origin.ts";
 import { readRedirectOutcome } from "./render-route.ts";
 import {
   attachPrivateServerUpdateActionEvidence,
@@ -51,14 +50,12 @@ import {
 import {
   createDecisionSession,
   createDecisionSessionKeyring,
-  decisionSessionCookieName,
   formatDecisionSessionCookie,
   formatDecisionSessionDeletionCookie,
   normalizeDecisionSessionValues,
   openDecisionSession,
   renewDecisionSession,
   type DecisionSessionKeyring,
-  type DecisionSessionCookieTransport,
   type DecisionSessionSnapshot,
   type DecisionSessionValue,
 } from "./session-decision.ts";
@@ -109,10 +106,7 @@ function parseKeyring(source: string): DecisionSessionKeyring {
 function objectValues(value: DecisionSessionValue): Readonly<Record<string, DecisionSessionValue>> | null {
   return plain(value) ? value as Readonly<Record<string, DecisionSessionValue>> : null;
 }
-export function decodeSessionCookieHeader(
-  header: string | null,
-  transport: DecisionSessionCookieTransport = "secure",
-): string | undefined {
+export function decodeSessionCookieHeader(header: string | null): string | undefined {
   if (header === null) return undefined;
   if (Buffer.byteLength(header) > maximumCookieHeaderBytes) fail("FADENO_SESSION_COOKIE");
   let found: string | undefined;
@@ -121,13 +115,16 @@ export function decodeSessionCookieHeader(
     const separator = pair.indexOf("=");
     if (separator < 1) continue;
     const name = pair.slice(0, separator).trim();
-    if (name !== decisionSessionCookieName(transport)) continue;
+    if (name !== "__Host-fadeno-session") continue;
     if (found !== undefined) fail("FADENO_SESSION_COOKIE");
     found = pair.slice(separator + 1);
   }
   return found;
 }
 
+function cookieValue(request: Request): string | undefined {
+  return decodeSessionCookieHeader(request.headers.get("cookie"));
+}
 function safeKey(key: string): void {
   if (typeof key !== "string" || key.length === 0 || encoder.encode(key).byteLength > maximumSessionKeyBytes || key.includes("\0")) {
     fail("FADENO_SESSION_KEY");
@@ -136,7 +133,6 @@ function safeKey(key: string): void {
 
 class ServerSession {
   readonly #keyring: DecisionSessionKeyring;
-  readonly #transport: DecisionSessionCookieTransport;
   readonly #opened: "valid" | "renew" | "missing" | "expired" | "invalid";
   readonly #initial: DecisionSessionSnapshot;
   #current: Readonly<Record<string, DecisionSessionValue>>;
@@ -150,30 +146,23 @@ class ServerSession {
     opened: "valid" | "renew" | "missing" | "expired" | "invalid",
     snapshot: DecisionSessionSnapshot,
     envelope: string | null,
-    transport: DecisionSessionCookieTransport,
   ) {
     this.#keyring = keyring;
     this.#opened = opened;
     this.#initial = snapshot;
     this.#current = objectValues(snapshot.values) ?? Object.freeze(Object.create(null) as Record<string, never>);
     this.#initialEnvelope = envelope;
-    this.#transport = transport;
   }
 
-  static open(
-    keyring: DecisionSessionKeyring,
-    request: Request,
-    now: number,
-    transport: DecisionSessionCookieTransport,
-  ): ServerSession {
+  static open(keyring: DecisionSessionKeyring, request: Request, now: number): ServerSession {
     let value: string | undefined;
-    try { value = decodeSessionCookieHeader(request.headers.get("cookie"), transport); } catch { value = "invalid"; }
+    try { value = cookieValue(request); } catch { value = "invalid"; }
     const opened = openDecisionSession(keyring, value, now);
     if (opened.snapshot && objectValues(opened.snapshot.values)) {
-      return new ServerSession(keyring, opened.status, opened.snapshot, null, transport);
+      return new ServerSession(keyring, opened.status, opened.snapshot, null);
     }
     const created = createDecisionSession(keyring, Object.freeze(Object.create(null) as Record<string, never>), now);
-    return new ServerSession(keyring, opened.status, created.snapshot, opened.status === "missing" ? created.envelope : null, transport);
+    return new ServerSession(keyring, opened.status, created.snapshot, opened.status === "missing" ? created.envelope : null);
   }
 
   readonly view: SessionView = Object.freeze({
@@ -258,7 +247,7 @@ class ServerSession {
 
   cookie(now: number): string | null {
     if (this.#publication) {
-      return formatDecisionSessionCookie(this.#publication.envelope, now, this.#publication.snapshot.expiresAt, this.#transport);
+      return formatDecisionSessionCookie(this.#publication.envelope, now, this.#publication.snapshot.expiresAt);
     }
     let envelope = this.#initialEnvelope;
     let snapshot = this.#initial;
@@ -267,8 +256,8 @@ class ServerSession {
       envelope = renewed.envelope;
       snapshot = renewed.snapshot;
     }
-    if (envelope !== null) return formatDecisionSessionCookie(envelope, now, snapshot.expiresAt, this.#transport);
-    if (this.#opened === "expired" || this.#opened === "invalid") return formatDecisionSessionDeletionCookie(this.#transport);
+    if (envelope !== null) return formatDecisionSessionCookie(envelope, now, snapshot.expiresAt);
+    if (this.#opened === "expired" || this.#opened === "invalid") return formatDecisionSessionDeletionCookie();
     return null;
   }
 }
@@ -692,32 +681,22 @@ function withCookie(response: Response, cookie: string | null): Response {
 export class ActionServerRuntime {
   readonly #canonicalOrigin: string;
   readonly #generation: string;
-  readonly #allowHttpLoopbackOrigin: boolean;
-  readonly #sessionCookieTransport: DecisionSessionCookieTransport;
   readonly #keyring: DecisionSessionKeyring;
   readonly #actions = new Map<string, RuntimeAction>();
   readonly #replay = new DecisionReplayLedger();
   readonly #flows: RuntimeFlow[] = [];
   readonly #now: () => number;
 
-  constructor(options: Readonly<{
-    canonicalOrigin: string;
-    generation: string;
-    sessionKeys: string;
-    allowHttpLoopbackOrigin?: boolean;
-    now?: () => number;
-  }>) {
-    if (!protectedOrigin(options.canonicalOrigin, options.allowHttpLoopbackOrigin)) fail("FADENO_ACTION_ORIGIN");
+  constructor(options: Readonly<{ canonicalOrigin: string; generation: string; sessionKeys: string; now?: () => number }>) {
+    const origin = new URL(options.canonicalOrigin);
+    if (origin.protocol !== "https:" || origin.origin !== options.canonicalOrigin || origin.username || origin.password) {
+      fail("FADENO_ACTION_ORIGIN");
+    }
     if (typeof options.generation !== "string" || options.generation.length === 0 || options.generation.includes("\0") || encoder.encode(options.generation).byteLength > 256) {
       fail("FADENO_ACTION_GENERATION");
     }
-    const canonicalOrigin = new URL(options.canonicalOrigin);
     this.#canonicalOrigin = options.canonicalOrigin;
     this.#generation = options.generation;
-    this.#allowHttpLoopbackOrigin = options.allowHttpLoopbackOrigin === true;
-    this.#sessionCookieTransport = canonicalOrigin.protocol === "http:"
-      ? `loopback-http:${Number(canonicalOrigin.port || 80)}`
-      : "secure";
     this.#keyring = parseKeyring(options.sessionKeys);
     this.#now = options.now ?? Date.now;
     for (const state of registeredActionStates()) this.#actions.set(state.id, Object.freeze({ state, decision: decisionAction(state) }));
@@ -743,7 +722,7 @@ export class ActionServerRuntime {
       }
     }
     const now = this.#now();
-    const session = ServerSession.open(this.#keyring, request, now, this.#sessionCookieTransport);
+    const session = ServerSession.open(this.#keyring, request, now);
     if (session.requiresClear) {
       return withCookie(
         safePage("Session refused", "Session refused", "FADENO_SESSION_INVALID", 401),
@@ -875,7 +854,6 @@ export class ActionServerRuntime {
         mediaType: mediaType(request),
         origin: request.headers.get("origin"),
         expectedOrigin: this.#canonicalOrigin,
-        allowHttpLoopbackOrigin: this.#allowHttpLoopbackOrigin,
         routeId: binding,
         expectedRouteId: binding,
         generation: this.#generation,
@@ -1060,7 +1038,6 @@ export function createActionServerRuntime(options: Readonly<{
   canonicalOrigin?: string;
   applicationGeneration?: string;
   sessionKeys?: string;
-  allowHttpLoopbackOrigin?: boolean;
 }>): ActionServerRuntime | null {
   if (registeredActionStates().length === 0) return null;
   if (!options.canonicalOrigin || !options.applicationGeneration || !options.sessionKeys) {
@@ -1070,9 +1047,6 @@ export function createActionServerRuntime(options: Readonly<{
     canonicalOrigin: options.canonicalOrigin,
     generation: options.applicationGeneration,
     sessionKeys: options.sessionKeys,
-    ...(options.allowHttpLoopbackOrigin === undefined ? {} : {
-      allowHttpLoopbackOrigin: options.allowHttpLoopbackOrigin,
-    }),
   });
 }
 

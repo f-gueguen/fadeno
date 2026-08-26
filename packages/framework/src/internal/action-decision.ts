@@ -8,7 +8,6 @@ import {
   type DecisionSessionSnapshot,
 } from "./session-decision.ts";
 import { actionLimits } from "./action-limits.ts";
-import { protectedOrigin } from "./protected-origin.ts";
 
 const encoder = new TextEncoder();
 const proofVersion = "v1";
@@ -401,12 +400,11 @@ function decodeFields(action: ActionState, parts: readonly DecisionSubmissionPar
   return Object.freeze(decoded);
 }
 
-function safeRedirect(destination: string | undefined, expectedOrigin: string, allowHttpLoopbackOrigin: boolean): string | null {
+function safeRedirect(destination: string | undefined, expectedOrigin: string): string | null {
   if (destination === undefined) return null;
-  if (!protectedOrigin(expectedOrigin, allowHttpLoopbackOrigin)) fail("FADENO_ACTION_REDIRECT");
   let url: URL;
   try { url = new URL(destination, expectedOrigin); } catch { fail("FADENO_ACTION_REDIRECT"); }
-  if (url.origin !== expectedOrigin || url.username || url.password) fail("FADENO_ACTION_REDIRECT");
+  if (url.origin !== expectedOrigin || url.protocol !== "https:" || url.username || url.password) fail("FADENO_ACTION_REDIRECT");
   const queryIndex = url.href.indexOf("?");
   const fragmentIndex = url.href.indexOf("#");
   const emptyQuery = url.search === ""
@@ -497,7 +495,6 @@ export async function executeDecisionAction(input: Readonly<{
   mediaType: string;
   origin: string | null;
   expectedOrigin: string;
-  allowHttpLoopbackOrigin?: boolean;
   routeId: string;
   expectedRouteId: string;
   generation: string;
@@ -522,8 +519,11 @@ export async function executeDecisionAction(input: Readonly<{
         !Number.isSafeInteger(input.boundaryDurationMilliseconds) || input.boundaryDurationMilliseconds < 0 ||
         input.boundaryDurationMilliseconds > maximumBoundaryDurationMilliseconds
       ) fail("FADENO_ACTION_BOUNDARY_TIMEOUT");
-      if (!protectedOrigin(input.expectedOrigin, input.allowHttpLoopbackOrigin)
-        || input.origin !== input.expectedOrigin) fail("FADENO_ACTION_ORIGIN");
+      const expectedOrigin = new URL(input.expectedOrigin);
+      if (
+        expectedOrigin.protocol !== "https:" || input.expectedOrigin !== expectedOrigin.origin ||
+        input.origin !== input.expectedOrigin
+      ) fail("FADENO_ACTION_ORIGIN");
       if (input.routeId !== input.expectedRouteId) fail("FADENO_ACTION_ROUTE");
       assertDecisionSessionOwner(input.session, input.keyring);
       const action = state(input.action);
@@ -569,7 +569,7 @@ export async function executeDecisionAction(input: Readonly<{
       ) fail("FADENO_ACTION_RESULT");
       const completion = result as Readonly<{ redirect?: string }> | undefined;
       let redirect: string | null;
-      try { redirect = safeRedirect(completion?.redirect, input.expectedOrigin, input.allowHttpLoopbackOrigin === true); }
+      try { redirect = safeRedirect(completion?.redirect, input.expectedOrigin); }
       catch {
         flow.push(Object.freeze({ phase: "completion", decision: "refused", cause: "FADENO_ACTION_REDIRECT" }));
         return Object.freeze({

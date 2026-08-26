@@ -33,10 +33,7 @@ expectMutation("deployment artifact identity verification drifted", (context) =>
 }));
 expectMutation("public deploy command dispatch drifted", (context) => Object.freeze({
   ...context,
-  cli: context.cli.replace(
-    'deploy: async () => (await import("./internal/project-deploy.ts")).runProjectDeployCommand(arguments_, context)',
-    "deploy: async () => undefined",
-  ),
+  cli: context.cli.replace('arguments_[0] === "deploy"', 'arguments_[0] === "other"'),
 }));
 expectMutation("A0-06 introduced a public deployment export", (context) => Object.freeze({
   ...context,

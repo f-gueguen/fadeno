@@ -495,10 +495,6 @@ drains through idempotent close, while new and derived work refuses as soon as
 closing starts. This private lifecycle changes no command, output directory, or
 server behavior.
 
-The development child derives its exact canonical origin from the owned
-`http://127.0.0.1:<port>` listener and ignores an inherited `FADENO_ORIGIN`.
-Production bootstrap continues to use the operator-owned external HTTPS origin.
-
 B7D2 extends that same coordinator with deterministic analysis batches. A
 same-turn burst records a compact first/latest/count identity, supersedes
 pending middle work, signals active obsolete work, and gives application and

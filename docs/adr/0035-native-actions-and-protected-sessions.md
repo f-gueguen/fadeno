@@ -171,8 +171,7 @@ resource revalidation. Independently actionable field failures remain
 separate from the form failure.
 
 Success enters complete resource revalidation. An explicit action redirect
-must use status 303 and resolve to the exact protected application origin
-(HTTPS in production or the owned HTTP loopback origin in development); the
+must use status 303 and resolve to the exact HTTPS application origin; the
 response uses a normalized path/query/fragment, not an external allow-list.
 Without an explicit redirect the framework renders current server truth; a
 fresh native GET may own that render. Unsafe redirect data after mutation is
@@ -199,11 +198,9 @@ output, diagnostics, flow records, or a browser artifact. Startup refuses an
 invalid keyring. An application that renders or accepts an action requires a
 keyring.
 
-Production uses `__Host-fadeno-session`, with `Path=/`, `Secure`, `HttpOnly`,
+The cookie is `__Host-fadeno-session`, with `Path=/`, `Secure`, `HttpOnly`,
 `SameSite=Lax`, no `Domain`, and at most 4,096 bytes for the complete name/value
-pair. Owned HTTP loopback development uses the host-only
-`fadeno-development-session` transport defined by ADR 0054. The versioned
-envelope contains key ID, a fresh 96-bit nonce, AES-256-GCM
+pair. Its versioned envelope contains key ID, a fresh 96-bit nonce, AES-256-GCM
 ciphertext, and a 128-bit authentication tag with cookie name, version, and key
 ID as additional authenticated data. Plaintext contains version, session ID,
 CSRF secret, creation time, absolute expiry, and normalized values.

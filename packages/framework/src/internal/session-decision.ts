@@ -2,21 +2,10 @@ import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes, ti
 import { isProxy } from "node:util/types";
 
 const cookieName = "__Host-fadeno-session";
-const developmentCookieName = "fadeno-development-session";
 const envelopeVersion = "v1";
 const maximumKeys = 4;
 const maximumCookieBytes = 4_096;
 const maximumEnvelopeBytes = maximumCookieBytes - Buffer.byteLength(cookieName) - 1;
-
-export type DecisionSessionCookieTransport = "secure" | "loopback-http" | `loopback-http:${number}`;
-
-export function decisionSessionCookieName(transport: DecisionSessionCookieTransport = "secure"): string {
-  if (transport === "secure") return cookieName;
-  if (transport === "loopback-http") return developmentCookieName;
-  const port = transport.slice("loopback-http:".length);
-  if (!/^[1-9]\d{0,4}$/u.test(port) || Number(port) > 65_535) fail("FADENO_SESSION_COOKIE");
-  return `${developmentCookieName}-${port}`;
-}
 const maximumValueBytes = 2_048;
 const maximumValueDepth = 16;
 const maximumValueEntries = 256;
@@ -321,27 +310,17 @@ export function verifyDecisionActionProof(
   return timingSafeEqual(Buffer.from(signature), expected);
 }
 
-export function formatDecisionSessionCookie(
-  envelope: string,
-  now: number,
-  expiresAt: number,
-  transport: DecisionSessionCookieTransport = "secure",
-): string {
-  const name = decisionSessionCookieName(transport);
+export function formatDecisionSessionCookie(envelope: string, now: number, expiresAt: number): string {
   if (
-    typeof envelope !== "string" || Buffer.byteLength(`${name}=${envelope}`) > maximumCookieBytes ||
+    typeof envelope !== "string" || Buffer.byteLength(`${cookieName}=${envelope}`) > maximumCookieBytes ||
     !Number.isSafeInteger(now) || !Number.isSafeInteger(expiresAt) || now < 0 || expiresAt <= now
   ) {
     fail("FADENO_SESSION_COOKIE");
   }
   const maximumAge = Math.ceil((expiresAt - now) / 1_000);
-  const secure = transport === "secure" ? "; Secure" : "";
-  return `${name}=${envelope}; Path=/; Max-Age=${maximumAge}${secure}; HttpOnly; SameSite=Lax`;
+  return `${cookieName}=${envelope}; Path=/; Max-Age=${maximumAge}; Secure; HttpOnly; SameSite=Lax`;
 }
 
-export function formatDecisionSessionDeletionCookie(
-  transport: DecisionSessionCookieTransport = "secure",
-): string {
-  const secure = transport === "secure" ? "; Secure" : "";
-  return `${decisionSessionCookieName(transport)}=; Path=/; Max-Age=0${secure}; HttpOnly; SameSite=Lax`;
+export function formatDecisionSessionDeletionCookie(): string {
+  return `${cookieName}=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax`;
 }

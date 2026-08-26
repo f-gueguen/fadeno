@@ -338,14 +338,6 @@ try {
   });
   assert.equal(insecureOrigin.status, 1);
   assert.equal(insecureOrigin.stderr.trim(), "FADENO_ACTION_ORIGIN");
-  const loopbackOrigin = startRefusal(release1, {
-    FADENO_PORT: String(await reservePort()),
-    FADENO_ORIGIN: "http://127.0.0.1:4173",
-    FADENO_DEV_ORIGIN: "http://127.0.0.1:4173",
-    FADENO_SESSION_KEYS: keyring,
-  });
-  assert.equal(loopbackOrigin.status, 1);
-  assert.equal(loopbackOrigin.stderr.trim(), "FADENO_ACTION_ORIGIN");
   const invalidKeys = startRefusal(release1, {
     FADENO_PORT: String(await reservePort()),
     FADENO_ORIGIN: "https://app.example",

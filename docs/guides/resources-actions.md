@@ -275,7 +275,7 @@ const page: Page = async ({ read, session }) => {
           <section class="environment-banner environment-readonly" role="status" aria-labelledby="read-only-heading">
             <p class="utility-label">Read-only development mode</p>
             <h2 id="read-only-heading">Mutation controls stay off on HTTP.</h2>
-            <p>The public laboratory keeps mutation controls behind HTTPS. Run <code>pnpm demo</code> from the repository root for the complete workflow, or keep browsing the route and resource labs here.</p>
+            <p>Fadeno refuses protected actions without an exact HTTPS origin. Run <code>pnpm demo</code> from the repository root for the complete workflow, or keep browsing the route and resource labs here.</p>
             <a class="button-link button-secondary" href="/resources">Continue to resource recovery</a>
           </section>
         )}

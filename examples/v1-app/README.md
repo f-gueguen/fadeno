@@ -22,9 +22,9 @@ visible passcode `example-owner` in the Projects laboratory. Stop the launcher
 with Ctrl-C.
 
 For a certificate-free look at the document, routing, resources, and failure
-labs, run `pnpm demo:read-only`. That public read-only mode deliberately hides
-mutation controls; the built-in development command separately owns exact
-loopback action authority. The application explains its public Projects mode.
+labs, run `pnpm demo:read-only`. That loopback HTTP mode deliberately hides
+mutation controls because protected actions require an exact HTTPS origin.
+The application explains the same boundary in its Projects page.
 
 The primary navigation now exposes Overview, Routing, Resources, Projects, and
 Evidence. The request-thread interface shows only facts owned by the current
@@ -76,11 +76,12 @@ pnpm dev
 ```
 
 The built-in development listener remains the loopback HTTP contract fixed by
-ADR 0033. It supplies an ephemeral process-owned session key and derives exact
-native action authority from the listener origin. Production and the packed
-CRUD qualification retain their external HTTPS origin. V1-14 owns the
-independently usable development guidance without weakening cross-origin
-refusal.
+ADR 0033. It supplies an ephemeral process-owned session key so applications
+that declare actions can start and render. Native mutation submission remains
+fail-closed on that listener because ADR 0035 requires an exact HTTPS origin;
+the packed HTTPS CRUD qualification is the current action workflow. V1-14 owns
+the independently usable development guidance rather than weakening this
+security boundary.
 
 It prints `Fadeno development server ready at http://127.0.0.1:4173.` only
 after a complete verified generation is accepting requests. The permanent
