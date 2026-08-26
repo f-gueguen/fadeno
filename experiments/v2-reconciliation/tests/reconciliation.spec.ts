@@ -1136,6 +1136,99 @@ test("never rewrites client-owned opaque contents during rollback", async ({ pag
   });
 });
 
+test("refuses live-control drift inside an opaque island", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=island-identity-remove&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    const island = document.querySelector("#mounted-island");
+    const incomingIsland = incoming.querySelector("#mounted-island");
+    if (!island || !incomingIsland) {
+      throw new Error("FADENO_RECONCILIATION_OPAQUE_CONTROL_FIXTURE");
+    }
+    island.innerHTML = "<input value=\"server\">";
+    incomingIsland.innerHTML = island.innerHTML;
+    const control = island.querySelector("input");
+    if (!(control instanceof HTMLInputElement)) {
+      throw new Error("FADENO_RECONCILIATION_OPAQUE_CONTROL");
+    }
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): { validate(): void; rollback(): void };
+    };
+    const transaction = module.preparePrivateDocumentReconciliation(document, incoming);
+    control.value = "drifted";
+    let refusal = "accepted";
+    try {
+      transaction.validate();
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    transaction.rollback();
+    return { refusal, value: control.value };
+  }, {
+    destination:
+      `${origin}/case?case=island-identity-remove&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    value: "drifted",
+  });
+});
+
+test("refuses element scroll acquired after reconciliation prepares", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    const target = document.querySelector("#dirty-text");
+    if (!(target instanceof HTMLElement)) {
+      throw new Error("FADENO_RECONCILIATION_SCROLL_FIXTURE");
+    }
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): { validate(): void };
+    };
+    const transaction = module.preparePrivateDocumentReconciliation(document, incoming);
+    Object.defineProperty(target, "scrollTop", { configurable: true, value: 1 });
+    let refusal = "accepted";
+    try {
+      transaction.validate();
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    return refusal;
+  }, {
+    destination:
+      `${origin}/case?case=dirty-text-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toBe("FADENO_RECONCILIATION_OWNERSHIP");
+});
+
 test("refuses a direct move of a retained state owner", async ({ page }) => {
   await page.goto(
     `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,

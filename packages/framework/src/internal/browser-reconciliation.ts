@@ -476,6 +476,26 @@ function collectDocument(document_: Document, side: Side): CollectedTree {
   return Object.freeze({ ...tree, documentIdentities });
 }
 
+function boundedLiveElements(tree: CollectedTree): readonly Element[] {
+  const elements = [...tree.elements];
+  for (const opaque of tree.elements) {
+    if (opaque.localName !== opaqueElementName) continue;
+    const walker = opaque.ownerDocument.createTreeWalker(
+      opaque,
+      NodeFilter.SHOW_ELEMENT,
+    );
+    let element = walker.nextNode() as Element | null;
+    while (element !== null) {
+      if (elements.length >= PRIVATE_RECONCILIATION_LIMITS.maximumRecords) {
+        refuse("FADENO_RECONCILIATION_LIMIT");
+      }
+      elements.push(element);
+      element = walker.nextNode() as Element | null;
+    }
+  }
+  return Object.freeze(elements);
+}
+
 function preservesStateAttribute(element: Element, name: string): boolean {
   if (name === "open" && (element.localName === "details" || element.localName === "dialog")) {
     return true;
@@ -697,9 +717,9 @@ function sameControlSelection(
       && current.direction === expected.direction;
 }
 
-function snapshotLiveControls(tree: CollectedTree): LiveControlSnapshot {
+function snapshotLiveControls(elements: readonly Element[]): LiveControlSnapshot {
   const snapshot: Array<LiveControlSnapshot[number]> = [];
-  for (const element of tree.elements) {
+  for (const element of elements) {
     if (element instanceof HTMLInputElement) {
       snapshot.push(Object.freeze({
         kind: "input",
@@ -920,9 +940,9 @@ function dialogModal(element: HTMLDialogElement): boolean {
   }
 }
 
-function snapshotLiveOwners(tree: CollectedTree): LiveOwnerSnapshot {
+function snapshotLiveOwners(elements: readonly Element[]): LiveOwnerSnapshot {
   const snapshot: Array<LiveOwnerSnapshot[number]> = [];
-  for (const element of tree.elements) {
+  for (const element of elements) {
     if (element instanceof HTMLDetailsElement) {
       snapshot.push(Object.freeze({ kind: "details", element, open: element.open }));
     } else if (element instanceof HTMLDialogElement) {
@@ -1365,8 +1385,25 @@ export function preparePrivateDocumentReconciliation(
         originalChildren: Object.freeze(Array.from(parent.children)),
       })),
   );
-  const liveControlSnapshot = snapshotLiveControls(current);
-  const liveOwnerSnapshot = snapshotLiveOwners(current);
+  const liveElements = boundedLiveElements(current);
+  if (liveElements.some((element) =>
+    element.scrollTop !== 0 || element.scrollLeft !== 0
+  )) {
+    refuse("FADENO_RECONCILIATION_OWNERSHIP");
+  }
+  const liveControlSnapshot = snapshotLiveControls(liveElements);
+  const liveOwnerSnapshot = snapshotLiveOwners(liveElements);
+  const reconcilerOwnedElements = new Set(current.elements);
+  const rollbackLiveControlSnapshot = Object.freeze(
+    liveControlSnapshot.filter(({ element }) =>
+      reconcilerOwnedElements.has(element)
+    ),
+  );
+  const rollbackLiveOwnerSnapshot = Object.freeze(
+    liveOwnerSnapshot.filter(({ element }) =>
+      reconcilerOwnedElements.has(element)
+    ),
+  );
   const documentSelectionSnapshot = snapshotDocumentSelection(currentDocument);
   const textSnapshot = new Map<Element, string>();
   for (const plan of textPlans) {
@@ -1409,8 +1446,8 @@ export function preparePrivateDocumentReconciliation(
       for (const [element, text] of textSnapshot) {
         if (element.textContent !== text) element.textContent = text;
       }
-      restoreLiveControls(liveControlSnapshot);
-      restoreLiveOwners(liveOwnerSnapshot);
+      restoreLiveControls(rollbackLiveControlSnapshot);
+      restoreLiveOwners(rollbackLiveOwnerSnapshot);
       restoreDocumentSelection(currentDocument, documentSelectionSnapshot);
     } finally {
       state = "rolled-back";
@@ -1419,6 +1456,9 @@ export function preparePrivateDocumentReconciliation(
   const validate = (): void => {
     if (state !== "prepared"
       || currentDocument.activeElement !== active
+      || liveElements.some((element) =>
+        element.scrollTop !== 0 || element.scrollLeft !== 0
+      )
       || !sameLiveControls(liveControlSnapshot)
       || !sameLiveOwners(liveOwnerSnapshot)
       || !sameDocumentSelection(currentDocument, documentSelectionSnapshot)) {
