@@ -12,6 +12,7 @@ export type ActionServerRuntimeFactory = (options: Readonly<{
   canonicalOrigin?: string;
   applicationGeneration?: string;
   sessionKeys?: string;
+  allowHttpLoopbackOrigin?: boolean;
 }>) => InstalledActionServerRuntime | null;
 
 let installedFactory: ActionServerRuntimeFactory = () => null;

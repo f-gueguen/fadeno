@@ -39,6 +39,7 @@ import {
 import { actionLimits } from "./action-limits.ts";
 import { installActionServerRuntimeFactory } from "./action-server-hook.ts";
 import { reportFrameworkFailure, type FrameworkFailureObserver } from "./failure-observer.ts";
+import { protectedOrigin } from "./protected-origin.ts";
 import { readRedirectOutcome } from "./render-route.ts";
 import {
   attachPrivateServerUpdateActionEvidence,
@@ -681,22 +682,27 @@ function withCookie(response: Response, cookie: string | null): Response {
 export class ActionServerRuntime {
   readonly #canonicalOrigin: string;
   readonly #generation: string;
+  readonly #allowHttpLoopbackOrigin: boolean;
   readonly #keyring: DecisionSessionKeyring;
   readonly #actions = new Map<string, RuntimeAction>();
   readonly #replay = new DecisionReplayLedger();
   readonly #flows: RuntimeFlow[] = [];
   readonly #now: () => number;
 
-  constructor(options: Readonly<{ canonicalOrigin: string; generation: string; sessionKeys: string; now?: () => number }>) {
-    const origin = new URL(options.canonicalOrigin);
-    if (origin.protocol !== "https:" || origin.origin !== options.canonicalOrigin || origin.username || origin.password) {
-      fail("FADENO_ACTION_ORIGIN");
-    }
+  constructor(options: Readonly<{
+    canonicalOrigin: string;
+    generation: string;
+    sessionKeys: string;
+    allowHttpLoopbackOrigin?: boolean;
+    now?: () => number;
+  }>) {
+    if (!protectedOrigin(options.canonicalOrigin, options.allowHttpLoopbackOrigin)) fail("FADENO_ACTION_ORIGIN");
     if (typeof options.generation !== "string" || options.generation.length === 0 || options.generation.includes("\0") || encoder.encode(options.generation).byteLength > 256) {
       fail("FADENO_ACTION_GENERATION");
     }
     this.#canonicalOrigin = options.canonicalOrigin;
     this.#generation = options.generation;
+    this.#allowHttpLoopbackOrigin = options.allowHttpLoopbackOrigin === true;
     this.#keyring = parseKeyring(options.sessionKeys);
     this.#now = options.now ?? Date.now;
     for (const state of registeredActionStates()) this.#actions.set(state.id, Object.freeze({ state, decision: decisionAction(state) }));
@@ -854,6 +860,7 @@ export class ActionServerRuntime {
         mediaType: mediaType(request),
         origin: request.headers.get("origin"),
         expectedOrigin: this.#canonicalOrigin,
+        allowHttpLoopbackOrigin: this.#allowHttpLoopbackOrigin,
         routeId: binding,
         expectedRouteId: binding,
         generation: this.#generation,
@@ -1038,6 +1045,7 @@ export function createActionServerRuntime(options: Readonly<{
   canonicalOrigin?: string;
   applicationGeneration?: string;
   sessionKeys?: string;
+  allowHttpLoopbackOrigin?: boolean;
 }>): ActionServerRuntime | null {
   if (registeredActionStates().length === 0) return null;
   if (!options.canonicalOrigin || !options.applicationGeneration || !options.sessionKeys) {
@@ -1047,6 +1055,9 @@ export function createActionServerRuntime(options: Readonly<{
     canonicalOrigin: options.canonicalOrigin,
     generation: options.applicationGeneration,
     sessionKeys: options.sessionKeys,
+    ...(options.allowHttpLoopbackOrigin === undefined ? {} : {
+      allowHttpLoopbackOrigin: options.allowHttpLoopbackOrigin,
+    }),
   });
 }
 
