@@ -43,29 +43,26 @@ claims. Final classification was 31 validated, 22 independently rediscovered,
 | 15 | Remove TypeScript from the production hard dependency closure | compatibility decision required | Move compiler ownership to the creating application or an accepted optional boundary | Pack/install tests must prove check/build/dev for created and existing consumers, production install, SBOM, and missing-compiler diagnostics |
 | 16 | Index radio groups during browser reconciliation | blocked by exact-key proof | Index by live form object or identity/null plus name only after mutation-safe semantics are proven | Three-engine differential tests must cover duplicate form IDs, reassociation, DOM moves, live dirtiness, rollback, and refusal |
 
-## Measured evidence
+## Research hypotheses requiring reproducible measurement
 
-- Multipart absent-marker scanning on an adversarial 8 MiB body with a 70-byte
-  marker fell from a 656.824 ms median to 6.685 ms across the research probe,
-  a 98.98% reduction. One thousand byte-search differential cases returned the
-  same offsets. Full-parser equivalence remains the implementation gate.
-- Incremental draining of a synthetic 64 MiB response avoided the contiguous
-  `arrayBuffer()` accumulation and completed in 2.75 ms versus 66.26 ms in the
-  probe. The implementation must rethrow late stream errors and must not cancel
-  rendering early.
-- Selecting only the CLI module needed by `create` reduced fresh-process import
-  median from 67.304 ms to 31.448 ms over 25 samples. This is a startup
-  observation, not an accepted public budget.
-- Configuration parsing cost 46.41–51.29 ms, with a 48.25 ms median, in the
-  research fixture. Cache admission is allowed only after exact saved/open
-  overlay invalidation is proven.
-- The root check surface contains 76 top-level and 84 recursively counted
-  package-manager wrappers. Fresh process startup showed a 242.55 ms median
-  excess over the Node floor. The estimated aggregate saving remains partial
-  until complete output and failure equivalence is demonstrated.
-- Replacing the same no-store stylesheet five times caused five requests and
-  measured unstyled windows of 102.5–104.9 ms. Head retention remains an ADR
-  item because script execution, CSSOM state, CSP nonce freshness, and rollback
+The research run did not retain the complete dataset, hardware, runtime, and
+exact-command context required by the project performance invariant. Its timing
+numbers are therefore not current evidence or performance claims. The surviving
+mechanisms remain hypotheses unless their implementation rows cite behavioral
+proof:
+
+- Native byte search may reduce multipart absent-marker scan work; full-parser
+  equivalence is the implementation gate.
+- Incremental response draining avoids one contiguous body accumulation; late
+  errors, cancellation, and complete resource execution remain mandatory.
+- Loading only the selected CLI command module may reduce fresh-process startup
+  work without changing command behavior or diagnostics.
+- Exact effective-configuration caching may avoid repeated parsing only after
+  saved and open-overlay invalidation is proven.
+- A direct check driver may reduce package-manager process overhead only after
+  command order, output, failure, and cleanup equivalence is demonstrated.
+- Safe unchanged-head retention may reduce stylesheet churn, but remains ADR
+  gated because script execution, CSSOM state, CSP nonce freshness, and rollback
   are observable contracts.
 
 ## Rejected approaches
