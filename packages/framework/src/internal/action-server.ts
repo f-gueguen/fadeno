@@ -660,7 +660,13 @@ function responseStatus(code: string, status: DecisionActionOutcome["status"] | 
   return 400;
 }
 async function consume(response: Response): Promise<void> {
-  if (response.body) await response.arrayBuffer();
+  const reader = response.body?.getReader();
+  if (!reader) return;
+  try {
+    while (!(await reader.read()).done) { /* Drain without retaining chunks. */ }
+  } finally {
+    reader.releaseLock();
+  }
 }
 function withCookie(response: Response, cookie: string | null): Response {
   if (cookie === null) return response;

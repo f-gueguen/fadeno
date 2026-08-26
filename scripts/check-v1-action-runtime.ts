@@ -563,6 +563,67 @@ try {
   else process.env["FADENO_SESSION_KEYS"] = previousKeys;
 }
 
+const drainRuntime = new ActionServerRuntime({
+  canonicalOrigin,
+  generation: applicationGeneration,
+  sessionKeys: `active:${key}`,
+});
+const drainInitial = await drainRuntime.serve(
+  new Request(`${canonicalOrigin}/projects`),
+  async (request) => await handler(request),
+);
+const drainCookie = cookie(drainInitial);
+const drainForm = form(await drainInitial.text());
+const drainRequest = (selectedForm: ParsedForm, selectedCookie: string, value: string): Request =>
+  new Request(`${canonicalOrigin}${selectedForm.action}`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer owner",
+      cookie: selectedCookie,
+      "content-type": "application/x-www-form-urlencoded",
+      origin: canonicalOrigin,
+    },
+    body: new URLSearchParams({
+      __fadeno_proof: selectedForm.proof,
+      [selectedForm.titleName]: value,
+    }),
+  });
+let revalidationChunk = 0;
+let revalidationCompleted = false;
+const drained = await drainRuntime.serve(
+  drainRequest(drainForm, drainCookie, "Drained project"),
+  async () => new Response(new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (revalidationChunk < 2) controller.enqueue(Uint8Array.of(revalidationChunk += 1));
+      else { revalidationCompleted = true; controller.close(); }
+    },
+  })),
+);
+assert.equal(drained.status, 303);
+assert.equal(revalidationCompleted, true);
+const rotatedDrainCookie = cookie(drained);
+const lateErrorPage = await drainRuntime.serve(
+  new Request(`${canonicalOrigin}/projects`, { headers: { cookie: rotatedDrainCookie } }),
+  async (request) => await handler(request),
+);
+const lateErrorForm = form(await lateErrorPage.text());
+const lateStreamError = new Error("late revalidation stream failure");
+let latePull = 0;
+const lateStream = new ReadableStream<Uint8Array>({
+  pull(controller) {
+    if (latePull === 0) { latePull += 1; controller.enqueue(Uint8Array.of(1)); }
+    else controller.error(lateStreamError);
+  },
+});
+await assert.rejects(
+  drainRuntime.serve(
+    drainRequest(lateErrorForm, rotatedDrainCookie, "Late failure project"),
+    async () => new Response(lateStream),
+  ),
+  (error) => error === lateStreamError,
+);
+lateStream.getReader().releaseLock();
+
 let clock = Date.now();
 const expiringRuntime = new ActionServerRuntime({
   canonicalOrigin,
