@@ -11,7 +11,8 @@ export const LOCAL_CI_STEPS = Object.freeze([
 ]);
 
 export type LocalCiProjection = {
-  packageJson: { scripts?: Record<string, string> };
+  packageJson: { scripts?: Record<string, string>; engines?: { node?: string } };
+  nodeVersion: string;
   contributorWorkflow: string;
   pullRequestTemplate: string;
   readme: string;
@@ -34,6 +35,7 @@ export function loadLocalCiProjection(root: string): LocalCiProjection {
   const workflows = join(root, ".github/workflows");
   return {
     packageJson: JSON.parse(readFileSync(join(root, "package.json"), "utf8")),
+    nodeVersion: readFileSync(join(root, ".node-version"), "utf8").trim(),
     contributorWorkflow: readFileSync(join(root, "docs/contributor-workflow.md"), "utf8"),
     pullRequestTemplate: readFileSync(join(root, ".github/pull_request_template.md"), "utf8"),
     readme: readFileSync(join(root, "README.md"), "utf8"),
@@ -55,6 +57,11 @@ export function validateLocalCiProjection(
   steps: readonly Readonly<{ name: string; args: readonly string[] }>[] = LOCAL_CI_STEPS,
 ): string[] {
   const errors: string[] = [];
+  if (projection.packageJson.engines?.node !== `>=${projection.nodeVersion}`) {
+    errors.push(
+      `package: .node-version ${projection.nodeVersion} must equal engine minimum ${projection.packageJson.engines?.node}`,
+    );
+  }
   if (projection.packageJson.scripts?.["ci:local"] !== LOCAL_CI_PACKAGE_SCRIPT) {
     errors.push("package: canonical local CI command differs");
   }

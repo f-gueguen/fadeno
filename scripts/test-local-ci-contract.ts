@@ -27,6 +27,7 @@ function mutation(label: string, mutate: (projection: LocalCiProjection) => void
 }
 
 mutation("command", (value) => { value.packageJson.scripts!["ci:local"] = "pnpm check"; });
+mutation("Node pin below engine", (value) => { value.nodeVersion = "22.16.0"; });
 mutation("main check", (value) => {
   value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
     "pnpm check:local-ci-contract && ",

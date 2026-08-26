@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -47,10 +47,6 @@ if (ajvPackage.version !== "8.20.0" || ajvPackage.license !== "MIT") {
   recordFailure(`installed Ajv identity mismatch: ${ajvPackage.version}/${ajvPackage.license}`);
 }
 
-const nodeVersion = readFileSync(join(root, ".node-version"), "utf8").trim();
-if (reference.toolchain.node !== nodeVersion) {
-  recordFailure(`reference Node ${reference.toolchain.node} differs from .node-version ${nodeVersion}`);
-}
 const packageManager = `pnpm@${reference.toolchain.pnpm}`;
 if (packageJson.packageManager !== packageManager) {
   recordFailure(`reference pnpm differs from packageManager ${packageJson.packageManager}`);

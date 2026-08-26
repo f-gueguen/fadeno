@@ -26,7 +26,7 @@ claims. Final classification was 31 validated, 22 independently rediscovered,
 
 | Order | Finding | State | Smallest useful change | Behavior-level proof |
 | ---: | --- | --- | --- | --- |
-| 1 | Align the local Node pin with the enforced `>=22.17` engine floor | ready | Update the pin and enforce one repository-wide runtime floor | Reject a fixture whose pin is below the declared engine minimum; accept the repository values |
+| 1 | Align the local Node pin with the enforced `>=22.17` engine floor | implemented | Update the pin and enforce one repository-wide runtime floor | Reject a fixture whose pin is below the declared engine minimum; accept the repository values |
 | 2 | Execute source and generated route matchers against one corpus | ready | Reuse the accepted routing cases for both shipped matcher forms | Assert identical route identity and parameters for accepted cases and identical refusal for malformed or unmatched paths |
 | 3 | Replace interpreted multipart candidate scans with native byte search | ready | Use `Buffer.indexOf` at the existing Node-owned boundary | Differentially compare full parser outcomes across overlaps, suffixes, malformed framing, limits, and randomized bodies |
 | 4 | Incrementally drain discarded redirect revalidation bodies | ready | Read and discard chunks without materializing a contiguous body | Prove complete resource execution, backpressure consumption, late-error propagation, cancellation, and redirect outcome |
