@@ -1,20 +1,14 @@
 #!/usr/bin/env node
 
-import { runProjectCheckCommand } from "./internal/project-check.ts";
-import { runProjectBuildCommand } from "./internal/project-build.ts";
-import { runProjectCreateCommand } from "./internal/project-create.ts";
-import { runProjectDeployCommand } from "./internal/project-deploy.ts";
-import { runProjectDevCommand } from "./internal/project-dev.ts";
-
 const arguments_ = process.argv.slice(2);
 const context = { cwd: process.cwd() };
 const command = arguments_[0];
 const commands = {
-  check: () => runProjectCheckCommand(arguments_, context),
-  build: () => runProjectBuildCommand(arguments_, context),
-  create: () => runProjectCreateCommand(arguments_, context),
-  deploy: () => runProjectDeployCommand(arguments_, context),
-  dev: () => runProjectDevCommand(arguments_, {
+  check: async () => (await import("./internal/project-check.ts")).runProjectCheckCommand(arguments_, context),
+  build: async () => (await import("./internal/project-build.ts")).runProjectBuildCommand(arguments_, context),
+  create: async () => (await import("./internal/project-create.ts")).runProjectCreateCommand(arguments_, context),
+  deploy: async () => (await import("./internal/project-deploy.ts")).runProjectDeployCommand(arguments_, context),
+  dev: async () => (await import("./internal/project-dev.ts")).runProjectDevCommand(arguments_, {
       ...context,
       writeStdout: (value) => process.stdout.write(value),
       writeStderr: (value) => process.stderr.write(value),
