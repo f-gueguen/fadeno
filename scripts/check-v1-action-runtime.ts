@@ -14,6 +14,7 @@ import {
   type SessionView,
 } from "../packages/framework/src/index.ts";
 import { ActionServerRuntime } from "../packages/framework/src/internal/action-server.ts";
+import { actionLimits } from "../packages/framework/src/internal/action-limits.ts";
 import { decisionSessionLimits } from "../packages/framework/src/internal/session-decision.ts";
 import { jsx } from "../packages/framework/src/jsx-runtime.ts";
 import { listenNodeHttp } from "../packages/framework/src/node.ts";
@@ -515,6 +516,47 @@ try {
   });
   assert.equal(cookieLessCrossOrigin.status, 400);
   assert.equal(cookieLessCrossOrigin.headers.getSetCookie().length, 0);
+
+  const multipartBoundary = "fadeno-prefix-heavy-boundary";
+  const multipartBody = [
+    `x--${multipartBoundary}x`.repeat(4_096),
+    `\r\n--${multipartBoundary}\r\nContent-Disposition: form-data; name="__fadeno_proof"\r\n\r\n${refreshed.proof}\r\n`,
+    `--${multipartBoundary}\r\nContent-Disposition: form-data; name="${refreshed.titleName}"\r\n\r\nMultipart project\r\n`,
+    `--${multipartBoundary}--\r\n`,
+  ].join("");
+  const multipart = await fetch(`${server.origin}${refreshed.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      cookie: changedCookie,
+      "content-type": `multipart/form-data; boundary=${multipartBoundary}`,
+      origin: canonicalOrigin,
+    },
+    body: multipartBody,
+  });
+  assert.equal(multipart.status, 400);
+  assert.match(await multipart.text(), /<p>FADENO_ACTION_BODY<\/p>/u);
+  assert.equal(title, "Recovered project");
+
+  const excessiveMultipartBoundary = "fadeno-excessive-parts";
+  const excessiveMultipartBody = [
+    ...Array.from({ length: actionLimits.maximumParts + 2 }, (_, index) =>
+      `--${excessiveMultipartBoundary}\r\nContent-Disposition: form-data; name="extra-${index}"\r\n\r\n\r\n`),
+    `--${excessiveMultipartBoundary}--\r\n`,
+  ].join("");
+  const excessiveMultipart = await fetch(`${server.origin}${refreshed.action}`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      cookie: changedCookie,
+      "content-type": `multipart/form-data; boundary=${excessiveMultipartBoundary}`,
+      origin: canonicalOrigin,
+    },
+    body: excessiveMultipartBody,
+  });
+  assert.equal(excessiveMultipart.status, 413);
+  assert.match(await excessiveMultipart.text(), /<p>FADENO_ACTION_BODY_LIMIT<\/p>/u);
+  assert.equal(title, "Recovered project");
 } finally {
   await server.close();
   if (previousKeys === undefined) delete process.env["FADENO_SESSION_KEYS"];
