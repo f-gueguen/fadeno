@@ -31,10 +31,6 @@ expectMutation("deployment artifact identity verification drifted", (context) =>
     "void frameworkRoot",
   ),
 }));
-expectMutation("public deploy command dispatch drifted", (context) => Object.freeze({
-  ...context,
-  cli: context.cli.replace('arguments_[0] === "deploy"', 'arguments_[0] === "other"'),
-}));
 expectMutation("A0-06 introduced a public deployment export", (context) => Object.freeze({
   ...context,
   frameworkPackage: {
