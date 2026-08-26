@@ -18,6 +18,14 @@ semantic requirements:
 
 Sharing semantics does not require every transport to share one envelope.
 
+ADR 0053 applies those semantics to one bounded private keyed subtree. Every
+current and incoming element in that subtree has a unique standard HTML
+identity; position is never a fallback. Shared identities reuse the existing
+DOM object after complete preflight, while an explicit replacement set is
+owned only by framework construction and conformance evidence. The identity,
+replacement, result, and flow records are not a public protocol or application
+selector surface.
+
 ## Trust boundary
 
 Every inbound message is untrusted. Decoding validates version, shape, type,

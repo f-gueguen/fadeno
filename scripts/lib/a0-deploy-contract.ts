@@ -14,7 +14,6 @@ export interface A0DeployContext {
   readonly ledger: string;
   readonly implementation: string;
   readonly buildImplementation: string;
-  readonly cli: string;
   readonly createImplementation: string;
   readonly generatedReadme: string;
   readonly rootPackage: unknown;
@@ -66,7 +65,6 @@ export function loadA0DeployContext(root: string, tracked: ReadonlySet<string>):
     ledger: read("ROADMAP_LEDGER.md"),
     implementation: read("packages/framework/src/internal/project-deploy.ts"),
     buildImplementation: read("packages/framework/src/internal/project-build.ts"),
-    cli: read("packages/framework/src/cli.ts"),
     createImplementation: read("packages/framework/src/internal/project-create.ts"),
     generatedReadme: read("examples/v1-app/scenarios/project-creation/expected/app/README.md"),
     rootPackage: JSON.parse(read("package.json")) as unknown,
@@ -141,9 +139,6 @@ export function validateA0Deploy(context: A0DeployContext): readonly string[] {
     || !context.buildImplementation.includes("assertPrivateRuntimeIdentity(dependencyRoot, dependency.identity)")
     || !context.buildImplementation.includes("assertPrivateRuntimeIdentity(frameworkRoot, manifest.runtime)")) {
     errors.push("deployment artifact identity verification drifted");
-  }
-  if (!context.cli.includes('arguments_[0] === "deploy"') || !context.cli.includes("runProjectDeployCommand")) {
-    errors.push("public deploy command dispatch drifted");
   }
   if (!context.createImplementation.includes("fadeno deploy --project-root . --output ../releases/my-fadeno-app-001")
     || !context.generatedReadme.includes("fadeno deploy --project-root . --output ../releases/my-fadeno-app-001")) {

@@ -4,9 +4,10 @@ This model covers the V2-02 loading and decode boundary selected by ADR 0047,
 the V2-03 server projection selected by ADR 0048, V2-04's conservative link
 interception selected by ADR 0049, V2-05's history/focus/scroll boundary
 selected by ADR 0050, V2-06's conservative form submission selected by ADR
-0051, and V2-07's mutation-to-redirect-GET ownership selected by ADR 0052. It
-does not claim general state-preserving reconciliation; that remains a later
-slice.
+0051, V2-07's mutation-to-redirect-GET ownership selected by ADR 0052, and
+V2-08's bounded private structural reconciliation selected by ADR 0053. It does
+not claim arbitrary HTML morphing, numeric scroll restoration, or a public
+identity/replacement protocol.
 
 ## Assets and owners
 
@@ -28,6 +29,7 @@ slice.
 | --- | --- | --- |
 | Untrusted script location | Generated-only root-relative path; network paths, credentials, fragments, backslashes, NUL, and other origins refuse | Renderer module-path tests |
 | CSP bypass or policy drift | One external module uses the request-owned nonce; wrong/missing nonce and missing artifact execute nothing; rollback restores `script-src 'none'` | Three-engine packed browser runtime gate |
+| Local media preservation broadens the deny-by-default document policy | The renderer permits only `media-src data:`; reconciliation accepts only bounded WAV data sources and never treats media bytes as script, style, navigation, or form authority | Rendering-security replay plus three-engine playing/paused media preservation |
 | Browser code enters server graphs | Exact `./browser` export; neutral root and Node closures cannot reach it; no Node dependency in browser closure | Current packed package gate |
 | Import unexpectedly acquires ownership | Facade import has no side effect; startup is explicit, idempotent while active, and closable | Packed consumer and three-engine lifecycle |
 | Insecure startup cannot create private identity | History ownership requires HTTPS or trustworthy loopback plus a secure random UUID capability before any private identity is created | Three-engine missing-capability refusal with native link recovery |
@@ -46,6 +48,9 @@ slice.
 | Hostile link acquires request ownership | Exact primary-click eligibility rejects credentials, other origins/schemes, target, download, modifiers, non-primary activation, and same-document fragments before `preventDefault()` | Packed pre-interception matrix |
 | Browser correlation is mistaken for authorization | Private request headers are bounded freshness values only; the adapter creates a fresh opaque owner and binds the exact server `Request` before native handling | Integrated transport ownership and cross-user cases |
 | User-owned state changes during fetch | The complete conservative preservation predicate runs before interception and again before commit; forced scroll flushes refresh the captured source state, rollback focus comes from the precommit snapshot, and unsafe GET work returns to native destination | Dirty/top-layer/media/selection/client-identity/scroll race and precommit focus-shape cases |
+| Reconciliation identity is missing, duplicated, position-derived, or conflicts outside the owned root | ADR 0053 admits exactly one bounded `main` root whose current and incoming elements have unique nonempty standard HTML identities; complete-document uniqueness and parent/kind compatibility preflight before history selection and the first DOM write; position is never identity | Current/incoming missing, duplicate, conflicting, reparented, retyped, over-depth, over-record, and over-byte refusal fixtures |
+| Reconciliation overwrites browser-owned state or executes unsupported markup | Shared nodes are reused without assigning values, files, focus, selection, caret, top-layer, media, island, or scroll state; state-owned content, scripts, event attributes, foreign namespaces, unsupported controls, media-source drift, and opaque-island drift refuse before mutation | Complete locked state corpus, hostile surface refusals, unchanged state setters/events/network, and three-engine object-identity assertions |
+| Partial reconciliation or rollback publishes mixed history and document state | One precomputed plan shares the existing history/document commit owner; bounded snapshots restore attributes, text, child order, shell, focus, selection, and scroll before native recovery; uncertain actions reload current truth without POST replay | Injected commit/postcondition failure, exact prior-node restoration, selected-history rollback, current-truth GET, cleanup, and zero repeated mutation |
 | Late or duplicate response overwrites current state | A newer sequence aborts its predecessor; generation, epoch, operation, URL, cancellation, and consumed-result identity are rechecked before one atomic commit | Permuted, cancelled, stale, and duplicate response cases |
 | Transported markup executes code | Complete HTML is parsed inertly; the commit admits one framework document root and does not execute transported scripts | Hostile markup and rollback cases |
 | History state is malformed, application-owned, or from another runtime chain | Only a state freshly created or re-keyed by the current document runtime, with the exact private marker/version, active session identity, bounded entry/URL recovery record, and bounded scroll record, is interpreted; guarded runtime writes are distinguished from application History API calls, exact recovery consumes only the selected session/entry/URL tuple, and every other selected entry reloads current URL truth | Three-engine malformed/foreign/unowned traversal, exact-shape startup re-keying, same-URL copy recovery, and independent same-URL record consumption |
@@ -83,7 +88,7 @@ no browser artifact is requested, and native links and forms still navigate.
 
 ## Residual risks
 
-- V2-08 and V2-09 must qualify structural reconciliation and its remaining
-  preservation boundaries.
+- V2-09 must qualify the canonical application across the accepted V2-08
+  reconciliation boundary.
 - The private schema may change before those consumers exist; it is not a
   compatibility promise.

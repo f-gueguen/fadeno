@@ -71,6 +71,8 @@ export type V2PlanContext = Readonly<{
   formChangeset: string;
   actionAdr: string;
   actionChangeset: string;
+  reconciliationAdr: string;
+  reconciliationChangeset: string;
   packageDocument: unknown;
   tracked: ReadonlySet<string>;
 }>;
@@ -94,6 +96,8 @@ export function loadV2PlanContext(root: string, tracked: ReadonlySet<string>): V
     formChangeset: read(".changeset/conservative-form-submission.md"),
     actionAdr: read("docs/adr/0052-enhanced-action-outcome-ordering.md"),
     actionChangeset: read(".changeset/enhanced-action-ordering.md"),
+    reconciliationAdr: read("docs/adr/0053-bounded-private-structural-reconciliation.md"),
+    reconciliationChangeset: read(".changeset/bounded-structural-reconciliation.md"),
     packageDocument: JSON.parse(read("packages/framework/package.json")) as unknown,
     tracked,
   });
@@ -111,6 +115,15 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     "docs/adr/0052-enhanced-action-outcome-ordering.md",
     ".changeset/enhanced-action-ordering.md",
     "scripts/check-v2-action-ordering.ts",
+    "docs/adr/0053-bounded-private-structural-reconciliation.md",
+    ".changeset/bounded-structural-reconciliation.md",
+    "scripts/check-v2-reconciliation.ts",
+    "tsconfig.v2-reconciliation.json",
+    "experiments/v2-reconciliation/playwright.config.ts",
+    "experiments/v2-reconciliation/tests/reconciliation.spec.ts",
+    "examples/v1-app/scenarios/structural-reconciliation/application.ts",
+    "examples/v1-app/scenarios/structural-reconciliation/browser-entry.ts",
+    "examples/v1-app/scenarios/structural-reconciliation/scenario-data.ts",
   ]) if (!context.tracked.has(path)) errors.push(`V2 plan artifact is not tracked: ${path}`);
 
   const rows = context.roadmap
@@ -164,7 +177,8 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   for (const fragment of ["completed its qualified private V1 and public A0", "current V2 plan", "[current V2 plan](docs/roadmap/v2.md)"]) {
     if (!context.readme.includes(fragment)) errors.push(`README handoff is missing ${fragment}`);
   }
-  if (!context.ledger.includes("V2-07A — integrate the enhanced workflow into the evaluator demonstration")
+  if (!context.ledger.includes("V2-08 — implement bounded structural reconciliation")
+    || !context.ledger.includes("V2-07A — Merge commit `fa01733`")
     || !context.ledger.includes("V2-07 — Merge commit `d4a6085`")
     || !context.ledger.includes("V2-06 — Merge commit `dac001d`")
     || !context.ledger.includes("V2-05A — Merge commit `b951e4d`")
@@ -176,7 +190,7 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
     || !context.ledger.includes("V2-04 — Merge commit `9d526b8`")
     || !context.ledger.includes("V2-01A — Merge commit `46c7ab0`")
     || !context.ledger.includes("V2-01 — Merge commit `d9718c0`")
-    || !context.ledger.includes("V2-08 remains blocked until V2-07A")
+    || context.ledger.includes("V2-08 remains blocked until V2-07A")
     || !context.ledger.includes("resolves DG-V2-01")) {
     errors.push("V2 roadmap ledger state drifted");
   }
@@ -229,6 +243,38 @@ export function validateV2Plan(context: V2PlanContext): readonly string[] {
   }
   if (!formRisk.includes("ADR 0052") || !formRisk.includes("publishes after supersession")) {
     errors.push("V2-07 action-ordering risk contract drifted");
+  }
+
+  const reconciliationAdr = context.reconciliationAdr.replace(/\s+/gu, " ");
+  for (const fragment of [
+    "Status: Accepted",
+    "4,096 records, depth 16, and 128 UTF-8 bytes per identity",
+    "complete current and incoming structure before the first DOM write",
+    "same DOM objects",
+    "document scroll resets through the qualified top commit",
+    "element scroll follows native current-truth recovery",
+    "No export, application syntax, public protocol, public analyzer facet, or editor surface is added",
+    "`pnpm check:v2-reconciliation`",
+  ]) if (!reconciliationAdr.includes(fragment)) errors.push(`ADR 0053 is missing ${fragment}`);
+  const expectedReconciliationChangeset = '---\n"@fadeno/framework": minor\n---\n\nPreserve eligible browser-owned state across bounded keyed enhanced link and\naction updates while retaining the qualified document-top reset and native\nelement-scroll recovery.\n';
+  if (context.reconciliationChangeset !== expectedReconciliationChangeset) {
+    errors.push("V2-08 Changeset contract drifted");
+  }
+  for (const feature of ["PATCH-01", "STATE-01", "ACCESS-01", "TEST-01"]) {
+    const scope = context.scope.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    const trace = context.traceability.split("\n").find((line) => line.startsWith(`| ${feature} |`)) ?? "";
+    if (!scope.includes("ADR 0053")) errors.push(`V2-08 ${feature} scope contract drifted`);
+    if (!trace.includes("ADR 0053") || !trace.includes("check:v2-reconciliation")) {
+      errors.push(`V2-08 ${feature} traceability contract drifted`);
+    }
+  }
+  const reconciliationRisk = context.risks.split("\n")
+    .find((line) => line.startsWith("| Browser updates destroy user state")) ?? "";
+  if (!reconciliationRisk.includes("ADR 0053")
+    || !reconciliationRisk.includes("same objects")
+    || !reconciliationRisk.includes("qualified top boundary")
+    || !reconciliationRisk.includes("element-scroll")) {
+    errors.push("V2-08 browser-state risk contract drifted");
   }
 
   for (const feature of ["ENH-01", "PATCH-01"]) {

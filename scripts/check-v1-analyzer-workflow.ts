@@ -204,6 +204,41 @@ try {
   cpSync(join(root, "examples/v1-app/src"), join(application, "src"), { recursive: true });
   cpSync(join(root, "examples/v1-app/fadeno.config.ts"), join(application, "fadeno.config.ts"));
   const executable = join(consumer, "node_modules/.bin/fadeno");
+  const withImportCanary = (module: "build" | "create" | "deploy", verify: () => void): void => {
+    const path = join(installedPackage, `dist/internal/project-${module}.js`);
+    const bytes = readFileSync(path);
+    writeFileSync(path, 'throw new Error("FADENO_UNSELECTED_COMMAND_IMPORTED");\n');
+    try { verify(); } finally { writeFileSync(path, bytes); }
+    assertPackageIdentity(installedPackage, builtIdentity);
+  };
+
+  withImportCanary("build", () => {
+    assert.deepEqual(run(executable, [], consumer), {
+      status: 2,
+      stdout: "",
+      stderr: "FADENO_CHECK_USAGE: fadeno check --project-root <path> [--explain]\n",
+    });
+    const unknown = run(executable, ["chekc", "--project-root", "app"], consumer);
+    assert.deepEqual(unknown, {
+      status: 2,
+      stdout: "",
+      stderr: 'FADENO_CLI_COMMAND: unknown command "chekc"\nUsage: fadeno <check|build|create|deploy|dev>\n',
+    });
+  });
+  assert.equal(existsSync(join(application, ".fadeno")), false);
+  for (const [command, sentinel, stderr] of [
+    ["build", "create", "FADENO_BUILD_USAGE: fadeno build --project-root <path>\n"],
+    ["create", "deploy", "FADENO_CREATE_USAGE: fadeno create --project-root <path>\n"],
+    ["deploy", "create", "FADENO_DEPLOY_USAGE: fadeno deploy --project-root <path> --output <missing-path>\n"],
+    ["dev", "create", "FADENO_DEV_USAGE: fadeno dev --project-root <path> --port <1..65535>\n"],
+  ] as const) {
+    withImportCanary(sentinel, () => assert.deepEqual(run(executable, [command], consumer), {
+      status: 2,
+      stdout: "",
+      stderr,
+    }));
+  }
+  assert.equal(existsSync(join(application, ".fadeno")), false);
 
   const absolute = run(executable, ["check", "--project-root", application], consumer);
   assert.deepEqual(absolute, { status: 0, stdout: fixture("check-success.txt"), stderr: "" });

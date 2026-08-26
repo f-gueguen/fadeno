@@ -1,0 +1,13 @@
+{
+  "schema": "fadeno.example.structural-reconciliation-success",
+  "version": 1,
+  "lockedCases": 18,
+  "operationModes": [
+    "navigation",
+    "action"
+  ],
+  "preservedStateCases": 15,
+  "documentScroll": "qualified-top-reset",
+  "elementScroll": "native-refusal",
+  "declaredReplacement": "private-control"
+}

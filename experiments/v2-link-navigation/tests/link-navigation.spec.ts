@@ -601,6 +601,7 @@ test("allows a scrolled origin and reloads that unsafe history entry on return",
   const nativeHomeBefore = requests.filter(({ path, enhanced }) => path === "/" && !enhanced).length;
   await page.goBack();
   await expect(page.locator("h1")).toHaveText("Home");
+  await waitForPrivateHistoryOwner(page);
   const recoveredPath = new URL(page.url()).pathname;
   const recoveredHeading = await page.locator("h1").textContent();
   const nativeScrollRestored = await page.evaluate(() => scrollY > 0);
@@ -2417,7 +2418,7 @@ test("retains normalized flow evidence without exposing a public schema", async 
       "eligible same-origin GET acquired browser operation ownership",
       "exact native server response was projected once",
       "current generation, epoch, operation, URL, cache, and result were admitted",
-      "document, title, URL, history, and focus committed",
+      "complete document, title, URL, history, and focus committed",
       "destination scroll committed at the native top boundary without transition work",
     ],
     ownership: {

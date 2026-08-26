@@ -152,6 +152,8 @@ try {
     "package/dist/internal/browser-form.js",
     "package/dist/internal/browser-navigation.d.ts",
     "package/dist/internal/browser-navigation.js",
+    "package/dist/internal/browser-reconciliation.d.ts",
+    "package/dist/internal/browser-reconciliation.js",
     "package/dist/internal/browser-runtime.d.ts",
     "package/dist/internal/browser-runtime.js",
     "package/dist/internal/browser-update.d.ts",

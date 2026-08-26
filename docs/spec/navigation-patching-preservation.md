@@ -57,8 +57,8 @@ route execution may provide one root-relative same-origin browser module, which
 the renderer emits once with its existing request nonce. Wrong or missing
 nonce, missing artifact, disabled JavaScript, environment refusal, and rollback
 execute no enhancement and preserve native controls. This is a loading
-boundary only: link/form interception and document reconciliation remain
-unimplemented.
+boundary only; ADRs 0049 through 0053 separately own the implemented link,
+form, action, and bounded private document-reconciliation behavior.
 
 ## Preservation contract
 
@@ -428,6 +428,53 @@ when no committed-mutation recovery owner exists. If a recovery timer, GET, or
 selected recovery still owns committed freshness, failed reacquisition first
 aborts the obsolete result and starts native current-truth replacement; runtime
 teardown completes only after that departure begins.
+
+## Bounded private structural reconciliation
+
+ADR 0053 permits one private in-place commit only when the current and incoming
+documents expose the same unique `main` root identity and every element in that
+root has one unique, bounded standard HTML `id`. The sole exception is the exact
+renderer-owned hidden action-proof control, whose internal identity derives
+from its uniquely identified parent form and reserved proof field.
+Application-authored unkeyed descendants still refuse. The complete current
+and inert incoming trees are validated before history selection or DOM
+mutation. Identity never falls back to array position, and application results
+never carry selector commands.
+
+Shared identities reuse their current DOM objects only when namespace, element
+kind, parent, state-owned content, control kind, media source, and opaque future
+island content remain compatible. Incoming-only identities are inserted and
+current-only identities are removed. A private declared-replacement set may
+replace a same-identity non-opaque leaf only when supplied by framework-owned
+construction or conformance evidence; no application attribute, diagnostic
+message, or public API can declare one.
+
+The accepted state classes are preserved by object reuse rather than property
+replay. The reconciler never assigns user values, checked state, selected
+files, disclosure/top-layer state, media time or playback, focus, selection,
+caret, island state, or numeric scroll. State-owned content changes,
+unsupported elements or attributes, missing/duplicate/conflicting identities,
+different reused parents or kinds, limits, and mutation-time/postcondition
+failure refuse or recover atomically.
+
+Link and form admission may pass an otherwise conservative dirty-control,
+disclosure/top-layer, media, focus, selection, caret, or future-island boundary
+only when the complete current keyed tree preflights. The incoming plan and
+current owner are rechecked after response admission. A failed link plan
+returns to native destination navigation; an uncertain committed action reloads
+current truth through GET and never repeats the mutation.
+
+Document and element scroll remain outside preservation claims. The accepted
+V2-05 forward-navigation rule may record a nonzero origin entry as unsafe and
+commit the destination at the exact top boundary; it does not retain numeric
+document scroll. Nonzero element scroll and affected or unknown transported
+element preceding-layout classification remain native refusal boundaries. The
+locked document-scroll and element-scroll cases therefore retain their exact
+non-preservation outcomes: top reset and native refusal, respectively.
+
+The identity map, reconciliation result, replacement set, and flow evidence are
+private package internals. This specification introduces no public patch
+schema, key syntax, selector protocol, or compatibility promise.
 
 ## Narrowed H1 result and V2 conformance
 

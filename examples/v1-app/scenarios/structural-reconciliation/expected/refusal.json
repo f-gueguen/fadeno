@@ -1,0 +1,7 @@
+{
+  "schema": "fadeno.example.structural-reconciliation-refusal",
+  "version": 1,
+  "code": "FADENO_RECONCILIATION_IDENTITY",
+  "cause": "a browser-owned control had no bounded structural identity",
+  "outcome": "native-navigation"
+}

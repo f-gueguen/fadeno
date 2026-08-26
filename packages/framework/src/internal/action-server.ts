@@ -422,15 +422,12 @@ function bytesAt(source: Uint8Array, expected: Uint8Array, index: number): boole
 }
 
 function findBytes(source: Uint8Array, expected: Uint8Array, start: number): number {
-  for (let index = start; index <= source.byteLength - expected.byteLength; index += 1) {
-    if (bytesAt(source, expected, index)) return index;
-  }
-  return -1;
+  return Buffer.from(source.buffer, source.byteOffset, source.byteLength).indexOf(expected, start);
 }
 
 function findMultipartOpeningBoundary(source: Uint8Array, marker: Uint8Array): number {
-  for (let index = 0; index <= source.byteLength - marker.byteLength; index += 1) {
-    if (!bytesAt(source, marker, index)) continue;
+  const bytes = Buffer.from(source.buffer, source.byteOffset, source.byteLength);
+  for (let index = bytes.indexOf(marker); index >= 0; index = bytes.indexOf(marker, index + 1)) {
     if (index !== 0 && (index < 2 || source[index - 2] !== 0x0d || source[index - 1] !== 0x0a)) continue;
     const suffix = index + marker.byteLength;
     if (
@@ -516,14 +513,11 @@ function assertBoundedPartFraming(type: string, contentType: string, body: Uint8
   }
   const boundary = multipartBoundary(contentType);
   const marker = encoder.encode(`--${boundary}`);
+  const bytes = Buffer.from(body.buffer, body.byteOffset, body.byteLength);
   let delimiters = 0;
-  for (let index = 0; index <= body.byteLength - marker.byteLength; index += 1) {
+  for (let index = bytes.indexOf(marker); index >= 0; index = bytes.indexOf(marker, index + 1)) {
     if (index !== 0 && (index < 2 || body[index - 2] !== 0x0d || body[index - 1] !== 0x0a)) continue;
-    let equal = true;
-    for (let offset = 0; offset < marker.byteLength; offset += 1) {
-      if (body[index + offset] !== marker[offset]) { equal = false; break; }
-    }
-    if (equal && (delimiters += 1) > maximumFramedParts + 1) fail("FADENO_ACTION_BODY_LIMIT");
+    if ((delimiters += 1) > maximumFramedParts + 1) fail("FADENO_ACTION_BODY_LIMIT");
   }
 }
 
@@ -666,7 +660,13 @@ function responseStatus(code: string, status: DecisionActionOutcome["status"] | 
   return 400;
 }
 async function consume(response: Response): Promise<void> {
-  if (response.body) await response.arrayBuffer();
+  const reader = response.body?.getReader();
+  if (!reader) return;
+  try {
+    while (!(await reader.read()).done) { /* Drain without retaining chunks. */ }
+  } finally {
+    reader.releaseLock();
+  }
 }
 function withCookie(response: Response, cookie: string | null): Response {
   if (cookie === null) return response;

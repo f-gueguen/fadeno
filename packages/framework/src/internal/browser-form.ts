@@ -1,3 +1,8 @@
+import {
+  privateCurrentDocumentReconciliationSafe,
+  privateDisclosureStateOwners,
+} from "./browser-reconciliation.ts";
+
 const generatedActionPrefix = "/.fadeno/actions/v1/";
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
@@ -217,7 +222,10 @@ export function privateFormRequest(eligibility: PrivateFormEligibility): Private
 
 function dirtyControl(control: Element): boolean {
   if (control instanceof HTMLInputElement) {
-    if (["checkbox", "radio"].includes(control.type)) return control.checked !== control.defaultChecked;
+    if (control.type === "checkbox") {
+      return control.indeterminate || control.checked !== control.defaultChecked;
+    }
+    if (control.type === "radio") return control.checked !== control.defaultChecked;
     if (["button", "submit", "reset", "image", "hidden"].includes(control.type)) return false;
     return control.value !== control.defaultValue;
   }
@@ -238,16 +246,28 @@ function controlOwner(control: Element): HTMLFormElement | null | undefined {
 
 export function privateFormPreservationSafe(
   eligibility: PrivateFormEligibility,
-  options: Readonly<{ allowDocumentScroll?: boolean }> = {},
+  options: Readonly<{
+    allowDocumentScroll?: boolean;
+    allowReconciliation?: boolean;
+  }> = {},
 ): boolean {
   if (!eligibility.form.isConnected || eligibility.form.ownerDocument !== document) return false;
   if (!options.allowDocumentScroll && (scrollX !== 0 || scrollY !== 0)) return false;
-  if ([...document.querySelectorAll("input, textarea, select")]
-    .some((control) => controlOwner(control) !== eligibility.form && dirtyControl(control))) return false;
-  if (document.querySelector("details[open], dialog[open], audio, video, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])") !== null) return false;
-  try { if (document.querySelector(":popover-open") !== null) return false; } catch { /* unsupported selector has no open popover state */ }
+  const reconciliationOwners: Node[] = [
+    ...[...document.querySelectorAll("input, textarea, select")]
+      .filter((control) => controlOwner(control) !== eligibility.form && dirtyControl(control)),
+    ...privateDisclosureStateOwners(document),
+    ...document.querySelectorAll("audio, video, fadeno-island, [data-fadeno-client-owned], [data-fadeno-island], [contenteditable]:not([contenteditable=\"false\"])"),
+  ];
+  try {
+    const popover = document.querySelector(":popover-open");
+    if (popover) reconciliationOwners.push(popover);
+  } catch { /* unsupported selector has no open popover state */ }
   const selection = document.getSelection();
-  if (selection && !selection.isCollapsed) return false;
+  if (selection && !selection.isCollapsed) {
+    if (selection.anchorNode) reconciliationOwners.push(selection.anchorNode);
+    if (selection.focusNode) reconciliationOwners.push(selection.focusNode);
+  }
   const active = document.activeElement;
   const activeOwner = active ? controlOwner(active) : undefined;
   const runtimeFocus = active instanceof HTMLElement
@@ -258,11 +278,55 @@ export function privateFormPreservationSafe(
     && active !== document.documentElement
     && activeOwner !== eligibility.form
     && active !== eligibility.submitter
-    && !runtimeFocus) return false;
+    && !runtimeFocus) reconciliationOwners.push(active);
+  if (reconciliationOwners.length > 0
+    && options.allowReconciliation === false) return false;
+  if (reconciliationOwners.length > 0
+    && !privateCurrentDocumentReconciliationSafe(document, reconciliationOwners)) return false;
   const documentScroller = document.scrollingElement;
   for (const element of document.querySelectorAll("*")) {
     if (options.allowDocumentScroll && element === documentScroller) continue;
     if (element.scrollTop !== 0 || element.scrollLeft !== 0) return false;
   }
   return true;
+}
+
+export function privateSubmittedFormReconciliationSafe(
+  form: HTMLFormElement,
+  incomingDocument: Document,
+): boolean {
+  if (!form.isConnected || form.ownerDocument !== document || form.id === "") return false;
+  const incomingForm = incomingDocument.getElementById(form.id);
+  if (!(incomingForm instanceof HTMLFormElement)) return false;
+  const controls = [...form.elements].filter((control): control is
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement =>
+    control instanceof HTMLInputElement
+      || control instanceof HTMLTextAreaElement
+      || control instanceof HTMLSelectElement
+  );
+  return controls.every((control) => {
+    if (control instanceof HTMLInputElement
+      && control.type === "hidden"
+      && control.id === "") return true;
+    if (control.id === "") return false;
+    const incoming = incomingDocument.getElementById(control.id);
+    if (incoming?.closest("form") !== incomingForm) return false;
+    if (control instanceof HTMLInputElement) {
+      if (!(incoming instanceof HTMLInputElement) || incoming.type !== control.type) return false;
+      if (control.type === "file") return (control.files?.length ?? 0) === 0;
+      if (control.type === "checkbox" || control.type === "radio") {
+        return !control.indeterminate && control.checked === incoming.checked;
+      }
+      return control.value === incoming.value;
+    }
+    if (control instanceof HTMLTextAreaElement) {
+      return incoming instanceof HTMLTextAreaElement
+        && control.value === incoming.value;
+    }
+    return incoming instanceof HTMLSelectElement
+      && control.options.length === incoming.options.length
+      && [...control.options].every((option, index) =>
+        option.selected === incoming.options[index]?.selected
+      );
+  });
 }

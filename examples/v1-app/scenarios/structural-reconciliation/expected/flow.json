@@ -1,0 +1,29 @@
+{
+  "schema": "fadeno.example.structural-reconciliation-flow",
+  "version": 1,
+  "decisions": [
+    "trusted browser operation admitted",
+    "current and incoming keyed trees preflighted before mutation",
+    "same DOM objects retained browser-owned state",
+    "one atomic document and history commit published"
+  ],
+  "ownership": {
+    "browser": [
+      "activation",
+      "focus",
+      "selection",
+      "local control and top-layer state"
+    ],
+    "server": [
+      "route",
+      "action",
+      "rendered outcome"
+    ]
+  },
+  "skipped": [
+    "public patch schema",
+    "state property replay",
+    "mutation retry"
+  ],
+  "outcome": "enhanced-document"
+}

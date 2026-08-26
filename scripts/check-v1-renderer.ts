@@ -189,15 +189,18 @@ assert.match(failedBody, /Safe failure/u);
 assert.match(failedBody, /src="\/_fadeno\/browser-entry\.js"/u);
 assert.doesNotMatch(failedBody, /must-not-render/u);
 
+const boundaryReports: FrameworkFailureReport[] = [];
+const boundaryRequest = new Request("https://example.test/boundary-failure");
+const releaseBoundaryObserver = bindRequestFailureObserver(boundaryRequest, (report) => { boundaryReports.push(report); });
 const boundary = await renderRoute({
-  request,
+  request: boundaryRequest,
   parameters: Object.freeze(Object.create(null) as Record<string, never>),
   layouts: [],
   page: () => document(jsxs("section", {
     children: [
       jsx("p", { children: "before" }),
       Boundary({
-        children: async () => { throw new Error("boundary failure"); },
+        children: () => { throw new Error("boundary-secret=must-not-project"); },
         fallback: jsx("p", { children: "local fallback" }),
         timeoutMilliseconds: 100,
       }),
@@ -206,6 +209,104 @@ const boundary = await renderRoute({
   })),
 });
 assert.match(await body(boundary), /before<\/p><p>local fallback<\/p><p>after/u);
+assert.equal(boundaryReports.length, 1);
+assert.equal(boundaryReports[0]?.code, "FADENO_RENDER_BOUNDARY_UNEXPECTED");
+assert.equal(boundaryReports[0]?.phase, "post-publication");
+assert.match(boundaryReports[0]?.incidentId ?? "", /^[0-9a-f-]{36}$/u);
+assert.doesNotMatch(JSON.stringify(boundaryReports[0]?.projection), /must-not-project/u);
+releaseBoundaryObserver();
+
+const expectedBoundaryReports: FrameworkFailureReport[] = [];
+const expectedBoundaryRequest = new Request("https://example.test/boundary-expected-resource");
+const releaseExpectedBoundary = bindRequestFailureObserver(
+  expectedBoundaryRequest,
+  (report) => { expectedBoundaryReports.push(report); },
+);
+const expectedBoundary = await renderRoute({
+  request: expectedBoundaryRequest,
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: () => document(Boundary({
+    children: () => { throw resourceError({ code: "PROJECT_NOT_FOUND", status: 404 }); },
+    fallback: jsx("p", { children: "expected resource fallback" }),
+  })),
+});
+assert.match(await body(expectedBoundary), /expected resource fallback/u);
+assert.deepEqual(expectedBoundaryReports, [], "expected boundary resource failures do not become incidents");
+releaseExpectedBoundary();
+
+const timeoutReports: FrameworkFailureReport[] = [];
+const timeoutRequest = new Request("https://example.test/boundary-timeout");
+const releaseTimeout = bindRequestFailureObserver(timeoutRequest, (report) => { timeoutReports.push(report); });
+const timedOutBoundary = await renderRoute({
+  request: timeoutRequest,
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: () => document(Boundary({
+    children: () => new Promise<never>(() => undefined),
+    fallback: jsx("p", { children: "timeout fallback" }),
+    timeoutMilliseconds: 1,
+  })),
+});
+assert.match(await body(timedOutBoundary), /timeout fallback/u);
+assert.deepEqual(timeoutReports, [], "boundary timeout remains silent");
+releaseTimeout();
+
+const authoredAbortReports: FrameworkFailureReport[] = [];
+const authoredAbortRequest = new Request("https://example.test/boundary-authored-abort");
+const releaseAuthoredAbort = bindRequestFailureObserver(authoredAbortRequest, (report) => { authoredAbortReports.push(report); });
+const authoredAbort = await renderRoute({
+  request: authoredAbortRequest,
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: () => document(Boundary({
+    children: async () => { throw new DOMException("Application abort-shaped failure", "AbortError"); },
+    fallback: jsx("p", { children: "abort fallback" }),
+  })),
+});
+assert.match(await body(authoredAbort), /abort fallback/u);
+assert.equal(authoredAbortReports.length, 1, "application AbortError is not framework cancellation");
+releaseAuthoredAbort();
+
+const isolatedRequest = new Request("https://example.test/boundary-observer-isolation");
+const releaseIsolatedObserver = bindRequestFailureObserver(isolatedRequest, () => { throw new Error("observer failure"); });
+const isolated = await renderRoute({
+  request: isolatedRequest,
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: () => document(Boundary({
+    children: async () => { throw new Error("child failure"); },
+    fallback: jsx("p", { children: "observer isolated" }),
+  })),
+});
+assert.match(await body(isolated), /observer isolated/u);
+releaseIsolatedObserver();
+
+const parentCancellation = new AbortController();
+const parentCancellationReports: FrameworkFailureReport[] = [];
+const parentCancellationRequest = new Request("https://example.test/boundary-parent-cancellation", {
+  signal: parentCancellation.signal,
+});
+const releaseParentCancellation = bindRequestFailureObserver(
+  parentCancellationRequest,
+  (report) => { parentCancellationReports.push(report); },
+);
+const parentCancelled = await renderRoute({
+  request: parentCancellationRequest,
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: () => document(Boundary({
+    children: (signal) => new Promise<never>((_accept, refuse) => {
+      signal.addEventListener("abort", () => refuse(signal.reason), { once: true });
+    }),
+    fallback: jsx("p", { children: "parent cancellation fallback" }),
+  })),
+});
+const parentCancelledBody = body(parentCancelled);
+setTimeout(() => parentCancellation.abort(new DOMException("Superseded", "AbortError")), 0);
+await assert.rejects(parentCancelledBody);
+assert.deepEqual(parentCancellationReports, [], "parent cancellation remains silent");
+releaseParentCancellation();
 
 const asyncPage: Page = () => document(jsxs("section", {
   children: [

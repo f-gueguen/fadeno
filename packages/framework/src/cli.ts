@@ -1,26 +1,25 @@
 #!/usr/bin/env node
 
-import { runProjectCheckCommand } from "./internal/project-check.ts";
-import { runProjectBuildCommand } from "./internal/project-build.ts";
-import { runProjectCreateCommand } from "./internal/project-create.ts";
-import { runProjectDeployCommand } from "./internal/project-deploy.ts";
-import { runProjectDevCommand } from "./internal/project-dev.ts";
-
 const arguments_ = process.argv.slice(2);
 const context = { cwd: process.cwd() };
-const result = arguments_[0] === "build"
-  ? await runProjectBuildCommand(arguments_, context)
-  : arguments_[0] === "create"
-    ? runProjectCreateCommand(arguments_, context)
-  : arguments_[0] === "deploy"
-    ? await runProjectDeployCommand(arguments_, context)
-  : arguments_[0] === "dev"
-    ? await runProjectDevCommand(arguments_, {
+const command = arguments_[0];
+const commands = {
+  check: async () => (await import("./internal/project-check.ts")).runProjectCheckCommand(arguments_, context),
+  build: async () => (await import("./internal/project-build.ts")).runProjectBuildCommand(arguments_, context),
+  create: async () => (await import("./internal/project-create.ts")).runProjectCreateCommand(arguments_, context),
+  deploy: async () => (await import("./internal/project-deploy.ts")).runProjectDeployCommand(arguments_, context),
+  dev: async () => (await import("./internal/project-dev.ts")).runProjectDevCommand(arguments_, {
       ...context,
       writeStdout: (value) => process.stdout.write(value),
       writeStderr: (value) => process.stderr.write(value),
-    })
-    : await runProjectCheckCommand(arguments_, context);
+  }),
+};
+const run = command === undefined
+  ? commands.check
+  : Object.hasOwn(commands, command) ? commands[command as keyof typeof commands] : undefined;
+const result = run
+  ? await run()
+  : { exitCode: 2, stdout: "", stderr: `FADENO_CLI_COMMAND: unknown command ${JSON.stringify(command)}\nUsage: fadeno <${Object.keys(commands).join("|")}>\n` };
 if (result.stdout !== "") process.stdout.write(result.stdout);
 if (result.stderr !== "") process.stderr.write(result.stderr);
 process.exitCode = result.exitCode;

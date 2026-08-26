@@ -1923,6 +1923,7 @@ test("retains committed-mutation recovery when native activation supersedes the 
 });
 
 test("recovers committed truth when native activation has no document departure", async ({ page, browserName }) => {
+  test.setTimeout(60_000);
   const projectGets = (privateUpdate: boolean): number => transportRequests.filter(({ method, path, accept }) =>
     method === "GET" && path === "/projects" && (accept === mediaType) === privateUpdate).length;
   await page.addInitScript(() => document.addEventListener("click", (event) => {

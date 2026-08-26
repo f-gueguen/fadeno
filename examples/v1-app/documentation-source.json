@@ -25,7 +25,8 @@
     "check:v2-history-focus-scroll",
     "check:v2-demo-experience",
     "check:v2-form-submission",
-    "check:v2-action-ordering"
+    "check:v2-action-ordering",
+    "check:v2-reconciliation"
   ],
   "evidence": {
     "success": [
@@ -68,7 +69,8 @@
       "scenarios/link-navigation/expected/history-scroll-flush-source-refresh.json",
       "scenarios/form-submission/expected/success.json",
       "scenarios/form-submission/expected/crud.json",
-      "scenarios/form-submission/expected/native-crud.json"
+      "scenarios/form-submission/expected/native-crud.json",
+      "scenarios/structural-reconciliation/expected/success.json"
     ],
     "failure": [
       "expected/action-failure.txt",
@@ -188,7 +190,9 @@
       "scenarios/form-submission/expected/fragment-close-recovery-fallback-human.txt",
       "scenarios/form-submission/expected/fragment-redirect-chain-human.txt",
       "scenarios/form-submission/expected/redirect-get-consumption-human.txt",
-      "scenarios/form-submission/expected/traversal-recovery-human.txt"
+      "scenarios/form-submission/expected/traversal-recovery-human.txt",
+      "scenarios/structural-reconciliation/expected/refusal-human.txt",
+      "scenarios/structural-reconciliation/expected/refusal.json"
     ],
     "correction": [
       "scenarios/action-lifecycle/expected/correction-after.json",
@@ -205,7 +209,9 @@
       "scenarios/deployment/expected/correction-before.json",
       "scenarios/form-submission/expected/correction.json",
       "scenarios/evaluator-demo/expected/correction-before.json",
-      "scenarios/evaluator-demo/expected/correction-after.json"
+      "scenarios/evaluator-demo/expected/correction-after.json",
+      "scenarios/structural-reconciliation/expected/correction-before.json",
+      "scenarios/structural-reconciliation/expected/correction-after.json"
     ],
     "flow": [
       "expected/check-collision-explain.txt",
@@ -267,7 +273,8 @@
       "scenarios/form-submission/expected/fragment-close-recovery-fallback.json",
       "scenarios/form-submission/expected/fragment-redirect-chain.json",
       "scenarios/form-submission/expected/redirect-get-consumption.json",
-      "scenarios/form-submission/expected/traversal-recovery.json"
+      "scenarios/form-submission/expected/traversal-recovery.json",
+      "scenarios/structural-reconciliation/expected/flow.json"
     ],
     "recovery": [
       "expected/resource-recovery.txt",
@@ -373,7 +380,8 @@
       "scenarios/form-submission/expected/fragment-close-recovery-fallback.json",
       "scenarios/form-submission/expected/fragment-redirect-chain.json",
       "scenarios/form-submission/expected/redirect-get-consumption.json",
-      "scenarios/form-submission/expected/traversal-recovery.json"
+      "scenarios/form-submission/expected/traversal-recovery.json",
+      "scenarios/structural-reconciliation/expected/recovery.json"
     ],
     "staleRemoval": [
       "expected/independent-workflow.txt",

@@ -27,11 +27,53 @@ function mutation(label: string, mutate: (projection: LocalCiProjection) => void
 }
 
 mutation("command", (value) => { value.packageJson.scripts!["ci:local"] = "pnpm check"; });
+mutation("Node pin below engine", (value) => { value.nodeVersion = "22.16.0"; });
 mutation("main check", (value) => {
   value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
     "pnpm check:local-ci-contract && ",
     "",
   );
+});
+mutation("duplicate independent workflow prerequisites", (value) => {
+  value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
+    "pnpm check:v1-independent-workflow",
+    "pnpm check:v1-documentation-source && pnpm check:v1-independent-workflow",
+  );
+});
+mutation("missing documentation source prerequisite", (value) => {
+  value.packageJson.scripts!["check:v1-independent-workflow"] =
+    value.packageJson.scripts!["check:v1-independent-workflow"]!.replace(
+    "pnpm check:v1-documentation-source && ",
+    "",
+  );
+});
+mutation("missing documentation prerequisite", (value) => {
+  value.packageJson.scripts!["check:v1-independent-workflow"] =
+    value.packageJson.scripts!["check:v1-independent-workflow"]!.replace(
+    "pnpm check:v1-documentation && ",
+    "",
+  );
+});
+mutation("duplicate public package prerequisite", (value) => {
+  value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
+    "pnpm check:v1-independent-workflow",
+    "pnpm check:v1-public-package && pnpm check:v1-independent-workflow",
+  );
+});
+mutation("standalone independent workflow prerequisite", (value) => {
+  value.packageJson.scripts!["check:v1-independent-workflow"] =
+    value.packageJson.scripts!["check:v1-independent-workflow"]!.replace("pnpm check:v1-analyzer-package && ", "");
+});
+mutation("analyzer package alias target", (value) => {
+  value.packageJson.scripts!["check:v1-analyzer-package"] = "node noop.js";
+  value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
+    "pnpm check:v1-independent-workflow",
+    "pnpm check:v1-public-package && pnpm check:v1-independent-workflow",
+  );
+});
+mutation("cyclic transitive prerequisite", (value) => {
+  value.packageJson.scripts!["check:v1-analyzer-package"] += " && pnpm check:cycle";
+  value.packageJson.scripts!["check:cycle"] = "pnpm check:cycle";
 });
 mutation("active workflow", (value) => { value.activeWorkflowFiles.push("check.yml"); });
 mutation("publication trigger", (value) => {

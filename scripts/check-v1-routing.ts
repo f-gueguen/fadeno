@@ -235,6 +235,7 @@ try {
     ["/accounts/%C3%BC", "/accounts/[accountId]", { accountId: "ü" }],
     ["/docs/a%2Fb/%25/%C3%BC", "/docs/[...parts]", { parts: ["a/b", "%", "ü"] }],
     ["/accounts/%3F%23%5C", "/accounts/[accountId]", { accountId: "?#\\" }],
+    ["/teams/one/members/two", "/teams/[teamId]/members/[memberId]", { teamId: "one", memberId: "two" }],
     ["/docs/%61bout", "/docs/[...parts]", { parts: ["about"] }],
     ["/docs", undefined],
     ["/docs/", undefined],
@@ -255,6 +256,64 @@ try {
       throw new Error(`FADENO_ROUTING_MATCH:${pathname}:${match?.route.id ?? "none"}`);
     }
     if (match && Object.getPrototypeOf(match.parameters) !== null) throw new Error("FADENO_ROUTING_PARAMETER_PROTOTYPE");
+  }
+  const handlerRouteIds = new Map(manifest.routes.flatMap((route) => route.kind === "handler"
+    ? [[route.source, route.id] as const]
+    : []));
+  const generatedMatcherSource = readFileSync(join(first.output, "app.ts"), "utf8")
+    .split("\n")
+    .map((line) => {
+      if (line.startsWith("import { notFound, renderRoute,")) {
+        return "const notFound = () => undefined; const renderRoute = (input) => { globalThis.__fadenoRouteObservation = input; return new Response(); };";
+      }
+      const imported = /^import (module\d+) from "\.\.\/\.\.\/(.+)";$/u.exec(line);
+      if (!imported) return line;
+      const [binding, source] = imported.slice(1) as [string, string];
+      return `const ${binding} = () => { globalThis.__fadenoModuleObservation = ${JSON.stringify(handlerRouteIds.get(source))}; return new Response(); };`;
+    })
+    .join("\n");
+  const matcherFixture = join(main, "generated-matcher");
+  mkdirSync(matcherFixture);
+  writeFileSync(join(matcherFixture, "matcher.ts"), generatedMatcherSource);
+  const matcherCompilation = spawnSync(process.execPath, [
+    tsc,
+    "--ignoreConfig",
+    "--target", "ES2022",
+    "--module", "ESNext",
+    "--noCheck",
+    "--outDir", matcherFixture,
+    join(matcherFixture, "matcher.ts"),
+  ], { encoding: "utf8" });
+  if (matcherCompilation.status !== 0) {
+    throw new Error(`FADENO_ROUTING_GENERATED_MATCH_COMPILE\n${matcherCompilation.stdout}\n${matcherCompilation.stderr}`);
+  }
+  const generatedMatcherModule = await import(`${pathToFileURL(join(matcherFixture, "matcher.js")).href}?matcher`) as {
+    handler(request: Request): Promise<Response>;
+  };
+  const generatedRouteIds = new Set(manifest.routes.map(({ id }) => id));
+  type GeneratedRouteObservation = {
+    routeId?: string;
+    parameters: Readonly<Record<string, string | readonly string[]>>;
+  };
+  const observation = globalThis as typeof globalThis & {
+    __fadenoRouteObservation?: GeneratedRouteObservation;
+    __fadenoModuleObservation?: string;
+  };
+  for (const [requestTarget] of cases) {
+    delete observation.__fadenoRouteObservation;
+    delete observation.__fadenoModuleObservation;
+    const requestUrl = new URL(requestTarget, "https://example.test");
+    const source = matchRoutePathname(manifest, requestUrl.pathname);
+    await generatedMatcherModule.handler(new Request(requestUrl));
+    const generated = Reflect.get(observation, "__fadenoRouteObservation") as GeneratedRouteObservation | undefined;
+    const invokedRouteId = Reflect.get(observation, "__fadenoModuleObservation") as string | undefined;
+    const generatedRouteId = invokedRouteId && generatedRouteIds.has(invokedRouteId)
+      ? invokedRouteId
+      : generated?.routeId && generatedRouteIds.has(generated.routeId) ? generated.routeId : undefined;
+    if (source?.route.id !== generatedRouteId) {
+      throw new Error(`FADENO_ROUTING_GENERATED_MATCH:${requestTarget}:${source?.route.id ?? "none"}:${generatedRouteId ?? "none"}`);
+    }
+    if (source?.route.kind === "page") assert.deepStrictEqual(generated?.parameters, source.parameters);
   }
   if (matchRoutePathname(manifest, new URL("https://example.test/docs/about?query=1").pathname)?.route.id !== "/docs/about") {
     throw new Error("FADENO_ROUTING_URL_PATHNAME");

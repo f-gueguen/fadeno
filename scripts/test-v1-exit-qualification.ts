@@ -1,10 +1,30 @@
 import { execFileSync } from "node:child_process";
 import { createV1ExitContext, readV1ExitDocument, validateV1ExitDocument } from "./lib/v1-exit-qualification.ts";
+import { collectPackageScriptGates, countPackageScriptGateExecutions } from "./lib/package-script-gates.ts";
 
 const root = process.cwd();
 const tracked = new Set(execFileSync("git", ["ls-files", "--cached"], { cwd: root, encoding: "utf8" }).trim().split("\n"));
 const context = createV1ExitContext(root, tracked);
 const source = readV1ExitDocument(root);
+
+const nestedGates = collectPackageScriptGates({
+  check: "pnpm composite && pnpm direct",
+  composite: "pnpm nested && node leaf.js",
+  nested: "node nested.js",
+  direct: "node direct.js",
+});
+if (["composite", "nested", "direct"].some((gate) => !nestedGates.has(gate)) || nestedGates.size !== 3) {
+  throw new Error("package-script gate closure omitted or duplicated a transitive gate");
+}
+const duplicateCounts = countPackageScriptGateExecutions({
+  check: "pnpm left && pnpm right",
+  left: "pnpm shared",
+  right: "pnpm shared",
+  shared: "node shared.js",
+});
+if (duplicateCounts.get("shared") !== 2) {
+  throw new Error("package-script gate execution count collapsed duplicate transitive paths");
+}
 
 function copy(): Record<string, unknown> {
   return JSON.parse(JSON.stringify(source)) as Record<string, unknown>;

@@ -138,6 +138,17 @@ async function writeWebResponse(response: Response, target: ServerResponse): Pro
   }
 }
 
+function writeFailure(response: ServerResponse, status: 400 | 500): void {
+  if (response.headersSent || response.destroyed) return;
+  for (const name of response.getHeaderNames()) response.removeHeader(name);
+  response.statusCode = status;
+  response.statusMessage = status === 400 ? "Bad Request" : "Internal Server Error";
+  response.setHeader("content-type", "text/plain; charset=utf-8");
+  response.setHeader("x-content-type-options", "nosniff");
+  response.setHeader("connection", "close");
+  response.end(status === 400 ? "Bad request\n" : "Internal server error\n");
+}
+
 function handleRequest(
   handler: Handler,
   actionRuntime: InstalledActionServerRuntime | null,
@@ -156,8 +167,14 @@ function handleRequest(
   });
 
   void (async () => {
+    let webRequest: Request;
     try {
-      const webRequest = toWebRequest(request, requestOrigin(), cancellation.signal);
+      webRequest = toWebRequest(request, requestOrigin(), cancellation.signal);
+    } catch {
+      writeFailure(response, 400);
+      return;
+    }
+    try {
       const invoke = async (nextRequest: Request): Promise<Response> => {
         const releaseObserver = bindRequestFailureObserver(nextRequest, failureObserver);
         try { return await handler(nextRequest); } finally { releaseObserver(); }
@@ -172,7 +189,9 @@ function handleRequest(
       }) ?? await serve(webRequest);
       await writeWebResponse(webResponse, response);
     } catch (error: unknown) {
-      response.destroy(error instanceof Error ? error : new Error(String(error)));
+      if (response.headersSent || response.destroyed) {
+        response.destroy(error instanceof Error ? error : new Error(String(error)));
+      } else writeFailure(response, 500);
     }
   })();
 }
