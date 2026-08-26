@@ -53,11 +53,15 @@ type RunningDevelopment = Readonly<{
   exit: Promise<Readonly<{ code: number | null; signal: NodeJS.Signals | null }>>;
 }>;
 
-function startDevelopment(project: string, port: number): RunningDevelopment {
+function startDevelopment(
+  project: string,
+  port: number,
+  environment: Readonly<Record<string, string>> = {},
+): RunningDevelopment {
   const executable = realpathSync(join(project, "node_modules/@fadeno/framework/dist/cli.js"));
   const child = spawn(process.execPath, [executable, "dev", "--project-root", project, "--port", String(port)], {
     cwd: project,
-    env: process.env,
+    env: { ...process.env, ...environment },
     stdio: ["pipe", "pipe", "pipe"],
   });
   child.stdin.end();
@@ -162,12 +166,52 @@ try {
   const tarball = join(tarballs, readdirSync(tarballs).find((name) => name.endsWith(".tgz")) ?? "missing.tgz");
   assert.equal(existsSync(tarball), true);
   const project = copyPackedProject(temporaryRoot, "application", tarball);
+  const authorityRoute = join(project, "src/routes/development-authority");
+  mkdirSync(authorityRoute);
+  writeFileSync(join(authorityRoute, "handler.ts"), [
+    'import type { Handler } from "@fadeno/framework";',
+    "const handler: Handler = (request) => Response.json({ url: request.url, origin: request.headers.get('origin') });",
+    "export default handler;",
+    "",
+  ].join("\n"));
   const port = await reservePort();
   const origin = `http://127.0.0.1:${port}`;
-  development = startDevelopment(project, port);
+  development = startDevelopment(project, port, { FADENO_ORIGIN: "https://conflicting.example" });
   let stdoutOffset = await development.waitForStdout(`Fadeno development server ready at ${origin}.\n`);
   assert.equal(development.stderr(), "");
   await responseText(origin, "Follow the request thread.");
+  const authorityResponse = await fetch(`${origin}/development-authority`, { headers: { origin } });
+  assert.deepEqual(await authorityResponse.json(), { url: `${origin}/development-authority`, origin });
+
+  const actionPage = await fetch(`${origin}/projects`, { headers: { "x-fadeno-demo-https": "1" } });
+  assert.equal(actionPage.status, 200);
+  const actionDocument = await actionPage.text();
+  const actionPath = /<form action="([^"]+)" class="form-stack"/u.exec(actionDocument)?.[1]?.replaceAll("&amp;", "&");
+  const proof = /<input type="hidden" name="__fadeno_proof" value="([^"]+)"/u.exec(actionDocument)?.[1];
+  const passcode = /<input id="owner-passcode" name="([^"]+)"/u.exec(actionDocument)?.[1];
+  const session = actionPage.headers.get("set-cookie")?.split(";", 1)[0];
+  assert.ok(actionPath);
+  assert.ok(proof);
+  assert.ok(passcode);
+  assert.ok(session);
+  const actionBody = new URLSearchParams({ __fadeno_proof: proof, [passcode]: "example-owner" });
+  const crossOriginAction = await fetch(new URL(actionPath, origin), {
+    method: "POST",
+    headers: { cookie: session, origin: "https://cross-origin.example" },
+    body: actionBody,
+    redirect: "manual",
+  });
+  assert.equal(crossOriginAction.status, 400);
+  assert.match(await crossOriginAction.text(), /FADENO_ACTION_ORIGIN/u);
+  const sameOriginAction = await fetch(new URL(actionPath, origin), {
+    method: "POST",
+    headers: { cookie: session, origin },
+    body: actionBody,
+    redirect: "manual",
+  });
+  const sameOriginText = await sameOriginAction.text();
+  assert.equal(sameOriginAction.status, 303, sameOriginText);
+  assert.equal(sameOriginAction.headers.get("location"), "/projects");
 
   const runtimeOutputRoot = join(project, "src/routes/runtime-output");
   mkdirSync(runtimeOutputRoot);

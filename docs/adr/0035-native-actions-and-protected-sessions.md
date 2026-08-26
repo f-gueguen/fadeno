@@ -171,7 +171,8 @@ resource revalidation. Independently actionable field failures remain
 separate from the form failure.
 
 Success enters complete resource revalidation. An explicit action redirect
-must use status 303 and resolve to the exact HTTPS application origin; the
+must use status 303 and resolve to the exact protected application origin
+(HTTPS in production or the owned HTTP loopback origin in development); the
 response uses a normalized path/query/fragment, not an external allow-list.
 Without an explicit redirect the framework renders current server truth; a
 fresh native GET may own that render. Unsafe redirect data after mutation is

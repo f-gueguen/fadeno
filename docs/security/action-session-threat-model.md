@@ -35,7 +35,7 @@ values in an error.
 
 | Threat | Control | Executable evidence |
 | --- | --- | --- |
-| Cross-site mutation or logout | Exact HTTPS `Origin` equality before missing-cookie session publication, no `Referer` fallback, session- and form-instance-bound HMAC proof | `cross-origin`, cookie-less cross-origin, `invalid-proof`, cross-session proof |
+| Cross-site mutation or logout | Exact protected `Origin` equality before missing-cookie session publication (HTTPS, or owned HTTP loopback development), no `Referer` fallback, session- and form-instance-bound HMAC proof | `cross-origin`, cookie-less cross-origin, `invalid-proof`, cross-session proof, packed development authority |
 | Stale or misrouted form | Proof binds action, route, application generation, session, issue time, and nonce | `wrong-route`, `stale-generation`, `expired-proof` |
 | Form identity or long return-location confusion | Proof signs a fixed SHA-256 digest over route, full accepted return location, and bounded form index | long-return render and form-index tamper fixtures |
 | Captured request replay | Atomic consume before authorization; no unexpired eviction; bounded global/session ledgers | `replayed` and replay-limit checks |
@@ -44,7 +44,7 @@ values in an error.
 | Filesystem path injection | Original filename is bounded display data; no path construction; application receives copied bytes or contained handle | hostile upload and success filename assertion |
 | Partial-upload leak | Framework owns idempotent cleanup in the complete terminal `finally` path | success and refused cleanup counters |
 | Decode mistaken for authorization | Separate mandatory callback after complete boundary; denial and callback failure never invoke mutation | `unauthorized`, `authorization-failure`, cross-origin callback counters |
-| Open redirect | Action completion accepts only normalized exact-origin HTTPS status 303; unsafe completion is refused and revalidated | native success and `unsafe-redirect` |
+| Open redirect | Action completion accepts only normalized exact protected-origin status 303 (HTTPS, or owned HTTP loopback development); unsafe completion is refused and revalidated | native success, packed development authority, and `unsafe-redirect` |
 | Stale resources after mutation | Success and changed/unknown failure perform complete revalidation; unchanged expected failure explicitly does not | expected changed/unchanged and recovery fixtures |
 | Session disclosure or forgery | AES-256-GCM with random nonce and authenticated cookie/version/key metadata; values never appear in evidence | round trip, tamper, serialization/redaction checks |
 | Key rotation logout or downgrade | Active key encrypts/signs; bounded prior keys decrypt then reseal and verify only still-fresh keyed proofs; removed or unknown key fails closed | `session-prior-key`, prior-key proof, invalid-key checks |
