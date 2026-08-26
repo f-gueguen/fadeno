@@ -29,13 +29,18 @@ The native action and redirect boundaries accept an exact, uncredentialed
 HTTPS origin or an exact HTTP loopback origin on `127.0.0.1`, `localhost`, or
 `[::1]`. Exact `Origin` equality, proof, replay, authorization, session, upload,
 and redirect controls remain unchanged. Arbitrary HTTP origins remain refused.
+The HTTP listener uses the host-only `fadeno-development-session` cookie with
+`HttpOnly`, `SameSite=Lax`, and `Path=/`; it does not use the reserved
+`__Host-` prefix or claim `Secure` transport over HTTP.
 Production bootstrap and deployment still require the operator-owned external
-HTTPS `FADENO_ORIGIN`. Enhanced mutation transport remains HTTPS-only under ADR
-0051.
+HTTPS `FADENO_ORIGIN` and retain the `__Host-fadeno-session` Secure cookie.
+Enhanced mutation transport remains HTTPS-only under ADR 0051.
 
-Packed development evidence must prove that handlers observe the advertised
-listener authority, a cross-origin native POST is refused, a same-origin native
-POST succeeds, and a conflicting inherited origin cannot change that result.
+Packed development evidence must prove in each supported browser that native
+navigation retains the loopback session and accepts its protected form POST.
+It also proves that handlers observe the advertised listener authority, a
+cross-origin native POST is refused, and a conflicting inherited origin cannot
+change that result.
 
 ## Alternatives considered
 
@@ -56,6 +61,7 @@ not change.
 ## Validation
 
 `pnpm check:v1-development` exercises the packed listener authority, conflicting
-environment input, cross-origin refusal, and successful same-origin native POST.
+environment input, cross-origin refusal, and Chromium, Firefox, and WebKit
+native same-origin form navigation with the loopback session cookie.
 `pnpm check:v1-action-runtime` and `pnpm check:v1-action-session-decision` retain
 the production origin, redirect, proof, session, and refusal corpus.
