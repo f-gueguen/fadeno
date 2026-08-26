@@ -664,8 +664,8 @@ function renderRuntime(): string {
   ].join("\n");
 }
 
-function renderBootstrap(development: boolean): string {
-  return `import { start } from \"./runtime.js\";\nawait start(${development});\n`;
+function renderBootstrap(): string {
+  return `import { start } from \"./runtime.js\";\nawait start(false);\n`;
 }
 
 function prepareManifest(
@@ -677,16 +677,14 @@ function prepareManifest(
 ): PrivateRuntimeIdentity {
   const stageRoot = join(projectRoot, ".fadeno", "build-stage", `generation-${generation.generation}`);
   const bootstrap = join(stageRoot, "server", "bootstrap.js");
-  const developmentBootstrap = join(stageRoot, "server", "development-bootstrap.js");
   const runtime = join(stageRoot, "server", "runtime.js");
   const manifestPath = join(stageRoot, ".fadeno", "build-manifest.json");
-  if (existsSync(bootstrap) || existsSync(developmentBootstrap) || existsSync(runtime) || existsSync(manifestPath)) {
+  if (existsSync(bootstrap) || existsSync(runtime) || existsSync(manifestPath)) {
     fail("FADENO_BUILD_OUTPUT_CONFLICT");
   }
   mkdirSync(dirname(bootstrap), { recursive: true });
   mkdirSync(dirname(manifestPath), { recursive: true });
-  writeFileSync(bootstrap, renderBootstrap(false));
-  writeFileSync(developmentBootstrap, renderBootstrap(true));
+  writeFileSync(bootstrap, renderBootstrap());
   writeFileSync(runtime, renderRuntime());
   const output = capturePrivateRuntimeIdentity(stageRoot, identityPaths(stageRoot));
   const manifest = Object.freeze({
@@ -864,8 +862,7 @@ function assertAcceptedOutput(output: string, code: string): void {
     if (
       actualPaths.length !== expectedPaths.length ||
       actualPaths.some((path, index) => path !== expectedPaths[index]) ||
-      readFileSync(join(output, "server", "bootstrap.js"), "utf8") !== renderBootstrap(false) ||
-      readFileSync(join(output, "server", "development-bootstrap.js"), "utf8") !== renderBootstrap(true) ||
+      readFileSync(join(output, "server", "bootstrap.js"), "utf8") !== renderBootstrap() ||
       readFileSync(join(output, "server", "runtime.js"), "utf8") !== renderRuntime() ||
       !readAcceptedBuildManifest(output, code).bytes.equals(manifest.bytes)
     ) fail(code);

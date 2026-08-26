@@ -112,7 +112,9 @@ class PrivateDevelopmentChild {
     this.#child = spawn(process.execPath, [
       "--import",
       join(projectRoot, "dist", ".fadeno", "routes", "loader.js"),
-      join(projectRoot, "dist", "server", "development-bootstrap.js"),
+      "--input-type=module",
+      "--eval",
+      'import { start } from "./dist/server/runtime.js"; await start(true);',
     ], {
       cwd: projectRoot,
       env: {
