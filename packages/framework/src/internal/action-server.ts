@@ -711,10 +711,13 @@ export class ActionServerRuntime {
     if (typeof options.generation !== "string" || options.generation.length === 0 || options.generation.includes("\0") || encoder.encode(options.generation).byteLength > 256) {
       fail("FADENO_ACTION_GENERATION");
     }
+    const canonicalOrigin = new URL(options.canonicalOrigin);
     this.#canonicalOrigin = options.canonicalOrigin;
     this.#generation = options.generation;
     this.#allowHttpLoopbackOrigin = options.allowHttpLoopbackOrigin === true;
-    this.#sessionCookieTransport = new URL(options.canonicalOrigin).protocol === "http:" ? "loopback-http" : "secure";
+    this.#sessionCookieTransport = canonicalOrigin.protocol === "http:"
+      ? `loopback-http:${Number(canonicalOrigin.port || 80)}`
+      : "secure";
     this.#keyring = parseKeyring(options.sessionKeys);
     this.#now = options.now ?? Date.now;
     for (const state of registeredActionStates()) this.#actions.set(state.id, Object.freeze({ state, decision: decisionAction(state) }));

@@ -8,10 +8,14 @@ const maximumKeys = 4;
 const maximumCookieBytes = 4_096;
 const maximumEnvelopeBytes = maximumCookieBytes - Buffer.byteLength(cookieName) - 1;
 
-export type DecisionSessionCookieTransport = "secure" | "loopback-http";
+export type DecisionSessionCookieTransport = "secure" | "loopback-http" | `loopback-http:${number}`;
 
 export function decisionSessionCookieName(transport: DecisionSessionCookieTransport = "secure"): string {
-  return transport === "secure" ? cookieName : developmentCookieName;
+  if (transport === "secure") return cookieName;
+  if (transport === "loopback-http") return developmentCookieName;
+  const port = transport.slice("loopback-http:".length);
+  if (!/^[1-9]\d{0,4}$/u.test(port) || Number(port) > 65_535) fail("FADENO_SESSION_COOKIE");
+  return `${developmentCookieName}-${port}`;
 }
 const maximumValueBytes = 2_048;
 const maximumValueDepth = 16;

@@ -710,6 +710,13 @@ function sameResourceFragmentRedirect(destination: URL, currentTruthUrl: string)
     && destination.search === currentTruth.search;
 }
 
+function submittedFormOwnsFocus(
+  form: HTMLFormElement,
+  focused: HTMLElement | undefined,
+): boolean {
+  return focused !== undefined && [...form.elements].includes(focused);
+}
+
 export function privateLinkPreservationSafe(
   initiator?: HTMLAnchorElement,
   options: Readonly<{
@@ -1949,6 +1956,8 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
       allowReconciliation: false,
     }),
     reconciliationSafe: (next: Document) => boolean = () => true,
+    preserveFocusedNode: (focused: HTMLElement | undefined) => boolean =
+      (focused) => focused !== initiator,
   ): Promise<void> => {
     if (active?.kind === "mutation") return;
     const inheritedMutationRecovery = active?.recoverCancelledMutation;
@@ -2092,7 +2101,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
           writeHistory,
           operationFocusedNode,
-          operationFocusedNode !== initiator,
+          preserveFocusedNode(operationFocusedNode),
           reconciliation,
         );
       } finally {
@@ -2251,6 +2260,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
           allowReconciliation: false,
         }),
         (next) => privateSubmittedFormReconciliationSafe(eligibility.form, next),
+        (focused) => !submittedFormOwnsFocus(eligibility.form, focused),
       );
     }, 0);
   };
@@ -2407,6 +2417,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
               allowReconciliation: false,
             }),
             (next) => privateSubmittedFormReconciliationSafe(eligibility.form, next),
+            (focused) => !submittedFormOwnsFocus(eligibility.form, focused),
           );
           return;
         }
@@ -2500,7 +2511,7 @@ export function startPrivateLinkNavigation(): PrivateBrowserNavigation | undefin
             && !applicationOwnedHistoryEntries.has(applicationHistoryKey(state.session, state.entry, url)),
           writeHistory,
           operationFocusedNode,
-          true,
+          !submittedFormOwnsFocus(eligibility.form, operationFocusedNode),
           reconciliation,
         );
       } finally {

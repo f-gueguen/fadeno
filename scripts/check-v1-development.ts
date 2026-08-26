@@ -160,6 +160,7 @@ function copyPackedProject(temporaryRoot: string, name: string, tarball: string)
 
 const temporaryRoot = realpathSync(mkdtempSync(join(tmpdir(), "fadeno-v1-development-")));
 let development: RunningDevelopment | null = null;
+let parallelDevelopment: RunningDevelopment | null = null;
 try {
   run("pnpm", ["--filter", "@fadeno/framework", "build"], root);
   const tarballs = join(temporaryRoot, "tarballs");
@@ -178,7 +179,10 @@ try {
   ].join("\n"));
   const port = await reservePort();
   const origin = `http://127.0.0.1:${port}`;
-  development = startDevelopment(project, port, { FADENO_ORIGIN: "https://conflicting.example" });
+  development = startDevelopment(project, port, {
+    FADENO_ORIGIN: "https://conflicting.example",
+    FADENO_SESSION_KEYS: `first:${Buffer.alloc(32, 1).toString("base64url")}`,
+  });
   let stdoutOffset = await development.waitForStdout(`Fadeno development server ready at ${origin}.\n`);
   assert.equal(development.stderr(), "");
   assert.equal(existsSync(join(project, "dist/server/development-bootstrap.js")), false);
@@ -216,6 +220,14 @@ try {
   assert.equal(sameOriginAction.status, 303, sameOriginText);
   assert.equal(sameOriginAction.headers.get("location"), "/projects");
 
+  const parallelProject = copyPackedProject(temporaryRoot, "parallel-application", tarball);
+  const parallelPort = await reservePort();
+  const parallelOrigin = `http://127.0.0.1:${parallelPort}`;
+  parallelDevelopment = startDevelopment(parallelProject, parallelPort, {
+    FADENO_SESSION_KEYS: `second:${Buffer.alloc(32, 2).toString("base64url")}`,
+  });
+  await parallelDevelopment.waitForStdout(`Fadeno development server ready at ${parallelOrigin}.\n`);
+
   for (const [browserName, browserType] of Object.entries(browserTypes)) {
     const browser = await browserType.launch({ headless: true });
     try {
@@ -225,7 +237,9 @@ try {
       });
       const page = await context.newPage();
       assert.equal((await page.goto(`${origin}/projects`))?.status(), 200);
-      const anonymousCookie = (await context.cookies(origin)).find(({ name }) => name === "fadeno-development-session");
+      const anonymousCookie = (await context.cookies(origin)).find(
+        ({ name }) => name === `fadeno-development-session-${port}`,
+      );
       assert.ok(anonymousCookie, `${browserName}: loopback session cookie`);
       assert.equal(anonymousCookie.httpOnly, true);
       assert.equal(anonymousCookie.secure, false);
@@ -236,11 +250,27 @@ try {
       ]);
       assert.equal(signedIn?.status(), 200, `${browserName}: native form navigation`);
       assert.equal(await page.getByText("Signed in as the example owner.").count(), 1);
+      assert.equal((await page.goto(`${parallelOrigin}/projects`))?.status(), 200);
+      const parallelCookie = (await context.cookies(parallelOrigin)).find(
+        ({ name }) => name === `fadeno-development-session-${parallelPort}`,
+      );
+      assert.ok(parallelCookie, `${browserName}: parallel loopback session cookie`);
+      assert.notEqual(parallelCookie.name, anonymousCookie.name);
+      assert.equal((await page.goto(`${origin}/projects`))?.status(), 200);
+      assert.equal(
+        await page.getByText("Signed in as the example owner.").count(),
+        1,
+        `${browserName}: parallel listener does not invalidate the signed-in session`,
+      );
       await context.close();
     } finally {
       await browser.close();
     }
   }
+
+  parallelDevelopment.child.kill("SIGTERM");
+  assert.deepEqual(await parallelDevelopment.exit, { code: 0, signal: null });
+  parallelDevelopment = null;
 
   const runtimeOutputRoot = join(project, "src/routes/runtime-output");
   mkdirSync(runtimeOutputRoot);
@@ -427,6 +457,10 @@ try {
     stderr: "FADENO_DEV_USAGE: fadeno dev --project-root <path> --port <1..65535>\n",
   });
 } finally {
+  if (parallelDevelopment && parallelDevelopment.child.exitCode === null && parallelDevelopment.child.signalCode === null) {
+    parallelDevelopment.child.kill("SIGKILL");
+    try { await parallelDevelopment.exit; } catch { /* cleanup */ }
+  }
   if (development && development.child.exitCode === null && development.child.signalCode === null) {
     development.child.kill("SIGKILL");
     try { await development.exit; } catch { /* cleanup */ }

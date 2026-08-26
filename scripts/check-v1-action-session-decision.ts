@@ -21,6 +21,7 @@ import {
 import {
   createDecisionSession,
   createDecisionSessionKeyring,
+  decisionSessionCookieName,
   decisionSessionLimits,
   formatDecisionSessionCookie,
   formatDecisionSessionDeletionCookie,
@@ -337,6 +338,11 @@ for (const fixture of corpus.cases) assert.equal(observed.get(fixture.id), fixtu
 assert.deepEqual([...observed.keys()].sort(), corpus.cases.map(({ id }) => id).sort(), "every corpus case executes");
 
 assert.match(formatDecisionSessionCookie(created.envelope, now, session.expiresAt), /^__Host-fadeno-session=.*; Path=\/; Max-Age=43200; Secure; HttpOnly; SameSite=Lax$/u);
+assert.notEqual(
+  decisionSessionCookieName("loopback-http:3001"),
+  decisionSessionCookieName("loopback-http:3002"),
+  "independent loopback listeners do not overwrite each other's sessions",
+);
 assert.match(formatDecisionSessionCookie(created.envelope, now, now + 1), /; Max-Age=1; Secure;/u);
 assert.equal(formatDecisionSessionDeletionCookie(), "__Host-fadeno-session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax");
 assert.throws(() => createDecisionSessionKeyring([]), /FADENO_SESSION_KEYS/u);

@@ -952,6 +952,38 @@ test("moves keyboard link focus to the reconciled destination", async ({ page })
   expect(requests.filter(({ privateUpdate }) => privateUpdate)).toHaveLength(1);
 });
 
+test("moves submitted-control focus to the reconciled destination", async ({ page }) => {
+  const scenario = MORPH_QUALIFICATION_SCENARIOS.find(({ fixture }) =>
+    fixture.state === "details-open"
+  );
+  if (!scenario) throw new Error("FADENO_RECONCILIATION_FORM_FOCUS_SCENARIO");
+  await page.goto(
+    `${origin}/case?case=${scenario.fixture.id}&mode=action&phase=current`,
+  );
+  await waitForEnhancement(page);
+  await prepareMorphQualificationState(page, scenario);
+  await page.locator("#reconciliation-submit").evaluate((element) => {
+    Reflect.set(globalThis, "__fadenoOriginalSubmitter", element);
+  });
+  requests.length = 0;
+
+  await page.locator("#reconciliation-submit").evaluate((element) => {
+    const submitter = element as HTMLButtonElement;
+    submitter.focus();
+    submitter.form?.requestSubmit(submitter);
+  });
+
+  await expectIncomingPhase(page);
+  expect(await page.locator("#reconciliation-submit").evaluate((element) => ({
+    focused: document.activeElement === element,
+    retained: Reflect.get(globalThis, "__fadenoOriginalSubmitter") === element,
+  }))).toEqual({ focused: false, retained: true });
+  await expect(page.locator("[data-fadeno-navigation-focus]")).toBeFocused();
+  expect(requests.filter(({ method, privateUpdate }) =>
+    method === "POST" && privateUpdate
+  )).toHaveLength(1);
+});
+
 test("preserves focus inside one reused opaque island", async ({ page }) => {
   await page.goto(
     `${origin}/case?case=island-identity-remove&mode=navigation&phase=current`,
