@@ -622,23 +622,17 @@ function dirtySelect(owner: HTMLSelectElement): boolean {
 
 function directlyMovedChildren(plan: StructurePlan): readonly Element[] {
   const desired = new Set(plan.desiredChildren);
-  const sequence = Array.from(plan.parent.children).filter((child) => desired.has(child));
-  const moved: Element[] = [];
-  let cursor: Element | null = null;
-  for (const child of [...plan.desiredChildren].reverse()) {
-    const originalIndex = sequence.indexOf(child);
-    const next = originalIndex < 0 ? null : sequence[originalIndex + 1] ?? null;
-    if (originalIndex < 0 || next !== cursor) {
-      if (originalIndex >= 0) {
-        sequence.splice(originalIndex, 1);
-        moved.push(child);
-      }
-      const cursorIndex = cursor === null ? sequence.length : sequence.indexOf(cursor);
-      sequence.splice(cursorIndex, 0, child);
-    }
-    cursor = child;
+  const current = Array.from(plan.parent.children).filter((child) => desired.has(child));
+  const existing = new Set(current);
+  const moved = new Set<Element>();
+  let currentIndex = current.length - 1;
+  for (let index = plan.desiredChildren.length - 1; index >= 0; index -= 1) {
+    while (currentIndex >= 0 && moved.has(current[currentIndex]!)) currentIndex -= 1;
+    const child = plan.desiredChildren[index]!;
+    if (current[currentIndex] === child) currentIndex -= 1;
+    else if (existing.has(child)) moved.add(child);
   }
-  return Object.freeze(moved);
+  return Object.freeze([...moved]);
 }
 
 function selectionCoversInsertion(
