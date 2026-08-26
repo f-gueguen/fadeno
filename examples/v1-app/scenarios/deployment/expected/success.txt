@@ -1,2 +1,2 @@
-Fadeno production build completed: 31 files written to dist.
+Fadeno production build completed: 33 files written to dist.
 Fadeno deployment artifact completed at <ARTIFACT_ROOT>.

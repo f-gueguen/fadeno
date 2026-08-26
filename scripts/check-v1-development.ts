@@ -17,11 +17,13 @@ import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { chromium, firefox, webkit, type BrowserType } from "@playwright/test";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = join(root, "packages/framework");
 const exampleRoot = join(root, "examples/v1-app");
 const scenarioRoot = join(exampleRoot, "scenarios/development-lifecycle");
+const browserTypes = { chromium, firefox, webkit } satisfies Readonly<Record<string, BrowserType>>;
 
 function run(command: string, arguments_: readonly string[], cwd: string): string {
   const result = spawnSync(command, arguments_, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
@@ -53,11 +55,15 @@ type RunningDevelopment = Readonly<{
   exit: Promise<Readonly<{ code: number | null; signal: NodeJS.Signals | null }>>;
 }>;
 
-function startDevelopment(project: string, port: number): RunningDevelopment {
+function startDevelopment(
+  project: string,
+  port: number,
+  environment: Readonly<Record<string, string>> = {},
+): RunningDevelopment {
   const executable = realpathSync(join(project, "node_modules/@fadeno/framework/dist/cli.js"));
   const child = spawn(process.execPath, [executable, "dev", "--project-root", project, "--port", String(port)], {
     cwd: project,
-    env: process.env,
+    env: { ...process.env, ...environment },
     stdio: ["pipe", "pipe", "pipe"],
   });
   child.stdin.end();
@@ -154,6 +160,7 @@ function copyPackedProject(temporaryRoot: string, name: string, tarball: string)
 
 const temporaryRoot = realpathSync(mkdtempSync(join(tmpdir(), "fadeno-v1-development-")));
 let development: RunningDevelopment | null = null;
+let parallelDevelopment: RunningDevelopment | null = null;
 try {
   run("pnpm", ["--filter", "@fadeno/framework", "build"], root);
   const tarballs = join(temporaryRoot, "tarballs");
@@ -162,12 +169,108 @@ try {
   const tarball = join(tarballs, readdirSync(tarballs).find((name) => name.endsWith(".tgz")) ?? "missing.tgz");
   assert.equal(existsSync(tarball), true);
   const project = copyPackedProject(temporaryRoot, "application", tarball);
+  const authorityRoute = join(project, "src/routes/development-authority");
+  mkdirSync(authorityRoute);
+  writeFileSync(join(authorityRoute, "handler.ts"), [
+    'import type { Handler } from "@fadeno/framework";',
+    "const handler: Handler = (request) => Response.json({ url: request.url, origin: request.headers.get('origin') });",
+    "export default handler;",
+    "",
+  ].join("\n"));
   const port = await reservePort();
   const origin = `http://127.0.0.1:${port}`;
-  development = startDevelopment(project, port);
+  development = startDevelopment(project, port, {
+    FADENO_ORIGIN: "https://conflicting.example",
+    FADENO_SESSION_KEYS: `first:${Buffer.alloc(32, 1).toString("base64url")}`,
+  });
   let stdoutOffset = await development.waitForStdout(`Fadeno development server ready at ${origin}.\n`);
   assert.equal(development.stderr(), "");
+  assert.equal(existsSync(join(project, "dist/server/development-bootstrap.js")), false);
   await responseText(origin, "Follow the request thread.");
+  const authorityResponse = await fetch(`${origin}/development-authority`, { headers: { origin } });
+  assert.deepEqual(await authorityResponse.json(), { url: `${origin}/development-authority`, origin });
+
+  const actionPage = await fetch(`${origin}/projects`, { headers: { "x-fadeno-demo-https": "1" } });
+  assert.equal(actionPage.status, 200);
+  const actionDocument = await actionPage.text();
+  const actionPath = /<form action="([^"]+)" class="form-stack"/u.exec(actionDocument)?.[1]?.replaceAll("&amp;", "&");
+  const proof = /<input type="hidden" name="__fadeno_proof" value="([^"]+)"/u.exec(actionDocument)?.[1];
+  const passcode = /<input id="owner-passcode" name="([^"]+)"/u.exec(actionDocument)?.[1];
+  const session = actionPage.headers.get("set-cookie")?.split(";", 1)[0];
+  assert.ok(actionPath);
+  assert.ok(proof);
+  assert.ok(passcode);
+  assert.ok(session);
+  const actionBody = new URLSearchParams({ __fadeno_proof: proof, [passcode]: "example-owner" });
+  const crossOriginAction = await fetch(new URL(actionPath, origin), {
+    method: "POST",
+    headers: { cookie: session, origin: "https://cross-origin.example" },
+    body: actionBody,
+    redirect: "manual",
+  });
+  assert.equal(crossOriginAction.status, 400);
+  assert.match(await crossOriginAction.text(), /FADENO_ACTION_ORIGIN/u);
+  const sameOriginAction = await fetch(new URL(actionPath, origin), {
+    method: "POST",
+    headers: { cookie: session, origin },
+    body: actionBody,
+    redirect: "manual",
+  });
+  const sameOriginText = await sameOriginAction.text();
+  assert.equal(sameOriginAction.status, 303, sameOriginText);
+  assert.equal(sameOriginAction.headers.get("location"), "/projects");
+
+  const parallelProject = copyPackedProject(temporaryRoot, "parallel-application", tarball);
+  const parallelPort = await reservePort();
+  const parallelOrigin = `http://127.0.0.1:${parallelPort}`;
+  parallelDevelopment = startDevelopment(parallelProject, parallelPort, {
+    FADENO_SESSION_KEYS: `second:${Buffer.alloc(32, 2).toString("base64url")}`,
+  });
+  await parallelDevelopment.waitForStdout(`Fadeno development server ready at ${parallelOrigin}.\n`);
+
+  for (const [browserName, browserType] of Object.entries(browserTypes)) {
+    const browser = await browserType.launch({ headless: true });
+    try {
+      const context = await browser.newContext({
+        javaScriptEnabled: false,
+        extraHTTPHeaders: { "x-fadeno-demo-https": "1" },
+      });
+      const page = await context.newPage();
+      assert.equal((await page.goto(`${origin}/projects`))?.status(), 200);
+      const anonymousCookie = (await context.cookies(origin)).find(
+        ({ name }) => name === `fadeno-development-session-${port}`,
+      );
+      assert.ok(anonymousCookie, `${browserName}: loopback session cookie`);
+      assert.equal(anonymousCookie.httpOnly, true);
+      assert.equal(anonymousCookie.secure, false);
+      await page.getByLabel("Example owner passcode").fill("example-owner");
+      const [signedIn] = await Promise.all([
+        page.waitForNavigation(),
+        page.getByRole("button", { name: "Sign in" }).click(),
+      ]);
+      assert.equal(signedIn?.status(), 200, `${browserName}: native form navigation`);
+      assert.equal(await page.getByText("Signed in as the example owner.").count(), 1);
+      assert.equal((await page.goto(`${parallelOrigin}/projects`))?.status(), 200);
+      const parallelCookie = (await context.cookies(parallelOrigin)).find(
+        ({ name }) => name === `fadeno-development-session-${parallelPort}`,
+      );
+      assert.ok(parallelCookie, `${browserName}: parallel loopback session cookie`);
+      assert.notEqual(parallelCookie.name, anonymousCookie.name);
+      assert.equal((await page.goto(`${origin}/projects`))?.status(), 200);
+      assert.equal(
+        await page.getByText("Signed in as the example owner.").count(),
+        1,
+        `${browserName}: parallel listener does not invalidate the signed-in session`,
+      );
+      await context.close();
+    } finally {
+      await browser.close();
+    }
+  }
+
+  parallelDevelopment.child.kill("SIGTERM");
+  assert.deepEqual(await parallelDevelopment.exit, { code: 0, signal: null });
+  parallelDevelopment = null;
 
   const runtimeOutputRoot = join(project, "src/routes/runtime-output");
   mkdirSync(runtimeOutputRoot);
@@ -354,6 +457,10 @@ try {
     stderr: "FADENO_DEV_USAGE: fadeno dev --project-root <path> --port <1..65535>\n",
   });
 } finally {
+  if (parallelDevelopment && parallelDevelopment.child.exitCode === null && parallelDevelopment.child.signalCode === null) {
+    parallelDevelopment.child.kill("SIGKILL");
+    try { await parallelDevelopment.exit; } catch { /* cleanup */ }
+  }
   if (development && development.child.exitCode === null && development.child.signalCode === null) {
     development.child.kill("SIGKILL");
     try { await development.exit; } catch { /* cleanup */ }

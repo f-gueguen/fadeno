@@ -553,7 +553,7 @@ async function runGenerationAsync(
   }
 }
 
-function renderBootstrap(): string {
+function renderRuntime(): string {
   return [
     'import { createHash } from "node:crypto";',
     'import { lstatSync, opendirSync, readFileSync, realpathSync } from "node:fs";',
@@ -571,6 +571,7 @@ function renderBootstrap(): string {
     "  if (after.isSymbolicLink() || !after.isFile() || bytes.byteLength !== before.size || after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs || realpathSync(path) !== path) fail(code);",
     "  return bytes;",
     "};",
+    "export async function start(allowHttpLoopbackOrigin) {",
     "try {",
     "const portText = process.env['FADENO_PORT'];",
     "if (!portText || !/^[1-9][0-9]{0,4}$/.test(portText)) fail('FADENO_BUILD_RUNTIME_PORT');",
@@ -644,6 +645,7 @@ function renderBootstrap(): string {
     "const { applicationGeneration, handler } = await import('../.fadeno/routes/app.js');",
     "const server = await listenNodeHttp({",
     "  handler, hostname: '127.0.0.1', port, applicationGeneration, canonicalOrigin: process.env['FADENO_ORIGIN'],",
+    "  allowHttpLoopbackOrigin,",
     "  failureObserver({ cause: _cause, ...report }) {",
     "    process.stdout.write(`${JSON.stringify({ event: 'framework-failure', ...report })}\\n`);",
     "  },",
@@ -657,8 +659,13 @@ function renderBootstrap(): string {
     "  const code = error instanceof Error && /^FADENO_[A-Z0-9_]+$/.test(error.message) ? error.message : 'FADENO_BUILD_RUNTIME_INTERNAL';",
     "  process.stderr.write(`${code}\\n`); process.exitCode = 1;",
     "}",
+    "}",
     "",
   ].join("\n");
+}
+
+function renderBootstrap(): string {
+  return `import { start } from \"./runtime.js\";\nawait start(false);\n`;
 }
 
 function prepareManifest(
@@ -670,11 +677,15 @@ function prepareManifest(
 ): PrivateRuntimeIdentity {
   const stageRoot = join(projectRoot, ".fadeno", "build-stage", `generation-${generation.generation}`);
   const bootstrap = join(stageRoot, "server", "bootstrap.js");
+  const runtime = join(stageRoot, "server", "runtime.js");
   const manifestPath = join(stageRoot, ".fadeno", "build-manifest.json");
-  if (existsSync(bootstrap) || existsSync(manifestPath)) fail("FADENO_BUILD_OUTPUT_CONFLICT");
+  if (existsSync(bootstrap) || existsSync(runtime) || existsSync(manifestPath)) {
+    fail("FADENO_BUILD_OUTPUT_CONFLICT");
+  }
   mkdirSync(dirname(bootstrap), { recursive: true });
   mkdirSync(dirname(manifestPath), { recursive: true });
   writeFileSync(bootstrap, renderBootstrap());
+  writeFileSync(runtime, renderRuntime());
   const output = capturePrivateRuntimeIdentity(stageRoot, identityPaths(stageRoot));
   const manifest = Object.freeze({
     schemaVersion: 1,
@@ -852,6 +863,7 @@ function assertAcceptedOutput(output: string, code: string): void {
       actualPaths.length !== expectedPaths.length ||
       actualPaths.some((path, index) => path !== expectedPaths[index]) ||
       readFileSync(join(output, "server", "bootstrap.js"), "utf8") !== renderBootstrap() ||
+      readFileSync(join(output, "server", "runtime.js"), "utf8") !== renderRuntime() ||
       !readAcceptedBuildManifest(output, code).bytes.equals(manifest.bytes)
     ) fail(code);
   } catch (error) {

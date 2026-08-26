@@ -22,6 +22,7 @@ export interface ListenNodeHttpOptions {
   readonly port?: number;
   readonly canonicalOrigin?: string;
   readonly applicationGeneration?: string;
+  readonly allowHttpLoopbackOrigin?: boolean;
   readonly failureObserver?: FrameworkFailureObserver;
 }
 
@@ -207,6 +208,7 @@ export async function listenNodeHttp(options: ListenNodeHttpOptions): Promise<No
   const actionRuntime = createInstalledActionServerRuntime({
     ...(options.canonicalOrigin === undefined ? {} : { canonicalOrigin: options.canonicalOrigin }),
     ...(options.applicationGeneration === undefined ? {} : { applicationGeneration: options.applicationGeneration }),
+    ...(options.allowHttpLoopbackOrigin === undefined ? {} : { allowHttpLoopbackOrigin: options.allowHttpLoopbackOrigin }),
     ...(sessionKeys === undefined ? {} : { sessionKeys }),
   });
   let draining = false;

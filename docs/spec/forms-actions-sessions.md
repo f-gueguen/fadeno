@@ -49,7 +49,8 @@ Every partial or complete upload has framework-owned exactly-once cleanup.
 
 1. An action owns an ordinary mutation and executes only on the server.
 2. The request boundary accepts only native POST with normalized URL-encoded or
-   multipart media type. It validates exact HTTPS origin, action and route,
+   multipart media type. It validates an exact protected origin (HTTPS, or
+   trustworthy HTTP loopback during owned development), action and route,
    rendered form instance, current application generation, session, signed proof, replay, fields,
    files, freshness, and limits before application code.
    URL-encoded names and values must remain well-formed UTF-8 after percent
@@ -81,8 +82,9 @@ Enhanced requests carry sufficient identity to keep an older result from
 overwriting a newer accepted result. Native submissions retain ordinary browser
 navigation semantics.
 
-Action redirects use status 303 and exact same-origin HTTPS destinations. V1
-has no external redirect allow-list. Success and changed or unknown mutation
+Action redirects use status 303 and exact protected same-origin destinations:
+HTTPS, or the owned HTTP loopback origin in development. V1 has no external
+redirect allow-list. Success and changed or unknown mutation
 failure enter complete resource revalidation; unchanged expected failure does
 not. A rejected redirect after mutation still revalidates current server truth.
 
@@ -107,11 +109,15 @@ Mutation code additionally receives buffered `set`, `delete`, `clear`, and
 login, logout replacement, account change, and every privilege change.
 
 The sole key input is active-first `FADENO_SESSION_KEYS` with one to four
-`id:base64url` entries and exactly 32 decoded key bytes each. The fixed
-`__Host-fadeno-session` cookie is `Secure`, `HttpOnly`, `SameSite=Lax`,
-`Path=/`, has no `Domain`, and is at most 4,096 bytes including name and value.
-Its AES-256-GCM v1 envelope authenticates cookie metadata and encrypts session
-identity, CSRF secret, timestamps, and at most 2 KiB of normalized values.
+`id:base64url` entries and exactly 32 decoded key bytes each. Production uses
+the `__Host-fadeno-session` cookie with `Secure`, `HttpOnly`, `SameSite=Lax`,
+`Path=/`, no `Domain`, and at most 4,096 bytes including name and value. Owned
+HTTP loopback development instead uses the host-only
+`fadeno-development-session-<listener-port>` cookie with the same `HttpOnly`,
+`SameSite`, path, size, envelope, and rotation controls but without a false
+`Secure` attribute. Its AES-256-GCM v1 envelope authenticates the exact cookie
+name and encrypts session identity, CSRF secret, timestamps, and at most 2 KiB
+of normalized values, preventing reuse across production or loopback listeners.
 Sessions have 12-hour absolute expiry. The active key encrypts; up to three
 prior keys decrypt and trigger resealing without extending expiry. Unknown key,
 tamper, malformed values, and expiry fail closed and clear the cookie. An

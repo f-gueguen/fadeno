@@ -179,7 +179,7 @@ fadeno deploy --project-root . --output ../releases/my-fadeno-app-001
 The packed canonical scenario normalizes only the temporary artifact path:
 
 ```text
-Fadeno production build completed: 31 files written to dist.
+Fadeno production build completed: 33 files written to dist.
 Fadeno deployment artifact completed at <ARTIFACT_ROOT>.
 ```
 
@@ -1807,8 +1807,8 @@ Inside an installed application, run `pnpm check`, `pnpm dev`, and `pnpm build`
 through the scripts shown above. In this repository,
 `pnpm check:v1-analyzer-workflow` additionally executes the packed human
 `fadeno check` success, failure, explanation, and recovery paths. Native
-mutation submission intentionally remains unavailable over the development
-HTTP listener because production actions require an exact HTTPS origin.
+action authority uses the exact owned HTTP loopback origin during development;
+production actions continue to require an exact external HTTPS origin.
 
 Run `pnpm check:v1-running-example` to fresh-pack the framework, create clean
 consumers, produce two byte-identical builds, start the verified production
