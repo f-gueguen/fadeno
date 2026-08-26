@@ -181,7 +181,7 @@ async function renderBoundary(
     return timeout === undefined ? await work : await Promise.race([work, timedOut]);
   } catch (cause) {
     void work.catch(() => undefined);
-    if (!parentCancelled && cause !== timeoutError) {
+    if (!parentCancelled && cause !== timeoutError && readResourceError(cause) === undefined) {
       reportBoundaryFailure(cause);
     }
     return collect(payload.fallback, context, parentSignal, nonce, action, form, frameworkModule, reportBoundaryFailure);

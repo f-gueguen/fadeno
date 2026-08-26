@@ -216,6 +216,25 @@ assert.match(boundaryReports[0]?.incidentId ?? "", /^[0-9a-f-]{36}$/u);
 assert.doesNotMatch(JSON.stringify(boundaryReports[0]?.projection), /must-not-project/u);
 releaseBoundaryObserver();
 
+const expectedBoundaryReports: FrameworkFailureReport[] = [];
+const expectedBoundaryRequest = new Request("https://example.test/boundary-expected-resource");
+const releaseExpectedBoundary = bindRequestFailureObserver(
+  expectedBoundaryRequest,
+  (report) => { expectedBoundaryReports.push(report); },
+);
+const expectedBoundary = await renderRoute({
+  request: expectedBoundaryRequest,
+  parameters: Object.freeze({}),
+  layouts: [],
+  page: () => document(Boundary({
+    children: () => { throw resourceError({ code: "PROJECT_NOT_FOUND", status: 404 }); },
+    fallback: jsx("p", { children: "expected resource fallback" }),
+  })),
+});
+assert.match(await body(expectedBoundary), /expected resource fallback/u);
+assert.deepEqual(expectedBoundaryReports, [], "expected boundary resource failures do not become incidents");
+releaseExpectedBoundary();
+
 const timeoutReports: FrameworkFailureReport[] = [];
 const timeoutRequest = new Request("https://example.test/boundary-timeout");
 const releaseTimeout = bindRequestFailureObserver(timeoutRequest, (report) => { timeoutReports.push(report); });
