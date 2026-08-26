@@ -44,6 +44,7 @@ type ActiveActionForm = Readonly<{
 }>;
 
 type FrameworkModule = { source: string; generation?: string; documentEpoch?: string; emitted: boolean };
+type BoundaryFailureReporter = (cause: unknown) => void;
 
 function validateFrameworkIdentity(value: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9:._/-]*$/u.test(value) || encoder.encode(value).byteLength > 128) {
@@ -127,10 +128,11 @@ async function collect(
   action: RenderDocumentOptions["action"],
   form: ActiveActionForm | null,
   frameworkModule: FrameworkModule | undefined,
+  reportBoundaryFailure: BoundaryFailureReporter,
 ): Promise<readonly string[]> {
   const chunks: string[] = [];
   let bytes = 0;
-  for await (const chunk of renderChild(child, context, signal, nonce, action, form, frameworkModule)) {
+  for await (const chunk of renderChild(child, context, signal, nonce, action, form, frameworkModule, reportBoundaryFailure)) {
     bytes += encoder.encode(chunk).byteLength;
     if (bytes > maximumBoundaryBytes) throw new TypeError("FADENO_RENDER_BOUNDARY_LIMIT");
     chunks.push(chunk);
@@ -146,12 +148,18 @@ async function renderBoundary(
   action: RenderDocumentOptions["action"],
   form: ActiveActionForm | null,
   frameworkModule: FrameworkModule | undefined,
+  reportBoundaryFailure: BoundaryFailureReporter,
 ): Promise<readonly string[]> {
   const cancellation = new AbortController();
-  const cancelFromParent = (): void => cancellation.abort(parentSignal.reason ?? abortError());
+  let parentCancelled = false;
+  const cancelFromParent = (): void => {
+    parentCancelled = true;
+    cancellation.abort(parentSignal.reason ?? abortError());
+  };
   parentSignal.addEventListener("abort", cancelFromParent, { once: true });
   if (parentSignal.aborted) cancelFromParent();
   let timeout: ReturnType<typeof setTimeout> | undefined;
+  let timeoutError: DOMException | undefined;
   let timeoutFailure: ((reason: unknown) => void) | undefined;
   const timedOut = new Promise<never>((_resolve, reject) => { timeoutFailure = reject; });
   if (payload.timeoutMilliseconds !== undefined) {
@@ -159,18 +167,24 @@ async function renderBoundary(
       throw new TypeError("FADENO_RENDER_BOUNDARY_TIMEOUT");
     }
     timeout = setTimeout(() => {
-      const error = new DOMException("Boundary timed out", "TimeoutError");
-      cancellation.abort(error);
-      timeoutFailure?.(error);
+      timeoutError = new DOMException("Boundary timed out", "TimeoutError");
+      cancellation.abort(timeoutError);
+      timeoutFailure?.(timeoutError);
     }, payload.timeoutMilliseconds);
   }
-  const child = typeof payload.children === "function" ? payload.children(cancellation.signal) : payload.children;
-  const work = Promise.resolve(child).then((value) => collect(value, context, cancellation.signal, nonce, action, form, frameworkModule));
+  const work = Promise.resolve().then(() => typeof payload.children === "function"
+    ? payload.children(cancellation.signal)
+    : payload.children).then((value) => collect(
+    value, context, cancellation.signal, nonce, action, form, frameworkModule, reportBoundaryFailure,
+  ));
   try {
     return timeout === undefined ? await work : await Promise.race([work, timedOut]);
-  } catch {
+  } catch (cause) {
     void work.catch(() => undefined);
-    return collect(payload.fallback, context, parentSignal, nonce, action, form, frameworkModule);
+    if (!parentCancelled && cause !== timeoutError) {
+      reportBoundaryFailure(cause);
+    }
+    return collect(payload.fallback, context, parentSignal, nonce, action, form, frameworkModule, reportBoundaryFailure);
   } finally {
     if (timeout !== undefined) clearTimeout(timeout);
     parentSignal.removeEventListener("abort", cancelFromParent);
@@ -186,6 +200,7 @@ async function* renderChild(
   action: RenderDocumentOptions["action"],
   form: ActiveActionForm | null,
   frameworkModule: FrameworkModule | undefined,
+  reportBoundaryFailure: BoundaryFailureReporter,
 ): AsyncGenerator<string, void, void> {
   if (signal.aborted) throw abortError();
   if (child === undefined || child === null || typeof child === "boolean") return;
@@ -202,7 +217,7 @@ async function* renderChild(
     throw new TypeError("FADENO_RENDER_CHILD");
   }
   if (Array.isArray(child)) {
-    for (const item of child) yield* renderChild(item, context, signal, nonce, action, form, frameworkModule);
+    for (const item of child) yield* renderChild(item, context, signal, nonce, action, form, frameworkModule, reportBoundaryFailure);
     return;
   }
   const raw = readUnsafeHtml(child);
@@ -213,15 +228,15 @@ async function* renderChild(
   const payload = readRenderNode(child);
   if (!payload) throw new TypeError("FADENO_RENDER_CHILD");
   if (payload.kind === "fragment") {
-    yield* renderChild(payload.children, context, signal, nonce, action, form, frameworkModule);
+    yield* renderChild(payload.children, context, signal, nonce, action, form, frameworkModule, reportBoundaryFailure);
     return;
   }
   if (payload.kind === "async") {
-    yield* renderChild(await payload.value, context, signal, nonce, action, form, frameworkModule);
+    yield* renderChild(await payload.value, context, signal, nonce, action, form, frameworkModule, reportBoundaryFailure);
     return;
   }
   if (payload.kind === "boundary") {
-    for (const chunk of await renderBoundary(payload, context, signal, nonce, action, form, frameworkModule)) yield chunk;
+    for (const chunk of await renderBoundary(payload, context, signal, nonce, action, form, frameworkModule, reportBoundaryFailure)) yield chunk;
     return;
   }
   if (payload.kind === "framework-executable") {
@@ -310,7 +325,7 @@ async function* renderChild(
     if (fieldError && childForm) yield `<p id="fadeno-error-${action?.context.fieldName(payload.properties["name"] as never)}">${encodeText(fieldError, "html-text")}</p>`;
     return;
   }
-  yield* renderChild(children, childContext(payload.element), signal, nonce, action, childForm, frameworkModule);
+  yield* renderChild(children, childContext(payload.element), signal, nonce, action, childForm, frameworkModule, reportBoundaryFailure);
   if (payload.element === "head" && frameworkModule && !frameworkModule.emitted) yield frameworkModuleMarkup(frameworkModule, nonce);
   if (payload.element === "html" && frameworkModule && !frameworkModule.emitted) throw new TypeError("FADENO_RENDER_FRAMEWORK_MODULE_TARGET");
   yield `</${payload.element}>`;
@@ -345,6 +360,14 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
         emitted: false,
       };
   const failureObserver = captureRequestFailureObserver(options.request);
+  const reportBoundaryFailure = (cause: unknown): void => reportFrameworkFailure(
+    failureObserver,
+    options.request,
+    globalThis.crypto.randomUUID(),
+    "post-publication",
+    "FADENO_RENDER_BOUNDARY_UNEXPECTED",
+    cause,
+  );
   let terminalCause: unknown;
   let terminalIncidentId: string | undefined;
   let iterator: AsyncGenerator<string, void, void> | undefined;
@@ -415,7 +438,16 @@ export function renderDocument(node: RenderChild, options: RenderDocumentOptions
   });
   iterator = (async function* document(): AsyncGenerator<string, void, void> {
     yield "<!doctype html>";
-    yield* renderChild(node, "html-text", options.request.signal, head.nonce, options.action, null, frameworkModule);
+    yield* renderChild(
+      node,
+      "html-text",
+      options.request.signal,
+      head.nonce,
+      options.action,
+      null,
+      frameworkModule,
+      reportBoundaryFailure,
+    );
   })();
   return new Response(stream, { status: head.status, headers: head.headers });
 }
