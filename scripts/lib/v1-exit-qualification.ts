@@ -1,6 +1,8 @@
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, normalize, relative, sep } from "node:path";
 
+import { collectPackageScriptGates } from "./package-script-gates.ts";
+
 type JsonRecord = Record<string, unknown>;
 
 export type V1ExitContext = Readonly<{
@@ -62,10 +64,7 @@ export function createV1ExitContext(root: string, tracked: ReadonlySet<string>):
   const workspace = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as JsonRecord;
   const scriptsValue = isRecord(workspace["scripts"]) ? workspace["scripts"] : {};
   const scripts = Object.fromEntries(Object.entries(scriptsValue).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
-  const rootGates = new Set((scripts["check"] ?? "").split("&&").flatMap((command) => {
-    const match = /^pnpm ([^ ]+)$/u.exec(command.trim());
-    return match?.[1] ? [match[1]] : [];
-  }));
+  const rootGates = collectPackageScriptGates(scripts);
   const trackedEvidence = new Set<string>();
   const canonicalRoot = realpathSync(root);
   for (const path of tracked) {

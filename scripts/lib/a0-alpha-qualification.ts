@@ -7,6 +7,7 @@ import {
   A0_EXPECTED_FIRST_ALPHA_VERSION,
   A0_SEED_VERSION,
 } from "./a0-release-identity.ts";
+import { collectPackageScriptGates } from "./package-script-gates.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -236,10 +237,7 @@ export function loadA0AlphaQualificationContext(
   const workspace = JSON.parse(read("package.json")) as unknown;
   const scriptsValue = isRecord(workspace) && isRecord(workspace["scripts"]) ? workspace["scripts"] : {};
   const scripts = Object.fromEntries(Object.entries(scriptsValue).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
-  const rootGates = new Set((scripts["check"] ?? "").split("&&").flatMap((command) => {
-    const match = /^pnpm ([^ ]+)$/u.exec(command.trim());
-    return match?.[1] ? [match[1]] : [];
-  }));
+  const rootGates = collectPackageScriptGates(scripts);
   const trackedEvidence = new Set<string>();
   const canonicalRoot = realpathSync(root);
   for (const path of tracked) {

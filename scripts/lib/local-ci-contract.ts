@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { countPackageScriptGateExecutions } from "./package-script-gates.ts";
+
 export const LOCAL_CI_COMMAND = "pnpm ci:local";
 export const LOCAL_CI_PACKAGE_SCRIPT =
   "node --no-warnings --experimental-strip-types scripts/local-ci.ts";
@@ -9,8 +11,9 @@ const INDEPENDENT_WORKFLOW_LEAF =
 const DOCUMENTATION_SOURCE_CHECK = "pnpm check:v1-documentation-source";
 const DOCUMENTATION_CHECK = "pnpm check:v1-documentation";
 const PUBLIC_PACKAGE_CHECK = "pnpm check:v1-public-package";
+const ANALYZER_PACKAGE_CHECK = "pnpm check:v1-analyzer-package";
 const INDEPENDENT_WORKFLOW_COMPOSITE =
-  `${DOCUMENTATION_SOURCE_CHECK} && ${DOCUMENTATION_CHECK} && ${PUBLIC_PACKAGE_CHECK} && ${INDEPENDENT_WORKFLOW_LEAF}`;
+  `${DOCUMENTATION_SOURCE_CHECK} && ${DOCUMENTATION_CHECK} && ${ANALYZER_PACKAGE_CHECK} && ${INDEPENDENT_WORKFLOW_LEAF}`;
 export type LocalCiStep = Readonly<{ name: string; args: readonly string[] }>;
 export const LOCAL_CI_STEPS = Object.freeze([
   Object.freeze({ name: "frozen-install", args: Object.freeze(["install", "--frozen-lockfile"]) }),
@@ -79,12 +82,17 @@ export function validateLocalCiProjection(
   if (projection.packageJson.scripts?.["check:v1-independent-workflow"] !== INDEPENDENT_WORKFLOW_COMPOSITE) {
     errors.push("package: standalone independent workflow prerequisites differ");
   }
-  const checkCommands = check.split(" && ");
-  if (checkCommands.filter((command) => command === DOCUMENTATION_SOURCE_CHECK).length !== 1
-    || checkCommands.filter((command) => command === DOCUMENTATION_CHECK).length !== 1
-    || checkCommands.some((command) => command === PUBLIC_PACKAGE_CHECK)
-    || checkCommands.filter((command) => command === INDEPENDENT_WORKFLOW_LEAF).length !== 1
-    || checkCommands.includes("pnpm check:v1-independent-workflow")) {
+  if (projection.packageJson.scripts?.["check:v1-analyzer-package"] !== PUBLIC_PACKAGE_CHECK) {
+    errors.push("package: analyzer package alias differs");
+  }
+  let gateCounts: ReadonlyMap<string, number> = new Map();
+  try {
+    gateCounts = countPackageScriptGateExecutions(projection.packageJson.scripts ?? {});
+  } catch {
+    errors.push("package: main check script graph must be acyclic");
+  }
+  if (["check:v1-independent-workflow", "check:v1-documentation-source", "check:v1-documentation",
+    "check:v1-analyzer-package", "check:v1-public-package"].some((gate) => gateCounts.get(gate) !== 1)) {
     errors.push("package: main check independent workflow prerequisites execute more or less than once");
   }
   const lockedSteps = JSON.stringify([
