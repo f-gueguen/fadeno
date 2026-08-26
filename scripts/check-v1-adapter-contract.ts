@@ -16,6 +16,7 @@ interface HttpResult {
   readonly headers: IncomingHttpHeaders;
   readonly rawHeaders: readonly string[];
   readonly status: number | undefined;
+  readonly statusMessage: string | undefined;
 }
 
 interface ExchangeOptions {
@@ -61,6 +62,7 @@ function exchange(origin: string, path: string, options: ExchangeOptions = {}): 
         headers: response.headers,
         rawHeaders: response.rawHeaders,
         status: response.statusCode,
+        statusMessage: response.statusMessage,
       }));
     });
     request.once("error", reject);
@@ -121,16 +123,87 @@ async function verifyAbsoluteRequestTargetRefusal(): Promise<void> {
     for (const target of targets) {
       const callsBefore = handlerCalls;
       const closed = deferred<void>();
+      let response = "";
       const socket = connect(Number(url.port), url.hostname, () => {
         socket.write("GET " + target + " HTTP/1.1\r\nHost: attacker.invalid\r\nConnection: close\r\n\r\n");
       });
-      socket.on("data", () => undefined);
+      socket.on("data", (chunk: Buffer) => { response += chunk.toString("utf8"); });
       socket.once("error", () => closed.resolve());
       socket.once("close", () => closed.resolve());
       await within(closed.promise, "request-target-refusal");
       if (handlerCalls !== callsBefore) throw new Error("FADENO_ADAPTER_REQUEST_TARGET");
+      if (!response.startsWith("HTTP/1.1 400 ") || !response.endsWith("Bad request\n")) {
+        throw new Error("FADENO_ADAPTER_REQUEST_TARGET_RESPONSE");
+      }
     }
   });
+}
+
+async function verifyFailureOwnership(): Promise<void> {
+  await withAdapter(() => { throw new Error("secret=must-not-cross-adapter"); }, async (origin) => {
+    const failure = await exchange(origin, "/failure");
+    if (failure.status !== 500 || failure.body !== "Internal server error\n"
+      || failure.headers["x-content-type-options"] !== "nosniff"
+      || failure.body.includes("must-not-cross-adapter")) {
+      throw new Error("FADENO_ADAPTER_PRE_HEADER_FAILURE");
+    }
+  });
+
+  await withAdapter(() => new Response(new ReadableStream<Uint8Array>({
+    start(controller) { controller.error(new Error("secret=pre-header-stream")); },
+  }), {
+    status: 299,
+    statusText: "Stale response",
+    headers: {
+      "content-encoding": "gzip",
+      "content-length": "99",
+      "set-cookie": "stale=1",
+      "x-stale": "yes",
+    },
+  }), async (origin) => {
+    const failure = await exchange(origin, "/pre-header-stream");
+    if (failure.status !== 500 || failure.statusMessage !== "Internal Server Error"
+      || failure.body !== "Internal server error\n"
+      || failure.headers["content-encoding"] !== undefined
+      || failure.headers["content-length"] !== undefined
+      || failure.headers["set-cookie"] !== undefined
+      || failure.headers["x-stale"] !== undefined) {
+      throw new Error("FADENO_ADAPTER_PRE_HEADER_STREAM_FAILURE");
+    }
+  });
+
+  let pull = 0;
+  const failStream = deferred<void>();
+  await withAdapter(() => new Response(new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      pull += 1;
+      if (pull === 1) controller.enqueue(new TextEncoder().encode("published"));
+      else {
+        await failStream.promise;
+        controller.error(new Error("secret=late-stream-failure"));
+      }
+    },
+  })), async (origin) => {
+    const outcome = deferred<Readonly<{ body: string; status: number | undefined }>>();
+    const request = httpRequest(origin, (response) => {
+      let received = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        received += chunk;
+        if (received === "published") failStream.resolve();
+      });
+      const finish = (): void => outcome.resolve({ body: received, status: response.statusCode });
+      response.once("aborted", finish);
+      response.once("error", finish);
+      response.once("end", finish);
+    });
+    request.once("error", outcome.reject);
+    request.end();
+    const late = await within(outcome.promise, "post-header-failure");
+    if (late.status !== 200 || late.body !== "published" || late.body.includes("Internal server error")) {
+      throw new Error("FADENO_ADAPTER_POST_HEADER_FAILURE");
+    }
+  }).finally(() => failStream.resolve());
 }
 
 async function verifyIpv6AuthorityWhenAvailable(): Promise<void> {
@@ -186,7 +259,13 @@ async function verifyStreamedUpload(): Promise<void> {
     const request = httpRequest(`${origin}/upload`, { method: "POST" }, (response) => {
       const chunks: Buffer[] = [];
       response.on("data", (chunk: Buffer) => chunks.push(chunk));
-      response.on("end", () => completed.resolve({ body: Buffer.concat(chunks).toString(), headers: response.headers, rawHeaders: response.rawHeaders, status: response.statusCode }));
+      response.on("end", () => completed.resolve({
+        body: Buffer.concat(chunks).toString(),
+        headers: response.headers,
+        rawHeaders: response.rawHeaders,
+        status: response.statusCode,
+        statusMessage: response.statusMessage,
+      }));
     });
     request.once("error", completed.reject);
     request.write("first-");
@@ -415,6 +494,7 @@ if (process.argv.includes("--require-minimum") && process.versions.node !== node
 
 await verifyRequestResponseAndCookies();
 await verifyAbsoluteRequestTargetRefusal();
+await verifyFailureOwnership();
 await verifyIpv6AuthorityWhenAvailable();
 await verifyStreamedUpload();
 await verifyEarlyFlush();
