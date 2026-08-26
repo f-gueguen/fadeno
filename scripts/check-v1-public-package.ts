@@ -178,8 +178,6 @@ try {
     "package/dist/internal/project-deploy.js",
     "package/dist/internal/project-dev.d.ts",
     "package/dist/internal/project-dev.js",
-    "package/dist/internal/protected-origin.d.ts",
-    "package/dist/internal/protected-origin.js",
     "package/dist/internal/routing/artifact-contract.d.ts",
     "package/dist/internal/routing/artifact-contract.js",
     "package/dist/internal/routing/discovery.d.ts",
