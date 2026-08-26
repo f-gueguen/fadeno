@@ -353,7 +353,7 @@
           "path": "src/routes/projects/page.tsx",
           "range": {
             "start": 0,
-            "end": 6874
+            "end": 6878
           }
         },
         {
@@ -654,7 +654,7 @@
         },
         {
           "path": "src/routes/projects/page.tsx",
-          "length": 6874
+          "length": 6878
         },
         {
           "path": "src/routes/raw/handler.ts",
