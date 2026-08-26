@@ -7,7 +7,6 @@
     ".fadeno/routes/loader.js",
     ".fadeno/routes/virtual.js",
     "server/bootstrap.js",
-    "server/development-bootstrap.js",
     "server/runtime.js",
     "src/components/developer-panel.js",
     "src/components/overview.js",
