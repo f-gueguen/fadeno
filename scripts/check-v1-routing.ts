@@ -257,16 +257,19 @@ try {
     }
     if (match && Object.getPrototypeOf(match.parameters) !== null) throw new Error("FADENO_ROUTING_PARAMETER_PROTOTYPE");
   }
+  const handlerRouteIds = new Map(manifest.routes.flatMap((route) => route.kind === "handler"
+    ? [[route.source, route.id] as const]
+    : []));
   const generatedMatcherSource = readFileSync(join(first.output, "app.ts"), "utf8")
     .split("\n")
     .map((line) => {
       if (line.startsWith("import { notFound, renderRoute,")) {
         return "const notFound = () => undefined; const renderRoute = (input) => { globalThis.__fadenoRouteObservation = input; return new Response(); };";
       }
-      const binding = /^import (module\d+) /u.exec(line)?.[1];
-      return binding
-        ? `const ${binding} = () => { globalThis.__fadenoModuleObservation = true; return new Response(); };`
-        : line;
+      const imported = /^import (module\d+) from "\.\.\/\.\.\/(.+)";$/u.exec(line);
+      if (!imported) return line;
+      const [binding, source] = imported.slice(1) as [string, string];
+      return `const ${binding} = () => { globalThis.__fadenoModuleObservation = ${JSON.stringify(handlerRouteIds.get(source))}; return new Response(); };`;
     })
     .join("\n");
   const matcherFixture = join(main, "generated-matcher");
@@ -294,7 +297,7 @@ try {
   };
   const observation = globalThis as typeof globalThis & {
     __fadenoRouteObservation?: GeneratedRouteObservation;
-    __fadenoModuleObservation?: boolean;
+    __fadenoModuleObservation?: string;
   };
   for (const [requestTarget] of cases) {
     delete observation.__fadenoRouteObservation;
@@ -303,9 +306,9 @@ try {
     const source = matchRoutePathname(manifest, requestUrl.pathname);
     await generatedMatcherModule.handler(new Request(requestUrl));
     const generated = Reflect.get(observation, "__fadenoRouteObservation") as GeneratedRouteObservation | undefined;
-    const moduleInvoked = Reflect.get(observation, "__fadenoModuleObservation") === true;
-    const generatedRouteId = source?.route.kind === "handler" && moduleInvoked
-      ? source.route.id
+    const invokedRouteId = Reflect.get(observation, "__fadenoModuleObservation") as string | undefined;
+    const generatedRouteId = invokedRouteId && generatedRouteIds.has(invokedRouteId)
+      ? invokedRouteId
       : generated?.routeId && generatedRouteIds.has(generated.routeId) ? generated.routeId : undefined;
     if (source?.route.id !== generatedRouteId) {
       throw new Error(`FADENO_ROUTING_GENERATED_MATCH:${requestTarget}:${source?.route.id ?? "none"}:${generatedRouteId ?? "none"}`);
