@@ -8,10 +8,14 @@ const maximumKeys = 4;
 const maximumCookieBytes = 4_096;
 const maximumEnvelopeBytes = maximumCookieBytes - Buffer.byteLength(cookieName) - 1;
 
-export type DecisionSessionCookieTransport = "secure" | "loopback-http";
+export type DecisionSessionCookieTransport = "secure" | "loopback-http" | `loopback-http:${number}`;
 
 export function decisionSessionCookieName(transport: DecisionSessionCookieTransport = "secure"): string {
-  return transport === "secure" ? cookieName : developmentCookieName;
+  if (transport === "secure") return cookieName;
+  if (transport === "loopback-http") return developmentCookieName;
+  const port = transport.slice("loopback-http:".length);
+  if (!/^[1-9]\d{0,4}$/u.test(port) || Number(port) > 65_535) fail("FADENO_SESSION_COOKIE");
+  return `${developmentCookieName}-${port}`;
 }
 const maximumValueBytes = 2_048;
 const maximumValueDepth = 16;
@@ -181,10 +185,14 @@ function snapshot(values: unknown, now: number, identity?: Readonly<{ sessionId:
   });
 }
 
-function seal(keyring: DecisionSessionKeyring, session: DecisionSessionSnapshot): string {
+function seal(
+  keyring: DecisionSessionKeyring,
+  session: DecisionSessionSnapshot,
+  transport: DecisionSessionCookieTransport,
+): string {
   const key = keyringState(keyring).active;
   const iv = randomBytes(12);
-  const aad = Buffer.from(`${cookieName}:${envelopeVersion}:${key.id}`, "utf8");
+  const aad = Buffer.from(`${decisionSessionCookieName(transport)}:${envelopeVersion}:${key.id}`, "utf8");
   const plaintext = Buffer.from(JSON.stringify({
     version: 1,
     sessionId: session.sessionId,
@@ -205,10 +213,11 @@ export function createDecisionSession(
   keyring: DecisionSessionKeyring,
   values: DecisionSessionValue,
   now: number,
+  transport: DecisionSessionCookieTransport = "secure",
 ): Readonly<{ envelope: string; snapshot: DecisionSessionSnapshot }> {
   const created = snapshot(values, now);
   sessionOwners.set(created, keyring);
-  return Object.freeze({ envelope: seal(keyring, created), snapshot: created });
+  return Object.freeze({ envelope: seal(keyring, created, transport), snapshot: created });
 }
 
 function parseSnapshot(value: unknown): DecisionSessionSnapshot {
@@ -238,6 +247,7 @@ export function openDecisionSession(
   keyring: DecisionSessionKeyring,
   envelope: string | undefined,
   now: number,
+  transport: DecisionSessionCookieTransport = "secure",
 ): DecisionSessionOpenResult {
   if (!Number.isSafeInteger(now) || now < 0) fail("FADENO_SESSION_TIME");
   if (envelope === undefined) return Object.freeze({ status: "missing", snapshot: null, clearCookie: false });
@@ -253,7 +263,7 @@ export function openDecisionSession(
     const tag = decodeBase64url(parts[4]!, "FADENO_SESSION_COOKIE");
     if (iv.byteLength !== 12 || tag.byteLength !== 16) fail("FADENO_SESSION_COOKIE");
     const decipher = createDecipheriv("aes-256-gcm", key.bytes, iv);
-    decipher.setAAD(Buffer.from(`${cookieName}:${envelopeVersion}:${key.id}`, "utf8"));
+    decipher.setAAD(Buffer.from(`${decisionSessionCookieName(transport)}:${envelopeVersion}:${key.id}`, "utf8"));
     decipher.setAuthTag(tag);
     const plaintext = Buffer.concat([decipher.update(encrypted), decipher.final()]);
     if (plaintext.byteLength > maximumValueBytes + 1_024) fail("FADENO_SESSION_COOKIE_LIMIT");
@@ -276,6 +286,7 @@ export function renewDecisionSession(
   values: DecisionSessionValue,
   now: number,
   mode: "retain-identity" | "privilege-change",
+  transport: DecisionSessionCookieTransport = "secure",
 ): Readonly<{ envelope: string; snapshot: DecisionSessionSnapshot }> {
   if (sessionOwners.get(current) !== keyring || (mode !== "retain-identity" && mode !== "privilege-change")) {
     fail("FADENO_SESSION_SNAPSHOT");
@@ -285,7 +296,7 @@ export function renewDecisionSession(
     ? snapshot(values, now)
     : snapshot(values, now, current);
   sessionOwners.set(next, keyring);
-  return Object.freeze({ envelope: seal(keyring, next), snapshot: next });
+  return Object.freeze({ envelope: seal(keyring, next, transport), snapshot: next });
 }
 
 export function assertDecisionSessionSnapshot(value: unknown): asserts value is DecisionSessionSnapshot {

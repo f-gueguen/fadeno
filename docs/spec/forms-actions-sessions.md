@@ -113,10 +113,11 @@ The sole key input is active-first `FADENO_SESSION_KEYS` with one to four
 the `__Host-fadeno-session` cookie with `Secure`, `HttpOnly`, `SameSite=Lax`,
 `Path=/`, no `Domain`, and at most 4,096 bytes including name and value. Owned
 HTTP loopback development instead uses the host-only
-`fadeno-development-session` cookie with the same `HttpOnly`, `SameSite`, path,
-size, envelope, and rotation controls but without a false `Secure` attribute.
-Its AES-256-GCM v1 envelope authenticates cookie metadata and encrypts session
-identity, CSRF secret, timestamps, and at most 2 KiB of normalized values.
+`fadeno-development-session-<listener-port>` cookie with the same `HttpOnly`,
+`SameSite`, path, size, envelope, and rotation controls but without a false
+`Secure` attribute. Its AES-256-GCM v1 envelope authenticates the exact cookie
+name and encrypts session identity, CSRF secret, timestamps, and at most 2 KiB
+of normalized values, preventing reuse across production or loopback listeners.
 Sessions have 12-hour absolute expiry. The active key encrypts; up to three
 prior keys decrypt and trigger resealing without extending expiry. Unknown key,
 tamper, malformed values, and expiry fail closed and clear the cookie. An

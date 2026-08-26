@@ -202,7 +202,7 @@ keyring.
 Production uses `__Host-fadeno-session`, with `Path=/`, `Secure`, `HttpOnly`,
 `SameSite=Lax`, no `Domain`, and at most 4,096 bytes for the complete name/value
 pair. Owned HTTP loopback development uses the host-only
-`fadeno-development-session` transport defined by ADR 0054. The versioned
+`fadeno-development-session-<listener-port>` transport defined by ADR 0054. The versioned
 envelope contains key ID, a fresh 96-bit nonce, AES-256-GCM
 ciphertext, and a 128-bit authentication tag with cookie name, version, and key
 ID as additional authenticated data. Plaintext contains version, session ID,

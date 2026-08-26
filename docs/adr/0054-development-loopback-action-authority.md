@@ -29,15 +29,21 @@ The native action and redirect boundaries accept an exact, uncredentialed
 HTTPS origin or an exact HTTP loopback origin on `127.0.0.1`, `localhost`, or
 `[::1]`. Exact `Origin` equality, proof, replay, authorization, session, upload,
 and redirect controls remain unchanged. Arbitrary HTTP origins remain refused.
-The HTTP listener uses the host-only `fadeno-development-session` cookie with
-`HttpOnly`, `SameSite=Lax`, and `Path=/`; it does not use the reserved
-`__Host-` prefix or claim `Secure` transport over HTTP.
+The HTTP listener uses the host-only
+`fadeno-development-session-<listener-port>` cookie with `HttpOnly`,
+`SameSite=Lax`, and `Path=/`; the listener port prevents independent loopback
+applications on the same host from overwriting each other's sessions. It does
+not use the reserved `__Host-` prefix or claim `Secure` transport over HTTP.
+The exact selected cookie name is authenticated as AES-GCM additional data, so
+an envelope cannot cross production or development listener boundaries even
+when those listeners share session keys.
 Production bootstrap and deployment still require the operator-owned external
 HTTPS `FADENO_ORIGIN` and retain the `__Host-fadeno-session` Secure cookie.
 Enhanced mutation transport remains HTTPS-only under ADR 0051.
 
 Packed development evidence must prove in each supported browser that native
-navigation retains the loopback session and accepts its protected form POST.
+navigation retains the loopback session and accepts its protected form POST,
+including while another listener with independent keys owns the same host.
 It also proves that handlers observe the advertised listener authority, a
 cross-origin native POST is refused, and a conflicting inherited origin cannot
 change that result.
@@ -61,7 +67,8 @@ not change.
 ## Validation
 
 `pnpm check:v1-development` exercises the packed listener authority, conflicting
-environment input, cross-origin refusal, and Chromium, Firefox, and WebKit
-native same-origin form navigation with the loopback session cookie.
+environment input, cross-origin refusal, two same-host listeners, and Chromium,
+Firefox, and WebKit native same-origin form navigation with listener-scoped
+loopback session cookies.
 `pnpm check:v1-action-runtime` and `pnpm check:v1-action-session-decision` retain
 the production origin, redirect, proof, session, and refusal corpus.

@@ -168,11 +168,16 @@ class ServerSession {
   ): ServerSession {
     let value: string | undefined;
     try { value = decodeSessionCookieHeader(request.headers.get("cookie"), transport); } catch { value = "invalid"; }
-    const opened = openDecisionSession(keyring, value, now);
+    const opened = openDecisionSession(keyring, value, now, transport);
     if (opened.snapshot && objectValues(opened.snapshot.values)) {
       return new ServerSession(keyring, opened.status, opened.snapshot, null, transport);
     }
-    const created = createDecisionSession(keyring, Object.freeze(Object.create(null) as Record<string, never>), now);
+    const created = createDecisionSession(
+      keyring,
+      Object.freeze(Object.create(null) as Record<string, never>),
+      now,
+      transport,
+    );
     return new ServerSession(keyring, opened.status, created.snapshot, opened.status === "missing" ? created.envelope : null, transport);
   }
 
@@ -230,6 +235,7 @@ class ServerSession {
         this.#keyring,
         Object.freeze(Object.create(null) as Record<string, never>),
         now,
+        this.#transport,
       );
       this.#current = Object.freeze(Object.create(null) as Record<string, never>);
       this.#dirty = false;
@@ -244,6 +250,7 @@ class ServerSession {
       this.#current,
       now,
       this.#rotated ? "privilege-change" : "retain-identity",
+      this.#transport,
     );
     this.#publication = Object.freeze(renewed);
     return true;
@@ -263,7 +270,14 @@ class ServerSession {
     let envelope = this.#initialEnvelope;
     let snapshot = this.#initial;
     if (this.#opened === "renew") {
-      const renewed = renewDecisionSession(this.#keyring, this.#initial, this.#current, now, "retain-identity");
+      const renewed = renewDecisionSession(
+        this.#keyring,
+        this.#initial,
+        this.#current,
+        now,
+        "retain-identity",
+        this.#transport,
+      );
       envelope = renewed.envelope;
       snapshot = renewed.snapshot;
     }
@@ -711,10 +725,13 @@ export class ActionServerRuntime {
     if (typeof options.generation !== "string" || options.generation.length === 0 || options.generation.includes("\0") || encoder.encode(options.generation).byteLength > 256) {
       fail("FADENO_ACTION_GENERATION");
     }
+    const canonicalOrigin = new URL(options.canonicalOrigin);
     this.#canonicalOrigin = options.canonicalOrigin;
     this.#generation = options.generation;
     this.#allowHttpLoopbackOrigin = options.allowHttpLoopbackOrigin === true;
-    this.#sessionCookieTransport = new URL(options.canonicalOrigin).protocol === "http:" ? "loopback-http" : "secure";
+    this.#sessionCookieTransport = canonicalOrigin.protocol === "http:"
+      ? `loopback-http:${Number(canonicalOrigin.port || 80)}`
+      : "secure";
     this.#keyring = parseKeyring(options.sessionKeys);
     this.#now = options.now ?? Date.now;
     for (const state of registeredActionStates()) this.#actions.set(state.id, Object.freeze({ state, decision: decisionAction(state) }));
