@@ -826,6 +826,67 @@ test("revalidates and restores popover and media state", async ({ page }) => {
   }
 });
 
+test("revalidates and restores the exact paused media clock", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=media-paused-remove&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const media = document.querySelector("#paused-media");
+    if (!(media instanceof HTMLMediaElement)) {
+      throw new Error("FADENO_RECONCILIATION_PAUSED_MEDIA_FIXTURE");
+    }
+    if (media.readyState < HTMLMediaElement.HAVE_METADATA) {
+      await new Promise<void>((resolve, reject) => {
+        media.addEventListener("loadedmetadata", () => resolve(), { once: true });
+        media.addEventListener("error", () => reject(
+          new Error("FADENO_RECONCILIATION_PAUSED_MEDIA_LOAD"),
+        ), { once: true });
+        media.load();
+      });
+    }
+    media.pause();
+    media.currentTime = 0.5;
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): { validate(): void; rollback(): void };
+    };
+    const transaction = module.preparePrivateDocumentReconciliation(document, incoming);
+    media.currentTime = 1.25;
+    let refusal = "accepted";
+    try {
+      transaction.validate();
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    transaction.rollback();
+    return {
+      refusal,
+      paused: media.paused,
+      restoredClock: Math.abs(media.currentTime - 0.5) < 0.01,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=media-paused-remove&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    paused: true,
+    restoredClock: true,
+  });
+});
+
 test("refuses focus drift introduced during history selection", async ({ page }) => {
   await page.addInitScript(() => {
     const pushState = History.prototype.pushState;
@@ -983,6 +1044,63 @@ test("preserves focus inside one reused opaque island", async ({ page }) => {
     preservesActiveElement: true,
     retainedFocus: true,
     retainedIsland: true,
+  });
+});
+
+test("never rewrites client-owned opaque contents during rollback", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=island-identity-remove&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    const island = document.querySelector("#mounted-island");
+    const incomingIsland = incoming.querySelector("#mounted-island");
+    if (!island || !incomingIsland) {
+      throw new Error("FADENO_RECONCILIATION_OPAQUE_ROLLBACK_FIXTURE");
+    }
+    island.innerHTML = "<button type=\"button\">before</button>";
+    incomingIsland.innerHTML = island.innerHTML;
+    const originalButton = island.firstElementChild;
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): { validate(): void; rollback(): void };
+    };
+    const transaction = module.preparePrivateDocumentReconciliation(document, incoming);
+    const clientChild = document.createElement("span");
+    clientChild.textContent = "client state after prepare";
+    island.append(clientChild);
+    let refusal = "accepted";
+    try {
+      transaction.validate();
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    transaction.rollback();
+    return {
+      refusal,
+      retainedOriginal: island.firstElementChild === originalButton,
+      retainedClientChild: island.lastElementChild === clientChild
+        && clientChild.isConnected,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=island-identity-remove&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    retainedOriginal: true,
+    retainedClientChild: true,
   });
 });
 
@@ -1150,6 +1268,95 @@ test("protects every keyed node covered by a live range", async ({ page }) => {
   });
 });
 
+test("refuses a keyed insertion inside a retained live range", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=details-open-reorder&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async () => {
+    const first = document.querySelector("#peer-a");
+    const last = document.querySelector("#peer-b");
+    if (!first?.firstChild || !last?.firstChild) {
+      throw new Error("FADENO_RECONCILIATION_INSERTION_SELECTION_FIXTURE");
+    }
+    const range = document.createRange();
+    range.setStart(first.firstChild, 0);
+    range.setEnd(last.firstChild, last.firstChild.textContent?.length ?? 0);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const incoming = new DOMParser().parseFromString(
+      document.documentElement.outerHTML,
+      "text/html",
+    );
+    const inserted = incoming.createElement("output");
+    inserted.id = "selection-insertion";
+    inserted.textContent = "must not enter selection";
+    incoming.querySelector("#peer-b")?.before(inserted);
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(current: Document, next: Document): unknown;
+    };
+    let refusal = "accepted";
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    const retained = document.getSelection()?.getRangeAt(0);
+    return {
+      refusal,
+      inserted: document.querySelector("#selection-insertion") !== null,
+      selectionRetained: retained?.startContainer === first.firstChild
+        && retained.endContainer === last.firstChild,
+    };
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    inserted: false,
+    selectionRetained: true,
+  });
+});
+
+test("allows a nested keyed insertion outside a retained live range", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=details-open-reorder&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const refusal = await page.evaluate(async () => {
+    const selected = document.querySelector("#peer-a");
+    if (!selected?.firstChild) {
+      throw new Error("FADENO_RECONCILIATION_OUTSIDE_SELECTION_FIXTURE");
+    }
+    const range = document.createRange();
+    range.selectNodeContents(selected);
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const incoming = new DOMParser().parseFromString(
+      document.documentElement.outerHTML,
+      "text/html",
+    );
+    const section = incoming.createElement("section");
+    section.id = "outside-selection";
+    const child = incoming.createElement("output");
+    child.id = "outside-selection-child";
+    section.append(child);
+    incoming.querySelector("#root")?.append(section);
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(current: Document, next: Document): unknown;
+    };
+    try {
+      module.preparePrivateDocumentReconciliation(document, incoming);
+      return "accepted";
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  });
+  expect(refusal).toBe("accepted");
+});
+
 test("restores live radio state after an applied transaction rolls back", async ({ page }) => {
   await page.goto(
     `${origin}/case?case=dirty-radio-reorder&mode=navigation&phase=current`,
@@ -1246,8 +1453,37 @@ test("refuses a checked plan that would switch a dirty radio group", async ({ pa
     insertedRadio.setAttribute("checked", "");
     insertedIncoming.querySelector("#root")?.prepend(insertedRadio);
     const insertedPlanRefusal = refusalFor(insertedIncoming);
+    const cleanRadio = document.createElement("input");
+    cleanRadio.id = "clean-checked-radio";
+    cleanRadio.type = "radio";
+    cleanRadio.name = "clean-radio-group";
+    cleanRadio.defaultChecked = true;
+    document.querySelector("#root")?.prepend(cleanRadio);
+    const renamedIncoming = new DOMParser().parseFromString(
+      document.documentElement.outerHTML,
+      "text/html",
+    );
+    renamedIncoming.querySelector("#clean-checked-radio")
+      ?.setAttribute("name", "qualification-radio");
+    const renamedPlanRefusal = refusalFor(renamedIncoming);
+    const incomingCheckedRadio = document.createElement("input");
+    incomingCheckedRadio.id = "incoming-checked-radio";
+    incomingCheckedRadio.type = "radio";
+    incomingCheckedRadio.name = "incoming-checked-group";
+    document.querySelector("#root")?.prepend(incomingCheckedRadio);
+    const incomingCheckedPlan = new DOMParser().parseFromString(
+      document.documentElement.outerHTML,
+      "text/html",
+    );
+    incomingCheckedPlan.querySelector("#incoming-checked-radio")
+      ?.setAttribute("name", "qualification-radio");
+    incomingCheckedPlan.querySelector("#incoming-checked-radio")
+      ?.setAttribute("checked", "");
+    const incomingCheckedPlanRefusal = refusalFor(incomingCheckedPlan);
     return {
       checkedPlanRefusal,
+      renamedPlanRefusal,
+      incomingCheckedPlanRefusal,
       insertedPlanRefusal,
       checkedA:
         (document.querySelector("#dirty-radio-a") as HTMLInputElement | null)?.checked,
@@ -1260,6 +1496,8 @@ test("refuses a checked plan that would switch a dirty radio group", async ({ pa
   });
   expect(result).toEqual({
     checkedPlanRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    renamedPlanRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    incomingCheckedPlanRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
     insertedPlanRefusal: "FADENO_RECONCILIATION_OWNERSHIP",
     checkedA: true,
     checkedB: false,
@@ -1923,6 +2161,117 @@ test("refuses every claimed hostile production reconciliation boundary", async (
     { name: "contenteditable-drift", code: "FADENO_RECONCILIATION_OWNERSHIP" },
     { name: "popover-drift", code: "FADENO_RECONCILIATION_OWNERSHIP" },
   ]);
+});
+
+test("revalidates document-wide identities before commit", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const incoming = new DOMParser().parseFromString(
+      await response.text(),
+      "text/html",
+    );
+    const inserted = incoming.createElement("output");
+    inserted.id = "late-document-identity";
+    incoming.querySelector("#root")?.append(inserted);
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      preparePrivateDocumentReconciliation(
+        current: Document,
+        next: Document,
+      ): { validate(): void; rollback(): void };
+    };
+    const transaction = module.preparePrivateDocumentReconciliation(document, incoming);
+    const collision = document.createElement("meta");
+    collision.id = "late-document-identity";
+    document.head.append(collision);
+    let refusal = "accepted";
+    try {
+      transaction.validate();
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+    transaction.rollback();
+    return {
+      refusal,
+      collisionRetained: collision.isConnected,
+      incomingIdentityAbsent:
+        document.querySelectorAll("#late-document-identity").length === 1,
+    };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-text-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    refusal: "FADENO_RECONCILIATION_OWNERSHIP",
+    collisionRetained: true,
+    incomingIdentityAbsent: true,
+  });
+});
+
+test("refuses incoming document-wide duplicate identities before mutation", async ({ page }) => {
+  await page.goto(
+    `${origin}/case?case=dirty-text-insert&mode=navigation&phase=current`,
+  );
+  await waitForEnhancement(page);
+  const result = await page.evaluate(async ({ destination }) => {
+    const response = await fetch(destination, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const html = await response.text();
+    const incoming = new DOMParser().parseFromString(html, "text/html");
+    const conflict = incoming.createElement("meta");
+    conflict.id = "dirty-text";
+    incoming.head.append(conflict);
+    const modulePath = "/_fadeno/framework/internal/browser-reconciliation.js";
+    const module = await import(modulePath) as {
+      PRIVATE_RECONCILIATION_LIMITS: { maximumRecords: number };
+      preparePrivateDocumentReconciliation(current: Document, next: Document): unknown;
+    };
+    const refusalFor = (next: Document): string => {
+      try {
+        module.preparePrivateDocumentReconciliation(document, next);
+        return "accepted";
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    };
+    const duplicateRefusal = refusalFor(incoming);
+    const oversized = new DOMParser().parseFromString(html, "text/html");
+    const fragment = oversized.createDocumentFragment();
+    for (let index = 0;
+      index <= module.PRIVATE_RECONCILIATION_LIMITS.maximumRecords;
+      index += 1) {
+      const identity = oversized.createElement("meta");
+      identity.id = `outside-main-${index}`;
+      fragment.append(identity);
+    }
+    oversized.head.append(fragment);
+    const limitRefusal = refusalFor(oversized);
+    return {
+      duplicateRefusal,
+      limitRefusal,
+      currentIdentityCount: document.querySelectorAll("#dirty-text").length,
+      incomingPhaseAbsent:
+        document.querySelector("#reconciliation-phase")?.textContent === "current",
+    };
+  }, {
+    destination:
+      `${origin}/case?case=dirty-text-insert&mode=navigation&phase=incoming`,
+  });
+  expect(result).toEqual({
+    duplicateRefusal: "FADENO_RECONCILIATION_IDENTITY",
+    limitRefusal: "FADENO_RECONCILIATION_LIMIT",
+    currentIdentityCount: 1,
+    incomingPhaseAbsent: true,
+  });
 });
 
 test("preflights refusal and restores an applied private transaction exactly", async ({ page }) => {

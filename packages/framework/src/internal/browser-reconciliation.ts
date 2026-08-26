@@ -38,13 +38,17 @@ export type PrivateReconciliationTransaction = Readonly<{
 
 type Side = "current" | "incoming";
 
-type CollectedTree = Readonly<{
+type CollectedSubtree = Readonly<{
   root: Element;
   elements: readonly Element[];
   identities: ReadonlyMap<string, Element>;
   identityByElement: ReadonlyMap<Element, string>;
   parents: ReadonlyMap<string, string | null>;
   children: ReadonlyMap<string, readonly string[]>;
+}>;
+
+type CollectedTree = CollectedSubtree & Readonly<{
+  documentIdentities: ReadonlyMap<string, Element>;
 }>;
 
 type AttributeSnapshot = readonly Readonly<{
@@ -120,6 +124,7 @@ type LiveOwnerSnapshot = readonly (
   | Readonly<{
     kind: "media";
     element: HTMLMediaElement;
+    currentTime: number | null;
     paused: boolean;
     playbackRate: number;
   }>
@@ -367,7 +372,7 @@ function validateElementSurface(
   }
 }
 
-function collectTree(root: Element, side: Side): CollectedTree {
+function collectTree(root: Element, side: Side): CollectedSubtree {
   const elements: Element[] = [];
   const identities = new Map<string, Element>();
   const identityByElement = new Map<Element, string>();
@@ -442,24 +447,33 @@ function collectDocument(document_: Document, side: Side): CollectedTree {
   if (bodyElements.length !== 1 || bodyElements[0] !== tree.root) {
     refuse("FADENO_RECONCILIATION_SHAPE");
   }
-  if (side === "current") {
-    const documentIdentities = new Map<string, Element>();
-    for (const element of document_.querySelectorAll("[id]")) {
+  const documentIdentities = new Map<string, Element>();
+  const walker = document_.createTreeWalker(
+    document_.documentElement,
+    NodeFilter.SHOW_ELEMENT,
+  );
+  let element: Element | null = walker.currentNode as Element;
+  while (element !== null) {
+    if (element.hasAttribute("id")) {
+      if (documentIdentities.size >= PRIVATE_RECONCILIATION_LIMITS.maximumRecords) {
+        refuse("FADENO_RECONCILIATION_LIMIT");
+      }
       if (!boundedIdentity(element.id) || documentIdentities.has(element.id)) {
         refuse("FADENO_RECONCILIATION_IDENTITY");
       }
       documentIdentities.set(element.id, element);
     }
-    for (const element of tree.elements) {
-      const identity = tree.identityByElement.get(element)
-        ?? refuse("FADENO_RECONCILIATION_OWNERSHIP");
-      if (!identity.startsWith(frameworkProofIdentityPrefix)
-        && documentIdentities.get(identity) !== element) {
-        refuse("FADENO_RECONCILIATION_OWNERSHIP");
-      }
+    element = walker.nextNode() as Element | null;
+  }
+  for (const element of tree.elements) {
+    const identity = tree.identityByElement.get(element)
+      ?? refuse("FADENO_RECONCILIATION_OWNERSHIP");
+    if (!identity.startsWith(frameworkProofIdentityPrefix)
+      && documentIdentities.get(identity) !== element) {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
     }
   }
-  return tree;
+  return Object.freeze({ ...tree, documentIdentities });
 }
 
 function preservesStateAttribute(element: Element, name: string): boolean {
@@ -535,14 +549,37 @@ function ownsBrowserState(document_: Document, element: Element): boolean {
   ) !== null;
 }
 
-function dirtyRadioGroup(tree: CollectedTree, owner: HTMLInputElement): boolean {
-  return tree.elements.some((element) =>
-    element instanceof HTMLInputElement
-    && element.type === "radio"
-    && element.name === owner.name
-    && element.form === owner.form
-    && element.checked !== element.defaultChecked
-  );
+type DirtyRadioGroups = ReadonlyMap<string, ReadonlySet<string | null>>;
+
+function radioFormIdentity(
+  tree: CollectedTree,
+  radio: HTMLInputElement,
+): string | null | undefined {
+  return radio.form === null ? null : tree.identityByElement.get(radio.form);
+}
+
+function collectDirtyRadioGroups(tree: CollectedTree): DirtyRadioGroups {
+  const groups = new Map<string, Set<string | null>>();
+  for (const element of tree.elements) {
+    if (!(element instanceof HTMLInputElement)
+      || element.type !== "radio"
+      || element.checked === element.defaultChecked) continue;
+    const form = radioFormIdentity(tree, element);
+    if (form === undefined) continue;
+    const forms = groups.get(element.name) ?? new Set<string | null>();
+    forms.add(form);
+    groups.set(element.name, forms);
+  }
+  return groups;
+}
+
+function inDirtyRadioGroup(
+  groups: DirtyRadioGroups,
+  tree: CollectedTree,
+  radio: HTMLInputElement,
+): boolean {
+  const form = radioFormIdentity(tree, radio);
+  return form !== undefined && groups.get(radio.name)?.has(form) === true;
 }
 
 function sameRadioGroup(
@@ -551,28 +588,10 @@ function sameRadioGroup(
   incomingTree: CollectedTree,
   incomingRadio: HTMLInputElement,
 ): boolean {
-  if (currentRadio.name !== incomingRadio.name) return false;
-  const currentForm = currentRadio.form;
-  const incomingForm = incomingRadio.form;
-  if (currentForm === null || incomingForm === null) {
-    return currentForm === null && incomingForm === null;
-  }
-  const currentFormIdentity = currentTree.identityByElement.get(currentForm);
-  return currentFormIdentity !== undefined
-    && currentFormIdentity === incomingTree.identityByElement.get(incomingForm);
-}
-
-function joinsDirtyRadioGroup(
-  currentTree: CollectedTree,
-  incomingTree: CollectedTree,
-  incomingRadio: HTMLInputElement,
-): boolean {
-  return currentTree.elements.some((element) =>
-    element instanceof HTMLInputElement
-    && element.type === "radio"
-    && sameRadioGroup(currentTree, element, incomingTree, incomingRadio)
-    && element.checked !== element.defaultChecked
-  );
+  const currentForm = radioFormIdentity(currentTree, currentRadio);
+  return currentRadio.name === incomingRadio.name
+    && currentForm !== undefined
+    && currentForm === radioFormIdentity(incomingTree, incomingRadio);
 }
 
 function dirtySelect(owner: HTMLSelectElement): boolean {
@@ -600,6 +619,52 @@ function directlyMovedChildren(plan: StructurePlan): readonly Element[] {
     cursor = child;
   }
   return Object.freeze(moved);
+}
+
+function selectionCoversInsertion(
+  document_: Document,
+  plan: StructurePlan,
+): boolean {
+  if (!plan.parent.isConnected) return false;
+  const selection = document_.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  const currentChildren = Array.from(plan.parent.children);
+  const currentIndexes = new Map(
+    currentChildren.map((child, index) => [child, index] as const),
+  );
+  const nextOffsets: Array<number | undefined> = [];
+  let nextOffset: number | undefined;
+  for (let index = plan.desiredChildren.length - 1; index >= 0; index -= 1) {
+    const retainedIndex = currentIndexes.get(plan.desiredChildren[index]!);
+    if (retainedIndex !== undefined) nextOffset = retainedIndex;
+    nextOffsets[index] = nextOffset;
+  }
+  const ranges = Array.from(
+    { length: selection.rangeCount },
+    (_, index) => selection.getRangeAt(index),
+  );
+  const covered = (offset: number): boolean => ranges.some((range) => {
+    try {
+      return range.comparePoint(plan.parent, offset) === 0;
+    } catch {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
+    }
+  });
+  let previousOffset: number | undefined;
+  for (let index = 0; index < plan.desiredChildren.length; index += 1) {
+    const retainedIndex = currentIndexes.get(plan.desiredChildren[index]!);
+    if (retainedIndex !== undefined) {
+      previousOffset = retainedIndex + 1;
+      continue;
+    }
+    const followingOffset = nextOffsets[index];
+    if (followingOffset !== undefined && covered(followingOffset)) return true;
+    if (previousOffset !== undefined && previousOffset !== followingOffset
+      && covered(previousOffset)) return true;
+    if (followingOffset === undefined && previousOffset === undefined
+      && covered(currentChildren.length)) return true;
+  }
+  return false;
 }
 
 function controlSelection(
@@ -877,6 +942,7 @@ function snapshotLiveOwners(tree: CollectedTree): LiveOwnerSnapshot {
       snapshot.push(Object.freeze({
         kind: "media",
         element,
+        currentTime: element.paused ? element.currentTime : null,
         paused: element.paused,
         playbackRate: element.playbackRate,
       }));
@@ -894,7 +960,9 @@ function sameLiveOwners(snapshot: LiveOwnerSnapshot): boolean {
     }
     if (entry.kind === "popover") return popoverOpen(entry.element) === entry.open;
     return entry.element.paused === entry.paused
-      && entry.element.playbackRate === entry.playbackRate;
+      && entry.element.playbackRate === entry.playbackRate
+      && (entry.currentTime === null
+        || entry.element.currentTime === entry.currentTime);
   });
 }
 
@@ -919,8 +987,13 @@ function restoreLiveOwners(snapshot: LiveOwnerSnapshot): void {
       if (entry.element.playbackRate !== entry.playbackRate) {
         entry.element.playbackRate = entry.playbackRate;
       }
-      if (entry.paused && !entry.element.paused) entry.element.pause();
-      else if (!entry.paused && entry.element.paused) {
+      if (entry.paused) {
+        if (!entry.element.paused) entry.element.pause();
+        if (entry.currentTime !== null
+          && entry.element.currentTime !== entry.currentTime) {
+          entry.element.currentTime = entry.currentTime;
+        }
+      } else if (entry.element.paused) {
         void entry.element.play().catch(() => undefined);
       }
     }
@@ -960,8 +1033,14 @@ function assertPreparedCurrentTree(
 ): void {
   const received = collectDocument(document_, "current");
   if (received.root !== expected.root
-    || received.elements.length !== expected.elements.length) {
+    || received.elements.length !== expected.elements.length
+    || received.documentIdentities.size !== expected.documentIdentities.size) {
     refuse("FADENO_RECONCILIATION_OWNERSHIP");
+  }
+  for (const [identity, element] of expected.documentIdentities) {
+    if (received.documentIdentities.get(identity) !== element) {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
+    }
   }
   for (const [identity, element] of expected.identities) {
     if (received.identities.get(identity) !== element
@@ -1066,25 +1145,24 @@ export function preparePrivateDocumentReconciliation(
 
   const current = collectDocument(currentDocument, "current");
   const incoming = collectDocument(incomingDocument, "incoming");
+  const dirtyRadioGroups = collectDirtyRadioGroups(current);
   if (current.root.id !== incoming.root.id || replacementSet.has(current.root.id)) {
     refuse("FADENO_RECONCILIATION_IDENTITY");
   }
 
-  const documentIdentities = new Set(
-    [...currentDocument.querySelectorAll("[id]")].map((element) => element.id),
-  );
   for (const incomingElement of incoming.elements) {
     const identity = incoming.identityByElement.get(incomingElement)
       ?? refuse("FADENO_RECONCILIATION_OWNERSHIP");
     const currentElement = current.identities.get(identity);
     if (!currentElement) {
-      if (documentIdentities.has(identity) || incomingElement.localName === opaqueElementName) {
+      if (current.documentIdentities.has(identity)
+        || incomingElement.localName === opaqueElementName) {
         refuse("FADENO_RECONCILIATION_OWNERSHIP");
       }
       if (incomingElement instanceof HTMLInputElement
         && incomingElement.type === "radio"
         && incomingElement.hasAttribute("checked")
-        && joinsDirtyRadioGroup(current, incoming, incomingElement)) {
+        && inDirtyRadioGroup(dirtyRadioGroups, incoming, incomingElement)) {
         refuse("FADENO_RECONCILIATION_OWNERSHIP");
       }
       continue;
@@ -1101,10 +1179,18 @@ export function preparePrivateDocumentReconciliation(
       }
       if (currentElement instanceof HTMLInputElement
         && currentType === "radio"
-        && dirtyRadioGroup(current, currentElement)
+        && inDirtyRadioGroup(dirtyRadioGroups, current, currentElement)
         && (currentElement.hasAttribute("checked")
           !== incomingElement.hasAttribute("checked")
           || currentElement.getAttribute("name") !== incomingElement.getAttribute("name"))) {
+        refuse("FADENO_RECONCILIATION_OWNERSHIP");
+      }
+      if (currentElement instanceof HTMLInputElement
+        && incomingElement instanceof HTMLInputElement
+        && currentType === "radio"
+        && (currentElement.checked || incomingElement.checked)
+        && !sameRadioGroup(current, currentElement, incoming, incomingElement)
+        && inDirtyRadioGroup(dirtyRadioGroups, incoming, incomingElement)) {
         refuse("FADENO_RECONCILIATION_OWNERSHIP");
       }
       if (currentElement instanceof HTMLInputElement
@@ -1241,6 +1327,9 @@ export function preparePrivateDocumentReconciliation(
     }));
   }
   for (const plan of structurePlans) {
+    if (selectionCoversInsertion(currentDocument, plan)) {
+      refuse("FADENO_RECONCILIATION_OWNERSHIP");
+    }
     if (directlyMovedChildren(plan).some((element) =>
       ownsBrowserState(currentDocument, element)
     )) {
@@ -1269,10 +1358,12 @@ export function preparePrivateDocumentReconciliation(
       })),
   );
   const structureSnapshot: readonly StructureSnapshot[] = Object.freeze(
-    current.elements.map((parent) => Object.freeze({
-      parent,
-      originalChildren: Object.freeze(Array.from(parent.children)),
-    })),
+    current.elements
+      .filter((parent) => parent.localName !== opaqueElementName)
+      .map((parent) => Object.freeze({
+        parent,
+        originalChildren: Object.freeze(Array.from(parent.children)),
+      })),
   );
   const liveControlSnapshot = snapshotLiveControls(current);
   const liveOwnerSnapshot = snapshotLiveOwners(current);
@@ -1310,7 +1401,10 @@ export function preparePrivateDocumentReconciliation(
       restoreStructure(structureSnapshot);
       restoreAttributes(attributeSnapshot);
       for (const { element, content } of contentSnapshot) {
-        if (element.innerHTML !== content) element.innerHTML = content;
+        if (element.localName !== opaqueElementName
+          && element.innerHTML !== content) {
+          element.innerHTML = content;
+        }
       }
       for (const [element, text] of textSnapshot) {
         if (element.textContent !== text) element.textContent = text;
