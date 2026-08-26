@@ -109,9 +109,12 @@ Mutation code additionally receives buffered `set`, `delete`, `clear`, and
 login, logout replacement, account change, and every privilege change.
 
 The sole key input is active-first `FADENO_SESSION_KEYS` with one to four
-`id:base64url` entries and exactly 32 decoded key bytes each. The fixed
-`__Host-fadeno-session` cookie is `Secure`, `HttpOnly`, `SameSite=Lax`,
-`Path=/`, has no `Domain`, and is at most 4,096 bytes including name and value.
+`id:base64url` entries and exactly 32 decoded key bytes each. Production uses
+the `__Host-fadeno-session` cookie with `Secure`, `HttpOnly`, `SameSite=Lax`,
+`Path=/`, no `Domain`, and at most 4,096 bytes including name and value. Owned
+HTTP loopback development instead uses the host-only
+`fadeno-development-session` cookie with the same `HttpOnly`, `SameSite`, path,
+size, envelope, and rotation controls but without a false `Secure` attribute.
 Its AES-256-GCM v1 envelope authenticates cookie metadata and encrypts session
 identity, CSRF secret, timestamps, and at most 2 KiB of normalized values.
 Sessions have 12-hour absolute expiry. The active key encrypts; up to three

@@ -17,11 +17,13 @@ import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { chromium, firefox, webkit, type BrowserType } from "@playwright/test";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const packageRoot = join(root, "packages/framework");
 const exampleRoot = join(root, "examples/v1-app");
 const scenarioRoot = join(exampleRoot, "scenarios/development-lifecycle");
+const browserTypes = { chromium, firefox, webkit } satisfies Readonly<Record<string, BrowserType>>;
 
 function run(command: string, arguments_: readonly string[], cwd: string): string {
   const result = spawnSync(command, arguments_, { cwd, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
@@ -213,6 +215,32 @@ try {
   const sameOriginText = await sameOriginAction.text();
   assert.equal(sameOriginAction.status, 303, sameOriginText);
   assert.equal(sameOriginAction.headers.get("location"), "/projects");
+
+  for (const [browserName, browserType] of Object.entries(browserTypes)) {
+    const browser = await browserType.launch({ headless: true });
+    try {
+      const context = await browser.newContext({
+        javaScriptEnabled: false,
+        extraHTTPHeaders: { "x-fadeno-demo-https": "1" },
+      });
+      const page = await context.newPage();
+      assert.equal((await page.goto(`${origin}/projects`))?.status(), 200);
+      const anonymousCookie = (await context.cookies(origin)).find(({ name }) => name === "fadeno-development-session");
+      assert.ok(anonymousCookie, `${browserName}: loopback session cookie`);
+      assert.equal(anonymousCookie.httpOnly, true);
+      assert.equal(anonymousCookie.secure, false);
+      await page.getByLabel("Example owner passcode").fill("example-owner");
+      const [signedIn] = await Promise.all([
+        page.waitForNavigation(),
+        page.getByRole("button", { name: "Sign in" }).click(),
+      ]);
+      assert.equal(signedIn?.status(), 200, `${browserName}: native form navigation`);
+      assert.equal(await page.getByText("Signed in as the example owner.").count(), 1);
+      await context.close();
+    } finally {
+      await browser.close();
+    }
+  }
 
   const runtimeOutputRoot = join(project, "src/routes/runtime-output");
   mkdirSync(runtimeOutputRoot);

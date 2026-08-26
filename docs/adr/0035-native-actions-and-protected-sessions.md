@@ -199,9 +199,11 @@ output, diagnostics, flow records, or a browser artifact. Startup refuses an
 invalid keyring. An application that renders or accepts an action requires a
 keyring.
 
-The cookie is `__Host-fadeno-session`, with `Path=/`, `Secure`, `HttpOnly`,
+Production uses `__Host-fadeno-session`, with `Path=/`, `Secure`, `HttpOnly`,
 `SameSite=Lax`, no `Domain`, and at most 4,096 bytes for the complete name/value
-pair. Its versioned envelope contains key ID, a fresh 96-bit nonce, AES-256-GCM
+pair. Owned HTTP loopback development uses the host-only
+`fadeno-development-session` transport defined by ADR 0054. The versioned
+envelope contains key ID, a fresh 96-bit nonce, AES-256-GCM
 ciphertext, and a 128-bit authentication tag with cookie name, version, and key
 ID as additional authenticated data. Plaintext contains version, session ID,
 CSRF secret, creation time, absolute expiry, and normalized values.
