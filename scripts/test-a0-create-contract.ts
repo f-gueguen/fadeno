@@ -23,7 +23,7 @@ expectMutation("ADR 0039 project-creation contract drifted", (context) => Object
 }));
 expectMutation("public executable create dispatch drifted", (context) => Object.freeze({
   ...context,
-  cli: context.cli.replace('arguments_[0] === "create"', 'arguments_[0] === "new"'),
+  cli: context.cli.replace("create: async () =>", "new: async () =>"),
 }));
 expectMutation("check:a0-create command drifted", (context) => Object.freeze({
   ...context,

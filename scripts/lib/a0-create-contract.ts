@@ -123,7 +123,7 @@ export function validateA0Create(context: A0CreateContext): readonly string[] {
     errors.push("A0-04 roadmap validation drifted");
   }
 
-  if (!context.cli.includes('arguments_[0] === "create"') || !context.cli.includes("runProjectCreateCommand")) {
+  if (!context.cli.includes('create: async () => (await import("./internal/project-create.ts")).runProjectCreateCommand')) {
     errors.push("public executable create dispatch drifted");
   }
   for (const value of [
