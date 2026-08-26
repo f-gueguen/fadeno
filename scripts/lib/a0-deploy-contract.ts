@@ -142,7 +142,7 @@ export function validateA0Deploy(context: A0DeployContext): readonly string[] {
     || !context.buildImplementation.includes("assertPrivateRuntimeIdentity(frameworkRoot, manifest.runtime)")) {
     errors.push("deployment artifact identity verification drifted");
   }
-  if (!context.cli.includes('arguments_[0] === "deploy"') || !context.cli.includes("runProjectDeployCommand")) {
+  if (!context.cli.includes("deploy: () => runProjectDeployCommand(arguments_, context)")) {
     errors.push("public deploy command dispatch drifted");
   }
   if (!context.createImplementation.includes("fadeno deploy --project-root . --output ../releases/my-fadeno-app-001")

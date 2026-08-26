@@ -49,7 +49,8 @@ Every partial or complete upload has framework-owned exactly-once cleanup.
 
 1. An action owns an ordinary mutation and executes only on the server.
 2. The request boundary accepts only native POST with normalized URL-encoded or
-   multipart media type. It validates exact HTTPS origin, action and route,
+   multipart media type. It validates an exact protected origin (HTTPS, or
+   trustworthy HTTP loopback during owned development), action and route,
    rendered form instance, current application generation, session, signed proof, replay, fields,
    files, freshness, and limits before application code.
    URL-encoded names and values must remain well-formed UTF-8 after percent
@@ -81,8 +82,9 @@ Enhanced requests carry sufficient identity to keep an older result from
 overwriting a newer accepted result. Native submissions retain ordinary browser
 navigation semantics.
 
-Action redirects use status 303 and exact same-origin HTTPS destinations. V1
-has no external redirect allow-list. Success and changed or unknown mutation
+Action redirects use status 303 and exact protected same-origin destinations:
+HTTPS, or the owned HTTP loopback origin in development. V1 has no external
+redirect allow-list. Success and changed or unknown mutation
 failure enter complete resource revalidation; unchanged expected failure does
 not. A rejected redirect after mutation still revalidates current server truth.
 

@@ -112,13 +112,13 @@ class PrivateDevelopmentChild {
     this.#child = spawn(process.execPath, [
       "--import",
       join(projectRoot, "dist", ".fadeno", "routes", "loader.js"),
-      join(projectRoot, "dist", "server", "bootstrap.js"),
+      join(projectRoot, "dist", "server", "development-bootstrap.js"),
     ], {
       cwd: projectRoot,
       env: {
         ...environment.values,
         FADENO_PORT: String(port),
-        FADENO_ORIGIN: environment.values["FADENO_ORIGIN"] ?? `https://127.0.0.1:${port}`,
+        FADENO_ORIGIN: `http://127.0.0.1:${port}`,
         FADENO_SESSION_KEYS: environment.values["FADENO_SESSION_KEYS"] ?? developmentSessionKeys,
       },
       stdio: ["pipe", "pipe", "pipe"],
