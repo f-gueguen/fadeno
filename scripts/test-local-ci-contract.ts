@@ -36,31 +36,44 @@ mutation("main check", (value) => {
 });
 mutation("duplicate independent workflow prerequisites", (value) => {
   value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
-    "node --no-warnings --experimental-strip-types scripts/check-v1-independent-workflow.ts",
     "pnpm check:v1-independent-workflow",
+    "pnpm check:v1-documentation-source && pnpm check:v1-independent-workflow",
   );
 });
 mutation("missing documentation source prerequisite", (value) => {
-  value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
+  value.packageJson.scripts!["check:v1-independent-workflow"] =
+    value.packageJson.scripts!["check:v1-independent-workflow"]!.replace(
     "pnpm check:v1-documentation-source && ",
     "",
   );
 });
 mutation("missing documentation prerequisite", (value) => {
-  value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
+  value.packageJson.scripts!["check:v1-independent-workflow"] =
+    value.packageJson.scripts!["check:v1-independent-workflow"]!.replace(
     "pnpm check:v1-documentation && ",
     "",
   );
 });
 mutation("duplicate public package prerequisite", (value) => {
   value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
-    "node --no-warnings --experimental-strip-types scripts/check-v1-independent-workflow.ts",
-    "pnpm check:v1-public-package && node --no-warnings --experimental-strip-types scripts/check-v1-independent-workflow.ts",
+    "pnpm check:v1-independent-workflow",
+    "pnpm check:v1-public-package && pnpm check:v1-independent-workflow",
   );
 });
 mutation("standalone independent workflow prerequisite", (value) => {
   value.packageJson.scripts!["check:v1-independent-workflow"] =
-    value.packageJson.scripts!["check:v1-independent-workflow"]!.replace("pnpm check:v1-public-package && ", "");
+    value.packageJson.scripts!["check:v1-independent-workflow"]!.replace("pnpm check:v1-analyzer-package && ", "");
+});
+mutation("analyzer package alias target", (value) => {
+  value.packageJson.scripts!["check:v1-analyzer-package"] = "node noop.js";
+  value.packageJson.scripts!.check = value.packageJson.scripts!.check.replace(
+    "pnpm check:v1-independent-workflow",
+    "pnpm check:v1-public-package && pnpm check:v1-independent-workflow",
+  );
+});
+mutation("cyclic transitive prerequisite", (value) => {
+  value.packageJson.scripts!["check:v1-analyzer-package"] += " && pnpm check:cycle";
+  value.packageJson.scripts!["check:cycle"] = "pnpm check:cycle";
 });
 mutation("active workflow", (value) => { value.activeWorkflowFiles.push("check.yml"); });
 mutation("publication trigger", (value) => {
