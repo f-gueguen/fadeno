@@ -198,6 +198,155 @@ function formFor(html: string, titleId: string): ParsedForm {
 function form(html: string): ParsedForm { return formFor(html, "project-title"); }
 function secondaryForm(html: string): ParsedForm { return formFor(html, "secondary-title"); }
 
+type MultipartOutcome = "accepted" | "FADENO_ACTION_BODY" | "FADENO_ACTION_BODY_LIMIT";
+
+function referenceFind(source: Uint8Array, expected: Uint8Array, start = 0): number {
+  for (let index = start; index <= source.byteLength - expected.byteLength; index += 1) {
+    let equal = true;
+    for (let offset = 0; offset < expected.byteLength; offset += 1) {
+      if (source[index + offset] !== expected[offset]) { equal = false; break; }
+    }
+    if (equal) return index;
+  }
+  return -1;
+}
+
+async function referenceMultipartOutcome(boundary: string, body: Uint8Array): Promise<MultipartOutcome> {
+  if (body.byteLength === 0) return "FADENO_ACTION_BODY";
+  const marker = new TextEncoder().encode(`--${boundary}`);
+  let delimiters = 0;
+  for (let index = referenceFind(body, marker); index >= 0; index = referenceFind(body, marker, index + 1)) {
+    if (index !== 0 && (index < 2 || body[index - 2] !== 0x0d || body[index - 1] !== 0x0a)) continue;
+    if ((delimiters += 1) > actionLimits.maximumParts + 2) return "FADENO_ACTION_BODY_LIMIT";
+  }
+  let cursor = -1;
+  for (let index = referenceFind(body, marker); index >= 0; index = referenceFind(body, marker, index + 1)) {
+    if (index !== 0 && (index < 2 || body[index - 2] !== 0x0d || body[index - 1] !== 0x0a)) continue;
+    const suffix = index + marker.byteLength;
+    if ((body[suffix] === 0x0d && body[suffix + 1] === 0x0a) || (body[suffix] === 0x2d && body[suffix + 1] === 0x2d)) {
+      cursor = index;
+      break;
+    }
+  }
+  if (cursor < 0) return "FADENO_ACTION_BODY";
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const headerEndMarker = Uint8Array.of(0x0d, 0x0a, 0x0d, 0x0a);
+  const delimiter = new TextEncoder().encode(`\r\n--${boundary}`);
+  let parts = 0;
+  for (;;) {
+    cursor += marker.byteLength;
+    if (body[cursor] === 0x2d && body[cursor + 1] === 0x2d) {
+      cursor += 2;
+      while (body[cursor] === 0x20 || body[cursor] === 0x09) cursor += 1;
+      if (cursor === body.byteLength || (body[cursor] === 0x0d && body[cursor + 1] === 0x0a)) break;
+      return "FADENO_ACTION_BODY";
+    }
+    if (body[cursor] !== 0x0d || body[cursor + 1] !== 0x0a) return "FADENO_ACTION_BODY";
+    const headerStart = cursor + 2;
+    const headerEnd = referenceFind(body, headerEndMarker, headerStart);
+    if (headerEnd < 0) return "FADENO_ACTION_BODY";
+    let headers: string;
+    try { headers = decoder.decode(body.subarray(headerStart, headerEnd)); }
+    catch { return "FADENO_ACTION_BODY"; }
+    const disposition = headers.split("\r\n").find((line) => line.toLowerCase().startsWith("content-disposition:"));
+    if (headers.split("\r\n").some((line) => line.indexOf(":") <= 0)) return "FADENO_ACTION_BODY";
+    const valueStart = headerEnd + headerEndMarker.byteLength;
+    const valueEnd = referenceFind(body, delimiter, valueStart);
+    if (valueEnd < 0) return "FADENO_ACTION_BODY";
+    if (!disposition || !/;\s*filename\*?=/iu.test(disposition)) {
+      try { decoder.decode(body.subarray(valueStart, valueEnd)); }
+      catch { return "FADENO_ACTION_BODY"; }
+    }
+    if ((parts += 1) > actionLimits.maximumParts + 1) return "FADENO_ACTION_BODY_LIMIT";
+    cursor = valueEnd + 2;
+  }
+  try {
+    await new Request(canonicalOrigin, {
+      method: "POST",
+      headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+      body: Uint8Array.from(body).buffer,
+    }).formData();
+  } catch {
+    return "FADENO_ACTION_BODY";
+  }
+  return "accepted";
+}
+
+function multipartBody(boundary: string, value: Uint8Array, file = false): Uint8Array {
+  return Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="field"${file ? '; filename="value.bin"' : ""}\r\n\r\n`),
+    value,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+}
+
+async function checkMultipartDifferential(): Promise<void> {
+  const runtime = new ActionServerRuntime({
+    canonicalOrigin,
+    generation: applicationGeneration,
+    sessionKeys: `active:${key}`,
+  });
+  const initial = await runtime.serve(new Request(`${canonicalOrigin}/projects`), async (request) => await handler(request));
+  const session = cookie(initial);
+  const target = form(await initial.text()).action;
+  const cases: Array<Readonly<{ label: string; boundary: string; body: Uint8Array }>> = [];
+  const boundary = "fadeno-differential";
+  const valid = multipartBody(boundary, Buffer.from("value"));
+  cases.push(
+    { label: "valid", boundary, body: valid },
+    { label: "invalid text UTF-8", boundary, body: multipartBody(boundary, Uint8Array.of(0xff)) },
+    { label: "file bytes may be non-UTF-8", boundary, body: multipartBody(boundary, Uint8Array.of(0xff), true) },
+    { label: "truncated framing", boundary, body: valid.subarray(0, valid.byteLength - 3) },
+    { label: "invalid suffixes before opening", boundary, body: Buffer.concat([
+      Buffer.from(`--${boundary}x--${boundary}-\r\n--${boundary} \r\nnoise\r\n`),
+      valid,
+    ]) },
+    { label: "overlapping candidates", boundary: "--", body: Buffer.concat([
+      Buffer.from("-----\r\n"),
+      multipartBody("--", Buffer.from("value")),
+    ]) },
+  );
+  const excessive = Buffer.concat([
+    ...Array.from({ length: actionLimits.maximumParts + 2 }, (_, index) =>
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="field-${index}"\r\n\r\nvalue\r\n`)),
+    Buffer.from(`--${boundary}--\r\n`),
+  ]);
+  cases.push({ label: "part limit", boundary, body: excessive });
+  let random = 0x9e3779b9;
+  const next = (): number => {
+    random = (Math.imul(random ^ (random >>> 16), 0x21f0aaad) + 0x735a2d97) >>> 0;
+    return random;
+  };
+  for (let index = 0; index < 512; index += 1) {
+    const randomBoundary = `fadeno-random-${index % 17}`;
+    const value = Uint8Array.from({ length: next() % 257 }, () => next() & 0xff);
+    let body = multipartBody(randomBoundary, value, index % 3 === 0);
+    if (index % 4 === 1) body = body.subarray(0, next() % body.byteLength);
+    else if (index % 4 === 2) body = Buffer.concat([Buffer.from(`x--${randomBoundary}x\r\n`), body]);
+    else if (index % 4 === 3) body = Buffer.concat([body.subarray(0, body.byteLength - 4), Uint8Array.of(next() & 0xff)]);
+    cases.push({ label: `random ${index}`, boundary: randomBoundary, body });
+  }
+  for (const fixture of cases) {
+    const expected = await referenceMultipartOutcome(fixture.boundary, fixture.body);
+    const response = await runtime.serve(new Request(new URL(target, canonicalOrigin), {
+      method: "POST",
+      headers: {
+        authorization: "Bearer owner",
+        cookie: session,
+        "content-type": `multipart/form-data; boundary=${fixture.boundary}`,
+        origin: canonicalOrigin,
+      },
+      body: Uint8Array.from(fixture.body).buffer,
+    }), async (request) => await handler(request));
+    const responseText = await response.text();
+    const code = /FADENO_[A-Z0-9_]+/u.exec(responseText)?.[0];
+    const actual: MultipartOutcome = code === "FADENO_ACTION_BODY" || code === "FADENO_ACTION_BODY_LIMIT" ? code : "accepted";
+    assert.equal(actual, expected, `${fixture.label}: ${response.status} ${responseText}`);
+  }
+}
+
+await checkMultipartDifferential();
+
 const server = await listenNodeHttp({
   handler,
   hostname: "127.0.0.1",
