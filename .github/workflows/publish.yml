@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
-          node-version: 24.18.0
+          node-version: 24.20.0
           registry-url: https://registry.npmjs.org/
           package-manager-cache: false
       - run: corepack enable
